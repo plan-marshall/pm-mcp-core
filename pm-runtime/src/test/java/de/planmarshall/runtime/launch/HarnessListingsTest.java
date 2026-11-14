@@ -119,6 +119,30 @@ class HarnessListingsTest {
                 "The new build shows no report of the old one");
     }
 
+    @Test
+    @DisplayName("an accepted self-update keeps the profile's declared report")
+    void selfUpdateKeepsTheDeclaredReport() {
+        var updated = enrolment(VERSION, declared())
+                .updated(OTHER_VERSION, "1".repeat(64), Instant.parse("2026-11-13T11:00:00Z"));
+        var list = HarnessListings.of(scan(OTHER_VERSION), Map.of(AAA_ID, updated), false);
+        var status = row(list, AAA_ID).usage().status();
+
+        assertEquals(HarnessUsageCoverage.Status.COMPLETE, status,
+                "A declared report is not a measurement of the build");
+    }
+
+    @Test
+    @DisplayName("an enrolled harness whose executable is gone carries the enrolment mark")
+    void enrolledHarnessWithoutExecutableCarriesTheMark() {
+        var list = HarnessListings.of(scanWithout(AAA_ID), Map.of(AAA_ID, enrolment(VERSION, complete())), false);
+        var marked = row(list, AAA_ID);
+
+        assertAll(
+                () -> assertTrue(marked.enrolled(), "The row shows that the machine holds an enrolment"),
+                () -> assertFalse(marked.selectable(), "A harness the scan did not find is not selectable"),
+                () -> assertFalse(marked.defaultHarness(), "A harness the scan did not find is not the default"));
+    }
+
     private static HarnessListEntry row(HarnessList list, String harnessId) {
         return list.entries().stream().filter(entry -> entry.harnessId().equals(harnessId)).findFirst().orElseThrow();
     }
@@ -129,6 +153,20 @@ class HarnessListingsTest {
 
     private static HarnessScan scan(String version) {
         return new HarnessScan(List.of(candidate(AAA_ID, version), candidate(BBB_ID, version)));
+    }
+
+    /** @return a scan in which the named harness was not found, the other one was */
+    private static HarnessScan scanWithout(String harnessId) {
+        var notFound = HarnessCandidate.builder()
+                .harnessId(harnessId)
+                .displayName("Harness " + harnessId)
+                .found(false)
+                .supported(false)
+                .workerEligible(false)
+                .installHint(HINT)
+                .build();
+        var other = candidate(AAA_ID.equals(harnessId) ? BBB_ID : AAA_ID, VERSION);
+        return new HarnessScan(List.of(notFound, other));
     }
 
     private static HarnessCandidate candidate(String harnessId, String version) {
@@ -169,6 +207,12 @@ class HarnessListingsTest {
 
     private static UsageReport complete() {
         return report(figure -> "reported");
+    }
+
+    private static UsageReport declared() {
+        var figures = new LinkedHashMap<String, String>();
+        ProfileStages.REPORT_FIGURES.forEach(figure -> figures.put(figure, "reported"));
+        return UsageReport.of(UsageSource.DECLARED, figures, List.of());
     }
 
     private static UsageReport partial(String missing) {

@@ -11,7 +11,6 @@ package de.planmarshall.runtime.launch;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import lombok.experimental.UtilityClass;
 
@@ -53,7 +52,7 @@ public class HarnessListings {
         enrolments.values().forEach(enrolment -> recorded.put(
                 new HarnessList.Key(enrolment.clientId(), enrolment.version()),
                 coverage(enrolment.usageReport())));
-        var list = HarnessList.of(scan, recorded, storeUnreadable);
+        var list = HarnessList.of(scan, recorded, enrolments.keySet(), storeUnreadable);
         var enrolledButMissing = enrolments.values().stream()
                 .filter(enrolment -> !scan.knownIds().contains(enrolment.clientId()))
                 .map(enrolment -> missingRow(enrolment, storeUnreadable))
@@ -82,6 +81,7 @@ public class HarnessListings {
                 .supported(false)
                 .workerEligible(false)
                 .defaultHarness(false)
+                .enrolled(true)
                 .usage(storeUnreadable ? HarnessUsageCoverage.unreadable() : coverage(enrolment.usageReport()))
                 .build();
     }
@@ -93,23 +93,11 @@ public class HarnessListings {
     public static HarnessUsageCoverage coverage(UsageReport report) {
         var figures = new LinkedHashMap<String, String>();
         report.figures().forEach((figure, status) -> figures.put(stageName(figure), status));
-        var missing = ProfileStages.REPORT_FIGURES.stream()
-                .filter(figure -> "missing".equals(figures.getOrDefault(figure, "missing")))
-                .toList();
-        var status = status(missing);
         var startContext = report.startContext().stream()
                 .map(context -> new ProfileStages.StartContext(context.workerClass(), context.model(),
                         context.tokens()))
                 .toList();
-        return new HarnessUsageCoverage(status, status == HarnessUsageCoverage.Status.PARTIAL ? missing : List.of(),
-                startContext);
-    }
-
-    private static HarnessUsageCoverage.Status status(List<String> missing) {
-        if (missing.size() == ProfileStages.REPORT_FIGURES.size()) {
-            return HarnessUsageCoverage.Status.NOT_REPORTED;
-        }
-        return missing.isEmpty() ? HarnessUsageCoverage.Status.COMPLETE : HarnessUsageCoverage.Status.PARTIAL;
+        return HarnessUsageCoverage.ofFigures(figures, startContext);
     }
 
     private static String stageName(String reportFigure) {

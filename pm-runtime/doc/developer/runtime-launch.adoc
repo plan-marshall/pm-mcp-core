@@ -235,12 +235,50 @@ ones the harness reports, not their values: two runs of different prompts legiti
 context only one run measured is not a repeated measurement, so it is refused too.
 
 The operator verb that writes the enrolment, the profile and the report under the store's lock stays in
-`plan-marshall-mcp`; what is built here is the seam it calls. An accepted self-update drops a report measured on the
-previous build (`HarnessEnrolment.updated`), so a list never shows an old version's coverage beside a new build.
-`VerifiedUsageTest` covers the mapping, the cost left out, the start context across the seam and both refusals.
+`plan-marshall-mcp`; what is built here is the seam it calls. An accepted self-update drops a **VERIFIED** report measured
+on the previous build — another version or another executable digest — so a list never shows an old build's measurement
+beside a new one; a **DECLARED** report is the profile's own declaration, not a measurement, and stays.
+`VerifiedUsageTest` covers the mapping, the cost left out, the start context across the seam and both refusals;
+`HarnessListingsTest` covers both sources across a self-update.
+
+`HarnessListings` and `VerifiedUsage` have no production caller yet: the assembly (`plan-marshall-mcp`) consumes them when
+it builds the onboarding step and the install verb.
 
 link:../adr/runtime-launch/008-a-verified-usage-report-is-installed-from-a-repeated-evaluation.adoc[ADR 008]: a verified
 usage report is installed only from a repeated evaluation.
+
+== The Harness Icon Store
+
+_Requirements: link:../../../doc/Traceability.adoc#PM-CLIENT-5[§ PM-CLIENT-5], link:../../../doc/Traceability.adoc#PM-SEC-8[§ PM-SEC-8]_
+
+`HarnessIconStore` (`de.planmarshall.runtime.icon`) keeps one sanitised icon per harness below `<PM_MCP_BASE>/icons/`,
+`<harness_id>.<ext>` with mode `0600`, and the closed index `icons/index.json` beside them, both under `locks/icons.lock`
+(Store Schemas § Harness Icon Store; Harness Profiles § Harness Icons). The store takes a candidate's **bytes** from a
+caller and opens no connection: the fetch of an icon a profile declares by its `source` form is deferred (L-21).
+
+`accept(harnessId, candidate)` runs the accept step outside the lock and then, in one transaction, reads the index, writes
+the file and writes the index. The order is the fail-closed one: a stop between the file and the index leaves the old index,
+which no longer matches the new file, so nothing is served until the index is written. `read(harnessId)` serves an icon only
+when its length and digest match the entry and the file is not a symbolic link.
+
+`HarnessIconSanitiser` is the accept step, and it is an allow-list. The format is decided by the bytes, never by a name:
+the PNG signature, or a document that parses as XML with an `svg` root in the SVG namespace. An SVG is parsed with the DTD
+and external entities off, a DOCTYPE is refused by its bytes, and the output is re-serialised from fourteen elements and
+thirty-nine attributes; an element outside the list, an `on*` attribute, an `href` that is not a fragment and a `style` that
+could fetch or import are refused, and everything else outside the list is dropped. A PNG is kept byte for byte once its
+chunks' CRCs and types are closed; a text chunk is refused. A candidate above `256` KiB is refused before parsing.
+`IconRefusal` is the closed set of codes, each with a negative-control test.
+
+The id that names the file is a harness id before it reaches a path (`HarnessId.matches`), the resolved path must be a child
+of the icon directory, and a symbolic link at the target is refused. A refusal is logged at WARN `PM_RUNTIME-147` with the
+harness, the code and the candidate's length — never a byte of the candidate.
+
+Not built: the outbound fetch of a `source` icon with its consent and proxy settings, the endpoint that serves the file from
+the runtime's own origin, and a bound on the decoded size of a PNG (the bound is the file's size, which is what the
+specification states). The store has no production caller until the assembly consumes it.
+
+link:../adr/runtime-launch/009-the-icon-store-accepts-only-what-it-can-rewrite.adoc[ADR 009]: the icon store accepts only
+bytes it can re-write or verify, and it opens no connection.
 
 == Specification
 

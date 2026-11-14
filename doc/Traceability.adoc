@@ -1403,9 +1403,11 @@ Documentation: link:../pm-core/doc/developer/core-config.adoc#_the_consent_store
 link:../pm-core/doc/adr/core-config/002-the-consent-rule-is-a-gate-over-a-snapshot.adoc[ADR core-config/002],
 link:../pm-core/doc/adr/core-config/003-the-consent-record-is-handed-over-before-the-write.adoc[ADR core-config/003]
 
-Implementation (the consent of a verification of an unknown harness: the kind `verify_harness_profile` is never
-remembered, the step is reached only from `harness.verify-profile` after a `yes` with the expected tokens of its stages,
-and a `yes_remember` is refused): link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification]
+Implementation (the consent of a verification of an unknown harness as the precondition the engine applies before any
+stage would run: the kind `verify_harness_profile` is never remembered, the state must be `harness.verify-profile`, the
+answer `yes` must be priced with the expected tokens of exactly the stages the caller declares, and a `yes_remember` is
+refused. The run itself — the confined jobs of the kind `probe` and the stage runner — is not built, see PM-CLIENT-5):
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessVerificationTest.java[HarnessVerificationTest]
 
@@ -1711,9 +1713,17 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.ja
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore]
 
-Implementation (the harness scan's ordered list, preselection and default; the harness list's usage coverage, with
-`harness_store_unreadable` shown instead of an empty usage map; the admission of a verification of an unknown harness,
-its never-remembered consent and the draft validated as a profile):
+Implementation (the harness scan's ordered list with its preselection and default, the `harness.none` wait and the login
+probe's transition, as value classes; the harness list's usage coverage, with `harness_store_unreadable` shown instead of
+an empty usage map; `HarnessVerification.admit` as the precondition of a verification of an unknown harness — the state,
+the never-remembered consent, the expected tokens and the draft validated as a profile; and `VerifiedUsage` as the install
+path's seam from a verification's `UsageResult` to the enrolment's `UsageReport`. **None of these classes runs anything:**
+the scan reads no directory, the probes start no process, and the verification runs no stage. Owed, and owned by no plan
+yet: the confined jobs of the kind `probe` — the harness scan, the login and model probes and the verification run —, the
+stage runner, and the isolation stage with its decoys and the `claude` `AGENTS.md` fallback, which are
+link:plans/job-confinement-and-environment.adoc[job-confinement-and-environment] and
+link:plans/profile-verification-stages.adoc[profile-verification-stages]; the watch items PM-WATCH-CLIENT-16, -17 and -21
+stay open with them; and the recorded output of each harness and version as a parsing fixture needs a real harness run):
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessCandidate.java[HarnessCandidate],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessScan.java[HarnessScan],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessNone.java[HarnessNone],
@@ -1722,12 +1732,28 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessList.java[Harn
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessListEntry.java[HarnessListEntry],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessUsageCoverage.java[HarnessUsageCoverage],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessListings.java[HarnessListings]
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessListings.java[HarnessListings],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/VerifiedUsage.java[VerifiedUsage]
 
-The install path's seam from the verification's `UsageResult` to the enrolment's `UsageReport` is
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/VerifiedUsage.java[VerifiedUsage] (`UsageReport.of` is the
-mapping boundary); the operator verb that writes the enrolment is owed to `plan-marshall-mcp`, and the recorded output of
-each harness and version as a parsing fixture is owed by this plan's landing (PLAN-V2-39), which names it.
+The install path's seam is the one class of this group with a named consumer: the operator verb that writes the enrolment
+calls `VerifiedUsage.install` and stays in `plan-marshall-mcp`. Every other class of this group has no production caller
+until the assembly consumes it.
+
+Implementation (the machine's harness icon store: the accept step that decides a candidate's format from its bytes and
+re-writes an SVG against an allow-list or closes a PNG's chunk structure, and the store that writes
+`icons/<harness_id>.<ext>` with mode `0600` and `icons/index.json` under `locks/icons.lock`, atomically, serving a file only
+where its length and digest match its entry; the outbound fetch of a `source` icon is deferred, L-21):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/HarnessIconStore.java[HarnessIconStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/HarnessIconSanitiser.java[HarnessIconSanitiser],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconIndexCodec.java[IconIndexCodec],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconRefusal.java[IconRefusal]
+
+Verified by (the icon store): link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/HarnessIconSanitiserTest.java[HarnessIconSanitiserTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/HarnessIconStoreTest.java[HarnessIconStoreTest]
+
+Documentation (the icon store): link:../pm-runtime/doc/developer/runtime-launch.adoc#_the_harness_icon_store[Worker Launch
+Developer Guide § The Harness Icon Store],
+link:../pm-runtime/doc/adr/runtime-launch/009-the-icon-store-accepts-only-what-it-can-rewrite.adoc[ADR runtime-launch/009]
 
 Verified by (the scan, the list and the verification gate):
 link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessScanTest.java[HarnessScanTest],

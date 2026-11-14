@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.Builder;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.config.ConsentGate;
@@ -69,6 +70,7 @@ public class HarnessVerification {
      * @param rules       what the installation knows beyond the draft
      * @since 0.1
      */
+    @Builder
     public record Request(String state, ConsentKind kind, ConsentGate.Answer answer, List<String> stages,
     Map<String, Long> stageTokens, String draft, String draftName, ProfileRules rules) {
 
@@ -91,10 +93,17 @@ public class HarnessVerification {
     /**
      * @param request the verification the caller asks for
      * @return the validated draft
-     * @throws HarnessVerificationRefusal if the state is not {@code harness.verify-profile}, the consent is not the kind
-     *                                    {@code verify_harness_profile}, the answer was {@code no} or a
-     *                                    {@code yes_remember}, or the shown tokens do not cover exactly the stage list
-     *                                    the caller declared
+     * @throws HarnessVerificationRefusal if the state is not {@code harness.verify-profile}
+     *                                    ({@code harness_verify_state_refused}), the consent is not the kind
+     *                                    {@code verify_harness_profile} ({@code harness_verify_consent_kind}), the
+     *                                    answer was {@code no} ({@code harness_verify_consent_declined}) or a
+     *                                    {@code yes_remember} ({@code harness_verify_consent_remembered}), the run names
+     *                                    no stage ({@code harness_verify_stages_missing}), names one twice
+     *                                    ({@code harness_verify_stage_duplicated}) or names one that is not a stage of
+     *                                    the profile verification ({@code harness_verify_stage_unknown}), the shown
+     *                                    tokens do not price exactly that list
+     *                                    ({@code harness_verify_stage_tokens_missing}), or a stage's tokens are not a
+     *                                    non-negative count ({@code harness_verify_stage_token_not_a_count})
      * @throws ProfileRefusal             if the draft does not validate as a profile
      */
     public static JsonNode admit(Request request) {
@@ -136,16 +145,16 @@ public class HarnessVerification {
 
     private static void requireStages(List<String> stages) {
         if (stages.isEmpty()) {
-            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.TOKENS_MISSING,
+            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.STAGES_MISSING,
                     "A verification runs at least one stage");
         }
         if (new HashSet<>(stages).size() != stages.size()) {
-            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.TOKENS_MISSING,
+            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.STAGE_DUPLICATED,
                     "A stage is named twice in the run: " + stages);
         }
         for (var stage : stages) {
             if (!VerificationRecord.STAGE_NAMES.contains(stage)) {
-                throw new HarnessVerificationRefusal(HarnessVerificationRefusal.TOKENS_MISSING,
+                throw new HarnessVerificationRefusal(HarnessVerificationRefusal.STAGE_UNKNOWN,
                         "Not a stage of the profile verification: " + stage);
             }
         }
@@ -160,7 +169,7 @@ public class HarnessVerification {
         for (var entry : stageTokens.entrySet()) {
             var tokens = entry.getValue();
             if (tokens == null || tokens < 0) {
-                throw new HarnessVerificationRefusal(HarnessVerificationRefusal.TOKENS_MISSING,
+                throw new HarnessVerificationRefusal(HarnessVerificationRefusal.TOKEN_NOT_A_COUNT,
                         "The expected tokens of the stage '%s' are a non-negative count".formatted(entry.getKey()));
             }
         }
