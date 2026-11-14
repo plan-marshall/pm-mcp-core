@@ -64,14 +64,14 @@ class ProfileValidatorTest {
     @DisplayName("the load directive names its skill through the literal slot exactly once")
     void loadDirectiveNeedsTheUriSlot(String template, boolean refused, String because) {
         // The literal '{{uri}}' is the contract: a near-synonym is a missing slot, not a second spelling.
-        var fixture = ProfileFixtures.valid().set("/skill_loading/load_directive_template", template);
+        var bytes = ProfileFixtures.valid().set("/skill_loading/load_directive_template", template).bytes();
 
         if (!refused) {
-            assertDoesNotThrow(() -> ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none()), because);
+            assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()), because);
             return;
         }
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none()), because);
+                () -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()), because);
 
         assertEquals("/skill_loading/load_directive_template", refusal.pointer(), because);
     }
@@ -473,9 +473,10 @@ class ProfileValidatorTest {
                     .set("/connection/progress_resets_timeout", false)
                     .set("/connection/idle_timeout_seconds", 300)
                     .set("/connection/bounded_wait_seconds", 271);
+            var bytes = fixture.bytes();
 
             var refusal = assertThrows(ProfileRefusal.class,
-                    () -> ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none()));
+                    () -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()));
 
             assertEquals("the bounded wait 271 must be at least 30 seconds below the idle timeout 300 without "
                     + "progress frames", refusal.detail(), "the margin refusal states the lower bound");

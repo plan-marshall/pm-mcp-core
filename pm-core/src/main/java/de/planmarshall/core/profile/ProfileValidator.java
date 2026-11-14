@@ -176,6 +176,7 @@ public final class ProfileValidator {
     private static final String PTR_LOGIN_FILE = "/login_file";
     private static final String PTR_RESTRICTED_MODELS = "/restricted_models";
     private static final String PTR_ACK_DEADLINE_SECONDS = "/ack_deadline_seconds";
+    private static final String PTR_LOAD_DIRECTIVE_TEMPLATE = "/load_directive_template";
 
     /** The one refusal detail that names a JSON Pointer, used wherever a pointer is read from the document. */
     private static final String MSG_NOT_A_POINTER = "not a JSON Pointer: '%s'";
@@ -255,7 +256,7 @@ public final class ProfileValidator {
 
     /** The slot as a whole token: a ``{`` immediately before or a ``}`` immediately after is a different spelling. */
     private static final Pattern SKILL_URI_SLOT_TOKEN =
-            Pattern.compile("(?<![{])\\Q" + SKILL_URI_SLOT + "\\E(?![}])");
+            Pattern.compile("(?<!\\{)\\Q" + SKILL_URI_SLOT + "\\E(?!\\})");
 
     private ProfileValidator() {
     }
@@ -522,9 +523,9 @@ public final class ProfileValidator {
             enumValue(required(skill, pointer, "mode"), pointer + "/mode", "mode",
                     Set.of(NAME_TOOL_CALL, "mcp_resource", "view_file"));
             var template = text(required(skill, pointer, NAME_LOAD_DIRECTIVE_TEMPLATE),
-                    pointer + "/load_directive_template", NAME_LOAD_DIRECTIVE_TEMPLATE, 256);
-            stringRule(template, pointer + "/load_directive_template", true);
-            skillUriSlot(template, pointer + "/load_directive_template");
+                    pointer + PTR_LOAD_DIRECTIVE_TEMPLATE, NAME_LOAD_DIRECTIVE_TEMPLATE, 256);
+            stringRule(template, pointer + PTR_LOAD_DIRECTIVE_TEMPLATE, true);
+            skillUriSlot(template, pointer + PTR_LOAD_DIRECTIVE_TEMPLATE);
             enumValue(required(skill, pointer, NAME_SCHEMA_RESIDENCY), pointer + "/schema_residency", NAME_SCHEMA_RESIDENCY,
                     Set.of("resident", "on_demand"));
             bool(required(skill, pointer, NAME_SKILLS_EXTENSION), pointer + "/skills_extension", NAME_SKILLS_EXTENSION);
