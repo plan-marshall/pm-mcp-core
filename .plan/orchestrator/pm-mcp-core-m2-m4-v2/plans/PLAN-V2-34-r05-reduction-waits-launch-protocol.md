@@ -94,6 +94,8 @@ Shared bookkeeping, not surface (R19): `doc/Traceability.adoc`. No `doc/plans/` 
 - A documentation plan changes no schema file and none of the parity-pinned parts (Standing Constraints), so nothing a parity test reads moves (memory: a specification-only change once broke `main` through `FindingSchemaParityTest`; the CI skip for such pull requests is off since #185).
 - Restructures: nothing in code.
 
+**Corrections of 2026-11-14 after the impact analysis of the specification pull requests #414, #417 and #419 (`landings/SPEC-PRS-2026-11-14.md`; BINDING over any contradicting older text of this spec).** Deliverable 3 condenses `worker-output` (`model-work/04-worker-launch.adoc`, anchor about `:252`) sentence by sentence: **keep the Activity bullet at `:258`** (it was extended by #417 with the observation clause: a `file_changed` entry is also appended by the runtime); no class covers that clause yet (PLAN-V2-150 builds it), so condensing it now would delete a statement that is ahead of the code.
+
 ## Hand-Off Command
 
 ```text

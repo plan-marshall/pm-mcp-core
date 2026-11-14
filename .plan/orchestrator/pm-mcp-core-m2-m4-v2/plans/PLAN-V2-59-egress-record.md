@@ -129,6 +129,8 @@ Each is stated as the specification states it; where the specification is silent
 5. **The runtime status line**: stated at `job-runtime/02:141`; the member list of the runtime status (`runtime-lifecycle/01:67`) holds none. *Unstated:* its name and shape.
 6. **Growth of the journal**: "every refused destination is an activity entry" with "a server entry is never cut" (`store-schemas/16`, Bounded per task) lets a worker that keeps asking for a refused host grow the journal without bound. *Decision for the operator:* one entry per distinct destination per attempt (with the count in the audit record, as the specification already counts per generation), or per request? **Decided 2026-10-29 (operator walk, decision 28, option 1): one `egress` entry per distinct refused destination per attempt** ("every refused destination" is read as every distinct one); the ADR records the reading, and no producer exists in this plan.
 
+**Corrections of 2026-11-14 after the impact analysis of the specification pull requests #414, #417 and #419 (`landings/SPEC-PRS-2026-11-14.md`; BINDING over any contradicting older text of this spec).** `harness-profiles/01-profile-schema.adoc:995` is `:996` at the head (#417 inserted a line at `:306`); `store-schemas/16-task-queue.adoc:49` (the "Harness and server entries" bullet, where `egress` is named) was reworded by #417, the egress statement is unaffected.
+
 ## Hand-Off Command
 
 ```text
