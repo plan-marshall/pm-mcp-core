@@ -253,7 +253,7 @@ public final class ProfileValidator {
     /** The one slot the load directive carries; the template names the skill it loads through it. */
     private static final String SKILL_URI_SLOT = "{{uri}}";
 
-    /** The slot as a whole token: a brace beside it is a different spelling, not a second occurrence. */
+    /** The slot as a whole token: a ``{`` immediately before or a ``}`` immediately after is a different spelling. */
     private static final Pattern SKILL_URI_SLOT_TOKEN =
             Pattern.compile("(?<![{])\\Q" + SKILL_URI_SLOT + "\\E(?![}])");
 

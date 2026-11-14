@@ -55,7 +55,8 @@ class ProfileValidatorTest {
                 Arguments.of("pm_skill(uri=\"{{uri}}\")", false, "the slot exactly once loads"),
                 Arguments.of("pm_skill(uri=\"{{uri}}\", again=\"{{uri}}\")", true, "the slot twice is refused"),
                 Arguments.of("pm_skill(uri=\"{ {uri}}\")", true, "a slot split by a space is refused"),
-                Arguments.of("pm_skill(uri=\"{{{uri}}}\")", true, "a slot between extra braces is refused"));
+                Arguments.of("pm_skill(uri=\"{{{uri}}}\")", true, "a slot between extra braces is refused"),
+                Arguments.of("pm_skill(uri=\"{{uri}}}\")", true, "a closing brace after the slot is refused"));
     }
 
     @ParameterizedTest(name = "{2}")
@@ -451,9 +452,12 @@ class ProfileValidatorTest {
             var longWait = ProfileValidator.validate(longest.bytes(), DOCUMENT, ProfileRules.none());
 
             assertAll("the connection boundaries",
-                    () -> assertEquals(270, connectionValue(atMargin, "bounded_wait_seconds"),
-                            "a bounded wait exactly at idle minus 30 loads"),
-                    () -> assertAll("progress frames admit the idle timeout as wait",
+                    () -> assertAll("a bounded wait exactly at idle minus 30 loads",
+                            () -> assertEquals(300, connectionValue(atMargin, "idle_timeout_seconds"),
+                                    "the loaded idle timeout is the case's"),
+                            () -> assertEquals(270, connectionValue(atMargin, "bounded_wait_seconds"),
+                                    "the loaded bounded wait is the margin below")),
+                    () -> assertAll("progress frames admit a wait equal to the idle timeout",
                             () -> assertEquals(480, connectionValue(withProgress, "idle_timeout_seconds"),
                                     "the loaded idle timeout is the case's"),
                             () -> assertEquals(480, connectionValue(withProgress, "bounded_wait_seconds"),
