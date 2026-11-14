@@ -30,8 +30,9 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  * Proves that the builder of {@link WorkerGeneration} builds the value its canonical constructor builds, including its
  * null refusal for the generation id. Every value is generated; the job-private working directory pair and the
  * unmeasured context are contract values, and the generation id is drawn from the generator artifact of
- * {@code pm-runtime}. The record's own {@code equals} compares the generation id alone, so the component-wise
- * {@code toString} comparison is what proves the other seventeen components are wired.
+ * {@code pm-runtime}. The record's own {@code equals} compares the generation id alone, so the comparison reads every
+ * record component through its accessor: {@link Class#getRecordComponents()} names all eighteen, and each accessor is
+ * invoked on the constructed and on the built value, so a component the builder drops or reorders is visible.
  */
 @EnableGeneratorController
 @DisplayName("WorkerGeneration builder")
@@ -39,7 +40,7 @@ class WorkerGenerationRecordsTest {
 
     @Test
     @DisplayName("the builder builds the worker generation the constructor builds")
-    void workerGenerationBuilderEqualsConstructor() {
+    void workerGenerationBuilderEqualsConstructor() throws ReflectiveOperationException {
         var generationId = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
         var role = Generators.letterStrings(1, 20).next();
         var harness = Generators.letterStrings(1, 20).next();
@@ -82,8 +83,12 @@ class WorkerGenerationRecordsTest {
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same worker generation");
-        assertEquals(constructed.toString(), built.toString(),
-                "the builder wires every component of the generation");
+        var components = WorkerGeneration.class.getRecordComponents();
+        assertEquals(18, components.length, "the generation holds eighteen components");
+        for (var component : components) {
+            assertEquals(component.getAccessor().invoke(constructed), component.getAccessor().invoke(built),
+                    "the builder wires " + component.getName());
+        }
     }
 
     @Test
