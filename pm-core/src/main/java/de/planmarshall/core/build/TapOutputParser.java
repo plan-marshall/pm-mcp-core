@@ -163,8 +163,8 @@ public class TapOutputParser {
      * {@code TAP version}; the lines before the first such line, or the whole log when it carries none, are one run, so
      * concatenated runs ({@code npm test --workspaces}) are checked one by one and a later run cannot supply the test point
      * an earlier run is missing. A run finished its plan when it announced no top-level plan line, or when the summed
-     * count of its own top-level plan lines equals its own number of top-level test points ({@code ok} / {@code not ok}
-     * at the start of a line). A top-level plan line whose count is too large for a {@code long}, or whose count makes
+     * count of its own top-level plan lines equals its own number of top-level test points ({@code ok <number>} or
+     * {@code not ok <number>} at the start of a line). A top-level plan line whose count is too large for a {@code long}, or whose count makes
      * the run's sum overflow one, leaves that run unfinished. An indented (subtest) plan line and an indented test point belong to a subtest and are not
      * read. The plan counts test points, not the {@code # tests} total: {@code node --test} prints one top-level point
      * per suite and counts the tests inside them in {@code # tests}.

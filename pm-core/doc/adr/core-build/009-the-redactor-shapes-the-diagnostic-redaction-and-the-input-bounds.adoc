@@ -95,16 +95,19 @@ numbered `Decision` sections below.
   minimum (see below);
 * a head-residue of a cut line: a credentialed URL whose closing `@` lies beyond the `BuildLogText.MAX_LINE_LENGTH`
   (8192) cut leaves `scheme://user:<partial password>` readable, because the URL shape needs its closing `@` to match.
-  It is inert because every stored message is cut to 500 characters after the redaction (`DiagnosticCollector.java`,
-  `MAX_MESSAGE_LENGTH`), so the residue cannot reach the model or a store while that cut holds; it breaks if that cut is
-  raised, and the line-bound clause of item 5 below states the order that produces it.
+  Its exposure is bounded by the stored-message cut that follows the redaction (`DiagnosticCollector` keeps at most 500
+  characters): only as much of the partial password as fits inside that head is carried. It is bounded, not removed —
+  the 500-character cut limits the length of the residue, and a message whose head holds the URL carries it. The
+  line-bound clause of item 5 below states the order that produces it.
 
 === The quoted assignment value runs to its closing quote
 
 An assignment whose value is quoted (`token="ab cd ef"`, `password="my pass phrase"`) masks the whole quoted value: the
 value runs to its own closing quote, as the quoted credential-flag forms do, and the escape handling of the flag form
-keeps an escaped quote from closing it. The four-character minimum therefore applies to unquoted values only. The
-false-positive cost: a short quoted value of an ordinary text is masked with its label.
+keeps an escaped quote from closing it. A quote that does not close on its line masks the rest of the line, as the
+unclosed credential-flag form does; the lookahead that refuses the closed form keeps the two apart, so a value that
+closes after an escape pair is never taken for an unclosed one. The four-character minimum therefore applies to unquoted
+values only. The false-positive cost: a short quoted value of an ordinary text is masked with its label.
 
 === The matcher is Unicode-aware, and invisible characters are removed
 
@@ -154,8 +157,10 @@ input.
 === The package dependency `core.queue → core.build`
 
 R4 makes `core.queue` call `BuildLogText.stripAnsi` of `core.build`, which already depends on `core.queue`
-(`UnparsedEvidence` and `NpmErrorParser` call `SecretRedactor`). The two packages now depend on each other. No guard
-forbids a cycle of packages within one module, and the escape-sequence expression exists once instead of being copied.
+(`UnparsedEvidence` and `NpmErrorParser` call `SecretRedactor`), and the stored-message seam extends the cycle:
+`DiagnosticCollector.stored` and the `Diagnostic` constructor call `SecretRedactor` of `core.queue`. The two packages now
+depend on each other. No guard forbids a cycle of packages within one module, and each expression exists once instead of
+being copied.
 
 === Decision 3: an unfinished TAP plan is no success marker
 
@@ -164,7 +169,9 @@ a run starts at every line that starts with `TAP version`, and the lines before 
 when it carries none, are one run. Per run it sums the counts of the run's own top-level plan lines and compares the
 sum with the run's own number of top-level test points (`ok` / `not ok` at the start of a line); when they differ, the
 run did not finish its plan — the evidence class of `Bail out!` — and the passing summary is no marker, even with
-exit 0. The log finished its plan only when every run did, so a later run of concatenated runs
+exit 0. The top-level test points counted are the TAP point shape `ok <number>` and `not ok <number>` at the start of a
+line; a prose line that merely starts with the word `ok` is no point. The log finished its plan only when every run did,
+so a later run of concatenated runs
 (`npm test --workspaces`) cannot supply the point an earlier run is missing. The counts stay as the summary measured them, summed
 over all runs. An indented (subtest) plan line or test point is not read, a matching plan changes nothing, and a run
 without a top-level plan line announced no plan. A plan count too large for a `long`, or plan counts whose sum

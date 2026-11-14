@@ -242,6 +242,18 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("an unclosed quoted assignment masks the rest of its line")
+    void unclosedQuotedAssignmentIsMasked() {
+        // `as the flag forms do`: an unclosed quote masks the rest of the line, so a short first word is not left readable
+        var doubleQuoted = redactValue("password=\"my pass");
+
+        assertAll("unclosed quoted assignment",
+                () -> assertEquals("password=\"" + SecretRedactor.REDACTED, doubleQuoted,
+                        "the unclosed quoted value is masked to the line end"),
+                () -> assertFalse(doubleQuoted.contains("my pass"), "the value behind the quote is gone"));
+    }
+
+    @Test
     @DisplayName("a non-ASCII space in a credential assignment does not hide the value")
     void assignmentWithNonAsciiSpace() {
         // U+00A0 NO-BREAK SPACE and U+202F NARROW NO-BREAK SPACE are not matched by an ASCII-only \s

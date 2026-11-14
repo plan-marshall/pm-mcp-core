@@ -32,7 +32,10 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 class CoverageRefusals {
 
-    /** The most characters of a refusal's detail the reason carries after the format prefix. */
+    /**
+     * The most characters of a refusal's echoed content: a detail is cut to it, and a file name is cut to it before the
+     * failure kind is appended, so the reason can carry this many characters plus the kind.
+     */
     static final int MAX_DETAIL_LENGTH = 256;
 
     /**

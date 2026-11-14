@@ -114,6 +114,14 @@ class DiagnosticCollectorRedactionTest {
     }
 
     @Test
+    @DisplayName("a pyproject (mypy) message is redacted")
+    void pyprojectMessageRedacted() {
+        var build = PyprojectOutputParser.parse("src/a.py:3: error: " + CREDENTIAL + "\n");
+
+        assertMessagesRedacted(build.diagnostics());
+    }
+
+    @Test
     @DisplayName("a Gradle message is redacted")
     void gradleMessageRedacted() {
         var build = GradleOutputParser.parse("/p/Foo.java:7: error: cannot find symbol " + CREDENTIAL + "\n");

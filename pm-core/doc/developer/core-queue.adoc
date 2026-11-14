@@ -151,12 +151,14 @@ over-masking is kept: masking too much costs evidence, a readable key body costs
 the body as a key, and the window is not widened to reach the marker. Prose that names `PRIVATE KEY` outside a marker.
 |===
 
-*The matcher is Unicode-aware.* `\s`, `\S`, `\w` and `\b` match their Unicode forms, so a no-break space (`U+00A0`) or
-a narrow no-break space (`U+202F`) cannot separate a label from its value. The invisible formatting characters — the
-zero-width space and joiners, the bidi controls, the soft hyphen and the byte-order mark — are removed before the shapes
-are matched, so one of them cannot split a label; none of them is visible, so removing one costs no evidence. The
-false-positive cost is a wider notion of whitespace and word characters: text that carries an invisible character loses
-it, and a quoted assignment whose first word is shorter than four characters is masked whole.
+*The matcher is Unicode-aware where the labels and separators are.* The label, separator, URL and credential-flag
+patterns match `\s`, `\S`, `\w` and `\b` in their Unicode forms, so a no-break space (`U+00A0`) or a narrow no-break
+space (`U+202F`) cannot separate a label from its value; the provider-token and npm-token shapes stay ASCII, as the wire
+formats they encode are. The invisible formatting characters — the zero-width space and joiners, the bidi controls, the
+soft hyphen and the byte-order mark — are removed before the shapes are matched, so one of them cannot split a label;
+none of them is visible, so removing one costs no evidence. The false-positive cost is a wider notion of whitespace and
+word characters: text that carries an invisible character loses it, and a quoted assignment whose first word is shorter
+than four characters is masked whole.
 
 *The journal path strips escape sequences.* `SecretRedactor.redact(ActivityEntry)` strips the terminal escape sequences
 of the text, the tool target and the link target through `BuildLogText.stripAnsi` of `core.build` — the expression the
@@ -182,7 +184,8 @@ marker, finds the next `END` marker after it once, masks the span and resumes af
 every such marker, quadratic in the text and not bounded by the per-line cut at all. `SecretRedactorTest` bounds that cost
 with a wall-clock test over 400 000 characters of `BEGIN` markers and a 3 700-marker input, and asserts that a
 1 000 000-character quoted flag value redacts without a stack overflow. The residue: `ProviderVerification` of
-`pm-runtime` (`runtime.credentials`) redacts a probe answer the assembly supplies, and that input is not bounded here.
+`pm-runtime` (`runtime.credentials`) cuts a probe answer at the same line bound before it redacts it, so that input is
+bounded too.
 
 == How to use and extend it
 

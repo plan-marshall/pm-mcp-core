@@ -41,11 +41,12 @@ import de.planmarshall.core.build.BuildLogText;
  * hash, a commit id, a path and a prose sentence that merely contains the word {@code token} or {@code PRIVATE KEY} are
  * not secrets and stay readable.
  * <p>
- * The patterns are Unicode-aware: {@code \s}, {@code \S}, {@code \w} and {@code \b} match their Unicode forms, so a
- * no-break space cannot separate a label from its value, and a quoted assignment value runs to its closing quote. The
- * invisible formatting characters — the zero-width space and joiners, the bidi controls, the soft hyphen and the
- * byte-order mark — are removed before the shapes are matched, so one of them cannot split a label; none of them is
- * visible, so removing one costs no evidence.
+ * The label, separator, URL and credential-flag patterns are Unicode-aware: their {@code \s}, {@code \S}, {@code \w} and
+ * {@code \b} match their Unicode forms, so a no-break space cannot separate a label from its value, and a quoted
+ * assignment value runs to its closing quote. The provider-token and npm-token shapes stay ASCII, as the wire formats
+ * they encode are. The invisible formatting characters — the zero-width space and joiners, the bidi controls, the soft
+ * hyphen and the byte-order mark — are removed before the shapes are matched, so one of them cannot split a label; none
+ * of them is visible, so removing one costs no evidence.
  * <p>
  * The replacement keeps the label so the reader knows what was removed: {@code "Authorization: Bearer …"} becomes
  * {@code "Authorization: Bearer [redacted]"}, {@code "https://user:secret@host"} keeps its scheme and user, and a key
@@ -144,8 +145,7 @@ public final class SecretRedactor {
      * scanned back once from each scheme start, which is quadratic in the length of one line at worst. The unparsed
      * excerpt, the npm diagnostic and the journal cut the line at {@link BuildLogText#MAX_LINE_LENGTH} (or a smaller
      * bound) before the redaction, and that cut bounds the cost there; {@code ProviderVerification} of
-     * {@code pm-runtime} passes a provider answer uncut, a residue ADR {@code core-build/009} and the guide of
-     * {@code core.queue} name.
+     * {@code pm-runtime} cuts its provider answer at the same bound before the redaction.
      */
     private static final Pattern URL_USER_INFORMATION = urlUserInformation("://");
 
@@ -213,6 +213,26 @@ public final class SecretRedactor {
             CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
+     * The value of a quoted assignment: the plain runs and escape pairs of {@link #QUOTED_LINE} up to the same closing
+     * quote (group 3).
+     */
+    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_LINE + "\\3";
+
+    /**
+     * The quoted form of a credential-shaped assignment whose closing quote is missing from its line: the rest of the
+     * line is masked, as {@link #UNCLOSED_CREDENTIAL_FLAG} masks an unclosed flag value. The lookahead refuses the text
+     * exactly when {@link #QUOTED_ASSIGNMENT_VALUE} reaches a closing quote, so a value that closes keeps its own match.
+     */
+    private static final List<Pattern> UNCLOSED_QUOTED_ASSIGNMENTS = List.of(
+            unclosedQuotedAssignment("pass(?:[_-]?(?:word|wd|phrase|code|key))?"),
+            unclosedQuotedAssignment("secret"),
+            unclosedQuotedAssignment("token"),
+            unclosedQuotedAssignment("(?:api|access|private)[_-]?key"),
+            unclosedQuotedAssignment("auth"),
+            unclosedQuotedAssignment("(?-i:[a-z]+(?=[A-Z]))"
+                    + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)"));
+
+    /**
      * The quoted form of a credential-shaped assignment. A quoted value runs to its own closing quote, so a value whose
      * first word is shorter than the four characters the unquoted form requires ({@code token="ab cd ef"}) is masked
      * whole. The escape handling of {@link #QUOTED_LINE} keeps an escaped quote from closing the value.
@@ -248,7 +268,13 @@ public final class SecretRedactor {
      */
     private static Pattern quotedAssignment(String label) {
         return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])"
-                + QUOTED_LINE + "\\3");
+                + QUOTED_ASSIGNMENT_VALUE);
+    }
+
+    /** One unclosed quoted assignment: the label, the separator, the opening quote and the rest of its line. */
+    private static Pattern unclosedQuotedAssignment(String label) {
+        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])(?!"
+                + QUOTED_ASSIGNMENT_VALUE + ")([^\\r\\n]*)");
     }
 
     /** The user-information pattern behind one scheme separator: scheme and separator, an optional user, secret. */
@@ -282,6 +308,10 @@ public final class SecretRedactor {
         for (var pattern : QUOTED_ASSIGNMENTS) {
             masked = pattern.matcher(masked)
                     .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
+        }
+        for (var pattern : UNCLOSED_QUOTED_ASSIGNMENTS) {
+            masked = pattern.matcher(masked)
+                    .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         }
         for (var pattern : ASSIGNMENTS) {
             masked = pattern.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
