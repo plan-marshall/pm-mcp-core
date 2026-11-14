@@ -184,7 +184,7 @@ class HarnessIconStoreTest {
 
     @Test
     @DisplayName("an index entry whose file is gone is not served")
-    void entryWithoutItsFileIsNotServed() throws IOException {
+    void entryWithoutItsFileIsNotServed() throws Exception {
         store.accept(HARNESS_ID, svg().getBytes(UTF_8));
         Files.delete(store.directory().resolve(HARNESS_ID + ".svg"));
 

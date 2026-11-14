@@ -12,6 +12,7 @@ package de.planmarshall.runtime.icon;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -74,7 +75,7 @@ class IconIndexCodecTest {
         var document = new String(written, UTF_8);
 
         assertAll(
-                () -> assertTrue(!document.contains("\"source\""), "A caller's candidate has no source member"),
+                () -> assertFalse(document.contains("\"source\""), "A caller's candidate has no source member"),
                 () -> assertEquals(icons, IconIndexCodec.read(FILE, written), "The entry survives the round trip"));
     }
 

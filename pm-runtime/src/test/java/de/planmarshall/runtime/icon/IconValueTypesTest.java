@@ -82,7 +82,7 @@ class IconValueTypesTest {
                         () -> new SanitisedIcon(IconFormat.PNG, new byte[0], SHA256),
                         "An icon without bytes is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new SanitisedIcon(IconFormat.PNG, new byte[] {1}, "not-a-digest"),
+                        () -> new SanitisedIcon(IconFormat.PNG, new byte[]{1}, "not-a-digest"),
                         "An icon with a bad digest is refused"));
     }
 

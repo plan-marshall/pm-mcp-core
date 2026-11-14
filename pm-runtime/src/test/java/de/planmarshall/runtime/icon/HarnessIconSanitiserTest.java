@@ -288,7 +288,7 @@ class HarnessIconSanitiserTest {
     @DisplayName("an SVG behind a byte-order mark is accepted")
     void bomPrefixedSvgIsAccepted() {
         var candidate = new ByteArrayOutputStream();
-        candidate.writeBytes(new byte[] {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
+        candidate.writeBytes(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
         candidate.writeBytes(svg("<path d=\"M0 0\"/>").getBytes(UTF_8));
 
         var sanitised = HarnessIconSanitiser.sanitise(candidate.toByteArray());
@@ -299,7 +299,7 @@ class HarnessIconSanitiserTest {
     @Test
     @DisplayName("a PNG shorter than its header and end is refused")
     void shortPngRefused() {
-        var refusal = refusalOf(new byte[] {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
+        var refusal = refusalOf(new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
 
         assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "A PNG without chunks is refused");
     }
@@ -307,7 +307,7 @@ class HarnessIconSanitiserTest {
     @Test
     @DisplayName("a PNG whose first chunk is not the header is refused")
     void pngWithoutHeaderRefused() {
-        var refusal = refusalOf(pngOf(chunk("IDAT", new byte[] {1}), chunk("IEND", new byte[0])));
+        var refusal = refusalOf(pngOf(chunk("IDAT", new byte[]{1}), chunk("IEND", new byte[0])));
 
         assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "A PNG without IHDR first is refused");
     }
@@ -323,7 +323,7 @@ class HarnessIconSanitiserTest {
     @Test
     @DisplayName("a PNG without its end chunk is refused")
     void pngWithoutEndRefused() {
-        var refusal = refusalOf(pngOf(chunk("IHDR", header()), chunk("IDAT", new byte[] {1})));
+        var refusal = refusalOf(pngOf(chunk("IHDR", header()), chunk("IDAT", new byte[]{1})));
 
         assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "A PNG without IEND is refused");
     }
@@ -332,7 +332,7 @@ class HarnessIconSanitiserTest {
     @DisplayName("a PNG whose end chunk carries data is refused")
     void pngEndWithDataRefused() {
         var refusal = refusalOf(
-                pngOf(chunk("IHDR", header()), chunk("IDAT", new byte[] {1}), chunk("IEND", new byte[] {1})));
+                pngOf(chunk("IHDR", header()), chunk("IDAT", new byte[]{1}), chunk("IEND", new byte[]{1})));
 
         assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "An IEND with data is refused");
     }
@@ -342,7 +342,7 @@ class HarnessIconSanitiserTest {
     void pngWithTrailingContentRefused() {
         var candidate = new ByteArrayOutputStream();
         candidate.writeBytes(png());
-        candidate.writeBytes(new byte[] {1});
+        candidate.writeBytes(new byte[]{1});
 
         var refusal = refusalOf(candidate.toByteArray());
 
@@ -411,7 +411,7 @@ class HarnessIconSanitiserTest {
     /** @return the PNG signature followed by the chunks exactly as given */
     private static byte[] pngOf(byte[]... chunks) {
         var out = new ByteArrayOutputStream();
-        out.writeBytes(new byte[] {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
+        out.writeBytes(new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
         for (var chunk : chunks) {
             out.writeBytes(chunk);
         }
