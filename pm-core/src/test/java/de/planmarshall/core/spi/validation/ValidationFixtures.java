@@ -58,10 +58,11 @@ final class ValidationFixtures {
                 GOAL,
                 List.of(criteria),
                 null,
+                null,
                 List.of(new NonGoal("NG-1", NON_GOAL)),
                 List.of(new Constraint("CN-1", CONSTRAINT, ConstraintSource.OPERATOR, null)),
                 List.of(new Decision("DC-1", DECISION, List.of(OPTION, OTHER_OPTION),
-                        Decider.MODEL, null, null, null)),
+                        Decider.ROLE, null, null, null)),
                 List.of(), List.of(), List.of(),
                 List.of(new SourceClaim(CLAIM, "goal", null),
                         new SourceClaim(OTHER_CLAIM, "CN-1", null)));
@@ -73,10 +74,11 @@ final class ValidationFixtures {
                 GOAL,
                 List.of(criteria),
                 null,
+                null,
                 List.of(new NonGoal("NG-1", NON_GOAL)),
                 List.of(),
                 List.of(new Decision("DC-1", DECISION, List.of(OPTION, OTHER_OPTION),
-                        Decider.MODEL, null, null, null)),
+                        Decider.ROLE, null, null, null)),
                 List.of(), List.of(), List.of(),
                 List.of(new SourceClaim(CLAIM, "goal", null)));
     }

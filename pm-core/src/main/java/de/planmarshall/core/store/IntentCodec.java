@@ -80,9 +80,10 @@ public class IntentCodec {
     private static final String FIELD_GOAL = "goal";
     private static final String FIELD_CRITERIA = "criteria";
     private static final String FIELD_CURRENT_BEHAVIOUR = "current_behaviour";
+    private static final String FIELD_REPAIRS = "repairs";
     private static final String FIELD_NON_GOALS = "non_goals";
     private static final String FIELD_CONSTRAINTS = "constraints";
-    private static final String FIELD_DECISIONS = "decisions";
+    private static final String FIELD_CHOICES = "choices";
     private static final String FIELD_ASSUMPTIONS = "assumptions";
     private static final String FIELD_OPEN_QUESTIONS = "open_questions";
     private static final String FIELD_DEFERRED = "deferred";
@@ -167,6 +168,7 @@ public class IntentCodec {
         } else {
             generator.writeStringField(FIELD_CURRENT_BEHAVIOUR, intentRecord.currentBehaviour());
         }
+        writeNullableString(generator, FIELD_REPAIRS, intentRecord.repairs());
         generator.writeArrayFieldStart(FIELD_NON_GOALS);
         for (var nonGoal : intentRecord.nonGoals()) {
             generator.writeStartObject();
@@ -185,8 +187,8 @@ public class IntentCodec {
             generator.writeEndObject();
         }
         generator.writeEndArray();
-        generator.writeArrayFieldStart(FIELD_DECISIONS);
-        for (var decision : intentRecord.decisions()) {
+        generator.writeArrayFieldStart(FIELD_CHOICES);
+        for (var decision : intentRecord.choices()) {
             writeDecision(generator, decision);
         }
         generator.writeEndArray();
@@ -322,9 +324,10 @@ public class IntentCodec {
         @Nullable String goal = null;
         @Nullable List<Criterion> criteria = null;
         @Nullable String currentBehaviour = null;
+        @Nullable String repairs = null;
         @Nullable List<NonGoal> nonGoals = null;
         @Nullable List<Constraint> constraints = null;
-        @Nullable List<Decision> decisions = null;
+        @Nullable List<Decision> choices = null;
         @Nullable List<Assumption> assumptions = null;
         @Nullable List<OpenQuestion> openQuestions = null;
         @Nullable List<Deferred> deferred = null;
@@ -337,9 +340,10 @@ public class IntentCodec {
                 case FIELD_GOAL -> goal = string(parser, field);
                 case FIELD_CRITERIA -> criteria = array(parser, field, IntentCodec::readCriterion);
                 case FIELD_CURRENT_BEHAVIOUR -> currentBehaviour = nullableString(parser, field).orElse(null);
+                case FIELD_REPAIRS -> repairs = nullableString(parser, field).orElse(null);
                 case FIELD_NON_GOALS -> nonGoals = array(parser, field, IntentCodec::readNonGoal);
                 case FIELD_CONSTRAINTS -> constraints = array(parser, field, IntentCodec::readConstraint);
-                case FIELD_DECISIONS -> decisions = array(parser, field, IntentCodec::readDecision);
+                case FIELD_CHOICES -> choices = array(parser, field, IntentCodec::readDecision);
                 case FIELD_ASSUMPTIONS -> assumptions = array(parser, field, IntentCodec::readAssumption);
                 case FIELD_OPEN_QUESTIONS -> openQuestions = array(parser, field, IntentCodec::readOpenQuestion);
                 case FIELD_DEFERRED -> deferred = array(parser, field, IntentCodec::readDeferred);
@@ -348,10 +352,10 @@ public class IntentCodec {
             }
         }
         requireFields(seen, name, FIELD_WHY, FIELD_GOAL, FIELD_CRITERIA, FIELD_CURRENT_BEHAVIOUR,
-                FIELD_NON_GOALS, FIELD_CONSTRAINTS, FIELD_DECISIONS, FIELD_ASSUMPTIONS, FIELD_OPEN_QUESTIONS,
-                FIELD_DEFERRED, FIELD_SOURCE_CLAIMS);
+                FIELD_REPAIRS, FIELD_NON_GOALS, FIELD_CONSTRAINTS, FIELD_CHOICES, FIELD_ASSUMPTIONS,
+                FIELD_OPEN_QUESTIONS, FIELD_DEFERRED, FIELD_SOURCE_CLAIMS);
         try {
-            return new IntentRecord(why, goal, criteria, currentBehaviour, nonGoals, constraints, decisions,
+            return new IntentRecord(why, goal, criteria, currentBehaviour, repairs, nonGoals, constraints, choices,
                     assumptions, openQuestions, deferred, sourceClaims);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);

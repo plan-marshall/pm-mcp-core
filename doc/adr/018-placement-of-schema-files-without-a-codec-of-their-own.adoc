@@ -85,13 +85,12 @@ The placement of the 27 files, which this decision rests on:
 
 == Consequences
 
-* The work packages that move the schema blocks of the remaining documents (`schema-files-machine-stores`,
-  `schema-files-other-specifications`) place a codec-less block by the same rule and move it in their own package: a
-  block is not left inline until the package that builds its codec runs. That package writes the codec and adds the
-  parity test over the file, which already lies where it belongs.
-* `pm-workflow` carries schema files of its own. No test of `pm-workflow` reads them yet, so neither file is covered by a
-  test of its module. A test of `pm-workflow` that does, such as the parity test of a codec, reads them through
-  `SchemaResource` of `pm-core:tests`, as ADR 016 provides.
+* The work packages that moved the schema blocks of the remaining documents (`schema-files-machine-stores`,
+  `schema-files-other-specifications`) placed a codec-less block by that rule and moved it in the package that owns it:
+  a block is not left inline, and the package that builds the codec writes it beside the file and adds the parity test
+  over the file, which already lies where it belongs.
+* `pm-workflow` carries schema files of its own. A test of its module reads them now — `PlanInstanceHeaderTest` and
+  `PlanSchemaFilesTest` read them through `SchemaResource` of `pm-core:tests`, as ADR 016 provides.
 * When a later package builds a codec for a record of the table, it writes the codec in the package the file already
   lies in, and the file stays.
 

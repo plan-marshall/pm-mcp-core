@@ -12,6 +12,7 @@ package de.planmarshall.core.config;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.networknt.schema.InputFormat;
 import com.networknt.schema.JsonSchema;
@@ -111,6 +112,16 @@ class ConsentSchemaParityTest {
 
         assertEquals(Set.of(), validator().validate(new String(written, UTF_8), InputFormat.JSON),
                 () -> "The written store is valid: " + new String(written, UTF_8));
+    }
+
+    @Test
+    @DisplayName("a store with an undeclared member is refused by the schema")
+    void rejectingUndeclaredMember() {
+        var written = new String(ConsentCodec.write(List.of(), 0), UTF_8);
+        var extended = written.substring(0, written.length() - 1) + ",\"undeclared_member\":1}";
+
+        assertFalse(validator().validate(extended, InputFormat.JSON).isEmpty(),
+                "an undeclared store member should be refused");
     }
 
     private static JsonSchema validator() {
