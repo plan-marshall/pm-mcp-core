@@ -419,10 +419,19 @@ class ProfileValidatorTest {
                     .set("/connection/progress_resets_timeout", true)
                     .set("/connection/bounded_wait_seconds", 3_600);
 
-            assertAll(
-                    () -> ProfileValidator.validate(exactly.bytes(), DOCUMENT, ProfileRules.none()),
-                    () -> ProfileValidator.validate(progress.bytes(), DOCUMENT, ProfileRules.none()),
-                    () -> ProfileValidator.validate(longest.bytes(), DOCUMENT, ProfileRules.none()));
+            assertAll("the connection boundaries",
+                    () -> assertEquals("acme-cli",
+                            ProfileValidator.clientId(ProfileValidator.validate(exactly.bytes(), DOCUMENT,
+                                    ProfileRules.none())),
+                            "a bounded wait exactly at idle minus 30 loads"),
+                    () -> assertEquals("acme-cli",
+                            ProfileValidator.clientId(ProfileValidator.validate(progress.bytes(), DOCUMENT,
+                                    ProfileRules.none())),
+                            "progress frames admit any bounded wait"),
+                    () -> assertEquals("acme-cli",
+                            ProfileValidator.clientId(ProfileValidator.validate(longest.bytes(), DOCUMENT,
+                                    ProfileRules.none())),
+                            "the longest bounded wait loads with progress"));
         }
 
         /** A map that, unlike {@link Map#of}, admits a null value. */

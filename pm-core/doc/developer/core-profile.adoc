@@ -118,18 +118,18 @@ received, a profile offered for a later release. Validation then accepts exactly
 * a `tool_result_limit_chars` needs a non-empty `resource_tools`.
 
 The `connection` block carries the harness's timing facts, and validation relates them: `transport` is `stdio`,
-`idle_timeout_seconds` lies between 45 and 7,200, and `bounded_wait_seconds` between 15 and 3,600. A host whose
-`progress_resets_timeout` is `false` resets no timer while a job progresses, so its bounded wait must stay at
-least 30 seconds below the idle timeout (`bounded_wait_seconds` at most `idle_timeout_seconds − 30`); a host whose
-progress frames reset the timer admits any bounded wait of the schema's range (Timeouts & Budgets § Bounded Wait
-Window).
+`idle_timeout_seconds` lies between 45 and 7,200, and `bounded_wait_seconds` between 15 and 3,600. When the
+harness's progress frames do not reset its tool-call timer (`progress_resets_timeout: false`), the bounded wait
+must stay at least 30 seconds below the idle timeout (`bounded_wait_seconds` at most
+`idle_timeout_seconds − 30`); when they do, any bounded wait of the schema's range is admitted (Timeouts & Budgets
+§ Bounded Wait Window).
 
 A failure is a `ProfileRefusal` carrying the document and the JSON Pointer of the value, and it refuses the document as
 a whole. The runtime never runs on a part of a profile.
 
 The shape of the `usage` block is validated here; its meaning (including the
-rule that `input_tokens`, `output_tokens` and `tool_uses` are never `not_applicable`, Harness Profiles § Tokens,
-Not Money) belongs to `ProfileStages` and to the stage `usage`.
+rule that `input_tokens`, `output_tokens` and `tool_uses` are never `not_applicable`, stated in the
+`headless.usage` schema under Harness Profiles § Tokens, Not Money) belongs to `ProfileStages` and to the stage `usage`.
 
 == Resolution, Record and Sidecar
 

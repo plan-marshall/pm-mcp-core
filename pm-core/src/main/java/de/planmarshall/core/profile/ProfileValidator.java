@@ -848,10 +848,10 @@ public final class ProfileValidator {
         }
 
         /**
-         * The usage block is the one <em>Tokens, Not Money</em> of the Harness Profiles specification defines, including
-         * the rule that {@code input_tokens}, {@code output_tokens} and {@code tool_uses} are never
-         * {@code not_applicable}; this validator checks only its shape and leaves the meaning of a figure to the stage
-         * {@code usage} of the profile verification.
+         * The usage block is the one the Harness Profiles specification describes under <em>Tokens, Not Money</em>: the
+         * {@code headless.usage} pointers, including the rule that {@code input_tokens}, {@code output_tokens} and
+         * {@code tool_uses} are never {@code not_applicable}; this validator checks only its shape and leaves the meaning
+         * of a figure to the stage {@code usage} of the profile verification.
          */
         private void usage(JsonNode usage, String pointer) {
             var members = Set.copyOf(ProfileStages.USAGE_FIGURES);
