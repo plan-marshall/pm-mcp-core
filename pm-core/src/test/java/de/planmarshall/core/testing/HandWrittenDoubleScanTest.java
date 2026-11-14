@@ -99,6 +99,14 @@ class HandWrittenDoubleScanTest {
         assertTrue(productionNames("class Ports { public abstract @SuppressWarnings({\"unused\"})"
                         + " static class Port { } }").contains("Port"),
                 "an annotated abstract class is a production type");
+        assertTrue(productionNames("class Ports { public abstract @java.lang.Deprecated static class Port { } }")
+                .contains("Port"), "a qualified annotation does not hide an abstract class");
+        assertTrue(scan("planted.java", """
+                class Holder {
+                    de.planmarshall.core.spi.Primitive<String, String> primitive = value -> value;
+                }
+                """).contains("planted.java#lambda:Primitive#1"),
+                "a generic declared type does not hide the lambda");
         assertTrue(scan("planted.java", """
                         class Holder {
                             de.planmarshall.core.service.AuditSink unused, sink = event -> {
@@ -278,6 +286,26 @@ class HandWrittenDoubleScanTest {
                     index--;
                 }
             }
+            while (index >= 0 && Character.isWhitespace(prefix.charAt(index))) {
+                index--;
+            }
+            if (index >= 0 && prefix.charAt(index) == '>') {
+                var angle = 0;
+                for (; index >= 0; index--) {
+                    if (prefix.charAt(index) == '>') {
+                        angle++;
+                    } else if (prefix.charAt(index) == '<') {
+                        angle--;
+                        if (angle == 0) {
+                            break;
+                        }
+                    }
+                }
+                index--;
+                while (index >= 0 && Character.isWhitespace(prefix.charAt(index))) {
+                    index--;
+                }
+            }
             var typeEnd = index + 1;
             while (index >= 0 && (Character.isJavaIdentifierPart(prefix.charAt(index))
                     || prefix.charAt(index) == '.')) {
@@ -366,20 +394,22 @@ class HandWrittenDoubleScanTest {
                 return false;
             }
             var end = index + 1;
-            while (index >= 0 && Character.isJavaIdentifierPart(code.charAt(index))) {
-                index--;
+            var start = index;
+            while (start >= 0 && (Character.isJavaIdentifierPart(code.charAt(start)) || code.charAt(start) == '.')) {
+                start--;
             }
-            var word = code.substring(index + 1, end);
+            var word = code.substring(start + 1, end);
             if ("abstract".equals(word)) {
                 return true;
             }
-            if (index >= 0 && code.charAt(index) == '@') {
-                index--;
+            if (start >= 0 && code.charAt(start) == '@') {
+                index = start - 1;
                 continue;
             }
-            if (!MODIFIERS.contains(word)) {
+            if (!MODIFIERS.contains(word) || word.indexOf('.') >= 0) {
                 return false;
             }
+            index = start;
         }
         return false;
     }
