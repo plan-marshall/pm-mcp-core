@@ -2,10 +2,10 @@
   "id": "PLAN-V2-39",
   "slug": "machine-harness-verification",
   "workstream": "WS-04",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-39-machine-harness-verification",
+  "pr": "#412",
+  "landing": "landings/PLAN-V2-39.md",
   "seq": 39
 }
