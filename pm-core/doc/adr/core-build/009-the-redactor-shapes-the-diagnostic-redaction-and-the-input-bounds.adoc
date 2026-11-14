@@ -54,9 +54,10 @@ numbered `Decision` sections below.
    continuation inside the quotes) and still counts as the one line end, so both halves of such a value are masked. An
    unclosed quote masks the rest of its line; the unclosed form's lookahead reads the same value as the quoted form, so a
    value that closes after one line end, escaped or not, is never taken for an unclosed one.
-* *R3: Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. The PEM
-   patterns also match `-----BEGIN PGP PRIVATE KEY BLOCK-----` to its `END` line (label tail
-   `PRIVATE KEY(?: BLOCK)?-----`), and the unclosed form keeps its over-masking of the rest of the text.
+* *R3: Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. A
+   PEM block or a PGP block (`-----BEGIN PGP PRIVATE KEY BLOCK-----` to its `END` line, label tail
+   `PRIVATE KEY(?: BLOCK)?-----`) is masked by a single left-to-right scan, and a `BEGIN` without a later `END` keeps
+   its over-masking of the rest of the text.
 * *R4: The journal path strips escape sequences.* `SecretRedactor.redact(ActivityEntry)` strips the escape sequences of
    the text, the tool target and the link target through `BuildLogText.stripAnsi` — the expression the unparsed excerpt
    uses — before it redacts them, and applies each part's bound after the redaction as before. The label patterns are
@@ -85,7 +86,7 @@ numbered `Decision` sections below.
   scheme word of an `Authorization:` header of a scheme other than `Bearer`, `Basic` or `Token` (the scheme word is
   taken as the value and masked) — shapes no anchored pattern marks, left for a later decision.
 
-=== Decision 1: the cost is bounded on every path, not by a new linear construction
+=== Decision 1: the input is bounded on every path, and the key-block scan is linear
 
 The redactor runs on the unparsed excerpt, on the npm diagnostic and on the journal; `ProviderVerification` of
 `pm-runtime` also calls `redactText`. No Java pattern has a time bound, so each caller bounds its input before the
@@ -106,9 +107,16 @@ to the last `@` of the token by giving characters back. That cost is not linear 
 scanned back once from each scheme start, quadratic in one line at worst — and the per-path line bound above is what
 bounds it. The quoted credential-flag value is an unrolled loop (a plain run, then escape pairs each followed by a plain
 run) whose repetitions are all possessive and hold no alternation, so it neither backtracks nor recurses per character
-on a long value. `SecretRedactorTest` measures the cost without a clock: a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`,
-the same run followed by `://`, and the run `x://y:x://y:…` without any `@`, the shape that is scanned back from every
-scheme start) is redacted through `redactText` and its unchanged result asserted.
+on a long value. The key block is not a pattern that can rescan the text: it is a single left-to-right scan that finds a
+`BEGIN` marker, finds the next `END` marker after it once, masks the span and resumes after that `END`, so a text of
+many `BEGIN` markers without an `END` costs one pass. The former lazy `.*?` under `(?s)` scanned to the end of the text
+from every such marker: quadratic in the text, and not bounded by the per-line cut at all, because the match crosses
+line ends. `SecretRedactorTest` therefore bounds the cost with a wall-clock test: 400 000 characters of `BEGIN` markers
+without an `END` and a 3 700-marker input must redact within a stated bound that the former pattern exceeded, and a
+1 000 000-character quoted flag value must redact without a stack overflow. The URL shapes are measured without a clock:
+a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`, the same run followed by `://`, and the run `x://y:x://y:…`
+without any `@`, the shape that is scanned back from every scheme start) is redacted through `redactText` and its
+unchanged result asserted.
 The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and this plan does not bound that
 input.
 
@@ -217,7 +225,8 @@ line cut was corrected to name the input size as its bound.
 * *Strip escape sequences inside the label patterns.* Every label pattern would carry an optional escape run between its
   parts, which multiplies their alternation; one strip before the redaction covers every pattern, a later one included.
 * *A linear construction of the URL pattern without the bounds.* It would bound one pattern and leave the others
-  exposed; the per-path bound covers every pattern of the redactor at once.
+  exposed; the per-line bound covers every pattern whose match stays on one line, while the key-block shape — whose
+  match crosses line ends — is a linear scan instead, as Decision 1 states.
 * *Compare the TAP plan with `# tests`.* Refused by the measured `node --test` log (Decision 3).
 * *Keep the head of a long line in the excerpt.* It would break the excerpt's contract that the end of a long last
   line — where a stack trace ends and a tool prints its verdict — is kept.

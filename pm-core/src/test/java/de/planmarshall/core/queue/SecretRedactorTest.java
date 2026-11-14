@@ -10,12 +10,15 @@
 package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -392,6 +395,50 @@ class SecretRedactorTest {
 
         assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
                 "an unclosed PGP key block is masked to the end");
+    }
+
+    /** A wall-clock bound a left-to-right scan meets easily and the former lazy pattern exceeds. */
+    private static final Duration REDACTION_BOUND = Duration.ofSeconds(5);
+
+    private static final String PEM_BEGIN_MARKER = "-----BEGIN PRIVATE KEY-----";
+
+    @Test
+    @DisplayName("400 000 characters of BEGIN markers without an END are redacted within the bound")
+    void pemBeginMarkersWithoutEndAreLinear() {
+        // the excerpt maximum of 50 lines of MAX_LINE_LENGTH characters is about 409 600 characters;
+        // no END follows any marker, so every marker was scanned to the end of the text before the fix
+        var markers = PEM_BEGIN_MARKER.repeat(400_000 / PEM_BEGIN_MARKER.length() + 1).substring(0, 400_000);
+
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(markers),
+                "400 000 characters of BEGIN markers must redact within the bound");
+
+        assertEquals(400_000, markers.length(), "the cost input holds 400 000 characters");
+        assertEquals(SecretRedactor.REDACTED, redacted, "an unclosed block masks the whole text");
+    }
+
+    @Test
+    @DisplayName("3 700 BEGIN markers without an END are redacted within the bound")
+    void pemManyBeginMarkersWithoutEndAreLinear() {
+        var markers = PEM_BEGIN_MARKER.repeat(3_700);
+
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(markers),
+                "3 700 BEGIN markers must redact within the bound");
+
+        assertEquals(3_700, markers.length() / PEM_BEGIN_MARKER.length(), "the input holds 3 700 markers");
+        assertEquals(SecretRedactor.REDACTED, redacted, "an unclosed block masks the whole text");
+    }
+
+    @Test
+    @DisplayName("a 1 000 000-character quoted flag value is masked without a stack overflow")
+    void quotedFlagValueOfOneMillionCharacters() {
+        // the quoted value is one plain run: a per-character recursion would overflow the stack here
+        var log = "--password \"" + "a".repeat(1_000_000) + "\"";
+
+        var redacted = assertDoesNotThrow(() -> redactValue(log),
+                "a million-character quoted value must not overflow the stack");
+
+        assertEquals("--password \"" + SecretRedactor.REDACTED + "\"", redacted,
+                "the whole quoted value is masked");
     }
 
     @Test

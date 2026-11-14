@@ -154,18 +154,23 @@ each part is applied after the redaction. `redactText(String)` leaves escape seq
 `core.queue` depend on `core.build`, which already depends on `core.queue`; no guard forbids the cycle of packages, and
 ADR `core-build/009` records it.
 
-*The cost is bounded on every path.* No pattern of the redactor carries a time bound, so each caller bounds the text
-before it is redacted. The unparsed excerpt cuts every kept line to `BuildLogText.MAX_LINE_LENGTH` characters before the
-redaction; the npm diagnostic is composed from lines `NpmErrorParser` has already cut at its entry; and the journal path
-redacts an entry whose compiled bounds hold already (`ActivityEntry.TEXT_BOUND` of 2000 code points for the text, 1000
-for a tool target, 128 for a link target), both in `ActivityJournal` and in `ActivityRecorder` of `pm-runtime`. The URL
-shape is two patterns applied in sequence, one for `://` and one for the percent-encoded `%3A%2F%2F`; in each the scheme
-and the user are possessive and the scheme starts only where no scheme character precedes it, while the secret is a
-greedy `\S+` that gives characters back to the last `@` of the token. Its cost is therefore not linear: a token without
-that `@` is scanned back once from each scheme start, quadratic in one line at worst, and the line cut above is what
-bounds it. The quoted credential-flag value is an unrolled loop (a plain run, then escape pairs each followed by a plain
-run) with possessive repetitions only, so it neither backtracks nor recurses per character. The residue: `ProviderVerification` of `pm-runtime` (`runtime.credentials`) redacts a probe answer the
-assembly supplies, and that input is not bounded here.
+*The input is bounded on every path, and the key-block scan is linear.* The unparsed excerpt cuts every kept line to
+`BuildLogText.MAX_LINE_LENGTH` characters before the redaction; the npm diagnostic is composed from lines
+`NpmErrorParser` has already cut at its entry; and the journal path redacts an entry whose compiled bounds hold already
+(`ActivityEntry.TEXT_BOUND` of 2000 code points for the text, 1000 for a tool target, 128 for a link target), both in
+`ActivityJournal` and in `ActivityRecorder` of `pm-runtime`. The URL shape is two patterns applied in sequence, one for
+`://` and one for the percent-encoded `%3A%2F%2F`; in each the scheme and the user are possessive and the scheme starts
+only where no scheme character precedes it, while the secret is a greedy `\S+` that gives characters back to the last
+`@` of the token. Its cost is therefore not linear: a token without that `@` is scanned back once from each scheme start,
+quadratic in one line at worst, and the line cut above is what bounds it. The quoted credential-flag value is an unrolled
+loop (a plain run, then escape pairs each followed by a plain run) with possessive repetitions only, so it neither
+backtracks nor recurses per character. The PEM or PGP key block is a single left-to-right scan: it finds a `BEGIN`
+marker, finds the next `END` marker after it once, masks the span and resumes after that `END`, so a text of many
+`BEGIN` markers without an `END` costs one pass; the former lazy `.*?` under `(?s)` scanned to the end of the text from
+every such marker, quadratic in the text and not bounded by the per-line cut at all. `SecretRedactorTest` bounds that cost
+with a wall-clock test over 400 000 characters of `BEGIN` markers and a 3 700-marker input, and asserts that a
+1 000 000-character quoted flag value redacts without a stack overflow. The residue: `ProviderVerification` of
+`pm-runtime` (`runtime.credentials`) redacts a probe answer the assembly supplies, and that input is not bounded here.
 
 == How to use and extend it
 

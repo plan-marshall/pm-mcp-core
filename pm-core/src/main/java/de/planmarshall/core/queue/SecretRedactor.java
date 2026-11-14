@@ -196,20 +196,14 @@ public final class SecretRedactor {
             CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE);
 
     /**
-     * A PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----} to its
-     * {@code END} line) carried inside one text. A window that starts inside a block (its {@code BEGIN} line before the
-     * window) is not masked: that is the residue the class documentation names.
+     * The head of a PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----}).
+     * A window that starts inside a block (its {@code BEGIN} line before the window) is not masked: that is the
+     * residue the class documentation names.
      */
-    private static final Pattern PEM_PRIVATE_KEY = Pattern.compile(
-            "(?s)-----BEGIN [^-]*PRIVATE KEY(?: BLOCK)?-----.*?-----END [^-]*PRIVATE KEY(?: BLOCK)?-----");
+    private static final Pattern PEM_BEGIN = Pattern.compile("-----BEGIN [^-]*PRIVATE KEY(?: BLOCK)?-----");
 
-    /**
-     * A PEM or PGP private-key block whose {@code END} line is missing from the text: the text ends inside the block, so
-     * the rest of it is masked. The over-masking is kept deliberately: whatever follows the block in the text is masked
-     * with it, because masking too much costs evidence while leaving a key body readable costs the credential.
-     */
-    private static final Pattern PEM_PRIVATE_KEY_UNCLOSED =
-            Pattern.compile("(?s)-----BEGIN [^-]*PRIVATE KEY(?: BLOCK)?-----.*");
+    /** The tail of a PEM private-key block or a PGP private-key block, the match made from a {@link #PEM_BEGIN}. */
+    private static final Pattern PEM_END = Pattern.compile("-----END [^-]*PRIVATE KEY(?: BLOCK)?-----");
 
     private static final List<Pattern> REPLACEMENTS = List.of(TOKEN_SHAPE, NPM_ACCESS_TOKEN);
 
@@ -257,9 +251,31 @@ public final class SecretRedactor {
                 .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = CREDENTIAL_FLAG.matcher(masked)
                 .replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
-        masked = PEM_PRIVATE_KEY.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
-        masked = PEM_PRIVATE_KEY_UNCLOSED.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
+        masked = redactPrivateKeyBlocks(masked);
         return Optional.of(masked);
+    }
+
+    /**
+     * Masks every private-key block in one left-to-right pass.
+     * <p>
+     * A block runs from its {@code BEGIN} marker to the next {@code END} marker after it; the scan resumes after that
+     * {@code END}, so a marker already passed is never revisited and the cost stays linear in the length of the text. A
+     * {@code BEGIN} without a later {@code END} masks the rest of the text: the over-masking is kept deliberately,
+     * because masking too much costs evidence while leaving a key body readable costs the credential.
+     */
+    private static String redactPrivateKeyBlocks(String value) {
+        var out = new StringBuilder(value.length());
+        var begin = PEM_BEGIN.matcher(value);
+        var end = PEM_END.matcher(value);
+        var position = 0;
+        while (begin.find(position)) {
+            out.append(value, position, begin.start()).append(REDACTED);
+            if (!end.find(begin.end())) {
+                return out.toString();
+            }
+            position = end.end();
+        }
+        return out.append(value, position, value.length()).toString();
     }
 
     /**
