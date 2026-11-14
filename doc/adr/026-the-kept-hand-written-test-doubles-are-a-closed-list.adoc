@@ -105,13 +105,39 @@ the hypothesis is confirmed and the class is converted; there is no K10.
 === The published surface
 
 The doubles that are published to the assembly keep their public signatures: `FakeBus`, `FakeSecretService` and
-`FakePmExec` are K1 to K3 and stay, and `TestBases` is untouched. Every converted class is package-private
-(`SupervisorTestFixture`, `RecordingProcessCall`, `lock.RecordingAuditSink` and `RecoveryStepFixtures` are `final class`
-without `public`), so a consumer can name one only from the same package: the `pm-runtime:tests` test jar has no
-`includes` and packages them, and a same-package test of a consumer could reference them. **Owed outside this
-repository: none on the declarations.** The assembly checkout `plan-marshall-mcp` was not searched, so the consumer
-check (a same-package reference to one of the four) is an open item, not a result; the claim here is about the
-declarations, and a breaking change of one would need that check first.
+`FakePmExec` are K1 to K3 and stay, and `TestBases` is untouched. The conversion added one public type to
+`pm-runtime:tests`: `de.planmarshall.runtime.test.AuditSinkDoubles`, the EasyMock audit-sink factory. Every converted
+hand-written double is package-private (`SupervisorTestFixture`, `RecordingProcessCall`, `lock.RecordingAuditSink` and
+`RecoveryStepFixtures` are `final class` without `public`), so a consumer can name one only from the same package: the
+`pm-runtime:tests` test jar has no `includes` and packages them, and a same-package test of a consumer could reference
+them. **Owed outside this repository: none on the converted doubles.** The assembly checkout `plan-marshall-mcp` was not
+searched for a same-package reference to one of the four; that check is an open item, and a breaking change of one would
+need it first (2026-11-14: the assembly checkout was checked by reading for `AuditSinkDoubles`; see the amendment
+below).
+
+=== The 2026-11-14 amendment
+
+A read-only landing analysis of PLAN-V2-136 of 2026-11-14 found the residue this amendment records (PR #416).
+
+* *Converted, not kept:* the scripted primitive doubles the name scan missed — `EngineFixtures.Scripted`,
+  `EngineFixtures.NoteStep` and `DefaultPlanPrimitives.Scripted` — are EasyMock doubles now. The class of each name is a
+  holder that builds the mock's expectations and keeps the script a test feeds; the double the registry holds is the
+  mock, so the shape stays outside this ADR's definition of a hand-written double.
+* *Scan enforced by a test:* one `HandWrittenDoubleScanTest` per module (`pm-core`, `pm-workflow`, `pm-runtime`) scans
+  the test sources for a class, record or enum that implements or extends a production interface, for an anonymous
+  class over one, and for a lambda or method reference assigned to one, and compares the result with
+  `src/test/resources/hand-written-doubles.txt`. The baseline is this closed list plus the population outside the old
+  name scan, which PLAN-V2-125 (`pm-core`, `pm-workflow`) and PLAN-V2-126 (`pm-runtime`) convert; a new double adds a
+  line and fails the build. A lambda passed straight to a constructor or a method has no declared type at the call site;
+  it stays a reviewer's check, as the scan test says.
+* *Statements corrected (only the sentences that had become false; the documents otherwise record history):*
+  `workflow-engine/006` (the tests read the port through `EngineFixtures.answerEntry`), `runtime-start/003` (the
+  service-manager tests run against the EasyMock call of `ProcessCallDoubles`) and `012-generator-artifacts`
+  (PLAN-V2-136 completes the replacement and keeps K1 to K3).
+* *Published surface:* `pm-runtime:tests` gained the public `de.planmarshall.runtime.test.AuditSinkDoubles` factory. The
+  assembly checkout `plan-marshall-mcp` was read for that name on 2026-11-14 and does not use it.
+* *Calls that must happen:* where a converted mock's call is not proved by an assertion on a recorded list, the test
+  pins it or the mock is documented as a nice stub; `AuditLogTest.failingPredecessor` throws on every predecessor read.
 
 == Alternatives Considered
 

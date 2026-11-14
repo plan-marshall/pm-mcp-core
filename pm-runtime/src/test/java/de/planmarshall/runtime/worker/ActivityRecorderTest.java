@@ -126,7 +126,7 @@ class ActivityRecorderTest {
 
         recorder.append(task, generation, toolCall(tool, target));
         recorder.append(task, generation, toolCall(tool, target));
-        assertEquals(0, signals.size(), "the third entry raises the first signal");
+        assertEquals(0, signals.size(), "two entries raise no signal");
 
         recorder.append(task, generation, toolCall(tool, target));
         recorder.append(task, generation, toolCall(tool, target));
