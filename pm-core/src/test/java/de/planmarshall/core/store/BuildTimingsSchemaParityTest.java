@@ -45,8 +45,8 @@ class BuildTimingsSchemaParityTest {
     void membersAreTheFiles() {
         var schema = SchemaParity.load(SCHEMA);
 
-        assertEquals(List.of(), SchemaParity.memberDiffs(SchemaParity.members(written()), schema),
-                "the members should equal the schema's");
+        assertEquals(SchemaParity.properties(schema), SchemaParity.members(written()),
+                "the members should be the schema's in order");
     }
 
     @Test

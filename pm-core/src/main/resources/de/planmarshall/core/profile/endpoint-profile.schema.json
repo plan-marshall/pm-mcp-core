@@ -16,11 +16,14 @@
       "description": "As the icon of a harness profile (Harness Profile Schema, Icons); null: the generated monogram.",
       "properties": {
         "form": { "type": "string", "enum": ["source", "bundled"] },
-        "source": { "type": ["string", "null"], "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.(svg|png)$", "description": "For form source: the URL of the maker's official icon file, fetched once by the runtime on the operator's consent." },
+        "source": { "type": ["string", "null"], "maxLength": 256, "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.(svg|png)$", "description": "For form source: the URL of the maker's official icon file, fetched once by the runtime on the operator's consent." },
         "bundled": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "For form bundled: the name of an icon shipped in the binary." }
       },
       "required": ["form", "source", "bundled"],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": { "properties": { "form": { "const": "source" } }, "required": ["form"] },
+      "then": { "properties": { "source": { "type": "string" }, "bundled": { "type": "null" } } },
+      "else": { "properties": { "bundled": { "type": "string" }, "source": { "type": "null" } } }
     },
     "executable": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Name of the serving program; the operator enrols its absolute path, and the runtime checks that it owns the listening socket of base_url." },
     "identity": {

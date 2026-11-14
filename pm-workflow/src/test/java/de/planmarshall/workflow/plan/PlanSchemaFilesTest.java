@@ -68,11 +68,37 @@ class PlanSchemaFilesTest {
     @DisplayName("every required name is a member of properties")
     void requiredNamesAreProperties(String resource) {
         var schema = SchemaResource.load(resource);
+        var violations = new ArrayList<String>();
 
         assertAll(
                 () -> assertTrue(schema.containsKey("required"), "the file should declare required members"),
-                () -> assertTrue(propertiesOf(schema).containsAll(requiredOf(schema)),
-                        "every required name should be a property"));
+                () -> {
+                    collectRequiredViolations(schema, "#", violations);
+                    assertEquals(List.of(), violations, "every required name should be a property");
+                });
+    }
+
+    private static void collectRequiredViolations(Object value, String pointer, List<String> violations) {
+        switch (value) {
+            case null -> {
+                // a JSON null carries no declaration
+            }
+            case Map<?, ?> map -> {
+                if (map.get("required") instanceof List<?> names && map.get("properties") instanceof Map<?, ?> declared) {
+                    names.stream().map(String::valueOf).filter(name -> !declared.containsKey(name))
+                            .forEach(name -> violations.add(pointer + "/" + name));
+                }
+                map.forEach((name, child) -> collectRequiredViolations(child, pointer + "/" + name, violations));
+            }
+            case List<?> list -> {
+                for (var index = 0; index < list.size(); index++) {
+                    collectRequiredViolations(list.get(index), pointer + "/" + index, violations);
+                }
+            }
+            default -> {
+                // a scalar carries no declaration
+            }
+        }
     }
 
     @ParameterizedTest(name = "{0}")
@@ -122,22 +148,6 @@ class PlanSchemaFilesTest {
                     () -> assertTrue(id == null || !String.valueOf(id).endsWith(name + ".schema.json"),
                             "the id should not repeat the schema file name"));
         }
-    }
-
-    private static Set<String> propertiesOf(Map<?, ?> schema) {
-        var properties = schema.get("properties");
-        if (!(properties instanceof Map<?, ?> members)) {
-            return Set.of();
-        }
-        return members.keySet().stream().map(String::valueOf).collect(toCollection(TreeSet::new));
-    }
-
-    private static Set<String> requiredOf(Map<?, ?> schema) {
-        var required = schema.get("required");
-        if (!(required instanceof List<?> names)) {
-            return Set.of();
-        }
-        return names.stream().map(String::valueOf).collect(toCollection(TreeSet::new));
     }
 
     private static void collectLocalRefs(Object value, List<String> refs) {
