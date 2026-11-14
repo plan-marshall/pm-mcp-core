@@ -40,7 +40,7 @@ class WorkerGenerationRecordsTest {
 
     @Test
     @DisplayName("the builder builds the worker generation the constructor builds")
-    void workerGenerationBuilderEqualsConstructor() throws ReflectiveOperationException {
+    void workerGenerationBuilderEqualsConstructor() throws Exception {
         var generationId = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
         var role = Generators.letterStrings(1, 20).next();
         var harness = Generators.letterStrings(1, 20).next();
