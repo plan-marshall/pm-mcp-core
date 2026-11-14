@@ -47,7 +47,7 @@ public record PlanHistoryLine(int formatVersion, long seq, Event event, String n
     /** The most frames a plan's call stack can have, so the most entries a line's call path can carry. */
     public static final int MAX_CALL_PATH = 5;
 
-    private static final Pattern OUTCOME_PATTERN = Pattern.compile("^[a-z][a-z0-9_]*$");
+    static final Pattern OUTCOME_PATTERN = Pattern.compile("^[a-z][a-z0-9_]*$");
 
     /**
      * Refuses a line that does not fit the schema. A {@code null} phase or outcome is a value, not a missing component.

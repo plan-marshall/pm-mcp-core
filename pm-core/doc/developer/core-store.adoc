@@ -2469,8 +2469,9 @@ construction) and `PlanHistorySchemaParityTest`, which reads the schema file
 members the codec writes are the schema's members in schema order and all required, that the events and the format
 version are the schema's, that the schema's bounds are the limits the codec enforces (the `maxItems` of the call path,
 the minimums of `seq` and `instance_version`, the `minLength` of `node` and the `outcome` pattern, each with the value
-on the bound accepted and the one beyond it refused), and that every written line is valid against the schema while a line with an undeclared
-member is not.
+on the bound accepted and the one beyond it refused), that the codec's `OUTCOME_PATTERN` is the schema's pattern
+character for character and refuses a digit-first, an underscore-first and a hyphenated outcome, and that every written
+line is valid against the schema while a line with an undeclared member is not.
 
 link:../adr/core-store/051-the-plan-history-in-core-store.adoc[ADR 051]: the plan's history is an append-only log in
 `core.store`, written through the scope transaction.

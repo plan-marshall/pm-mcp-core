@@ -160,6 +160,10 @@ class HarnessEnrolmentSchemaParityTest {
                         "An unmeasured start context carries the const"));
     }
 
+    /**
+     * The rejecting case is stated as a gap, not closed: the module carries no JSON-schema validator in its test scope
+     * and no dependency is added. Owner: the work package {@code runtime-schema-validation}.
+     */
     private static Map<?, ?> programEntry() {
         return SchemaResource.object(
                 SchemaResource.object(SchemaResource.load(SCHEMA).get("$defs")).get("program_entry"));
