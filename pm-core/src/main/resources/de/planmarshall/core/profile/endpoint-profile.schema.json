@@ -11,7 +11,17 @@
     "harness_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
     "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
     "min_daemon_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
-    "icon": { "description": "As the icon of a harness profile (Harness Profile Schema)." },
+    "icon": {
+      "type": ["object", "null"],
+      "description": "As the icon of a harness profile (Harness Profile Schema, Icons); null: the generated monogram.",
+      "properties": {
+        "form": { "type": "string", "enum": ["source", "bundled"] },
+        "source": { "type": ["string", "null"], "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.(svg|png)$", "description": "For form source: the URL of the maker's official icon file, fetched once by the runtime on the operator's consent." },
+        "bundled": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "For form bundled: the name of an icon shipped in the binary." }
+      },
+      "required": ["form", "source", "bundled"],
+      "additionalProperties": false
+    },
     "executable": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Name of the serving program; the operator enrols its absolute path, and the runtime checks that it owns the listening socket of base_url." },
     "identity": {
       "type": "object",
@@ -22,7 +32,19 @@
         "version_pattern": { "type": "string" }
       }
     },
-    "update_evidence": { "description": "As headless.update_evidence of a harness profile (Update Evidence)." },
+    "update_evidence": {
+      "type": "object",
+      "description": "As headless.update_evidence of a harness profile (Update Evidence).",
+      "properties": {
+        "method": { "type": "string", "enum": ["code_signature", "package_provenance", "none"], "description": "code_signature: the platform code signature of the executable is valid and names signer. package_provenance: the package manager that installed it verifies the package's signed provenance and the executable is the package's file. none: no check; every change waits for the operator's enrolment." },
+        "signer": { "type": ["string", "null"], "maxLength": 256, "description": "For code_signature, the signer identity the signature must name (on macOS the Developer ID team identifier); for package_provenance, the source repository the provenance must name; null for none." }
+      },
+      "required": ["method", "signer"],
+      "additionalProperties": false,
+      "if": { "properties": { "method": { "const": "none" } } },
+      "then": { "properties": { "signer": { "type": "null" } } },
+      "else": { "properties": { "signer": { "type": "string", "minLength": 1 } } }
+    },
     "endpoint": {
       "type": "object",
       "required": ["protocol", "base_url", "readiness_path", "models_path", "models_pointer", "result_schema", "context_tokens", "answer_reserve_tokens", "request_timeout_seconds"],
@@ -39,7 +61,17 @@
         "request_timeout_seconds": { "type": "integer", "minimum": 5, "maximum": 3600 }
       }
     },
-    "model_tiers": { "description": "As headless.model_tiers of a harness profile (Model Tiers & Models of a Harness)." },
+    "model_tiers": {
+      "type": "object",
+      "description": "As headless.model_tiers of a harness profile (Model Tiers): the model each tier of the shipped default assignment maps to on this endpoint.",
+      "properties": {
+        "frontier": { "type": ["string", "null"], "maxLength": 128 },
+        "standard": { "type": ["string", "null"], "maxLength": 128 },
+        "fast": { "type": ["string", "null"], "maxLength": 128 }
+      },
+      "required": ["frontier", "standard", "fast"],
+      "additionalProperties": false
+    },
     "weights_probe": { "$ref": "#/$defs/weights_probe" }
   },
   "$defs": {

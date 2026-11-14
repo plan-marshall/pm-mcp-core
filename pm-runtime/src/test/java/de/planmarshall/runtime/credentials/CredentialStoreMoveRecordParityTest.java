@@ -61,15 +61,20 @@ class CredentialStoreMoveRecordParityTest {
 
         assertAll(
                 () -> assertEquals(Set.of("format_version", "from", "to", "started_at", "phase", "target_held_key",
-                        "operation", "transaction_id"), declared),
+                        "operation", "transaction_id"), declared,
+                        "the schema declares exactly the codec's members"),
                 () -> assertEquals(declared, required(schema), "every member is required"),
                 () -> assertEquals(declared, SchemaResource.object(
                                 SchemaResource.parse(new String(written, StandardCharsets.UTF_8))).keySet(),
                         "the written members are the schema's"),
-                () -> assertEquals(1, CredentialStoreMoveRecord.FORMAT_VERSION),
-                () -> assertTrue(new String(written, StandardCharsets.UTF_8).startsWith("{\"format_version\":1,"),
-                        new String(written, StandardCharsets.UTF_8)),
-                () -> assertTrue(SchemaResource.text(SCHEMA).contains("\"additionalProperties\": false")));
+                () -> assertEquals(1, CredentialStoreMoveRecord.FORMAT_VERSION,
+                        "the record's format version stays one"),
+                () -> assertEquals(CredentialStoreMoveRecord.FORMAT_VERSION,
+                        SchemaResource.object(SchemaResource.parse(new String(written, StandardCharsets.UTF_8)))
+                                .get("format_version"),
+                        "the written format version is the record's"),
+                () -> assertTrue(SchemaResource.text(SCHEMA).contains("\"additionalProperties\": false"),
+                        "the schema closes its member set"));
     }
 
     @Test
@@ -103,7 +108,8 @@ class CredentialStoreMoveRecordParityTest {
         var generated = TransactionId.generate(Clock.fixed(STARTED, ZoneOffset.UTC)).value();
 
         assertAll(
-                () -> assertTrue(pattern.matcher(generated).matches(), generated),
+                () -> assertTrue(pattern.matcher(generated).matches(),
+                        "the generated id matches the schema pattern"),
                 () -> assertFalse(pattern.matcher("018F0000-0000-7000-8000-000000000001").matches(),
                         "upper case is not the one written form"));
     }

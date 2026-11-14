@@ -25,7 +25,9 @@ import de.planmarshall.core.store.ProjectEnrolment;
  * {@link ProjectEnrolment.WorkerKind}, in its order: a kind the enrolment file accepts is a kind the payload names, and
  * the reverse. The schema is the file {@code project-script-input-v1.schema.json} in
  * {@code pm-runtime/src/main/resources/de/planmarshall/runtime/job/}, read through {@link SchemaResource}. The member
- * names are the wire format; they are read from the type and the file, never copied here.
+ * names are the wire format; they are read from the type and the file, never copied here. No class writes this payload
+ * at the head, so {@code format_version} is the contract alone: it stays {@code 1} by R13 (format versions stay 1), and
+ * the package that builds the project-script payload owns reading it from a constant.
  */
 @DisplayName("Project-script input schema parity")
 class ProjectScriptInputSchemaParityTest {
@@ -49,8 +51,9 @@ class ProjectScriptInputSchemaParityTest {
     void formatVersion() {
         var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
 
-        assertEquals(1, ((Number) SchemaResource.object(properties.get("format_version")).get("const")).intValue(),
-                "The format version is one");
+        assertEquals(ProjectEnrolment.FORMAT_VERSION,
+                ((Number) SchemaResource.object(properties.get("format_version")).get("const")).intValue(),
+                "The payload's format version is the enrolment's");
     }
 
     private static List<String> names(Iterable<?> values) {

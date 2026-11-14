@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/log-parser-facts-v1.json",
   "title": "LogParserFacts",
   "type": "object",

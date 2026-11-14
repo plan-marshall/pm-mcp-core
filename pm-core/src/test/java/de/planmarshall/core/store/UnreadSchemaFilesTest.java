@@ -72,7 +72,8 @@ class UnreadSchemaFilesTest {
             "de/planmarshall/core/store/gap-record.schema.json",
             "de/planmarshall/core/store/owed-item.schema.json",
             "de/planmarshall/core/store/plan-overrides.schema.json",
-            "de/planmarshall/core/store/policy-counter.schema.json");
+            "de/planmarshall/core/store/policy-counter.schema.json",
+            "de/planmarshall/core/store/references.schema.json");
 
     static Stream<String> codecLessFiles() {
         return CODECLESS.stream();
@@ -149,9 +150,23 @@ class UnreadSchemaFilesTest {
     }
 
     @Test
+    @DisplayName("the realized state declares the head the size measured")
+    void realizedStateDeclaresHead() {
+        var schema = SchemaResource.load("de/planmarshall/core/store/references.schema.json");
+        var realized = SchemaResource.object(SchemaResource.object(schema.get("properties")).get("realized_state"));
+        var head = SchemaResource.object(SchemaResource.object(realized.get("properties")).get("head"));
+
+        assertAll(
+                () -> assertEquals("^[0-9a-f]{40}$", head.get("pattern"),
+                        "the head carries the commit's full sha"),
+                () -> assertEquals(List.of("string", "null"),
+                        SchemaResource.array(head.get("type")).stream().map(String::valueOf).toList(),
+                        "the head is absent until the capture measured it"));
+    }
+
+    @Test
     @DisplayName("the id of a file is a URI, not its file name")
-    void idsAreUris() {
-        for (var resource : CODECLESS) {
+    void idsAreUris() {        for (var resource : CODECLESS) {
             var id = SchemaResource.load(resource).get("$id");
             var name = resource.substring(resource.lastIndexOf('/') + 1).replace(".schema.json", "");
             assertAll(
