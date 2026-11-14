@@ -101,11 +101,6 @@ numbered `Decision` sections below.
   password as fits in that head is carried. It is bounded, not removed — the cut limits the length of the residue, and
   a message whose head holds the URL carries it. The line-bound clause of item 5 below states the order that produces
   it;
-* a later label inside a quoted credential-flag value: a flag value that closes after a line end can take a following
-  label into the masked value when a word character follows the closing quote
-  (`--password "abc` / `token="s3cret"`), so that later value stays readable. The assignment form refuses such a close
-  and falls back to the unclosed rule; the flag form's one-line-end allowance is the pre-existing residue this plan does
-  not change;
 * a quoted assignment whose closing quote lies on the next line: the assignment form closes on its own line only, so
   such a value is read as unclosed and only the first line is masked; the continuation stays readable. A close on the
   next line is indistinguishable from the next label's quote, which the blocked-swallow rule refuses.

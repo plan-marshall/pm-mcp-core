@@ -143,10 +143,7 @@ because the secret runs to the last `@` of the token.
 most one line end, which may be escaped by a backslash (a shell line continuation) and still counts as the one line end;
 an unclosed quote masks the rest of its line, and an escaped quote (`\"`) is no close
 |a flag outside the list (`--key value`, an operator decision) and `--password-file notes.txt`, a different flag. The
-false-positive cost: usage text such as `--token <token>` masks the placeholder. A flag value that closes after a line
-end can take a following label into the masked value when a word character follows the closing quote
-(`--password "abc` / `token="s3cret"`), leaving that later value readable — the pre-existing one-line-end residue; the
-assignment form refuses that close instead.
+false-positive cost: usage text such as `--token <token>` masks the placeholder.
 
 |PEM private-key block and PGP private-key block (`-----BEGIN PGP PRIVATE KEY BLOCK-----`)
 |the block from its `BEGIN` line to its `END` line; a block without its `END` line is masked to the end of the text (the
