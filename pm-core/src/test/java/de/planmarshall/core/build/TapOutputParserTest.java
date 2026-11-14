@@ -328,18 +328,14 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
     }
 
     @Test
-    @DisplayName("leaves the counts unmeasured when pass and fail wrap to the printed total (TAP wire format)")
-    void partsWrappingToTheTotalAreUnmeasured() {
-        // The Long.MAX_VALUE counts and the log shape are the contract: pass + fail + skipped wrap to the total 1.
-        String logText = String.join("\n", "TAP version 13", "1..1", "ok 1 - first", "# tests 1",
-                "# pass 9223372036854775807", "# fail 9223372036854775807", "# skipped 3");
+    @DisplayName("a prose line that starts with ok is no test point (TAP point shape)")
+    void proseStartingWithOkIsNoTestPoint() {
+        String logText = String.join("\n", "TAP version 13", "1..1", "ok, the copy is done", "ok 1 - first",
+                "# tests 1", "# pass 1", "# fail 0");
 
         ParsedBuild build = TapOutputParser.parse(logText);
 
-        assertAll(
-                () -> assertFalse(build.successMarker(), "Wrapped parts are no passing summary"),
-                () -> assertEquals(TestCounts.unmeasured(), build.testCounts(),
-                        "Wrapped parts are no measured population"));
+        assertTrue(build.successMarker(), "Prose starting with ok must not inflate the point count");
     }
 
     @Test

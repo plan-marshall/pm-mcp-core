@@ -440,6 +440,9 @@ All nine parsers cut every line at the per-line bound of the same resource befor
 `OpenRewriteLogParser` and `PyprojectOutputParser` since ADR `core-build/007`, and `GradleOutputParser`,
 `NpmErrorParser`, `TypeScriptOutputParser`, `EslintOutputParser`, `JestOutputParser` and `TapOutputParser` since
 link:../adr/core-build/009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR `core-build/009`].
+The cut keeps a line's head and never splits a surrogate pair. A credentialed URL whose closing `@` lies beyond the cut
+loses it, so `scheme://user:<partial password>` stays readable there; the residue is inert only while the stored-message
+cut keeps the head, and ADR `core-build/009` names it in "What stays readable".
 The runtime's dispatcher `BuildOutputParser` cuts the stripped text the same way before its dispatch patterns, and its
 multi-line markers start on horizontal space (`^[ \t]*`, as `NpmErrorParser.INSTALL_SUMMARY` does) rather than on
 `^\s*`, so no repetition of theirs crosses a line end. One cut bounds every expression of a parser at once — a pattern

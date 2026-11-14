@@ -92,7 +92,12 @@ numbered `Decision` sections below.
   taken as the value and masked) — shapes no anchored pattern marks, left for a later decision;
 * an unquoted assignment value shorter than four characters, a bearer value under eight characters and a secret with no
   label — the deliberate minimum, kept as an accepted residue. A quoted assignment value is not subject to that
-  minimum (see below).
+  minimum (see below);
+* a head-residue of a cut line: a credentialed URL whose closing `@` lies beyond the `BuildLogText.MAX_LINE_LENGTH`
+  (8192) cut leaves `scheme://user:<partial password>` readable, because the URL shape needs its closing `@` to match.
+  It is inert because every stored message is cut to 500 characters after the redaction (`DiagnosticCollector.java`,
+  `MAX_MESSAGE_LENGTH`), so the residue cannot reach the model or a store while that cut holds; it breaks if that cut is
+  raised, and the line-bound clause of item 5 below states the order that produces it.
 
 === The quoted assignment value runs to its closing quote
 
@@ -180,8 +185,9 @@ parsers: `JestOutputParser` adds its `Tests:` blocks and each block's parts with
 count beyond the `long` range as red, and `EslintOutputParser` adds its problem summaries with `Math.addExact` and
 reports no summary when a count or a sum cannot be represented. The remaining count sums of the package are bounded:
 `GradleOutputParser` and `PyprojectOutputParser` check every addition against `Integer.MAX_VALUE`, and the `long` sums
-of `MavenOutputParser` and `LcovReportParser` stay below 2^58 because every summand is at most an `int` (or the sum of
-two) and the input holds fewer than 2^27 count lines or records; the Javadoc of each spot names its bound.
+of `MavenOutputParser` and `LcovReportParser` each stay below 2^58 — not one merged 2^59 — because every summand is at
+most an `int` (or the sum of two) and the input holds fewer than 2^27 count lines or records; the Javadoc of each spot
+names its bound.
 
 *A deviation from the outline, accepted when the plan ran unattended.* The outline compared the plan with the summed
 `# tests` total. The ported real log of `node --test` (`npm-tap-test-real.log` of the fixture `npm-tap-success`) prints
@@ -214,11 +220,14 @@ line cut was corrected to name the input size as its bound.
   whitespace repetition.
 * (b) `UnparsedEvidence.of` runs its steps in the order strip, reduce, window, line bound, redact, byte cap. Its line
   bound keeps the *end* of each line (the last `MAX_LINE_LENGTH` characters), not its head as `boundLines` does, because
-  the excerpt is the log's tail and its existing contract keeps the end of a long last line. The accepted residue of the
-  order: a secret that straddles the line cut loses its label before the redactor sees it, so the rest of its value is
-  unlabeled and the label-anchored shapes do not match it. It stays readable only where the byte bound keeps it, which
-  takes a retained value of about 4096 characters (`UnparsedEvidence.MAX_BYTES`) or more; masking the retained text of a
-  cut line instead would trade evidence for that case and is a maintainer decision. The cut comes before the redaction
+  the excerpt is the log's tail and its existing contract keeps the end of a long last line. Neither bound splits a
+  surrogate pair. The accepted residue of the order: a secret that straddles the line cut loses its label before the
+  redactor sees it, so the rest of its value is unlabeled and the label-anchored shapes do not match it. It stays
+  readable only where the byte bound keeps it, which takes a retained value of about 4096 characters
+  (`UnparsedEvidence.MAX_BYTES`) or more; masking the retained text of a cut line instead would trade evidence for that
+  case and is a maintainer decision. The head bound of `boundLines` produces the mirror residue: a credentialed URL
+  whose closing `@` lies beyond the cut loses it, so `scheme://user:<partial password>` stays readable; it is inert only
+  while the stored-message cut keeps the head, as "What stays readable" states. The cut comes before the redaction
   because it is what bounds the redactor's cost.
 
 === Decision 4 (item 6): the coverage limits, the refusal echo and the XML factory

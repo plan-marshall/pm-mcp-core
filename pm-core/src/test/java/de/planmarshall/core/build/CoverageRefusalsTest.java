@@ -160,7 +160,7 @@ class CoverageRefusalsTest {
     }
 
     @Test
-    @DisplayName("cuts a hostile long file name of a file-system failure")
+    @DisplayName("cuts a hostile long file name of a file-system failure and keeps the failure kind")
     void cutsAHostileLongFileName() {
         Path reportFile = directory.resolve(Generators.letterStrings(300, 400).next() + ".xml");
 
@@ -168,8 +168,11 @@ class CoverageRefusalsTest {
                 new NoSuchFileException(reportFile.toString()));
 
         assertAll(
-                () -> assertEquals("cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
-                        refused.reason().length(), "The file-system detail is cut to the bound"),
+                () -> assertEquals("cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH
+                        + ": no such file".length(), refused.reason().length(),
+                        "The file name is cut to the bound before the kind is appended"),
+                () -> assertTrue(refused.reason().endsWith(": no such file"),
+                        "A name near the bound never loses the failure kind"),
                 () -> assertTrue(refused.reason().startsWith("cobertura: " + reportFile.getFileName()
                         .toString().substring(0, 100)), "The reason keeps the head of the file name"));
     }

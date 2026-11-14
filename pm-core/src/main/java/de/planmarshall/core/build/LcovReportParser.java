@@ -105,8 +105,8 @@ public class LcovReportParser {
     /**
      * The state of one walk over a report. The {@code long} sums of the record counters cannot wrap: every counter is an
      * {@code int}, and the report holds fewer than 2^27 records (a record takes more than 16 characters, a file is read
-     * within the {@code int} bound of {@link CoverageReportStream} and a text within the length of a Java
-     * {@code String}), so a sum stays below 2^58.
+     * within the configured {@code long} cap of {@link CoverageReportStream} and a text within the length of a Java
+     * {@code String}), so each sum stays below 2^58.
      */
     private static final class Walk {
 
