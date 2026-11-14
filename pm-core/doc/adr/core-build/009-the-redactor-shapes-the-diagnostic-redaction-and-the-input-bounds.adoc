@@ -95,19 +95,21 @@ numbered `Decision` sections below.
   minimum (see below);
 * a head-residue of a cut line: a credentialed URL whose closing `@` lies beyond the `BuildLogText.MAX_LINE_LENGTH`
   (8192) cut leaves `scheme://user:<partial password>` readable, because the URL shape needs its closing `@` to match.
-  Its exposure is bounded by the stored-message cut that follows the redaction (`DiagnosticCollector` keeps at most 500
-  characters): only as much of the partial password as fits inside that head is carried. It is bounded, not removed —
-  the 500-character cut limits the length of the residue, and a message whose head holds the URL carries it. The
-  line-bound clause of item 5 below states the order that produces it.
+  Its exposure is bounded by the path's stored cut — 500 characters for a diagnostic message, the
+  `BuildLogText.MAX_LINE_LENGTH` head for a provider answer, which applies no 500 cut — so only as much of the partial
+  password as fits in that head is carried. It is bounded, not removed — the cut limits the length of the residue, and
+  a message whose head holds the URL carries it. The line-bound clause of item 5 below states the order that produces
+  it.
 
 === The quoted assignment value runs to its closing quote
 
 An assignment whose value is quoted (`token="ab cd ef"`, `password="my pass phrase"`) masks the whole quoted value: the
-value runs to its own closing quote, as the quoted credential-flag forms do, and the escape handling of the flag form
-keeps an escaped quote from closing it. A quote that does not close on its line masks the rest of the line, as the
-unclosed credential-flag form does; the lookahead that refuses the closed form keeps the two apart, so a value that
-closes after an escape pair is never taken for an unclosed one. The four-character minimum therefore applies to unquoted
-values only. The false-positive cost: a short quoted value of an ordinary text is masked with its label.
+value runs to its own closing quote — across at most one line end, as the quoted credential-flag forms do — and the
+escape handling of the flag form keeps an escaped quote from closing it. A quote that does not close on its line or the
+next masks the rest of its line, as the unclosed credential-flag form does; the lookahead that refuses the closed form
+keeps the two apart, so a value that closes after an escape pair is never taken for an unclosed one. The four-character
+minimum therefore applies to unquoted values only. The false-positive cost: a short quoted value of an ordinary text is
+masked with its label.
 
 === The matcher is Unicode-aware, and invisible characters are removed
 
@@ -167,10 +169,10 @@ being copied.
 A top-level plan line `1..N` announces the test points the run will print. `TapOutputParser` checks the plan per run:
 a run starts at every line that starts with `TAP version`, and the lines before the first such line, or the whole log
 when it carries none, are one run. Per run it sums the counts of the run's own top-level plan lines and compares the
-sum with the run's own number of top-level test points (`ok` / `not ok` at the start of a line); when they differ, the
+sum with the run's own number of top-level test points (`ok <number>` and `not ok <number>` at the start of a line,
+the TAP point shape); when they differ, the
 run did not finish its plan — the evidence class of `Bail out!` — and the passing summary is no marker, even with
-exit 0. The top-level test points counted are the TAP point shape `ok <number>` and `not ok <number>` at the start of a
-line; a prose line that merely starts with the word `ok` is no point. The log finished its plan only when every run did,
+exit 0. A prose line that merely starts with the word `ok` is no point. The log finished its plan only when every run did,
 so a later run of concatenated runs
 (`npm test --workspaces`) cannot supply the point an earlier run is missing. The counts stay as the summary measured them, summed
 over all runs. An indented (subtest) plan line or test point is not read, a matching plan changes nothing, and a run
@@ -233,9 +235,9 @@ line cut was corrected to name the input size as its bound.
   readable only where the byte bound keeps it, which takes a retained value of about 4096 characters
   (`UnparsedEvidence.MAX_BYTES`) or more; masking the retained text of a cut line instead would trade evidence for that
   case and is a maintainer decision. The head bound of `boundLines` produces the mirror residue: a credentialed URL
-  whose closing `@` lies beyond the cut loses it, so `scheme://user:<partial password>` stays readable; it is inert only
-  while the stored-message cut keeps the head, as "What stays readable" states. The cut comes before the redaction
-  because it is what bounds the redactor's cost.
+  whose closing `@` lies beyond the cut loses it, so `scheme://user:<partial password>` stays readable; its exposure is
+  bounded, not removed, by the stored cut of the path that carries it, as "What stays readable" states. The cut comes
+  before the redaction because it is what bounds the redactor's cost.
 
 === Decision 4 (item 6): the coverage limits, the refusal echo and the XML factory
 

@@ -242,6 +242,16 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a quoted assignment value across one line end is masked whole")
+    void quotedAssignmentAcrossOneLineEnd() {
+        // the flag forms allow exactly one line end; the assignment form follows them
+        var redacted = redactValue("password=\"first line\nsecond line\" done");
+
+        assertEquals("password=\"" + SecretRedactor.REDACTED + "\" done", redacted,
+                "a value that closes on the next line is masked whole");
+    }
+
+    @Test
     @DisplayName("an unclosed quoted assignment masks the rest of its line")
     void unclosedQuotedAssignmentIsMasked() {
         // `as the flag forms do`: an unclosed quote masks the rest of the line, so a short first word is not left readable

@@ -243,9 +243,10 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   `stack`, and without a block the test's own name is the message. The `# tests` / `# pass` / `# fail` / `# skipped`
   block supplies the counts. The plan is checked per run: a run starts at every line that starts with `TAP version`, and
   the lines before the first such line, or the whole log when it carries none, are one run. A run's top-level plan
-  lines `1..N` (their counts summed) are compared with that run's own number of top-level test points (`ok` / `not ok`
-  at the start of a line): when they differ, the run did not finish the plan it announced — the evidence class of
-  `Bail out!` — and the passing summary is no marker, even with exit 0. The log finished its plan only when every run
+  lines `1..N` (their counts summed) are compared with that run's own number of top-level test points (`ok <number>`
+  and `not ok <number>` at the start of a line); when they differ, the run did not finish the plan it announced — the
+  evidence class of `Bail out!` — and the passing summary is no marker, even with exit 0. A prose line that merely
+  starts with the word `ok` is no point. The log finished its plan only when every run
   did, so in a log of concatenated runs (`npm test --workspaces`) a later run cannot supply the point an earlier run is
   missing; the counts stay as the summary measured them, summed over all runs. A plan count too large for a `long`, or
   plan counts whose sum overflows a `long`, leave the run unfinished (no passing summary): the sum is added with
@@ -268,10 +269,11 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   a node id that carries a space or the ` - ` delimiter is split outside its parameter brackets.
 
 *Every stored diagnostic is redacted.* `DiagnosticCollector.stored` redacts a message through `SecretRedactor` before it
-cuts it to the stored length, so the TAP, Jest, ESLint, TypeScript, Maven and Gradle messages — and the npm ones — reach
-neither the model nor a store unmasked, and a truncated message cannot keep half a secret. `Diagnostic` redacts its
-collected `stackTrace` in its constructor, so the TAP and Jest frames and the frames `StackTraceCollector` attaches to a
-Maven or Gradle issue are covered by the same rule.
+cuts it to the stored length, so the TAP, Jest, ESLint, TypeScript, Maven, Gradle and pyproject messages — and the npm
+ones — reach neither the model nor a store unmasked, and a truncated message cannot keep half a secret.
+`OpenRewriteLogParser` files its own `RewriteFinding` records rather than a `Diagnostic`, so its messages do not pass
+through this seam. `Diagnostic` redacts its collected `stackTrace` in its constructor, so the TAP and Jest frames and
+the frames `StackTraceCollector` attaches to a Maven or Gradle issue are covered by the same rule.
 
 === Counts of the Six
 

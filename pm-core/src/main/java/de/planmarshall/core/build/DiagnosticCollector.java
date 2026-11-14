@@ -26,9 +26,10 @@ import de.planmarshall.core.queue.SecretRedactor;
  * summary and the per-module output of one error produce one diagnostic. Every message passes through
  * {@link #stored(String)}, which redacts the credential shapes and then stores at most 500 characters of the message: the
  * redaction runs first, so a cut value cannot keep a prefix the redactor would have matched whole. Both parsers use this
- * one implementation, so the two identities cannot drift apart, and every parser of the package files its message
- * through {@code stored}; the one model field the seam does not reach — the collected stack trace — is redacted in the
- * {@link Diagnostic} constructor.
+ * one implementation, so the two identities cannot drift apart, and every parser that files a {@link Diagnostic} passes
+ * its message through {@code stored} (the OpenRewrite log parser files its own {@code RewriteFinding} records instead);
+ * the one model field the seam does not reach — the collected stack trace — is redacted in the {@link Diagnostic}
+ * constructor.
  *
  * @since 0.1
  */

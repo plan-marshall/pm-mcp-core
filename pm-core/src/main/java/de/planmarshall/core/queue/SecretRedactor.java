@@ -213,10 +213,10 @@ public final class SecretRedactor {
             CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
-     * The value of a quoted assignment: the plain runs and escape pairs of {@link #QUOTED_LINE} up to the same closing
-     * quote (group 3).
+     * The value of a quoted assignment: the plain runs and escape pairs of {@link #QUOTED_VALUE} — across at most one
+     * line end, as the quoted credential flag allows — up to the same closing quote (group 3).
      */
-    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_LINE + "\\3";
+    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_VALUE + "\\3";
 
     /**
      * The quoted form of a credential-shaped assignment whose closing quote is missing from its line: the rest of the
