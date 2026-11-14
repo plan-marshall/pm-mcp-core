@@ -22,11 +22,13 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 
@@ -40,6 +42,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.SchemaResource;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.UnitOrigin;
 
@@ -59,16 +62,77 @@ class PlanInstanceHeaderTest {
     private static final String DIGEST_D = "d".repeat(64);
     private static final Instant COMPOSED_AT = Instant.parse("2026-10-14T08:05:00Z");
 
-    /** The {@code composition_event} enum of the header schema (Store Schemas, Plan Instance), in its order. */
-    private static final List<String> SPEC_COMPOSITION_EVENTS = List.of("start", "outline", "plan", "config_adopted",
-            "waiver", "override", "fallback", "empty_harvest", "replan");
-    /** The {@code prune_reason} enum of the header schema (Store Schemas, Plan Instance), in its order. */
-    private static final List<String> SPEC_PRUNE_REASONS = List.of("posture", "provider_unconfigured",
-            "footprint_disjoint", "change_type_exempt", "local_only", "land_lane", "adopt", "other_lane",
-            "merge_by_operator", "plan_default", "returned", "handed_back", "empty_harvest");
-    /** The {@code fallback_cause} enum of the composition record schema (Store Schemas), in its order. */
-    private static final List<String> SPEC_FALLBACK_CAUSES = List.of("exhausted", "stepped_out", "decided",
-            "infeasible", "condition", "provider_refused", "merge_by_operator", "local_only", "files_not_applicable");
+    private static final String HEADER_SCHEMA = "de/planmarshall/workflow/plan/plan-instance-header.schema.json";
+    private static final String COMPOSITION_SCHEMA = "de/planmarshall/workflow/plan/composition-record.schema.json";
+
+    /** The {@code composition_event} enum of the header schema file, in its order. */
+    private static List<String> fileCompositionEvents() {
+        var defs = SchemaResource.object(SchemaResource.load(HEADER_SCHEMA).get("$defs"));
+        return strings(SchemaResource.object(defs.get("composition_event")).get("enum"));
+    }
+
+    /** The {@code prune_reason} enum of the header schema file, in its order. */
+    private static List<String> filePruneReasons() {
+        var defs = SchemaResource.object(SchemaResource.load(HEADER_SCHEMA).get("$defs"));
+        return strings(SchemaResource.object(defs.get("prune_reason")).get("enum"));
+    }
+
+    /** The {@code fallback_cause} enum of the composition record schema file, in its order, without {@code null}. */
+    private static List<String> fileFallbackCauses() {
+        var cause = SchemaResource.object(SchemaResource.object(SchemaResource.object(
+                SchemaResource.load(COMPOSITION_SCHEMA).get("properties")).get("cause")).get("properties"));
+        return strings(SchemaResource.object(cause.get("fallback_cause")).get("enum"));
+    }
+
+    /** The {@code trigger} enum of the composition record schema file, in its order. */
+    private static List<String> fileTriggers() {
+        var properties = SchemaResource.object(SchemaResource.load(COMPOSITION_SCHEMA).get("properties"));
+        return strings(SchemaResource.object(properties.get("trigger")).get("enum"));
+    }
+
+    private static Map<?, ?> headerProperties() {
+        return SchemaResource.object(SchemaResource.load(HEADER_SCHEMA).get("properties"));
+    }
+
+    private static List<String> fileLanes() {
+        return strings(SchemaResource.object(headerProperties().get("lane")).get("enum"));
+    }
+
+    private static List<String> filePostures() {
+        return strings(SchemaResource.object(headerProperties().get("posture")).get("enum"));
+    }
+
+    private static List<String> fileElementKinds() {
+        var pruned = SchemaResource.object(SchemaResource.object(headerProperties().get("pruned")).get("items"));
+        return strings(SchemaResource.object(
+                SchemaResource.object(pruned.get("properties")).get("element")).get("enum"));
+    }
+
+    private static List<String> fileArgumentSources() {
+        var calls = SchemaResource.object(SchemaResource.object(headerProperties().get("policy_calls")).get("items"));
+        var args = SchemaResource.object(SchemaResource.object(calls.get("properties")).get("args"));
+        var argument = SchemaResource.object(args.get("additionalProperties"));
+        return strings(SchemaResource.object(
+                SchemaResource.object(argument.get("properties")).get("source")).get("enum"));
+    }
+
+    private static List<String> fileUnitOrigins() {
+        var unitRef = SchemaResource.object(SchemaResource.object(
+                SchemaResource.load(HEADER_SCHEMA).get("$defs")).get("unit_ref"));
+        return strings(SchemaResource.object(
+                SchemaResource.object(unitRef.get("properties")).get("origin")).get("enum"));
+    }
+
+    private static List<String> strings(Object value) {
+        return SchemaResource.array(value).stream().filter(Objects::nonNull).map(String::valueOf).toList();
+    }
+
+    private static List<String> closedSetDiffs(List<String> file, List<String> record) {
+        var diffs = new ArrayList<String>();
+        file.stream().filter(value -> !record.contains(value)).forEach(value -> diffs.add("file-only:" + value));
+        record.stream().filter(value -> !file.contains(value)).forEach(value -> diffs.add("record-only:" + value));
+        return diffs;
+    }
 
     /** A header with every list empty and every optional member absent. */
     static PlanInstanceHeader minimalHeader() {
@@ -402,88 +466,144 @@ class PlanInstanceHeaderTest {
         }
 
         @Test
-        @DisplayName("the composition events are the composition_event enum of the specification, in its order")
+        @DisplayName("the composition events are the composition_event enum of the file, in its order")
         void compositionEventsClosed() {
             assertAll(
-                    () -> assertEquals(SPEC_COMPOSITION_EVENTS, Arrays.stream(CompositionEvent.values())
-                            .map(CompositionEvent::wireName).toList()),
-                    () -> assertEquals(List.of("server", "operator"), Arrays.stream(CompositionEvent.Trigger.values())
-                            .map(CompositionEvent.Trigger::wireName).toList()),
-                    () -> assertEquals(Optional.empty(), CompositionEvent.fromWireName("START")));
-        }
-
-        @ParameterizedTest(name = "{0} is {1}")
-        @CsvSource({
-                "POSTURE, posture",
-                "PROVIDER_UNCONFIGURED, provider_unconfigured",
-                "FOOTPRINT_DISJOINT, footprint_disjoint",
-                "CHANGE_TYPE_EXEMPT, change_type_exempt",
-                "LOCAL_ONLY, local_only",
-                "LAND_LANE, land_lane",
-                "ADOPT, adopt",
-                "OTHER_LANE, other_lane",
-                "MERGE_BY_OPERATOR, merge_by_operator",
-                "PLAN_DEFAULT, plan_default",
-                "RETURNED, returned",
-                "HANDED_BACK, handed_back",
-                "EMPTY_HARVEST, empty_harvest"})
-        @DisplayName("a prune reason carries its wire name")
-        void pruneReason(PruneReason reason, String wireName) {
-            assertAll(
-                    () -> assertEquals(wireName, reason.wireName()),
-                    () -> assertEquals(Optional.of(reason), PruneReason.fromWireName(wireName)));
+                    () -> assertEquals(fileCompositionEvents(), Arrays.stream(CompositionEvent.values())
+                            .map(CompositionEvent::wireName).toList(), "the events should equal the file's"),
+                    () -> assertEquals(fileTriggers(), Arrays.stream(CompositionEvent.Trigger.values())
+                            .map(CompositionEvent.Trigger::wireName).toList(), "the triggers should equal the file's"),
+                    () -> assertEquals(Optional.empty(), CompositionEvent.fromWireName("START"),
+                            "an uppercase event should be refused"));
         }
 
         @Test
-        @DisplayName("the prune reasons are the prune_reason enum of the specification, in its order")
+        @DisplayName("the closed-set comparison reports a value only one side has")
+        void closedSetComparisonReportsOneSidedValues() {
+            var record = Arrays.stream(PruneReason.values()).map(PruneReason::wireName).toList();
+            var file = new ArrayList<>(filePruneReasons());
+            file.add("synthetic_reason");
+
+            assertAll(
+                    () -> assertEquals(List.of("file-only:synthetic_reason"), closedSetDiffs(file, record),
+                            "a file-only value should be reported"),
+                    () -> assertEquals(List.of("record-only:posture"),
+                            closedSetDiffs(record.subList(1, record.size()), record),
+                            "a record-only value should be reported"));
+        }
+
+        @Test
+        @DisplayName("every prune reason reads back by its own wire name")
+        void everyPruneReasonReadsBack() {
+            for (var reason : PruneReason.values()) {
+                assertEquals(Optional.of(reason), PruneReason.fromWireName(reason.wireName()),
+                        "a prune reason should read back by its wire name");
+            }
+        }
+
+        @Test
+        @DisplayName("the prune reasons are the prune_reason enum of the file, in its order")
         void pruneReasonsClosed() {
-            assertEquals(SPEC_PRUNE_REASONS, Arrays.stream(PruneReason.values()).map(PruneReason::wireName).toList());
+            assertEquals(filePruneReasons(), Arrays.stream(PruneReason.values()).map(PruneReason::wireName).toList(),
+                    "the prune reasons should equal the file's");
+        }
+
+        @Test
+        @DisplayName("a header carrying the new prune reasons validates against the file")
+        void newPruneReasonsValidate() {
+            var base = minimalHeader();
+            var pruned = List.of(
+                    new PrunedElement(PrunedElement.Kind.STEP, "default:create-pr", PruneReason.NO_CODE_DELTA,
+                            "change_type"),
+                    new PrunedElement(PrunedElement.Kind.STEP, "default:push", PruneReason.NO_PRODUCTION_DELTA,
+                            "change_type"));
+            var header = new PlanInstanceHeader(base.planId(), base.version(), base.event(), base.composedAt(),
+                    base.inputs(), base.lane(), base.posture(), base.steps(), pruned, List.of(), List.of());
+
+            assertAll(
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(header),
+                            "the header with the new reasons should be valid"),
+                    () -> assertTrue(filePruneReasons().containsAll(List.of("no_code_delta", "no_production_delta")),
+                            "the file should list the new prune reasons"));
         }
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"recipe_override", "auto_merge_off", "unknown"})
         @DisplayName("a reason the specification does not list reads as no prune reason")
         void removedPruneReasons(String wireName) {
-            assertEquals(Optional.empty(), PruneReason.fromWireName(wireName));
+            assertEquals(Optional.empty(), PruneReason.fromWireName(wireName),
+                    "an unlisted reason should have no value");
         }
 
         @Test
-        @DisplayName("the fallback causes are the fallback_cause enum of the specification, in its order")
+        @DisplayName("the fallback causes are the fallback_cause enum of the file, in its order")
         void fallbackCausesClosed() {
-            assertEquals(SPEC_FALLBACK_CAUSES, Arrays.stream(CompositionCause.FallbackCause.values())
-                    .map(CompositionCause.FallbackCause::wireName).toList());
+            assertEquals(fileFallbackCauses(), Arrays.stream(CompositionCause.FallbackCause.values())
+                    .map(CompositionCause.FallbackCause::wireName).toList(),
+                    "the fallback causes should equal the file's");
+        }
+
+        @Test
+        @DisplayName("a composition line carrying the new fallback cause validates against the file")
+        void newFallbackCauseValidates() {
+            var cause = new CompositionCause(null, CompositionCause.FallbackCause.OPERATOR_PATH, null, null, null,
+                    null, null, null);
+            var record = new CompositionRecord(CompositionEvent.FALLBACK, CompositionRecord.Result.REFUSED,
+                    null, CompositionEvent.Trigger.SERVER, cause, new TreeMap<>(), null, COMPOSED_AT);
+            var writtenCause = SchemaResource.object(SchemaResource.object(
+                    SchemaResource.parse(record.toJson())).get("cause"));
+
+            assertAll(
+                    () -> assertTrue(fileFallbackCauses().contains("operator_path"),
+                            "the file should list the new fallback cause"),
+                    () -> assertEquals("operator_path", writtenCause.get("fallback_cause"),
+                            "the line should carry the new fallback cause"),
+                    () -> assertEquals(Optional.of(CompositionCause.FallbackCause.OPERATOR_PATH),
+                            CompositionCause.FallbackCause.fromWireName("operator_path"),
+                            "the type should accept the new fallback cause"));
         }
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"question_expired", "auto_merge_off"})
         @DisplayName("a fallback cause the specification does not list reads as no fallback cause")
         void removedFallbackCauses(String wireName) {
-            assertEquals(Optional.empty(), CompositionCause.FallbackCause.fromWireName(wireName));
+            assertEquals(Optional.empty(), CompositionCause.FallbackCause.fromWireName(wireName),
+                    "an unlisted cause should have no value");
         }
 
+        /**
+         * The pinned drifts: {@code BoundArgument.Source} carries no {@code override} and {@code UnitOrigin} no
+         * {@code machine}; {@code machine-onboarding-unit} builds them (tasks 12 and 1).
+         */
         @Test
-        @DisplayName("element kinds, argument sources, lanes, postures and origins carry their wire names")
+        @DisplayName("the other wire names equal their files, with two named drifts pinned")
         void otherEnumerations() {
+            var kinds = Arrays.stream(PrunedElement.Kind.values()).map(PrunedElement.Kind::wireName).toList();
+            var sources = Arrays.stream(BoundArgument.Source.values()).map(BoundArgument.Source::wireName).toList();
+            var lanes = Arrays.stream(PlanInstanceHeader.Lane.values()).map(PlanInstanceHeader.Lane::wireName)
+                    .toList();
+            var postures = Arrays.stream(PlanInstanceHeader.Posture.values())
+                    .map(PlanInstanceHeader.Posture::wireName).toList();
+            var origins = Arrays.stream(UnitOrigin.values()).map(UnitReference::wireName).toList();
+
             assertAll(
-                    () -> assertEquals(List.of("step", "state", "link", "policy_action", "call"),
-                            Arrays.stream(PrunedElement.Kind.values()).map(PrunedElement.Kind::wireName).toList()),
-                    () -> assertEquals(Optional.of(PrunedElement.Kind.CALL), PrunedElement.Kind.fromWireName("call")),
-                    () -> assertEquals(List.of("template", "composition_rule", "waiver"),
-                            Arrays.stream(BoundArgument.Source.values()).map(BoundArgument.Source::wireName)
-                                    .toList()),
-                    () -> assertEquals(List.of("light", "deep", "land", "adopt"),
-                            Arrays.stream(PlanInstanceHeader.Lane.values()).map(PlanInstanceHeader.Lane::wireName)
-                                    .toList()),
-                    () -> assertEquals(List.of("minimal", "standard", "full"),
-                            Arrays.stream(PlanInstanceHeader.Posture.values())
-                                    .map(PlanInstanceHeader.Posture::wireName).toList()),
-                    () -> assertEquals(List.of("default", "project"),
-                            Arrays.stream(UnitOrigin.values()).map(UnitReference::wireName).toList()),
+                    () -> assertEquals(fileElementKinds(), kinds, "the element kinds should equal the file's"),
+                    () -> assertEquals(Optional.of(PrunedElement.Kind.CALL),
+                            PrunedElement.Kind.fromWireName("call"), "a call kind should read back"),
+                    () -> assertEquals(List.of("file-only:override"), closedSetDiffs(fileArgumentSources(), sources),
+                            "the source drift is pinned to machine-onboarding-unit"),
+                    () -> assertEquals(fileLanes(), lanes, "the lanes should equal the file's"),
+                    () -> assertEquals(filePostures(), postures, "the postures should equal the file's"),
+                    () -> assertEquals(List.of("file-only:machine"), closedSetDiffs(fileUnitOrigins(), origins),
+                            "the origin drift is pinned to machine-onboarding-unit"),
                     () -> assertEquals(Optional.of(PrunedElement.Kind.POLICY_ACTION),
-                            PrunedElement.Kind.fromWireName("policy_action")),
-                    () -> assertEquals(Optional.empty(), BoundArgument.Source.fromWireName("operator")),
-                    () -> assertEquals(Optional.empty(), PlanInstanceHeader.Lane.fromWireName("fast")),
-                    () -> assertEquals(Optional.empty(), PlanInstanceHeader.Posture.fromWireName("max")));
+                            PrunedElement.Kind.fromWireName("policy_action"), "a policy action kind should read back"),
+                    () -> assertEquals(Optional.empty(), BoundArgument.Source.fromWireName("operator"),
+                            "an unlisted argument source should be refused"),
+                    () -> assertEquals(Optional.empty(), PlanInstanceHeader.Lane.fromWireName("fast"),
+                            "an unlisted lane should be refused"),
+                    () -> assertEquals(Optional.empty(), PlanInstanceHeader.Posture.fromWireName("max"),
+                            "an unlisted posture should be refused"));
         }
     }
 

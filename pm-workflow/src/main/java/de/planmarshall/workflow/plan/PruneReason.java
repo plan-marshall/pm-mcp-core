@@ -48,7 +48,11 @@ public enum PruneReason {
     /** Post-run only: the plan takes the {@code handed_back} route. */
     HANDED_BACK("handed_back"),
     /** Post-run only: a harvest yielded no targets. */
-    EMPTY_HARVEST("empty_harvest");
+    EMPTY_HARVEST("empty_harvest"),
+    /** In the file, set by {@code finalize-prune-and-land-files}: the change touches no code. */
+    NO_CODE_DELTA("no_code_delta"),
+    /** In the file, set by {@code finalize-prune-and-land-files}: the change has no production delta. */
+    NO_PRODUCTION_DELTA("no_production_delta");
 
     private final String wireName;
 

@@ -94,6 +94,10 @@ CompositionResult.@Nullable Refusal refusal) {
          * The pre-merge barrier passed while the plan's asking variant leaves the merge to the operator; not a failure.
          */
         MERGE_BY_OPERATOR("merge_by_operator"),
+        /**
+         * In the file (PM-WATCH-PHASE-129): an operator path left the merge to the operator; not a failure.
+         */
+        OPERATOR_PATH("operator_path"),
         /** No push remote exists; not a failure. */
         LOCAL_ONLY("local_only"),
         /** The changes of {@code landing.files} could not be written into the main checkout. */
