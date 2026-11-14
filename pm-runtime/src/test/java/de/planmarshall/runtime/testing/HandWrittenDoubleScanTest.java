@@ -83,13 +83,22 @@ class HandWrittenDoubleScanTest {
                         }
                         """).contains("planted.java#lambda:AuditSink#1"),
                 "a planted lambda of a production type is found");
-        assertTrue(scan("planted.java", "class Holder {\n    String s = \"\"\"\n        \\\"\"\"\n"
-                        + "        class Phantom implements AuditSink {}\n        \"\"\";\n}\n").isEmpty(),
-                "an escaped text-block delimiter hides its content");
+        assertTrue(scan("planted.java", """
+                class Holder {
+                    String s = \"\"\"
+                        \\\"\"\"
+                        class Phantom implements AuditSink {}
+                        \"\"\";
+                }
+                """).isEmpty(), "an escaped text-block delimiter hides its content");
         assertTrue(productionNames("public abstract static class Port { }").contains("Port"),
                 "an abstract class's modifier order does not hide it");
-        assertTrue(scan("planted.java", "class Holder {\n    de.planmarshall.core.service.AuditSink unused,"
-                        + " sink = event -> {\n    };\n}\n").contains("planted.java#lambda:AuditSink#1"),
+        assertTrue(scan("planted.java", """
+                class Holder {
+                    de.planmarshall.core.service.AuditSink unused, sink = event -> {
+                    };
+                }
+                """).contains("planted.java#lambda:AuditSink#1"),
                 "a multi-declarator field's lambda is found");
 
         Set<String> found = new TreeSet<>(scanModule());
