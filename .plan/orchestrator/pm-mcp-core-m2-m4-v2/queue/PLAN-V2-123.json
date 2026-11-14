@@ -2,10 +2,10 @@
   "id": "PLAN-V2-123",
   "slug": "schema-parity-drift-and-readers",
   "workstream": "WS-12",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#427",
+  "landing": "landings/PLAN-V2-123.md",
   "seq": 111
 }
