@@ -344,6 +344,12 @@ class StartFailureGuardTest {
         guard.startFailed(role, harness, failure);
     }
 
+    /**
+     * A nice stub: the guard's other protocol calls are no-ops, while every close is recorded for the assertions on
+     * {@code closed}.
+     *
+     * @return the protocol of the tests
+     */
     private WorkerProtocol protocol() {
         WorkerProtocol mock = createNiceMock(WorkerProtocol.class);
         mock.closeUnavailable(anyObject(String.class), anyObject(String.class));
