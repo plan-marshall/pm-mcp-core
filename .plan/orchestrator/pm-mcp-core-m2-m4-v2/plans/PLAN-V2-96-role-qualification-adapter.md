@@ -73,6 +73,8 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 - Depends on: PLAN-V2-31 (`supervisor-calls-and-pass`), PLAN-V2-83 and PLAN-V2-84.
 - Overlaps by class with PLAN-V2-50 (`r05-reduction-role-sets`, condenses the specification text this plan implements) and PLAN-V2-53 (the corpus fetch in the Closed List): this plan runs after PLAN-V2-31 and reads their text first.
 
+**Unparked 2026-11-14 (issues pass Q12, operator answer 2).** The row is `staged`; the plan was parked on the window rule only (its old reason, "depends on parked PLAN-V2-31", ended when 31 was staged on 2026-11-10). It waits behind PLAN-V2-31 and is **not emittable before it has landed**. **Before the emit it is re-grounded by a read-only leaf against the head** (this spec was written on 2026-10-29: the first grounding was before the shipped plans 06, 100, 108, 110, 119, 129, 136, 138 and 39 and before the schema-file transition; `RoleGrader` is referenced only inside `pm-workflow` at the head; the specification parts it implements are condensed by PLAN-V2-50, still staged); rules `r7`, a `Read the skills first (R20)` paragraph and Skills/Persona sub-lines per deliverable are added at that re-ground.
+
 ## Hand-Off Command
 
 ```text
