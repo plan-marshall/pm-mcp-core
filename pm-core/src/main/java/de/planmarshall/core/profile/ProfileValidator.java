@@ -41,6 +41,9 @@ public final class ProfileValidator {
     /** The one schema version a profile declares. */
     public static final int SCHEMA_VERSION = 1;
 
+    /** The margin the idle timeout must leave above the bounded wait of a host whose progress resets no timer. */
+    private static final long IDLE_MARGIN_SECONDS = 30;
+
     // The member names of the client profile schema, named once each (ADR core-profile/005).
     private static final String NAME_SCHEMA_VERSION = "schema_version";
     private static final String NAME_CLIENT_ID = "client_id";
@@ -845,9 +848,10 @@ public final class ProfileValidator {
         }
 
         /**
-         * The usage block is {@code token-usage}'s, including the rule that {@code input_tokens} and
-         * {@code output_tokens} are never {@code not_applicable}; this validator checks only its shape and leaves the
-         * meaning of a figure to the stage {@code usage} of the profile verification.
+         * The usage block is the one the Harness Profiles specification describes under <em>Tokens, Not Money</em>: the
+         * {@code headless.usage} pointers, including the rule that {@code input_tokens}, {@code output_tokens} and
+         * {@code tool_uses} are never {@code not_applicable}; this validator checks only its shape and leaves the meaning
+         * of a figure to the stage {@code usage} of the profile verification.
          */
         private void usage(JsonNode usage, String pointer) {
             var members = Set.copyOf(ProfileStages.USAGE_FIGURES);
@@ -1039,10 +1043,10 @@ public final class ProfileValidator {
                     pointer + "/bounded_wait_seconds", NAME_BOUNDED_WAIT_SECONDS, 15, 3600);
             var progress = bool(required(connection, pointer, NAME_PROGRESS_RESETS_TIMEOUT),
                     pointer + "/progress_resets_timeout", NAME_PROGRESS_RESETS_TIMEOUT);
-            if (!progress && bounded >= idle) {
+            if (!progress && bounded > idle - IDLE_MARGIN_SECONDS) {
                 throw invalid(pointer + "/bounded_wait_seconds",
-                        "the bounded wait %d stays below the idle timeout %d without progress frames"
-                                .formatted(bounded, idle));
+                        "the bounded wait %d is not %d seconds below the idle timeout %d without progress frames"
+                                .formatted(bounded, IDLE_MARGIN_SECONDS, idle));
             }
         }
 
