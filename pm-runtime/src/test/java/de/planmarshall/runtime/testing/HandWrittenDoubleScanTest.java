@@ -97,7 +97,7 @@ class HandWrittenDoubleScanTest {
         assertTrue(productionNames("public abstract static class Port { }").contains("Port"),
                 "an abstract class's modifier order does not hide it");
         assertTrue(productionNames("class Ports { public abstract @SuppressWarnings({\"unused\"})"
-                + " static class Port { } }").contains("Port"),
+                        + " static class Port { } }").contains("Port"),
                 "an annotated abstract class is a production type");
         assertTrue(scan("planted.java", """
                         class Holder {

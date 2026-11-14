@@ -23,6 +23,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -97,7 +99,7 @@ class HandWrittenDoubleScanTest {
         assertTrue(productionNames("public abstract static class Port { }").contains("Port"),
                 "an abstract class's modifier order does not hide it");
         assertTrue(productionNames("class Ports { public abstract @SuppressWarnings({\"unused\"})"
-                + " static class Port { } }").contains("Port"),
+                        + " static class Port { } }").contains("Port"),
                 "an annotated abstract class is a production type");
         assertTrue(scan("planted.java", """
                         class Holder {
