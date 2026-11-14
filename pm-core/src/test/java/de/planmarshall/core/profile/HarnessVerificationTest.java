@@ -183,13 +183,13 @@ class HarnessVerificationTest {
     void missingDraftNameOrRulesRefused() {
         var stageTokens = tokens();
         var complete = request(ConsentGate.Answer.YES, STAGES, stageTokens);
-        var withoutName = requestBuilder(ConsentGate.Answer.YES, STAGES, stageTokens);
-        var withoutRules = requestBuilder(ConsentGate.Answer.YES, STAGES, stageTokens);
+        var withoutName = requestBuilder(ConsentGate.Answer.YES, STAGES, stageTokens).draftName(null);
+        var withoutRules = requestBuilder(ConsentGate.Answer.YES, STAGES, stageTokens).rules(null);
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> withoutName.draftName(null).build(),
+                () -> assertThrows(NullPointerException.class, withoutName::build,
                         "A verification names the draft it validates"),
-                () -> assertThrows(NullPointerException.class, () -> withoutRules.rules(null).build(),
+                () -> assertThrows(NullPointerException.class, withoutRules::build,
                         "A verification names the rules it validates with"),
                 () -> assertDoesNotThrow(() -> HarnessVerification.admit(complete),
                         "The complete admission still passes"));
