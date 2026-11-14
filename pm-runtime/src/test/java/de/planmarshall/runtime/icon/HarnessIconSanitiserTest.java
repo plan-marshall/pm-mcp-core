@@ -142,7 +142,7 @@ class HarnessIconSanitiserTest {
     @Test
     @DisplayName("a PNG with a text chunk is refused")
     void pngTextChunkRefused() {
-        var candidate = png(pngChunk("tEXt", "Comment\0planted".getBytes(US_ASCII)));
+        var candidate = png(chunk("tEXt", "Comment\0planted".getBytes(US_ASCII)));
 
         var refusal = refusalOf(candidate);
 
@@ -152,7 +152,7 @@ class HarnessIconSanitiserTest {
     @Test
     @DisplayName("a PNG with an unknown chunk is refused")
     void pngUnknownChunkRefused() {
-        var candidate = png(pngChunk("eXIf", "planted".getBytes(US_ASCII)));
+        var candidate = png(chunk("eXIf", "planted".getBytes(US_ASCII)));
 
         var refusal = refusalOf(candidate);
 
@@ -162,7 +162,7 @@ class HarnessIconSanitiserTest {
     @Test
     @DisplayName("a PNG whose CRC does not match is refused")
     void pngBrokenCrcRefused() {
-        var candidate = png(pngChunk("tRNS", new byte[]{0}));
+        var candidate = png(chunk("tRNS", new byte[]{0}));
         candidate[candidate.length - 1] = (byte) (candidate[candidate.length - 1] + 1);
 
         var refusal = refusalOf(candidate);
@@ -236,6 +236,131 @@ class HarnessIconSanitiserTest {
                 () -> assertTrue(sanitised.sha256().startsWith("sha256:"), "The digest is a sha256: digest"));
     }
 
+    @Test
+    @DisplayName("a style that fetches nothing is kept")
+    void styleWithoutAFetchIsKept() {
+        var sanitised = HarnessIconSanitiser.sanitise(
+                svg("<g style=\"fill:red;stroke:blue\"><path d=\"M0 0\"/></g>").getBytes(UTF_8));
+
+        assertTrue(new String(sanitised.bytes(), UTF_8).contains("style=\"fill:red;stroke:blue\""),
+                "A plain style declaration survives the accept step");
+    }
+
+    @Test
+    @DisplayName("an xml:space attribute is kept")
+    void xmlSpaceIsKept() {
+        var sanitised = HarnessIconSanitiser.sanitise(
+                svg("<text xml:space=\"preserve\">" + TITLE + "</text>").getBytes(UTF_8));
+
+        assertTrue(new String(sanitised.bytes(), UTF_8).contains("space=\"preserve\""),
+                "The xml:space attribute survives as its local name");
+    }
+
+    @Test
+    @DisplayName("a fragment href is dropped rather than refused")
+    void fragmentHrefIsDropped() {
+        var sanitised = HarnessIconSanitiser.sanitise(
+                svg("<g href=\"#icon\"><path d=\"M0 0\"/></g>").getBytes(UTF_8));
+
+        assertFalse(new String(sanitised.bytes(), UTF_8).contains("href"),
+                "A fragment reference is dropped from the output");
+    }
+
+    @Test
+    @DisplayName("cdata in a text element is kept as text")
+    void cdataInATextElementIsKept() {
+        var sanitised = HarnessIconSanitiser.sanitise(
+                svg("<text><![CDATA[" + TITLE + "\"]]></text>").getBytes(UTF_8));
+
+        assertTrue(new String(sanitised.bytes(), UTF_8).contains(TITLE),
+                "The character data of a text element survives");
+    }
+
+    @Test
+    @DisplayName("an element of a foreign namespace is refused")
+    void foreignNamespaceElementRefused() {
+        var refusal = refusalOf(svg("<x:g xmlns:x=\"http://example.test\"><path d=\"M0 0\"/></x:g>"));
+
+        assertEquals(IconRefusal.SVG_ELEMENT_REFUSED, refusal.code(), "A foreign namespace is refused as an element");
+    }
+
+    @Test
+    @DisplayName("an SVG behind a byte-order mark is accepted")
+    void bomPrefixedSvgIsAccepted() {
+        var candidate = new ByteArrayOutputStream();
+        candidate.writeBytes(new byte[] {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
+        candidate.writeBytes(svg("<path d=\"M0 0\"/>").getBytes(UTF_8));
+
+        var sanitised = HarnessIconSanitiser.sanitise(candidate.toByteArray());
+
+        assertEquals(IconFormat.SVG, sanitised.format(), "A byte-order mark does not hide the document");
+    }
+
+    @Test
+    @DisplayName("a PNG shorter than its header and end is refused")
+    void shortPngRefused() {
+        var refusal = refusalOf(new byte[] {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
+
+        assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "A PNG without chunks is refused");
+    }
+
+    @Test
+    @DisplayName("a PNG whose first chunk is not the header is refused")
+    void pngWithoutHeaderRefused() {
+        var refusal = refusalOf(pngOf(chunk("IDAT", new byte[] {1}), chunk("IEND", new byte[0])));
+
+        assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "A PNG without IHDR first is refused");
+    }
+
+    @Test
+    @DisplayName("a PNG without image data is refused")
+    void pngWithoutDataRefused() {
+        var refusal = refusalOf(pngOf(chunk("IHDR", header()), chunk("IEND", new byte[0])));
+
+        assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "A PNG without IDAT is refused");
+    }
+
+    @Test
+    @DisplayName("a PNG without its end chunk is refused")
+    void pngWithoutEndRefused() {
+        var refusal = refusalOf(pngOf(chunk("IHDR", header()), chunk("IDAT", new byte[] {1})));
+
+        assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "A PNG without IEND is refused");
+    }
+
+    @Test
+    @DisplayName("a PNG whose end chunk carries data is refused")
+    void pngEndWithDataRefused() {
+        var refusal = refusalOf(
+                pngOf(chunk("IHDR", header()), chunk("IDAT", new byte[] {1}), chunk("IEND", new byte[] {1})));
+
+        assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "An IEND with data is refused");
+    }
+
+    @Test
+    @DisplayName("a PNG with content after its end is refused")
+    void pngWithTrailingContentRefused() {
+        var candidate = new ByteArrayOutputStream();
+        candidate.writeBytes(png());
+        candidate.writeBytes(new byte[] {1});
+
+        var refusal = refusalOf(candidate.toByteArray());
+
+        assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "Content after IEND is refused");
+    }
+
+    @Test
+    @DisplayName("a PNG whose chunk runs past the end is refused")
+    void pngWithATruncatedChunkRefused() {
+        var complete = png();
+        var truncated = new byte[complete.length - 4];
+        System.arraycopy(complete, 0, truncated, 0, truncated.length);
+
+        var refusal = refusalOf(truncated);
+
+        assertEquals(IconRefusal.PNG_INVALID, refusal.code(), "A truncated chunk is refused");
+    }
+
     private static IconRefusal refusalOf(String candidate) {
         return refusalOf(candidate.getBytes(UTF_8));
     }
@@ -274,12 +399,22 @@ class HarnessIconSanitiserTest {
     private static byte[] png(byte[]... extraChunks) {
         var out = new ByteArrayOutputStream();
         out.writeBytes(new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
-        out.writeBytes(pngChunk("IHDR", header()));
-        out.writeBytes(pngChunk("IDAT", Generators.strings(4, 12).next().getBytes(US_ASCII)));
+        out.writeBytes(chunk("IHDR", header()));
+        out.writeBytes(chunk("IDAT", Generators.strings(4, 12).next().getBytes(US_ASCII)));
         for (var chunk : extraChunks) {
             out.writeBytes(chunk);
         }
-        out.writeBytes(pngChunk("IEND", new byte[0]));
+        out.writeBytes(chunk("IEND", new byte[0]));
+        return out.toByteArray();
+    }
+
+    /** @return the PNG signature followed by the chunks exactly as given */
+    private static byte[] pngOf(byte[]... chunks) {
+        var out = new ByteArrayOutputStream();
+        out.writeBytes(new byte[] {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
+        for (var chunk : chunks) {
+            out.writeBytes(chunk);
+        }
         return out.toByteArray();
     }
 
@@ -289,7 +424,7 @@ class HarnessIconSanitiserTest {
         return header.toByteArray();
     }
 
-    private static byte[] pngChunk(String type, byte[] data) {
+    private static byte[] chunk(String type, byte[] data) {
         var chunk = new ByteArrayOutputStream();
         var length = data.length;
         chunk.writeBytes(new byte[]{(byte) (length >>> 24), (byte) (length >>> 16), (byte) (length >>> 8),

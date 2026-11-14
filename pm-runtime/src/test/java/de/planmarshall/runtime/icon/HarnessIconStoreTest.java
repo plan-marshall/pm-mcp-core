@@ -183,6 +183,17 @@ class HarnessIconStoreTest {
     }
 
     @Test
+    @DisplayName("an index entry whose file is gone is not served")
+    void entryWithoutItsFileIsNotServed() throws IOException {
+        store.accept(HARNESS_ID, svg().getBytes(UTF_8));
+        Files.delete(store.directory().resolve(HARNESS_ID + ".svg"));
+
+        var served = store.read(HARNESS_ID);
+
+        assertTrue(served.isEmpty(), "An entry whose file is gone is not served");
+    }
+
+    @Test
     @DisplayName("a refused candidate is logged with its code and length")
     void refusedCandidateIsLogged() {
         var candidate = svg("<script>alert(1)</script>").getBytes(UTF_8);
