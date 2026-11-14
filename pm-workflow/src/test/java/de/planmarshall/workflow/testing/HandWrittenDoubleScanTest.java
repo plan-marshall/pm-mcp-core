@@ -23,6 +23,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -94,11 +96,11 @@ class HandWrittenDoubleScanTest {
         assertTrue(productionNames("public abstract static class Port { }").contains("Port"),
                 "an abstract class's modifier order does not hide it");
         assertTrue(scan("planted.java", """
-                class Holder {
-                    de.planmarshall.core.service.AuditSink unused, sink = event -> {
-                    };
-                }
-                """).contains("planted.java#lambda:AuditSink#1"),
+                        class Holder {
+                            de.planmarshall.core.service.AuditSink unused, sink = event -> {
+                            };
+                        }
+                        """).contains("planted.java#lambda:AuditSink#1"),
                 "a multi-declarator field's lambda is found");
 
         Set<String> found = new TreeSet<>(scanModule());
