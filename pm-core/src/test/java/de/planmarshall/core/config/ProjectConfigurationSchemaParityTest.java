@@ -93,11 +93,11 @@ class ProjectConfigurationSchemaParityTest {
                         "the agreement level maximum stays 100"),
                 () -> assertEquals(QualificationSettings.DEFAULT_AGREEMENT_LEVEL,
                         ((Number) object(properties.get("agreement_level")).get("default")).intValue(),
-                        "the compiled agreement default should equal the file's default"),
+                        "the compiled default should equal the file's"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new QualificationSettings(101, QualificationSettings.DEFAULT_ALLOWED_GAP, List.of(),
                                 false),
-                        "the settings refuse an agreement level above the file's maximum"));
+                        "the settings refuse a level above the maximum"));
     }
 
     @Test

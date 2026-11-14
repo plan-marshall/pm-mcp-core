@@ -184,7 +184,7 @@ class IntentRecordTest {
         var choices = options();
         assertThrows(IllegalArgumentException.class,
                 () -> new Decision("DC-1", why, choices, Decider.ROLE, null, null, adr),
-                "a model decision cannot contradict an ADR");
+                "a role decision cannot contradict an ADR");
     }
 
     @DisplayName("The epic's required claims are seeded and must appear in the record")
@@ -302,7 +302,7 @@ class IntentRecordTest {
                 "the render has the operator decisions section");
         assertTrue(rendered.contains("### Role's Calls"), "the render has the role's calls section");
         assertTrue(rendered.indexOf("### Operator Decisions") < rendered.indexOf("### Role's Calls"),
-                "the operator decisions come before the model's calls");
+                "the operator decisions come before the role's calls");
         assertTrue(rendered.contains("\"The operator wants the intent visible\" → goal"),
                 "the render states the claim's landing");
     }
@@ -358,7 +358,7 @@ class IntentRecordTest {
         var choices = options();
         assertThrows(IllegalArgumentException.class,
                 () -> new Decision("DC-1", why, choices, Decider.ROLE, "q-1", null, null),
-                "a model decision carries no question id");
+                "a role decision carries no question id");
     }
 
     @DisplayName("A non-goal names its text")

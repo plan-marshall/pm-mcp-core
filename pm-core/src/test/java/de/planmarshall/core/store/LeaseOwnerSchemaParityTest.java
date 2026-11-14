@@ -92,7 +92,7 @@ class LeaseOwnerSchemaParityTest {
                 () -> assertInstanceOf(String.class, owner.get("project_id"), "The project id is a string"),
                 () -> assertInstanceOf(String.class, owner.get("scope_type"), "The scope type is a string"),
                 () -> assertInstanceOf(Map.class, owner.get("holder_instance"), "The holder is an object"),
-                () -> assertInstanceOf(Number.class, written.get("runtime_pid"), "The pid is a number"),
+                () -> assertInstanceOf(Number.class, written.get("runtime_pid"), "The runtime pid is a number"),
                 () -> assertInstanceOf(String.class, written.get("runtime_started_at"),
                         "The start instant is a string"));
     }

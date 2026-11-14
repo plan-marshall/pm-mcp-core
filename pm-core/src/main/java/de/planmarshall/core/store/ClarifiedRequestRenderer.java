@@ -18,7 +18,7 @@ import de.planmarshall.core.store.IntentRecord.Decider;
 
 /**
  * Renders {@code ## Clarified Request} of {@code request.md} from the accepted intent record (Phase Workflows § The
- * Intent Record, Rendering): the record's members as sections, each item with its identifier, and the model's own calls
+ * Intent Record, Rendering): the record's members as sections, each item with its identifier, and the role's own calls
  * under their own heading, never mixed with the operator's decisions.
  * <p>
  * The section is derived, never read back: a later phase that names the clarified request means this section. An

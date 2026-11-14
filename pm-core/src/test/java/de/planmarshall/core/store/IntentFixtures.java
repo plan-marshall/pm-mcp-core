@@ -69,8 +69,35 @@ final class IntentFixtures {
         return List.of(Generators.letterStrings(2, 20).next(), Generators.letterStrings(2, 20).next());
     }
 
-    static IntentRecord withCriteria(List<Criterion> criteria) {
+    /** The plan this fixture's record repairs; the record carries a {@code fix} criterion for it. */
+    static final String REPAIRED_PLAN = "v2-99-close-the-drift";
+
+    private static final String REPAIR_BEHAVIOUR =
+            "WHEN a record is written THEN THE store keeps the previous record intact";
+
+    /**
+     * @return a record with a {@code fix} criterion and the plan it repairs
+     */
+    static IntentRecord repairing() {
         var base = valid();
+        var criteria = List.of(criterion("AC-1", CriterionKind.FIX, VerifiedBy.TEST),
+                criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST));
+        return new IntentRecord(base.why(), base.goal(), criteria, REPAIR_BEHAVIOUR, REPAIRED_PLAN,
+                base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
+    }
+
+    /**
+     * @return a record with no {@code fix} criterion and a {@code repairs} plan, which the record refuses
+     */
+    static IntentRecord repairsWithoutFix() {
+        var base = valid();
+        return new IntentRecord(base.why(), base.goal(), base.criteria(), null, REPAIRED_PLAN,
+                base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
+    }
+
+    static IntentRecord withCriteria(List<Criterion> criteria) {        var base = valid();
         return new IntentRecord(base.why(), base.goal(), criteria, base.currentBehaviour(), base.repairs(),
                 base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
                 base.deferred(), base.sourceClaims());

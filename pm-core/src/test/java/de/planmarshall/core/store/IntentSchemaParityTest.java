@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -186,6 +187,27 @@ class IntentSchemaParityTest {
 
         assertEquals(Set.of(), validator.validate(record, InputFormat.JSON),
                 "the written record should validate against its file");
+    }
+
+    @Test
+    @DisplayName("the codec writes the repaired plan, and the null when there is none")
+    void repairsRoundTrip() {
+        var repairing = IntentCodec.write(IntentStore.first(
+                new Revision(1, IntentFixtures.AT, "TASK-001", IntentFixtures.repairing())));
+        var plain = recordDocument();
+
+        assertAll(
+                () -> assertEquals(IntentFixtures.REPAIRED_PLAN, recordDocument(repairing).get("repairs"),
+                        "the codec writes the repaired plan id"),
+                () -> assertTrue(plain.containsKey("repairs"), "a record without a repair names the member"),
+                () -> assertNull(plain.get("repairs"), "the member is null when nothing repairs"));
+    }
+
+    @Test
+    @DisplayName("a record without a fix criterion refuses the repairs member")
+    void repairsRequiresFix() {
+        assertThrows(IllegalArgumentException.class, IntentFixtures::repairsWithoutFix,
+                "repairs is set only with a fix criterion");
     }
 
     @Test
