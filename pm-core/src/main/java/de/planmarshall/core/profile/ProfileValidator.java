@@ -529,7 +529,7 @@ public final class ProfileValidator {
         private void skillUriSlot(String template, String pointer) {
             var occurrences = 0;
             for (var index = template.indexOf(SKILL_URI_SLOT); index >= 0;
-                    index = template.indexOf(SKILL_URI_SLOT, index + SKILL_URI_SLOT.length())) {
+                 index = template.indexOf(SKILL_URI_SLOT, index + SKILL_URI_SLOT.length())) {
                 occurrences++;
             }
             if (occurrences != 1) {
