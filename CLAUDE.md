@@ -124,6 +124,9 @@ convention and the consumers of each artifact are recorded in
 - Never add a dependency or a plugin without asking the user first. The six above are the operator's answers — the
   five of 2026-10-30 and the R04 dependency of 2026-10-09 — for the coding-skill conformance family (PLAN-V2-83 to
   PLAN-V2-108); anything else still needs a decision.
+- `com.tngtech.archunit:archunit-junit5` (test) in `pm-runtime` and in `pm-core`: the architecture guards
+  `OutboundCallsArchTest` of `pm-runtime` and the `*ArchTest` classes of `pm-core`. The operator gave the word for it on
+  2026-10-29 (decision A1 of the spec of PLAN-V2-53); the version comes from the parent POM.
 - Pre-1.0: no deprecation cycles, no backward-compatibility shims.
 
 ## Dependency Rules (enforced by the build)
@@ -141,9 +144,9 @@ them with a fixture project below `src/guard-controls`:
 - `pm-runtime` depends on `pm-core` and `pm-api` alone among the modules of the product, and it is the only module
   that depends on `commonmark` and LSP4J.
 - No class of `pm-runtime` or `pm-core` opens a connection (a client socket, an HTTP client, a URL connection)
-  except the four classes the exception map of the guard names with their reasons, and only the destination classes of
+  except the four classes the exemption map of the guard names with their reasons, and only the destination classes of
   the closed list use `cui-http`'s client; `OutboundCallsArchTest` of `pm-runtime` proves both
-  (link:pm-runtime/doc/developer/runtime-guard.adoc[Outbound-Call Guard Developer Guide]).
+  ([Outbound-Call Guard Developer Guide](pm-runtime/doc/developer/runtime-guard.adoc)).
 - The coordinates of the product come from the organisation registry: `.mvn/settings.xml` lists it before Maven
   Central, and the group id filter of `.mvn/rrf` (switched on in `.mvn/maven.config`) lets it be asked for
   `de.planmarshall` only. This check is inherited from the parent POM; its fixture here has its own `.mvn` with Maven
