@@ -1,0 +1,68 @@
+= ADR 015: The validator enforces the idle margin the specification names
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-14.
+
+== Context
+
+The specification relates the two connection timings of a harness: for a host whose
+`connection.progress_resets_timeout` is `false`, profile validation rejects a `connection.bounded_wait_seconds`
+above `connection.idle_timeout_seconds − 30` (Timeouts & Budgets § Bounded Wait Window, § Harness Integration).
+The margin was enforced at one place only: `ConnectionSettings` of `pm-workflow` refuses a bounded wait closer
+than `IDLE_MARGIN` to the idle timeout when the wait is built. `ProfileValidator.connection` refused only a
+bounded wait at or above the idle timeout, so a profile whose bounded wait sat inside the last 30 seconds below
+the idle timeout loaded without a refusal and was refused later, when a wait was built from it.
+
+There were two questions. First, which layer owns the margin: the loader that accepts a profile, or the wait
+that reads it. Second, where the 30 seconds are named, because `pm-workflow` depends on `pm-core` and never the
+reverse, so the validator cannot read `ConnectionSettings.IDLE_MARGIN`.
+
+== Decision
+
+`ProfileValidator.connection` enforces the margin for a host whose `progress_resets_timeout` is `false`: a
+bounded wait above `idle_timeout_seconds − IDLE_MARGIN_SECONDS` refuses the profile at load with the shape the
+other connection refusals carry — the pointer `/connection/bounded_wait_seconds` and a message naming the
+bounded wait, the idle timeout and the margin. `IDLE_MARGIN_SECONDS` is a private constant of the validator and
+holds 30 seconds.
+
+A bounded wait exactly `idle_timeout_seconds − 30` is accepted, because the specification rejects a value
+*above* it. A host whose progress frames reset the timer keeps the schema's own bound only: any bounded wait
+from 15 to 3,600 seconds loads, whatever the idle timeout.
+
+The margin is therefore named twice, in `ProfileValidator` and in `ConnectionSettings`, and this record is the
+decision that the duplication is kept rather than removed.
+
+== Alternatives Considered
+
+Leaving the check to `ConnectionSettings`, so that a profile the loader accepts is refused when the wait is
+built, was rejected: a profile is valid or not at load, never in part and never later (Harness Profiles
+§ A Profile Is Untrusted Input). A profile in the band would be accepted by every read and refused by the first
+wait, which is the failure mode this change removes.
+
+Sharing one constant was not available: `ConnectionSettings.IDLE_MARGIN` lives in `pm-workflow`, which depends
+on `pm-core`, so `pm-core` cannot read it. Moving the margin down to `pm-core` was rejected because the margin is
+a rule of the connection wait, whose home is the workflow engine, and the validator would then own a wait rule's
+home. The two constants must move together, and the validator's boundary is pinned by its own test at
+`idle − 30` accepted and `idle − 29` refused.
+
+== Consequences
+
+A profile whose bounded wait lies in the last 30 seconds below the idle timeout is refused at load with
+`/connection/bounded_wait_seconds`, so the two layers no longer disagree about which profiles are valid. The
+compiled values of the specification table satisfy the rule: `antigravity` (idle 180, bounded 150, no progress
+frames) and `codex` (idle 270, bounded 240, no progress frames) sit exactly on the boundary and load; `claude`
+and `opencode` reset the timer on progress and are unconstrained. A later change of the margin has to change
+`ProfileValidator.IDLE_MARGIN_SECONDS` and `ConnectionSettings.IDLE_MARGIN` together, or the loader and the wait
+disagree again.
+
+== Source
+
+Work package `profile-wait-margin` (PLAN-V2-68), modelled on PLAN-112 of the closed epic; Timeouts & Budgets
+§ Bounded Wait Window, § Harness Integration; Harness Profiles § Worker Block, § Tokens, Not Money,
+§ A Profile Is Untrusted Input.
