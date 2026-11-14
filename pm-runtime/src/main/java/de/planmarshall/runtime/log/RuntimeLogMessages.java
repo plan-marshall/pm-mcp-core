@@ -1204,6 +1204,19 @@ public final class RuntimeLogMessages {
                 .identifier(146)
                 .template("The credential store move of the aspect failed: %s")
                 .build();
+
+        /**
+         * Logged when the harness icon store refuses a candidate icon: names the harness, the refusal code and the
+         * candidate's length in bytes, never a byte of the candidate itself. Nothing is stored; the caller receives the
+         * refusal.
+         * <p>
+         * The component is {@code HarnessIconStore}.
+         */
+        public static final LogRecord ICON_REFUSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(147)
+                .template("Icon candidate of harness '%s' refused with '%s' at %d bytes")
+                .build();
     }
 
     /** ERROR level messages. */

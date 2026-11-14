@@ -1739,6 +1739,22 @@ The install path's seam is the one class of this group with a named consumer: th
 calls `VerifiedUsage.install` and stays in `plan-marshall-mcp`. Every other class of this group has no production caller
 until the assembly consumes it.
 
+Implementation (the machine's harness icon store: the accept step that decides a candidate's format from its bytes and
+re-writes an SVG against an allow-list or closes a PNG's chunk structure, and the store that writes
+`icons/<harness_id>.<ext>` with mode `0600` and `icons/index.json` under `locks/icons.lock`, atomically, serving a file only
+where its length and digest match its entry; the outbound fetch of a `source` icon is deferred, L-21):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/HarnessIconStore.java[HarnessIconStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/HarnessIconSanitiser.java[HarnessIconSanitiser],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconIndexCodec.java[IconIndexCodec],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconRefusal.java[IconRefusal]
+
+Verified by (the icon store): link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/HarnessIconSanitiserTest.java[HarnessIconSanitiserTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/HarnessIconStoreTest.java[HarnessIconStoreTest]
+
+Documentation (the icon store): link:../pm-runtime/doc/developer/runtime-launch.adoc#_the_harness_icon_store[Worker Launch
+Developer Guide § The Harness Icon Store],
+link:../pm-runtime/doc/adr/runtime-launch/009-the-icon-store-accepts-only-what-it-can-rewrite.adoc[ADR runtime-launch/009]
+
 Verified by (the scan, the list and the verification gate):
 link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessScanTest.java[HarnessScanTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessListTest.java[HarnessListTest],
