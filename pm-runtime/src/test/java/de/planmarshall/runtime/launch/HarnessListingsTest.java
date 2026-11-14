@@ -165,7 +165,7 @@ class HarnessListingsTest {
                 .workerEligible(false)
                 .installHint(HINT)
                 .build();
-        var other = AAA_ID.equals(harnessId) ? candidate(BBB_ID, VERSION) : candidate(AAA_ID, VERSION);
+        var other = candidate(AAA_ID.equals(harnessId) ? BBB_ID : AAA_ID, VERSION);
         return new HarnessScan(List.of(notFound, other));
     }
 

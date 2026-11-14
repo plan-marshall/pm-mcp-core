@@ -45,7 +45,7 @@ public final class SanitisedIcon {
         if (bytes.length == 0) {
             throw new IllegalArgumentException("A sanitised icon carries bytes");
         }
-        if (sha256 == null || !sha256.matches("sha256:[0-9a-f]{64}")) {
+        if (!sha256.matches("sha256:[0-9a-f]{64}")) {
             throw new IllegalArgumentException("Not a sha256: digest: " + sha256);
         }
         this.bytes = bytes.clone();

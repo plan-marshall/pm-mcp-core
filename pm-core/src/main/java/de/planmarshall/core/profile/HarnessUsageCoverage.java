@@ -107,8 +107,12 @@ List<ProfileStages.StartContext> startContext) {
         var missing = ProfileStages.REPORT_FIGURES.stream()
                 .filter(figure -> "missing".equals(statusesByFigure.getOrDefault(figure, "missing")))
                 .toList();
-        var status = missing.size() == ProfileStages.REPORT_FIGURES.size() ? Status.NOT_REPORTED
-                : missing.isEmpty() ? Status.COMPLETE : Status.PARTIAL;
+        var status = Status.PARTIAL;
+        if (missing.size() == ProfileStages.REPORT_FIGURES.size()) {
+            status = Status.NOT_REPORTED;
+        } else if (missing.isEmpty()) {
+            status = Status.COMPLETE;
+        }
         return new HarnessUsageCoverage(status, status == Status.PARTIAL ? missing : List.of(), startContext);
     }
 

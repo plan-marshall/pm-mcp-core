@@ -77,7 +77,7 @@ class HarnessIconStoreTest {
 
     @Test
     @DisplayName("an accepted SVG is written with mode 0600 and its index entry")
-    void acceptsAnSvgAndWritesTheFileAndTheIndex() throws Exception {
+    void acceptsAnSvgAndWritesTheFileAndTheIndex() {
         var candidate = svg().getBytes(UTF_8);
 
         var stored = store.accept(HARNESS_ID, candidate);
@@ -111,7 +111,7 @@ class HarnessIconStoreTest {
 
     @Test
     @DisplayName("a second accepted icon replaces the icon of the same harness")
-    void replacesAnIconOfTheSameHarness() throws Exception {
+    void replacesAnIconOfTheSameHarness() {
         var first = svg().getBytes(UTF_8);
         var second = svg("<circle cx=\"4\" cy=\"4\" r=\"2\"/>").getBytes(UTF_8);
 
@@ -154,8 +154,9 @@ class HarnessIconStoreTest {
         var outside = base.resolve("outside.svg");
         Files.writeString(outside, svg());
         Files.createSymbolicLink(store.directory().resolve(HARNESS_ID + ".svg"), outside);
+        var candidate = svg().getBytes(UTF_8);
 
-        var refusal = assertThrows(IconRefusal.class, () -> store.accept(HARNESS_ID, svg().getBytes(UTF_8)),
+        var refusal = assertThrows(IconRefusal.class, () -> store.accept(HARNESS_ID, candidate),
                 "A symbolic link at the target is refused");
 
         assertAll(

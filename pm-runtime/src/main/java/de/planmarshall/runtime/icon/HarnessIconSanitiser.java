@@ -23,6 +23,7 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The accept step of the harness icon store (Store Schemas § Harness Icon Store; Harness Profiles § Harness Icons): it
@@ -159,7 +160,8 @@ public class HarnessIconSanitiser {
                         open.pop();
                     }
                     case XMLStreamConstants.CHARACTERS, XMLStreamConstants.CDATA -> {
-                        if (!open.isEmpty() && TEXT_ELEMENTS.contains(open.peek())) {
+                        var element = open.peek();
+                        if (element != null && TEXT_ELEMENTS.contains(element)) {
                             writeEscaped(reader.getText(), out, false);
                         }
                     }
@@ -259,7 +261,12 @@ public class HarnessIconSanitiser {
         if (XML_NAMESPACE.equals(namespace)) {
             return "space".equals(attribute) && ATTRIBUTES.contains(attribute);
         }
-        return (namespace == null || namespace.isEmpty()) && ATTRIBUTES.contains(attribute);
+        return hasNoNamespace(namespace) && ATTRIBUTES.contains(attribute);
+    }
+
+    /** @return whether an attribute's namespace is the empty one StAX reports for an attribute without a namespace */
+    private static boolean hasNoNamespace(@Nullable String namespace) {
+        return namespace == null || namespace.isEmpty();
     }
 
     private static void writeEscaped(String text, StringBuilder out, boolean attribute) {
@@ -298,30 +305,32 @@ public class HarnessIconSanitiser {
                 throw new IconRefusal(IconRefusal.PNG_INVALID, "chunk length " + length);
             }
             var type = new String(candidate, position + 4, 4, US_ASCII);
-            var dataStart = position + 8;
-            var crcStart = dataStart + length;
-            var crc = new CRC32();
-            crc.update(candidate, position + 4, 4 + length);
-            if ((int) crc.getValue() != readInt(candidate, crcStart)) {
-                throw new IconRefusal(IconRefusal.PNG_INVALID, "the CRC of chunk '" + type + "'");
-            }
-            if (first && (!"IHDR".equals(type) || length != 13)) {
-                throw new IconRefusal(IconRefusal.PNG_INVALID, "the first chunk is not IHDR");
-            }
+            requireChunk(candidate, position, type, length, first);
             first = false;
-            if (PNG_TEXT_CHUNKS.contains(type)) {
-                throw new IconRefusal(IconRefusal.PNG_TEXT_CHUNK_REFUSED, "chunk '" + type + "'");
-            }
-            if (!PNG_CHUNKS.contains(type)) {
-                throw new IconRefusal(IconRefusal.PNG_CHUNK_REFUSED, "chunk '" + type + "'");
-            }
             dataSeen |= "IDAT".equals(type);
-            position = crcStart + 4;
+            position = position + CHUNK_OVERHEAD + length;
             if ("IEND".equals(type)) {
                 return endOfPng(candidate, position, length, dataSeen);
             }
         }
         throw new IconRefusal(IconRefusal.PNG_INVALID, "no IEND chunk");
+    }
+
+    private static void requireChunk(byte[] candidate, int position, String type, int length, boolean first) {
+        var crc = new CRC32();
+        crc.update(candidate, position + 4, 4 + length);
+        if ((int) crc.getValue() != readInt(candidate, position + 8 + length)) {
+            throw new IconRefusal(IconRefusal.PNG_INVALID, "the CRC of chunk '" + type + "'");
+        }
+        if (first && (!"IHDR".equals(type) || length != 13)) {
+            throw new IconRefusal(IconRefusal.PNG_INVALID, "the first chunk is not IHDR");
+        }
+        if (PNG_TEXT_CHUNKS.contains(type)) {
+            throw new IconRefusal(IconRefusal.PNG_TEXT_CHUNK_REFUSED, "chunk '" + type + "'");
+        }
+        if (!PNG_CHUNKS.contains(type)) {
+            throw new IconRefusal(IconRefusal.PNG_CHUNK_REFUSED, "chunk '" + type + "'");
+        }
     }
 
     private static byte[] endOfPng(byte[] candidate, int position, int length, boolean dataSeen) {

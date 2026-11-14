@@ -107,7 +107,7 @@ public class IconIndexCodec {
      * @return the document, UTF-8 encoded, with its entries in the order of their harness ids
      */
     public static byte[] write(Map<String, IconIndexEntry> icons) {
-        Objects.requireNonNull(icons, "icons");
+        Objects.requireNonNull(icons, FIELD_ICONS);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
