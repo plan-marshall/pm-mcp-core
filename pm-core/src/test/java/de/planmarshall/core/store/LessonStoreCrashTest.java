@@ -506,7 +506,8 @@ class LessonStoreCrashTest {
                 start.await();
                 try (var transaction = serializing.openTransaction()) {
                     transaction.acquire(lessons.lockKey());
-                    var write = ScopeTransaction.open(transaction, lessons, AuditSinkDoubles.capturing(newCapture(CaptureType.ALL)), CLOCK);
+                    var write = ScopeTransaction.open(transaction, lessons,
+                            AuditSinkDoubles.capturing(newCapture(CaptureType.ALL)), CLOCK);
                     store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK);
                     write.commit();
                     return true;
