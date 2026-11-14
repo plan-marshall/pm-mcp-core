@@ -34,6 +34,7 @@ import java.net.http.WebSocket;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -155,13 +156,13 @@ class OutboundCallsArchTest {
      * the sentence of the specification it implements. A class not on this list may not use the client at all.
      */
     private static final List<DestinationClass> DESTINATION_CLASSES = List.of(
-            new DestinationClass("de.planmarshall.runtime.endpoint.EndpointClient",
+            new DestinationClass("de.planmarshall.runtime.endpoint.EndpointClient", "loopback endpoint",
                     "Credentials & Enrolment § Closed List of Outbound Calls: the loopback endpoint of a client "
                             + "profile (Client Profiles § The Request)"),
-            new DestinationClass("de.planmarshall.runtime.corpus.HuggingFaceSourceRepository",
+            new DestinationClass("de.planmarshall.runtime.corpus.HuggingFaceSourceRepository", "corpus sources",
                     "Credentials & Enrolment § Closed List of Outbound Calls: the fetch of the corpus sources at "
                             + "their pinned commit over HTTPS (Model Work § Corpus Sources)"),
-            new DestinationClass("de.planmarshall.runtime.corpus.LfsBatchClient",
+            new DestinationClass("de.planmarshall.runtime.corpus.LfsBatchClient", "Git LFS batch request",
                     "Credentials & Enrolment § Closed List of Outbound Calls: the Git LFS batch request and the "
                             + "object download of the corpus fetch (Model Work § Corpus Sources)"));
 
@@ -202,15 +203,28 @@ class OutboundCallsArchTest {
                 if (!withoutExemptions && isExempt(javaClass)) {
                     return;
                 }
-                javaClass.getDirectDependenciesFromSelf().stream()
-                        .filter(dependency -> isConnectionType(dependency.getTargetClass()))
-                        .forEach(dependency -> events.add(
-                                SimpleConditionEvent.violated(dependency, dependency.getDescription())));
-                javaClass.getMethodCallsFromSelf().stream()
-                        .filter(OutboundCallsArchTest::isConnectionOpeningCall)
-                        .forEach(call -> events.add(SimpleConditionEvent.violated(call, call.getDescription())));
+                connectionEvidence(javaClass).forEach(description ->
+                        events.add(SimpleConditionEvent.violated(javaClass, description)));
             }
         };
+    }
+
+    /**
+     * The one definition of the connection predicate: the description of every connection the class opens, one line per
+     * forbidden dependency and per forbidden call, and no line for a class that opens none.
+     *
+     * @param javaClass the class to read
+     * @return the evidence lines, empty for a class that opens no connection
+     */
+    private static List<String> connectionEvidence(JavaClass javaClass) {
+        var evidence = new ArrayList<String>();
+        javaClass.getDirectDependenciesFromSelf().stream()
+                .filter(dependency -> isConnectionType(dependency.getTargetClass()))
+                .forEach(dependency -> evidence.add(dependency.getDescription()));
+        javaClass.getMethodCallsFromSelf().stream()
+                .filter(OutboundCallsArchTest::isConnectionOpeningCall)
+                .forEach(call -> evidence.add(call.getDescription()));
+        return evidence;
     }
 
     private static boolean isExempt(JavaClass javaClass) {
@@ -233,9 +247,7 @@ class OutboundCallsArchTest {
     }
 
     private static boolean opensConnection(JavaClass javaClass) {
-        return javaClass.getDirectDependenciesFromSelf().stream()
-                .anyMatch(dependency -> isConnectionType(dependency.getTargetClass()))
-                || javaClass.getMethodCallsFromSelf().stream().anyMatch(OutboundCallsArchTest::isConnectionOpeningCall);
+        return !connectionEvidence(javaClass).isEmpty();
     }
 
     private static Set<String> connectionViolators() {
@@ -289,8 +301,8 @@ class OutboundCallsArchTest {
                 .evaluate(new ClassFileImporter().importClasses(fixture));
     }
 
-    /** A destination class of the closed list: the class that may use the client, and the sentence it implements. */
-    private record DestinationClass(String name, String specification) {
+    /** A destination class of the closed list: the class that may use the client, the reason it does, and its sentence. */
+    private record DestinationClass(String name, String reason, String specification) {
     }
 
     @Nested
@@ -388,11 +400,11 @@ class OutboundCallsArchTest {
             var unnamed = DESTINATION_CLASSES.stream()
                     .filter(destination -> !destination.specification()
                             .contains("Closed List of Outbound Calls")
-                            || destination.specification().length() < 40)
+                            || !destination.specification().contains(destination.reason()))
                     .map(DestinationClass::name)
                     .toList();
 
-            assertEquals(List.of(), unnamed, "Each entry names its specification sentence");
+            assertEquals(List.of(), unnamed, "Each sentence names its destination's reason");
         }
     }
 
