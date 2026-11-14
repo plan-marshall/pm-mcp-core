@@ -166,7 +166,8 @@ class UnreadSchemaFilesTest {
 
     @Test
     @DisplayName("the id of a file is a URI, not its file name")
-    void idsAreUris() {        for (var resource : CODECLESS) {
+    void idsAreUris() {
+        for (var resource : CODECLESS) {
             var id = SchemaResource.load(resource).get("$id");
             var name = resource.substring(resource.lastIndexOf('/') + 1).replace(".schema.json", "");
             assertAll(

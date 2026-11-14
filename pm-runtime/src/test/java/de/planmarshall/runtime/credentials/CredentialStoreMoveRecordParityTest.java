@@ -61,7 +61,7 @@ class CredentialStoreMoveRecordParityTest {
 
         assertAll(
                 () -> assertEquals(Set.of("format_version", "from", "to", "started_at", "phase", "target_held_key",
-                        "operation", "transaction_id"), declared,
+                                "operation", "transaction_id"), declared,
                         "the schema declares exactly the codec's members"),
                 () -> assertEquals(declared, required(schema), "every member is required"),
                 () -> assertEquals(declared, SchemaResource.object(
