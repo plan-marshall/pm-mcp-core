@@ -2,10 +2,10 @@
   "id": "PLAN-V2-136",
   "slug": "easymock-for-fakes-residue",
   "workstream": "WS-11",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-136-easymock-for-fakes-residue",
+  "pr": "#411",
+  "landing": "landings/PLAN-V2-136.md",
   "seq": 124
 }

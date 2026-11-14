@@ -2,10 +2,10 @@
   "id": "PLAN-V2-06",
   "slug": "role-name-single-definition",
   "workstream": "WS-05",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-06-role-name-single-definition",
+  "pr": "#410",
+  "landing": "landings/PLAN-V2-06.md",
   "seq": 6
 }
