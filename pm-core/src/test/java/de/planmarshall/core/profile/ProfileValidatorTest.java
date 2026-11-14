@@ -207,7 +207,8 @@ class ProfileValidatorTest {
                                     .set("/connection/progress_resets_timeout", false)
                                     .set("/connection/bounded_wait_seconds", 240)
                                     .set("/connection/idle_timeout_seconds", 240),
-                            "/connection/bounded_wait_seconds", "a bounded wait closer than the margin to the idle timeout"),
+                            "/connection/bounded_wait_seconds",
+                            "a bounded wait closer than the margin to the idle timeout"),
                     Arguments.of(ProfileFixtures.valid()
                                     .set("/connection/progress_resets_timeout", false)
                                     .set("/connection/idle_timeout_seconds", 300)
@@ -444,20 +445,41 @@ class ProfileValidatorTest {
             var longest = ProfileFixtures.valid()
                     .set("/connection/progress_resets_timeout", true)
                     .set("/connection/bounded_wait_seconds", 3_600);
+            var atMargin = ProfileValidator.validate(exactly.bytes(), DOCUMENT, ProfileRules.none());
+            var withProgress = ProfileValidator.validate(progress.bytes(), DOCUMENT, ProfileRules.none());
+            var longWait = ProfileValidator.validate(longest.bytes(), DOCUMENT, ProfileRules.none());
 
             assertAll("the connection boundaries",
-                    () -> assertEquals("acme-cli",
-                            ProfileValidator.clientId(ProfileValidator.validate(exactly.bytes(), DOCUMENT,
-                                    ProfileRules.none())),
+                    () -> assertEquals(270, connectionValue(atMargin, "bounded_wait_seconds"),
                             "a bounded wait exactly at idle minus 30 loads"),
-                    () -> assertEquals("acme-cli",
-                            ProfileValidator.clientId(ProfileValidator.validate(progress.bytes(), DOCUMENT,
-                                    ProfileRules.none())),
-                            "progress frames admit any bounded wait"),
-                    () -> assertEquals("acme-cli",
-                            ProfileValidator.clientId(ProfileValidator.validate(longest.bytes(), DOCUMENT,
-                                    ProfileRules.none())),
+                    () -> assertEquals(240, connectionValue(withProgress, "bounded_wait_seconds"),
+                            "progress frames admit the idle timeout as wait"),
+                    () -> assertEquals(3_600, connectionValue(longWait, "bounded_wait_seconds"),
                             "the longest bounded wait loads with progress"));
+        }
+
+        @Test
+        @DisplayName("the margin refusal says the bounded wait must be at least the margin below the idle timeout")
+        void marginRefusalWording() {
+            var fixture = ProfileFixtures.valid()
+                    .set("/connection/progress_resets_timeout", false)
+                    .set("/connection/idle_timeout_seconds", 300)
+                    .set("/connection/bounded_wait_seconds", 271);
+
+            var refusal = assertThrows(ProfileRefusal.class,
+                    () -> ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none()));
+
+            assertEquals("the bounded wait 271 must be at least 30 seconds below the idle timeout 300 without "
+                    + "progress frames", refusal.detail(), "the margin refusal states the lower bound");
+        }
+
+        /** The value the loaded document carries at {@code /connection/<member>}. */
+        private static long connectionValue(JsonNode profile, String member) {
+            return profile.member("connection")
+                    .flatMap(connection -> connection.member(member))
+                    .map(JsonNode::integerValue)
+                    .orElseThrow()
+                    .getAsLong();
         }
 
         /** A map that, unlike {@link Map#of}, admits a null value. */

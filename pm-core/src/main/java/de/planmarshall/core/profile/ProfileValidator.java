@@ -41,7 +41,7 @@ public final class ProfileValidator {
     /** The one schema version a profile declares. */
     public static final int SCHEMA_VERSION = 1;
 
-    /** The margin the idle timeout must leave above the bounded wait of a host whose progress resets no timer. */
+    /** The margin the idle timeout must leave above the bounded wait of a harness whose progress resets no timer. */
     private static final long IDLE_MARGIN_SECONDS = 30;
 
     // The member names of the client profile schema, named once each (ADR core-profile/005).
@@ -1061,7 +1061,7 @@ public final class ProfileValidator {
                     pointer + "/progress_resets_timeout", NAME_PROGRESS_RESETS_TIMEOUT);
             if (!progress && bounded > idle - IDLE_MARGIN_SECONDS) {
                 throw invalid(pointer + "/bounded_wait_seconds",
-                        "the bounded wait %d is not %d seconds below the idle timeout %d without progress frames"
+                        "the bounded wait %d must be at least %d seconds below the idle timeout %d without progress frames"
                                 .formatted(bounded, IDLE_MARGIN_SECONDS, idle));
             }
         }
