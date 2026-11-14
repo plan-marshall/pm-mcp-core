@@ -102,10 +102,10 @@ class HandWrittenDoubleScanTest {
         assertTrue(productionNames("class Ports { public abstract @java.lang.Deprecated static class Port { } }")
                 .contains("Port"), "a qualified annotation does not hide an abstract class");
         assertTrue(scan("planted.java", """
-                class Holder {
-                    de.planmarshall.core.spi.Primitive<String, String> primitive = value -> value;
-                }
-                """).contains("planted.java#lambda:Primitive#1"),
+                        class Holder {
+                            de.planmarshall.core.spi.Primitive<String, String> primitive = value -> value;
+                        }
+                        """).contains("planted.java#lambda:Primitive#1"),
                 "a generic declared type does not hide the lambda");
         assertTrue(scan("planted.java", """
                         class Holder {
