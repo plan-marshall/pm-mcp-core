@@ -65,13 +65,14 @@ class ProfileValidatorTest {
     void loadDirectiveNeedsTheUriSlot(String template, boolean refused, String because) {
         // The literal '{{uri}}' is the contract: a near-synonym is a missing slot, not a second spelling.
         var bytes = ProfileFixtures.valid().set("/skill_loading/load_directive_template", template).bytes();
+        var rules = ProfileRules.none();
 
         if (!refused) {
-            assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()), because);
+            assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, rules), because);
             return;
         }
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()), because);
+                () -> ProfileValidator.validate(bytes, DOCUMENT, rules), because);
 
         assertEquals("/skill_loading/load_directive_template", refusal.pointer(), because);
     }
@@ -474,9 +475,10 @@ class ProfileValidatorTest {
                     .set("/connection/idle_timeout_seconds", 300)
                     .set("/connection/bounded_wait_seconds", 271);
             var bytes = fixture.bytes();
+            var rules = ProfileRules.none();
 
             var refusal = assertThrows(ProfileRefusal.class,
-                    () -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()));
+                    () -> ProfileValidator.validate(bytes, DOCUMENT, rules));
 
             assertEquals("the bounded wait 271 must be at least 30 seconds below the idle timeout 300 without "
                     + "progress frames", refusal.detail(), "the margin refusal states the lower bound");
