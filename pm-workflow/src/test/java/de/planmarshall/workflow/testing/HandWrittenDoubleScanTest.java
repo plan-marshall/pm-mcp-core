@@ -24,8 +24,6 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -49,9 +47,8 @@ class HandWrittenDoubleScanTest {
     private static final Path FOUND = Path.of("target/hand-written-doubles-found.txt");
 
     private static final Pattern TYPE_DECLARATION = Pattern.compile("\\b(?:class|enum|record)\\s+(\\w+)");
-    private static final Pattern ANONYMOUS = Pattern.compile("\\bnew\\s+([\\w.]+)\\s*(?:<[^<>]*>)?\\s*\\(");
+    private static final Pattern NEW = Pattern.compile("\\bnew\\s+");
     private static final Pattern LAMBDA = Pattern.compile("->|::");
-    private static final Pattern ASSIGNMENT = Pattern.compile("([\\w.]+)\\s+\\w+\\s*=");
     private static final Pattern PRODUCTION_TYPE = Pattern.compile("\\b(?:interface|abstract\\s+class)\\s+(\\w+)");
     private static final Pattern GENERICS = Pattern.compile("<[^<>]*>");
 
@@ -178,13 +175,43 @@ class HandWrittenDoubleScanTest {
 
     private static void anonymousDoubles(String path, String code, Set<String> production, List<String> found) {
         var counts = new TreeMap<String, Integer>();
-        var matcher = ANONYMOUS.matcher(code);
+        var matcher = NEW.matcher(code);
         while (matcher.find()) {
-            var type = simpleName(matcher.group(1));
-            if (!production.contains(type)) {
+            var index = matcher.end();
+            var start = index;
+            while (index < code.length() && (Character.isJavaIdentifierPart(code.charAt(index))
+                    || code.charAt(index) == '.')) {
+                index++;
+            }
+            var type = simpleName(code.substring(start, index));
+            var angle = 0;
+            while (index < code.length() && (code.charAt(index) == '<' || angle > 0)) {
+                if (code.charAt(index) == '<') {
+                    angle++;
+                } else if (code.charAt(index) == '>') {
+                    angle--;
+                }
+                index++;
+            }
+            while (index < code.length() && Character.isWhitespace(code.charAt(index))) {
+                index++;
+            }
+            if (!production.contains(type) || index >= code.length() || code.charAt(index) != '(') {
                 continue;
             }
-            var close = code.indexOf(')', matcher.end() - 1);
+            var depth = 0;
+            var close = -1;
+            for (var cursor = index; cursor < code.length(); cursor++) {
+                if (code.charAt(cursor) == '(') {
+                    depth++;
+                } else if (code.charAt(cursor) == ')') {
+                    depth--;
+                    if (depth == 0) {
+                        close = cursor;
+                        break;
+                    }
+                }
+            }
             var brace = close < 0 ? -1 : code.indexOf('{', close);
             var semicolon = close < 0 ? -1 : code.indexOf(';', close);
             if (brace >= 0 && (semicolon < 0 || brace < semicolon)) {
@@ -200,12 +227,29 @@ class HandWrittenDoubleScanTest {
             var start = Math.max(Math.max(code.lastIndexOf(';', matcher.start()),
                     code.lastIndexOf('{', matcher.start())), code.lastIndexOf('}', matcher.start()));
             var prefix = code.substring(start + 1, matcher.start());
-            var assignment = ASSIGNMENT.matcher(prefix);
-            if (assignment.find()) {
-                var type = simpleName(assignment.group(1));
-                if (production.contains(type)) {
-                    found.add(path + "#lambda:" + type + "#" + counts.merge(type, 1, Integer::sum));
-                }
+            var equals = prefix.lastIndexOf('=');
+            if (equals <= 0 || "=!<>".indexOf(prefix.charAt(equals - 1)) >= 0) {
+                continue;
+            }
+            var index = equals - 1;
+            while (index >= 0 && Character.isWhitespace(prefix.charAt(index))) {
+                index--;
+            }
+            while (index >= 0 && (Character.isJavaIdentifierPart(prefix.charAt(index))
+                    || prefix.charAt(index) == '.')) {
+                index--;
+            }
+            while (index >= 0 && Character.isWhitespace(prefix.charAt(index))) {
+                index--;
+            }
+            var typeEnd = index + 1;
+            while (index >= 0 && (Character.isJavaIdentifierPart(prefix.charAt(index))
+                    || prefix.charAt(index) == '.')) {
+                index--;
+            }
+            var type = simpleName(prefix.substring(index + 1, typeEnd));
+            if (production.contains(type)) {
+                found.add(path + "#lambda:" + type + "#" + counts.merge(type, 1, Integer::sum));
             }
         }
     }
