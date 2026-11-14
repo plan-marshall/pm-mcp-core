@@ -154,7 +154,7 @@ class AuditLogTest {
     private static AuditAnchor failingPredecessor() {
         AuditAnchor anchor = createNiceMock(AuditAnchor.class);
         expect(anchor.emptyLogPredecessor())
-                .andThrow(new UncheckedIOException(new IOException("the audit index cannot be read")));
+                .andThrow(new UncheckedIOException(new IOException("the audit index cannot be read"))).anyTimes();
         replay(anchor);
         return anchor;
     }

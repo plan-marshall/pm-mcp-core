@@ -175,8 +175,10 @@ them with a fixture project below `src/guard-controls`:
   only through its own holder and that of `pm-core`. Each record is documented in `doc/LogMessages.adoc` (of this
   repository).
 - JUnit 5 only (`@DisplayName`, `@Nested`, AAA, `@ParameterizedTest` for 3+ variants), on the JVM without Quarkus.
-  Forbidden: Mockito, PowerMock, Hamcrest; test doubles are EasyMock, and no new hand-written fake is added. No AAA
-  phase comments.
+  Forbidden: Mockito, PowerMock, Hamcrest; test doubles are EasyMock, and no new hand-written fake is added. The
+  hand-written doubles that remain are the closed list of ADR
+  `doc/adr/026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc` plus the population its scan baseline names
+  until PLAN-V2-125 and PLAN-V2-126 convert it; a new one needs that ADR amended. No AAA phase comments.
 - Test data come from `cui-test-generator` (`@EnableGeneratorController`, `Generators.*`, `@GeneratorsSource`). A
   literal stays only where it is the contract — a wire format, an error or reason code, a schema or specification
   string, a golden file or a fixture path — and the test says so in its display name or a one-line comment. No
