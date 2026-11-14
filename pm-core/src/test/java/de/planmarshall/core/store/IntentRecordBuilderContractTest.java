@@ -39,8 +39,9 @@ class IntentRecordBuilderContractTest {
         var canonical = IntentFixtures.valid();
         var built = IntentRecord.builder().why(canonical.why()).goal(canonical.goal())
                 .criteria(canonical.criteria()).currentBehaviour(canonical.currentBehaviour())
-                .nonGoals(canonical.nonGoals()).constraints(canonical.constraints())
-                .decisions(canonical.decisions()).assumptions(canonical.assumptions())
+                .repairs(canonical.repairs()).nonGoals(canonical.nonGoals())
+                .constraints(canonical.constraints()).choices(canonical.choices())
+                .assumptions(canonical.assumptions())
                 .openQuestions(canonical.openQuestions()).deferred(canonical.deferred())
                 .sourceClaims(canonical.sourceClaims()).build();
 
@@ -49,14 +50,14 @@ class IntentRecordBuilderContractTest {
                 () -> {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new IntentRecord(null, canonical.goal(), canonical.criteria(),
-                                    canonical.currentBehaviour(), canonical.nonGoals(), canonical.constraints(),
-                                    canonical.decisions(), canonical.assumptions(), canonical.openQuestions(),
-                                    canonical.deferred(), canonical.sourceClaims()),
+                                    canonical.currentBehaviour(), canonical.repairs(), canonical.nonGoals(),
+                                    canonical.constraints(), canonical.choices(), canonical.assumptions(),
+                                    canonical.openQuestions(), canonical.deferred(), canonical.sourceClaims()),
                             "the constructor refuses a null why");
                     var incomplete = IntentRecord.builder().goal(canonical.goal())
                             .criteria(canonical.criteria())
                             .nonGoals(canonical.nonGoals()).constraints(canonical.constraints())
-                            .decisions(canonical.decisions()).assumptions(canonical.assumptions())
+                            .choices(canonical.choices()).assumptions(canonical.assumptions())
                             .openQuestions(canonical.openQuestions()).deferred(canonical.deferred())
                             .sourceClaims(canonical.sourceClaims());
                     var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
@@ -117,7 +118,7 @@ class IntentRecordBuilderContractTest {
     void shouldBuildDecisionLikeTheConstructorAndRefuseAnAbsentId() {
         var text = Generators.letterStrings(10, 40).next();
         var canonical = new IntentRecord.Decision("DC-1", text, List.of("first option", "second option"),
-                Decider.MODEL, null, null, null);
+                Decider.ROLE, null, null, null);
         var built = IntentRecord.Decision.builder().id(canonical.id()).text(canonical.text())
                 .optionsWeighed(canonical.optionsWeighed()).decider(canonical.decider())
                 .questionId(canonical.questionId()).evidence(canonical.evidence()).adr(canonical.adr()).build();
@@ -127,11 +128,11 @@ class IntentRecordBuilderContractTest {
                 () -> {
                     var optionsWeighed = List.of("first option");
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new IntentRecord.Decision(null, text, optionsWeighed, Decider.MODEL, null,
+                            () -> new IntentRecord.Decision(null, text, optionsWeighed, Decider.ROLE, null,
                                     null, null),
                             "the constructor refuses a null decision id");
                     var incomplete = IntentRecord.Decision.builder().text(text)
-                            .optionsWeighed(List.of("first option")).decider(Decider.MODEL);
+                            .optionsWeighed(List.of("first option")).decider(Decider.ROLE);
                     var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing decision id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),

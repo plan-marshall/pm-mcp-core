@@ -100,6 +100,14 @@ class SchemaParity {
     }
 
     /**
+     * @param value a parsed JSON value
+     * @return the value as a JSON text
+     */
+    static String text(Object value) {
+        return new String(write(value), UTF_8);
+    }
+
+    /**
      * @param document a record document as a map
      * @return its member names in the order the map holds them
      */

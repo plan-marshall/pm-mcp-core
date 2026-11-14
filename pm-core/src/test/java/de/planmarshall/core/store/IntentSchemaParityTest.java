@@ -16,6 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.networknt.schema.InputFormat;
+import com.networknt.schema.JsonSchemaFactory;
+import com.networknt.schema.SpecVersion;
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import java.util.Map;
@@ -24,20 +28,22 @@ import java.util.TreeSet;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.store.IntentRecord.AdrRef;
+import de.planmarshall.core.store.IntentRecord.AdrRelation;
 import de.planmarshall.core.store.IntentRecord.AssumptionStatus;
+import de.planmarshall.core.store.IntentRecord.ConstraintSource;
 import de.planmarshall.core.store.IntentRecord.CriterionKind;
 import de.planmarshall.core.store.IntentRecord.Decider;
+import de.planmarshall.core.store.IntentRecord.Decision;
+import de.planmarshall.core.store.IntentRecord.VerifiedBy;
 import de.planmarshall.core.store.IntentStore.Revision;
 
 /**
  * The intent store and the intent record keep parity with the schema files of {@code store-schemas/06}: the store's
- * members and required members are the file's, the record's members are the file's, and every enumeration of the
- * record equals the file's.
- * <p>
- * The intent record deviates from its file in exactly two members and one enumeration value: the codec writes
- * {@code decisions} where the schema declares {@code choices}, it carries no {@code repairs} member, and its decider
- * enumeration has {@code model} where the file has {@code role}. The test pins that drift so neither side changes it
- * silently; the plan that owns the correction fixes the codec, and the landing message reports the drift.
+ * members and required members are the file's, the record's top-level members and the members of its nested items
+ * ({@code criteria[]}, {@code choices[]} and its {@code adr}) are the file's, every enumeration of the record equals
+ * the file's, and every record the codec writes validates against the file.
  */
 @EnableGeneratorController
 @SuppressWarnings("java:S5778")
@@ -53,9 +59,29 @@ class IntentSchemaParityTest {
                 new Revision(1, IntentFixtures.AT, "TASK-001", IntentFixtures.valid())));
     }
 
-    private static Map<?, ?> recordDocument() {
-        var store = SchemaParity.document(written());
+    private static byte[] writtenWithAdr() {
+        var choice = new Decision("DC-1", Generators.letterStrings(10, 60).next(),
+                List.of(Generators.letterStrings(2, 20).next()), Decider.OPERATOR, "q-1", null,
+                new AdrRef("core-store-1", AdrRelation.FOLLOWS));
+        return IntentCodec.write(IntentStore.first(
+                new Revision(1, IntentFixtures.AT, "TASK-001", IntentFixtures.withDecisions(List.of(choice)))));
+    }
+
+    private static Map<?, ?> recordDocument(byte[] document) {
+        var store = SchemaParity.document(document);
         return SchemaParity.object(SchemaParity.object(store.get("current")).get("record"));
+    }
+
+    private static Map<?, ?> recordDocument() {
+        return recordDocument(written());
+    }
+
+    private static Map<?, ?> firstItem(Map<?, ?> record, String member) {
+        return SchemaParity.object(SchemaParity.array(record.get(member)).getFirst());
+    }
+
+    private static Map<?, ?> itemSchema(Map<?, ?> schema, String member) {
+        return SchemaParity.object(SchemaParity.member(schema, member).get("items"));
     }
 
     @Test
@@ -110,24 +136,56 @@ class IntentSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the record deviates from its file only in choices-to-decisions and the absent repairs")
+    @DisplayName("the record's members are the file's")
     void recordMembers() {
         var schema = SchemaParity.load(RECORD);
-        var diffs = new TreeSet<>(SchemaParity.memberDiffs(SchemaParity.members(recordDocument()), schema));
+        var diffs = SchemaParity.memberDiffs(SchemaParity.members(recordDocument()), schema);
 
-        assertEquals(new TreeSet<>(List.of("file-only:choices", "file-only:repairs", "record-only:decisions")), diffs,
-                "the record's recorded drift should not change silently");
+        assertEquals(List.of(), diffs, "the record members should equal the schema");
     }
 
     @Test
-    @DisplayName("the record carries every required member its file and the codec share")
+    @DisplayName("the record carries every required member its file declares")
     void recordRequiredMembers() {
         var schema = SchemaParity.load(RECORD);
         var present = new TreeSet<>(SchemaParity.members(recordDocument()));
         var required = new TreeSet<>(SchemaParity.required(schema));
-        required.removeAll(Set.of("choices", "repairs"));
 
-        assertTrue(present.containsAll(required), "the record should carry its shared required members");
+        assertEquals(required, present, "the record carries every required member its file declares");
+    }
+
+    @Test
+    @DisplayName("the members of the record's nested items are the file's")
+    void recordItemMembers() {
+        var schema = SchemaParity.load(RECORD);
+        var record = recordDocument(writtenWithAdr());
+        var criterion = firstItem(record, "criteria");
+        var choice = firstItem(record, "choices");
+        var adr = SchemaParity.object(choice.get("adr"));
+        var choicesItem = itemSchema(schema, "choices");
+        var adrSchema = SchemaParity.object(SchemaParity.object(choicesItem.get("properties")).get("adr"));
+
+        assertAll(
+                () -> assertEquals(List.of(),
+                        SchemaParity.memberDiffs(SchemaParity.members(criterion), itemSchema(schema, "criteria")),
+                        "the criterion items should be the file's members"),
+                () -> assertEquals(List.of(),
+                        SchemaParity.memberDiffs(SchemaParity.members(choice), choicesItem),
+                        "the choice items should be the file's members"),
+                () -> assertEquals(List.of(),
+                        SchemaParity.memberDiffs(SchemaParity.members(adr), adrSchema),
+                        "the adr members should be the file's members"));
+    }
+
+    @Test
+    @DisplayName("the written record validates against its file")
+    void writtenRecordIsValid() {
+        var validator = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(SchemaResource.text(RECORD));
+        var record = SchemaParity.text(recordDocument(writtenWithAdr()));
+
+        assertEquals(Set.of(), validator.validate(record, InputFormat.JSON),
+                "the written record should validate against its file");
     }
 
     @Test
@@ -142,32 +200,38 @@ class IntentSchemaParityTest {
                 () -> assertEquals(20, minimum, "the file's why minimum stays 20"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new IntentRecord(tooShort, fixture.goal(), fixture.criteria(),
-                                fixture.currentBehaviour(), fixture.nonGoals(), fixture.constraints(),
-                                fixture.decisions(), fixture.assumptions(), fixture.openQuestions(),
-                                fixture.deferred(), fixture.sourceClaims()),
+                                fixture.currentBehaviour(), fixture.repairs(), fixture.nonGoals(),
+                                fixture.constraints(), fixture.choices(), fixture.assumptions(),
+                                fixture.openQuestions(), fixture.deferred(), fixture.sourceClaims()),
                         "the record should refuse a why below its minimum"));
     }
 
     @Test
-    @DisplayName("the record's enumerations are the file's closed sets, except the recorded decider drift")
+    @DisplayName("the record's enumerations are the file's closed sets")
     void recordEnumerations() {
         var schema = SchemaParity.load(RECORD);
-        var criteria = SchemaParity.object(SchemaParity.member(schema, "criteria").get("items"));
-        var choices = SchemaParity.object(SchemaParity.member(schema, "choices").get("items"));
-        var assumptions = SchemaParity.object(SchemaParity.member(schema, "assumptions").get("items"));
-        var fileDeciders = new TreeSet<>(SchemaParity.enumOf(choices, "decider"));
-        var recordDeciders = new TreeSet<>(SchemaParity.wireNames(Decider.values(), Decider::wireName));
-        var fileOnly = new TreeSet<>(fileDeciders);
-        fileOnly.removeAll(recordDeciders);
-        var recordOnly = new TreeSet<>(recordDeciders);
-        recordOnly.removeAll(fileDeciders);
+        var criteria = itemSchema(schema, "criteria");
+        var choices = itemSchema(schema, "choices");
+        var adr = SchemaParity.object(SchemaParity.object(choices.get("properties")).get("adr"));
+        var constraints = itemSchema(schema, "constraints");
+        var assumptions = itemSchema(schema, "assumptions");
 
         assertAll(
                 () -> assertEquals(SchemaParity.enumOf(criteria, "kind"),
                         SchemaParity.wireNames(CriterionKind.values(), CriterionKind::wireName),
                         "the criterion kinds should equal the schema enum"),
-                () -> assertEquals(Set.of("role"), fileOnly, "the file's decider the record does not carry"),
-                () -> assertEquals(Set.of("model"), recordOnly, "the record's decider the file does not carry"),
+                () -> assertEquals(SchemaParity.enumOf(criteria, "verified_by"),
+                        SchemaParity.wireNames(VerifiedBy.values(), VerifiedBy::wireName),
+                        "the verified_by values should equal the schema"),
+                () -> assertEquals(SchemaParity.enumOf(choices, "decider"),
+                        SchemaParity.wireNames(Decider.values(), Decider::wireName),
+                        "the decider kinds should equal the schema enum"),
+                () -> assertEquals(SchemaParity.enumOf(adr, "relation"),
+                        SchemaParity.wireNames(AdrRelation.values(), AdrRelation::wireName),
+                        "the adr relations should equal the schema enum"),
+                () -> assertEquals(SchemaParity.enumOf(constraints, "source"),
+                        SchemaParity.wireNames(ConstraintSource.values(), ConstraintSource::wireName),
+                        "the constraint sources should equal the schema"),
                 () -> assertEquals(SchemaParity.enumOf(assumptions, "status"),
                         SchemaParity.wireNames(AssumptionStatus.values(), AssumptionStatus::wireName),
                         "the assumption statuses should equal the schema enum"));

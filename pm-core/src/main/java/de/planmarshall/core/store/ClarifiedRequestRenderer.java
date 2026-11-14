@@ -63,12 +63,12 @@ public final class ClarifiedRequestRenderer {
         }
         nonGoals(out, intentRecord.nonGoals());
         constraints(out, intentRecord.constraints());
-        decisions(out, "Operator Decisions", intentRecord.decisions().stream()
+        decisions(out, "Operator Decisions", intentRecord.choices().stream()
                 .filter(item -> item.decider() == Decider.OPERATOR || item.decider() == Decider.QUORUM).toList());
-        decisions(out, "Decisions from Facts", intentRecord.decisions().stream()
+        decisions(out, "Decisions from Facts", intentRecord.choices().stream()
                 .filter(item -> item.decider() == Decider.FACT).toList());
-        decisions(out, "Model's Calls", intentRecord.decisions().stream()
-                .filter(item -> item.decider() == Decider.MODEL).toList());
+        decisions(out, "Role's Calls", intentRecord.choices().stream()
+                .filter(item -> item.decider() == Decider.ROLE).toList());
         assumptions(out, intentRecord.assumptions());
         openQuestions(out, intentRecord.openQuestions());
         deferred(out, intentRecord.deferred());

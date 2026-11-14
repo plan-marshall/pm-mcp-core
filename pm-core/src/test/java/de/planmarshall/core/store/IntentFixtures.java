@@ -51,10 +51,11 @@ final class IntentFixtures {
                 List.of(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST),
                         criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)),
                 null,
+                null,
                 List.of(new NonGoal("NG-1", Generators.letterStrings(5, 40).next())),
                 List.of(new Constraint("CN-1", Generators.letterStrings(10, 60).next(), ConstraintSource.OPERATOR,
                         null)),
-                List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(), options(), Decider.MODEL, null,
+                List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(), options(), Decider.ROLE, null,
                         null, null)),
                 List.of(new Assumption("AN-1", Generators.letterStrings(5, 40).next(), AssumptionStatus.VERIFIED,
                         false, null)),
@@ -70,23 +71,23 @@ final class IntentFixtures {
 
     static IntentRecord withCriteria(List<Criterion> criteria) {
         var base = valid();
-        return new IntentRecord(base.why(), base.goal(), criteria, base.currentBehaviour(), base.nonGoals(),
-                base.constraints(), base.decisions(), base.assumptions(), base.openQuestions(), base.deferred(),
-                base.sourceClaims());
+        return new IntentRecord(base.why(), base.goal(), criteria, base.currentBehaviour(), base.repairs(),
+                base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
     }
 
     static IntentRecord withDecisions(List<Decision> decisions) {
         var base = valid();
-        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), base.nonGoals(),
-                base.constraints(), decisions, base.assumptions(), base.openQuestions(), base.deferred(),
-                base.sourceClaims());
+        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), base.repairs(),
+                base.nonGoals(), base.constraints(), decisions, base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
     }
 
     static IntentRecord withClaims(List<SourceClaim> claims) {
         var base = valid();
-        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), base.nonGoals(),
-                base.constraints(), base.decisions(), base.assumptions(), base.openQuestions(), base.deferred(),
-                claims);
+        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), base.repairs(),
+                base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
+                base.deferred(), claims);
     }
 
     static Criterion criterion(String id, CriterionKind kind, VerifiedBy verifiedBy) {

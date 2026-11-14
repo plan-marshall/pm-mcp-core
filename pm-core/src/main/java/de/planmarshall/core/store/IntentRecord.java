@@ -42,10 +42,12 @@ import org.jspecify.annotations.Nullable;
  * @param goal            the outcome sentence a check can decide, 10 to 300 characters
  * @param criteria        one to 30 acceptance criteria
  * @param currentBehaviour the behaviour a {@code fix} criterion replaces; {@code null} when the record has no fix
+ * @param repairs         the {@code plan_id} of the landed plan whose work this plan repairs; {@code null} unless the
+ *                        record has a {@code fix} criterion and the source or the operator names a plan
  * @param nonGoals        up to 20 non-goals; at least one on {@code submit:refine}, which {@link IntentAcceptance}
  *                        checks
  * @param constraints     up to 20 constraints, each ruling something out
- * @param decisions       up to 30 decisions
+ * @param choices         up to 30 choices
  * @param assumptions     up to 20 assumptions
  * @param openQuestions   up to 20 open questions
  * @param deferred        up to 20 deferred items
@@ -54,8 +56,9 @@ import org.jspecify.annotations.Nullable;
  */
 @Builder
 public record IntentRecord(String why, String goal, List<Criterion> criteria, @Nullable String currentBehaviour,
-List<NonGoal> nonGoals, List<Constraint> constraints, List<Decision> decisions, List<Assumption> assumptions,
-List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sourceClaims) {
+@Nullable String repairs, List<NonGoal> nonGoals, List<Constraint> constraints, List<Decision> choices,
+List<Assumption> assumptions, List<OpenQuestion> openQuestions, List<Deferred> deferred,
+List<SourceClaim> sourceClaims) {
 
     /** The pattern of a criterion identifier. */
     public static final Pattern CRITERION_ID = Pattern.compile("AC-\\d{1,4}");
@@ -92,22 +95,22 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
         currentBehaviour = optionalBounded(currentBehaviour, "current_behaviour", 10, 500).orElse(null);
         nonGoals = copy(nonGoals, "non_goals", 0, 20);
         constraints = copy(constraints, "constraints", 0, 20);
-        decisions = copy(decisions, "decisions", 0, 30);
+        choices = copy(choices, "choices", 0, 30);
         assumptions = copy(assumptions, "assumptions", 0, 20);
         openQuestions = copy(openQuestions, "open_questions", 0, 20);
         deferred = copy(deferred, "deferred", 0, 20);
         sourceClaims = copy(sourceClaims, "source_claims", 1, 60);
-        uniqueIdentifiers(criteria, nonGoals, constraints, decisions, assumptions, deferred);
-        fixTriple(criteria, currentBehaviour);
+        uniqueIdentifiers(criteria, nonGoals, constraints, choices, assumptions, deferred);
+        fixTriple(criteria, currentBehaviour, repairs);
         assumptionsRule(assumptions);
-        preservation(sourceClaims, criteria, nonGoals, constraints, decisions, assumptions, deferred);
+        preservation(sourceClaims, criteria, nonGoals, constraints, choices, assumptions, deferred);
     }
 
     /**
      * @return the identifiers of every item of the record, in member order
      */
     public List<String> identifiers() {
-        return List.copyOf(collectIds(criteria, nonGoals, constraints, decisions, assumptions, deferred));
+        return List.copyOf(collectIds(criteria, nonGoals, constraints, choices, assumptions, deferred));
     }
 
     /**
@@ -135,11 +138,11 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
     }
 
     private static void uniqueIdentifiers(List<Criterion> criteria, List<NonGoal> nonGoals,
-            List<Constraint> constraints, List<Decision> decisions, List<Assumption> assumptions,
+            List<Constraint> constraints, List<Decision> choices, List<Assumption> assumptions,
             List<Deferred> deferred) {
         var seen = new HashSet<String>();
         var duplicates = new LinkedHashSet<String>();
-        for (var id : collectIds(criteria, nonGoals, constraints, decisions, assumptions, deferred)) {
+        for (var id : collectIds(criteria, nonGoals, constraints, choices, assumptions, deferred)) {
             if (!seen.add(id)) {
                 duplicates.add(id);
             }
@@ -150,24 +153,28 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
     }
 
     private static List<String> collectIds(List<Criterion> criteria, List<NonGoal> nonGoals,
-            List<Constraint> constraints, List<Decision> decisions, List<Assumption> assumptions,
+            List<Constraint> constraints, List<Decision> choices, List<Assumption> assumptions,
             List<Deferred> deferred) {
         var ids = new ArrayList<String>();
         criteria.forEach(item -> ids.add(item.id()));
         nonGoals.forEach(item -> ids.add(item.id()));
         constraints.forEach(item -> ids.add(item.id()));
-        decisions.forEach(item -> ids.add(item.id()));
+        choices.forEach(item -> ids.add(item.id()));
         assumptions.forEach(item -> ids.add(item.id()));
         deferred.forEach(item -> ids.add(item.id()));
         return ids;
     }
 
-    private static void fixTriple(List<Criterion> criteria, @Nullable String currentBehaviour) {
+    private static void fixTriple(List<Criterion> criteria, @Nullable String currentBehaviour,
+            @Nullable String repairs) {
         var carriesFix = criteria.stream().anyMatch(item -> item.kind() == CriterionKind.FIX);
         if (!carriesFix) {
             if (currentBehaviour != null) {
                 throw new IllegalArgumentException(
                         "a record without a fix criterion carries no current_behaviour");
+            }
+            if (repairs != null) {
+                throw new IllegalArgumentException("repairs is set only on a record with a fix criterion");
             }
             return;
         }
@@ -202,9 +209,9 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
     }
 
     private static void preservation(List<SourceClaim> claims, List<Criterion> criteria, List<NonGoal> nonGoals,
-            List<Constraint> constraints, List<Decision> decisions, List<Assumption> assumptions,
+            List<Constraint> constraints, List<Decision> choices, List<Assumption> assumptions,
             List<Deferred> deferred) {
-        var ids = new HashSet<>(collectIds(criteria, nonGoals, constraints, decisions, assumptions, deferred));
+        var ids = new HashSet<>(collectIds(criteria, nonGoals, constraints, choices, assumptions, deferred));
         for (var claim : claims) {
             if (!DROPPED_OR_GOAL.contains(claim.landedIn()) && !ids.contains(claim.landedIn())) {
                 throw new IllegalArgumentException(
@@ -449,9 +456,9 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
             if (!DECISION_ID.matcher(id).matches()) {
                 throw new IllegalArgumentException("a decision id is DC-<n>: " + id);
             }
-            bounded(text, "decisions[].text", 5, 500);
-            optionsWeighed = copy(optionsWeighed, "decisions[].options_weighed", 0, 5);
-            optionsWeighed.forEach(option -> bounded(option, "decisions[].options_weighed[]", 2, 200));
+            bounded(text, "choices[].text", 5, 500);
+            optionsWeighed = copy(optionsWeighed, "choices[].options_weighed", 0, 5);
+            optionsWeighed.forEach(option -> bounded(option, "choices[].options_weighed[]", 2, 200));
             if ((decider == Decider.OPERATOR || decider == Decider.QUORUM) && questionId == null) {
                 throw new IllegalArgumentException(
                         "the %s decision '%s' names its question_id".formatted(decider.wireName(), id));
@@ -468,7 +475,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
                         "the %s decision '%s' carries no evidence".formatted(decider.wireName(), id));
             }
             if (evidence != null && evidence.length() > 512) {
-                throw new IllegalArgumentException("decisions[].evidence is at most 512 characters");
+                throw new IllegalArgumentException("choices[].evidence is at most 512 characters");
             }
             if (adr != null && adr.relation() == AdrRelation.CONTRADICTS && decider != Decider.OPERATOR) {
                 throw new IllegalArgumentException(
@@ -484,7 +491,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
         /** A quorum answered a question part. */
         QUORUM("quorum"),
         /** The role took the call. */
-        MODEL("model"),
+        ROLE("role"),
         /** Exploring the tree found it. */
         FACT("fact");
 

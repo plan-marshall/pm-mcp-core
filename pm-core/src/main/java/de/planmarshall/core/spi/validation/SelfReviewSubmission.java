@@ -284,7 +284,7 @@ public record SelfReviewSubmission(List<ItemResult> results) {
         intentRecord.criteria().forEach(criterion -> ids.add(criterion.id()));
         intentRecord.constraints().forEach(constraint -> ids.add(constraint.id()));
         intentRecord.nonGoals().forEach(nonGoal -> ids.add(nonGoal.id()));
-        intentRecord.decisions().forEach(decision -> ids.add(decision.id()));
+        intentRecord.choices().forEach(decision -> ids.add(decision.id()));
         return ids.stream().filter(id -> !seen.contains(id)).findFirst();
     }
 }

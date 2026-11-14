@@ -88,9 +88,9 @@ class BuilderCheckTest {
         var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1"), MINOR_DECISION);
         var accepted = assertInstanceOf(Accepted.class,
                 BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
-        var decision = accepted.intentRecord().decisions().getLast();
+        var decision = accepted.intentRecord().choices().getLast();
         assertEquals("DC-2", decision.id());
-        assertEquals(Decider.MODEL, decision.decider());
+        assertEquals(Decider.ROLE, decision.decider());
         assertTrue(decision.text().startsWith("from the builder check:"));
         assertFalse(accepted.operatorQuestions().contains(question));
     }
@@ -146,11 +146,11 @@ class BuilderCheckTest {
         var decisions = new ArrayList<Decision>();
         for (var index = 1; index <= 30; index++) {
             decisions.add(new Decision("DC-" + index, Generators.letterStrings(5, 20).next(), List.of(),
-                    Decider.MODEL, null, null, null));
+                    Decider.ROLE, null, null, null));
         }
         var full = new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(),
-                base.nonGoals(), base.constraints(), decisions, base.assumptions(), base.openQuestions(),
-                base.deferred(), base.sourceClaims());
+                base.repairs(), base.nonGoals(), base.constraints(), decisions, base.assumptions(),
+                base.openQuestions(), base.deferred(), base.sourceClaims());
         var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1"), MINOR_DECISION);
 
         var refused = assertInstanceOf(Refused.class,
@@ -176,10 +176,11 @@ class BuilderCheckTest {
                                 "WHEN a plan is refined THE system SHALL CONTINUE TO keep the previous record intact",
                                 CriterionKind.UNCHANGED, VerifiedBy.TEST)),
                 null,
+                null,
                 List.of(new NonGoal("NG-1", NON_GOAL)),
                 List.of(new Constraint("CN-1", CONSTRAINT, ConstraintSource.OPERATOR, null)),
                 List.of(new Decision("DC-1", DECISION, List.of(OPTION, OTHER_OPTION),
-                        Decider.MODEL, null, null, null)),
+                        Decider.ROLE, null, null, null)),
                 List.of(), List.of(), List.of(),
                 List.of(new SourceClaim(CLAIM, "goal", null),
                         new SourceClaim(OTHER_CLAIM, "CN-1", null)));
