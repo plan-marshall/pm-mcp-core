@@ -250,6 +250,9 @@ public final class ProfileValidator {
     private static final Pattern LOOPBACK_URL = Pattern.compile("^http://(127\\.0\\.0\\.1|\\[::1\\]):(\\d{1,5})$");
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([^{}]*)\\}\\}");
 
+    /** The one literal slot the load directive carries; a rendered directive names the skill it loads through it. */
+    private static final String SKILL_URI_SLOT = "{{uri}}";
+
     private ProfileValidator() {
     }
 
@@ -517,9 +520,22 @@ public final class ProfileValidator {
             var template = text(required(skill, pointer, NAME_LOAD_DIRECTIVE_TEMPLATE),
                     pointer + "/load_directive_template", NAME_LOAD_DIRECTIVE_TEMPLATE, 256);
             stringRule(template, pointer + "/load_directive_template", true);
+            skillUriSlot(template, pointer + "/load_directive_template");
             enumValue(required(skill, pointer, NAME_SCHEMA_RESIDENCY), pointer + "/schema_residency", NAME_SCHEMA_RESIDENCY,
                     Set.of("resident", "on_demand"));
             bool(required(skill, pointer, NAME_SKILLS_EXTENSION), pointer + "/skills_extension", NAME_SKILLS_EXTENSION);
+        }
+
+        private void skillUriSlot(String template, String pointer) {
+            var occurrences = 0;
+            for (var index = template.indexOf(SKILL_URI_SLOT); index >= 0;
+                    index = template.indexOf(SKILL_URI_SLOT, index + SKILL_URI_SLOT.length())) {
+                occurrences++;
+            }
+            if (occurrences != 1) {
+                throw invalid(pointer, "the load directive names '%s' %d times, not exactly once"
+                        .formatted(SKILL_URI_SLOT, occurrences));
+            }
         }
 
         private void headless(JsonNode headless, String pointer) {

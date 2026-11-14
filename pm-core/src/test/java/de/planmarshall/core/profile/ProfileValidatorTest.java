@@ -10,6 +10,7 @@
 package de.planmarshall.core.profile;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,6 +47,31 @@ class ProfileValidatorTest {
         assertAll(
                 () -> assertEquals("acme-cli", ProfileValidator.clientId(profile)),
                 () -> assertEquals("Acme CLI", profile.member("display_name").flatMap(JsonNode::text).orElseThrow()));
+    }
+
+    static Stream<Arguments> loadDirectiveSlots() {
+        return Stream.of(
+                Arguments.of("pm_skill()", true, "a template without the slot is refused"),
+                Arguments.of("pm_skill(uri=\"{{uri}}\")", false, "the slot exactly once loads"),
+                Arguments.of("pm_skill(uri=\"{{uri}}\", again=\"{{uri}}\")", true, "the slot twice is refused"),
+                Arguments.of("pm_skill(uri=\"{ {uri}}\")", true, "a slot split by a space is refused"));
+    }
+
+    @ParameterizedTest(name = "{2}")
+    @MethodSource("loadDirectiveSlots")
+    @DisplayName("the load directive names its skill through the literal slot exactly once")
+    void loadDirectiveNeedsTheUriSlot(String template, boolean refused, String because) {
+        // The literal '{{uri}}' is the contract: a near-synonym is a missing slot, not a second spelling.
+        var fixture = ProfileFixtures.valid().set("/skill_loading/load_directive_template", template);
+
+        if (!refused) {
+            assertDoesNotThrow(() -> ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none()), because);
+            return;
+        }
+        var refusal = assertThrows(ProfileRefusal.class,
+                () -> ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none()), because);
+
+        assertEquals("/skill_loading/load_directive_template", refusal.pointer(), because);
     }
 
     @Test
