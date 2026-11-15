@@ -102,10 +102,11 @@ public class TapOutputParser {
     private static final Pattern PLAN = Pattern.compile("^1\\.\\.(\\d+)");
 
     /**
-     * A top-level test point, {@code ok <number>} or {@code not ok <number>}: at the start of the line, as its plan line
-     * is, and anchored to the point shape so a prose line that merely starts with the word {@code ok} is no point.
+     * A top-level test point, {@code ok <number>} (or a bare {@code ok}, {@code ok - description}, {@code ok # directive},
+     * and the {@code not ok} forms) at the start of the line: anchored to the TAP point shape, so a prose line that
+     * merely starts with the word {@code ok} is no point.
      */
-    private static final Pattern TOP_LEVEL_POINT = Pattern.compile("^(?:not )?ok\\s+\\d+");
+    private static final Pattern TOP_LEVEL_POINT = Pattern.compile("^(?:not )?ok(?:\\s+\\d+|\\s+-|\\s+#|\\s*$)");
 
     /**
      * Parses a TAP test log.

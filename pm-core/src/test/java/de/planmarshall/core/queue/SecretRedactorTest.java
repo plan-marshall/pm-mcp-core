@@ -271,6 +271,24 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a punctuation-leading value is not swallowed by a quoted assignment")
+    void quotedAssignmentDoesNotSwallowAPunctuationLeadingValue() {
+        var redacted = redactValue("pass=\"abc token=\"!s3cret-value\"");
+
+        assertFalse(redacted.contains("s3cret-value"), "a refused close masks the rest of the line");
+    }
+
+    @Test
+    @DisplayName("a no-break space after a credential flag does not hide the value")
+    void credentialFlagWithNonAsciiSpace() {
+        assertAll("Unicode whitespace after a credential flag",
+                () -> assertEquals("--token\u00A0" + SecretRedactor.REDACTED,
+                        redactValue("--token\u00A0abcd1234"), "an unquoted value is masked"),
+                () -> assertEquals("--token\u00A0\"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("--token\u00A0\"abcd1234\""), "a quoted value is masked"));
+    }
+
+    @Test
     @DisplayName("a quoted assignment does not swallow a later label on its own line")
     void quotedAssignmentDoesNotSwallowALaterLabelOnItsLine() {
         var redacted = redactValue("pass=\"abc token=\"s3cret\"");

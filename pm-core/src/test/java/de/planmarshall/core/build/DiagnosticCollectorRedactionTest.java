@@ -122,6 +122,17 @@ class DiagnosticCollectorRedactionTest {
     }
 
     @Test
+    @DisplayName("a message that is only invisible characters is not filed and does not fail the parse")
+    void invisibleOnlyMessageIsNotFiled() {
+        var maven = MavenOutputParser.parse("[ERROR] \u200B\u200B\n");
+        var mypy = PyprojectOutputParser.parse("src/a.py:3: error: \u200B\n");
+
+        assertAll("invisible-only messages",
+                () -> assertTrue(maven.diagnostics().isEmpty(), "the Maven line files nothing"),
+                () -> assertTrue(mypy.diagnostics().isEmpty(), "the mypy line files nothing"));
+    }
+
+    @Test
     @DisplayName("a Gradle message is redacted")
     void gradleMessageRedacted() {
         var build = GradleOutputParser.parse("/p/Foo.java:7: error: cannot find symbol " + CREDENTIAL + "\n");

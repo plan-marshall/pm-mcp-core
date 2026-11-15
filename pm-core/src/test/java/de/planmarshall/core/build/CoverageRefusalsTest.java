@@ -168,13 +168,30 @@ class CoverageRefusalsTest {
                 new NoSuchFileException(reportFile.toString()));
 
         assertAll(
-                () -> assertEquals("cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH
-                        + ": no such file".length(), refused.reason().length(),
-                        "The file name is cut to the bound before the kind is appended"),
+                () -> assertTrue(refused.reason().length()
+                                <= "cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
+                        "The whole detail is bounded"),
                 () -> assertTrue(refused.reason().endsWith(": no such file"),
                         "A name near the bound never loses the failure kind"),
                 () -> assertTrue(refused.reason().startsWith("cobertura: " + reportFile.getFileName()
                         .toString().substring(0, 100)), "The reason keeps the head of the file name"));
+    }
+
+    @Test
+    @DisplayName("cuts a hostile long file-system reason and keeps it after the bounded file name")
+    void cutsAHostileLongReason() {
+        Path reportFile = reportFile();
+        String reason = "x".repeat(1_000_000);
+
+        CoverageParseResult.Refused refused = CoverageRefusals.of(CoverageFormat.LCOV, reportFile,
+                new FileSystemException(reportFile.toString(), null, reason));
+
+        assertAll(
+                () -> assertTrue(refused.reason().length() <= "lcov: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
+                        "The whole refusal detail is bounded"),
+                () -> assertTrue(refused.reason().contains(": " + reportFile.getFileName()),
+                        "The bounded file name stays in the reason"),
+                () -> assertTrue(refused.reason().endsWith("x"), "The reason is kept, cut to its bound"));
     }
 
     private Path reportFile() {

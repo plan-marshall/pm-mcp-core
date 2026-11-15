@@ -328,6 +328,17 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
     }
 
     @Test
+    @DisplayName("a bare ok point and a description-only point are counted (TAP point shapes)")
+    void unnumberedTapPointsAreCounted() {
+        String logText = String.join("\n", "TAP version 13", "1..2", "ok", "ok - a described point",
+                "# tests 2", "# pass 2", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertTrue(build.successMarker(), "A bare ok and a described point match the plan");
+    }
+
+    @Test
     @DisplayName("a prose line that starts with ok is no test point (TAP point shape)")
     void proseStartingWithOkIsNoTestPoint() {
         String logText = String.join("\n", "TAP version 13", "1..1", "ok, the copy is done", "ok 1 - first",

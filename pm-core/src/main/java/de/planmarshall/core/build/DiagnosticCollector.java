@@ -83,6 +83,19 @@ class DiagnosticCollector {
         return truncate(SecretRedactor.redactText(message).orElseThrow(), MAX_MESSAGE_LENGTH);
     }
 
+    /**
+     * Redacts and truncates a message, or reports it absent when only whitespace or invisible characters are left after
+     * the redaction. A producer skips such a line: {@link Diagnostic} rejects a blank message, so filing it would fail
+     * the parse of the whole log.
+     *
+     * @param message the message
+     * @return the redacted stored message, or {@link Optional#empty()} when nothing visible is left
+     */
+    static Optional<String> storedOrEmpty(String message) {
+        String stored = stored(message);
+        return stored.isBlank() ? Optional.empty() : Optional.of(stored);
+    }
+
     private static String truncate(String text, int maxLength) {
         return text.length() <= maxLength ? text : text.substring(0, maxLength);
     }

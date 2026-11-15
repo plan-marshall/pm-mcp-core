@@ -191,9 +191,9 @@ public final class SecretRedactor {
     private static final String CREDENTIAL_FLAG_NAMES =
             "password|passwd|passphrase|token|secret|auth-token|api-key|apikey|access-token|client-secret|otp";
 
-    /** The shared head of a credential-flag pattern: the flag name and the whitespace after it, kept as groups 1 and 2. */
+    /** The shared head of a credential-flag pattern: the flag name and the horizontal whitespace after it. */
     private static final String CREDENTIAL_FLAG_HEAD =
-            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)";
+            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))(\\h+)";
 
     /** A run of characters of a quoted flag value that are neither a backslash, the opening quote nor a line end. */
     private static final String QUOTED_PLAIN_RUN = "(?:(?!\\3)[^\\\\\\r\\n])*+";
@@ -236,10 +236,11 @@ public final class SecretRedactor {
 
     /**
      * The value of a quoted assignment: the plain runs and escape pairs of {@link #QUOTED_LINE} up to the same closing
-     * quote (group 3). The lookahead refuses a closing quote that a word character follows, so a value cannot swallow
-     * the next label and its value ({@code pass="abc token="s3cret"} masks the rest of the line instead).
+     * quote (group 3). The lookahead accepts a closing quote only when whitespace, a delimiter ({@code , ; ) ] }}) or the
+     * end of the text follows it, so a value cannot swallow the next label and its value ({@code pass="abc token="x"}
+     * and {@code pass="abc token="!x"} both mask the rest of the line instead).
      */
-    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_LINE + "\\3" + "(?![\\w])";
+    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_LINE + "\\3" + "(?=[\\s,;)\\]}]|$)";
 
     /**
      * The quoted form of a credential-shaped assignment with no acceptable closing quote on its line: it runs before the

@@ -177,8 +177,12 @@ public class MavenOutputParser {
             return Optional.empty();
         }
         var location = JvmFileLocation.parse(line);
+        var stored = DiagnosticCollector.storedOrEmpty(message);
+        if (stored.isEmpty()) {
+            return Optional.empty();
+        }
         return Optional.of(Diagnostic.builder().file(location.file()).line(location.line())
-                .column(location.column()).message(DiagnosticCollector.stored(message))
+                .column(location.column()).message(stored.get())
                 .category(categoryOf(message, severity.get())).severity(severity.get()).build());
     }
 
@@ -221,12 +225,12 @@ public class MavenOutputParser {
      * executed count per runner.
      * <p>
      * Counts are read and summed as {@code long}, so a count or a sum outside the {@code int} range is reported as
-     * {@link TestCounts.Unmeasured} instead of wrapping into a figure that passes as a measurement. The {@code long} sums
-     * themselves cannot wrap, because an unrepresentable value is not summed at all: every count a line adds is at most
-     * {@link Integer#MAX_VALUE} (a larger one marks the scan unrepresentable), and the input holds fewer than 2^26 count
-     * lines (a count line takes more than 40 characters, the {@code Path} overload reads at most
-     * {@link BuildLogText#MAX_BYTES} bytes and the {@code String} overload is bounded by the length of a Java
-     * {@code String}), so each sum stays below 2^58.
+     * {@link TestCounts.Unmeasured} instead of wrapping into a figure that passes as a measurement. A count a line
+     * carries beyond the {@code int} range marks the scan unrepresentable, and that mark makes the result guard report
+     * {@code Unmeasured}; the values a representable scan adds are each at most {@link Integer#MAX_VALUE}, and the input
+     * holds fewer than 2^26 count lines (a count line takes more than 40 characters, the {@code Path} overload reads at
+     * most {@link BuildLogText#MAX_BYTES} bytes and the {@code String} overload is bounded by the length of a Java
+     * {@code String}), so each sum of the added values stays below 2^58.
      */
     private static final class CountScan {
 

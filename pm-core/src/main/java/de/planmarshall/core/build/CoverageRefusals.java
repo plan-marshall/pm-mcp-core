@@ -71,7 +71,8 @@ class CoverageRefusals {
         }
         Path fileName = reportFile.getFileName();
         String name = fileName == null ? "the report file" : fileName.toString();
-        return refused(format, cut(name) + ": " + kind(failure));
+        String failureKind = cutTo(kind(failure), MAX_DETAIL_LENGTH / 2);
+        return refused(format, cutTo(name, MAX_DETAIL_LENGTH - failureKind.length() - 2) + ": " + failureKind);
     }
 
     /**
@@ -89,12 +90,19 @@ class CoverageRefusals {
     }
 
     private static String cut(String detail) {
-        if (detail.length() <= MAX_DETAIL_LENGTH) {
+        return cutTo(detail, MAX_DETAIL_LENGTH);
+    }
+
+    /** Cuts an echoed text to at most {@code bound} characters, never splitting a surrogate pair. */
+    private static String cutTo(String detail, int bound) {
+        if (bound <= 0) {
+            return "";
+        }
+        if (detail.length() <= bound) {
             return detail;
         }
-        int end = Character.isHighSurrogate(detail.charAt(MAX_DETAIL_LENGTH - 1))
-                ? MAX_DETAIL_LENGTH - 1 : MAX_DETAIL_LENGTH;
-        return detail.substring(0, end);
+        int end = Character.isHighSurrogate(detail.charAt(bound - 1)) ? bound - 1 : bound;
+        return detail.substring(0, Math.max(end, 0));
     }
 
     private static String kind(FileSystemException failure) {
