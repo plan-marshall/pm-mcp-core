@@ -38,7 +38,8 @@ import org.junit.jupiter.api.io.TempDir;
  * <p>
  * The scan reads text, not types, so two shapes are outside what it can tell: a tolerance passed as an identifier or a
  * call ({@code assertEquals(a, b, DELTA)} reads as a message) and a comma inside a top-level type argument of a
- * single-argument assertion. Neither shape occurs in the scanned packages today.
+ * single-argument assertion. The measurement is of the source spelling: an escape sequence counts by its spelling, and a
+ * comment beside a message literal makes it read as a non-literal. None of these occurs in the scanned packages today.
  * <p>
  * A plan that brings another package of this module to the rule adds that package to {@link #SCANNED_PACKAGES}; a
  * package whose directory holds no test source fails the scan instead of passing it as empty.
@@ -62,7 +63,8 @@ class AssertionMessageScanTest {
     private static final Set<String> ONE_ARGUMENT_ASSERTIONS = Set.of("assertTrue", "assertFalse", "assertNull",
             "assertNotNull", "assertDoesNotThrow");
 
-    private static final Pattern NUMERIC = Pattern.compile("[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)[dDfF]?");
+    private static final Pattern NUMERIC =
+            Pattern.compile("[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?[dDfF]?");
 
     private static final Pattern LITERAL = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"");
 
@@ -108,6 +110,10 @@ class AssertionMessageScanTest {
         assertTrue(reported(packageFixture(temp.resolve("long"), "assertTrue(refusal.isPresent(), \""
                 + "x".repeat(MAX_MESSAGE_LENGTH + 1) + "\");"), "longer than " + MAX_MESSAGE_LENGTH),
                 "a message above 60 characters must be reported");
+        assertTrue(reported(packageFixture(temp.resolve("tolerance"),
+                "assertEquals(1.0, value, 1e-6); assertArrayEquals(EXPECTED, value, 0.001);"),
+                "a tolerance is not a message"),
+                "a numeric tolerance must not be read as a message");
     }
 
     @Test
@@ -192,10 +198,7 @@ class AssertionMessageScanTest {
         return new Scan(files.size(), violations);
     }
 
-    /**
-     * @param files the number of source files the scan read, so a package that holds none fails instead of passing
-     * @param violations the assertion-message violations the scan found
-     */
+    /** The source files a package scan read, and its violations; a package with no file fails instead of passing. */
     private record Scan(int files, List<String> violations) {
     }
 
@@ -255,7 +258,8 @@ class AssertionMessageScanTest {
     }
 
     private static boolean isNumericTolerance(String name) {
-        return "assertEquals".equals(name) || "assertNotEquals".equals(name);
+        return "assertEquals".equals(name) || "assertNotEquals".equals(name)
+                || "assertArrayEquals".equals(name);
     }
 
     private static int nextNonWhitespace(String view, int from) {
