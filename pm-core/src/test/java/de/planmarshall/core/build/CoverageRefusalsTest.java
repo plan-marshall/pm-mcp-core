@@ -169,7 +169,7 @@ class CoverageRefusalsTest {
 
         assertAll(
                 () -> assertTrue(refused.reason().length()
-                                <= "cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
+                        <= "cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
                         "The whole detail is bounded"),
                 () -> assertTrue(refused.reason().endsWith(": no such file"),
                         "A name near the bound never loses the failure kind"),

@@ -175,8 +175,8 @@ being copied.
 A top-level plan line `1..N` announces the test points the run will print. `TapOutputParser` checks the plan per run:
 a run starts at every line that starts with `TAP version`, and the lines before the first such line, or the whole log
 when it carries none, are one run. Per run it sums the counts of the run's own top-level plan lines and compares the
-sum with the run's own number of top-level test points (`ok <number>` and `not ok <number>` at the start of a line,
-the TAP point shape); when they differ, the
+sum with the run's own number of top-level test points (the TAP point shape: `ok` or `not ok`, followed by a space or
+the line end, so a numbered point, a bare point and a description or directive all count); when they differ, the
 run did not finish its plan — the evidence class of `Bail out!` — and the passing summary is no marker, even with
 exit 0. A prose line that merely starts with the word `ok` is no point. The log finished its plan only when every run did,
 so a later run of concatenated runs
