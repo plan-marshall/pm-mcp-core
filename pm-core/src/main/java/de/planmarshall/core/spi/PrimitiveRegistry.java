@@ -210,15 +210,14 @@ public final class PrimitiveRegistry {
         checkReasonConditions(id, reasons);
     }
 
-    @SuppressWarnings({"java:S2583", "java:S2789", "java:S1905"})
     private static Optional<Class<? extends OutcomeReason>> declaredReasonType(String id, PrimitiveOutcome outcome) {
-        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional or a payload that is no
-        // Class; both are refused as a malformed reason type instead of escaping as a ClassCastException. The cast to
-        // the wildcard Optional is deliberate: it erases the implicit cast to Class, so the payload is inspected first.
-        var declared = (Optional<?>) outcome.reasonType();
-        if (declared == null) {
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null reason type or a payload that is no
+        // Class; both are refused as a malformed reason type instead of escaping as a ClassCastException. The value
+        // is read as an Object and matched, so the payload is inspected before it is read and no cast is needed.
+        Object raw = outcome.reasonType();
+        if (!(raw instanceof Optional<?> declared)) {
             throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_TYPE,
-                    "has the outcome %s with a null reason type".formatted(outcome));
+                    "has the outcome %s with a reason type that is no Optional".formatted(outcome));
         }
         if (declared.isEmpty()) {
             return Optional.empty();
@@ -269,10 +268,9 @@ public final class PrimitiveRegistry {
         }
     }
 
-    @SuppressWarnings("java:S2589")
-    private static boolean isReasonWireName(String wireName) {
+    private static boolean isReasonWireName(Object wireName) {
         // A primitive compiled against a raw PrimitiveOutcome can answer a null wire name, which is refused here.
-        return wireName != null && WIRE_NAME.matcher(wireName).matches();
+        return wireName instanceof String name && WIRE_NAME.matcher(name).matches();
     }
 
     private static void checkReasonConditions(String id, List<OutcomeReason> reasons) {
@@ -286,15 +284,23 @@ public final class PrimitiveRegistry {
         }
     }
 
-    @SuppressWarnings({"java:S2583", "java:S2789"})
     private static Optional<String> conditionKindOf(String id, OutcomeReason reason) {
-        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional, which is refused here.
-        var conditionKind = reason.conditionKind();
-        if (conditionKind == null) {
-            throw new PrimitiveRegistrationException(id, Reason.UNMAPPABLE_REASON_CONDITION,
-                    "has the reason %s with a null condition kind".formatted(reason));
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null condition kind, which is refused
+        // here. The value is read as an Object and matched, so the payload is inspected before it is read.
+        Object raw = reason.conditionKind();
+        if (raw instanceof Optional<?> declared) {
+            return declared.map(kind -> conditionKindName(id, reason, kind));
         }
-        return conditionKind;
+        throw new PrimitiveRegistrationException(id, Reason.UNMAPPABLE_REASON_CONDITION,
+                "has the reason %s with a condition kind that is no Optional".formatted(reason));
+    }
+
+    private static String conditionKindName(String id, OutcomeReason reason, Object kind) {
+        if (kind instanceof String name) {
+            return name;
+        }
+        throw new PrimitiveRegistrationException(id, Reason.UNMAPPABLE_REASON_CONDITION,
+                "has the reason %s with a condition kind that is no string".formatted(reason));
     }
 
     private static void checkJobSideEffect(String id, Primitive<?, ?> primitive, List<PrimitiveOutcome> outcomes) {
