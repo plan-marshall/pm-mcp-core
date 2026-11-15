@@ -87,6 +87,10 @@ Added by the orchestrator. Read at the outline; it extends no Done-when by itsel
 
 **Counts at `2813564b` (a port of the scanner; re-measure at the outline):** only about 15 messages in 5 files remain in this plan's scope: `config` (`ProviderDefaultTest:101`, `ProviderDefaultBuilderContractTest:47`, `MachineConfigurationStoreTest:334,353`, literal messages that are too long) and `corpus` (`LfsBatchClientTest` 5, `HuggingFaceSourceRepositoryTest` 6, too short); `start`, `web`, `workspace`, `test`, `log`, `ingest`, `job`, `launch`, `lsp`, `lock` and `audit` are at 0. The plan is too small for a pull request of its own: fold it into PLAN-V2-105 when that is emitted (the orchestrator decides at the emit).
 
+## Carried from the landing of PLAN-V2-102 (2026-11-15)
+
+See the section of the same name in the spec of PLAN-V2-103: the findings of the landing read of PLAN-V2-102 (the scanner's edge forms, the whitelist, the 649-line class) go into whichever of 103, 104 and 105 is emitted first and extracts the scanner into `pm-core:tests`; this plan only adds its thin test.
+
 ## Hand-Off Command
 
 ```text

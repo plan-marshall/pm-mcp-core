@@ -55,15 +55,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/forgejo-provider.adoc` § What, Trace, Done When on `origin/main` at `4617865` (3 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/forgejo-provider.adoc unchanged since 88ec9c70; 3 What bullets and Done When equal D1 to D3
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/forgejo-provider.adoc was rewritten by #286: the What bullets are now a Tasks list of 4 numbered items, so the 3-bullet text is no longer the package file's own
 - OBSERVED: the package file and its index row (`blocked`; depends on the CI contract of `pm-provider-ci` (no work package)) — read at `doc/plans/forgejo-provider.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row blocked on the CI contract of pm-provider-ci (no work package); the module pm-provider-ci does not exist at f4a1bd07 (pm-providers/pom.xml modules: git, http, github, gitlab, sonar)
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: README index row forgejo-provider is open and depends on nothing, not blocked on pm-provider-ci; pm-provider-ci exists again (pm-providers/pom.xml:21, de.planmarshall.provider.ci contract classes)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: still wrong: ProjectEnrolment.Provider is GIT/GH/GLAB CLI providers only; no pm-provider-ci to depend on; the root enforcer allows a provider only pm-core and pm-provider-http; doc/developer/provider-forgejo.adoc is the wrong place (provider guides live per module)
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: pm-provider-ci exists at HEAD and the root enforcer (pom.xml:339-341) allows providers to depend on it; github pom does; the spec sections say the module is absent and forgejo must not depend on it
 - OBSERVED: the Module Structure Specification at plan-marshall-documentation `b8c61b3` lists `pm-provider-forgejo` as depending on `pm-provider-ci`, `pm-provider-http` and `pm-core`, and `pm-provider-http` as the shared HTTP base module — `doc/specification/module-structure.adoc` § module tree, § `pm-provider-forgejo`, § Dependency Rules
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: documentation origin/main module-structure.adoc still lists pm-provider-forgejo depending on pm-provider-ci; the implementing poms depend on pm-provider-http and pm-core only
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: documentation module-structure.adoc lines 183 and 589 list pm-provider-forgejo depending on pm-provider-ci, pm-provider-http and pm-core; no forgejo module exists in pm-mcp-core yet
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row still blocked; package file unchanged; open-PR list is only #71
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure clause for the executing plan; its premise changed: the index row is open now, not blocked, and the CI contract module exists
 
 ## Expected Surface
 
@@ -146,6 +146,14 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: the CI contract of `pm-provider-ci` (no work package); PLAN-V2-05 (`derived-facts-store-operations`) (the Derived Facts Store: records, kind registry, derivation and staleness rules; operator decision 12 of 18)
+
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 0 (contradicted at HEAD): doc/plans/forgejo-provider.adoc was rewritten by #286: the What bullets are now a Tasks list of 4 numbered items, so the 3-bullet text is no longer the package file's own
+- Claim 1 (contradicted at HEAD): README index row forgejo-provider is open and depends on nothing, not blocked on pm-provider-ci; pm-provider-ci exists again (pm-providers/pom.xml:21, de.planmarshall.provider.ci contract classes)
+- Claim 2 (contradicted at HEAD): pm-provider-ci exists at HEAD and the root enforcer (pom.xml:339-341) allows providers to depend on it; github pom does; the spec sections say the module is absent and forgejo must not depend on it
 
 ## Hand-Off Command
 

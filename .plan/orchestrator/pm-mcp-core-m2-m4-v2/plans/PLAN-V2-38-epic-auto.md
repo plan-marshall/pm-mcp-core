@@ -57,13 +57,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/epic-auto.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/epic-auto.adoc has no commit since 88ec9c70; 9 What bullets equal D1 to D9
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/epic-auto.adoc was restructured by #286 (efecccba): now 7 Tasks, Trace and Done When, no What section; the 9 bullets D1-D9 and long Done-when are not the file's own words; no section of the spec says so
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-V2-21 (`plan-and-epic-control`) (the operator's acts on a plan); PLAN-V2-27 (`epic-resource-and-release`) (next plan, the toggle among the epic's actions, archive, the release); PLAN-V2-32 (`epic-decomposition`)) — read at `doc/plans/epic-auto.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on plan-and-epic-control, epic-resource-and-release, epic-decomposition, all rows still listed
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row 198 is open and depends on plan-and-epic-control, epic-resource-and-release, epic-decomposition; all three rows still listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: no auto_start, overlap_max_files, overlap_found or terminal_reason symbol in main Java; workflow/epic is package-info only; runtime/ root cannot host PUT auto|settings
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis for the trace matrix; epic.schema.json and local-config.schema.json already carry auto_start, overlap_max_files, parallelization_scope; workflow/epic holds only EpicTokens; workflow-epic.adoc now exists; no PUT auto or settings code
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the index part holds; use cases and open PRs are not readable
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure needing open-PR list and agreement of use cases, not readable; the index part holds (row open, not blocked)
 
 ## Expected Surface
 
@@ -134,6 +134,12 @@ Specification changes carried (not yet in the Deliverables above):
 - Operator decision 24 (2026-10-29): six pieces around the epic ledger have no package (the shared epic worktree, the ledger resolution seam, the epic landing, the plan mailbox store, the outbox link, `landings.jsonl`); none is cut yet. If this plan's outline needs one, ask the operator at refine (R07) instead of inventing a home; see the Open Defect "The epic ledger's surrounding pieces have no package" in `epic.md`.
 - Operator decision 22 (2026-10-29): the epic queue row has 11 statuses, not 16 (`parked`, `superseded`, `retired`, `resolved`, `split` are cut by PLAN-V2-03); if this plan needs one of them it adds it back with its writer and its own justification in its own pull request.
 - Blocks: PLAN-V2-41 (`operator-reports`)
+
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 0 (contradicted at HEAD): doc/plans/epic-auto.adoc was restructured by #286 (efecccba): now 7 Tasks, Trace and Done When, no What section; the 9 bullets D1-D9 and long Done-when are not the file's own words; no section of the spec says so
 
 ## Hand-Off Command
 
