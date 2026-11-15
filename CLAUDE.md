@@ -145,7 +145,7 @@ them with a fixture project below `src/guard-controls`:
   that depends on `commonmark` and LSP4J.
 - No class of `pm-runtime` or `pm-core` opens a connection (a client socket, an HTTP client, a URL connection)
   except the four classes the exemption map of the guard names with their reasons, and only the destination classes of
-  the closed list use `cui-http`'s client; `OutboundCallsArchTest` of `pm-runtime` proves both
+  the closed list use `cui-http`'s client; `OutboundCallsArchTest` of `pm-runtime` proves both within its set
   ([Outbound-Call Guard Developer Guide](pm-runtime/doc/developer/runtime-guard.adoc)).
 - The coordinates of the product come from the organisation registry: `.mvn/settings.xml` lists it before Maven
   Central, and the group id filter of `.mvn/rrf` (switched on in `.mvn/maven.config`) lets it be asked for
