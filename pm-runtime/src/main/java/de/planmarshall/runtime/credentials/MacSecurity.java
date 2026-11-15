@@ -301,6 +301,7 @@ final class MacSecurity {
      * {@link #call(Downcall)} maps the failure. The exact descriptor is the compile-time check of every call site.
      */
     @FunctionalInterface
+    @SuppressWarnings("java:S112") // MethodHandle.invokeExact declares Throwable; the interface cannot declare less
     private interface Downcall<T> {
         T call() throws Throwable;
     }
