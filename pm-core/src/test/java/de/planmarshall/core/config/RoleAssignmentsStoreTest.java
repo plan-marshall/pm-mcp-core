@@ -76,16 +76,24 @@ class RoleAssignmentsStoreTest {
 
         var roles = store.read().roles();
         assertAll(
-                () -> assertEquals(2L, store.read().revision()),
-                () -> assertEquals(EffortSetting.VALUE, roles.get("implement").effort()),
-                () -> assertEquals(new EffortValue("high"), roles.get("implement").effortValue()),
-                () -> assertEquals(EffortSetting.DEFAULT, roles.get("screener").effort()),
-                () -> assertEquals(EffortSetting.INHERIT, roles.get("outline").effort()),
-                () -> assertEquals(STANDARD_MODEL, roles.get("screener").escalation().model()),
-                () -> assertEquals(new EffortValue("medium"), roles.get("screener").escalation().effort()),
-                () -> assertEquals(3, store.read().assignments().roles().size()),
+                () -> assertEquals(2L, store.read().revision(), "the document is read at revision 2"),
+                () -> assertEquals(EffortSetting.VALUE, roles.get("implement").effort(),
+                        "implement keeps an explicit effort"),
+                () -> assertEquals(new EffortValue("high"), roles.get("implement").effortValue(),
+                        "implement's effort is high"),
+                () -> assertEquals(EffortSetting.DEFAULT, roles.get("screener").effort(),
+                        "screener keeps the default effort"),
+                () -> assertEquals(EffortSetting.INHERIT, roles.get("outline").effort(),
+                        "outline inherits its effort"),
+                () -> assertEquals(STANDARD_MODEL, roles.get("screener").escalation().model(),
+                        "screener's escalation uses the standard model"),
+                () -> assertEquals(new EffortValue("medium"), roles.get("screener").escalation().effort(),
+                        "screener's escalation effort is medium"),
+                () -> assertEquals(3, store.read().assignments().roles().size(),
+                        "all three roles are assignments"),
                 () -> assertEquals(new EffortValue("high"),
-                        store.read().assignments().forRole("implement").orElseThrow().effort()));
+                        store.read().assignments().forRole("implement").orElseThrow().effort(),
+                        "the assignment view keeps the effort"));
     }
 
     @Test
@@ -101,9 +109,10 @@ class RoleAssignmentsStoreTest {
 
         var read = store.read();
         assertAll(
-                () -> assertEquals(1L, read.revision()),
-                () -> assertEquals(roles, read.roles()),
-                () -> assertNull(read.assignments().forRole("outline").orElseThrow().effort()));
+                () -> assertEquals(1L, read.revision(), "the write records revision 1"),
+                () -> assertEquals(roles, read.roles(), "every written role reads back"),
+                () -> assertNull(read.assignments().forRole("outline").orElseThrow().effort(),
+                        "outline keeps a null effort value"));
     }
 
     @Test
@@ -112,13 +121,16 @@ class RoleAssignmentsStoreTest {
         Files.writeString(file, DOCUMENT, UTF_8);
         var stale = Map.of("implement", RoleAssignmentValue.of(HARNESS, FAST_MODEL, "low"));
 
-        var conflict = assertThrows(SettingsConflict.class, () -> store.write(stale, 1L));
+        var conflict = assertThrows(SettingsConflict.class, () -> store.write(stale, 1L),
+                "a stale revision is refused");
 
         assertAll(
-                () -> assertEquals(1L, conflict.expectedRevision()),
-                () -> assertEquals(2L, conflict.currentRevision()),
-                () -> assertInstanceOf(RoleAssignmentsStore.Snapshot.class, conflict.currentValue()),
-                () -> assertEquals(DOCUMENT, Files.readString(file, UTF_8)));
+                () -> assertEquals(1L, conflict.expectedRevision(), "the conflict names the expected revision"),
+                () -> assertEquals(2L, conflict.currentRevision(), "the conflict names the current revision"),
+                () -> assertInstanceOf(RoleAssignmentsStore.Snapshot.class, conflict.currentValue(),
+                        "the conflict carries the current snapshot"),
+                () -> assertEquals(DOCUMENT, Files.readString(file, UTF_8),
+                        "the refused write leaves the document"));
     }
 
     @Test
@@ -130,10 +142,12 @@ class RoleAssignmentsStoreTest {
         project.write(Map.of("implement", RoleAssignmentValue.of(HARNESS, STANDARD_MODEL, null)), 0L);
 
         assertAll(
-                () -> assertEquals(1, project.read().roles().size()),
-                () -> assertEquals(EffortSetting.DEFAULT, project.read().roles().get("implement").effort()),
+                () -> assertEquals(1, project.read().roles().size(), "the project store holds one role"),
+                () -> assertEquals(EffortSetting.DEFAULT, project.read().roles().get("implement").effort(),
+                        "a null effort reads as DEFAULT"),
                 () -> assertTrue(Files.exists(base.resolve("projects").resolve(PROJECT)
-                        .resolve(RoleAssignmentsStore.FILE_NAME))));
+                                .resolve(RoleAssignmentsStore.FILE_NAME)),
+                        "the project assignment file is written"));
     }
 
     @Test
@@ -146,38 +160,41 @@ class RoleAssignmentsStoreTest {
         Escalation noEscalation = null;
         var missingEffort = assertThrows(IllegalArgumentException.class,
                 () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.VALUE, noEffort,
-                        noEscalation));
+                        noEscalation), "VALUE without an effort is refused");
         var effortWithoutSetting = assertThrows(IllegalArgumentException.class,
                 () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.INHERIT, highEffort,
-                        noEscalation));
+                        noEscalation), "INHERIT with an effort is refused");
         var valueWithoutEffort = assertThrows(IllegalArgumentException.class,
                 () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.VALUE, new EffortValue(null),
-                        noEscalation));
+                        noEscalation), "an effort with a null value is refused");
         var upper = Map.of("Upper", RoleAssignmentValue.of(HARNESS, STANDARD_MODEL, "high"));
-        var badRole = assertThrows(IllegalArgumentException.class, () -> store.write(upper, 0L));
+        var badRole = assertThrows(IllegalArgumentException.class, () -> store.write(upper, 0L),
+                "an uppercase role name is refused");
         var roleBytes = Files.readAllBytes(fileWithBadRole);
         var readRefused = assertThrows(StoreRefusal.class,
-                () -> RoleAssignmentsCodec.read(fileWithBadRole, roleBytes));
+                () -> RoleAssignmentsCodec.read(fileWithBadRole, roleBytes),
+                "the document with Upper is refused");
         var missingMessage = missingEffort.getMessage();
         var settingMessage = effortWithoutSetting.getMessage();
         var valueMessage = valueWithoutEffort.getMessage();
         var badRoleMessage = badRole.getMessage();
 
         assertAll(
-                () -> assertTrue(missingMessage.contains("effort")),
-                () -> assertTrue(settingMessage.contains("effort")),
-                () -> assertTrue(valueMessage.contains("must not be null")),
-                () -> assertTrue(badRoleMessage.contains("Upper")),
-                () -> assertFalse(Files.exists(file)),
-                () -> assertEquals(fileWithBadRole, readRefused.file()));
+                () -> assertTrue(missingMessage.contains("effort"), "the refusal names the missing effort"),
+                () -> assertTrue(settingMessage.contains("effort"), "the refusal names the inherited effort"),
+                () -> assertTrue(valueMessage.contains("must not be null"),
+                        "the refusal names the null effort value"),
+                () -> assertTrue(badRoleMessage.contains("Upper"), "the refusal names the role name"),
+                () -> assertFalse(Files.exists(file), "the refused write leaves no file"),
+                () -> assertEquals(fileWithBadRole, readRefused.file(), "the refusal names the bad document"));
     }
 
     @Test
     @DisplayName("an absent document reads no assignment at revision 0")
     void absent() {
         assertAll(
-                () -> assertTrue(store.read().roles().isEmpty()),
-                () -> assertEquals(0L, store.read().revision()));
+                () -> assertTrue(store.read().roles().isEmpty(), "an absent document holds no role"),
+                () -> assertEquals(0L, store.read().revision(), "an absent document is at revision 0"));
     }
 
     @Test
@@ -186,8 +203,10 @@ class RoleAssignmentsStoreTest {
         var wrong = new AtomicStoreFile(file, LockKey.harnesses(base));
         var wrongLocks = new TestLocks();
 
-        var refused = assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentsStore(wrong, wrongLocks));
+        var refused = assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentsStore(wrong, wrongLocks),
+                "a wrong lock key is refused");
 
-        assertTrue(refused.getMessage().contains("role assignments"));
+        assertTrue(refused.getMessage().contains("role assignments"),
+                "the refusal names the assignment lock");
     }
 }

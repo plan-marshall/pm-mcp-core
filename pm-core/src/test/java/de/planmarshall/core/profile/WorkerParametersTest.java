@@ -95,7 +95,7 @@ class WorkerParametersTest {
             var parameters = WorkerParameters.of(shipped("opencode"));
 
             assertEquals(parameters.silenceLimitSeconds(), parameters.ackDeadlineSeconds().orElseThrow(),
-                    "an informational acknowledgement is deadlined at the silence limit");
+                    "informational ack deadlines at silence limit");
         }
 
         @Test
@@ -122,7 +122,8 @@ class WorkerParametersTest {
         void silenceGrace() {
             var profile = loaded(ProfileFixtures.valid().set("/worker/silence_grace_seconds", null));
 
-            var refusal = assertThrows(ProfileRefusal.class, () -> WorkerParameters.of(profile));
+            var refusal = assertThrows(ProfileRefusal.class, () -> WorkerParameters.of(profile),
+                    "missing silence grace is refused");
 
             assertAll("silence grace refusal",
                     () -> assertEquals("/worker/silence_grace_seconds", refusal.pointer(),
@@ -136,7 +137,8 @@ class WorkerParametersTest {
         void idleWakeups() {
             var profile = loaded(ProfileFixtures.valid().set("/worker/idle_wakeups", null));
 
-            var refusal = assertThrows(ProfileRefusal.class, () -> WorkerParameters.of(profile));
+            var refusal = assertThrows(ProfileRefusal.class, () -> WorkerParameters.of(profile),
+                    "missing idle wake-ups are refused");
 
             assertAll("idle wake-ups refusal",
                     () -> assertEquals("/worker/idle_wakeups", refusal.pointer(),
@@ -150,7 +152,8 @@ class WorkerParametersTest {
         void ackInformational() {
             var profile = loaded(ProfileFixtures.valid().set("/worker/ack_informational", null));
 
-            var refusal = assertThrows(ProfileRefusal.class, () -> WorkerParameters.of(profile));
+            var refusal = assertThrows(ProfileRefusal.class, () -> WorkerParameters.of(profile),
+                    "missing acknowledgement form is refused");
 
             assertAll("acknowledgement form refusal",
                     () -> assertEquals("/worker/ack_informational", refusal.pointer(),
@@ -206,7 +209,7 @@ class WorkerParametersTest {
                     () -> assertEquals(0, parameters.silenceGraceSeconds(), "the host declares no silence grace"),
                     () -> assertEquals(0, parameters.idleWakeups(), "the host declares no idle wake-ups"),
                     () -> assertEquals(240, parameters.boundedWaitSeconds(),
-                            "the connection's bounded wait is declared regardless of eligibility"));
+                            "bounded wait applies regardless of eligibility"));
         }
     }
 }

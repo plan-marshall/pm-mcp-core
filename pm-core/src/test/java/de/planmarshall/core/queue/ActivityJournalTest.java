@@ -72,7 +72,8 @@ class ActivityJournalTest {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
 
         assertEquals(base.resolve("projects/project-a/plans/plan-a/tasks/activity/" + TASK + ".jsonl")
-                .toAbsolutePath().normalize(), journal.journalPath(TASK));
+                        .toAbsolutePath().normalize(), journal.journalPath(TASK),
+                "plan journal sits under the plan's activity directory");
     }
 
     @Test
@@ -82,7 +83,8 @@ class ActivityJournalTest {
                 new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.WORKSPACE, null), new TestLocks());
 
         assertEquals(base.resolve("projects/project-a/workspace/tasks/activity/" + TASK + ".jsonl")
-                .toAbsolutePath().normalize(), journal.journalPath(TASK));
+                        .toAbsolutePath().normalize(), journal.journalPath(TASK),
+                "workspace journal sits under workspace activity");
     }
 
     @Test
@@ -92,7 +94,7 @@ class ActivityJournalTest {
                 new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.MACHINE, null), new TestLocks());
 
         assertEquals(base.resolve("machine/tasks/activity/" + TASK + ".jsonl").toAbsolutePath().normalize(),
-                journal.journalPath(TASK));
+                journal.journalPath(TASK), "machine journal sits under machine activity");
     }
 
     @Test
@@ -140,8 +142,10 @@ class ActivityJournalTest {
         journal.append(TASK, signal(2));
 
         assertAll(
-                () -> assertEquals(List.of(signal(1), signal(2)), journal.entries(TASK)),
-                () -> assertEquals(2, journal.entries(TASK).size()));
+                () -> assertEquals(List.of(signal(1), signal(2)), journal.entries(TASK),
+                        "appended entries are read in sequence order"),
+                () -> assertEquals(2, journal.entries(TASK).size(),
+                        "both appended entries are present"));
     }
 
     @Test
@@ -150,7 +154,8 @@ class ActivityJournalTest {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
         journal.append(TASK, signal(1));
 
-        assertThrows(IllegalArgumentException.class, () -> journal.append(TASK, signal(3)));
+        assertThrows(IllegalArgumentException.class, () -> journal.append(TASK, signal(3)),
+                "a skipped sequence number is refused");
     }
 
     @Test
@@ -163,7 +168,7 @@ class ActivityJournalTest {
         journal.appendNext(TASK, seq -> signal(seq), entries -> seen.addAll(
                 entries.stream().map(ActivityEntry::seq).toList()));
 
-        assertEquals(List.of(1, 2), seen);
+        assertEquals(List.of(1, 2), seen, "the observer sees the new entry as well");
     }
 
     @Test
@@ -173,8 +178,8 @@ class ActivityJournalTest {
 
         assertThrows(IllegalStateException.class, () -> journal.appendNext(TASK, seq -> signal(seq), entries -> {
             throw new IllegalStateException("refused");
-        }));
-        assertTrue(journal.entries(TASK).isEmpty());
+        }), "a throwing observer writes no entry");
+        assertTrue(journal.entries(TASK).isEmpty(), "no entry survives the refused append");
     }
 
     @Test
@@ -189,9 +194,11 @@ class ActivityJournalTest {
 
         var entries = journal.entries(TASK);
         assertAll(
-                () -> assertEquals(3, entries.size()),
-                () -> assertEquals(List.of(2, 3, 4), entries.stream().map(ActivityEntry::seq).toList()),
-                () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind()));
+                () -> assertEquals(3, entries.size(), "compaction keeps three entries"),
+                () -> assertEquals(List.of(2, 3, 4), entries.stream().map(ActivityEntry::seq).toList(),
+                        "compaction drops only the oldest text"),
+                () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind(),
+                        "the oldest surviving entry is a signal"));
     }
 
     @Test
@@ -201,7 +208,9 @@ class ActivityJournalTest {
         journal.appendNext(TASK, seq -> text(seq));
         journal.appendNext(TASK, seq -> text(seq));
 
-        assertEquals(List.of(1, 2), journal.entries(TASK).stream().map(ActivityEntry::seq).toList());
+        assertEquals(List.of(1, 2),
+                journal.entries(TASK).stream().map(ActivityEntry::seq).toList(),
+                "appendNext assigns increasing sequence numbers");
     }
 
     @Test
@@ -222,8 +231,11 @@ class ActivityJournalTest {
 
         var entries = journal.entries(TASK);
         assertAll(
-                () -> assertEquals(2, entries.size()),
-                () -> assertEquals(1, entries.getFirst().seq()),
-                () -> assertEquals(2, entries.getLast().seq()));
+                () -> assertEquals(2, entries.size(),
+                        "the torn tail is replaced by the new entry"),
+                () -> assertEquals(1, entries.getFirst().seq(),
+                        "the repaired journal keeps its first entry"),
+                () -> assertEquals(2, entries.getLast().seq(),
+                        "the appended entry carries the next sequence"));
     }
 }

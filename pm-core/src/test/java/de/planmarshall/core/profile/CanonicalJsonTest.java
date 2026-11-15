@@ -36,8 +36,9 @@ class CanonicalJsonTest {
     @Test
     @DisplayName("sorts the members of every object")
     void sortsMembers() {
-        assertEquals("{\"a\":2,\"b\":1}", canonical("{\"b\":1,\"a\":2}"));
-        assertEquals("{\"a\":{\"c\":3,\"d\":4},\"b\":1}", canonical("{\"b\":1,\"a\":{\"d\":4,\"c\":3}}"));
+        assertEquals("{\"a\":2,\"b\":1}", canonical("{\"b\":1,\"a\":2}"), "object members are sorted");
+        assertEquals("{\"a\":{\"c\":3,\"d\":4},\"b\":1}", canonical("{\"b\":1,\"a\":{\"d\":4,\"c\":3}}"),
+                "nested object members are sorted");
     }
 
     @Test
@@ -45,34 +46,36 @@ class CanonicalJsonTest {
     void sortsByUtf16() {
         var json = "{\"\\u20ac\":1,\"\\r\":2,\"1\":3,\"\\u0080\":4,\"\\ud83d\\ude00\":5}";
 
-        assertEquals("{\"\\r\":2,\"1\":3,\"\u0080\":4,\"\u20ac\":1,\"\ud83d\ude00\":5}", canonical(json));
+        assertEquals("{\"\\r\":2,\"1\":3,\"\u0080\":4,\"\u20ac\":1,\"\ud83d\ude00\":5}", canonical(json),
+                "sorted by UTF-16 code units");
     }
 
     @Test
     @DisplayName("escapes the two mandatory characters and the control characters only")
     void escapesStrings() {
         assertAll(
-                () -> assertEquals("\"a\\\"b\\\\c\"", canonical("\"a\\\"b\\\\c\"")),
-                () -> assertEquals("\"\\b\\t\\n\\f\\r\"", canonical("\"\\b\\t\\n\\f\\r\"")),
-                () -> assertEquals("\"\\u000b\"", canonical("\"\\u000b\"")),
-                () -> assertEquals("\"\u20ac\u00e4\"", canonical("\"\u20ac\u00e4\"")),
-                () -> assertEquals("\"a/b\"", canonical("\"a\\/b\"")));
+                () -> assertEquals("\"a\\\"b\\\\c\"", canonical("\"a\\\"b\\\\c\""), "quote and backslash escaped"),
+                () -> assertEquals("\"\\b\\t\\n\\f\\r\"", canonical("\"\\b\\t\\n\\f\\r\""), "short control escapes"),
+                () -> assertEquals("\"\\u000b\"", canonical("\"\\u000b\""), "vertical tab uses an escape"),
+                () -> assertEquals("\"\u20ac\u00e4\"", canonical("\"\u20ac\u00e4\""), "non-ASCII stays unescaped"),
+                () -> assertEquals("\"a/b\"", canonical("\"a\\/b\""), "a forward slash is not escaped"));
     }
 
     @Test
     @DisplayName("writes an integer in its plain decimal spelling")
     void writesIntegers() {
         assertAll(
-                () -> assertEquals("0", canonical("0")),
-                () -> assertEquals("0", canonical("-0")),
-                () -> assertEquals("-12", canonical("-12")),
-                () -> assertEquals("9007199254740991", canonical("9007199254740991")));
+                () -> assertEquals("0", canonical("0"), "zero is written as plain zero"),
+                () -> assertEquals("0", canonical("-0"), "negative zero collapses to zero"),
+                () -> assertEquals("-12", canonical("-12"), "-12 keeps a plain decimal spelling"),
+                () -> assertEquals("9007199254740991", canonical("9007199254740991"), "large integer stays exact"));
     }
 
     @Test
     @DisplayName("writes arrays, booleans and null unchanged")
     void writesLiterals() {
-        assertEquals("[true,false,null,[1,2]]", canonical("[true,false,null,[1,2]]"));
+        assertEquals("[true,false,null,[1,2]]", canonical("[true,false,null,[1,2]]"),
+                "arrays and literals unchanged");
     }
 
     @Test
@@ -85,9 +88,9 @@ class CanonicalJsonTest {
                 MessageDigest.getInstance("SHA-256").digest("{\"a\":1}".getBytes(UTF_8)));
 
         assertAll(
-                () -> assertTrue(digest.matches("sha256:[0-9a-f]{64}"), digest),
-                () -> assertEquals(expected, digest),
+                () -> assertTrue(digest.matches("sha256:[0-9a-f]{64}"), "the digest carries the sha256 prefix"),
+                () -> assertEquals(expected, digest, "digest is sha256 of the bytes"),
                 () -> assertEquals("[1,\"x\"]", CanonicalJson.write(JsonNode.array(List.of(JsonNode.integer(1),
-                        JsonNode.string("x"))))));
+                        JsonNode.string("x")))), "array of number and string"));
     }
 }

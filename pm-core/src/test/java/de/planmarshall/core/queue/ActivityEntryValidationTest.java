@@ -85,7 +85,8 @@ class ActivityEntryValidationTest {
     @DisplayName("a kind is recorded by its own source")
     void source() {
         assertThrows(IllegalArgumentException.class,
-                () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.TEXT).text("x").build());
+                () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.TEXT).text("x").build(),
+                "text is recorded by the harness source");
     }
 
     @Test
@@ -94,23 +95,31 @@ class ActivityEntryValidationTest {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.SIGNAL).text("x")
-                                .signal(new ActivityEntry.Signal(SignalName.REPEATING, SignalAction.SHOW)).build()),
+                                .signal(new ActivityEntry.Signal(SignalName.REPEATING, SignalAction.SHOW)).build(),
+                        "a signal entry cannot carry text"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TEXT)
-                                .tool(new ActivityEntry.Tool("bash", null)).build()),
+                                .tool(new ActivityEntry.Tool("bash", null)).build(),
+                        "a text entry cannot carry a tool"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TEXT).truncated(true)
-                                .text("x").end("closed").build()),
+                                .text("x").end("closed").build(),
+                        "a text entry cannot carry an end reason"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.QUESTION).build()),
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.QUESTION).build(),
+                        "a question entry needs a question id"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TOOL_CALL).build()),
+                        () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TOOL_CALL).build(),
+                        "a tool_call entry needs a tool"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.LINK).build()),
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.LINK).build(),
+                        "a link entry needs a link target"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.SIGNAL).build()),
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.SIGNAL).build(),
+                        "a signal entry needs a signal"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).build()));
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).build(),
+                        "an attempt_end entry needs its end reason"));
     }
 
     @Test
@@ -119,33 +128,42 @@ class ActivityEntryValidationTest {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TEXT)
-                                .text("a".repeat(2001)).build()),
+                                .text("a".repeat(2001)).build(),
+                        "text beyond the 2000 code point bound is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TOOL_CALL)
-                                .tool(new ActivityEntry.Tool("a".repeat(129), null)).build()),
+                                .tool(new ActivityEntry.Tool("a".repeat(129), null)).build(),
+                        "a tool name beyond 128 characters is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.FILE_CHANGED)
-                                .path("a".repeat(1001)).build()),
+                                .path("a".repeat(1001)).build(),
+                        "a path beyond 1000 characters is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TOOL_RESULT)
-                                .result(new ActivityEntry.Result(-1, true)).build()),
+                                .result(new ActivityEntry.Result(-1, true)).build(),
+                        "a negative result byte count is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.QUESTION).questionId("Q-").build()),
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.QUESTION).questionId("Q-").build(),
+                        "a question id must name its question"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).end("x")
-                                .unmappedLines(-1).build()),
+                                .unmappedLines(-1).build(),
+                        "a negative unmapped line count is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TURN).usage("[]").build()),
+                        () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TURN).usage("[]").build(),
+                        "a usage member that is not an object is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TURN).usage("{} {}").build()),
+                        () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TURN).usage("{} {}").build(),
+                        "a usage document with two objects is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TURN)
-                                .usage("{\n\"input_tokens\":1}").build()),
+                                .usage("{\n\"input_tokens\":1}").build(),
+                        "a usage member on two lines is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> ActivityEntry.builder().seq(0)
                         .attempt(1).source(ActivityEntry.Source.SERVER).kind(ActivityEntry.Kind.ATTEMPT_END)
-                        .end("closed").at(QueueFixtures.AT).build()),
+                        .end("closed").at(QueueFixtures.AT).build(), "a sequence of zero is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> ActivityEntry.builder().seq(1)
                         .attempt(0).source(ActivityEntry.Source.SERVER).kind(ActivityEntry.Kind.ATTEMPT_END)
-                        .end("closed").at(QueueFixtures.AT).build()));
+                        .end("closed").at(QueueFixtures.AT).build(), "an attempt of zero is refused"));
     }
 }

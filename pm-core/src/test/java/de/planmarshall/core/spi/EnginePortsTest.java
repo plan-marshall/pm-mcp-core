@@ -69,7 +69,7 @@ class EnginePortsTest {
         void acceptsJobIdOfStartableKind(String jobId) {
             var started = new StartResult.Started(jobId);
 
-            assertEquals(jobId, started.jobId());
+            assertEquals(jobId, started.jobId(), "started job_id is the one given");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -77,9 +77,11 @@ class EnginePortsTest {
                 "b-0123456789abcde", "b-0123456789abcdef0", "b0123456789abcdef", "qt-0123456789abcdef", ""})
         @DisplayName("a job_id outside ^[bcgp]-[0-9a-f]{16}$ is refused")
         void refusesJobIdOutsideGrammar(String jobId) {
-            var thrown = assertThrows(IllegalArgumentException.class, () -> new StartResult.Started(jobId));
+            var thrown = assertThrows(IllegalArgumentException.class, () -> new StartResult.Started(jobId),
+                    "job_id outside the grammar is refused");
 
-            assertEquals("job_id does not match ^[bcgp]-[0-9a-f]{16}$: " + jobId, thrown.getMessage());
+            assertEquals("job_id does not match ^[bcgp]-[0-9a-f]{16}$: " + jobId, thrown.getMessage(),
+                    "the refusal names the offending job_id");
         }
 
         @ParameterizedTest(name = "{0} -> {1}")
@@ -89,9 +91,10 @@ class EnginePortsTest {
             var started = new StartResult.Started(prefix + "-" + JOB_ID_HEX);
 
             assertAll(
-                    () -> assertEquals(expected, started.kind()),
-                    () -> assertEquals(prefix, expected.prefix()),
-                    () -> assertEquals(wireName, expected.wireName()));
+                    () -> assertEquals(expected, started.kind(), "kind derives from the job_id prefix"),
+                    () -> assertEquals(prefix, expected.prefix(), "kind reports its job_id prefix"),
+                    () -> assertEquals(wireName, expected.wireName(),
+                            "wireName is the lowercase form of the kind"));
         }
 
         @Test
@@ -99,13 +102,15 @@ class EnginePortsTest {
         void kindsAreTheFourStartable() {
             var names = Arrays.stream(JobKind.values()).map(JobKind::wireName).toList();
 
-            assertEquals(List.of("build", "ci", "git", "project_script"), names);
+            assertEquals(List.of("build", "ci", "git", "project_script"), names,
+                    "the four startable kinds in wire order");
         }
 
         @Test
         @DisplayName("a prefix that names no kind of the port is refused")
         void refusesUnknownPrefix() {
-            assertThrows(IllegalArgumentException.class, () -> JobKind.ofPrefix('l'));
+            assertThrows(IllegalArgumentException.class, () -> JobKind.ofPrefix('l'),
+                    "prefix l names no startable kind");
         }
 
         @Test
@@ -117,10 +122,13 @@ class EnginePortsTest {
             var result = starter.start(new StartRequest(SCOPE_ID, "build.verify", "build.run"));
 
             assertAll(
-                    () -> assertEquals(reason, assertInstanceOf(StartResult.Refused.class, result)
-                            .reason()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new StartResult.Refused(" ")),
-                    () -> assertThrows(NullPointerException.class, () -> new StartResult.Refused(null)));
+                    () -> assertEquals(reason, assertInstanceOf(StartResult.Refused.class, result,
+                                    "the starter answers a refused StartResult").reason(),
+                            "the refused value carries the reason"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new StartResult.Refused(" "),
+                            "a blank refusal reason is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new StartResult.Refused(null),
+                            "a null refusal reason is refused"));
         }
 
         @Test
@@ -129,13 +137,16 @@ class EnginePortsTest {
             var workspace = new StartRequest(null, "setup.build", "build.run");
 
             assertAll(
-                    () -> assertNull(workspace.scopeId()),
+                    () -> assertNull(workspace.scopeId(), "a null scope is carried through the request"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new StartRequest(null, "", "build.run")),
+                            () -> new StartRequest(null, "", "build.run"),
+                            "a blank state name is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new StartRequest(null, "setup.build", " ")),
+                            () -> new StartRequest(null, "setup.build", " "),
+                            "a blank primitive name is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest(null, null, "build.run")));
+                            () -> new StartRequest(null, null, "build.run"),
+                            "a null state name is refused"));
         }
     }
 
@@ -146,9 +157,10 @@ class EnginePortsTest {
         @Test
         @DisplayName("a queue_task_id of ^qt-[0-9a-f]{16}$ is accepted")
         void acceptsQueueTaskId() {
-            var created = assertDoesNotThrow(() -> new Created("qt-" + JOB_ID_HEX));
+            var created = assertDoesNotThrow(() -> new Created("qt-" + JOB_ID_HEX),
+                    "a well-formed queue_task_id is accepted");
 
-            assertEquals("qt-" + JOB_ID_HEX, created.queueTaskId());
+            assertEquals("qt-" + JOB_ID_HEX, created.queueTaskId(), "the created id is the value passed in");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -156,9 +168,11 @@ class EnginePortsTest {
                 "q-0123456789abcdef", "b-0123456789abcdef", "qt0123456789abcdef", ""})
         @DisplayName("a queue_task_id outside ^qt-[0-9a-f]{16}$ is refused")
         void refusesQueueTaskIdOutsideGrammar(String queueTaskId) {
-            var thrown = assertThrows(IllegalArgumentException.class, () -> new Created(queueTaskId));
+            var thrown = assertThrows(IllegalArgumentException.class, () -> new Created(queueTaskId),
+                    "a queue_task_id outside the grammar is refused");
 
-            assertEquals("queue_task_id does not match ^qt-[0-9a-f]{16}$: " + queueTaskId, thrown.getMessage());
+            assertEquals("queue_task_id does not match ^qt-[0-9a-f]{16}$: " + queueTaskId,
+                    thrown.getMessage(), "the refusal quotes the bad queue_task_id");
         }
 
         @Test
@@ -177,8 +191,10 @@ class EnginePortsTest {
 
             assertAll(
                     () -> assertEquals(List.of("TASK-001", "TASK-002"),
-                            requests.stream().map(CreateRequest::entityKey).toList()),
-                    () -> assertNotEquals(first.queueTaskId(), second.queueTaskId()));
+                            requests.stream().map(CreateRequest::entityKey).toList(),
+                            "requests keep the order of the entities"),
+                    () -> assertNotEquals(first.queueTaskId(), second.queueTaskId(),
+                            "each request gets a fresh queue_task_id"));
         }
 
         @Test
@@ -186,13 +202,17 @@ class EnginePortsTest {
         void requestValidation() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new CreateRequest(null, " ", "TASK-001", "review-code")),
+                            () -> new CreateRequest(null, " ", "TASK-001", "review-code"),
+                            "a blank state name is refused in a create request"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new CreateRequest(null, "plan.review", "", "review-code")),
+                            () -> new CreateRequest(null, "plan.review", "", "review-code"),
+                            "a blank entity key is refused in a create request"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new CreateRequest(null, "plan.review", "TASK-001", "")),
+                            () -> new CreateRequest(null, "plan.review", "TASK-001", ""),
+                            "a blank role name is refused in a create request"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new CreateRequest(null, "plan.review", "TASK-001", null)));
+                            () -> new CreateRequest(null, "plan.review", "TASK-001", null),
+                            "a null role name is refused in a create request"));
         }
     }
 
@@ -206,7 +226,7 @@ class EnginePortsTest {
         void acceptsQuestionId(String questionId) {
             var request = new ReadRequest(SCOPE_ID, questionId);
 
-            assertEquals(questionId, request.questionId());
+            assertEquals(questionId, request.questionId(), "the request keeps the question_id it was given");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -214,9 +234,11 @@ class EnginePortsTest {
         @DisplayName("a question_id outside ^Q-[0-9]{3,6}$ is refused")
         void refusesQuestionIdOutsideGrammar(String questionId) {
             var thrown = assertThrows(IllegalArgumentException.class,
-                    () -> new ReadRequest(null, questionId));
+                    () -> new ReadRequest(null, questionId),
+                    "a question_id outside the grammar is refused");
 
-            assertEquals("question_id does not match ^Q-[0-9]{3,6}$: " + questionId, thrown.getMessage());
+            assertEquals("question_id does not match ^Q-[0-9]{3,6}$: " + questionId,
+                    thrown.getMessage(), "the refusal quotes the bad question_id");
         }
 
         @Test
@@ -233,7 +255,8 @@ class EnginePortsTest {
                     .map(id -> route(reader.read(new ReadRequest(SCOPE_ID, id))))
                     .toList();
 
-            assertEquals(List.of("rest", "take answered", "could not read"), routes);
+            assertEquals(List.of("rest", "take answered", "could not read"), routes,
+                    "open, resolved and unreadable route distinctly");
         }
 
         @Test
@@ -242,17 +265,22 @@ class EnginePortsTest {
             QuestionRead unreadable = new QuestionRead.Unreadable(Generators.letterStrings(5, 20).next());
 
             assertAll(
-                    () -> assertNotEquals(new QuestionRead.Open(), unreadable),
-                    () -> assertEquals(new QuestionRead.Open(), new QuestionRead.Open()));
+                    () -> assertNotEquals(new QuestionRead.Open(), unreadable,
+                            "an unreadable record differs from an open one"),
+                    () -> assertEquals(new QuestionRead.Open(), new QuestionRead.Open(),
+                            "open records are equal to each other"));
         }
 
         @Test
         @DisplayName("a blank outcome or reason is refused")
         void blankComponentsAreRefused() {
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new QuestionRead.Resolved("")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new QuestionRead.Unreadable(" ")),
-                    () -> assertThrows(NullPointerException.class, () -> new QuestionRead.Resolved(null)));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new QuestionRead.Resolved(""),
+                            "a blank resolved outcome is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new QuestionRead.Unreadable(" "),
+                            "a blank unreadable reason is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new QuestionRead.Resolved(null),
+                            "a null resolved outcome is refused"));
         }
 
         private static String route(QuestionRead read) {
@@ -276,7 +304,7 @@ class EnginePortsTest {
 
             var request = new PendingEntryReader.ReadRequest(entryId);
 
-            assertEquals(entryId, request.entryId());
+            assertEquals(entryId, request.entryId(), "the request carries the typed entry_id");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -284,14 +312,16 @@ class EnginePortsTest {
         @DisplayName("a string outside the entry_id grammar never becomes the entry of a request")
         void noRequestForUncheckedString(String value) {
             assertAll(
-                    () -> assertTrue(EntryId.parse(value).isEmpty()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryId(value)));
+                    () -> assertTrue(EntryId.parse(value).isEmpty(), "an invalid entry_id yields no entry"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryId(value),
+                            "the constructor refuses that entry_id"));
         }
 
         @Test
         @DisplayName("a null entry_id is refused")
         void refusesNullEntryId() {
-            assertThrows(NullPointerException.class, () -> new PendingEntryReader.ReadRequest(null));
+            assertThrows(NullPointerException.class, () -> new PendingEntryReader.ReadRequest(null),
+                    "a null entry_id never reaches the reader");
         }
 
         @Test
@@ -309,7 +339,8 @@ class EnginePortsTest {
                     .map(id -> route(reader.read(new PendingEntryReader.ReadRequest(new EntryId(id)))))
                     .toList();
 
-            assertEquals(List.of("live plan", "live epic", "deleted", "could not read"), routes);
+            assertEquals(List.of("live plan", "live epic", "deleted", "could not read"), routes,
+                    "live, deleted and unreadable route distinctly");
         }
 
         @Test
@@ -318,20 +349,26 @@ class EnginePortsTest {
             EntryRead live = new EntryRead.Live("plan");
 
             assertAll(
-                    () -> assertNotEquals(live, new EntryRead.Unreadable(Generators.letterStrings(5, 20).next())),
-                    () -> assertNotEquals(live, new EntryRead.Deleted()),
-                    () -> assertEquals(new EntryRead.Deleted(), new EntryRead.Deleted()),
-                    () -> assertEquals(live, new EntryRead.Live("plan")));
+                    () -> assertNotEquals(live, new EntryRead.Unreadable(Generators.letterStrings(5, 20).next()),
+                            "an unreadable entry differs from a live one"),
+                    () -> assertNotEquals(live, new EntryRead.Deleted(), "a deleted entry differs from a live one"),
+                    () -> assertEquals(new EntryRead.Deleted(), new EntryRead.Deleted(),
+                            "two deleted entries are equal"),
+                    () -> assertEquals(live, new EntryRead.Live("plan"), "a live entry equals its recreated twin"));
         }
 
         @Test
         @DisplayName("a blank or null kind or reason is refused")
         void blankComponentsAreRefused() {
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryRead.Live("")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryRead.Unreadable(" ")),
-                    () -> assertThrows(NullPointerException.class, () -> new EntryRead.Live(null)),
-                    () -> assertThrows(NullPointerException.class, () -> new EntryRead.Unreadable(null)));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryRead.Live(""),
+                            "a blank live kind is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryRead.Unreadable(" "),
+                            "a blank unreadable reason is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new EntryRead.Live(null),
+                            "a null live kind is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new EntryRead.Unreadable(null),
+                            "a null unreadable reason is refused"));
         }
 
         private static String route(EntryRead read) {
@@ -356,8 +393,8 @@ class EnginePortsTest {
             WorkflowClock clock = instants::removeFirst;
 
             assertAll(
-                    () -> assertEquals(first, clock.now()),
-                    () -> assertEquals(second, clock.now()));
+                    () -> assertEquals(first, clock.now(), "the clock returns the first queued instant"),
+                    () -> assertEquals(second, clock.now(), "the clock then returns the second instant"));
         }
     }
 }

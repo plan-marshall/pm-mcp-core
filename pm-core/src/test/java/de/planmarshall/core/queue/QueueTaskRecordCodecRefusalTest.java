@@ -36,7 +36,9 @@ class QueueTaskRecordCodecRefusalTest {
     }
 
     private static StoreRefusal read(String document) {
-        return assertThrows(StoreRefusal.class, () -> QueueTaskRecordCodec.read(FILE, document.getBytes(UTF_8)));
+        return assertThrows(StoreRefusal.class,
+                () -> QueueTaskRecordCodec.read(FILE, document.getBytes(UTF_8)),
+                "codec refuses the malformed task document");
     }
 
     @Test

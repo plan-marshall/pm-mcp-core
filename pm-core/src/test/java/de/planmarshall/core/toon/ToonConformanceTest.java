@@ -108,7 +108,8 @@ class ToonConformanceTest {
     void conforms(Fixture fixture) {
         if (fixture.skipReason() == null) {
             assertTrue(CANONICAL_OPTIONS.contains(fixture.options()), "fixture with options must be listed as skipped");
-            assertEquals(fixture.expected(), ToonEncoder.encode(fixture.input()));
+            assertEquals(fixture.expected(), ToonEncoder.encode(fixture.input()),
+                    "the fixture encodes byte for byte");
             PASSED.incrementAndGet();
             return;
         }
@@ -124,7 +125,7 @@ class ToonConformanceTest {
         Map<String, String> skipped = skipList();
         long known = FILES.stream().flatMap(f -> readFile(f, Map.of()).stream()).filter(f -> skipped.containsKey(f.id()))
                 .count();
-        assertEquals(skipped.size(), known);
+        assertEquals(skipped.size(), known, "every skip entry names an existing fixture");
     }
 
     private static Map<String, String> skipList() {
@@ -177,13 +178,13 @@ class ToonConformanceTest {
                 default -> parser.skipChildren();
             }
         }
-        assertNotNull(input, id);
+        assertNotNull(input, "the fixture carries an input section");
         return new Fixture(id, name, input, expected, options, skipReason);
     }
 
     private static String resource(String name) {
         try (InputStream in = ToonConformanceTest.class.getResourceAsStream(BASE + name)) {
-            assertNotNull(in, name);
+            assertNotNull(in, "the fixture resource is on the classpath");
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException(e);

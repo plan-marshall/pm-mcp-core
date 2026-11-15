@@ -149,7 +149,7 @@ class RoleNameSingleDefinitionTest {
         var source = source("class C {", "    char backslash = '\\\\';", "    char apostrophe = '\\'';",
                 "    Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");", "}");
 
-        assertFalse(offences(source).isEmpty(), "A copy after an escaped character literal should be an offence");
+        assertFalse(offences(source).isEmpty(), "A copy after an escaped literal is an offence");
     }
 
     /** @param lines the source as its lines; a trailing newline is not needed by the scan */

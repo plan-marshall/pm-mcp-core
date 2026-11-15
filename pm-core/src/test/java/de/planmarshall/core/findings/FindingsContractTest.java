@@ -76,7 +76,7 @@ class FindingsContractTest {
     void dispositions() {
         var names = Arrays.stream(Disposition.values()).map(Enum::name).toList();
 
-        assertEquals(List.of("FIX", "ACCEPT", "SUPPRESS"), names);
+        assertEquals(List.of("FIX", "ACCEPT", "SUPPRESS"), names, "dispositions are named as on the wire");
     }
 
     @Test
@@ -92,9 +92,10 @@ class FindingsContractTest {
         var findings = source.fetch(pullRequest);
 
         assertAll(
-                () -> assertEquals(KEY, source.key()),
-                () -> assertEquals(List.of(first, second), findings),
-                () -> assertEquals(List.of(), source.fetch(commit)));
+                () -> assertEquals(KEY, source.key(), "source answers its own key"),
+                () -> assertEquals(List.of(first, second), findings,
+                        "source returns the findings of the scope"),
+                () -> assertEquals(List.of(), source.fetch(commit), "another scope finds no findings"));
     }
 
     @Test
@@ -109,7 +110,8 @@ class FindingsContractTest {
         responder.respond(finding(id, summary), Disposition.SUPPRESS, reason);
 
         assertAll(
-                () -> assertEquals(KEY, responder.key()),
-                () -> assertEquals(List.of(id + " SUPPRESS " + reason), answered));
+                () -> assertEquals(KEY, responder.key(), "responder answers its own key"),
+                () -> assertEquals(List.of(id + " SUPPRESS " + reason), answered,
+                        "responder records the finding, disposition, reason"));
     }
 }
