@@ -137,13 +137,18 @@ class AssertionMessageScanTest {
                 "assertTrue(refusal.isPresent(), \"too short\");");
         assertReported(temp.resolve("long"), "longer than " + MAX_MESSAGE_LENGTH,
                 "assertTrue(refusal.isPresent(), \"" + "x".repeat(MAX_MESSAGE_LENGTH + 1) + "\");");
-        assertReported(temp.resolve("array-tolerance"), "assertArrayEquals: no message",
-                "assertArrayEquals(EXPECTED, value, 0.001);");
-        assertReported(temp.resolve("array-tolerance-identifier"), "assertArrayEquals: no message",
-                "assertArrayEquals(new double[]{1.0}, value, DELTA);");
-        assertReported(temp.resolve("tolerance-identifier"), "assertEquals: no message",
-                "assertEquals(1.0, value, DELTA);");
+
+        assertEveryKnownName(temp);
+        assertTolerances(temp);
+        assertPlantedShapes(temp);
+        assertBoundaries(temp);
+    }
+
+    /** The names the rule knows beside the ones PLAN-V2-101 shipped: each is measured with no message. */
+    private static void assertEveryKnownName(Path temp) throws IOException {
         assertReported(temp.resolve("fail-missing"), "fail: no message", "fail();");
+        assertReported(temp.resolve("fail-empty"), "fail: no message", "fail( );");
+        assertReported(temp.resolve("fail-comment"), "fail: no message", "fail(/* the reason is missing */);");
         assertReported(temp.resolve("assert-not-same"), "assertNotSame: no message",
                 "assertNotSame(EXPECTED, value);");
         assertReported(temp.resolve("assert-names"), "assertIterableEquals: no message",
@@ -156,20 +161,36 @@ class AssertionMessageScanTest {
                 "assertTimeoutPreemptively(TIMEOUT, () -> store.read(file));");
         assertReported(temp.resolve("assert-throws-exactly"), "assertThrowsExactly: no message",
                 "assertThrowsExactly(IllegalStateException.class, () -> store.read(file));");
+    }
+
+    /** A tolerance is a tolerance whether it is a numeric literal or an identifier beside a floating-point operand. */
+    private static void assertTolerances(Path temp) throws IOException {
+        assertReported(temp.resolve("array-tolerance"), "assertArrayEquals: no message",
+                "assertArrayEquals(EXPECTED, value, 0.001);");
+        assertReported(temp.resolve("array-tolerance-identifier"), "assertArrayEquals: no message",
+                "assertArrayEquals(new double[]{1.0}, value, DELTA);");
+        assertReported(temp.resolve("tolerance-identifier"), "assertEquals: no message",
+                "assertEquals(1.0, value, DELTA);");
         for (var tolerance : List.of("1e-6", "1_000.0", "0x1.0p-6")) {
             assertReported(temp.resolve("tolerance-" + tolerance), "assertEquals: no message",
                     "assertEquals(1.0, value, " + tolerance + ");");
         }
+    }
+
+    /** A comma in a type argument, a multi-line call and a qualified call are measured like any other shape. */
+    private static void assertPlantedShapes(Path temp) throws IOException {
         assertReported(temp.resolve("type-argument"), "assertEquals: no message",
                 "assertEquals(Map.of(), new HashMap<String, String>());");
         assertReported(temp.resolve("generic-call"), "assertTrue: no message",
                 "assertTrue(Map.<String, String>of().isEmpty());");
         assertReported(temp.resolve("array-type-argument"), "assertEquals: no message",
                 "assertEquals(Map.of(), new HashMap<String[], String>());");
-        assertReported(temp.resolve("fail-empty"), "fail: no message", "fail( );");
-        assertReported(temp.resolve("fail-comment"), "fail: no message", "fail(/* the reason is missing */);");
         assertReported(temp.resolve("multi-line"), "assertTrue: no message", "assertTrue(\n                value);");
         assertReported(temp.resolve("qualified"), "assertTrue: no message", "Assertions.assertTrue(value);");
+    }
+
+    /** The two lengths the rule names are accepted, the two beside them are refused. */
+    private static void assertBoundaries(Path temp) throws IOException {
         assertNotReported(temp.resolve("twenty"), "assertTrue(value, \"" + "m".repeat(20) + "\");");
         assertNotReported(temp.resolve("sixty"), "assertTrue(value, \"" + "m".repeat(60) + "\");");
         assertReported(temp.resolve("nineteen"), "shorter than " + MIN_MESSAGE_LENGTH,
@@ -379,7 +400,7 @@ class AssertionMessageScanTest {
             return "no message";
         }
         var message = argument(messageSpan, source);
-        if (isTolerance(name, spans, view, source, message)) {
+        if (isTolerance(name, spans, view, message)) {
             return "no message (a tolerance is not a message)";
         }
         return measure(messageSpan, source);
@@ -419,7 +440,7 @@ class AssertionMessageScanTest {
      *         message: a numeric literal, or any argument that is neither a literal nor a supplier-shaped expression
      *         when one of the two operands carries a floating-point literal
      */
-    private static boolean isTolerance(String name, List<int[]> spans, String view, String source, String message) {
+    private static boolean isTolerance(String name, List<int[]> spans, String view, String message) {
         if (!isNumericTolerance(name) || spans.size() != 3) {
             return false;
         }
