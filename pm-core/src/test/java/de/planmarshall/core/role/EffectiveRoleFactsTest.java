@@ -65,7 +65,7 @@ class EffectiveRoleFactsTest {
         assertAll(
                 () -> assertEquals(0, role.questions().holdSeconds(), "hold is ineffective without harness hold"),
                 () -> assertEquals(0, role.questions().resumeWithinSeconds(),
-                        "resume is ineffective without harness hold"));
+                        "no harness resume leaves the bound at zero"));
     }
 
     @Test

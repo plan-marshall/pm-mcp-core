@@ -128,7 +128,7 @@ class QualificationValueTest {
         var otherSkill = Map.of("other/x", "%064x".formatted(Generators.longs().next()));
 
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("Bad Harness", "1.4", "m", null,
-                noTools, RoleClass.WRITER, noDigests), "a padded harness name is refused");
+                noTools, RoleClass.WRITER, noDigests), "a harness name outside the grammar is refused");
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4.2", "m", null,
                 noTools, RoleClass.WRITER, noDigests), "a three part version is refused");
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4", "", null,
@@ -178,7 +178,7 @@ class QualificationValueTest {
         assertThrows(IllegalArgumentException.class, () -> new GradingProfile(0),
                 "a profile without runs is refused");
         assertThrows(IllegalArgumentException.class, () -> new GradingOutcome.Declined(false),
-                "a declined outcome holding items is refused");
+                "a declined outcome not marked owed is refused");
         var detail = Generators.letterStrings(3, 20).next();
         assertThrows(NullPointerException.class, () -> new GradingOutcome.Refused(null, detail),
                 "a refusal without a code is rejected");

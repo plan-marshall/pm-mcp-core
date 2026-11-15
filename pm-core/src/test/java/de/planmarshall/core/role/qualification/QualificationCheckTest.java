@@ -242,7 +242,7 @@ class QualificationCheckTest {
                     QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
             assertAll(
-                    () -> assertFalse(verdict.qualified(), "a baseline above the margin is uniform"),
+                    () -> assertFalse(verdict.qualified(), "baseline plus margin exceeds one hundred"),
                     () -> assertTrue(codes(verdict).contains(Code.TOO_UNIFORM),
                             "the uniformity refusal is named"));
         }
