@@ -881,6 +881,23 @@ link:../pm-runtime/doc/developer/runtime-job.adoc#_launch_and_launch_report[Job 
 link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Developer Guide § Probe Jobs],
 link:../pm-core/doc/developer/core-service.adoc#_job_runner[Service Interfaces Developer Guide § The Job Runner]
 
+Implementation (the argument-schema validation of a composed worker vector: the vector the launch composition rendered
+is parsed back against the profile's `headless` template and the closed grammar of each typed slot, and a vector that
+does not conform refuses the launch as `argument_rejected` with the job record's fate `refused`; the check runs at the
+end of the composition, not as a stage of the pipeline, because a worker's vector is composed from the profile's
+template and the role and is no caller's request):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/WorkerVectorCheck.java[WorkerVectorCheck],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchComposer.java[LaunchComposer],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java[LaunchRefusal]
+
+Verified by (the composed worker vector):
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/WorkerVectorCheckTest.java[WorkerVectorCheckTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchComposerTest.java[LaunchComposerTest]
+
+Documentation (the composed worker vector):
+link:../pm-runtime/doc/developer/runtime-launch.adoc#_the_composed_vector_check[Worker Launch Developer Guide § The
+Composed-Vector Check]
+
 [#PM-EXEC-2]
 === PM-EXEC-2: Operator Enrolment & Verify-Not-Resolve Contract
 
@@ -1678,6 +1695,13 @@ Implementation (the load directive's one slot: `skill_loading.load_directive_tem
 `{{uri}}` exactly once, so the directive rendered for `{{skill_load:<uri>}}` always names the skill it loads):
 link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java[ProfileValidator]
 
+Implementation (the launch contract of the profile's `headless` block: the composed argument vector is parsed back
+against the template and the closed grammar of each typed slot before the worker spawns, and a vector that does not
+conform refuses the launch as `argument_rejected`, recorded `refused`):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/WorkerVectorCheck.java[WorkerVectorCheck],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HeadlessBlock.java[HeadlessBlock],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchComposer.java[LaunchComposer]
+
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/EndpointProfileValidatorTest.java[EndpointProfileValidatorTest],
@@ -1687,11 +1711,15 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointOutcom
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointHarnessTest.java[EndpointHarnessTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java[ProfileValidatorTest],
-link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedProfilesTest.java[ShippedProfilesTest]
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedProfilesTest.java[ShippedProfilesTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/WorkerVectorCheckTest.java[WorkerVectorCheckTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchComposerTest.java[LaunchComposerTest]
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
 link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer Guide § Endpoint
-profiles], link:../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide]
+profiles], link:../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide],
+link:../pm-runtime/doc/developer/runtime-launch.adoc#_the_composed_vector_check[Worker Launch Developer Guide § The
+Composed-Vector Check]
 
 [#PM-CLIENT-5]
 === PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy

@@ -80,7 +80,7 @@ see the same free slot.
 
 [source,text]
 ----
-LaunchRequest ──> LaunchComposer ──> WorkerLaunch ──> job runner (kind llm)
+LaunchRequest ──> LaunchComposer ──> WorkerVectorCheck ──> WorkerLaunch ──> job runner (kind llm)
       │                  │
       │                  ├── PromptComposer ──> prompt file, prompt digest, delivered skills
       │                  ├── HeadlessBlock  ──> argv, env, MCP configuration
@@ -93,7 +93,60 @@ HarnessVerifier ──> HarnessEnrolmentStore ──> harnesses.json + harnesses
 
 A caller verifies the harness first and passes the accepted `HarnessEnrolment` into the `LaunchRequest`; the composer
 therefore never trusts an unverified build. The job record's `worker` block is composed from the same values as the
-argument vector, so the two cannot disagree.
+argument vector, so the two cannot disagree, and the vector the composition made is parsed back before the launch is
+built (§ The Composed-Vector Check).
+
+== The Composed-Vector Check
+
+`WorkerVectorCheck` is the last step of the composition. `LaunchComposer.composeArgv` calls it on the vector it has
+filled and prefixed with the enrolled executable, before the ephemeral flag is withheld and before the `WorkerLaunch` is
+built; a violation throws `CompositionException.argumentRejected`, whose `refusal()` is
+`LaunchRefusal.ARGUMENT_REJECTED` (`argument_rejected`). The supervisor records the refusal through the `refuseWorker`
+path it already uses, with the fate `refused`, and needs no change of its own (ADR
+link:../adr/runtime-launch/010-the-composed-vector-is-parsed-back.adoc[runtime-launch/010]).
+
+The check **parses the rendered vector back** against the template it was rendered from. It splits each template element
+into its literal fragments and its slot markers, requires every fragment at the position the previous one ended, and
+reads the text between two fragments as the value of the slot the template names. It never renders again: re-running
+`fill` would compare the composition with itself. The answer is the first violated rule and the position of the element,
+never the value, so the refusal can be recorded and shown without the vector in it.
+
+[cols="1,2,3"]
+|===
+|Rule |Requires |Refuses
+
+|(a) |element 0 is the enrolled executable path |another executable, or an empty vector
+|(b) |every element corresponds to one template element; the literal parts are reproduced exactly |an altered literal, a dropped or inserted element, an unreproducible gap
+|(c) |every typed slot value matches the closed grammar of its slot |see the grammar table below
+|(d) |no element outside the two JSON slots contains a shell metacharacter |`\|`, `;`, `&`, `$`, `` ` ``, `>`, `<` outside `{{mcp_config}}` and `{{agent}}`
+|(e) |no element that is neither a template element nor a slot value |an element a profile edit or a composer defect added
+|===
+
+The closed grammar of each typed slot:
+
+[cols="1,3"]
+|===
+|Slot |Grammar
+
+|`{{model}}` |the model the composer resolved after rendering the tier — a value the effective catalogue already allowed
+|`{{effort}}` |one of the efforts the profile's `model_efforts` accepts for that model
+|`{{prompt_file}}`, `{{result_schema}}` |an absolute normalized path below the job-private directory
+|`{{cwd}}` |the working directory the composer fixed for the launch
+|`{{session_id}}` |a harness session id, `[A-Za-z0-9._-]{1,128}`
+|`{{tools}}` |a comma list whose every element is one of the role's tools, the harness's resource tools included
+|`{{mcp_config}}` |a JSON object of the composed shape, `\{"mcpServers":\{"pm-job":\{…\}\}}`; exempt from rule (d)
+|`{{agent}}` |a JSON object of the composed shape, `\{"pm-job":\{…\}\}`; exempt from rule (d)
+|===
+
+A gap in rule (b) is admitted for exactly one reason: a slot with no value removes its template element, and the flag
+element before it is removed with it (`--json-schema` and its value, `--mcp-config` and its value). The check therefore
+runs before the ephemeral flag is withheld, so the removal of `--no-session-persistence` for a resumable role is not a
+gap it has to explain; the elements removed afterwards are template literals the composer never alters.
+
+Tested by `WorkerVectorCheckTest` (the four template shapes of the fixture profile, one refusing vector per rule, a slot
+grammar per slot, a metacharacter per character, and the path through a real `LaunchComposer` and a recording starter) and
+`LaunchComposerTest` (the `argument_rejected` refusal of a template that renders a metacharacter into a slot, the files a
+refused composition leaves behind, and the digest of the conforming fixture vector).
 
 == The Model Slots
 
@@ -133,6 +186,9 @@ the refused duplicates and a writer without a plan).
 
 * A launch never runs with a required skill missing: a skill that does not resolve, renders empty, or whose digest
   changed after the role was read fails the composition (`prompt_composition_failed`).
+* A launch never runs a vector the composition cannot account for: every element corresponds to a template element, each
+  typed slot value matches the grammar of its slot, and no element outside the two JSON slots carries a shell
+  metacharacter (`argument_rejected`).
 * The shared prefix contains nothing per launch: the job token, an identifier, a time and a fact of a task follow it.
 * A `zero_tool` worker has no tool, no MCP configuration, no `job_token_sha256`, and runs in the empty `cwd/` of its
   job-private directory.
@@ -151,17 +207,20 @@ the refused duplicates and a writer without a plan).
 |The executable changed without evidence, or the evidence failed |`harness_update_unverified`
 |The probed version lies outside the supported range |`harness_version_unsupported`
 |The prompt cannot be composed |`prompt_composition_failed`
+|The composed vector does not conform to its template and the slot grammars |`argument_rejected` (rule and element position, never the value)
 |The machine's cap lies outside `1` to `16` |the scheduler's constructor refuses it (`IllegalArgumentException`)
 |A writer requests a slot while its plan's writer holds one |`Deferred("writer_holds_plan")`; the task stays `queued`
 |===
 
 A refusal names the act that resolves it (`LaunchRefusal.resolvingAct`): a new enrolment for every harness refusal, a
-restored skill or schema for the composition failure.
+restored skill or schema for the composition failure, and a corrected profile template or a new enrolment for a vector
+the check rejects.
 
 == Extending it
 
 * A new launch slot is added to `HeadlessBlock`'s projection and filled in `LaunchComposer.composeArgv`; it must also
-  reach the profile validator's slot set.
+  reach the profile validator's slot set and the closed grammar of `WorkerVectorCheck`. A slot the check does not know is
+  refused, which is the fail-closed direction.
 * A new harness profile needs no code: the profile's `headless` block is data. A harness whose MCP configuration is not
   exclusive declares no worker class.
 * The update-evidence port (`HarnessVerifier.EvidenceCheck`) is where a platform check for `code_signature` or
