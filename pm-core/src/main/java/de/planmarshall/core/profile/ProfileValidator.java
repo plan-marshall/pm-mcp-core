@@ -44,6 +44,12 @@ public final class ProfileValidator {
     /** The margin the idle timeout must leave above the bounded wait of a harness whose progress resets no timer. */
     private static final long IDLE_MARGIN_SECONDS = 30;
 
+    /** The longest model id of a {@code headless.long_context_thresholds} member (the schema's propertyNames bound). */
+    private static final int LONG_CONTEXT_MODEL_ID_MAX_LENGTH = 128;
+
+    /** The smallest long-context threshold, the {@code context_budget_tokens} minimum of the schema. */
+    private static final long LONG_CONTEXT_MINIMUM_TOKENS = 10_000;
+
     // The member names of the client profile schema, named once each (ADR core-profile/005).
     private static final String NAME_SCHEMA_VERSION = "schema_version";
     private static final String NAME_CLIENT_ID = "client_id";
@@ -92,6 +98,7 @@ public final class ProfileValidator {
     private static final String NAME_RESUMABILITY = "resumability";
     private static final String NAME_MODEL_EFFORTS = "model_efforts";
     private static final String NAME_CONTEXT_BUDGET_TOKENS = "context_budget_tokens";
+    private static final String NAME_LONG_CONTEXT_THRESHOLDS = "long_context_thresholds";
     private static final String NAME_EPHEMERAL = "ephemeral";
     private static final String NAME_RESULT_SCHEMA = "result_schema";
     private static final String NAME_SESSION_ID = "session_id";
@@ -205,7 +212,8 @@ public final class ProfileValidator {
             NAME_WRITABLE_PATHS, NAME_DATA_HOME, NAME_TOOL_RESULT_LIMIT_CHARS, NAME_RESOURCE_TOOLS, NAME_SESSION_RESIDUE,
             NAME_RESUMABILITY);
 
-    private static final Set<String> HEADLESS_OPTIONAL = Set.of(NAME_MODEL_EFFORTS, NAME_CONTEXT_BUDGET_TOKENS);
+    private static final Set<String> HEADLESS_OPTIONAL = Set.of(NAME_MODEL_EFFORTS, NAME_CONTEXT_BUDGET_TOKENS,
+            NAME_LONG_CONTEXT_THRESHOLDS);
 
     private static final Set<String> CAPABILITIES = Set.of(NAME_RESULT_SCHEMA, NAME_EPHEMERAL, "usage_fields", "cost_field",
             "exit_reliable", "project_settings_control", "extension_isolation");
@@ -606,7 +614,12 @@ public final class ProfileValidator {
                             NAME_SESSION_RESIDUE, Set.of(NAME_EPHEMERAL, "persisted")));
             @Nullable JsonNode budget = optional(headless, NAME_CONTEXT_BUDGET_TOKENS).orElse(null);
             if (budget != null) {
-                integer(budget, pointer + "/context_budget_tokens", NAME_CONTEXT_BUDGET_TOKENS, 10000, Integer.MAX_VALUE);
+                integer(budget, pointer + "/context_budget_tokens", NAME_CONTEXT_BUDGET_TOKENS,
+                        LONG_CONTEXT_MINIMUM_TOKENS, Integer.MAX_VALUE);
+            }
+            @Nullable JsonNode thresholds = optional(headless, NAME_LONG_CONTEXT_THRESHOLDS).orElse(null);
+            if (thresholds != null) {
+                longContextThresholds(thresholds, pointer + "/long_context_thresholds");
             }
         }
 
@@ -851,6 +864,25 @@ public final class ProfileValidator {
             for (var member : efforts.members().entrySet()) {
                 stringArray(member.getValue(), pointer + "/" + escape(member.getKey()), NAME_MODEL_EFFORTS,
                         0, 64, true);
+            }
+        }
+
+        /**
+         * The long-context price thresholds of the harness's models: an object whose member names are model ids of at
+         * most {@value #LONG_CONTEXT_MODEL_ID_MAX_LENGTH} characters and whose values are the input tokens above which
+         * the provider bills a request of that model at the long-context price, at least
+         * {@value #LONG_CONTEXT_MINIMUM_TOKENS}. An empty object is valid; a refusal names the entry.
+         */
+        private void longContextThresholds(JsonNode thresholds, String pointer) {
+            object(thresholds, pointer, NAME_LONG_CONTEXT_THRESHOLDS);
+            for (var member : thresholds.members().entrySet()) {
+                var memberPointer = pointer + "/" + escape(member.getKey());
+                if (member.getKey().length() > LONG_CONTEXT_MODEL_ID_MAX_LENGTH) {
+                    throw invalid(memberPointer, "'%s' names a model id of at most %d characters"
+                            .formatted(NAME_LONG_CONTEXT_THRESHOLDS, LONG_CONTEXT_MODEL_ID_MAX_LENGTH));
+                }
+                integer(member.getValue(), memberPointer, NAME_LONG_CONTEXT_THRESHOLDS, LONG_CONTEXT_MINIMUM_TOKENS,
+                        Integer.MAX_VALUE);
             }
         }
 
