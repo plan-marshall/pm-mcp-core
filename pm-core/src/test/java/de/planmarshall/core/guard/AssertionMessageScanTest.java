@@ -97,15 +97,15 @@ class AssertionMessageScanTest {
     @Test
     @DisplayName("a missing message and an out-of-range literal message are reported")
     void missingAndOutOfRangeMessagesAreReported(@TempDir Path temp) throws Exception {
-        assertTrue(reported(packageFixture(temp, "assertTrue(refusal.isPresent());"), "no message"),
+        assertTrue(reported(packageFixture(temp.resolve("missing"), "assertTrue(refusal.isPresent());"), "no message"),
                 "an assertion without a message must be reported");
-        assertTrue(reported(packageFixture(temp,
+        assertTrue(reported(packageFixture(temp.resolve("nested"),
                 "assertAll(\"the refusal\", () -> assertTrue(refusal.isPresent()));"), "no message"),
                 "an assertion inside an assertAll lambda must be reported");
-        assertTrue(reported(packageFixture(temp, "assertTrue(refusal.isPresent(), \"too short\");"),
+        assertTrue(reported(packageFixture(temp.resolve("short"), "assertTrue(refusal.isPresent(), \"too short\");"),
                 "shorter than " + MIN_MESSAGE_LENGTH),
                 "a message below 20 characters must be reported");
-        assertTrue(reported(packageFixture(temp, "assertTrue(refusal.isPresent(), \""
+        assertTrue(reported(packageFixture(temp.resolve("long"), "assertTrue(refusal.isPresent(), \""
                 + "x".repeat(MAX_MESSAGE_LENGTH + 1) + "\");"), "longer than " + MAX_MESSAGE_LENGTH),
                 "a message above 60 characters must be reported");
     }
