@@ -243,10 +243,11 @@ public final class SecretRedactor {
     private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_LINE + "\\3" + "(?=[\\s,;)\\]}]|$)";
 
     /**
-     * The quoted form of a credential-shaped assignment with no acceptable closing quote on its line: it runs before the
-     * closed form, so a value whose close would swallow a later label — the quote followed by a word character — is
-     * masked to the end of its line instead, and a value the closed form masked is left alone. The lookahead refuses
-     * the text exactly when {@link #QUOTED_ASSIGNMENT_VALUE} reaches an acceptable close on the line.
+     * The quoted form of a credential-shaped assignment with no acceptable closing quote on its line: it runs after the
+     * closed form, so a value the closed form masked is left alone, and a value whose close would swallow a later label
+     * — the quote followed by something other than whitespace, a delimiter or the end of the text — is masked to the
+     * end of its line instead. The lookahead refuses the text exactly when {@link #QUOTED_ASSIGNMENT_VALUE} reaches an
+     * acceptable close on the line.
      */
     private static final List<Pattern> UNCLOSED_QUOTED_ASSIGNMENTS =
             ASSIGNMENT_LABELS.stream().map(SecretRedactor::unclosedQuotedAssignment).toList();
@@ -318,22 +319,25 @@ public final class SecretRedactor {
         var masked = AUTH_HEADER.matcher(normalized)
                 .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = BEARER.matcher(masked).replaceAll("$1" + Matcher.quoteReplacement(REDACTED));
-        for (var pattern : UNCLOSED_QUOTED_ASSIGNMENTS) {
-            masked = pattern.matcher(masked)
-                    .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
+        // a credentialed URL is masked before the assignment passes: an inner match must never remove the `@` that
+        // makes the URL shape recognisable
+        for (var pattern : List.of(URL_USER_INFORMATION, URL_USER_INFORMATION_ENCODED)) {
+            masked = pattern.matcher(masked).replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED) + "@");
         }
+        // the closed form first: an outer quoted value is masked whole before an inner label can be looked at
         for (var pattern : QUOTED_ASSIGNMENTS) {
             masked = pattern.matcher(masked)
                     .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
+        }
+        for (var pattern : UNCLOSED_QUOTED_ASSIGNMENTS) {
+            masked = pattern.matcher(masked)
+                    .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         }
         for (var pattern : ASSIGNMENTS) {
             masked = pattern.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
         }
         for (var pattern : REPLACEMENTS) {
             masked = pattern.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
-        }
-        for (var pattern : List.of(URL_USER_INFORMATION, URL_USER_INFORMATION_ENCODED)) {
-            masked = pattern.matcher(masked).replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED) + "@");
         }
         masked = QUOTED_CREDENTIAL_FLAG.matcher(masked)
                 .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");

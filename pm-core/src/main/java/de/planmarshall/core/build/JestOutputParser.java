@@ -153,12 +153,16 @@ public class JestOutputParser {
 
     private static void add(List<Diagnostic> diagnostics, HashSet<String> seen, @Nullable String file,
             @Nullable String test, List<String> stack) {
-        if (test == null || test.isBlank() || stack.isEmpty()) {
+        if (test == null || stack.isEmpty()) {
+            return;
+        }
+        var stored = DiagnosticCollector.storedOrEmpty(test);
+        if (stored.isEmpty()) {
             return;
         }
         Integer line = file == null ? null : stackLocation(stack);
         String stackTrace = String.join("\n", stack);
-        var diagnostic = Diagnostic.builder().file(file).line(line).message(DiagnosticCollector.stored(test))
+        var diagnostic = Diagnostic.builder().file(file).line(line).message(stored.get())
                 .category(Category.TEST_FAILURE).severity(Severity.ERROR).stackTrace(stackTrace).build();
         if (seen.add(DiagnosticCollector.key(diagnostic))) {
             diagnostics.add(diagnostic);

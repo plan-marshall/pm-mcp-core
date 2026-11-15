@@ -271,6 +271,21 @@ class ProviderVerificationTest {
     }
 
     @Test
+    @DisplayName("an npm token split by the answer bound is masked")
+    void tokenTailCutByTheBoundIsMasked() {
+        originReachable = false;
+        var token = "npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+        originDetail = "x".repeat(BuildLogText.MAX_LINE_LENGTH - 20) + " " + token + " tail";
+
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var origin = result.lines().getFirst();
+        assertAll(
+                () -> assertFalse(origin.answer().contains("A1b2C3d4"), "the token tail is masked"),
+                () -> assertTrue(origin.answer().contains("[redacted]"), "the mask is visible"));
+    }
+
+    @Test
     @DisplayName("both identities of the CLI variant are redacted where the line carries them, and still compared")
     void toolIdentityRedacted() {
         credentialIdentity = "token=sk-credentialabcdefghijkl";

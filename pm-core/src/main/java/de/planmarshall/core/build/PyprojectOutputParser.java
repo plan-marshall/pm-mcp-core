@@ -64,6 +64,9 @@ public class PyprojectOutputParser {
 
     private static final String NO_TESTS_MARKER = "no tests ran";
 
+    /** The message of a diagnostic whose text is only whitespace or invisible characters: the error is still an error. */
+    private static final String NO_VISIBLE_MESSAGE = "error (no visible message)";
+
     private static final String PY_FILE = ".py";
 
     private static final Pattern MYPY_DETECT = Pattern.compile("\\.pyi?:\\d+(?::\\d+)?: error:");
@@ -219,11 +222,9 @@ public class PyprojectOutputParser {
         for (String line : lines) {
             Matcher matcher = MYPY.matcher(line);
             Integer number = matcher.matches() ? integer(matcher.group(2)) : null;
-            var stored = number == null ? Optional.<String>empty()
-                    : DiagnosticCollector.storedOrEmpty(matcher.group(3));
-            if (number != null && stored.isPresent()) {
+            if (number != null) {
                 add(diagnostics, seen, Diagnostic.builder().file(matcher.group(1)).line(number)
-                        .message(stored.get())
+                        .message(DiagnosticCollector.storedOrEmpty(matcher.group(3)).orElse(NO_VISIBLE_MESSAGE))
                         .category(categoryOf(matcher.group(3))).severity(Severity.ERROR).build());
             }
         }
@@ -236,11 +237,11 @@ public class PyprojectOutputParser {
         for (String line : lines) {
             Matcher matcher = RUFF.matcher(line);
             Integer number = matcher.matches() ? integer(matcher.group(2)) : null;
-            var stored = number == null ? Optional.<String>empty()
-                    : DiagnosticCollector.storedOrEmpty(matcher.group(4) + " " + matcher.group(5));
-            if (number != null && stored.isPresent()) {
+            if (number != null) {
                 add(diagnostics, seen, Diagnostic.builder().file(matcher.group(1)).line(number)
-                        .column(integer(matcher.group(3))).message(stored.get())
+                        .column(integer(matcher.group(3)))
+                        .message(DiagnosticCollector.storedOrEmpty(matcher.group(4) + " " + matcher.group(5))
+                                .orElse(NO_VISIBLE_MESSAGE))
                         .category(Category.LINT_ERROR).severity(Severity.ERROR).build());
             }
         }
@@ -293,8 +294,7 @@ public class PyprojectOutputParser {
                 String testName = failed.testName() == null ? failed.file() : withoutXdistGroup(failed.testName());
                 String message = failed.message() == null ? "Test " + testName + " failed" : failed.message();
                 String block = consume(blocks, cursors, pytestBlockKey(testName));
-                pytestDiagnostic(failed.file(), block, message, Category.TEST_FAILURE)
-                        .ifPresent(diagnostic -> add(diagnostics, seen, diagnostic));
+                add(diagnostics, seen, pytestDiagnostic(failed.file(), block, message, Category.TEST_FAILURE));
             }
         }
     }
@@ -351,9 +351,9 @@ public class PyprojectOutputParser {
             ParsedError error = parseErrorLine(line);
             if (error != null) {
                 String block = consume(blocks, cursors, errorKey(error));
-                pytestDiagnostic(error.file(), block, errorMessage(error, block),
-                        Category.TEST_COLLECTION_ERROR)
-                        .ifPresent(diagnostic -> add(diagnostics, seen, diagnostic));
+                add(diagnostics, seen,
+                        pytestDiagnostic(error.file(), block, errorMessage(error, block),
+                                Category.TEST_COLLECTION_ERROR));
             }
         }
     }
@@ -373,17 +373,14 @@ public class PyprojectOutputParser {
         return block == null ? terse : exceptionMessage(block).orElse(terse);
     }
 
-    private static Optional<Diagnostic> pytestDiagnostic(String summaryFile, @Nullable String block, String message,
+    private static Diagnostic pytestDiagnostic(String summaryFile, @Nullable String block, String message,
             Category category) {
-        var stored = DiagnosticCollector.storedOrEmpty(message);
-        if (stored.isEmpty()) {
-            return Optional.empty();
-        }
         Frame location = block == null ? null : frame(block);
         String file = location == null ? summaryFile : location.file();
         Integer line = location == null ? null : location.line();
-        return Optional.of(Diagnostic.builder().file(file).line(line).message(stored.get())
-                .category(category).severity(Severity.ERROR).build());
+        return Diagnostic.builder().file(file).line(line)
+                .message(DiagnosticCollector.storedOrEmpty(message).orElse(NO_VISIBLE_MESSAGE))
+                .category(category).severity(Severity.ERROR).build();
     }
 
     private static void add(List<Diagnostic> diagnostics, Set<String> seen, Diagnostic diagnostic) {

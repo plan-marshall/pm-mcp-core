@@ -229,10 +229,11 @@ public class TapOutputParser {
         var cursor = new Cursor(index + 1);
         YamlBlock block = yamlBlock(lines, cursor);
         String message = block.errorMessage().isEmpty() ? testName : block.errorMessage();
-        if (!message.isBlank()) {
+        var stored = DiagnosticCollector.storedOrEmpty(message);
+        if (stored.isPresent()) {
             Location location = location(block.location());
             var diagnostic = Diagnostic.builder().file(location.file()).line(location.line())
-                    .message(DiagnosticCollector.stored(message)).category(Category.TEST_FAILURE)
+                    .message(stored.get()).category(Category.TEST_FAILURE)
                     .severity(Severity.ERROR).stackTrace(block.stackTrace()).build();
             if (seen.add(DiagnosticCollector.key(diagnostic))) {
                 diagnostics.add(diagnostic);

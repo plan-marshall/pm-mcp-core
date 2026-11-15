@@ -109,12 +109,15 @@ numbered `Decision` sections below.
 
 An assignment whose value is quoted (`token="ab cd ef"`, `password="my pass phrase"`) masks the whole quoted value: the
 value runs to its own closing quote on its line, and the escape handling of the flag form keeps an escaped quote from
-closing it. A closing quote that a word character follows is refused, because it would swallow the next label and leave
-that label's value readable; such a text is masked by the unclosed form instead, to the end of its line. The assignment
-form closes on its own line only: a value that would close on the next line is read as unclosed, because a cross-line
-close is indistinguishable from the next label's quote, and that residue is named in "What stays readable". The
-four-character minimum therefore applies to unquoted values only. The false-positive costs: a short quoted value of an
-ordinary text is masked with its label, and a refused close masks the rest of its line.
+closing it. A closing quote is accepted only when whitespace, a delimiter (`, ; ) ] }`) or the end of the text follows
+it; anything else is refused, because it would swallow the next label and leave that label's value readable, and such a
+text is masked by the unclosed form instead, to the end of its line. The closed form runs before the unclosed one, so an
+enclosing quoted value is masked whole before an inner label is looked at, and a credentialed URL is masked before the
+assignment forms, so an inner match cannot remove the `@` the URL shape needs. The assignment form closes on its own
+line only: a value that would close on the next line is read as unclosed, because a cross-line close is
+indistinguishable from the next label's quote, and that residue is named in "What stays readable". The four-character
+minimum therefore applies to unquoted values only. The false-positive costs: a short quoted value of an ordinary text is
+masked with its label, and a refused close masks the rest of its line.
 
 === The matcher is Unicode-aware, and invisible characters are removed
 
@@ -159,8 +162,8 @@ without any `@`, the shape that is scanned back from every scheme start) is reda
 unchanged result asserted.
 The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and the answer is cut at
 `BuildLogText.MAX_LINE_LENGTH` characters — never splitting a surrogate pair — before the redaction, which bounds that
-input; a user-information head the cut leaves without its `@` is masked there, so the bound removes neither the
-credential nor its protection.
+input; a user-information head or a provider-token head the cut leaves incomplete is masked there, so the bound removes
+neither the credential nor its protection.
 
 === The package dependency `core.queue → core.build`
 

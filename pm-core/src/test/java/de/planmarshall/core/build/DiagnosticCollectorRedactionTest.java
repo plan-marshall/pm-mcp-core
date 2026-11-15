@@ -10,6 +10,7 @@
 package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -122,14 +123,26 @@ class DiagnosticCollectorRedactionTest {
     }
 
     @Test
-    @DisplayName("a message that is only invisible characters is not filed and does not fail the parse")
-    void invisibleOnlyMessageIsNotFiled() {
+    @DisplayName("a message that is only invisible characters does not fail the parse and keeps the failure")
+    void invisibleOnlyMessageDoesNotFailTheParse() {
         var maven = MavenOutputParser.parse("[ERROR] \u200B\u200B\n");
         var mypy = PyprojectOutputParser.parse("src/a.py:3: error: \u200B\n");
+        var tap = TapOutputParser.parse("not ok 1 - \u200B\n");
+        var jest = JestOutputParser.parse("""
+                FAIL  src/a.test.ts
+                  ● \u200B
+
+                      at Object.<anonymous> (src/a.test.ts:7:9)
+
+                """);
 
         assertAll("invisible-only messages",
                 () -> assertTrue(maven.diagnostics().isEmpty(), "the Maven line files nothing"),
-                () -> assertTrue(mypy.diagnostics().isEmpty(), "the mypy line files nothing"));
+                () -> assertEquals("error (no visible message)", mypy.diagnostics().getFirst().message(),
+                        "the mypy error keeps a fallback message"),
+                () -> assertEquals(BuildStatus.FAILURE, mypy.status(), "the mypy build stays failed"),
+                () -> assertTrue(tap.diagnostics().isEmpty(), "the TAP line files nothing and does not throw"),
+                () -> assertTrue(jest.diagnostics().isEmpty(), "the Jest name files nothing and does not throw"));
     }
 
     @Test

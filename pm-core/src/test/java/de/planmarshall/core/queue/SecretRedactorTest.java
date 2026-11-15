@@ -271,6 +271,28 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("an enclosing quoted assignment keeps its closing quote after an inner label is masked")
+    void enclosingQuotedAssignmentSurvivesAnInnerLabel() {
+        var redacted = redactValue("password=\"my secret token='abc\"");
+
+        assertAll("nested quoted assignment",
+                () -> assertFalse(redacted.contains("my secret"), "the outer value is masked whole"),
+                () -> assertEquals("password=\"" + SecretRedactor.REDACTED + "\"", redacted,
+                        "the outer value keeps both quotes"));
+    }
+
+    @Test
+    @DisplayName("a credentialed URL is masked before an inner assignment can remove its @")
+    void urlIsMaskedBeforeAnInnerAssignment() {
+        var redacted = redactValue("https://user:token='abc@host/repo");
+
+        assertAll("URL before assignment passes",
+                () -> assertEquals("https://user:" + SecretRedactor.REDACTED + "@host/repo", redacted,
+                        "the URL keeps its host and masks the password"),
+                () -> assertFalse(redacted.contains("token='abc"), "the URL password is gone"));
+    }
+
+    @Test
     @DisplayName("a punctuation-leading value is not swallowed by a quoted assignment")
     void quotedAssignmentDoesNotSwallowAPunctuationLeadingValue() {
         var redacted = redactValue("pass=\"abc token=\"!s3cret-value\"");
