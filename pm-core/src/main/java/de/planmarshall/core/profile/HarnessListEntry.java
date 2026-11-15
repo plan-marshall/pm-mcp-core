@@ -30,13 +30,15 @@ import org.jspecify.annotations.Nullable;
  * @param supported      whether the version lies in the profile's supported range
  * @param workerEligible whether the profile may serve workers
  * @param defaultHarness whether the row is the default harness of the machine
+ * @param enrolled       whether the harness is enrolled in the machine's harness store, so a row the scan found nothing
+ *                       for still shows that the machine has an enrolment to remove
  * @param usage          what the harness reports of its token usage for the row's version
  * @since 0.1
  */
 @Builder
 public record HarnessListEntry(String harnessId, String displayName, String version,
 @Nullable String executablePath, String installHint, boolean supported, boolean workerEligible,
-boolean defaultHarness, HarnessUsageCoverage usage) {
+boolean defaultHarness, boolean enrolled, HarnessUsageCoverage usage) {
 
     /**
      * @throws NullPointerException     if a component that is never {@code null} is {@code null}

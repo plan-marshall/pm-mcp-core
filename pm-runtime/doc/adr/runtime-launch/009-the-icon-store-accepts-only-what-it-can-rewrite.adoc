@@ -1,0 +1,83 @@
+= ADR 009: The icon store accepts only bytes it can re-write or verify, and it opens no connection
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-14.
+
+== Context
+
+The machine keeps one icon per harness below `<PM_MCP_BASE>/icons/`, `<harness_id>.<ext>` with mode `0600` and an
+`index.json` beside it (Store Schemas § Harness Icon Store), so that a client shows a harness by its maker's mark without a
+browser ever loading a file from the maker's server (Harness Profiles § Harness Icons). The icon arrives from outside the
+machine, so it is untrusted input: an SVG is an XML document that can carry a script, an event handler, an external
+reference or an entity declaration, and a PNG carries chunks that can hold arbitrary text.
+
+Two things needed a decision. First, what the accept step does with a candidate it cannot make safe: re-write it, or refuse
+it. Second, what the store may do with the network: the specification has the runtime fetch an icon of the profile's
+`source` form through its outbound HTTPS client, on the consent `fetch_icons`, but no shipped profile declares that form and
+the improvement is deferred (Later Improvements L-21).
+
+== Decision
+
+**The accept step is an allow-list, and it refuses what it cannot make safe.** `HarnessIconSanitiser` decides the format
+from the bytes — the PNG signature, or a document that parses as XML with an `svg` root in the SVG namespace — and never
+from a name a caller supplies. An SVG is parsed with StAX with the DTD and external entities switched off, a DOCTYPE is
+refused by its bytes before the parser sees it, and the output is re-serialised from the allow-list: fourteen elements and
+thirty-nine attributes, the root's namespace declaration written by the sanitiser itself. A comment, a processing
+instruction and an attribute outside the list are dropped; an element outside the list, an `on*` event attribute, an
+`href` that is not a fragment of the same document, and a `style` that could fetch or import are refused. A PNG is kept byte
+for byte once its chunk structure is closed by its CRCs and every chunk type is in the allow-list; a text chunk
+(`tEXt`, `zTXt`, `iTXt`) is refused, because it can carry arbitrary text. A candidate above `256` KiB is refused before
+anything is parsed.
+
+**The store takes bytes and opens no connection.** `HarnessIconStore.accept(String, byte[])` sanitises outside the lock and
+then, under `locks/icons.lock`, replaces the file and the index entry in one transaction: the index is read first, the file
+is written, then the index. A stop between the two leaves the old index, which no longer matches the new file, so the store
+serves nothing until the index is written — the fail-closed direction. `OutboundCallsArchTest` is untouched: the store
+reaches no connection-opening type, and the fetch of a `source` icon is not built.
+
+**A path is a harness id first.** The id that names the file is checked with `HarnessId.matches` before it reaches a path,
+the resolved path must be a child of the icon directory, and a symbolic link at the target is refused; a read opens the
+file with `NOFOLLOW_LINKS` and verifies its length and digest against the index entry, so a file the index does not stand
+for is not served.
+
+== Alternatives Considered
+
+**Stripping instead of refusing.** A deny-list that removes `<script>` and `on*` and keeps the rest is bypassed by the next
+construct — a nested `<foreignObject>`, an entity that expands into markup, a `style` with a `url()` — and the reviewer of
+the next icon would have to prove a negative. An allow-list has one property to check: the output holds only names the list
+names.
+
+**Refusing every SVG and accepting only PNG.** It would need no XML parser at all, but it discards the vector icons the
+harness makers publish and the specification names both forms.
+
+**Keeping a PNG's text chunk and stripping it.** Stripping means re-serialising the chunk stream, and a chunk the store
+re-serialises is one more byte sequence to get right; a text chunk carries nothing an icon needs, so it is refused.
+
+**Fetching the icon in the store.** It would put a connection in `pm-runtime` outside the closed list of outbound calls and
+would need the consent and the proxy settings; the improvement that adds the fetch owns both.
+
+== Consequences
+
+The store is the machine's only writer of `icons/`, and it writes through the runtime's one atomic-write path, so a reader
+sees the old or the new icon and never a half-written one. An icon is replaced by accepting a new candidate for the same
+harness; there is no separate replace verb.
+
+The accept step's refusals are a closed set of codes (`IconRefusal`), each with a test that plants the construct in a
+candidate that would otherwise be a valid icon, so a rule that is loosened turns a test red. The refusal is logged at WARN
+`PM_RUNTIME-147` with the harness, the code and the candidate's length — never a byte of the candidate.
+
+Not built, and named here rather than implied: the outbound fetch of a `source` icon with its consent and proxy settings
+(L-21), the serving endpoint that hands the file to a client from the runtime's own origin, and a bound on the decoded
+image a PNG expands to. The store's bound is the file's size, which is what the specification states; a decompression bomb
+is a known limitation of a size bound on a compressed format.
+
+== Source
+
+Work package `machine-onboarding-unit`, Task 3 (PLAN-V2-39, the part its landing left owed; PLAN-V2-142 D1); Store Schemas
+§ Harness Icon Store; Harness Profiles § Harness Icons; Later Improvements L-21; PM-ARCH-2, PM-SEC-8.

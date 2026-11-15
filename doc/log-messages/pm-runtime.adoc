@@ -97,6 +97,7 @@
 |PM_RUNTIME-144 |The endpoint '%s' did not answer its readiness check at '%s'
 |PM_RUNTIME-145 |Provider '%s' failed its verification: %s
 |PM_RUNTIME-146 |The credential store move of the aspect failed: %s
+|PM_RUNTIME-147 |Icon candidate of harness '%s' refused with '%s' at %d bytes
 |===
 
 === ERROR Level (200-299)

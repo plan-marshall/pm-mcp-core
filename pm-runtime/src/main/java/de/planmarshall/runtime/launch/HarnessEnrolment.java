@@ -94,22 +94,24 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
     }
 
     /**
-     * The usage report of an accepted self-update: a report measured on the previous build says nothing about the new one,
-     * so the entry keeps no figure until the new version is verified — the harness lists file a coverage under the
-     * version it was measured on and must not show the old one beside the new build.
+     * The report an accepted self-update leaves: a VERIFIED report was measured on the build that just changed, so it
+     * says nothing about the new one and the entry reports nothing until the new build is verified. A DECLARED report is
+     * the profile's own declaration, not a measurement, so it stays.
      */
-    private static final UsageReport NO_REPORT_FOR_A_NEW_BUILD = new UsageReport(UsageSource.DECLARED, Map.of());
+    private static final UsageReport NO_MEASUREMENT_FOR_A_NEW_BUILD =
+            new UsageReport(UsageSource.DECLARED, Map.of());
 
     /**
      * @param version  the version probed after an accepted self-update
      * @param sha256   the digest of the changed executable
      * @param updateTo the instant of the accepted self-update
-     * @return the entry with the new build of the same harness; a report measured on another build — another version or
-     *         another executable digest — is dropped
+     * @return the entry with the new build of the same harness; a VERIFIED usage report measured on another build —
+     *         another version or another executable digest — is dropped, a DECLARED one stays
      */
     public HarnessEnrolment updated(String version, String sha256, Instant updateTo) {
         var sameBuild = version.equals(this.version) && sha256.equals(this.sha256);
-        var report = sameBuild ? usageReport : NO_REPORT_FOR_A_NEW_BUILD;
+        var measuredElsewhere = !sameBuild && usageReport.source() == UsageSource.VERIFIED;
+        var report = measuredElsewhere ? NO_MEASUREMENT_FOR_A_NEW_BUILD : usageReport;
         return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updateTo, report,
                 events, weights);
     }

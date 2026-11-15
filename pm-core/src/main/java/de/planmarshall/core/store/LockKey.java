@@ -244,6 +244,14 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
 
     /**
      * @param base the base directory of the runtime
+     * @return the key of the lock of the machine's harness icons and their index
+     */
+    public static LockKey icons(Path base) {
+        return ofMachineStore(base, "icons");
+    }
+
+    /**
+     * @param base the base directory of the runtime
      * @return the key of the lock of the machine configuration
      */
     public static LockKey machineConfiguration(Path base) {

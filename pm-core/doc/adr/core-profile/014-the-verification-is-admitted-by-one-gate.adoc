@@ -31,8 +31,11 @@ draft tree or refuses:
 * a state that is not `harness.verify-profile` is refused `harness_verify_state_refused`;
 * a consent kind that is not `verify_harness_profile` is refused `harness_verify_consent_kind`;
 * `no` is refused `harness_verify_consent_declined` and a `yes_remember` `harness_verify_consent_remembered`;
-* a token set that does not name exactly the stages the caller declares as the run's, an unknown or duplicated stage, or
-  a negative count is refused `harness_verify_stage_tokens_missing`;
+* a run that names no stage is refused `harness_verify_stages_missing`, one that names a stage twice
+  `harness_verify_stage_duplicated`, and one that names a stage the profile verification does not have
+  `harness_verify_stage_unknown`;
+* a token set that does not price exactly the caller's stage list is refused `harness_verify_stage_tokens_missing`, and a
+  stage whose tokens are not a non-negative count `harness_verify_stage_token_not_a_count`;
 * the draft is validated by `ProfileValidator` and its `ProfileRefusal` propagates before any stage runs.
 
 The refusal carries a stable `code` for the client and a message that names the state, the kind or the member.

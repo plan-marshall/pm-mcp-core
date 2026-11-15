@@ -34,8 +34,20 @@ public final class HarnessVerificationRefusal extends RuntimeException {
     /** A {@code yes_remember} was answered, which the kind never offers. */
     public static final String REMEMBERED = "harness_verify_consent_remembered";
 
-    /** The consent did not show the expected tokens of the stages it authorises. */
+    /** The run names no stage at all. */
+    public static final String STAGES_MISSING = "harness_verify_stages_missing";
+
+    /** One stage of the run is named twice. */
+    public static final String STAGE_DUPLICATED = "harness_verify_stage_duplicated";
+
+    /** One stage of the run is not a stage of the profile verification. */
+    public static final String STAGE_UNKNOWN = "harness_verify_stage_unknown";
+
+    /** The consent did not price exactly the stages the run declares. */
     public static final String TOKENS_MISSING = "harness_verify_stage_tokens_missing";
+
+    /** A stage's expected tokens are not a non-negative count. */
+    public static final String TOKEN_NOT_A_COUNT = "harness_verify_stage_token_not_a_count";
 
     private final String code;
 
