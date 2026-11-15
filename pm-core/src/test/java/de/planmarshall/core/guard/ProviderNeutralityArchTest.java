@@ -178,7 +178,8 @@ class ProviderNeutralityArchTest {
         @Test
         @DisplayName("holds on FindingSourceKind with the exemption")
         void exemptConstantsAccepted() {
-            assertFalse(evaluate(EXEMPTION, FindingSourceKind.class).hasViolation());
+            assertFalse(evaluate(EXEMPTION, FindingSourceKind.class).hasViolation(),
+                    "the exemption covers FindingSourceKind");
         }
     }
 }
