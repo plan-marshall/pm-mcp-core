@@ -84,7 +84,8 @@ class DiffSummaryRecordsTest {
                 .argument(Generators.letterStrings(1, 20).next())
                 .previous(previous)
                 .value(value);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing call site");
 
         assertEquals("callSite", exception.getMessage(), "the builder names the missing call site");
     }

@@ -1674,6 +1674,10 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerifi
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore]
 
+Implementation (the load directive's one slot: `skill_loading.load_directive_template` carries the literal
+`{{uri}}` exactly once, so the directive rendered for `{{skill_load:<uri>}}` always names the skill it loads):
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java[ProfileValidator]
+
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/EndpointProfileValidatorTest.java[EndpointProfileValidatorTest],
@@ -1681,7 +1685,9 @@ link:../pm-core/src/test/java/de/planmarshall/core/role/HarnessProfileEndpointTe
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointRequestTest.java[EndpointRequestTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointOutcomeTest.java[EndpointOutcomeTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointHarnessTest.java[EndpointHarnessTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest]
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java[ProfileValidatorTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedProfilesTest.java[ShippedProfilesTest]
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
 link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer Guide § Endpoint

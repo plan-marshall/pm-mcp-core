@@ -60,7 +60,8 @@ class VerificationContextRecordsTest {
                 .questionClasses(QuestionClassRegistry.defaults())
                 .schemas(SchemaRegistry.defaults())
                 .compiledUnits(List.<WorkflowDefinition>of());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing registry");
 
         assertEquals("registry", exception.getMessage(), "the builder names the missing registry");
     }

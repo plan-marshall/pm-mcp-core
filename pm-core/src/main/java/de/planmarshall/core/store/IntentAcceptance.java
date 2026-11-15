@@ -194,12 +194,12 @@ public final class IntentAcceptance {
     }
 
     private static Optional<String> deciderRefusal(IntentRecord intentRecord, Context context) {
-        for (var decision : intentRecord.decisions()) {
+        for (var decision : intentRecord.choices()) {
             var refusal = switch (decision.decider()) {
                 case OPERATOR -> answeredRefusal(decision, context, AnswerChannel.WEB, AnswerChannel.CLI);
                 case QUORUM -> answeredRefusal(decision, context, AnswerChannel.QUORUM);
                 case FACT -> evidenceRefusal(decision, context);
-                case MODEL -> Optional.<String>empty();
+                case ROLE -> Optional.<String>empty();
             };
             if (refusal.isPresent()) {
                 return refusal;

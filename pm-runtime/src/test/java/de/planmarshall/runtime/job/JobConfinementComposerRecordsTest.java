@@ -52,7 +52,8 @@ class JobConfinementComposerRecordsTest {
         var builder = JobConfinementComposer.builder()
                 .systemTemp(Path.of("/tmp", Generators.letterStrings(1, 20).next()))
                 .deviceRoot(Path.of("/dev", Generators.letterStrings(1, 20).next()));
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing base");
 
         assertEquals("base", refusal.getMessage(), "the refusal names the runtime base");
     }

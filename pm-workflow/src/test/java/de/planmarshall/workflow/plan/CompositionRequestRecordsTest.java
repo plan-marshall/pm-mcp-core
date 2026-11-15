@@ -70,7 +70,8 @@ class CompositionRequestRecordsTest {
                 .position(InstancePosition.at(Generators.letterStrings(1, 20).next()))
                 .verificationSteps(List.of())
                 .finalizeSteps(List.of());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing plan id");
 
         assertEquals("planId", exception.getMessage(), "the builder names the missing plan id");
     }

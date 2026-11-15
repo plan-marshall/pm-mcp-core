@@ -49,7 +49,8 @@ class WaiverRecordsTest {
         var builder = Waiver.builder()
                 .gate(Generators.letterStrings(1, 20).next())
                 .mode(Waiver.Mode.MET);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing id");
 
         assertEquals("id", exception.getMessage(), "the builder names the missing waiver id");
     }

@@ -112,7 +112,8 @@ class FinalizeStepDescriptorRecordsTest {
     void finalizeStepDescriptorBuilderRefusesMissingName() {
         var builder = FinalizeStepDescriptor.builder()
                 .description(Generators.letterStrings(1, 40).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing name");
 
         assertEquals("name", exception.getMessage(), "the builder names the missing name");
     }
@@ -122,7 +123,8 @@ class FinalizeStepDescriptorRecordsTest {
     void laneBuilderRefusesMissingLaneClass() {
         var builder = FinalizeStepDescriptor.Lane.builder()
                 .costSize(Generators.letterStrings(1, 4).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing lane class");
 
         assertEquals("laneClass", exception.getMessage(), "the builder names the missing lane class");
     }

@@ -55,7 +55,8 @@ class ComposedUnitRecordsTest {
                 .definition(composed.definition())
                 .text(composed.text())
                 .digest(composed.digest());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing unit id");
 
         assertEquals("unit", exception.getMessage(), "the builder names the missing unit id");
     }

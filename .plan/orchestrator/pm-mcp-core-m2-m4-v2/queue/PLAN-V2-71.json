@@ -2,10 +2,10 @@
   "id": "PLAN-V2-71",
   "slug": "profile-skill-load-template-check",
   "workstream": "WS-04",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#430",
+  "landing": "landings/PLAN-V2-71.md",
   "seq": 71
 }

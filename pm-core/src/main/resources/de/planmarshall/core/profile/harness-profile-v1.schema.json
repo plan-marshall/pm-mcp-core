@@ -53,11 +53,14 @@
       "description": "The harness's icon (Harness Icons below); null: the generated monogram.",
       "properties": {
         "form": { "type": "string", "enum": ["source", "bundled"] },
-        "source": { "type": ["string", "null"], "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.(svg|png)$", "description": "For form source: the URL of the maker's official icon file, fetched once by the runtime on the operator's consent." },
+        "source": { "type": ["string", "null"], "maxLength": 256, "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.(svg|png)$", "description": "For form source: the URL of the maker's official icon file, fetched once by the runtime on the operator's consent." },
         "bundled": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "For form bundled: the name of an icon shipped in the binary." }
       },
       "required": ["form", "source", "bundled"],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": { "properties": { "form": { "const": "source" } }, "required": ["form"] },
+      "then": { "properties": { "source": { "type": "string" }, "bundled": { "type": "null" } } },
+      "else": { "properties": { "bundled": { "type": "string" }, "source": { "type": "null" } } }
     },
     "min_daemon_version": {
       "type": "string",
@@ -108,7 +111,7 @@
         },
         "load_directive_template": {
           "type": "string",
-          "description": "Template rendered when a skill references another skill (e.g. 'pm_skill(uri=\"{{uri}}\")')."
+          "description": "Template rendered when a skill references another skill. It must carry the slot '{{uri}}' exactly once, so the rendered directive names the skill it loads (e.g. 'pm_skill(uri=\"{{uri}}\")')."
         },
         "schema_residency": {
           "type": "string",

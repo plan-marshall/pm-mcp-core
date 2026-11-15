@@ -68,7 +68,8 @@ class CompositionInputsRecordsTest {
                 .compositionRulesRevision(Generators.letterStrings(1, 20).next())
                 .compositionRulesDigest(Generators.letterStrings(1, 64).next())
                 .planFactsDigest(Generators.letterStrings(1, 64).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing hash");
 
         assertEquals("configHash", exception.getMessage(), "the builder names the missing hash");
     }

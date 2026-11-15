@@ -103,3 +103,11 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+**Carried 2026-11-15 from the landing analysis of PLAN-V2-144 (#433, `f82f3e73`; `landings/PLAN-V2-144.md`).** This plan edits `EndpointVerification` and its test, so the residue of the dead-null-check plan is done here (read at the head before editing):
+
+- `EndpointVerification.identity()` (around line 135 at `f82f3e73`) still tests `!lookup.isFound()`; `verify()` calls it only after `ownsTheNamedProgram` returned false for a not-found lookup, so the arm is unreachable by call order (Sonar does not flag it: cross-method). Remove it or make the call order explicit in the signature, and say which in the outline.
+- The "found but foreign executable" arm of `ownsTheNamedProgram` has no test in `EndpointVerificationTest` (pre-existing; the only `Lookup.notFound` case, around lines 246-258, covers the other arm): add a case with a found lookup whose executable name differs from `profile.executable()`.
+

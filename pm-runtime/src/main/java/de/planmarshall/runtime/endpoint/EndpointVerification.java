@@ -123,7 +123,7 @@ public final class EndpointVerification {
      * @return whether the program that owns the socket is the one the draft's {@code executable} names
      */
     private static boolean ownsTheNamedProgram(EndpointProfile profile, SocketOwner.Lookup lookup) {
-        if (!lookup.isFound() || profile.executable() == null) {
+        if (!lookup.isFound()) {
             return false;
         }
         return Path.of(lookup.executablePath()).getFileName().toString().equals(profile.executable());
@@ -294,11 +294,8 @@ public final class EndpointVerification {
     }
 
     private Optional<String> probe(EndpointProfile profile, String executablePath) {
-        var identity = profile.identity();
-        if (identity == null) {
-            return Optional.empty();
-        }
-        return versionProbe.version(Path.of(executablePath), identity.versionProbe(), identity.versionPattern());
+        return versionProbe.version(Path.of(executablePath), profile.identity().versionProbe(),
+                profile.identity().versionPattern());
     }
 
     private JsonNode listing(EndpointProfile profile) {

@@ -73,7 +73,8 @@ class GitOperationsRecordsTest {
                 .url(text())
                 .commit(text())
                 .policy(new RemotePolicy(null));
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing cache");
 
         assertEquals("cache", refusal.getMessage(), "the refusal names the missing cache");
     }
@@ -154,7 +155,8 @@ class GitOperationsRecordsTest {
                 .path(path())
                 .createBranch(false)
                 .startPoint(text());
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing root");
 
         assertEquals("root", refusal.getMessage(), "the refusal names the missing root");
     }

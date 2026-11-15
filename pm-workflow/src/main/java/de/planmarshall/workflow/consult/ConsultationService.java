@@ -169,8 +169,17 @@ public final class ConsultationService {
             }
             var asker = askerFound.get();
             var consultations = new ArrayList<>(asker.consultations());
-            consultations.add(new Consultation(consultationId, request.role(), request.generationId(),
-                    request.at(), ConsultationStatus.OPEN, null, null, null, null));
+            consultations.add(Consultation.builder()
+                    .consultationId(consultationId)
+                    .role(request.role())
+                    .askedBy(request.generationId())
+                    .askedAt(request.at())
+                    .status(ConsultationStatus.OPEN)
+                    .answer(null)
+                    .closedAt(null)
+                    .deliveredAt(null)
+                    .deliveredTo(null)
+                    .build());
             var updated = asker.withConsultations(consultations).withStatus(Status.CONSULTING);
             recorded.set(updated);
             outcome.set(new ConsultationOutcome.Opened(consultationId, updated));
@@ -442,8 +451,17 @@ public final class ConsultationService {
         var consultations = new ArrayList<>(asker.consultations());
         for (var index = 0; index < consultations.size(); index++) {
             if (consultations.get(index).consultationId().equals(consultationId)) {
-                consultations.set(index, new Consultation(entry.consultationId(), entry.role(), entry.askedBy(),
-                        entry.askedAt(), status, answer, at, at, deliveredTo));
+                consultations.set(index, Consultation.builder()
+                        .consultationId(entry.consultationId())
+                        .role(entry.role())
+                        .askedBy(entry.askedBy())
+                        .askedAt(entry.askedAt())
+                        .status(status)
+                        .answer(answer)
+                        .closedAt(at)
+                        .deliveredAt(at)
+                        .deliveredTo(deliveredTo)
+                        .build());
             }
         }
         var updated = asker.withConsultations(consultations);
@@ -461,9 +479,17 @@ public final class ConsultationService {
         if (!attempts.isEmpty() && attempts.getLast().end() == null) {
             var last = attempts.getLast();
             var updated = new ArrayList<>(attempts);
-            updated.set(updated.size() - 1, new Attempt(last.attempt(), last.generationId(), last.jobId(),
-                    last.configurationDigest(), last.offeredAt(), last.acknowledgedAt(), at, AttemptEnd.CLOSED,
-                    false));
+            updated.set(updated.size() - 1, Attempt.builder()
+                    .attempt(last.attempt())
+                    .generationId(last.generationId())
+                    .jobId(last.jobId())
+                    .configurationDigest(last.configurationDigest())
+                    .offeredAt(last.offeredAt())
+                    .acknowledgedAt(last.acknowledgedAt())
+                    .endedAt(at)
+                    .end(AttemptEnd.CLOSED)
+                    .counts(false)
+                    .build());
             attempts = updated;
         }
         return task.withAttempts(attempts).withLease(null).withStatus(Status.CLOSED)
@@ -545,10 +571,17 @@ public final class ConsultationService {
             if (closed && consultation.deliveredTo() == DeliveredTo.WAIT
                     && consultation.deliveredAt() != null
                     && !consultation.askedBy().equals(generation)) {
-                consultations.add(new Consultation(consultation.consultationId(), consultation.role(),
-                        consultation.askedBy(), consultation.askedAt(), consultation.status(),
-                        consultation.answer(), consultation.closedAt(), consultation.deliveredAt(),
-                        DeliveredTo.FACTS));
+                consultations.add(Consultation.builder()
+                        .consultationId(consultation.consultationId())
+                        .role(consultation.role())
+                        .askedBy(consultation.askedBy())
+                        .askedAt(consultation.askedAt())
+                        .status(consultation.status())
+                        .answer(consultation.answer())
+                        .closedAt(consultation.closedAt())
+                        .deliveredAt(consultation.deliveredAt())
+                        .deliveredTo(DeliveredTo.FACTS)
+                        .build());
                 changed = true;
             } else {
                 consultations.add(consultation);

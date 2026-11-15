@@ -243,10 +243,19 @@ public final class LaunchComposer {
 
     private static LaunchPrompt composePrompt(LaunchRequest request, EffectiveRole role, RoleClass roleClass) {
         try {
-            return new PromptComposer().compose(new PromptComposer.PromptRequest(request.shimParagraph(),
-                    roleClass == RoleClass.ZERO_TOOL, request.zeroToolPrompt(), request.skills(), role.skills(),
-                    request.fresh(), request.writesFreeText(), request.stateSkills(), request.domainSkills(),
-                    request.envelope(), request.inBandBoundChars()));
+            return new PromptComposer().compose(PromptComposer.PromptRequest.builder()
+                    .shimParagraph(request.shimParagraph())
+                    .zeroTool(roleClass == RoleClass.ZERO_TOOL)
+                    .zeroToolPrompt(request.zeroToolPrompt())
+                    .skills(request.skills())
+                    .roleSkills(role.skills())
+                    .fresh(request.fresh())
+                    .writesFreeText(request.writesFreeText())
+                    .stateSkills(request.stateSkills())
+                    .domainSkills(request.domainSkills())
+                    .envelope(request.envelope())
+                    .inBandBoundChars(request.inBandBoundChars())
+                    .build());
         } catch (PromptComposer.CompositionException failure) {
             throw new CompositionException(failure.getMessage(), failure);
         }

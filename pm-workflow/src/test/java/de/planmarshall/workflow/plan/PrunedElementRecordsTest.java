@@ -52,7 +52,8 @@ class PrunedElementRecordsTest {
                 .id(Generators.letterStrings(1, 20).next())
                 .reason(PruneReason.POSTURE)
                 .sourceFact("posture");
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing element kind");
 
         assertEquals("element", exception.getMessage(), "the builder names the missing element kind");
     }

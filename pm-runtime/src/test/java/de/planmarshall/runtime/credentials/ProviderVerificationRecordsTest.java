@@ -62,7 +62,8 @@ class ProviderVerificationRecordsTest {
                 .messageKey(ProviderVerification.MESSAGE_KEY_PREFIX + Generators.letterStrings(1, 20).next())
                 .arguments(List.of(Generators.letterStrings(1, 20).next()))
                 .answer(Generators.letterStrings(1, 40).next());
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing check");
 
         assertEquals("check", refusal.getMessage(), "the refusal names the missing check");
     }
@@ -96,7 +97,8 @@ class ProviderVerificationRecordsTest {
         var builder = ProviderVerification.Verification.builder()
                 .ran(Generators.booleans().next())
                 .lines(List.of());
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing provider");
 
         assertEquals("provider", refusal.getMessage(), "the refusal names the missing provider");
     }

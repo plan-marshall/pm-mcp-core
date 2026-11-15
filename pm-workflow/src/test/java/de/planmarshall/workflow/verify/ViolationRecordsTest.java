@@ -52,7 +52,8 @@ class ViolationRecordsTest {
                 .stateId(Generators.letterStrings(1, 20).next())
                 .location(WorkflowGenerators.sourceLocations().next())
                 .message(Generators.letterStrings(1, 60).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing rule");
 
         assertEquals("rule", exception.getMessage(), "the builder names the missing rule");
     }

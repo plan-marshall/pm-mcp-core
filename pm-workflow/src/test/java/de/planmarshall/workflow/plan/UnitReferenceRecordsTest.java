@@ -52,7 +52,8 @@ class UnitReferenceRecordsTest {
                 .file(reference.file())
                 .digest(reference.digest())
                 .origin(reference.origin());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing unit id");
 
         assertEquals("unit", exception.getMessage(), "the builder names the missing unit id");
     }

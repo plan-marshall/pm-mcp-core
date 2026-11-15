@@ -219,8 +219,15 @@ public final class RoleGrader {
                 .orElse(answer.totalTokens());
         var duration = judged.map(score -> answer.durationMs() + score.durationMs())
                 .orElse(answer.durationMs());
-        return new QualificationRecord.ItemResult(item.id(), form, checkout, JsonNode.string(answer.answer()), grade,
-                tokens, duration);
+        return QualificationRecord.ItemResult.builder()
+                .itemId(item.id())
+                .form(form)
+                .checkout(checkout)
+                .answer(JsonNode.string(answer.answer()))
+                .score(grade)
+                .totalTokens(tokens)
+                .durationMs(duration)
+                .build();
     }
 
     /**
@@ -356,8 +363,13 @@ public final class RoleGrader {
         var reference = item.target().answer() != null
                 ? item.target().answer()
                 : String.join("\n", item.target().items().stream().map(ImportedItem.RubricItem::description).toList());
-        return new JudgeScorer.JudgePrompt(item.id(), item.input().question(), item.input().facts(), reference,
-                answer);
+        return JudgeScorer.JudgePrompt.builder()
+                .itemId(item.id())
+                .question(item.input().question())
+                .facts(item.input().facts())
+                .reference(reference)
+                .answer(answer)
+                .build();
     }
 
     private static List<String> missedSources(GradingPlan plan) {

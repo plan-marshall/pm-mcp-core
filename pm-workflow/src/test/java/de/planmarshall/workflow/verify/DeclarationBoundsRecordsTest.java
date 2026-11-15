@@ -52,7 +52,8 @@ class DeclarationBoundsRecordsTest {
                 .location(WorkflowGenerators.sourceLocations().next())
                 .bound(Generators.letterStrings(1, 20).next())
                 .message(Generators.letterStrings(1, 60).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing name");
 
         assertEquals("name", exception.getMessage(), "the builder names the missing name");
     }

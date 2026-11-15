@@ -54,7 +54,8 @@ class ConsultationFactRecordsTest {
                 .consultationId(consultationId)
                 .role(role)
                 .answer(Generators.letterStrings(1, 40).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing status");
 
         assertEquals("status", exception.getMessage(), "the builder names the missing status");
     }

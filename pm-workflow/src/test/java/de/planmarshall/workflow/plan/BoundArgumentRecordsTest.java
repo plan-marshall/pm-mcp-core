@@ -51,7 +51,8 @@ class BoundArgumentRecordsTest {
     void boundArgumentBuilderRefusesMissingValue() {
         var builder = BoundArgument.builder()
                 .source(BoundArgument.Source.TEMPLATE);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing value");
 
         assertEquals("value", exception.getMessage(), "the builder names the missing value");
     }

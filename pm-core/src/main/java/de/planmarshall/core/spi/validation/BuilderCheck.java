@@ -182,14 +182,14 @@ public final class BuilderCheck {
             }
         }
         var minor = submission.questions().stream().filter(question -> question.sort() == Sort.MINOR).count();
-        var highest = intentRecord.decisions().stream()
+        var highest = intentRecord.choices().stream()
                 .filter(decision -> decision.id().startsWith("DC-"))
                 .mapToInt(decision -> Integer.parseInt(decision.id().substring(3)))
                 .max()
                 .orElse(0);
-        if (intentRecord.decisions().size() + minor > MAX_DECISIONS) {
+        if (intentRecord.choices().size() + minor > MAX_DECISIONS) {
             return new Refused("the record holds %d decisions and the builder adds %d, more than the %d a record may hold"
-                    .formatted(intentRecord.decisions().size(), minor, MAX_DECISIONS));
+                    .formatted(intentRecord.choices().size(), minor, MAX_DECISIONS));
         }
         if (highest + minor > MAX_DECISION_NUMBER) {
             return new Refused("the builder's %d decisions would exceed the highest decision identifier DC-%d"
@@ -241,19 +241,36 @@ public final class BuilderCheck {
         if (minor.isEmpty()) {
             return intentRecord;
         }
-        var next = intentRecord.decisions().stream()
+        var next = intentRecord.choices().stream()
                 .filter(decision -> decision.id().startsWith("DC-"))
                 .mapToInt(decision -> Integer.parseInt(decision.id().substring(3)))
                 .max()
                 .orElse(0) + 1;
-        var decisions = new ArrayList<>(intentRecord.decisions());
+        var decisions = new ArrayList<>(intentRecord.choices());
         for (var question : minor) {
-            decisions.add(new Decision("DC-" + next++, "from the builder check: " + question.decision(),
-                    List.of(), Decider.MODEL, null, null, null));
+            decisions.add(Decision.builder()
+                    .id("DC-" + next++)
+                    .text("from the builder check: " + question.decision())
+                    .optionsWeighed(List.of())
+                    .decider(Decider.ROLE)
+                    .questionId(null)
+                    .evidence(null)
+                    .adr(null)
+                    .build());
         }
-        return new IntentRecord(intentRecord.why(), intentRecord.goal(), intentRecord.criteria(),
-                intentRecord.currentBehaviour(), intentRecord.nonGoals(), intentRecord.constraints(), decisions,
-                intentRecord.assumptions(), intentRecord.openQuestions(), intentRecord.deferred(),
-                intentRecord.sourceClaims());
+        return IntentRecord.builder()
+                .why(intentRecord.why())
+                .goal(intentRecord.goal())
+                .criteria(intentRecord.criteria())
+                .currentBehaviour(intentRecord.currentBehaviour())
+                .repairs(intentRecord.repairs())
+                .nonGoals(intentRecord.nonGoals())
+                .constraints(intentRecord.constraints())
+                .choices(decisions)
+                .assumptions(intentRecord.assumptions())
+                .openQuestions(intentRecord.openQuestions())
+                .deferred(intentRecord.deferred())
+                .sourceClaims(intentRecord.sourceClaims())
+                .build();
     }
 }

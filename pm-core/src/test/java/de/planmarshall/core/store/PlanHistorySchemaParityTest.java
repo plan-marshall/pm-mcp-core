@@ -178,7 +178,24 @@ class PlanHistorySchemaParityTest {
                         "The schema outcome pattern refuses capitals"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> build(seqMin, versionMin, callPathMax, notWord),
-                        "The codec refuses what the pattern refuses"));
+                        "The codec refuses what the pattern refuses"),
+                () -> assertEquals(outcomePattern.pattern(), PlanHistoryLine.OUTCOME_PATTERN.pattern(),
+                        "The codec's outcome pattern is the schema's"),
+                () -> assertFalse(PlanHistoryLine.OUTCOME_PATTERN.matcher("1a").matches(),
+                        "A digit-first outcome is refused by the codec"),
+                () -> assertFalse(PlanHistoryLine.OUTCOME_PATTERN.matcher("_x").matches(),
+                        "An underscore-first outcome is refused by the codec"),
+                () -> assertFalse(PlanHistoryLine.OUTCOME_PATTERN.matcher("a-b").matches(),
+                        "A hyphenated outcome is refused by the codec"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> build(seqMin, versionMin, callPathMax, "1a"),
+                        "The codec refuses a digit-first outcome"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> build(seqMin, versionMin, callPathMax, "_x"),
+                        "The codec refuses an underscore-first outcome"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> build(seqMin, versionMin, callPathMax, "a-b"),
+                        "The codec refuses a hyphenated outcome"));
     }
 
     private static PlanHistoryLine buildNode(int nodeLength) {

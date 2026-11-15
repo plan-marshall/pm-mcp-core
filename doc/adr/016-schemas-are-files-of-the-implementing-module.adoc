@@ -30,7 +30,9 @@ the job record, the lesson front matter, the pending entry and the workflow stat
 * *Layout.* A JSON schema of the specification is a file of the module that owns its codec, in
   `src/main/resources/<resource package of the codec>/<record>.schema.json`. There is one file per block, and its text
   is the text of the block byte for byte: its `$id`, its `$defs` and its member order are unchanged. The precedent is
-  the corpus schemas of `pm-core` in `pm-core/src/main/resources/de/planmarshall/core/role/corpus/`.
+  the corpus schemas of `pm-core` in `pm-core/src/main/resources/de/planmarshall/core/role/corpus/`. The `byte for byte`
+  rule governed the move itself; once a file exists it is a schema file like any other, corrected afterwards under the
+  rules that govern a schema change, as PLAN-V2-123 did for the three schemas that lacked `$schema`.
 * *Include convention.* The block in the specification becomes `[source,json]` over `----` holding one line
   `include::<relative path to the file>[]`. The heading and the anchor of the section stay, so every link into the
   section still resolves. A block that is an example, not a schema, stays inline. GitHub does not expand an

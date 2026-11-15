@@ -58,7 +58,8 @@ class VerifiedJobRecordsTest {
         var enrolment = CoreGenerators.projectEnrolments().next();
 
         var builder = VerifiedJob.builder().argv(argv).enrolment(enrolment);
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing work dir");
 
         assertEquals("workingDirectory", refusal.getMessage(), "the refusal names the working directory");
     }

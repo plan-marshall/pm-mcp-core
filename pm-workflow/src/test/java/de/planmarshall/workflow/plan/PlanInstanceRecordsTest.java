@@ -65,7 +65,8 @@ class PlanInstanceRecordsTest {
                 .unit(unit)
                 .text(Generators.letterStrings(1, 20).next())
                 .units(List.of());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing header");
 
         assertEquals("header", exception.getMessage(), "the builder names the missing header");
     }

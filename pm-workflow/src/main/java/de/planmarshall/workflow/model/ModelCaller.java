@@ -92,8 +92,18 @@ public final class ModelCaller {
             return close(job, ModelCallResult.ROLE_UNAVAILABLE, null,
                     "the start-failure guard of the role on '%s' holds".formatted(role.harness()));
         }
-        var queued = queue.enqueue(new ModelQueue.Enqueue(job.scopeId(), job.stateId(), job.entityKey(), job.role(),
-                form, role.configurationDigest(), role.harness(), role.model(), role.effort(), job.consultation()));
+        var queued = queue.enqueue(ModelQueue.Enqueue.builder()
+                .scopeId(job.scopeId())
+                .stateId(job.stateId())
+                .entityKey(job.entityKey())
+                .role(job.role())
+                .form(form)
+                .configurationDigest(role.configurationDigest())
+                .harness(role.harness())
+                .model(role.model())
+                .effort(role.effort())
+                .consultation(job.consultation())
+                .build());
         return ModelCallResult.Queued.builder()
                 .queueTaskId(queued.queueTaskId())
                 .role(job.role())
@@ -113,7 +123,18 @@ public final class ModelCaller {
 
     private ModelCallResult close(ModelJob job, String reason, @Nullable RoleValidationReason validationReason,
             String detail) {
-        queue.close(new ModelQueue.Close(job.scopeId(), job.stateId(), job.entityKey(), job.role(), reason));
-        return new ModelCallResult.Closed(job.role(), reason, validationReason, detail);
+        queue.close(ModelQueue.Close.builder()
+                .scopeId(job.scopeId())
+                .stateId(job.stateId())
+                .entityKey(job.entityKey())
+                .role(job.role())
+                .reason(reason)
+                .build());
+        return ModelCallResult.Closed.builder()
+                .role(job.role())
+                .reason(reason)
+                .validationReason(validationReason)
+                .detail(detail)
+                .build();
     }
 }

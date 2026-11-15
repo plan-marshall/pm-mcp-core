@@ -64,7 +64,8 @@ class ModelJobRecordsTest {
                 .role(role)
                 .consultation(false)
                 .acceptedClasses(acceptedClasses);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing state");
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }
