@@ -98,12 +98,13 @@ class ImportedItemCodecTest {
 
     private static StoreRefusal refusalOf(String document) {
         var bytes = document.getBytes(StandardCharsets.UTF_8);
-        return assertThrows(StoreRefusal.class, () -> ImportedItemCodec.read(FILE, bytes));
+        return assertThrows(StoreRefusal.class, () -> ImportedItemCodec.read(FILE, bytes),
+                "a document that is no item is refused");
     }
 
     private static void assertUnreadable(StoreRefusal refusal, String detail) {
         assertAll(
-                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is UNREADABLE"),
                 () -> assertEquals(FILE, refusal.file(), "the refusal names the file"),
                 () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()), refusal::getMessage),
                 () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
@@ -127,8 +128,9 @@ class ImportedItemCodecTest {
             var reread = ImportedItemCodec.read(FILE, written);
 
             assertAll(
-                    () -> assertEquals(item, reread),
-                    () -> assertArrayEquals(written, ImportedItemCodec.write(reread)));
+                    () -> assertEquals(item, reread, "the item is read back equal"),
+                    () -> assertArrayEquals(written, ImportedItemCodec.write(reread),
+                            "the item is written again byte for byte"));
         }
 
         @Test
@@ -342,8 +344,9 @@ class ImportedItemCodecTest {
                             && text.indexOf("\"group\" :") < text.indexOf("\"input\" :"), text),
                     () -> assertTrue(text.indexOf("\"review\" :") < text.indexOf("\"contamination\" :")
                             && text.indexOf("\"contamination\" :") < text.indexOf("\"canary\" :"), text),
-                    () -> assertEquals(GROUP, reread.group()),
-                    () -> assertEquals(CONTAMINATION, reread.contamination()));
+                    () -> assertEquals(GROUP, reread.group(), "the group is read back"),
+                    () -> assertEquals(CONTAMINATION, reread.contamination(),
+                            "the contamination note is read back"));
         }
 
         @Test
@@ -352,8 +355,8 @@ class ImportedItemCodecTest {
             var item = ImportedItemCodec.read(FILE, ImportedItemCodec.write(closedItem()));
 
             assertAll(
-                    () -> assertNull(item.group()),
-                    () -> assertNull(item.contamination()));
+                    () -> assertNull(item.group(), "an absent group reads as null"),
+                    () -> assertNull(item.contamination(), "an absent contamination note reads as null"));
         }
 
         static Stream<Arguments> writtenItems() {
@@ -365,7 +368,8 @@ class ImportedItemCodecTest {
         @MethodSource("writtenItems")
         @DisplayName("a written item is accepted by the item schema")
         void schemaAccepts(String name, ImportedItem item) {
-            assertEquals(List.of(), itemSchemaErrors(text(item)));
+            assertEquals(List.of(), itemSchemaErrors(text(item)),
+                    "a written item is accepted by the item schema");
         }
 
         static Stream<Arguments> malformedValues() {
@@ -424,17 +428,20 @@ class ImportedItemCodecTest {
         @MethodSource("nonObjectValues")
         @DisplayName("an answer schema that is no object and no null is refused at construction")
         void nonObjectRefused(String name, JsonValue answerSchema) {
-            var refused = assertThrows(IllegalArgumentException.class, () -> input(answerSchema));
+            var refused = assertThrows(IllegalArgumentException.class, () -> input(answerSchema),
+                    "an answer schema that is no object is refused");
 
-            assertEquals("'answer_schema' must be an object or null: " + answerSchema.toJson(), refused.getMessage());
+            assertEquals("'answer_schema' must be an object or null: " + answerSchema.toJson(), refused.getMessage(),
+                    "the refusal names the offending answer schema");
         }
 
         @Test
         @DisplayName("a JSON object and a null are accepted")
         void objectAndNullAccepted() {
             assertAll(
-                    () -> assertEquals(ANSWER_SCHEMA, input(ANSWER_SCHEMA).answerSchema()),
-                    () -> assertNull(input(null).answerSchema()));
+                    () -> assertEquals(ANSWER_SCHEMA, input(ANSWER_SCHEMA).answerSchema(),
+                            "the answer schema object is accepted"),
+                    () -> assertNull(input(null).answerSchema(), "a null answer schema reads as null"));
         }
     }
 

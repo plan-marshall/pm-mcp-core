@@ -35,11 +35,12 @@ class HarnessProfileEndpointTest {
         var profile = HarnessProfile.of(EndpointProfileFixtures.loaded());
 
         assertAll(
-                () -> assertTrue(profile.runs(RoleClass.ZERO_TOOL)),
-                () -> assertFalse(profile.runs(RoleClass.WRITER)),
-                () -> assertFalse(profile.runs(RoleClass.READ_ONLY)),
-                () -> assertFalse(profile.runsNoClass()),
-                () -> assertEquals(Optional.of(HarnessProfile.ToolSet.ENFORCED), profile.toolSet(RoleClass.ZERO_TOOL)));
+                () -> assertTrue(profile.runs(RoleClass.ZERO_TOOL), "endpoint harness runs the zero_tool class"),
+                () -> assertFalse(profile.runs(RoleClass.WRITER), "endpoint harness runs no writer class"),
+                () -> assertFalse(profile.runs(RoleClass.READ_ONLY), "endpoint harness runs no read_only class"),
+                () -> assertFalse(profile.runsNoClass(), "endpoint harness runs at least one class"),
+                () -> assertEquals(Optional.of(HarnessProfile.ToolSet.ENFORCED), profile.toolSet(RoleClass.ZERO_TOOL),
+                        "zero_tool carries the enforced tool set"));
     }
 
     @Test
@@ -48,12 +49,12 @@ class HarnessProfileEndpointTest {
         var profile = HarnessProfile.of(EndpointProfileFixtures.loaded());
 
         assertAll(
-                () -> assertTrue(profile.eligible()),
-                () -> assertFalse(profile.restrictedModelsDeclared()),
-                () -> assertTrue(profile.restrictedModels().isEmpty()),
-                () -> assertFalse(profile.resumability().hold()),
-                () -> assertFalse(profile.resumability().resume()),
-                () -> assertEquals("", profile.askUserTool()));
+                () -> assertTrue(profile.eligible(), "endpoint worker is eligible"),
+                () -> assertFalse(profile.restrictedModelsDeclared(), "endpoint declares no restricted models"),
+                () -> assertTrue(profile.restrictedModels().isEmpty(), "restricted model list is empty"),
+                () -> assertFalse(profile.resumability().hold(), "endpoint harness declares no hold"),
+                () -> assertFalse(profile.resumability().resume(), "endpoint harness declares no resume"),
+                () -> assertEquals("", profile.askUserTool(), "endpoint has no ask_user tool"));
     }
 
     @Test
@@ -62,10 +63,10 @@ class HarnessProfileEndpointTest {
         var profile = HarnessProfile.of(EndpointProfileFixtures.loaded());
 
         assertAll(
-                () -> assertEquals(7168, profile.contextBudgetTokens()),
-                () -> assertEquals(Optional.of("big"), profile.tierModel("frontier")),
-                () -> assertEquals(Optional.of("mid"), profile.tierModel("standard")),
-                () -> assertEquals(Optional.of("small"), profile.tierModel("fast")),
-                () -> assertEquals(Optional.empty(), profile.tierModel("absent")));
+                () -> assertEquals(7168, profile.contextBudgetTokens(), "endpoint context budget less the reserve"),
+                () -> assertEquals(Optional.of("big"), profile.tierModel("frontier"), "frontier tier maps to big"),
+                () -> assertEquals(Optional.of("mid"), profile.tierModel("standard"), "standard tier maps to mid"),
+                () -> assertEquals(Optional.of("small"), profile.tierModel("fast"), "fast tier maps to small"),
+                () -> assertEquals(Optional.empty(), profile.tierModel("absent"), "unset tier has no model"));
     }
 }

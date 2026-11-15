@@ -44,8 +44,8 @@ class RoleDigestTest {
     void digestsAreHex() {
         var role = base();
 
-        assertEquals(64, role.configurationDigest().length());
-        assertEquals(64, role.qualificationDigest().length());
+        assertEquals(64, role.configurationDigest().length(), "configuration digest is 64 hex chars");
+        assertEquals(64, role.qualificationDigest().length(), "qualification digest is 64 hex chars");
     }
 
     static Stream<Arguments> edits() {
@@ -135,8 +135,10 @@ class RoleDigestTest {
                 "1.4", Optional.empty());
 
         assertAll(
-                () -> assertNotEquals(base.configurationDigest(), edited.configurationDigest()),
-                () -> assertNotEquals(base.qualificationDigest(), edited.qualificationDigest()));
+                () -> assertNotEquals(base.configurationDigest(), edited.configurationDigest(),
+                        "skill digest edit changes configuration digest"),
+                () -> assertNotEquals(base.qualificationDigest(), edited.qualificationDigest(),
+                        "skill digest edit changes qualification digest"));
     }
 
     @Test
@@ -155,8 +157,10 @@ class RoleDigestTest {
                 RoleFixtures.HARNESS, RoleFixtures.MODEL, new EffortValue(null), skills(), "1.4", Optional.empty());
 
         assertAll(
-                () -> assertNotEquals(before.configurationDigest(), after.configurationDigest()),
-                () -> assertEquals(before.qualificationDigest(), after.qualificationDigest()));
+                () -> assertNotEquals(before.configurationDigest(), after.configurationDigest(),
+                        "recycling edit changes the configuration digest"),
+                () -> assertEquals(before.qualificationDigest(), after.qualificationDigest(),
+                        "recycling edit keeps the qualification digest"));
     }
 
     private static void assertDigest(String name, String before, String after, boolean changed) {

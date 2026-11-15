@@ -83,12 +83,13 @@ class SourceManifestCodecTest {
     }
 
     private static StoreRefusal refusalOf(byte[] document) {
-        return assertThrows(StoreRefusal.class, () -> SourceManifestCodec.read(FILE, document));
+        return assertThrows(StoreRefusal.class, () -> SourceManifestCodec.read(FILE, document),
+                "a document that is no valid manifest is refused");
     }
 
     private static void assertUnreadable(StoreRefusal refusal, String detail) {
         assertAll(
-                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is UNREADABLE"),
                 () -> assertEquals(FILE, refusal.file(), "the refusal names the file"),
                 () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()), refusal::getMessage),
                 () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
@@ -104,16 +105,19 @@ class SourceManifestCodecTest {
             var manifest = SourceManifestCodec.read(FILE, document(members()));
 
             assertAll(
-                    () -> assertEquals(NAME, manifest.name()),
-                    () -> assertEquals(URI.create("https://github.com/example/sample-set"), manifest.repository()),
-                    () -> assertEquals(COMMIT, manifest.commit()),
-                    () -> assertEquals("CC-BY-4.0", manifest.licence()),
-                    () -> assertEquals(FetchKind.GIT, manifest.fetch()),
+                    () -> assertEquals(NAME, manifest.name(), "the name of the manifest is read back"),
+                    () -> assertEquals(URI.create("https://github.com/example/sample-set"), manifest.repository(),
+                            "the repository URI is read"),
+                    () -> assertEquals(COMMIT, manifest.commit(), "the commit is read with all 40 characters"),
+                    () -> assertEquals("CC-BY-4.0", manifest.licence(), "the licence is read as declared"),
+                    () -> assertEquals(FetchKind.GIT, manifest.fetch(), "the fetch kind is read as git"),
                     () -> assertEquals(List.of(new SourceFile("data/test.csv", HASH, false),
-                            new SourceFile("data/big.jsonl", OBJECT_HASH, true)), manifest.files()),
+                                    new SourceFile("data/big.jsonl", OBJECT_HASH, true)), manifest.files(),
+                            "both declared files are read in order"),
                     () -> assertEquals(new SourceFile("data/big.jsonl", OBJECT_HASH, true),
-                            manifest.file("data/big.jsonl").orElseThrow()),
-                    () -> assertTrue(manifest.file("data/other.csv").isEmpty()));
+                            manifest.file("data/big.jsonl").orElseThrow(), "a file is looked up by its path"),
+                    () -> assertTrue(manifest.file("data/other.csv").isEmpty(),
+                            "an undeclared path is no file of the manifest"));
         }
 
         @Test
@@ -125,8 +129,9 @@ class SourceManifestCodecTest {
             var reread = SourceManifestCodec.read(FILE, written);
 
             assertAll(
-                    () -> assertEquals(manifest, reread),
-                    () -> assertArrayEquals(written, SourceManifestCodec.write(reread)));
+                    () -> assertEquals(manifest, reread, "the manifest is read back equal"),
+                    () -> assertArrayEquals(written, SourceManifestCodec.write(reread),
+                            "the manifest is written again byte for byte"));
         }
     }
 
@@ -140,8 +145,9 @@ class SourceManifestCodecTest {
             var refusal = refusalOf(with("format_version", "2"));
 
             assertAll(
-                    () -> assertEquals(Outcome.FORMAT_NEWER, refusal.outcome()),
-                    () -> assertEquals(FILE, refusal.file()));
+                    () -> assertEquals(Outcome.FORMAT_NEWER, refusal.outcome(),
+                            "a newer format version is refused as newer"),
+                    () -> assertEquals(FILE, refusal.file(), "the refusal names the manifest file"));
         }
 
         @Test

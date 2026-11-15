@@ -56,9 +56,10 @@ class QualificationRecordCodecTest {
         var read = QualificationRecordCodec.read(directory.resolve("review-code.json"), document);
 
         assertAll(
-                () -> assertEquals(entry, read),
+                () -> assertEquals(entry, read, "the record survives the round trip"),
                 () -> assertEquals(new String(document, StandardCharsets.UTF_8),
-                        new String(QualificationRecordCodec.write(read), StandardCharsets.UTF_8)));
+                        new String(QualificationRecordCodec.write(read), StandardCharsets.UTF_8),
+                        "the canonical text is stable on rewrite"));
     }
 
     @Test
@@ -67,14 +68,17 @@ class QualificationRecordCodecTest {
         var text = new String(QualificationRecordCodec.write(fullRecord()), StandardCharsets.UTF_8);
 
         assertAll(
-                () -> assertTrue(text.startsWith("{\"configuration\":")),
-                () -> assertTrue(text.contains("\"format_version\":1")),
-                () -> assertTrue(text.contains("\"score\":\"ungraded\"")),
-                () -> assertTrue(text.contains("\"total_tokens\":\"unmeasured\"")),
-                () -> assertTrue(text.contains("\"tokens_in\":3000")),
-                () -> assertTrue(text.contains("\"tokens_out\":1000")),
-                () -> assertTrue(text.contains("\"answer\":{\"detail\":\"a defect\"}")),
-                () -> assertTrue(text.contains("\"missed_sources\":[\"reviews\"]")));
+                () -> assertTrue(text.startsWith("{\"configuration\":"), "the configuration member comes first"),
+                () -> assertTrue(text.contains("\"format_version\":1"), "the format version is written as one"),
+                () -> assertTrue(text.contains("\"score\":\"ungraded\""), "the ungraded score keeps its mark"),
+                () -> assertTrue(text.contains("\"total_tokens\":\"unmeasured\""),
+                        "the unmeasured total keeps its mark"),
+                () -> assertTrue(text.contains("\"tokens_in\":3000"), "the measured input tokens are written"),
+                () -> assertTrue(text.contains("\"tokens_out\":1000"), "the measured output tokens are written"),
+                () -> assertTrue(text.contains("\"answer\":{\"detail\":\"a defect\"}"),
+                        "an object answer keeps its members"),
+                () -> assertTrue(text.contains("\"missed_sources\":[\"reviews\"]"),
+                        "the missed sources are listed"));
     }
 
     @Test
@@ -99,7 +103,7 @@ class QualificationRecordCodecTest {
             var bytes = entry.getValue().getBytes(StandardCharsets.UTF_8);
             var refused = assertThrows(StoreRefusal.class,
                     () -> QualificationRecordCodec.read(file, bytes), entry.getKey());
-            assertEquals(file, refused.file());
+            assertEquals(file, refused.file(), "the refusal names the record file");
         }
     }
 
@@ -122,7 +126,7 @@ class QualificationRecordCodecTest {
     }
 
     private static void assertRefused(Executable executable) {
-        assertThrows(IllegalArgumentException.class, executable);
+        assertThrows(IllegalArgumentException.class, executable, "the record construction is refused");
     }
 
     @Test
@@ -141,10 +145,11 @@ class QualificationRecordCodecTest {
     void tokenSplitMustSum() {
         var total = TokenTotal.measured(120, 100, 20);
 
-        assertAll(() -> assertTrue(total.measured()),
-                () -> assertEquals(OptionalLong.of(100), total.splitIn()),
-                () -> assertEquals(OptionalLong.of(20), total.splitOut()),
-                () -> assertEquals(TokenTotal.measured(240, 200, 40), total.plus(total)));
+        assertAll(() -> assertTrue(total.measured(), "the token total is measured"),
+                () -> assertEquals(OptionalLong.of(100), total.splitIn(), "the input split is one hundred"),
+                () -> assertEquals(OptionalLong.of(20), total.splitOut(), "the output split is twenty"),
+                () -> assertEquals(TokenTotal.measured(240, 200, 40), total.plus(total),
+                        "adding the total doubles both splits"));
         assertRefused(() -> TokenTotal.measured(120, 100, 10));
         assertRefused(() -> new TokenTotal(120L, 100L, null));
         assertRefused(() -> new TokenTotal(null, 1L, 0L));
@@ -188,7 +193,8 @@ class QualificationRecordCodecTest {
     void topicAccessor() {
         var entry = fullRecord();
 
-        assertEquals(new BigDecimal("90"), entry.topic(Topic.OWN).orElseThrow().agreement());
-        assertEquals(2, entry.offered());
+        assertEquals(new BigDecimal("90"), entry.topic(Topic.OWN).orElseThrow().agreement(),
+                "the own topic agreement is ninety");
+        assertEquals(2, entry.offered(), "the record counts two offered items");
     }
 }

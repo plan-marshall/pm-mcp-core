@@ -50,7 +50,7 @@ class RoleTopicsTest {
 
         var topics = RoleTopics.of(ROLE, RoleClass.WRITER, items);
 
-        assertEquals(Set.of(Topic.OWN, Topic.GENERIC), topics.topics());
+        assertEquals(Set.of(Topic.OWN, Topic.GENERIC), topics.topics(), "a writer role has both topics");
     }
 
     @Test
@@ -62,8 +62,10 @@ class RoleTopicsTest {
                 item(topic + "/retired", ROLE, ImportedItem.ReviewStatus.RETIRED),
                 item("judge/right", ROLE, ImportedItem.ReviewStatus.CONFIRMED));
 
-        assertTrue(RoleTopics.of(ROLE, RoleClass.READ_ONLY, items).isEmpty());
-        assertEquals(0, RoleTopics.items(items, Topic.OWN, ROLE).size());
+        assertTrue(RoleTopics.of(ROLE, RoleClass.READ_ONLY, items).isEmpty(),
+                "contested, retired and judge items grade none");
+        assertEquals(0, RoleTopics.items(items, Topic.OWN, ROLE).size(),
+                "the topic holds no countable item");
     }
 
     @Test
@@ -76,10 +78,14 @@ class RoleTopicsTest {
         var own = List.of(item(topic + "/own", ROLE, ImportedItem.ReviewStatus.CONFIRMED));
 
         assertAll(
-                () -> assertTrue(RoleTopics.of(ROLE, RoleClass.ZERO_TOOL, generic).isEmpty()),
-                () -> assertEquals(Set.of(Topic.OWN), RoleTopics.of(ROLE, RoleClass.ZERO_TOOL, own).topics()),
+                () -> assertTrue(RoleTopics.of(ROLE, RoleClass.ZERO_TOOL, generic).isEmpty(),
+                        "a zero tool role ignores the generic items"),
+                () -> assertEquals(Set.of(Topic.OWN),
+                        RoleTopics.of(ROLE, RoleClass.ZERO_TOOL, own).topics(),
+                        "a zero tool role holds the own topic"),
                 () -> assertEquals(Set.of(Topic.OWN, Topic.GENERIC),
-                        RoleTopics.of(ROLE, RoleClass.READ_ONLY, concat(generic, own)).topics()));
+                        RoleTopics.of(ROLE, RoleClass.READ_ONLY, concat(generic, own)).topics(),
+                        "a read only role adds the generic topic"));
     }
 
     @Test
@@ -91,7 +97,7 @@ class RoleTopicsTest {
 
         var selected = RoleTopics.items(List.of(first, second, first), Topic.OWN, ROLE);
 
-        assertEquals(List.of(first, second), selected);
+        assertEquals(List.of(first, second), selected, "the items keep the corpus order once");
     }
 
     @Test
@@ -101,7 +107,8 @@ class RoleTopicsTest {
         var foreignRole = "f" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         var items = List.of(item(topic + "/other", foreignRole, ImportedItem.ReviewStatus.CONFIRMED));
 
-        assertFalse(RoleTopics.items(items, Topic.OWN, ROLE).size() > 0);
+        assertFalse(RoleTopics.items(items, Topic.OWN, ROLE).size() > 0,
+                "a foreign role contributes no item");
     }
 
     private static ImportedItem item(String id, String role, ImportedItem.ReviewStatus status) {
