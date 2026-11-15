@@ -64,6 +64,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/credentials/dbus/` (directory; R19 replaced)
 - OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/` (directory; R19 replaced)
 - OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/question/` (directory; R19 replaced)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/config/` (directory; folded from PLAN-V2-104)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/corpus/` (directory; folded from PLAN-V2-104)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/testing/` (the thin guard test of the runtime module; new file)
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMessages.adoc`, the ADR directory and developer guide of an existing package as additive bookkeeping.
 
@@ -80,6 +83,14 @@ Added by the orchestrator. Read at the outline; it extends no Done-when by itsel
 ## Carried from the landing of PLAN-V2-102 (2026-11-15)
 
 See the section of the same name in the spec of PLAN-V2-103: the findings of the landing read of PLAN-V2-102 (the scanner's edge forms, the whitelist, the 649-line class) go into whichever of 103, 104 and 105 is emitted first and extracts the scanner into `pm-core:tests`; this plan only adds its thin test.
+
+## State at the emit (2026-11-15 night; BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator at the emit of PLAN-V2-103 and PLAN-V2-105 together. Gate read on `393b0210`: `declarative`, `comparison_determinate: true`, no shared file with PLAN-V2-103 or with the running PLAN-V2-48 and 67, no claim blocks, `corpus spec-skills` `emit_allowed: true`. PLAN-V2-104 is folded into this plan (its about 15 remaining messages are in `pm-runtime` `config` and `corpus`; every other package of PLAN-V2-104 is at 0): this plan therefore covers all of `pm-runtime`.
+
+**Sequencing against PLAN-V2-103 (BINDING).** PLAN-V2-103 extracts the scan logic into `pm-core:tests` (operator decision 2026-11-15, option 1); this plan does NOT extract it. The message work of this plan (the six packages `credentials`, `credentials/dbus`, `endpoint`, `enrolment`, `question`, `worker`, about 1 620 assertions in 51 files, plus the folded `config` and `corpus` files: `ProviderDefaultTest:101`, `ProviderDefaultBuilderContractTest:47`, `MachineConfigurationStoreTest:334,353` too long; `LfsBatchClientTest` 5 and `HuggingFaceSourceRepositoryTest` 6 too short) proceeds at once; **the last pull request, the thin guard test of `pm-runtime` over every package of its test tree, is opened only after the extraction pull request of PLAN-V2-103 has merged** (read `origin/main` for the scanner class in the `tests` jar of `pm-core`; the inbox of the epic is not the signal). If the message work is done and the extraction has not merged, hold that one pull request and say so in the landing message: do not extract it here and do not copy the scanner. The thin test sits beside `pm-runtime/src/test/java/de/planmarshall/runtime/testing/HandWrittenDoubleScanTest.java` and walks all of the module's test tree (so the 13 packages of PLAN-V2-104 are guarded too). The findings of the section "Carried from the landing of PLAN-V2-102" belong to PLAN-V2-103.
+
+Persona: `implementer` for production-code work on test sources; domain skills: the R20 set named in the First Instruction (`pm-dev-java:java-core`, `junit-core`, `java-null-safety`, `javadoc`, `java-lombok`, `pm-dev-java-cui:cui-testing`, `cui-logging`, `cui-http-testing`).
 
 ## Hand-Off Command
 
