@@ -112,7 +112,7 @@ class SourceManifestCodecTest {
                     () -> assertEquals("CC-BY-4.0", manifest.licence(), "the licence is read as declared"),
                     () -> assertEquals(FetchKind.GIT, manifest.fetch(), "the fetch kind is read as git"),
                     () -> assertEquals(List.of(new SourceFile("data/test.csv", HASH, false),
-                            new SourceFile("data/big.jsonl", OBJECT_HASH, true)), manifest.files(),
+                                    new SourceFile("data/big.jsonl", OBJECT_HASH, true)), manifest.files(),
                             "both declared files are read in order"),
                     () -> assertEquals(new SourceFile("data/big.jsonl", OBJECT_HASH, true),
                             manifest.file("data/big.jsonl").orElseThrow(), "a file is looked up by its path"),

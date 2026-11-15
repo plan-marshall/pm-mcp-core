@@ -102,7 +102,7 @@ class QualificationRecordStoreTest {
         assertEquals(Optional.of(projectRecord), lookup.lookup("review-code"),
                 "the project record wins the lookup");
         assertEquals(Optional.empty(), lookup.lookup(
-                "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)),
+                        "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)),
                 "an unknown role answers empty");
     }
 

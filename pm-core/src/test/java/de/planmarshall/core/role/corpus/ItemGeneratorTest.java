@@ -142,7 +142,7 @@ class ItemGeneratorTest {
                     () -> assertEquals(LocalDate.of(2026, 10, 14), provenance.created(),
                             "the provenance date is the overlay's date"),
                     () -> assertEquals(new Origin(URI.create("https://github.com/example/sample-set"), COMMIT,
-                            "data/test.csv", LINE), provenance.origin(),
+                                    "data/test.csv", LINE), provenance.origin(),
                             "the origin names the file and its line"),
                     () -> assertEquals(List.of("2026-10-14: generated from line 3 of data/test.csv of "
                                     + "https://github.com/example/sample-set at commit " + COMMIT

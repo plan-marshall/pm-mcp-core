@@ -188,8 +188,8 @@ class JudgeCheckTest {
         var noItems = List.<JudgeCheck.ItemScore>of();
 
         assertThrows(IllegalArgumentException.class, () -> new JudgeCheck.Record(digest,
-                QualificationFixtures.HARNESS, QualificationFixtures.JUDGE_MODEL, CORPUS, oracle,
-                BigDecimal.ZERO, baseline, 0, NOW, noItems),
+                        QualificationFixtures.HARNESS, QualificationFixtures.JUDGE_MODEL, CORPUS, oracle,
+                        BigDecimal.ZERO, baseline, 0, NOW, noItems),
                 "a judge record without an item is refused");
     }
 
