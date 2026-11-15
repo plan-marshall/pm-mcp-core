@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: STATE 2026-11-15 (afternoon): RUNNING, recorded on the operator's word, 3 of 4 slots, runbook lane: PLAN-V2-101 assertion-messages-core-store (PR #438 open: 16 core/store test files and the scanner), PLAN-V2-63 long-context-thresholds (branch feature/v2-63-long-context-thresholds pushed, no PR yet; ADR 016; converts ProfileValidator to @UtilityClass; carries the 71 and 40 residue), PLAN-V2-94 utility-classes-and-generic-catches (PR #437 open, 67 files so far; D2 generic catches not yet pushed; SecretRedactor held out to 59, ProfileValidator to 63). Landings owed: 101, 63, 94. EMITTED 2026-11-15, NOT yet recorded running (record it only on the operator's word): PLAN-V2-48 worker-vector-verify-not-resolve (WS-06; the free fourth slot; spec adapted at 9c961d58: persona lines, a State at the emit with current line numbers, the ADR number is the next free at the head (#418 takes runtime-launch/009), the EPHEMERAL_FLAG removal in composeArgv (LaunchComposer.java:324-326) decides where rule (b) runs; disjoint from 101, 63, 94 and #418; resolve success; lands to main with the ledger). SHIPPED and analysed 2026-11-15: PLAN-V2-143 (#434, merge 9c961d58, landings/PLAN-V2-143.md; D1-D4 met; no crash; findings: a PEM key given as a labelled assignment's value leaks its body, the URL pattern is quadratic and now runs on every stored diagnostic and on stackTrace, RewriteFinding and Diagnostic.file unredacted, ZWNJ/ZWJ stripped; residue to 127 (new section), 131 (job-log redaction), 114 item 24), PLAN-V2-71 (#430; residue to 63 and 114 item 22), PLAN-V2-144 (#433; residue to 142), PLAN-V2-137 (#432; residue to 114 item 23; OPEN FOR THE OPERATOR: the CLAUDE.md claim that the 2026-10-29 word covers pm-core contradicts ADR 023:66). Earlier: 68 (#426), 123 (#427), 136, 40, 119, 140, 138, 39, 06. 125 stays behind 101-103 and 114; 126 after 125.
+**Resume anchor**: STATE 2026-11-15 (afternoon): RUNNING, recorded on the operator's word, 4 of 4 slots, runbook lane: PLAN-V2-48 worker-vector-verify-not-resolve (recorded running on the operator's word '48 is running', 2026-11-15), PLAN-V2-101 assertion-messages-core-store (PR #438 open: 16 core/store test files and the scanner), PLAN-V2-63 long-context-thresholds (branch feature/v2-63-long-context-thresholds pushed, no PR yet; ADR 016; converts ProfileValidator to @UtilityClass; carries the 71 and 40 residue), PLAN-V2-94 utility-classes-and-generic-catches (PR #437 open, 67 files so far; D2 generic catches not yet pushed; SecretRedactor held out to 59, ProfileValidator to 63). Landings owed: 48, 101, 63, 94. EMITTED 2026-11-15 and recorded running: PLAN-V2-48 worker-vector-verify-not-resolve (WS-06; the free fourth slot; spec adapted at 9c961d58: persona lines, a State at the emit with current line numbers, the ADR number is the next free at the head (#418 takes runtime-launch/009), the EPHEMERAL_FLAG removal in composeArgv (LaunchComposer.java:324-326) decides where rule (b) runs; disjoint from 101, 63, 94 and #418; resolve success; lands to main with the ledger). SHIPPED and analysed 2026-11-15: PLAN-V2-143 (#434, merge 9c961d58, landings/PLAN-V2-143.md; D1-D4 met; no crash; findings: a PEM key given as a labelled assignment's value leaks its body, the URL pattern is quadratic and now runs on every stored diagnostic and on stackTrace, RewriteFinding and Diagnostic.file unredacted, ZWNJ/ZWJ stripped; residue to 127 (new section), 131 (job-log redaction), 114 item 24), PLAN-V2-71 (#430; residue to 63 and 114 item 22), PLAN-V2-144 (#433; residue to 142), PLAN-V2-137 (#432; residue to 114 item 23; OPEN FOR THE OPERATOR: the CLAUDE.md claim that the 2026-10-29 word covers pm-core contradicts ADR 023:66). Earlier: 68 (#426), 123 (#427), 136, 40, 119, 140, 138, 39, 06. 125 stays behind 101-103 and 114; 126 after 125.
 NEW STAGED PLANS this part (all runbook lane, WS as named): PLAN-V2-141 test-design-rework (WS-11; after 125, 126, 101-105, 137), PLAN-V2-142 harness-verification-residue (WS-04; Icon Store + corrections of 39), PLAN-V2-143 secret-redactor-followup (WS-07; PEM quadratic pattern, empty-user URL, diagnostics unredacted at DiagnosticCollector.stored, test and ADR corrections).
 EMIT FORMAT (operator 2026-11-13, standing): EVERY emit is /plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-NN-{slug}.md (row lane runbook); a plan still a plan-marshall row (04) is converted first (row lane, spec header, Landing, hand-off, land). auto_emit false: record `running` only on the operator's word.
 EMITTED 2026-11-14 on the operator's answer '1' to the issues-pass question 1 (record running only on his word): PLAN-V2-144 main-green-dead-null-checks (runbook; the gate of main is ERROR since 2026-11-12 and deploy-snapshot is skipped on every code push; spec landed #415 2b848ff4). EMITTED, NOT STARTED (operator: they wait until the two ad-hoc sessions (136 residue fix, 39 residue + Icon Store) have landed): PLAN-V2-143, 123, 68 (142 is taken by the ad-hoc 39 session). Older text follows: PLAN-V2-143 secret-redactor-followup, PLAN-V2-142 harness-verification-residue, PLAN-V2-123 schema-parity-drift-and-readers (re-grounded: State at the emit, 52 unread schema files not 16, 129 contradictions moot, SchemaParity package-private), PLAN-V2-68 profile-wait-margin (re-grounded: schema file needs no edit, shipped profiles are pm-api resources, 39 did not touch ProfileValidator). All runbook lane; pairwise surface overlap 0 except 142 and 68 share one path; 125 runs after 123.
@@ -18,6 +18,7 @@ ON RESUME: read the inbox and analyse each landing on arrival (read-only leaf, r
 **Running**:
 - PLAN-V2-94 (WS-11)
 - PLAN-V2-101 (WS-11)
+- PLAN-V2-48 (WS-06)
 - PLAN-V2-63 (WS-04)
 **Parked**:
 - PLAN-V2-03 (WS-05)
@@ -76,29 +77,28 @@ ON RESUME: read the inbox and analyse each landing on arrival (read-only leaf, r
 17. PLAN-V2-43 (WS-04)
 18. PLAN-V2-46 (WS-06)
 19. PLAN-V2-47 (WS-06)
-20. PLAN-V2-48 (WS-06)
-21. PLAN-V2-49 (WS-02)
-22. PLAN-V2-50 (WS-10)
-23. PLAN-V2-56 (WS-05)
-24. PLAN-V2-59 (WS-06)
-25. PLAN-V2-67 (WS-10)
-26. PLAN-V2-82 (WS-02)
-27. PLAN-V2-96 (WS-05)
-28. PLAN-V2-114 (WS-11)
-29. PLAN-V2-122 (WS-12)
-30. PLAN-V2-125 (WS-11)
-31. PLAN-V2-126 (WS-11)
-32. PLAN-V2-130 (WS-10)
-33. PLAN-V2-135 (WS-06)
-34. PLAN-V2-134 (WS-06)
-35. PLAN-V2-141 (WS-11)
-36. PLAN-V2-142 (WS-04)
-37. PLAN-V2-145 (WS-04)
-38. PLAN-V2-146 (WS-06)
-39. PLAN-V2-147 (WS-04)
-40. PLAN-V2-148 (WS-04)
-41. PLAN-V2-149 (WS-06)
-42. PLAN-V2-150 (WS-06)
+20. PLAN-V2-49 (WS-02)
+21. PLAN-V2-50 (WS-10)
+22. PLAN-V2-56 (WS-05)
+23. PLAN-V2-59 (WS-06)
+24. PLAN-V2-67 (WS-10)
+25. PLAN-V2-82 (WS-02)
+26. PLAN-V2-96 (WS-05)
+27. PLAN-V2-114 (WS-11)
+28. PLAN-V2-122 (WS-12)
+29. PLAN-V2-125 (WS-11)
+30. PLAN-V2-126 (WS-11)
+31. PLAN-V2-130 (WS-10)
+32. PLAN-V2-135 (WS-06)
+33. PLAN-V2-134 (WS-06)
+34. PLAN-V2-141 (WS-11)
+35. PLAN-V2-142 (WS-04)
+36. PLAN-V2-145 (WS-04)
+37. PLAN-V2-146 (WS-06)
+38. PLAN-V2-147 (WS-04)
+39. PLAN-V2-148 (WS-04)
+40. PLAN-V2-149 (WS-06)
+41. PLAN-V2-150 (WS-06)
 - PLAN-V2-83 (WS-11) — plan=v2-83-skills-conformance-foundation — PR 248 — landing=landings/PLAN-V2-83.md — status: shipped
 - PLAN-V2-84 (WS-11) — plan=v2-84-null-safety-nullmarked — PR 255, 256, 257, 258, 261 — landing=landings/PLAN-V2-84.md — status: shipped
 - PLAN-V2-107 (WS-11) — plan=v2-107-generator-artifacts — PR 269 — landing=landings/PLAN-V2-107.md — status: shipped
@@ -212,7 +212,7 @@ ON RESUME: read the inbox and analyse each landing on arrival (read-only leaf, r
 | 37 | PLAN-V2-44 | WS-02 | parked | doc/LogMessages.adoc; doc/Traceability.adoc; doc/implementation-watch/workflow-dsl.adoc; doc/plans/README.adoc; doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc; pm-workflow/doc/adr/workflow-diagram/; pm-workflow/doc/developer/workflow-diagram.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/PositionedLayout.java; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/TextWidth.java; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/UnitLayoutGraph.java; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/package-info.java; pm-workflow/src/test/java/de/planmarshall/workflow/diagram/DiagramFixtures.java; pm-workflow/src/test/java/de/planmarshall/workflow/diagram/PositionedLayoutTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/diagram/TextWidthTest.java; pm-workflow/src/test/resources/diagram/ | runbook |
 | 38 | PLAN-V2-46 | WS-06 | staged | pm-runtime/doc/adr/runtime-endpoint/; pm-runtime/doc/adr/runtime-launch/; pm-runtime/doc/developer/runtime-endpoint.adoc; pm-runtime/doc/developer/runtime-launch.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/AnswerSchema.java; pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointHarness.java; pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerification.java; pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentEndpoint.java; pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentVerification.java; pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/LimitsBisection.java; pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/SystemOneRequest.java; pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/WeightsReader.java; pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java; pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/AnswerSchemaTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointHarnessTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/JudgmentEndpointTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/JudgmentVerificationTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/LimitsBisectionTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/SystemOneRequestTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/WeightsReaderTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java | runbook |
 | 39 | PLAN-V2-47 | WS-06 | staged | doc/plans/question-continuation.adoc; pm-runtime/doc/adr/runtime-worker/; pm-runtime/doc/developer/runtime-worker.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisorCalls.java; pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerCalls.java; pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.java; pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerRecycling.java; pm-runtime/src/test/java/de/planmarshall/runtime/worker/ActivityRecorderTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/worker/OffTrackScenarioTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartFailureGuardTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorTestFixture.java; pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerActivityPumpTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerRecyclingTest.java | runbook |
-| 40 | PLAN-V2-48 | WS-06 | staged | doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc; doc/specification/model-work/04-worker-launch.adoc; pm-runtime/doc/adr/runtime-launch/; pm-runtime/doc/developer/runtime-launch.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchComposer.java; pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java; pm-runtime/src/main/java/de/planmarshall/runtime/launch/WorkerVectorCheck.java; pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchComposerTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchFixtures.java; pm-runtime/src/test/java/de/planmarshall/runtime/launch/WorkerVectorCheckTest.java | runbook |
+| 40 | PLAN-V2-48 | WS-06 | running | doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc; doc/specification/model-work/04-worker-launch.adoc; pm-runtime/doc/adr/runtime-launch/; pm-runtime/doc/developer/runtime-launch.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchComposer.java; pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java; pm-runtime/src/main/java/de/planmarshall/runtime/launch/WorkerVectorCheck.java; pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchComposerTest.java; pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchFixtures.java; pm-runtime/src/test/java/de/planmarshall/runtime/launch/WorkerVectorCheckTest.java | runbook |
 | 41 | PLAN-V2-49 | WS-02 | staged | doc/LogMessages.adoc; doc/Traceability.adoc; doc/plans/README.adoc; doc/plans/supervision-scenarios.adoc; doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc; pm-workflow/doc/adr/workflow-scenario/; pm-workflow/doc/developer/workflow-scenario.adoc; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioDeterminismTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioDirective.java; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioFixtures.java; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunnerTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScript.java; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScriptTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScriptedFixtureWorker.java; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/package-info.java | runbook |
 | 42 | PLAN-V2-50 | WS-10 | staged | doc/implementation-watch/harness-profiles.adoc; doc/implementation-watch/model-work.adoc; doc/specification/harness-profiles/01-profile-schema.adoc; doc/specification/model-work/01-roles-and-configuration.adoc; doc/specification/store-schemas/12-machine-stores.adoc; doc/specification/store-schemas/16-task-queue.adoc | runbook |
 | 43 | PLAN-V2-51 | WS-07 | parked | doc/implementation-watch/job-runtime.adoc; doc/plans/build-parsers-and-gate-honesty.adoc; doc/specification/job-runtime/03-parsers-and-gates.adoc; pm-core/src/main/java/de/planmarshall/core/store/BuildTimingsStore.java; pm-runtime/doc/developer/runtime-job.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/job/; pm-runtime/src/test/java/de/planmarshall/runtime/job/ | runbook |
