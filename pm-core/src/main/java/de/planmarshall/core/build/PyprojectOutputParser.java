@@ -64,6 +64,9 @@ public class PyprojectOutputParser {
 
     private static final String NO_TESTS_MARKER = "no tests ran";
 
+    /** The message of a diagnostic whose text is only whitespace or invisible characters: the error is still an error. */
+    private static final String NO_VISIBLE_MESSAGE = "error (no visible message)";
+
     private static final String PY_FILE = ".py";
 
     private static final Pattern MYPY_DETECT = Pattern.compile("\\.pyi?:\\d+(?::\\d+)?: error:");
@@ -221,7 +224,7 @@ public class PyprojectOutputParser {
             Integer number = matcher.matches() ? integer(matcher.group(2)) : null;
             if (number != null) {
                 add(diagnostics, seen, Diagnostic.builder().file(matcher.group(1)).line(number)
-                        .message(DiagnosticCollector.stored(matcher.group(3)))
+                        .message(DiagnosticCollector.storedOrEmpty(matcher.group(3)).orElse(NO_VISIBLE_MESSAGE))
                         .category(categoryOf(matcher.group(3))).severity(Severity.ERROR).build());
             }
         }
@@ -237,7 +240,8 @@ public class PyprojectOutputParser {
             if (number != null) {
                 add(diagnostics, seen, Diagnostic.builder().file(matcher.group(1)).line(number)
                         .column(integer(matcher.group(3)))
-                        .message(DiagnosticCollector.stored(matcher.group(4) + " " + matcher.group(5)))
+                        .message(DiagnosticCollector.storedOrEmpty(matcher.group(4) + " " + matcher.group(5))
+                                .orElse(NO_VISIBLE_MESSAGE))
                         .category(Category.LINT_ERROR).severity(Severity.ERROR).build());
             }
         }
@@ -374,7 +378,8 @@ public class PyprojectOutputParser {
         Frame location = block == null ? null : frame(block);
         String file = location == null ? summaryFile : location.file();
         Integer line = location == null ? null : location.line();
-        return Diagnostic.builder().file(file).line(line).message(DiagnosticCollector.stored(message))
+        return Diagnostic.builder().file(file).line(line)
+                .message(DiagnosticCollector.storedOrEmpty(message).orElse(NO_VISIBLE_MESSAGE))
                 .category(category).severity(Severity.ERROR).build();
     }
 

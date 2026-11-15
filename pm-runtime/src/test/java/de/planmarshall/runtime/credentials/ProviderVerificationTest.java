@@ -29,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.build.BuildLogText;
 import de.planmarshall.core.config.Consent;
 import de.planmarshall.core.config.ConsentGate;
 import de.planmarshall.core.config.ConsentStore;
@@ -230,6 +231,74 @@ class ProviderVerificationTest {
                         "nor an argument of the other line"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.PROVIDER_VERIFICATION_FAILED.resolveIdentifierString()));
+    }
+
+    @Test
+    @DisplayName("an unbounded provider answer is cut at the line bound before it is redacted")
+    void answerIsBounded() {
+        originReachable = false;
+        originDetail = "Authorization: Bearer abcdefgh12345678 " + "x".repeat(BuildLogText.MAX_LINE_LENGTH);
+
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var origin = result.lines().getFirst();
+        assertAll(
+                () -> assertTrue(origin.answer().length() <= BuildLogText.MAX_LINE_LENGTH,
+                        "the answer is cut at the line bound"),
+                () -> assertTrue(origin.answer().length() < originDetail.length(),
+                        "the unbounded answer is shortened"),
+                () -> assertFalse(origin.answer().contains("abcdefgh12345678"),
+                        "the bearer value must not reach the line"),
+                () -> assertTrue(origin.answer().contains("[redacted]"),
+                        "the answer keeps its label with the value redacted"));
+    }
+
+    @Test
+    @DisplayName("a URL head cut by the answer bound is still masked")
+    void urlHeadCutByTheBoundIsMasked() {
+        originReachable = false;
+        var url = "https://alice:violet42";
+        originDetail = "x".repeat(BuildLogText.MAX_LINE_LENGTH - url.length() - 1) + " " + url + "@host.test";
+
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var origin = result.lines().getFirst();
+        assertAll(
+                () -> assertFalse(origin.answer().contains("violet42"),
+                        "the partial URL password is masked"),
+                () -> assertTrue(origin.answer().endsWith("https://alice:" + "[redacted]"),
+                        "the head keeps its scheme and user with the secret masked"));
+    }
+
+    @Test
+    @DisplayName("an npm token split by the answer bound is masked")
+    void tokenTailCutByTheBoundIsMasked() {
+        originReachable = false;
+        var token = "npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+        originDetail = "x".repeat(BuildLogText.MAX_LINE_LENGTH - 20) + " " + token + " tail";
+
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var origin = result.lines().getFirst();
+        assertAll(
+                () -> assertFalse(origin.answer().contains("A1b2C3d4"), "the token tail is masked"),
+                () -> assertTrue(origin.answer().contains("[redacted]"), "the mask is visible"));
+    }
+
+    @Test
+    @DisplayName("a URL password cut after an internal @ is masked to the end")
+    void urlHeadWithInternalAtCutByTheBoundIsMasked() {
+        originReachable = false;
+        var url = "https://user:pa@ss";
+        originDetail = "x".repeat(BuildLogText.MAX_LINE_LENGTH - url.length() - 1) + " " + url + "@host.test";
+
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var origin = result.lines().getFirst();
+        assertAll(
+                () -> assertFalse(origin.answer().contains("pa@ss"), "the password tail after the @ is masked"),
+                () -> assertTrue(origin.answer().endsWith("https://user:" + "[redacted]"),
+                        "the whole credential tail is masked"));
     }
 
     @Test

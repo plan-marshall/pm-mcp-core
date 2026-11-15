@@ -54,7 +54,7 @@ class EnvelopeBudgetTest {
 
     private static void assertResolution(Resolution resolution, long tokens, Source source, boolean capped,
             boolean aboveThreshold) {
-        assertAll("The resolved budget",
+        assertAll("The resolved budget is as expected",
                 () -> assertEquals(tokens, resolution.tokens(), "The budget has the expected tokens"),
                 () -> assertEquals(source, resolution.source(), "The budget comes from the expected source"),
                 () -> assertEquals(capped, resolution.capped(), "The budget is capped only where expected"),
@@ -151,6 +151,36 @@ class EnvelopeBudgetTest {
             var resolution = EnvelopeBudget.resolve(null, null, null, threshold);
 
             assertResolution(resolution, COMPILED_FALLBACK, Source.COMPILED, false, false);
+        }
+    }
+
+    @Nested
+    @DisplayName("the exact equality at the threshold")
+    class ExactEquality {
+
+        /** A deterministic threshold and budget of the schema's range, a contract value of the cases below. */
+        private static final long EQUAL = 400_000L;
+
+        @Test
+        @DisplayName("an operator and a role value equal to the threshold are kept and not flagged")
+        void keptValuesAtTheThresholdNotFlagged() {
+            var operator = EnvelopeBudget.resolve(EQUAL, null, null, EQUAL);
+            var role = EnvelopeBudget.resolve(null, EQUAL, null, EQUAL);
+
+            assertAll("Values equal to the threshold",
+                    () -> assertResolution(operator, EQUAL, Source.OPERATOR, false, false),
+                    () -> assertResolution(role, EQUAL, Source.ROLE, false, false));
+        }
+
+        @Test
+        @DisplayName("a profile value and the compiled fallback equal to the threshold are not capped")
+        void fallbacksAtTheThresholdNotCapped() {
+            var profile = EnvelopeBudget.resolve(null, null, EQUAL, EQUAL);
+            var compiled = EnvelopeBudget.resolve(null, null, null, EQUAL);
+
+            assertAll("Fallbacks equal to the threshold",
+                    () -> assertResolution(profile, EQUAL, Source.PROFILE, false, false),
+                    () -> assertResolution(compiled, COMPILED_FALLBACK, Source.COMPILED, false, false));
         }
     }
 

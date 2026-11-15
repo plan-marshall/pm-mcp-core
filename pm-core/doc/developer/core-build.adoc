@@ -226,7 +226,8 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   adapter admits that marker only for a job whose verb is `install` or `clean-install`
   (link:../../../pm-runtime/doc/adr/runtime-job/018-the-install-marker-needs-an-install-verb.adoc[ADR `runtime-job/018`]).
   Every message of the parser — the generic block's, the `ERESOLVE` and the `E404` one — is redacted through
-  `SecretRedactor` before it is cut to the stored length, so a truncated message cannot keep half a secret. The
+  `SecretRedactor` before it is cut to the stored length, so a truncated message cannot keep half a secret; this parser
+  shares that seam (`DiagnosticCollector.stored`) with every other parser of the package. The
   `ERESOLVE` and `E404` messages are not built from dependency names alone: the quoted specifier and the peer and `from`
   tokens are log text and can carry a registry URL with user information.
 * *TypeScript* — the two `tsc` diagnostic forms, each a `COMPILATION_ERROR` carrying file, line, column and
@@ -242,9 +243,10 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   `stack`, and without a block the test's own name is the message. The `# tests` / `# pass` / `# fail` / `# skipped`
   block supplies the counts. The plan is checked per run: a run starts at every line that starts with `TAP version`, and
   the lines before the first such line, or the whole log when it carries none, are one run. A run's top-level plan
-  lines `1..N` (their counts summed) are compared with that run's own number of top-level test points (`ok` / `not ok`
-  at the start of a line): when they differ, the run did not finish the plan it announced — the evidence class of
-  `Bail out!` — and the passing summary is no marker, even with exit 0. The log finished its plan only when every run
+  lines `1..N` (their counts summed) are compared with that run's own number of top-level test points (the TAP point
+  shape: `ok` or `not ok`, followed by a space or the line end); when they differ, the run did not finish the plan it
+  announced — the evidence class of `Bail out!` — and the passing summary is no marker, even with exit 0. A prose line
+  that merely starts with the word `ok` is no point. The log finished its plan only when every run
   did, so in a log of concatenated runs (`npm test --workspaces`) a later run cannot supply the point an earlier run is
   missing; the counts stay as the summary measured them, summed over all runs. A plan count too large for a `long`, or
   plan counts whose sum overflows a `long`, leave the run unfinished (no passing summary): the sum is added with
@@ -265,6 +267,16 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   captured-output sections), and — for a collection error whose summary line carries no message tail — the exception line
   of the block's `E` gutter. A trailing `@<group>` of a pytest-xdist node id is stripped before the block is looked up, and
   a node id that carries a space or the ` - ` delimiter is split outside its parameter brackets.
+
+*Every stored diagnostic is redacted.* `DiagnosticCollector.stored` redacts a message through `SecretRedactor` before it
+cuts it to the stored length, so the TAP, Jest, ESLint, TypeScript, Maven, Gradle and pyproject messages — and the npm
+ones — reach neither the model nor a store unmasked, and a truncated message cannot keep half a secret.
+`OpenRewriteLogParser` files its own `RewriteFinding` records rather than a `Diagnostic`, so its messages do not pass
+through this seam. A message that is only whitespace or invisible characters gets a fixed fallback where the parser's
+status depends on the diagnostic (mypy, Ruff, pytest, Jest), so a recognized failure never reads as a green build; where
+the status comes from the tool's own failure marker (Maven, TAP), the empty diagnostic is skipped instead. `Diagnostic`
+redacts its collected `stackTrace` in its constructor, so the TAP and Jest frames and the frames `StackTraceCollector`
+attaches to a Maven or Gradle issue are covered by the same rule.
 
 === Counts of the Six
 
@@ -433,6 +445,9 @@ All nine parsers cut every line at the per-line bound of the same resource befor
 `OpenRewriteLogParser` and `PyprojectOutputParser` since ADR `core-build/007`, and `GradleOutputParser`,
 `NpmErrorParser`, `TypeScriptOutputParser`, `EslintOutputParser`, `JestOutputParser` and `TapOutputParser` since
 link:../adr/core-build/009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR `core-build/009`].
+The cut keeps a line's head and never splits a surrogate pair. A credentialed URL whose closing `@` lies beyond the cut
+loses it, so `scheme://user:<partial password>` stays readable there; the stored-message cut bounds how much of it a
+message can carry but does not remove it, and ADR `core-build/009` names it in "What stays readable".
 The runtime's dispatcher `BuildOutputParser` cuts the stripped text the same way before its dispatch patterns, and its
 multi-line markers start on horizontal space (`^[ \t]*`, as `NpmErrorParser.INSTALL_SUMMARY` does) rather than on
 `^\s*`, so no repetition of theirs crosses a line end. One cut bounds every expression of a parser at once — a pattern
