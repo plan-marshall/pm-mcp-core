@@ -433,7 +433,7 @@ class LinkedWorktreeConfinementTest {
 
             assertAll("another repository's worktree",
                     () -> assertEquals(Optional.of(other), PathConfinement.linkedMainCheckout(foreign),
-                            "The recognition should name the repository the worktree belongs to"),
+                            "the recognition names the worktree's repository"),
                     () -> assertRefused(confine(foreign.resolve("file.txt"), foreign)));
         }
 
@@ -454,7 +454,7 @@ class LinkedWorktreeConfinementTest {
             register(forged, renamed.resolve("forged"), "../..");
 
             assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(forged),
-                    "A common directory that is not the .git of a main checkout should name none");
+                    "a common directory outside a checkout names none");
         }
 
         @Test
@@ -492,7 +492,7 @@ class LinkedWorktreeConfinementTest {
             var moved = Files.move(worktree, base.resolve("moved"));
 
             assertThrows(IOException.class, () -> PathConfinement.linkedMainCheckout(moved),
-                    "A stale record should be a failure the callers treat as a refusal");
+                    "a stale gitdir record raises a read failure");
         }
 
         @Test

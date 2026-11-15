@@ -84,7 +84,8 @@ class LeaseCodecTest {
     }
 
     private static StoreRefusal refusalOf(byte[] document) {
-        return assertThrows(StoreRefusal.class, () -> read(document));
+        return assertThrows(StoreRefusal.class, () -> read(document),
+                "the lease codec refuses a malformed document");
     }
 
     static Stream<Arguments> invalidOwners() {

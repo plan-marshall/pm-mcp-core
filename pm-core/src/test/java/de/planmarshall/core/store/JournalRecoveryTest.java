@@ -500,7 +500,8 @@ class JournalRecoveryTest {
                     () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome(),
                             "the torn journal is unreadable"),
                     () -> assertEquals(scope.journalFile(), refusal.file(), "the refusal names the journal file"),
-                    () -> assertArrayEquals(torn, Files.readAllBytes(scope.journalFile()), "the journal is kept"),
+                    () -> assertArrayEquals(torn, Files.readAllBytes(scope.journalFile()),
+                            "the torn journal is left untouched"),
                     () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
                             "nothing is deleted on a journal that cannot be read"),
                     () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on a refusal"));
@@ -816,7 +817,8 @@ class JournalRecoveryTest {
             var outcome = recover();
 
             assertAll("a stop between roll-forward and append",
-                    () -> assertTrue(afterStop.containsKey("mcp/transaction-journal.json"), "the intent survived"),
+                    () -> assertTrue(afterStop.containsKey("mcp/transaction-journal.json"),
+                            "the intent record survives the journal append"),
                     () -> assertEquals(new RolledForward(journal, List.of()), outcome,
                             "the next recovery applies no target"),
                     () -> assertEquals(List.of(rollForwardOf(journal)), auditEvents.getValues(),
@@ -863,7 +865,7 @@ class JournalRecoveryTest {
                             "the re-delivered record keeps the id it was owed with"),
                     () -> assertNotEquals(journal.transactionId().value(),
                             owed.details().get(AuditEvent.DETAIL_TRANSACTION_ID),
-                            "the roll-forward record and the owed record carry different ids"),
+                            "the roll-forward and owed records carry different ids"),
                     () -> assertFalse(Files.exists(scope.journalFile()),
                             "the journal is closed after delivery"));
         }

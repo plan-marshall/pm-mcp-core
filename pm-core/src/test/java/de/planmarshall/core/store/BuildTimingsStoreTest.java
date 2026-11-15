@@ -135,7 +135,7 @@ class BuildTimingsStoreTest {
             var capped = store.escalate(KEY, 1200, 1800);
 
             assertAll("The escalation doubles the budget up to the ceiling",
-                    () -> assertEquals(1800L, capped.escalationSeconds(), "2t is capped at C"),
+                    () -> assertEquals(1800L, capped.escalationSeconds(), "the doubled budget is capped at the ceiling"),
                     () -> assertEquals(new Baseline(100L, 1), capped.clean(), "a timeout never feeds L"));
 
             var belowTheCap = store.escalate(KEY, 300, 1800);

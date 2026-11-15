@@ -105,8 +105,8 @@ class LeaseStoreTest {
 
     private void assertOneTransactionOnTheStoreKey() {
         assertAll(
-                () -> assertEquals(1, locks.transactions(), "transactions opened"),
-                () -> assertEquals(List.of(storeKey), locks.acquisitions(), "keys acquired"),
+                () -> assertEquals(1, locks.transactions(), "exactly one transaction was opened"),
+                () -> assertEquals(List.of(storeKey), locks.acquisitions(), "only the store key was acquired"),
                 () -> assertEquals(List.of(), locks.held(), "keys held afterwards"));
     }
 
@@ -516,7 +516,7 @@ class LeaseStoreTest {
             assertAll("a snapshot takes no lock and opens no transaction",
                     () -> assertEquals(1, leases.size(), "the snapshot holds the one lease"),
                     () -> assertEquals(0, locks.transactions(), "no transaction is opened"),
-                    () -> assertEquals(List.of(), locks.acquisitions(), "no key is acquired"));
+                    () -> assertEquals(List.of(), locks.acquisitions(), "no lock key is acquired"));
         }
 
         @Test
@@ -564,13 +564,16 @@ class LeaseStoreTest {
 
             assertAll("an unreadable store is never taken for an empty one",
                     () -> assertEquals(Outcome.UNREADABLE,
-                            assertThrows(StoreRefusal.class, () -> leaseStore.claim(lease)).outcome(),
+                            assertThrows(StoreRefusal.class, () -> leaseStore.claim(lease),
+                                    "the claim refuses the torn store").outcome(),
                             "a claim of the torn store is unreadable"),
                     () -> assertEquals(Outcome.UNREADABLE,
-                            assertThrows(StoreRefusal.class, () -> leaseStore.release(key)).outcome(),
+                            assertThrows(StoreRefusal.class, () -> leaseStore.release(key),
+                                    "the release refuses the torn store").outcome(),
                             "a release of the torn store is unreadable"),
                     () -> assertEquals(leaseStore.store(),
-                            assertThrows(StoreRefusal.class, leaseStore::snapshot).file(),
+                            assertThrows(StoreRefusal.class, leaseStore::snapshot,
+                                    "the snapshot refuses the torn store").file(),
                             "a snapshot names the torn store"),
                     () -> assertArrayEquals(torn, Files.readAllBytes(store),
                             "the torn store stays byte-identical"),
