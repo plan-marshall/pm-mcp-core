@@ -31,7 +31,7 @@ document without the member, a `null` `headless` block and an endpoint profile a
 
 `HarnessProfile` keeps its eleven components. `ProfileValidator` validates the member where the optional
 `context_budget_tokens` is validated: an object whose names are at most 128 characters and whose values are integers of at
-least 10 000.
+least 10 000. An endpoint profile declares no `headless` member, so it carries no threshold and there is nothing to read.
 
 == Alternatives Considered
 

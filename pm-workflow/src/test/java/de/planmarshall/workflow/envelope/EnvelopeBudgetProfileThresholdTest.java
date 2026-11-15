@@ -26,11 +26,12 @@ import de.planmarshall.workflow.envelope.EnvelopeBudget.Source;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The cap of the envelope budget on a threshold read from a validated profile document (Model Work § Cost Sizing,
- * Envelope Budget, item 4): {@link LongContextThresholds} answers the entry of the model, and {@link EnvelopeBudget}
- * caps its fallbacks at it while a role value above it stays as set.
+ * The cap of the envelope budget on a threshold read from a parsed profile document (Model Work § Cost Sizing, Envelope
+ * Budget, item 4): {@link LongContextThresholds} answers the entry of the model, and {@link EnvelopeBudget} caps its
+ * fallbacks at it while a role value above it stays as set.
  * <p>
- * The signature here is the shipped one: {@code EnvelopeBudget.resolve} takes {@code @Nullable Long} values, not the
+ * The document is the same shape a validated profile carries, read with `JsonDocument.parse` as the specification's test
+ * asks; the signature here is the shipped one: {@code EnvelopeBudget.resolve} takes {@code @Nullable Long} values, not the
  * {@code OptionalInt} that PLAN-V2-40's outline named (ADR {@code workflow-envelope/003}: an {@code Optional} is a return
  * type only), so the threshold is handed over at the type it has.
  */
@@ -103,7 +104,7 @@ class EnvelopeBudgetProfileThresholdTest {
 
     /**
      * @param modelId a model identifier
-     * @return the threshold the validated document names for it, or {@code null} where it names none
+     * @return the threshold the parsed document names for it, or {@code null} where it names none
      */
     private static @Nullable Long threshold(String modelId) {
         var threshold = LongContextThresholds.of(document()).forModel(modelId);

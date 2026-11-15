@@ -38,12 +38,11 @@ ordered PlannedTaskSummary list + budget ──► EnvelopePacker ──► enve
 == Where the Threshold Comes From
 
 The long-context threshold of item 4 is a value of the harness profile, never of this package: `core.role.LongContextThresholds`
-reads `headless.long_context_thresholds` of the validated profile document, and `forModel(modelId)` answers the entry of the
-worker's model — `OptionalInt.empty()` for a model the profile names no entry for, and byte-exactly, so no prefix and no
-case folding matches. The caller hands the value to `EnvelopeBudget.resolve` as a `@Nullable Long`; `null` means "no
-threshold", and then neither fallback is capped. The package keeps importing no profile type: the reading happens in
-`pm-core`, and only the test `EnvelopeBudgetProfileThresholdTest` reaches the two types it needs to prove the cap on a
-validated document.
+reads `headless.long_context_thresholds` of the profile document the caller parsed, and `forModel(modelId)` answers the entry
+of the worker's model — `OptionalInt.empty()` for a model the profile names no entry for, and byte-exactly, so no prefix and
+no case folding matches. The caller hands the value to `EnvelopeBudget.resolve` as a `@Nullable Long`; `null` means "no
+threshold", and then neither fallback is capped. No production type of `core.profile` or `core.role` is imported (invariant
+1); the test that proves the cap imports the three types it needs, `JsonDocument`, `JsonNode` and `LongContextThresholds`.
 
 == Deliberate Changes Against `plan-marshall`
 

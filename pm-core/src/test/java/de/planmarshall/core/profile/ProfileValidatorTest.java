@@ -134,6 +134,9 @@ class ProfileValidatorTest {
                                     map("m".repeat(129), 200_000)),
                             "/headless/long_context_thresholds/" + "m".repeat(129),
                             "a model id of 129 characters"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/long_context_thresholds",
+                                    map("acme-frontier", 2_147_483_648L)),
+                            "/headless/long_context_thresholds/acme-frontier", "a threshold above the int bound"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/long_context_thresholds", 200_000),
                             "/headless/long_context_thresholds", "a thresholds member that is no object"),
                     Arguments.of(ProfileFixtures.valid().remove("/headless/executable"),
@@ -437,6 +440,8 @@ class ProfileValidatorTest {
                     map("acme-frontier", 200_000, "acme-standard", 128_000));
             var thresholdsBoundary = ProfileFixtures.valid()
                     .set("/headless/long_context_thresholds", map("m".repeat(128), 10_000));
+            var thresholdsMaximum = ProfileFixtures.valid()
+                    .set("/headless/long_context_thresholds", map("acme-frontier", Integer.MAX_VALUE));
             var models = ProfileFixtures.valid().set("/headless/models_probe",
                     map("argv", List.of("acme", "models"), "format", "json", "pointer", "/id"));
             var hold = ProfileFixtures.valid().set("/headless/resumability/hold", true)
@@ -448,7 +453,7 @@ class ProfileValidatorTest {
             var signal = ProfileFixtures.valid().set("/detection/primary_signals/0/equals", "acme");
             var ports = ProfileFixtures.valid().set("/headless/endpoints", List.of("acme:1", "acme:65535"));
 
-            assertAll(
+            assertAll("The optional blocks and alternative forms load",
                     () -> ProfileValidator.validate(idioms.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(efforts.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(budget.bytes(), DOCUMENT, ProfileRules.none()),
@@ -457,6 +462,7 @@ class ProfileValidatorTest {
                     () -> ProfileValidator.validate(thresholdsOne.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(thresholdsSeveral.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(thresholdsBoundary.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(thresholdsMaximum.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(models.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(hold.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(prefix.bytes(), DOCUMENT, ProfileRules.none()),

@@ -89,7 +89,7 @@ class LongContextThresholdsTest {
     }
 
     @Test
-    @DisplayName("an endpoint profile declares no threshold")
+    @DisplayName("an endpoint profile declares no headless block and so no threshold")
     void endpointProfile() {
         var thresholds = LongContextThresholds.of(EndpointProfileFixtures.loaded());
 

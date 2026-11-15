@@ -16,20 +16,18 @@ import java.util.OptionalInt;
 
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.LoadedProfile;
-import de.planmarshall.core.profile.ProfileValidator;
 
 /**
- * The long-context price thresholds of a validated client profile (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models
- * of a Harness): per model id of the harness, the input tokens above which its provider bills a request at the
- * long-context price. A fallback of the context budget is capped at the entry, never a value the role artifact or the
- * operator sets.
+ * The long-context price thresholds of a client profile (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models of a
+ * Harness): per model id of the harness, the input tokens above which its provider bills a request at the long-context
+ * price. A fallback of the context budget is capped at the entry, never a value the role artifact or the operator sets.
  * <p>
  * The thresholds are read beside {@link HarnessProfile}, not as a component of that record: the member is read by the
  * envelope budget alone, and a new component of the record ripples into every constructor of it.
  * <p>
- * {@link #of(JsonNode)} reads a validated profile document; {@link #forModel(String)} compares the model id byte-exactly,
- * as {@code identifiers/01-general-rules-and-registry.adoc} general rule 2 requires — no prefix match and no case
- * folding.
+ * {@link #of(JsonNode)} reads the {@code headless.long_context_thresholds} member of a profile document's tree;
+ * {@link #forModel(String)} compares the model id byte-exactly, as
+ * {@code identifiers/01-general-rules-and-registry.adoc} general rule 2 requires — no prefix match and no case folding.
  *
  * @param byModel the threshold of each model id the profile declares
  * @since 0.1
@@ -54,16 +52,14 @@ public record LongContextThresholds(Map<String, Integer> byModel) {
     }
 
     /**
-     * Reads the thresholds of a validated profile document.
+     * Reads the thresholds of a profile document's tree.
      *
-     * @param document a profile document, validated by {@link ProfileValidator}
-     * @return the thresholds; empty for a document without the member, without a {@code headless} block and for an
-     *         endpoint profile
+     * @param document the tree of a profile document ({@code JsonDocument.parse} of it, or the tree a validated profile
+     *                 carries)
+     * @return the thresholds; empty for a document without the member or without a {@code headless} block, which an
+     *         endpoint profile is, because its kind declares no {@code headless}
      */
     public static LongContextThresholds of(JsonNode document) {
-        if (ProfileValidator.isEndpoint(document)) {
-            return EMPTY;
-        }
         var headless = document.member(NAME_HEADLESS).orElse(null);
         if (headless == null || headless.isNull()) {
             return EMPTY;

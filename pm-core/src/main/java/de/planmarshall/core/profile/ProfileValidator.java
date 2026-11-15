@@ -47,7 +47,10 @@ public final class ProfileValidator {
     /** The longest model id of a {@code headless.long_context_thresholds} member (the schema's propertyNames bound). */
     private static final int LONG_CONTEXT_MODEL_ID_MAX_LENGTH = 128;
 
-    /** The smallest long-context threshold, the {@code context_budget_tokens} minimum of the schema. */
+    /** The smallest context-budget fallback of the schema, the {@code context_budget_tokens} minimum. */
+    private static final long CONTEXT_BUDGET_MINIMUM_TOKENS = 10_000;
+
+    /** The smallest long-context threshold of the schema, the {@code long_context_thresholds} minimum. */
     private static final long LONG_CONTEXT_MINIMUM_TOKENS = 10_000;
 
     // The member names of the client profile schema, named once each (ADR core-profile/005).
@@ -615,11 +618,11 @@ public final class ProfileValidator {
             @Nullable JsonNode budget = optional(headless, NAME_CONTEXT_BUDGET_TOKENS).orElse(null);
             if (budget != null) {
                 integer(budget, pointer + "/context_budget_tokens", NAME_CONTEXT_BUDGET_TOKENS,
-                        LONG_CONTEXT_MINIMUM_TOKENS, Integer.MAX_VALUE);
+                        CONTEXT_BUDGET_MINIMUM_TOKENS, Integer.MAX_VALUE);
             }
             @Nullable JsonNode thresholds = optional(headless, NAME_LONG_CONTEXT_THRESHOLDS).orElse(null);
             if (thresholds != null) {
-                longContextThresholds(thresholds, pointer + "/long_context_thresholds");
+                longContextThresholds(thresholds, pointer + "/" + NAME_LONG_CONTEXT_THRESHOLDS);
             }
         }
 
@@ -881,7 +884,7 @@ public final class ProfileValidator {
                     throw invalid(memberPointer, "'%s' names a model id of at most %d characters"
                             .formatted(NAME_LONG_CONTEXT_THRESHOLDS, LONG_CONTEXT_MODEL_ID_MAX_LENGTH));
                 }
-                integer(member.getValue(), memberPointer, NAME_LONG_CONTEXT_THRESHOLDS, LONG_CONTEXT_MINIMUM_TOKENS,
+                integer(member.getValue(), memberPointer, member.getKey(), LONG_CONTEXT_MINIMUM_TOKENS,
                         Integer.MAX_VALUE);
             }
         }
