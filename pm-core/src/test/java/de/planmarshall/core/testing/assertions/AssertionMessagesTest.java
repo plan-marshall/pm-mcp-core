@@ -37,6 +37,9 @@ class AssertionMessagesTest {
 
     private static final Path VIOLATIONS = Path.of("target/assertion-message-violations.txt");
 
+    /** The indentation the planted fixture lines carry inside the generated method body. */
+    private static final String INDENT = "                ";
+
     @Test
     @DisplayName("a missing message, an out-of-range message, a boundary and a planted shape are measured")
     void missingAndOutOfRangeMessagesAreReported(@TempDir Path temp) throws Exception {
@@ -141,10 +144,10 @@ class AssertionMessagesTest {
         assertNotReported(temp.resolve("qualified-message"),
                 "Assertions.assertTrue(value, \"the value is present here\");");
         assertNotReported(temp.resolve("text-block"),
-                "assertTrue(value, \"\"\"\n                the message is a text block\n                \"\"\");");
+                "assertTrue(value, \"\"\"\n" + INDENT + "the message is a text block\n" + INDENT + "\"\"\");");
         assertNotReported(temp.resolve("text-block-message"),
-                "assertEquals(1.0, value, DELTA, \"\"\"\n                the value stays inside the delta\n"
-                        + "                \"\"\");");
+                "assertEquals(1.0, value, DELTA, \"\"\"\n" + INDENT + "the value stays inside the delta\n"
+                        + INDENT + "\"\"\");");
         assertNotReported(temp.resolve("tolerance-message"),
                 "assertEquals(1.0, value, DELTA, \"the value stays within the delta\");");
         assertNotReported(temp.resolve("comparison-message"),
