@@ -98,6 +98,21 @@ class LongContextThresholdsTest {
                 () -> assertTrue(thresholds.forModel("big").isEmpty(), "An endpoint model answers no threshold"));
     }
 
+    @Test
+    @DisplayName("a member value the read cannot carry is ignored")
+    void unreadableValueIgnored() {
+        var thresholds = thresholds("""
+                {"client_id": "acme-cli", "headless": {"long_context_thresholds":
+                  {"acme-frontier": "many", "acme-standard": 200000, "acme-fast": 5000000000}}}
+                """);
+
+        assertAll(
+                () -> assertEquals(Map.of("acme-standard", 200_000), thresholds.byModel(),
+                        "Only a carryable threshold is read"),
+                () -> assertTrue(thresholds.forModel("acme-frontier").isEmpty(),
+                        "A threshold that is no integer is ignored"));
+    }
+
     /** Reads the thresholds of a profile document. */
     private static LongContextThresholds thresholds(String document) {
         return LongContextThresholds.of(JsonDocument.parse(document.getBytes(UTF_8), DOCUMENT));

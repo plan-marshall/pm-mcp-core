@@ -83,7 +83,7 @@ List<PackedEnvelope> envelopes = EnvelopePacker.packEnvelopes(orderedTasks, budg
 
 == Testing
 
-`TaskCostEstimatorTest` covers every band edge, each profile weight, monotonicity, the table and its basis; `EnvelopePackerTest` the Next-Fit closures, the three outcomes of the below-minimum merge, contiguity, order, the skill union and the refused inputs; `EnvelopeBudgetTest` every precedence step, the cap of both fallbacks, the exact equality at the threshold and the flag on operator and role values above it; `EnvelopeBudgetProfileThresholdTest` the cap on a threshold read from a validated profile document.
+`TaskCostEstimatorTest` covers every band edge, each profile weight, monotonicity, the table and its basis; `EnvelopePackerTest` the Next-Fit closures, the three outcomes of the below-minimum merge, contiguity, order, the skill union and the refused inputs; `EnvelopeBudgetTest` every precedence step, the cap of both fallbacks, the exact equality at the threshold and the flag on operator and role values above it; `EnvelopeBudgetProfileThresholdTest` the cap on a threshold read from a parsed profile document.
 
 == Specification Tracing
 

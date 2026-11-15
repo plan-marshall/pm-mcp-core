@@ -25,7 +25,7 @@ component touches all of them.
 == Decision
 
 The thresholds are read by `core.role.LongContextThresholds`, a value of one map component beside `HarnessProfile`:
-`of(JsonNode)` reads `headless.long_context_thresholds` of a validated document, `of(LoadedProfile)` delegates to it, and
+`of(JsonNode)` reads `headless.long_context_thresholds` of a profile document's tree, `of(LoadedProfile)` delegates to it, and
 `forModel(String)` answers `OptionalInt` — the entry of the model, or empty where the profile names none for it. A
 document without the member, a `null` `headless` block and an endpoint profile all answer the empty value.
 

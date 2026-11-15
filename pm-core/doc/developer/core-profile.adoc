@@ -126,7 +126,7 @@ received, a profile offered for a later release. Validation then accepts exactly
 The long-context price tier is the member's rule: a context budget the system falls back to (the profile's
 `headless.context_budget_tokens` and the compiled `400K`) is capped at the entry of the worker's model, while a
 `context_budget_tokens` the role artifact sets and the operator's `envelope_budget_tokens` are taken as set (Model Work
-§ Cost Sizing, Envelope Budget, item 4). `core.role.LongContextThresholds` reads the member of a validated document
+§ Cost Sizing, Envelope Budget, item 4). `core.role.LongContextThresholds` reads the member of a profile document's tree
 (`of(JsonNode)`, and `of(LoadedProfile)` over it): `forModel` answers the entry of a model id byte-exactly — no prefix
 match and no case folding, as `identifiers/01-general-rules-and-registry.adoc` general rule 2 requires — and a model the
 profile names no entry for answers nothing, so it has no cap.

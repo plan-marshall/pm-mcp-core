@@ -25,8 +25,10 @@ import de.planmarshall.core.profile.LoadedProfile;
  * The thresholds are read beside {@link HarnessProfile}, not as a component of that record: the member is read by the
  * envelope budget alone, and a new component of the record ripples into every constructor of it.
  * <p>
- * {@link #of(JsonNode)} reads the {@code headless.long_context_thresholds} member of a profile document's tree;
- * {@link #forModel(String)} compares the model id byte-exactly, as
+ * {@link #of(JsonNode)} reads the {@code headless.long_context_thresholds} member of a profile document's tree — the
+ * tree {@code JsonDocument.parse} returns, or the tree a validated profile carries. A member value that is no integer
+ * within the range of a threshold is ignored, so the read never fails; the validator is what refuses such a document
+ * before production reads it. {@link #forModel(String)} compares the model id byte-exactly, as
  * {@code identifiers/01-general-rules-and-registry.adoc} general rule 2 requires — no prefix match and no case folding.
  *
  * @param byModel the threshold of each model id the profile declares
@@ -70,7 +72,10 @@ public record LongContextThresholds(Map<String, Integer> byModel) {
         }
         var byModel = new LinkedHashMap<String, Integer>();
         for (var member : declared.members().entrySet()) {
-            member.getValue().integerValue().ifPresent(value -> byModel.put(member.getKey(), Math.toIntExact(value)));
+            var value = member.getValue().integerValue().orElse(0);
+            if (value > 0 && value <= Integer.MAX_VALUE) {
+                byModel.put(member.getKey(), (int) value);
+            }
         }
         return new LongContextThresholds(byModel);
     }
