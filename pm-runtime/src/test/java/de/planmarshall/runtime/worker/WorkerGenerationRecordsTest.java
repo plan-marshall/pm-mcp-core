@@ -28,13 +28,13 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * Proves that the builder of {@link WorkerGeneration} builds the value its canonical constructor builds, including its
- * null refusal for the generation id. Every value is generated and none sits at a builder default: the plan id, the
- * worktree mark and the wakeup count are drawn non-null and non-zero, so a builder line the test omits shows in a
- * component that differs. The unmeasured context is a contract value, and the generation id and the plan id are drawn
- * from the generator artifact of {@code pm-runtime}. The record's own {@code equals} compares the generation id alone,
- * so the comparison reads every record component through its accessor: {@link Class#getRecordComponents()} names all
- * eighteen, and each accessor is invoked on the constructed and on the built value, so a component the builder drops
- * or reorders is visible.
+ * null refusal for the generation id. Every value is drawn or fixed, and none sits at a builder default: the plan id,
+ * the worktree mark and the wakeup count are drawn non-null and non-zero, so a builder line the test omits either
+ * shows in a component that differs or is refused by the record itself. The unmeasured context and the workdir kind
+ * are contract values, and the generation id and the plan id are drawn from the generator artifact of
+ * {@code pm-runtime}. The record's own {@code equals} compares the generation id alone, so the comparison reads every
+ * record component through its accessor: {@link Class#getRecordComponents()} names all eighteen, and each accessor is
+ * invoked on the constructed and on the built value, so a component the builder drops or reorders is visible.
  */
 @EnableGeneratorController
 @DisplayName("WorkerGeneration builder")
