@@ -130,6 +130,18 @@ class EnvelopePackerTest {
         }
 
         @Test
+        @DisplayName("refuses a budget of zero or below")
+        void refusesANonPositiveBudget() {
+            var tasks = List.of(task(regularCost()));
+
+            assertAll("A non-positive budget",
+                    () -> assertThrows(IllegalArgumentException.class, () -> EnvelopePacker.packEnvelopes(tasks, 0),
+                            "A budget of zero is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> EnvelopePacker.packEnvelopes(tasks, -1),
+                            "A negative budget is refused"));
+        }
+
+        @Test
         @DisplayName("packs one task into one envelope")
         void packsOneTaskIntoOneEnvelope() {
             var only = task(regularCost());
@@ -235,6 +247,48 @@ class EnvelopePackerTest {
 
             assertEquals(1, envelopes.size(), "Only module and role decide the sharing");
             assertEquals(ids(first, second), envelopes.getFirst().taskIds(), "Both tasks share the envelope");
+        }
+    }
+
+    @Nested
+    @DisplayName("the refused task summary")
+    class TaskSummaryRefusals {
+
+        @Test
+        @DisplayName("refuses a negative predicted cost")
+        void refusesANegativePredictedCost() {
+            var builder = PlannedTaskSummary.builder()
+                    .taskId("TASK-001")
+                    .moduleId(module)
+                    .role(role)
+                    .skillUris(Set.of())
+                    .costSize(CostSize.S)
+                    .predictedCostTokens(-1)
+                    .dependsOnTaskIds(List.of());
+
+            var refusal = assertThrows(IllegalArgumentException.class, builder::build,
+                    "A negative predicted cost is refused");
+
+            assertEquals("The predicted cost must not be negative: -1", refusal.getMessage(),
+                    "The refusal states the negative cost");
+        }
+
+        @Test
+        @DisplayName("names the skills and the dependencies of a missing collection")
+        void namesTheMissingCollections() {
+            var withoutSkills = PlannedTaskSummary.builder()
+                    .taskId("TASK-001").moduleId(module).role(role).skillUris(null)
+                    .costSize(CostSize.S).predictedCostTokens(1).dependsOnTaskIds(List.of());
+            var withoutDependencies = PlannedTaskSummary.builder()
+                    .taskId("TASK-001").moduleId(module).role(role).skillUris(Set.of())
+                    .costSize(CostSize.S).predictedCostTokens(1).dependsOnTaskIds(null);
+
+            assertAll("A missing collection",
+                    () -> assertEquals("skillUris", assertThrows(NullPointerException.class, withoutSkills::build,
+                            "Missing skills are refused").getMessage()),
+                    () -> assertEquals("dependsOnTaskIds",
+                            assertThrows(NullPointerException.class, withoutDependencies::build,
+                                    "Missing dependencies are refused").getMessage()));
         }
     }
 
