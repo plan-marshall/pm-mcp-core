@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: STATE 2026-11-15 (evening): RUNNING, recorded on the operator's word, 2 of 4 slots, runbook lane: PLAN-V2-48 worker-vector-verify-not-resolve (PR #442 open), PLAN-V2-94 utility-classes-and-generic-catches (PR #437 open, D1 and one D2 commit pushed; its D2 still owes the generic catches incl. MacSecurity.java:313). Landings owed: 48, 94. EMITTED 2026-11-15, NOT yet recorded running (record it only on the operator's word): PLAN-V2-102 assertion-messages-core-rest (WS-11; scanner of 101 exists, so D2 is only the package list; about 1 750 messageless assertions plus 24 out-of-range literals in 103 files incl. core/build, so TWO pull requests: A = scanner hardening (new D3) + queue, profile, config, spi, spi/validation, analysis, findings, service, toon, guard, log, build; B = role, role/corpus, role/qualification) and PLAN-V2-67 main-hygiene-leftovers (WS-08; MacSecurity.Downcall S112 + the four singles S3516 Enrolments.java:400 in pm-runtime, S1117, S1144, S1612 + D4 the core.spi suppressions; its hunk at MacSecurity.java:304-305 is nine lines from 94's D2 at :313: merge the base). Specs adapted (State at the emit, personas), resolve success, landed to main with the ledger. SHIPPED and analysed 2026-11-15: PLAN-V2-101 (#438, 2813564b, landings/PLAN-V2-101.md; D1, D2 met; scanner is pm-core only: SCANNED_PACKAGES core/store, testSourceRoot() pm-core, so 103-105 need an R07 decision on how the scan reaches pm-workflow/pm-runtime/providers (carried sections added to 103, 104, 105; 104 too small, fold into 105); scanner hardening goes into 102 D3), PLAN-V2-63 (#441, 15148a43, landings/PLAN-V2-63.md; D1-D4 met; ProfileValidator NOT converted to @UtilityClass although 94 holds it out for 63: nobody owns it now, placed in 114 item 25; forModel returns OptionalInt not the binding OptionalLong; escape of a model id untested; residue to 114 item 25), PLAN-V2-143 (#434, landings/PLAN-V2-143.md; residue in the NEW staged plan PLAN-V2-151 secret-redactor-hardening-2 (key body behind a labelled assignment, quadratic URL pattern on the stored seam, RewriteFinding/Diagnostic.file, escaped JSON, ZWNJ/ZWJ ask, job-log read-out) and 114 item 24; MISTAKE CORRECTED: residue had first been put into the already shipped 127 and 131, reverted), PLAN-V2-71, 144, 137 (earlier). Earlier: 68, 123, 136, 40, 119, 140, 138, 39, 06.
+**Resume anchor**: STATE 2026-11-15 (night): RUNNING, recorded on the operator's word, 4 of 4 slots, runbook lane: PLAN-V2-102 assertion-messages-core-rest and PLAN-V2-67 main-hygiene-leftovers (both recorded running on the operator's word 'both started'), PLAN-V2-48 worker-vector-verify-not-resolve (PR #442 open), PLAN-V2-94 utility-classes-and-generic-catches (PR #437 open, D1 and one D2 commit pushed; its D2 still owes the generic catches incl. MacSecurity.java:313). Landings owed: 48, 94, 102, 67. EMITTED 2026-11-15 and recorded running: PLAN-V2-102 assertion-messages-core-rest (WS-11; scanner of 101 exists, so D2 is only the package list; about 1 750 messageless assertions plus 24 out-of-range literals in 103 files incl. core/build, so TWO pull requests: A = scanner hardening (new D3) + queue, profile, config, spi, spi/validation, analysis, findings, service, toon, guard, log, build; B = role, role/corpus, role/qualification) and PLAN-V2-67 main-hygiene-leftovers (WS-08; MacSecurity.Downcall S112 + the four singles S3516 Enrolments.java:400 in pm-runtime, S1117, S1144, S1612 + D4 the core.spi suppressions; its hunk at MacSecurity.java:304-305 is nine lines from 94's D2 at :313: merge the base). Specs adapted (State at the emit, personas), resolve success, landed to main with the ledger. SHIPPED and analysed 2026-11-15: PLAN-V2-101 (#438, 2813564b, landings/PLAN-V2-101.md; D1, D2 met; scanner is pm-core only: SCANNED_PACKAGES core/store, testSourceRoot() pm-core, so 103-105 need an R07 decision on how the scan reaches pm-workflow/pm-runtime/providers (carried sections added to 103, 104, 105; 104 too small, fold into 105); scanner hardening goes into 102 D3), PLAN-V2-63 (#441, 15148a43, landings/PLAN-V2-63.md; D1-D4 met; ProfileValidator NOT converted to @UtilityClass although 94 holds it out for 63: nobody owns it now, placed in 114 item 25; forModel returns OptionalInt not the binding OptionalLong; escape of a model id untested; residue to 114 item 25), PLAN-V2-143 (#434, landings/PLAN-V2-143.md; residue in the NEW staged plan PLAN-V2-151 secret-redactor-hardening-2 (key body behind a labelled assignment, quadratic URL pattern on the stored seam, RewriteFinding/Diagnostic.file, escaped JSON, ZWNJ/ZWJ ask, job-log read-out) and 114 item 24; MISTAKE CORRECTED: residue had first been put into the already shipped 127 and 131, reverted), PLAN-V2-71, 144, 137 (earlier). Earlier: 68, 123, 136, 40, 119, 140, 138, 39, 06.
 NEW STAGED PLANS this part (all runbook lane, WS as named): PLAN-V2-141 test-design-rework (WS-11; after 125, 126, 101-105, 137), PLAN-V2-142 harness-verification-residue (WS-04; Icon Store + corrections of 39), PLAN-V2-143 secret-redactor-followup (WS-07; PEM quadratic pattern, empty-user URL, diagnostics unredacted at DiagnosticCollector.stored, test and ADR corrections).
 EMIT FORMAT (operator 2026-11-13, standing): EVERY emit is /plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-NN-{slug}.md (row lane runbook); a plan still a plan-marshall row (04) is converted first (row lane, spec header, Landing, hand-off, land). auto_emit false: record `running` only on the operator's word.
 EMITTED 2026-11-14 on the operator's answer '1' to the issues-pass question 1 (record running only on his word): PLAN-V2-144 main-green-dead-null-checks (runbook; the gate of main is ERROR since 2026-11-12 and deploy-snapshot is skipped on every code push; spec landed #415 2b848ff4). EMITTED, NOT STARTED (operator: they wait until the two ad-hoc sessions (136 residue fix, 39 residue + Icon Store) have landed): PLAN-V2-143, 123, 68 (142 is taken by the ad-hoc 39 session). Older text follows: PLAN-V2-143 secret-redactor-followup, PLAN-V2-142 harness-verification-residue, PLAN-V2-123 schema-parity-drift-and-readers (re-grounded: State at the emit, 52 unread schema files not 16, 129 contradictions moot, SchemaParity package-private), PLAN-V2-68 profile-wait-margin (re-grounded: schema file needs no edit, shipped profiles are pm-api resources, 39 did not touch ProfileValidator). All runbook lane; pairwise surface overlap 0 except 142 and 68 share one path; 125 runs after 123.
@@ -17,7 +17,9 @@ ON RESUME: read the inbox and analyse each landing on arrival (read-only leaf, r
 **Phase**: orchestrating
 **Running**:
 - PLAN-V2-94 (WS-11)
+- PLAN-V2-102 (WS-11)
 - PLAN-V2-48 (WS-06)
+- PLAN-V2-67 (WS-10)
 **Parked**:
 - PLAN-V2-03 (WS-05)
 - PLAN-V2-07 (WS-05)
@@ -56,48 +58,46 @@ ON RESUME: read the inbox and analyse each landing on arrival (read-only leaf, r
 - PLAN-V2-80 (WS-08)
 - PLAN-V2-133 (WS-03)
 **Queue** (staged, in order):
-1. PLAN-V2-102 (WS-11)
-2. PLAN-V2-103 (WS-11)
-3. PLAN-V2-104 (WS-11)
-4. PLAN-V2-105 (WS-11)
-5. PLAN-V2-04 (WS-01)
-6. PLAN-V2-10 (WS-01)
-7. PLAN-V2-13 (WS-02)
-8. PLAN-V2-15 (WS-01)
-9. PLAN-V2-17 (WS-04)
-10. PLAN-V2-19 (WS-01)
-11. PLAN-V2-20 (WS-01)
-12. PLAN-V2-22 (WS-03)
-13. PLAN-V2-25 (WS-01)
-14. PLAN-V2-31 (WS-06)
-15. PLAN-V2-33 (WS-02)
-16. PLAN-V2-34 (WS-10)
-17. PLAN-V2-43 (WS-04)
-18. PLAN-V2-46 (WS-06)
-19. PLAN-V2-47 (WS-06)
-20. PLAN-V2-49 (WS-02)
-21. PLAN-V2-50 (WS-10)
-22. PLAN-V2-56 (WS-05)
-23. PLAN-V2-59 (WS-06)
-24. PLAN-V2-67 (WS-10)
-25. PLAN-V2-82 (WS-02)
-26. PLAN-V2-96 (WS-05)
-27. PLAN-V2-114 (WS-11)
-28. PLAN-V2-122 (WS-12)
-29. PLAN-V2-125 (WS-11)
-30. PLAN-V2-126 (WS-11)
-31. PLAN-V2-130 (WS-10)
-32. PLAN-V2-135 (WS-06)
-33. PLAN-V2-134 (WS-06)
-34. PLAN-V2-141 (WS-11)
-35. PLAN-V2-142 (WS-04)
-36. PLAN-V2-145 (WS-04)
-37. PLAN-V2-146 (WS-06)
-38. PLAN-V2-147 (WS-04)
-39. PLAN-V2-148 (WS-04)
-40. PLAN-V2-149 (WS-06)
-41. PLAN-V2-150 (WS-06)
-42. PLAN-V2-151 (WS-07)
+1. PLAN-V2-103 (WS-11)
+2. PLAN-V2-104 (WS-11)
+3. PLAN-V2-105 (WS-11)
+4. PLAN-V2-04 (WS-01)
+5. PLAN-V2-10 (WS-01)
+6. PLAN-V2-13 (WS-02)
+7. PLAN-V2-15 (WS-01)
+8. PLAN-V2-17 (WS-04)
+9. PLAN-V2-19 (WS-01)
+10. PLAN-V2-20 (WS-01)
+11. PLAN-V2-22 (WS-03)
+12. PLAN-V2-25 (WS-01)
+13. PLAN-V2-31 (WS-06)
+14. PLAN-V2-33 (WS-02)
+15. PLAN-V2-34 (WS-10)
+16. PLAN-V2-43 (WS-04)
+17. PLAN-V2-46 (WS-06)
+18. PLAN-V2-47 (WS-06)
+19. PLAN-V2-49 (WS-02)
+20. PLAN-V2-50 (WS-10)
+21. PLAN-V2-56 (WS-05)
+22. PLAN-V2-59 (WS-06)
+23. PLAN-V2-82 (WS-02)
+24. PLAN-V2-96 (WS-05)
+25. PLAN-V2-114 (WS-11)
+26. PLAN-V2-122 (WS-12)
+27. PLAN-V2-125 (WS-11)
+28. PLAN-V2-126 (WS-11)
+29. PLAN-V2-130 (WS-10)
+30. PLAN-V2-135 (WS-06)
+31. PLAN-V2-134 (WS-06)
+32. PLAN-V2-141 (WS-11)
+33. PLAN-V2-142 (WS-04)
+34. PLAN-V2-145 (WS-04)
+35. PLAN-V2-146 (WS-06)
+36. PLAN-V2-147 (WS-04)
+37. PLAN-V2-148 (WS-04)
+38. PLAN-V2-149 (WS-06)
+39. PLAN-V2-150 (WS-06)
+40. PLAN-V2-151 (WS-07)
 - PLAN-V2-83 (WS-11) — plan=v2-83-skills-conformance-foundation — PR 248 — landing=landings/PLAN-V2-83.md — status: shipped
 - PLAN-V2-84 (WS-11) — plan=v2-84-null-safety-nullmarked — PR 255, 256, 257, 258, 261 — landing=landings/PLAN-V2-84.md — status: shipped
 - PLAN-V2-107 (WS-11) — plan=v2-107-generator-artifacts — PR 269 — landing=landings/PLAN-V2-107.md — status: shipped
@@ -175,7 +175,7 @@ ON RESUME: read the inbox and analyse each landing on arrival (read-only leaf, r
 | # | Plan | Workstream | Status | Surface (expected) | Lane |
 |---|------|------------|--------|--------------------|------|
 | 1 | PLAN-V2-94 | WS-11 | running | pm-core/src/main/java/; pm-providers/*/src/main/java/; pm-runtime/src/main/java/; pm-runtime/src/main/java/de/planmarshall/runtime/credentials/MacSecurity.java; pm-runtime/src/main/java/de/planmarshall/runtime/credentials/Posix.java; pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/AnswerSchema.java; pm-runtime/src/main/java/de/planmarshall/runtime/job/KillBinding.java; pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java; pm-runtime/src/main/java/de/planmarshall/runtime/worker/SystemProcessExecutables.java; pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java; pm-workflow/src/main/java/ | runbook |
-| 2 | PLAN-V2-102 | WS-11 | staged | pm-core/src/test/java/de/planmarshall/core/analysis/; pm-core/src/test/java/de/planmarshall/core/build/; pm-core/src/test/java/de/planmarshall/core/config/; pm-core/src/test/java/de/planmarshall/core/findings/; pm-core/src/test/java/de/planmarshall/core/guard/; pm-core/src/test/java/de/planmarshall/core/guard/AssertionMessageScanTest.java; pm-core/src/test/java/de/planmarshall/core/log/; pm-core/src/test/java/de/planmarshall/core/profile/; pm-core/src/test/java/de/planmarshall/core/queue/; pm-core/src/test/java/de/planmarshall/core/role/; pm-core/src/test/java/de/planmarshall/core/role/corpus/; pm-core/src/test/java/de/planmarshall/core/role/qualification/; pm-core/src/test/java/de/planmarshall/core/service/; pm-core/src/test/java/de/planmarshall/core/spi/; pm-core/src/test/java/de/planmarshall/core/spi/validation/; pm-core/src/test/java/de/planmarshall/core/toon/ | runbook |
+| 2 | PLAN-V2-102 | WS-11 | running | pm-core/src/test/java/de/planmarshall/core/analysis/; pm-core/src/test/java/de/planmarshall/core/build/; pm-core/src/test/java/de/planmarshall/core/config/; pm-core/src/test/java/de/planmarshall/core/findings/; pm-core/src/test/java/de/planmarshall/core/guard/; pm-core/src/test/java/de/planmarshall/core/guard/AssertionMessageScanTest.java; pm-core/src/test/java/de/planmarshall/core/log/; pm-core/src/test/java/de/planmarshall/core/profile/; pm-core/src/test/java/de/planmarshall/core/queue/; pm-core/src/test/java/de/planmarshall/core/role/; pm-core/src/test/java/de/planmarshall/core/role/corpus/; pm-core/src/test/java/de/planmarshall/core/role/qualification/; pm-core/src/test/java/de/planmarshall/core/service/; pm-core/src/test/java/de/planmarshall/core/spi/; pm-core/src/test/java/de/planmarshall/core/spi/validation/; pm-core/src/test/java/de/planmarshall/core/toon/ | runbook |
 | 3 | PLAN-V2-103 | WS-11 | staged | pm-providers/*/src/test/java/; pm-workflow/src/test/java/de/planmarshall/workflow/ast/; pm-workflow/src/test/java/de/planmarshall/workflow/classification/; pm-workflow/src/test/java/de/planmarshall/workflow/consult/; pm-workflow/src/test/java/de/planmarshall/workflow/diagram/; pm-workflow/src/test/java/de/planmarshall/workflow/dsl/; pm-workflow/src/test/java/de/planmarshall/workflow/engine/; pm-workflow/src/test/java/de/planmarshall/workflow/finalize/; pm-workflow/src/test/java/de/planmarshall/workflow/hypermedia/; pm-workflow/src/test/java/de/planmarshall/workflow/log/; pm-workflow/src/test/java/de/planmarshall/workflow/model/; pm-workflow/src/test/java/de/planmarshall/workflow/plan/; pm-workflow/src/test/java/de/planmarshall/workflow/question/; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/; pm-workflow/src/test/java/de/planmarshall/workflow/setup/; pm-workflow/src/test/java/de/planmarshall/workflow/task/; pm-workflow/src/test/java/de/planmarshall/workflow/unit/; pm-workflow/src/test/java/de/planmarshall/workflow/verify/ | runbook |
 | 4 | PLAN-V2-104 | WS-11 | staged | pm-runtime/src/test/java/de/planmarshall/runtime/audit/; pm-runtime/src/test/java/de/planmarshall/runtime/config/; pm-runtime/src/test/java/de/planmarshall/runtime/corpus/; pm-runtime/src/test/java/de/planmarshall/runtime/ingest/; pm-runtime/src/test/java/de/planmarshall/runtime/job/; pm-runtime/src/test/java/de/planmarshall/runtime/launch/; pm-runtime/src/test/java/de/planmarshall/runtime/lock/; pm-runtime/src/test/java/de/planmarshall/runtime/log/; pm-runtime/src/test/java/de/planmarshall/runtime/lsp/; pm-runtime/src/test/java/de/planmarshall/runtime/start/; pm-runtime/src/test/java/de/planmarshall/runtime/test/; pm-runtime/src/test/java/de/planmarshall/runtime/web/; pm-runtime/src/test/java/de/planmarshall/runtime/workspace/ | runbook |
 | 5 | PLAN-V2-105 | WS-11 | staged | pm-runtime/src/test/java/de/planmarshall/runtime/credentials/; pm-runtime/src/test/java/de/planmarshall/runtime/credentials/dbus/; pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/; pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/; pm-runtime/src/test/java/de/planmarshall/runtime/question/; pm-runtime/src/test/java/de/planmarshall/runtime/worker/ | runbook |
@@ -224,7 +224,7 @@ ON RESUME: read the inbox and analyse each landing on arrival (read-only leaf, r
 | 48 | PLAN-V2-60 | WS-05 | parked | doc/plans/decision-quorum-and-calibration.adoc; doc/specification/model-work/10-decision-quorum.adoc; doc/specification/store-schemas/16-task-queue.adoc; pm-core/doc/adr/core-role/; pm-core/doc/developer/core-role.adoc; pm-core/src/main/java/de/planmarshall/core/role/qualification/; pm-core/src/main/java/de/planmarshall/core/role/qualification/TokenTotal.java; pm-core/src/test/java/de/planmarshall/core/role/qualification/; pm-core/src/test/java/de/planmarshall/core/role/store-schemas/16 | runbook |
 | 49 | PLAN-V2-61 | WS-08 | parked | doc/implementation-watch/domain-extensions.adoc; doc/plans/domain-extensions-and-architecture.adoc; doc/specification/domain-extensions/01-four-axis-architecture.adoc; pm-core/doc/adr/core-domain/; pm-core/doc/developer/core-domain.adoc; pm-core/src/main/java/de/planmarshall/core/domain/; pm-core/src/test/java/de/planmarshall/core/domain/; pm-core/src/test/resources/asciidoc/ | runbook |
 | 50 | PLAN-V2-64 | WS-03 | parked | doc/plans/epic-review.adoc; doc/specification/model-work/01-roles-and-configuration.adoc; doc/specification/model-work/08-epic-coordination.adoc; doc/specification/state-catalogue/06-setup-epic-other.adoc; doc/specification/state-catalogue/17-epic-decomposition-and-review.adoc; doc/specification/store-schemas/04-epic-and-change-ledger.adoc; pm-workflow/doc/adr/workflow-epic/; pm-workflow/doc/developer/workflow-epic.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/epic/; pm-workflow/src/main/java/de/planmarshall/workflow/primitive/; pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java; pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolSubmitTest.java | runbook |
-| 51 | PLAN-V2-67 | WS-10 | staged | pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveResult.java; pm-core/src/main/java/de/planmarshall/core/store/Enrolments.java; pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveResultTest.java; pm-runtime/doc/adr/runtime-credentials/; pm-runtime/src/main/java/de/planmarshall/runtime/credentials/MacSecurity.java; pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java | runbook |
+| 51 | PLAN-V2-67 | WS-10 | running | pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveResult.java; pm-core/src/main/java/de/planmarshall/core/store/Enrolments.java; pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveResultTest.java; pm-runtime/doc/adr/runtime-credentials/; pm-runtime/src/main/java/de/planmarshall/runtime/credentials/MacSecurity.java; pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java | runbook |
 | 52 | PLAN-V2-69 | WS-02 | parked | doc/implementation-watch/workflow-dsl.adoc; doc/plans/process-designer.adoc; doc/specification/domain-extensions/05-recipes-and-extension-points.adoc; doc/specification/domain-extensions/06-configuration.adoc; doc/specification/filesystem-layout/01-repository-workspace.adoc; doc/specification/filesystem-layout/02-machine-runtime.adoc; doc/specification/identifiers/01-general-rules-and-registry.adoc; doc/specification/state-catalogue.adoc; doc/specification/state-catalogue/18-plan-unit-axes-short-landings.adoc; doc/specification/store-schemas/03-findings-and-review-records.adoc; doc/specification/workflow-dsl/01-grammar.adoc; doc/specification/workflow-dsl/02-units-jobs-decisions.adoc; doc/specification/workflow-dsl/04-ast-node-model.adoc; doc/specification/workflow-dsl/05-primitives.adoc; doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc; doc/specification/workflow-dsl/09-plan-instance.adoc; pm-core/src/main/java/de/planmarshall/core/role/RoleCatalog.java; pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveRegistry.java; pm-core/src/test/java/de/planmarshall/core/analysis/AnalysisResultSchemaTest.java; pm-core/src/test/java/de/planmarshall/core/findings/FindingSchemaParityTest.java; pm-workflow/doc/adr/workflow-verify/033-invariants-over-the-call-resolved-graph.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/ast/UnitOrigin.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderJson.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaCheck.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/UnitReference.java; pm-workflow/src/main/java/de/planmarshall/workflow/unit/PlanUnitMerger.java; pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProjectUnitLoader.java; pm-workflow/src/main/java/de/planmarshall/workflow/verify/CallGraphExpansion.java; pm-workflow/src/main/java/de/planmarshall/workflow/verify/CompiledInvariants.java; pm-workflow/src/main/java/de/planmarshall/workflow/verify/DeclarationBounds.java; pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java; pm-workflow/src/main/java/de/planmarshall/workflow/verify/UnitGraph.java; pm-workflow/src/test/java/de/planmarshall/workflow/dsl/UnitFrontmatterReaderTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/plan/HeaderSchemaCheckTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/unit/PlanUnitMergerTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoaderTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/verify/CallGraphExpansionTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBoundsTest.java | runbook |
 | 53 | PLAN-V2-70 | WS-04 | parked | doc/implementation-watch/client-profiles.adoc; doc/plans/client-profile-rendering.adoc; doc/specification/harness-profiles/02-placeholders.adoc; pm-core/src/main/java/de/planmarshall/core/profile/; pm-core/src/test/java/de/planmarshall/core/profile/ | runbook |
 | 54 | PLAN-V2-72 | WS-09 | parked | doc/plans/forgejo-provider.adoc; doc/specification/credentials-and-enrolment/01-provider-credentials.adoc; doc/specification/store-schemas/07-project-configuration.adoc; doc/specification/store-schemas/08-project-configuration-local.adoc; doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc; doc/specification/store-schemas/12-machine-stores.adoc; pm-core/src/main/java/de/planmarshall/core/findings/FindingSourceKind.java; pm-core/src/test/java/de/planmarshall/core/findings/FindingSchemaParityTest.java; pm-core/src/test/java/de/planmarshall/core/guard/ProviderNeutralityArchTest.java; pm-core/src/test/java/de/planmarshall/core/log/CoreLogMessagesTest.java; pm-providers/README.adoc; pm-providers/pm-provider-forgejo/; pm-providers/pm-provider-forgejo/README.adoc; pm-providers/pm-provider-forgejo/doc/developer/provider-forgejo.adoc; pm-providers/pm-provider-forgejo/pom.xml; pm-providers/pm-provider-forgejo/src/main/java/de/planmarshall/provider/forgejo/log/ForgejoLogMessages.java; pm-providers/pom.xml; pom.xml | runbook |
