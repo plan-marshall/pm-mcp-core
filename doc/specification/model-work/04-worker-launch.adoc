@@ -44,8 +44,10 @@ Recorded in the job record (`worker`, `argv_digest`): the server composes the la
 element is read from a file the model can write (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch
 Developer Guide]; link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas Specification, Job
 Record]). A change of the role's effective configuration applies to the next worker generation; a running generation
-keeps the contract it was launched with. The composed vector is validated against its argument schema without resolving
-(link:../job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime Specification, Verify-Not-Resolve Execution Pipeline]).
+keeps the contract it was launched with. The rendered vector is parsed back against the profile's template and the
+closed grammar of each typed slot before the spawn; a violation refuses the launch as `argument_rejected`, recorded
+`refused` (link:../../../pm-runtime/doc/developer/runtime-launch.adoc#_the_composed_vector_check[Worker Launch Developer
+Guide, The Composed-Vector Check]).
 
 [#harness-selection]
 === Harness Eligibility & Launch Refusals
