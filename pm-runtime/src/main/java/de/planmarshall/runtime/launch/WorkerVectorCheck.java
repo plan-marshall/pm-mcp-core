@@ -38,8 +38,7 @@ import de.planmarshall.core.profile.ProfileRefusal;
  * grammar of each typed slot. It does not render again: re-running the composer's own replacement would repeat the code
  * under test and prove nothing, so the vector is matched element against template element, the literal parts of a
  * template element are required exactly, and the value between two literals is the slot value that element carries.
- * The decision is recorded in link:../../../doc/adr/runtime-launch/009-the-composed-vector-is-parsed-back.adoc[ADR
- * runtime-launch/009].
+ * The decision is recorded in ADR {@code runtime-launch/010}.
  * <p>
  * The rules, in the order the answer reports them:
  * <ol>
