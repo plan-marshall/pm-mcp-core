@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.profile.EndpointProfileFixtures;
 import de.planmarshall.core.profile.JsonDocument;
+import de.planmarshall.core.profile.LoadedProfile;
+import de.planmarshall.core.profile.ProfileSetKind;
 
 /**
  * The reading of {@code headless.long_context_thresholds} (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models of a
@@ -51,7 +53,10 @@ class LongContextThresholdsTest {
                 () -> assertEquals(OptionalInt.of(200_000), thresholds.forModel("acme-frontier"),
                         "The model's own threshold is answered"),
                 () -> assertEquals(Map.of("acme-frontier", 200_000, "acme-standard", 128_000), thresholds.byModel(),
-                        "Both declared entries are read"));
+                        "Both declared entries are read"),
+                () -> assertEquals(OptionalInt.of(200_000),
+                        LongContextThresholds.of(loadedProfile(PROFILE)).forModel("acme-frontier"),
+                        "The loaded profile's threshold is read"));
     }
 
     @Test
@@ -96,5 +101,12 @@ class LongContextThresholdsTest {
     /** Reads the thresholds of a profile document. */
     private static LongContextThresholds thresholds(String document) {
         return LongContextThresholds.of(JsonDocument.parse(document.getBytes(UTF_8), DOCUMENT));
+    }
+
+    /** @return the loaded profile over the document's bytes */
+    private static LoadedProfile loadedProfile(String document) {
+        var bytes = document.getBytes(UTF_8);
+        return new LoadedProfile("acme-cli", ProfileSetKind.PROJECT, JsonDocument.parse(bytes, DOCUMENT), bytes,
+                LoadedProfile.State.VERIFIED, null);
     }
 }
