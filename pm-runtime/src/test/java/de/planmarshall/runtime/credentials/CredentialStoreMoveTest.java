@@ -473,7 +473,7 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries(),
                             "the old store keeps both of its entries"),
                     () -> assertTrue(keyIn(fileStore).read().isPresent(),
-                            "the target holds the integrity key it copied"),
+                            "the old store still holds the integrity key"),
                     () -> assertFalse(Files.exists(recordFile()), "no record is left after the failed switch"));
         }
 

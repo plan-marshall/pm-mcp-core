@@ -159,7 +159,7 @@ class WorkerRecyclingTest {
                 () -> assertEquals(RecycleCause.IDLE, lower.recycleCause(), "the role lowers the bound"),
                 () -> assertEquals(1L, lower.idleWakeups(), "the lower role bound counts one wake-up"),
                 () -> assertEquals(2L, raised.idleWakeups(), "the role cannot raise the host's bound"),
-                () -> assertNull(raised.recycleCause(), "the higher role bound raises no bound"));
+                () -> assertNull(raised.recycleCause(), "no recycle cause is recorded at the host's bound"));
     }
 
     @Test
