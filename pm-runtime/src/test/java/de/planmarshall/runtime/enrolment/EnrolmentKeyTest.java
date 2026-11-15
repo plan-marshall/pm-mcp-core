@@ -117,7 +117,7 @@ class EnrolmentKeyTest {
         @Test
         @DisplayName("is absent before the first enrolment write")
         void absent() {
-            assertTrue(key.read().isEmpty());
+            assertTrue(key.read().isEmpty(), "the key is absent before the first write");
         }
 
         @Test
@@ -128,13 +128,17 @@ class EnrolmentKeyTest {
             var again = key.readOrCreate();
 
             assertAll(
-                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()),
-                    () -> assertArrayEquals(created.getEncoded(), key.read().orElseThrow().getEncoded()),
-                    () -> assertEquals(EnrolmentKey.KEY_BYTES, created.getEncoded().length),
-                    () -> assertEquals(EnrolmentKey.ALGORITHM, created.getAlgorithm()),
-                    () -> assertEquals(1, keyring.entries.size()),
-                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
-                    () -> assertFalse(Files.exists(key.keyFile())));
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded(),
+                            "the reused key is the created key"),
+                    () -> assertArrayEquals(created.getEncoded(), key.read().orElseThrow().getEncoded(),
+                            "a later read returns the same key"),
+                    () -> assertEquals(EnrolmentKey.KEY_BYTES, created.getEncoded().length,
+                            "the key is thirty two bytes long"),
+                    () -> assertEquals(EnrolmentKey.ALGORITHM, created.getAlgorithm(), "the key algorithm is HMAC"),
+                    () -> assertEquals(1, keyring.entries.size(), "the keyring holds exactly one entry"),
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT),
+                            "the key is stored under the global account"),
+                    () -> assertFalse(Files.exists(key.keyFile()), "no key file is left on disk"));
         }
 
         @Test
@@ -142,10 +146,10 @@ class EnrolmentKeyTest {
         void failingKeyring() {
             keyring.failure = new SecretStoreException(Reason.LOCKED, "keyring locked");
 
-            var thrown = assertThrows(SecretStoreException.class, key::read);
+            var thrown = assertThrows(SecretStoreException.class, key::read, "a failing keyring is unreadable");
 
             assertAll(
-                    () -> assertEquals(Reason.LOCKED, thrown.reason()),
+                    () -> assertEquals(Reason.LOCKED, thrown.reason(), "a locked keyring reports the locked reason"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()));
         }
@@ -155,10 +159,11 @@ class EnrolmentKeyTest {
         void refusedWrite() {
             keyring.refusePut = true;
 
-            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate,
+                    "a keyring that refuses the write is unavailable");
 
             assertAll(
-                    () -> assertEquals(Reason.FAILED, thrown.reason()),
+                    () -> assertEquals(Reason.FAILED, thrown.reason(), "the failure is reported as failed"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()));
         }
@@ -168,7 +173,9 @@ class EnrolmentKeyTest {
         void malformedEntry() {
             keyring.entries.put(EnrolmentKey.ACCOUNT, "c2hvcnQ");
 
-            assertEquals(Reason.INVALID, assertThrows(SecretStoreException.class, key::read).reason());
+            assertEquals(Reason.INVALID,
+                    assertThrows(SecretStoreException.class, key::read, "a malformed key is refused").reason(),
+                    "a malformed key reports invalid");
         }
 
         @Test
@@ -177,8 +184,9 @@ class EnrolmentKeyTest {
             key.readOrCreate();
 
             assertAll(
-                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
-                    () -> assertEquals(List.of(), entries(state)));
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT),
+                            "the key is stored under the global account"),
+                    () -> assertEquals(List.of(), entries(state), "the state directory stays empty"));
         }
     }
 
@@ -196,12 +204,17 @@ class EnrolmentKeyTest {
 
             var content = Files.readString(key.keyFile(), StandardCharsets.US_ASCII);
             assertAll(
-                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state)),
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state),
+                            "the state directory holds only the key file"),
                     () -> assertEquals("rw-------",
-                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile()))),
-                    () -> assertEquals(EnrolmentKey.KEY_BYTES, Base64.getUrlDecoder().decode(content).length),
-                    () -> assertArrayEquals(created.getEncoded(), Base64.getUrlDecoder().decode(content)),
-                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()));
+                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile())),
+                            "the key file is readable by its owner only"),
+                    () -> assertEquals(EnrolmentKey.KEY_BYTES, Base64.getUrlDecoder().decode(content).length,
+                            "the key file holds thirty two bytes"),
+                    () -> assertArrayEquals(created.getEncoded(), Base64.getUrlDecoder().decode(content),
+                            "the key file holds the created key"),
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded(),
+                            "the reused key is the created key"));
         }
 
         @ParameterizedTest
@@ -213,14 +226,18 @@ class EnrolmentKeyTest {
             Files.setPosixFilePermissions(key.keyFile(), PosixFilePermissions.fromString("rw-------"));
             var before = Files.readAllBytes(key.keyFile());
 
-            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate,
+                    "a partial key file is refused as invalid");
 
             assertAll(
-                    () -> assertEquals(Reason.INVALID, thrown.reason()),
-                    () -> assertArrayEquals(before, Files.readAllBytes(key.keyFile())),
+                    () -> assertEquals(Reason.INVALID, thrown.reason(), "a partial key is reported as invalid"),
+                    () -> assertArrayEquals(before, Files.readAllBytes(key.keyFile()),
+                            "the key file is left unchanged"),
                     () -> assertEquals("rw-------",
-                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile()))),
-                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state)));
+                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile())),
+                            "the key file is readable by its owner only"),
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state),
+                            "the state directory holds only the key file"));
         }
 
         @Test
@@ -232,14 +249,18 @@ class EnrolmentKeyTest {
             Files.setPosixFilePermissions(key.keyFile(), PosixFilePermissions.fromString("rw-r--r--"));
             var before = Files.readAllBytes(key.keyFile());
 
-            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate,
+                    "an insecure key file is refused as insecure");
 
             assertAll(
-                    () -> assertEquals(Reason.INSECURE, thrown.reason()),
-                    () -> assertArrayEquals(before, Files.readAllBytes(key.keyFile())),
+                    () -> assertEquals(Reason.INSECURE, thrown.reason(), "the insecure mode is reported insecure"),
+                    () -> assertArrayEquals(before, Files.readAllBytes(key.keyFile()),
+                            "the key file is left unchanged"),
                     () -> assertEquals("rw-r--r--",
-                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile()))),
-                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state)));
+                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile())),
+                            "the broad mode is preserved unchanged"),
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state),
+                            "the state directory holds only the key file"));
         }
 
         @Test
@@ -253,9 +274,11 @@ class EnrolmentKeyTest {
             var returned = key.readOrCreate();
 
             assertAll(
-                    () -> assertArrayEquals(otherKey, returned.getEncoded()),
-                    () -> assertEquals(encode(otherKey), Files.readString(keyFile, StandardCharsets.US_ASCII)),
-                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state)));
+                    () -> assertArrayEquals(otherKey, returned.getEncoded(), "the racing writer key is returned"),
+                    () -> assertEquals(encode(otherKey), Files.readString(keyFile, StandardCharsets.US_ASCII),
+                            "the key file holds the racing key"),
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state),
+                            "the state directory holds only the key file"));
         }
 
         @Test
@@ -265,10 +288,11 @@ class EnrolmentKeyTest {
             var key = new EnrolmentKey(new FileStoreName(), missing, USER, new FixedRandom((byte) 3, () -> {
             }));
 
-            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate,
+                    "a key file in a missing directory is unavailable");
 
             assertFailedWithoutKey(thrown, key, encode(filled((byte) 3)));
-            assertFalse(Files.exists(missing));
+            assertFalse(Files.exists(missing), "a failed create leaves no directory");
         }
 
         @Test
@@ -281,10 +305,11 @@ class EnrolmentKeyTest {
             var key = new EnrolmentKey(new FileStoreName(), locked, USER, new FixedRandom((byte) 5, () -> {
             }));
             try {
-                var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+                var thrown = assertThrows(SecretStoreException.class, key::readOrCreate,
+                        "a key file in an unwritable directory is unavailable");
 
                 assertFailedWithoutKey(thrown, key, encode(filled((byte) 5)));
-                assertEquals(List.of(), entries(locked));
+                assertEquals(List.of(), entries(locked), "the unwritable directory stays empty");
             } finally {
                 Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rwx------"));
             }
@@ -292,14 +317,16 @@ class EnrolmentKeyTest {
 
         private void assertFailedWithoutKey(SecretStoreException thrown, EnrolmentKey key, String encoded) {
             assertAll(
-                    () -> assertEquals(Reason.FAILED, thrown.reason()),
-                    () -> assertTrue(thrown.getMessage().contains(key.keyFile().toString())),
-                    () -> assertFalse(thrown.getMessage().contains(encoded)),
+                    () -> assertEquals(Reason.FAILED, thrown.reason(), "the failure is reported as failed"),
+                    () -> assertTrue(thrown.getMessage().contains(key.keyFile().toString()),
+                            "the message names the key file"),
+                    () -> assertFalse(thrown.getMessage().contains(encoded), "the message never carries the key"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()),
                     () -> assertTrue(TestLoggerFactory.getTestHandler()
-                            .resolveLogMessagesContaining(TestLogLevel.ERROR, encoded).isEmpty()),
-                    () -> assertFalse(Files.exists(key.keyFile())));
+                                    .resolveLogMessagesContaining(TestLogLevel.ERROR, encoded).isEmpty(),
+                            "the log never carries the key material"),
+                    () -> assertFalse(Files.exists(key.keyFile()), "no key file is left on disk"));
         }
     }
 
@@ -372,8 +399,8 @@ class EnrolmentKeyTest {
         void absent() {
             assertAll(
                     () -> assertEquals(state.toAbsolutePath().normalize().resolve("enrolment-hmac.key"),
-                            key.keyFile()),
-                    () -> assertTrue(key.read().isEmpty()));
+                            key.keyFile(), "the key file lies in the state directory"),
+                    () -> assertTrue(key.read().isEmpty(), "the key is absent before the first write"));
         }
 
         @Test
@@ -384,10 +411,13 @@ class EnrolmentKeyTest {
             var again = key.readOrCreate();
 
             assertAll(
-                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()),
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded(),
+                            "the reused key is the created key"),
                     () -> assertEquals("rw-------",
-                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile()))),
-                    () -> assertEquals(43, Files.readString(key.keyFile()).length()));
+                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile())),
+                            "the key file is readable by its owner only"),
+                    () -> assertEquals(43, Files.readString(key.keyFile()).length(),
+                            "the key file holds forty three characters"));
         }
 
         @Test
@@ -397,7 +427,8 @@ class EnrolmentKeyTest {
 
             var read = new EnrolmentKey(new FileStoreName(), state, USER, new SecureRandom()).read();
 
-            assertArrayEquals(created.getEncoded(), read.orElseThrow().getEncoded());
+            assertArrayEquals(created.getEncoded(), read.orElseThrow().getEncoded(),
+                    "a second instance reads the same key");
         }
 
         @Test
@@ -407,11 +438,12 @@ class EnrolmentKeyTest {
             var content = Files.readString(key.keyFile());
             Files.setPosixFilePermissions(key.keyFile(), PosixFilePermissions.fromString("rw-r--r--"));
 
-            var thrown = assertThrows(SecretStoreException.class, key::read);
+            var thrown = assertThrows(SecretStoreException.class, key::read,
+                    "a broad mode is unreadable as insecure");
 
             assertAll(
-                    () -> assertEquals(Reason.INSECURE, thrown.reason()),
-                    () -> assertFalse(thrown.getMessage().contains(content)),
+                    () -> assertEquals(Reason.INSECURE, thrown.reason(), "the insecure mode is reported insecure"),
+                    () -> assertFalse(thrown.getMessage().contains(content), "the message never shows the key"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()));
         }
@@ -423,7 +455,9 @@ class EnrolmentKeyTest {
 
             var foreign = new EnrolmentKey(new FileStoreName(), state, foreignUser, new SecureRandom());
 
-            assertEquals(Reason.INSECURE, assertThrows(SecretStoreException.class, foreign::read).reason());
+            assertEquals(Reason.INSECURE,
+                    assertThrows(SecretStoreException.class, foreign::read, "a foreign owner is refused").reason(),
+                    "a foreign owner file is insecure");
         }
 
         @ParameterizedTest
@@ -433,7 +467,9 @@ class EnrolmentKeyTest {
             Files.writeString(key.keyFile(), content, StandardCharsets.US_ASCII);
             Files.setPosixFilePermissions(key.keyFile(), PosixFilePermissions.fromString("rw-------"));
 
-            assertEquals(Reason.INVALID, assertThrows(SecretStoreException.class, key::read).reason());
+            assertEquals(Reason.INVALID,
+                    assertThrows(SecretStoreException.class, key::read, "a malformed key is refused").reason(),
+                    "a malformed key reports invalid");
         }
 
         @Test
@@ -441,7 +477,10 @@ class EnrolmentKeyTest {
         void notCreatable() {
             var missing = new EnrolmentKey(new FileStoreName(), state.resolve("absent-dir"), USER, new SecureRandom());
 
-            assertEquals(Reason.FAILED, assertThrows(SecretStoreException.class, missing::readOrCreate).reason());
+            assertEquals(Reason.FAILED,
+                    assertThrows(SecretStoreException.class, missing::readOrCreate,
+                            "a missing dir is refused").reason(),
+                    "a create without a directory fails");
         }
     }
 
@@ -523,16 +562,18 @@ class EnrolmentKeyTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(projectLock);
 
-                assertThrows(InternalFaultException.class, () -> transaction.acquire(creationLock));
+                assertThrows(InternalFaultException.class, () -> transaction.acquire(creationLock),
+                        "the creation lock is taken before enrolment");
             }
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(creationLock);
                 transaction.acquire(projectLock);
 
                 assertAll(
-                        () -> assertEquals(LockKey.credentials(base), creationLock),
-                        () -> assertTrue(transaction.holds(creationLock)),
-                        () -> assertTrue(transaction.holds(projectLock)));
+                        () -> assertEquals(LockKey.credentials(base), creationLock,
+                                "the creation lock is the credentials lock"),
+                        () -> assertTrue(transaction.holds(creationLock), "the transaction holds the creation lock"),
+                        () -> assertTrue(transaction.holds(projectLock), "the transaction holds the project lock"));
             }
         }
 
@@ -548,9 +589,9 @@ class EnrolmentKeyTest {
             var again = key.readOrCreate();
 
             assertAll(
-                    () -> assertArrayEquals(foreign, created.getEncoded()),
-                    () -> assertArrayEquals(foreign, again.getEncoded()),
-                    () -> assertEquals(1, keyring.puts.get()));
+                    () -> assertArrayEquals(foreign, created.getEncoded(), "the adopted key is the foreign key"),
+                    () -> assertArrayEquals(foreign, again.getEncoded(), "a later read returns the foreign key"),
+                    () -> assertEquals(1, keyring.puts.get(), "exactly one key write reaches the keyring"));
         }
 
         @Test
@@ -560,16 +601,18 @@ class EnrolmentKeyTest {
             var key = new EnrolmentKey(keyring, state, USER, new FixedRandom((byte) 9, () -> {
             }));
 
-            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate,
+                    "an entry that vanished after the write is unavailable");
 
             assertAll(
-                    () -> assertEquals(Reason.FAILED, thrown.reason()),
+                    () -> assertEquals(Reason.FAILED, thrown.reason(), "the failure is reported as failed"),
                     () -> assertTrue(thrown.getMessage().contains("vanished after it was written"),
                             thrown.getMessage()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()),
                     () -> assertTrue(TestLoggerFactory.getTestHandler()
-                            .resolveLogMessagesContaining(TestLogLevel.ERROR, encode(filled((byte) 9))).isEmpty()));
+                                    .resolveLogMessagesContaining(TestLogLevel.ERROR, encode(filled((byte) 9))).isEmpty(),
+                            "the log never carries the key"));
         }
 
         @Test
@@ -581,7 +624,8 @@ class EnrolmentKeyTest {
 
             var created = key.readOrCreate();
 
-            assertEquals(keyring.entries.get(EnrolmentKey.ACCOUNT), encode(created.getEncoded()));
+            assertEquals(keyring.entries.get(EnrolmentKey.ACCOUNT), encode(created.getEncoded()),
+                    "the keyring holds the created key");
         }
     }
 
@@ -633,7 +677,8 @@ class EnrolmentKeyTest {
         }
 
         private void assertWaitsWhileThePausedCreateHoldsTheLock(Future<?> second) {
-            assertThrows(TimeoutException.class, () -> second.get(300, TimeUnit.MILLISECONDS));
+            assertThrows(TimeoutException.class, () -> second.get(300, TimeUnit.MILLISECONDS),
+                    "the second caller waits for the lock");
         }
 
         @Test
@@ -657,10 +702,12 @@ class EnrolmentKeyTest {
             second.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
 
             assertAll(
-                    () -> assertEquals(1, putsWhilePaused),
-                    () -> assertEquals(1, keyring.puts.get()),
-                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId()),
-                    () -> assertEquals(PROJECT, verifyWith(secondKey, PROJECT).projectId()));
+                    () -> assertEquals(1, putsWhilePaused, "the paused create sees one write"),
+                    () -> assertEquals(1, keyring.puts.get(), "exactly one key write reaches the keyring"),
+                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId(),
+                            "the first key verifies the other project"),
+                    () -> assertEquals(PROJECT, verifyWith(secondKey, PROJECT).projectId(),
+                            "the second key verifies the project"));
         }
 
         @Test
@@ -680,8 +727,9 @@ class EnrolmentKeyTest {
             second.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
 
             assertAll(
-                    () -> assertEquals(1, keyring.puts.get()),
-                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId()));
+                    () -> assertEquals(1, keyring.puts.get(), "exactly one key write reaches the keyring"),
+                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId(),
+                            "the first key verifies the other project"));
         }
 
         @Test
@@ -700,9 +748,12 @@ class EnrolmentKeyTest {
             second.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
 
             assertAll(
-                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(stateDirectory)),
-                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId()),
-                    () -> assertEquals(PROJECT, verifyWith(secondKey, PROJECT).projectId()));
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(stateDirectory),
+                            "one key file is written in state"),
+                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId(),
+                            "the first key verifies the other project"),
+                    () -> assertEquals(PROJECT, verifyWith(secondKey, PROJECT).projectId(),
+                            "the second key verifies the project"));
         }
 
         @Test
@@ -727,9 +778,11 @@ class EnrolmentKeyTest {
             second.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
 
             assertAll(
-                    () -> assertEquals(1, keyring.puts.get()),
-                    () -> assertEquals(PROJECT, verifyWith(secondKey, PROJECT).projectId()),
-                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId()));
+                    () -> assertEquals(1, keyring.puts.get(), "exactly one key write reaches the keyring"),
+                    () -> assertEquals(PROJECT, verifyWith(secondKey, PROJECT).projectId(),
+                            "the second key verifies the project"),
+                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId(),
+                            "the first key verifies the other project"));
         }
     }
 
@@ -756,7 +809,7 @@ class EnrolmentKeyTest {
             key.readOrCreate();
             key.read();
 
-            assertEquals(3, asked.get());
+            assertEquals(3, asked.get(), "the supplier is asked three times");
         }
 
         @Test
@@ -772,8 +825,9 @@ class EnrolmentKeyTest {
             var moved = key.read();
 
             assertAll(
-                    () -> assertArrayEquals(created.getEncoded(), moved.orElseThrow().getEncoded()),
-                    () -> assertTrue(Files.exists(key.keyFile())));
+                    () -> assertArrayEquals(created.getEncoded(), moved.orElseThrow().getEncoded(),
+                            "the moved key is read from the keyring"),
+                    () -> assertTrue(Files.exists(key.keyFile()), "the old key file is still there"));
         }
 
         @Test
@@ -785,7 +839,7 @@ class EnrolmentKeyTest {
 
             current[0] = new InMemoryKeyring();
 
-            assertTrue(key.read().isEmpty());
+            assertTrue(key.read().isEmpty(), "a key not moved is absent in the new store");
         }
 
         @ParameterizedTest(name = "OS store available: {0}")
@@ -799,8 +853,10 @@ class EnrolmentKeyTest {
             key.readOrCreate();
 
             assertAll(
-                    () -> assertEquals(osStoreAvailable, keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
-                    () -> assertEquals(!osStoreAvailable, Files.exists(key.keyFile())));
+                    () -> assertEquals(osStoreAvailable, keyring.entries.containsKey(EnrolmentKey.ACCOUNT),
+                            "the key lands in the found OS store"),
+                    () -> assertEquals(!osStoreAvailable, Files.exists(key.keyFile()),
+                            "the key file exists only without an OS store"));
         }
 
         @Test
@@ -816,8 +872,10 @@ class EnrolmentKeyTest {
             key.readOrCreate();
 
             assertAll(
-                    () -> assertEquals(stateDirectory.resolve(EnrolmentKey.FILE_NAME), key.keyFile()),
-                    () -> assertTrue(Files.exists(stateDirectory.resolve(EnrolmentKey.FILE_NAME))));
+                    () -> assertEquals(stateDirectory.resolve(EnrolmentKey.FILE_NAME), key.keyFile(),
+                            "the recorded file store maps to the key file"),
+                    () -> assertTrue(Files.exists(stateDirectory.resolve(EnrolmentKey.FILE_NAME)),
+                            "the key file is written in state"));
         }
 
         @Test
@@ -838,9 +896,11 @@ class EnrolmentKeyTest {
             var afterwards = key.readOrCreate();
 
             assertAll(
-                    () -> assertArrayEquals(created.getEncoded(), afterwards.getEncoded()),
-                    () -> assertTrue(Files.exists(key.keyFile())),
-                    () -> assertFalse(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)));
+                    () -> assertArrayEquals(created.getEncoded(), afterwards.getEncoded(),
+                            "the key survives the switch to the file"),
+                    () -> assertTrue(Files.exists(key.keyFile()), "the key file exists on disk"),
+                    () -> assertFalse(keyring.entries.containsKey(EnrolmentKey.ACCOUNT),
+                            "the OS store no longer holds the key"));
         }
 
         @Test
@@ -858,9 +918,11 @@ class EnrolmentKeyTest {
             var again = key.readOrCreate();
 
             assertAll(
-                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()),
-                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
-                    () -> assertFalse(Files.exists(key.keyFile())));
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded(),
+                            "the reused key is the created key"),
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT),
+                            "the key is stored under the global account"),
+                    () -> assertFalse(Files.exists(key.keyFile()), "no key file is left on disk"));
         }
 
         @Test
@@ -877,8 +939,9 @@ class EnrolmentKeyTest {
             var again = key.readOrCreate();
 
             assertAll(
-                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()),
-                    () -> assertTrue(Files.exists(key.keyFile())),
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded(),
+                            "the reused key is the created key"),
+                    () -> assertTrue(Files.exists(key.keyFile()), "the key file exists on disk"),
                     () -> assertTrue(keyring.entries.isEmpty(), keyring.entries.keySet().toString()));
         }
 
@@ -887,9 +950,9 @@ class EnrolmentKeyTest {
         void fixedStoreRequired() {
             var random = new SecureRandom();
             var npe = assertThrows(NullPointerException.class,
-                    () -> new EnrolmentKey((SecretStore) null, state, USER, random));
+                    () -> new EnrolmentKey((SecretStore) null, state, USER, random), "a null store is refused");
 
-            assertEquals("store", npe.getMessage());
+            assertEquals("store", npe.getMessage(), "the missing store is named");
         }
     }
 

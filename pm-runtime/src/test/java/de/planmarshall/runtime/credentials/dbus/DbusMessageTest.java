@@ -86,7 +86,7 @@ class DbusMessageTest {
             var message = DbusMessage.methodCall(1, "org.freedesktop.DBus", "/org/freedesktop/DBus",
                     "org.freedesktop.DBus", "Hello", "", List.of());
 
-            assertArrayEquals(hex(HELLO), message.encode());
+            assertArrayEquals(hex(HELLO), message.encode(), "Hello encodes to the reference bytes");
         }
 
         @Test
@@ -95,7 +95,7 @@ class DbusMessageTest {
             var message = DbusMessage.methodCall(2, "org.freedesktop.secrets", "/org/freedesktop/secrets",
                     "org.freedesktop.Secret.Service", "OpenSession", "sv", List.of("plain", new Variant("s", "")));
 
-            assertArrayEquals(hex(OPEN_SESSION), message.encode());
+            assertArrayEquals(hex(OPEN_SESSION), message.encode(), "OpenSession encodes to the reference bytes");
         }
 
         @Test
@@ -107,7 +107,7 @@ class DbusMessageTest {
             var message = DbusMessage.methodCall(3, "org.freedesktop.secrets", "/org/freedesktop/secrets",
                     "org.freedesktop.Secret.Service", "SearchItems", "a{ss}", List.of(attributes));
 
-            assertArrayEquals(hex(SEARCH), message.encode());
+            assertArrayEquals(hex(SEARCH), message.encode(), "SearchItems encodes to the reference bytes");
         }
     }
 
@@ -122,15 +122,15 @@ class DbusMessageTest {
 
             var message = DbusMessage.decode(bytes);
 
-            assertEquals(bytes.length, DbusMessage.totalLength(bytes));
-            assertEquals(DbusMessage.METHOD_RETURN, message.type());
-            assertEquals(DbusMessage.NO_REPLY_EXPECTED, message.flags());
-            assertEquals(7, message.serial());
-            assertEquals(1, message.replySerial());
-            assertEquals(":1.42", message.destination());
-            assertEquals("org.freedesktop.DBus", message.sender());
-            assertEquals(List.of(":1.42"), message.body());
-            assertNull(message.member());
+            assertEquals(bytes.length, DbusMessage.totalLength(bytes), "total length matches the buffer size");
+            assertEquals(DbusMessage.METHOD_RETURN, message.type(), "the message type is method return");
+            assertEquals(DbusMessage.NO_REPLY_EXPECTED, message.flags(), "the flags mark no reply expected");
+            assertEquals(7, message.serial(), "the serial number is seven");
+            assertEquals(1, message.replySerial(), "the reply serial points at one");
+            assertEquals(":1.42", message.destination(), "the destination is the unique name");
+            assertEquals("org.freedesktop.DBus", message.sender(), "the sender is the bus driver");
+            assertEquals(List.of(":1.42"), message.body(), "the body carries the unique name");
+            assertNull(message.member(), "a method return carries no member");
         }
 
         @Test
@@ -140,11 +140,11 @@ class DbusMessageTest {
 
             var secrets = (Map<?, ?>) message.body().getFirst();
             var secret = (List<?>) secrets.get("/org/freedesktop/secrets/collection/login/7");
-            assertEquals("/org/freedesktop/secrets/session/s1", secret.get(0));
-            assertArrayEquals(new byte[0], (byte[]) secret.get(1));
-            assertArrayEquals("s3cr3t".getBytes(), (byte[]) secret.get(2));
-            assertEquals("text/plain", secret.get(3));
-            assertEquals(4, message.replySerial());
+            assertEquals("/org/freedesktop/secrets/session/s1", secret.get(0), "the session object path is decoded");
+            assertArrayEquals(new byte[0], (byte[]) secret.get(1), "the first byte array is empty");
+            assertArrayEquals("s3cr3t".getBytes(), (byte[]) secret.get(2), "the second byte array holds s3cr3t");
+            assertEquals("text/plain", secret.get(3), "the secret content type is text plain");
+            assertEquals(4, message.replySerial(), "the reply serial points at four");
         }
 
         @Test
@@ -152,10 +152,12 @@ class DbusMessageTest {
         void errorReply() {
             var message = DbusMessage.decode(hex(ERROR_REPLY));
 
-            assertEquals(DbusMessage.ERROR, message.type());
-            assertEquals("org.freedesktop.DBus.Error.ServiceUnknown", message.errorName());
-            assertEquals(2, message.replySerial());
-            assertEquals(List.of("The name is not activatable"), message.body());
+            assertEquals(DbusMessage.ERROR, message.type(), "the message type is error");
+            assertEquals("org.freedesktop.DBus.Error.ServiceUnknown", message.errorName(),
+                    "the error name is decoded in full");
+            assertEquals(2, message.replySerial(), "the reply serial points at two");
+            assertEquals(List.of("The name is not activatable"), message.body(),
+                    "the error body carries the bus text");
         }
 
         @Test
@@ -164,7 +166,8 @@ class DbusMessageTest {
             var bytes = hex(HELLO_REPLY);
             bytes[0] = 'x';
 
-            assertThrows(DbusException.class, () -> DbusMessage.decode(bytes));
+            assertThrows(DbusException.class, () -> DbusMessage.decode(bytes),
+                    "an unknown byte order marker is refused");
         }
 
         @Test
@@ -173,7 +176,7 @@ class DbusMessageTest {
             var bytes = hex(SECRETS_REPLY);
             var truncated = Arrays.copyOf(bytes, bytes.length - 8);
 
-            assertThrows(DbusException.class, () -> DbusMessage.decode(truncated));
+            assertThrows(DbusException.class, () -> DbusMessage.decode(truncated), "a truncated body is refused");
         }
     }
 
@@ -196,7 +199,7 @@ class DbusMessageTest {
         void basic(String type, String bytes, String expected) {
             var value = new DbusReader(hex(bytes), ByteOrder.LITTLE_ENDIAN).read(type).getFirst();
 
-            assertEquals(expected, String.valueOf(value));
+            assertEquals(expected, String.valueOf(value), "the value decodes to the expected text");
         }
 
         @Test
@@ -212,21 +215,22 @@ class DbusMessageTest {
             var bytes = new DbusWriter().write(signature, values).toByteArray();
             var read = new DbusReader(bytes, ByteOrder.LITTLE_ENDIAN).read(signature);
 
-            assertEquals((byte) 1, read.get(0));
-            assertEquals((short) -3, read.get(1));
-            assertEquals(65_000, read.get(2));
-            assertEquals(-5L, read.get(3));
-            assertEquals(6L, read.get(4));
-            assertEquals(true, read.get(5));
-            assertEquals(new Variant("u", 9L), read.get(6));
-            assertEquals(List.of("/a", "/b"), read.get(7));
+            assertEquals((byte) 1, read.get(0), "the byte value round trips");
+            assertEquals((short) -3, read.get(1), "the int16 value round trips");
+            assertEquals(65_000, read.get(2), "the uint16 value round trips");
+            assertEquals(-5L, read.get(3), "the int64 value round trips");
+            assertEquals(6L, read.get(4), "the uint64 value round trips");
+            assertEquals(true, read.get(5), "the boolean value round trips");
+            assertEquals(new Variant("u", 9L), read.get(6), "the variant value round trips");
+            assertEquals(List.of("/a", "/b"), read.get(7), "the object path array round trips");
             var readDict = (Map<?, ?>) read.get(8);
-            assertEquals(new Variant("s", "x"), readDict.get("Label"));
-            assertEquals(Map.of("k", "v"), ((Variant) readDict.get("Attributes")).value());
+            assertEquals(new Variant("s", "x"), readDict.get("Label"), "the string dictionary entry round trips");
+            assertEquals(Map.of("k", "v"), ((Variant) readDict.get("Attributes")).value(),
+                    "the nested dictionary entry round trips");
             var struct = (List<?>) read.get(9);
-            assertEquals("s", struct.get(0));
-            assertArrayEquals(new byte[]{1, 2}, (byte[]) struct.get(1));
-            assertEquals(false, struct.get(2));
+            assertEquals("s", struct.get(0), "the struct string member round trips");
+            assertArrayEquals(new byte[]{1, 2}, (byte[]) struct.get(1), "the struct byte array round trips");
+            assertEquals(false, struct.get(2), "the struct boolean member round trips");
         }
 
         @Test
@@ -234,7 +238,8 @@ class DbusMessageTest {
         void alignment() {
             var bytes = new DbusWriter().write("yx", List.of(1, 2L)).toByteArray();
 
-            assertArrayEquals(hex("01000000000000000200000000000000"), bytes);
+            assertArrayEquals(hex("01000000000000000200000000000000"), bytes,
+                    "the int64 starts at the eight byte boundary");
         }
 
         @Test
@@ -242,7 +247,7 @@ class DbusMessageTest {
         void bigEndian() {
             var value = new DbusReader(hex("00000003616263000000"), ByteOrder.BIG_ENDIAN).read("s");
 
-            assertEquals(List.of("abc"), value);
+            assertEquals(List.of("abc"), value, "big endian data decodes the same string");
         }
 
         @Test
@@ -251,7 +256,8 @@ class DbusMessageTest {
             var writer = new DbusWriter();
             var values = List.<Object>of("a");
 
-            assertThrows(DbusException.class, () -> writer.write("ss", values));
+            assertThrows(DbusException.class, () -> writer.write("ss", values),
+                    "a value count that misses the signature is refused");
         }
 
         @Test
@@ -261,8 +267,8 @@ class DbusMessageTest {
             var values = List.<Object>of(1.0);
             var reader = new DbusReader(new byte[8], ByteOrder.LITTLE_ENDIAN);
 
-            assertThrows(DbusException.class, () -> writer.write("d", values));
-            assertThrows(DbusException.class, () -> reader.read("d"));
+            assertThrows(DbusException.class, () -> writer.write("d", values), "writing a double is refused");
+            assertThrows(DbusException.class, () -> reader.read("d"), "reading a double is refused");
         }
 
         @Test
@@ -271,16 +277,17 @@ class DbusMessageTest {
             var noNul = new DbusReader(hex("0100000061ff"), ByteOrder.LITTLE_ENDIAN);
             var longArray = new DbusReader(hex("ff000000"), ByteOrder.LITTLE_ENDIAN);
 
-            assertThrows(DbusException.class, () -> noNul.read("s"));
-            assertThrows(DbusException.class, () -> longArray.read("ay"));
+            assertThrows(DbusException.class, () -> noNul.read("s"), "a string without a terminator is refused");
+            assertThrows(DbusException.class, () -> longArray.read("ay"), "an array beyond the data is refused");
         }
 
         @Test
         @DisplayName("splits signatures and refuses unbalanced ones")
         void signatures() {
-            assertEquals(List.of("s", "a{sv}", "(oayays)", "aao"), Signatures.split("sa{sv}(oayays)aao"));
-            assertThrows(DbusException.class, () -> Signatures.split("(oay"));
-            assertThrows(DbusException.class, () -> Signatures.split("a"));
+            assertEquals(List.of("s", "a{sv}", "(oayays)", "aao"), Signatures.split("sa{sv}(oayays)aao"),
+                    "signatures split into their components");
+            assertThrows(DbusException.class, () -> Signatures.split("(oay"), "an unbalanced signature is refused");
+            assertThrows(DbusException.class, () -> Signatures.split("a"), "a lone array signature is refused");
         }
     }
 }

@@ -44,9 +44,11 @@ class AnswerSchemaTest {
                 + "\"spans\":{\"type\":\"array\",\"maxItems\":2,\"items\":{\"type\":\"object\"}}}}");
 
         assertAll(
-                () -> assertTrue(AnswerSchema.validate(schema, parse("{\"verdict\":\"clean\"}")).valid()),
+                () -> assertTrue(AnswerSchema.validate(schema, parse("{\"verdict\":\"clean\"}")).valid(),
+                        "an answer of the schema's shape is valid"),
                 () -> assertTrue(AnswerSchema.validate(schema,
-                        parse("{\"verdict\":\"suspicious\",\"spans\":[{},{}]}")).valid()));
+                                parse("{\"verdict\":\"suspicious\",\"spans\":[{},{}]}")).valid(),
+                        "an answer with two spans is still valid"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -68,7 +70,7 @@ class AnswerSchemaTest {
         var check = AnswerSchema.validate(schema, parse(answer));
 
         assertAll(
-                () -> assertFalse(check.valid()),
+                () -> assertFalse(check.valid(), "an answer outside the schema is refused"),
                 () -> assertTrue(check.detail().startsWith(pointer), check.detail()));
     }
 
@@ -79,8 +81,9 @@ class AnswerSchemaTest {
                 + "\"$ref\":\"#/$defs/a\",\"minLength\":3}"), parse("\"ab\""));
 
         assertAll(
-                () -> assertFalse(check.valid()),
-                () -> assertTrue(check.detail().contains("combines $ref")));
+                () -> assertFalse(check.valid(), "a $ref with a sibling keyword is refused"),
+                () -> assertTrue(check.detail().contains("combines $ref"),
+                        "the detail names the refused $ref combination"));
     }
 
     @Test
@@ -89,18 +92,23 @@ class AnswerSchemaTest {
         var check = AnswerSchema.validate(parse("{\"type\":\"object\",\"patternProperties\":{}}"), parse("{}"));
 
         assertAll(
-                () -> assertFalse(check.valid()),
-                () -> assertTrue(check.detail().contains("patternProperties")));
+                () -> assertFalse(check.valid(), "a schema with an unimplemented keyword is refused"),
+                () -> assertTrue(check.detail().contains("patternProperties"),
+                        "the detail names the unimplemented keyword"));
     }
 
     @Test
     @DisplayName("the string form of type is enforced, not skipped")
     void stringTypeEnforced() {
         assertAll(
-                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"object\"}"), parse("\"clean\"")).valid()),
-                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"string\"}"), parse("1")).valid()),
-                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":\"object\"}"), parse("{}")).valid()),
-                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":[\"object\",\"null\"]}"), parse("null")).valid()));
+                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"object\"}"), parse("\"clean\"")).valid(),
+                        "an object-typed schema refuses a string"),
+                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"string\"}"), parse("1")).valid(),
+                        "a string-typed schema refuses a number"),
+                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":\"object\"}"), parse("{}")).valid(),
+                        "an object-typed schema accepts an empty object"),
+                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":[\"object\",\"null\"]}"),
+                        parse("null")).valid(), "a nullable object accepts null"));
     }
 
     @Test
@@ -110,8 +118,9 @@ class AnswerSchemaTest {
                 parse("{\"a\":1}"));
 
         assertAll(
-                () -> assertFalse(check.valid()),
-                () -> assertTrue(check.detail().contains("additionalProperties")));
+                () -> assertFalse(check.valid(), "a schema-valued additionalProperties is refused"),
+                () -> assertTrue(check.detail().contains("additionalProperties"),
+                        "the detail names additionalProperties"));
     }
 
     @Test
@@ -122,8 +131,10 @@ class AnswerSchemaTest {
                 + "{\"$ref\":\"#/$defs/verdict\"}}}");
 
         assertAll(
-                () -> assertTrue(AnswerSchema.validate(schema, parse("{\"verdict\":\"clean\"}")).valid()),
-                () -> assertFalse(AnswerSchema.validate(schema, parse("{\"verdict\":\"suspicious\"}")).valid()));
+                () -> assertTrue(AnswerSchema.validate(schema, parse("{\"verdict\":\"clean\"}")).valid(),
+                        "a local $ref to $defs resolves and accepts"),
+                () -> assertFalse(AnswerSchema.validate(schema, parse("{\"verdict\":\"suspicious\"}")).valid(),
+                        "a local $ref rejects a value outside const"));
     }
 
     @Test
@@ -132,25 +143,31 @@ class AnswerSchemaTest {
         var check = AnswerSchema.validate(parse("{\"$ref\":\"#/$defs/absent\"}"), parse("{}"));
 
         assertAll(
-                () -> assertFalse(check.valid()),
-                () -> assertTrue(check.detail().contains("does not resolve")));
+                () -> assertFalse(check.valid(), "a reference that does not resolve is refused"),
+                () -> assertTrue(check.detail().contains("does not resolve"),
+                        "the detail says the reference does not resolve"));
     }
 
     @Test
     @DisplayName("the closed keywords of the subset are enforced")
     void keywords() {
         assertAll(
-                () -> assertTrue(AnswerSchema.validate(parse("{\"const\":\"clean\"}"), parse("\"clean\"")).valid()),
-                () -> assertFalse(AnswerSchema.validate(parse("{\"const\":\"clean\"}"), parse("\"x\"")).valid()),
+                () -> assertTrue(AnswerSchema.validate(parse("{\"const\":\"clean\"}"), parse("\"clean\"")).valid(),
+                        "a const keyword accepts its own value"),
+                () -> assertFalse(AnswerSchema.validate(parse("{\"const\":\"clean\"}"), parse("\"x\"")).valid(),
+                        "a const keyword refuses another value"),
                 () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"string\",\"minLength\":3}"),
-                        parse("\"ab\"")).valid()),
+                        parse("\"ab\"")).valid(), "minLength refuses a shorter string"),
                 () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"string\",\"maxLength\":1}"),
-                        parse("\"ab\"")).valid()),
+                        parse("\"ab\"")).valid(), "maxLength refuses a longer string"),
                 () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"number\",\"maximum\":1}"),
-                        parse("2")).valid()),
-                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"integer\"}"), parse("1.5")).valid()),
-                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":\"boolean\"}"), parse("true")).valid()),
-                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":\"null\"}"), parse("null")).valid()));
+                        parse("2")).valid(), "maximum refuses a larger number"),
+                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"integer\"}"), parse("1.5")).valid(),
+                        "an integer type refuses a fractional number"),
+                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":\"boolean\"}"), parse("true")).valid(),
+                        "a boolean type accepts true"),
+                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":\"null\"}"), parse("null")).valid(),
+                        "a null type accepts null"));
     }
 
     @Test
@@ -159,8 +176,10 @@ class AnswerSchemaTest {
         var schema = parse("{\"type\":\"array\",\"items\":{\"type\":\"string\"}}");
 
         assertAll(
-                () -> assertTrue(AnswerSchema.validate(schema, parse("[\"a\"]")).valid()),
-                () -> assertFalse(AnswerSchema.validate(schema, parse("[1]")).valid()));
+                () -> assertTrue(AnswerSchema.validate(schema, parse("[\"a\"]")).valid(),
+                        "a string item passes the array schema"),
+                () -> assertFalse(AnswerSchema.validate(schema, parse("[1]")).valid(),
+                        "a non-string item fails the array schema"));
     }
 
     @Test
@@ -174,6 +193,6 @@ class AnswerSchemaTest {
 
         var check = AnswerSchema.validate(parse(nested.toString()), parse("{}"));
 
-        assertTrue(check.valid());
+        assertTrue(check.valid(), "a deeply nested schema is checked as valid");
     }
 }

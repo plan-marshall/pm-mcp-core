@@ -138,13 +138,14 @@ class WorkerActivityPumpTest {
         var end = pump.finish(task, generation, QueueTaskRecord.AttemptEnd.OFF_TRACK);
 
         assertAll(
-                () -> assertEquals(2, first),
-                () -> assertEquals(1, second),
-                () -> assertEquals(4, journal.entries(task).size()),
-                () -> assertEquals(1, unmapped),
-                () -> assertEquals(1, end.unmappedLines()),
-                () -> assertEquals(ActivityEntry.Kind.ATTEMPT_END, end.kind()),
-                () -> assertEquals("off_track", end.end()),
-                () -> assertEquals(0, pump.unmappedLines()));
+                () -> assertEquals(2, first, "first pass appends the two mapped lines"),
+                () -> assertEquals(1, second, "second pass appends only the file line"),
+                () -> assertEquals(4, journal.entries(task).size(), "journal holds one entry per mapped line"),
+                () -> assertEquals(1, unmapped, "one line matches no event mapping"),
+                () -> assertEquals(1, end.unmappedLines(), "the attempt end reports the same unmatched count"),
+                () -> assertEquals(ActivityEntry.Kind.ATTEMPT_END, end.kind(),
+                        "the end entry carries the attempt end kind"),
+                () -> assertEquals("off_track", end.end(), "the end marker is the off-track reason"),
+                () -> assertEquals(0, pump.unmappedLines(), "finishing clears the unmapped line counter"));
     }
 }

@@ -80,8 +80,9 @@ class WorkerDrainParticipantTest {
 
         participant.endIdle();
 
-        assertTrue(ending.endRequested(generation.generationId()));
-        assertEquals(Optional.of(EndCause.DRAIN), ending.requestedCause(generation.generationId()));
+        assertTrue(ending.endRequested(generation.generationId()), "the idle worker is asked to end");
+        assertEquals(Optional.of(EndCause.DRAIN), ending.requestedCause(generation.generationId()),
+                "the idle end carries the drain cause");
     }
 
     @Test
@@ -96,7 +97,7 @@ class WorkerDrainParticipantTest {
 
         var quiet = assertDoesNotThrowQuietly(participant, SupervisorTestFixture.NOW.minusSeconds(1));
 
-        assertFalse(quiet);
+        assertFalse(quiet, "a running task is not yet quiet");
         assertFalse(ending.endRequested(generation.generationId()), "a running task is not ended early");
         assertTrue(fixture.cancels.isEmpty(), "a running task is not cancelled");
     }
@@ -125,8 +126,8 @@ class WorkerDrainParticipantTest {
         supervisor.replaced(generation.advanceTo(WorkerLifecycle.WAITING));
         var running = participant.awaitQuiet(SupervisorTestFixture.NOW.minusSeconds(1));
 
-        assertTrue(quiet);
-        assertFalse(running);
+        assertTrue(quiet, "the idle participant reports quiet");
+        assertFalse(running, "a running task is not quiet at deadline");
     }
 
     @Test
@@ -138,8 +139,8 @@ class WorkerDrainParticipantTest {
 
         var outcomes = supervisor.start(List.of(fixture.freshRequest(role)));
 
-        assertFalse(supervisor.admitting());
-        assertTrue(outcomes.isEmpty());
+        assertFalse(supervisor.admitting(), "the supervisor stops admitting starts");
+        assertTrue(outcomes.isEmpty(), "no worker starts while draining");
     }
 
     @Test
@@ -161,7 +162,8 @@ class WorkerDrainParticipantTest {
     private WorkerGeneration started(RoleForm form) {
         var role = fixture.role(RoleClass.WRITER, form, 1);
         var request = form == RoleForm.FRESH ? fixture.freshRequest(role) : fixture.warmRequest(role, fixture.workdir);
-        return assertInstanceOf(StartOutcome.Started.class, supervisor.start(List.of(request)).getFirst())
+        return assertInstanceOf(StartOutcome.Started.class, supervisor.start(List.of(request)).getFirst(),
+                "the drain test starts a worker on demand")
                 .generation();
     }
 

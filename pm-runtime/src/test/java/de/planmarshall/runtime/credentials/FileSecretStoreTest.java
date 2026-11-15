@@ -84,14 +84,18 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("github"), "s\"cr€ t");
 
             var file = directory.resolve("github.json");
-            assertEquals("rwx------", mode(directory));
-            assertEquals("rw-------", mode(file));
-            assertEquals("{\"format_version\":1,\"value\":\"s\\\"cr€ t\"}", Files.readString(file));
-            assertEquals(Optional.of("s\"cr€ t"), store.get(CredentialAccount.global("github")));
-            assertTrue(store.delete(CredentialAccount.global("github")));
-            assertFalse(store.delete(CredentialAccount.global("github")));
-            assertEquals(Optional.empty(), store.get(CredentialAccount.global("github")));
-            assertEquals(SecretStore.FILE, store.name());
+            assertEquals("rwx------", mode(directory), "store directory is private to the owner");
+            assertEquals("rw-------", mode(file), "credential file is private to the owner");
+            assertEquals("{\"format_version\":1,\"value\":\"s\\\"cr€ t\"}", Files.readString(file),
+                    "file body is the versioned PM-MCP format");
+            assertEquals(Optional.of("s\"cr€ t"), store.get(CredentialAccount.global("github")),
+                    "get returns the secret that was written");
+            assertTrue(store.delete(CredentialAccount.global("github")), "delete removes the existing global entry");
+            assertFalse(store.delete(CredentialAccount.global("github")),
+                    "delete of an absent entry returns false");
+            assertEquals(Optional.empty(), store.get(CredentialAccount.global("github")),
+                    "get of a deleted entry is empty");
+            assertEquals(SecretStore.FILE, store.name(), "store name is the file backend");
         }
 
         @Test
@@ -100,9 +104,12 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("sonar"), globalValue);
             store.put(CredentialAccount.project(projectId, "sonar"), projectValue);
 
-            assertEquals("rwx------", mode(directory.resolve(projectId)));
-            assertEquals(Optional.of(projectValue), store.resolve(projectId, "sonar"));
-            assertEquals(Optional.of(globalValue), store.resolve(otherProject, "sonar"));
+            assertEquals("rwx------", mode(directory.resolve(projectId)),
+                    "project directory is private to the owner");
+            assertEquals(Optional.of(projectValue), store.resolve(projectId, "sonar"),
+                    "project entry wins over the global one");
+            assertEquals(Optional.of(globalValue), store.resolve(otherProject, "sonar"),
+                    "another project falls back to the global entry");
         }
 
         @Test
@@ -111,9 +118,10 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("github"), secretOne);
             store.put(CredentialAccount.global("github"), secretTwo);
 
-            assertEquals(Optional.of(secretTwo), store.get(CredentialAccount.global("github")));
+            assertEquals(Optional.of(secretTwo), store.get(CredentialAccount.global("github")),
+                    "second put replaces the stored secret");
             try (var files = Files.list(directory)) {
-                assertEquals(1, files.count());
+                assertEquals(1, files.count(), "replace leaves exactly one file behind");
             }
         }
     }
@@ -125,7 +133,7 @@ class FileSecretStoreTest {
         @Test
         @DisplayName("an absent directory is an empty store")
         void absent() {
-            assertEquals(List.of(), store.entries());
+            assertEquals(List.of(), store.entries(), "absent directory is an empty store");
         }
 
         @Test
@@ -142,7 +150,8 @@ class FileSecretStoreTest {
             var entries = store.entries();
 
             assertEquals(List.of(CredentialAccount.global("github"), CredentialAccount.project(projectId, "sonar"),
-                    CredentialAccount.global("sonar")), entries);
+                            CredentialAccount.global("sonar")), entries,
+                    "entries list global and project accounts in order");
         }
 
         @Test
@@ -160,16 +169,18 @@ class FileSecretStoreTest {
             var entries = store.entries();
 
             assertAll(
-                    () -> assertEquals(List.of(key, project), entries),
+                    () -> assertEquals(List.of(key, project), entries,
+                            "entries list the two legal names in order"),
                     () -> assertEquals(List.of(Optional.of(globalValue), Optional.of(projectValue)),
-                            entries.stream().map(store::get).toList()));
+                            entries.stream().map(store::get).toList(), "each entry reads back its own value"));
         }
 
         @Test
         @DisplayName("a temporary file of an atomic write carries a name no account can have")
         void temporaryNameNoAccount() {
             assertThrows(InvalidCredentialNameException.class,
-                    () -> CredentialAccount.global(FileSecretStore.TEMP_PREFIX + "123"));
+                    () -> CredentialAccount.global(FileSecretStore.TEMP_PREFIX + "123"),
+                    "temporary file names are no valid accounts");
         }
 
         @Test
@@ -178,7 +189,7 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("github"), storedValue);
             store.delete(CredentialAccount.global("github"));
 
-            assertEquals(List.of(), store.entries());
+            assertEquals(List.of(), store.entries(), "an emptied directory is an empty store");
         }
 
         @ParameterizedTest(name = "entry {0}")
@@ -188,9 +199,12 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("github"), storedValue);
             Files.writeString(directory.resolve(name), "{}");
 
-            var e = assertThrows(SecretStoreException.class, store::entries);
-            assertEquals(SecretStoreException.Reason.INVALID, e.reason());
-            assertEquals("credentials_file_invalid", e.reason().code());
+            var e = assertThrows(SecretStoreException.class, store::entries,
+                    "an invalid entry name fails the listing");
+            assertEquals(SecretStoreException.Reason.INVALID, e.reason(),
+                    "invalid entry name reports the invalid reason");
+            assertEquals("credentials_file_invalid", e.reason().code(),
+                    "invalid entry name reports its error code");
         }
 
         @Test
@@ -200,8 +214,10 @@ class FileSecretStoreTest {
             Files.createDirectory(directory.resolve(projectId).resolve("deeper"),
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
 
-            var e = assertThrows(SecretStoreException.class, store::entries);
-            assertEquals(SecretStoreException.Reason.INVALID, e.reason());
+            var e = assertThrows(SecretStoreException.class, store::entries,
+                    "a nested directory fails the listing");
+            assertEquals(SecretStoreException.Reason.INVALID, e.reason(),
+                    "nested directory reports the invalid reason");
         }
 
         @Test
@@ -210,9 +226,12 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.project(projectId, "sonar"), storedValue);
             Files.setPosixFilePermissions(directory.resolve(projectId), PosixFilePermissions.fromString("rwxr-xr-x"));
 
-            var e = assertThrows(SecretStoreException.class, store::entries);
-            assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
-            assertEquals("credentials_file_insecure", e.reason().code());
+            var e = assertThrows(SecretStoreException.class, store::entries,
+                    "an insecure project directory fails the listing");
+            assertEquals(SecretStoreException.Reason.INSECURE, e.reason(),
+                    "insecure project directory reports insecure reason");
+            assertEquals("credentials_file_insecure", e.reason().code(),
+                    "insecure project directory reports its error code");
         }
 
         @Test
@@ -221,8 +240,10 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("github"), storedValue);
             Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-x---"));
 
-            var e = assertThrows(SecretStoreException.class, store::entries);
-            assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
+            var e = assertThrows(SecretStoreException.class, store::entries,
+                    "an insecure store directory fails the listing");
+            assertEquals(SecretStoreException.Reason.INSECURE, e.reason(),
+                    "insecure store directory reports insecure reason");
         }
 
         @Test
@@ -231,8 +252,10 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("other"), storedValue);
             Files.createSymbolicLink(directory.resolve("github.json"), directory.resolve("other.json"));
 
-            var e = assertThrows(SecretStoreException.class, store::entries);
-            assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
+            var e = assertThrows(SecretStoreException.class, store::entries,
+                    "a symbolic link fails the listing");
+            assertEquals(SecretStoreException.Reason.INSECURE, e.reason(),
+                    "symbolic link reports the insecure reason");
         }
     }
 
@@ -248,9 +271,12 @@ class FileSecretStoreTest {
             Files.setPosixFilePermissions(directory.resolve("github.json"), PosixFilePermissions.fromString(mode));
 
             var account = CredentialAccount.global("github");
-            var e = assertThrows(SecretStoreException.class, () -> store.get(account));
-            assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
-            assertEquals("credentials_file_insecure", e.reason().code());
+            var e = assertThrows(SecretStoreException.class, () -> store.get(account),
+                    "an insecure file mode fails the read");
+            assertEquals(SecretStoreException.Reason.INSECURE, e.reason(),
+                    "insecure file mode reports the insecure reason");
+            assertEquals("credentials_file_insecure", e.reason().code(),
+                    "insecure file mode reports its error code");
         }
 
         @Test
@@ -260,9 +286,12 @@ class FileSecretStoreTest {
             Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
 
             var account = CredentialAccount.global("github");
-            var e = assertThrows(SecretStoreException.class, () -> store.get(account));
-            assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
-            assertThrows(SecretStoreException.class, () -> store.put(account, storedValue));
+            var e = assertThrows(SecretStoreException.class, () -> store.get(account),
+                    "a world-readable directory fails the read");
+            assertEquals(SecretStoreException.Reason.INSECURE, e.reason(),
+                    "world-readable directory reports insecure reason");
+            assertThrows(SecretStoreException.class, () -> store.put(account, storedValue),
+                    "put into an insecure directory fails");
         }
 
         @Test
@@ -272,8 +301,10 @@ class FileSecretStoreTest {
             Files.createSymbolicLink(directory.resolve("github.json"), directory.resolve("other.json"));
 
             var account = CredentialAccount.global("github");
-            var e = assertThrows(SecretStoreException.class, () -> store.get(account));
-            assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
+            var e = assertThrows(SecretStoreException.class, () -> store.get(account),
+                    "a symlink in place of the file fails the read");
+            assertEquals(SecretStoreException.Reason.INSECURE, e.reason(),
+                    "symlink entry reports the insecure reason");
         }
 
         @ParameterizedTest(name = "content {0}")
@@ -292,8 +323,10 @@ class FileSecretStoreTest {
             Files.writeString(directory.resolve("github.json"), content);
 
             var account = CredentialAccount.global("github");
-            var e = assertThrows(SecretStoreException.class, () -> store.get(account));
-            assertEquals(SecretStoreException.Reason.INVALID, e.reason());
+            var e = assertThrows(SecretStoreException.class, () -> store.get(account),
+                    "an invalid file format fails the read");
+            assertEquals(SecretStoreException.Reason.INVALID, e.reason(),
+                    "invalid file format reports the invalid reason");
             assertTrue(e.getMessage().contains("github.json"), e.getMessage());
         }
 
@@ -303,8 +336,10 @@ class FileSecretStoreTest {
             Files.writeString(base.resolve("credentials"), "a file, not a directory");
 
             var account = CredentialAccount.global("github");
-            var e = assertThrows(SecretStoreException.class, () -> store.put(account, storedValue));
-            assertEquals(SecretStoreException.Reason.FAILED, e.reason());
+            var e = assertThrows(SecretStoreException.class, () -> store.put(account, storedValue),
+                    "an unwritable base fails the put");
+            assertEquals(SecretStoreException.Reason.FAILED, e.reason(),
+                    "an unwritable base reports the failed reason");
         }
     }
 }

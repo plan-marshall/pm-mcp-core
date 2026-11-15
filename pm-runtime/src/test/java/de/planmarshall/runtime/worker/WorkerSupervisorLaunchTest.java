@@ -66,16 +66,19 @@ class WorkerSupervisorLaunchTest {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
 
         var outcome = start(role).getFirst();
-        var generation = assertInstanceOf(StartOutcome.Started.class, outcome).generation();
+        var generation = assertInstanceOf(StartOutcome.Started.class, outcome,
+                "the launch starts a fresh worker").generation();
         var launch = fixture.starts.getFirst().launch();
 
         assertAll(
-                () -> assertEquals(generation.generationId(), launch.generationId()),
+                () -> assertEquals(generation.generationId(), launch.generationId(),
+                        "the launch carries the generation id"),
                 () -> assertEquals(base.resolve("bin").resolve("claude").toString(), launch.argv().getFirst(),
                         "the enrolled executable starts the vector"),
-                () -> assertEquals(fixture.workdir, launch.workingDirectory()),
-                () -> assertEquals("claude-sonnet-4", launch.model()),
-                () -> assertEquals("implementer", launch.role()),
+                () -> assertEquals(fixture.workdir, launch.workingDirectory(),
+                        "the launch runs in the fixture workdir"),
+                () -> assertEquals("claude-sonnet-4", launch.model(), "the launch names the profile's model"),
+                () -> assertEquals("implementer", launch.role(), "the launch names the role"),
                 () -> assertTrue(launch.prompt().text().contains("## Contract envelope"),
                         "a fresh worker's prompt carries its one task's envelope"),
                 () -> assertTrue(launch.deliveredSkills().stream()
@@ -94,7 +97,9 @@ class WorkerSupervisorLaunchTest {
 
         assertAll(
                 () -> assertEquals(WorkerStartRefusal.LAUNCH_REFUSED,
-                        assertInstanceOf(StartOutcome.Declined.class, outcomes.getFirst()).reason()),
+                        assertInstanceOf(StartOutcome.Declined.class, outcomes.getFirst(),
+                                "a broken skill source refuses the launch").reason(),
+                        "the refusal names the launch refusal"),
                 () -> assertEquals(1, fixture.refusals.size(), "the failed launch is refused once"),
                 () -> assertEquals("prompt_composition_failed", fixture.refusals.getFirst().reason().code(),
                         "the refusal names the prompt composition"),
@@ -112,14 +117,17 @@ class WorkerSupervisorLaunchTest {
         var block = HeadlessBlock.of(fixture.profile);
 
         assertAll(
-                () -> assertEquals(fixture.project, start.enrolment().projectId()),
-                () -> assertEquals(JobRecord.Scope.Type.PROJECT, start.scope().type()),
-                () -> assertEquals("worker:implementer", start.budgetKey()),
-                () -> assertEquals(60, start.budgetSeconds()),
+                () -> assertEquals(fixture.project, start.enrolment().projectId(),
+                        "the start carries the fixture project"),
+                () -> assertEquals(JobRecord.Scope.Type.PROJECT, start.scope().type(),
+                        "the start scopes to the project"),
+                () -> assertEquals("worker:implementer", start.budgetKey(), "the start keys its budget by worker role"),
+                () -> assertEquals(60, start.budgetSeconds(), "the role's floor gives sixty seconds"),
                 () -> assertEquals(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT,
-                        start.budgetDerivation().kind()),
-                () -> assertEquals(block.writablePaths(base.resolve("home")), start.writablePaths()),
-                () -> assertNull(start.egressProxy()));
+                        start.budgetDerivation().kind(), "the budget derivation is the role floor"),
+                () -> assertEquals(block.writablePaths(base.resolve("home")), start.writablePaths(),
+                        "the start carries the block's writable paths"),
+                () -> assertNull(start.egressProxy(), "a fresh start opens no egress proxy"));
     }
 
     @Test
@@ -127,13 +135,17 @@ class WorkerSupervisorLaunchTest {
     void generationIdIsTheJobId() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
 
-        var generation = assertInstanceOf(StartOutcome.Started.class, start(role).getFirst()).generation();
+        var generation = assertInstanceOf(StartOutcome.Started.class, start(role).getFirst(),
+                "the generation test starts a fresh worker").generation();
 
         assertAll(
-                () -> assertEquals(generation.jobId().value(), generation.generationId()),
+                () -> assertEquals(generation.jobId().value(), generation.generationId(),
+                        "the generation id is the job id"),
                 () -> assertEquals(generation.generationId(),
-                        fixture.starts.getFirst().launch().generationId()),
-                () -> assertEquals(WorkerLifecycle.STARTING, generation.lifecycle()));
+                        fixture.starts.getFirst().launch().generationId(),
+                        "the launch carries the same generation id"),
+                () -> assertEquals(WorkerLifecycle.STARTING, generation.lifecycle(),
+                        "a started generation begins starting"));
     }
 
     private List<StartOutcome> start(EffectiveRole role) {

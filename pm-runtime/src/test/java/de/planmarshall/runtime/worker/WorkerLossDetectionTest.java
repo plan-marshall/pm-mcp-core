@@ -84,9 +84,12 @@ class WorkerLossDetectionTest {
 
         assertAll(
                 () -> assertTrue(before.isEmpty(), "a millisecond before the deadline nothing has fired"),
-                () -> assertEquals(LossReason.ACK_MISSED, at.orElseThrow().reason()),
-                () -> assertEquals(deadline, at.orElseThrow().deadline()),
-                () -> assertEquals(LossReason.ACK_MISSED, after.orElseThrow().reason()));
+                () -> assertEquals(LossReason.ACK_MISSED, at.orElseThrow().reason(),
+                        "the ack deadline fires the missed acknowledgement"),
+                () -> assertEquals(deadline, at.orElseThrow().deadline(),
+                        "the fired acknowledgement names its deadline"),
+                () -> assertEquals(LossReason.ACK_MISSED, after.orElseThrow().reason(),
+                        "a millisecond after the deadline still reports it"));
     }
 
     @Test
@@ -103,9 +106,12 @@ class WorkerLossDetectionTest {
 
         assertAll(
                 () -> assertTrue(before.isEmpty(), "a millisecond before the deadline nothing has fired"),
-                () -> assertEquals(LossReason.SILENCE, at.orElseThrow().reason()),
-                () -> assertEquals(deadline, at.orElseThrow().deadline()),
-                () -> assertEquals(LossReason.SILENCE, after.orElseThrow().reason()));
+                () -> assertEquals(LossReason.SILENCE, at.orElseThrow().reason(),
+                        "the silence deadline fires the silence loss"),
+                () -> assertEquals(deadline, at.orElseThrow().deadline(),
+                        "the fired silence signal names its deadline"),
+                () -> assertEquals(LossReason.SILENCE, after.orElseThrow().reason(),
+                        "a millisecond after the silence deadline still fires"));
     }
 
     @Test
@@ -125,8 +131,10 @@ class WorkerLossDetectionTest {
 
         assertAll(
                 () -> assertEquals(1, signals.size(), "exactly one signal fires"),
-                () -> assertEquals(LossReason.ACK_MISSED, signals.getFirst().reason()),
-                () -> assertEquals(task, signals.getFirst().leasedTask()));
+                () -> assertEquals(LossReason.ACK_MISSED, signals.getFirst().reason(),
+                        "the fired signal reports the missed acknowledgement"),
+                () -> assertEquals(task, signals.getFirst().leasedTask(),
+                        "the fired signal names the leased task"));
     }
 
     @Test
@@ -155,8 +163,10 @@ class WorkerLossDetectionTest {
 
         assertAll(
                 () -> assertTrue(open.isEmpty(), "a held wait is an open call"),
-                () -> assertEquals(LossReason.SILENCE, closed.orElseThrow().reason()),
-                () -> assertEquals(SPAWN.plusSeconds(SILENCE_SECONDS), closed.orElseThrow().deadline()));
+                () -> assertEquals(LossReason.SILENCE, closed.orElseThrow().reason(),
+                        "a closed wait falls back to the silence loss"),
+                () -> assertEquals(SPAWN.plusSeconds(SILENCE_SECONDS), closed.orElseThrow().deadline(),
+                        "the closed wait names the silence deadline"));
     }
 
     @Test
@@ -172,11 +182,16 @@ class WorkerLossDetectionTest {
         var loss = detection.exit(observed);
 
         assertAll(
-                () -> assertEquals(LossReason.EXIT, loss.orElseThrow().reason()),
-                () -> assertEquals(observed, loss.orElseThrow().measuredAt()),
-                () -> assertEquals(observed, loss.orElseThrow().deadline()),
-                () -> assertTrue(loss.orElseThrow().firstCallMade()),
-                () -> assertEquals(task, loss.orElseThrow().leasedTask()),
+                () -> assertEquals(LossReason.EXIT, loss.orElseThrow().reason(),
+                        "the exit after the first call is the exit loss"),
+                () -> assertEquals(observed, loss.orElseThrow().measuredAt(),
+                        "the exit loss names the observed instant"),
+                () -> assertEquals(observed, loss.orElseThrow().deadline(),
+                        "the exit loss names the observed deadline"),
+                () -> assertTrue(loss.orElseThrow().firstCallMade(),
+                        "the exit loss records that a first call was made"),
+                () -> assertEquals(task, loss.orElseThrow().leasedTask(),
+                        "the exit loss names the leased task"),
                 () -> assertTrue(detection.due(SPAWN.plusSeconds(600)).isEmpty(),
                         "a settled worker produces no further signal"));
     }
@@ -191,9 +206,11 @@ class WorkerLossDetectionTest {
 
         assertAll(
                 () -> assertTrue(loss.isEmpty(), "a start failure is the guard's, not a loss"),
-                () -> assertTrue(detection.startFailure()),
-                () -> assertFalse(detection.firstCallMade()),
-                () -> assertTrue(detection.due(SPAWN.plusSeconds(SILENCE_SECONDS)).isEmpty()));
+                () -> assertTrue(detection.startFailure(),
+                        "an exit before the first call is a start failure"),
+                () -> assertFalse(detection.firstCallMade(), "no first call was made before the exit"),
+                () -> assertTrue(detection.due(SPAWN.plusSeconds(SILENCE_SECONDS)).isEmpty(),
+                        "a start failure schedules no silence loss"));
     }
 
     @Test
@@ -207,7 +224,8 @@ class WorkerLossDetectionTest {
 
         assertAll(
                 () -> assertTrue(due.isEmpty(), "its exit and its budget alone decide"),
-                () -> assertEquals(LossReason.EXIT, exit.orElseThrow().reason()),
+                () -> assertEquals(LossReason.EXIT, exit.orElseThrow().reason(),
+                        "a zero_tool exit is decided by its own result"),
                 () -> assertFalse(exit.orElseThrow().firstCallMade(), "a zero_tool worker makes no call"),
                 () -> assertFalse(detection.startFailure(), "a zero_tool exit is never a start failure"),
                 () -> assertTrue(detection.due(SPAWN.plusSeconds(600)).isEmpty(),
@@ -229,7 +247,8 @@ class WorkerLossDetectionTest {
         assertAll(
                 () -> assertTrue(firedEarly.isEmpty(), "an early wake-up reports nothing"),
                 () -> assertEquals(1, signals.size(), "the re-armed timer fires at the deadline"),
-                () -> assertEquals(LossReason.ACK_MISSED, signals.getFirst().reason()));
+                () -> assertEquals(LossReason.ACK_MISSED, signals.getFirst().reason(),
+                        "the re-armed timer fires the missed acknowledgement"));
     }
 
     @Test
@@ -244,8 +263,9 @@ class WorkerLossDetectionTest {
         timers.runDue();
 
         assertAll(
-                () -> assertTrue(signals.isEmpty()),
-                () -> assertTrue(detection.due(SPAWN.plusSeconds(600)).isEmpty()),
+                () -> assertTrue(signals.isEmpty(), "a cancelled detection collects no signal"),
+                () -> assertTrue(detection.due(SPAWN.plusSeconds(600)).isEmpty(),
+                        "a cancelled detection schedules nothing further"),
                 () -> assertEquals(task, detection.leasedTask().orElseThrow(),
                         "the cancellation keeps the observed task"));
     }
@@ -264,9 +284,11 @@ class WorkerLossDetectionTest {
 
         assertAll(
                 () -> assertTrue(detection.due(deadline.minusMillis(1)).isEmpty(),
-                        "the offer's deadline is spent; the answer's is the one in force"),
-                () -> assertEquals(LossReason.ACK_MISSED, detection.due(deadline).orElseThrow().reason()),
-                () -> assertEquals(deadline, detection.due(deadline).orElseThrow().deadline()));
+                        "the offer deadline is spent; the answer one rules"),
+                () -> assertEquals(LossReason.ACK_MISSED, detection.due(deadline).orElseThrow().reason(),
+                        "the answer deadline fires the missed acknowledgement"),
+                () -> assertEquals(deadline, detection.due(deadline).orElseThrow().deadline(),
+                        "the fired answer signal names its deadline"));
     }
 
     @Test
@@ -281,8 +303,10 @@ class WorkerLossDetectionTest {
         detection.acknowledged(SPAWN.plusSeconds(602));
 
         assertAll(
-                () -> assertTrue(detection.due(SPAWN.plusSeconds(610)).isEmpty()),
-                () -> assertEquals(LossReason.SILENCE, detection.due(SPAWN.plusSeconds(700)).orElseThrow().reason()));
+                () -> assertTrue(detection.due(SPAWN.plusSeconds(610)).isEmpty(),
+                        "an answered answer clears its own deadline"),
+                () -> assertEquals(LossReason.SILENCE, detection.due(SPAWN.plusSeconds(700)).orElseThrow().reason(),
+                        "the answered generation falls back to silence"));
     }
 
     @Test
@@ -298,7 +322,8 @@ class WorkerLossDetectionTest {
                 () -> assertTrue(detection.due(SPAWN.plusSeconds(610)).isEmpty(),
                         "an informational acknowledgement raises no signal"),
                 () -> assertEquals(LossReason.SILENCE,
-                        detection.due(SPAWN.plusSeconds(600 + SILENCE_SECONDS)).orElseThrow().reason()));
+                        detection.due(SPAWN.plusSeconds(600 + SILENCE_SECONDS)).orElseThrow().reason(),
+                        "an informational acknowledgement leaves silence to decide"));
     }
 
     private LossDetection detection(RoleClass roleClass, WorkerParameters parameters) {

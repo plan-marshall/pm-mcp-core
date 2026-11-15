@@ -111,7 +111,8 @@ class StartFailureGuardTest {
                 () -> assertEquals(List.of(role + "/" + harness), closed,
                         "the hold closes the role's queued and new tasks"),
                 () -> assertEquals(3, audits.size(), "one audit record per counted failure"),
-                () -> assertEquals(AuditEvent.WORKER_START_FAILED, audits.getFirst().event()),
+                () -> assertEquals(AuditEvent.WORKER_START_FAILED, audits.getFirst().event(),
+                        "the first audit record reports the start failure"),
                 () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.WORKER_START_FAILED.resolveIdentifierString()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -149,8 +150,8 @@ class StartFailureGuardTest {
         newEnrolment.clear(role, harness);
 
         assertAll(
-                () -> assertFalse(changedConfiguration.holds(role, harness)),
-                () -> assertFalse(newEnrolment.holds(role, harness)));
+                () -> assertFalse(changedConfiguration.holds(role, harness), "a changed configuration clears the hold"),
+                () -> assertFalse(newEnrolment.holds(role, harness), "a new enrolment clears the hold"));
     }
 
     @Test
@@ -305,7 +306,8 @@ class StartFailureGuardTest {
         guard.startFailed(role, harness, " \n\t ");
 
         assertEquals(StartFailureReport.NO_OUTPUT,
-                audits.getFirst().details().get(AuditEvent.DETAIL_HARNESS_ERROR));
+                audits.getFirst().details().get(AuditEvent.DETAIL_HARNESS_ERROR),
+                "a blank start still yields the no-output report");
     }
 
     @Test
@@ -318,7 +320,7 @@ class StartFailureGuardTest {
         guard.startFailed(role, harness, failure);
 
         assertAll(
-                () -> assertTrue(guard.holds(role, harness)),
+                () -> assertTrue(guard.holds(role, harness), "three consecutive failures hold the guard"),
                 () -> assertFalse(guard.holds(role, otherHarness), "another harness is untouched"),
                 () -> assertFalse(guard.holds(otherRole, harness), "another role is untouched"));
     }

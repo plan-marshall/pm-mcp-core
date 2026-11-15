@@ -145,14 +145,14 @@ class ProviderVerificationTest {
         var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
 
         assertAll(
-                () -> assertTrue(result.ran()),
-                () -> assertTrue(result.passed()),
-                () -> assertEquals(4, result.lines().size()),
+                () -> assertTrue(result.ran(), "the verification ran its checks"),
+                () -> assertTrue(result.passed(), "the verification passed every check"),
+                () -> assertEquals(4, result.lines().size(), "the native variant runs four lines"),
                 () -> assertEquals(List.of("origin:github", "identity:github:github", "permissions:github",
-                        "expiry:github"), calls),
+                        "expiry:github"), calls, "the native calls run in check order"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.PROVIDER_VERIFIED.resolveIdentifierString()),
-                () -> assertNull(result.toRecord()));
+                () -> assertNull(result.toRecord(), "a verified result writes no record"));
     }
 
     @Test
@@ -161,10 +161,10 @@ class ProviderVerificationTest {
         var result = verify(defaults(ProviderVariant.CLI, "github"), ConsentGate.Answer.YES);
 
         assertAll(
-                () -> assertTrue(result.passed()),
-                () -> assertEquals(6, result.lines().size()),
-                () -> assertTrue(calls.contains("version:github")),
-                () -> assertTrue(calls.contains("login:github")));
+                () -> assertTrue(result.passed(), "the CLI variant passes every check"),
+                () -> assertEquals(6, result.lines().size(), "the CLI variant runs six lines"),
+                () -> assertTrue(calls.contains("version:github"), "the CLI probe reports its version"),
+                () -> assertTrue(calls.contains("login:github"), "the CLI probe reports its login"));
     }
 
     @Test
@@ -175,8 +175,9 @@ class ProviderVerificationTest {
         var result = verify(defaults(ProviderVariant.CLI, "github"), ConsentGate.Answer.YES);
 
         assertAll(
-                () -> assertFalse(result.passed()),
-                () -> assertEquals("provider_verification.tool_identity.differs", result.lines().getLast().messageKey()));
+                () -> assertFalse(result.passed(), "a different tool identity fails"),
+                () -> assertEquals("provider_verification.tool_identity.differs", result.lines().getLast().messageKey(),
+                        "the differing identity reports its key"));
     }
 
     @Test
@@ -186,8 +187,9 @@ class ProviderVerificationTest {
 
         var result = verify(defaults(ProviderVariant.CLI, "github"), ConsentGate.Answer.YES);
 
-        assertFalse(result.passed());
-        assertEquals("provider_verification.tool_identity.failed", result.lines().getLast().messageKey());
+        assertFalse(result.passed(), "an unlogged tool fails the identity line");
+        assertEquals("provider_verification.tool_identity.failed", result.lines().getLast().messageKey(),
+                "the failed identity reports its key");
     }
 
     @Test
@@ -198,10 +200,10 @@ class ProviderVerificationTest {
         var result = verify(defaults(ProviderVariant.CLI, "github"), ConsentGate.Answer.YES);
 
         assertAll(
-                () -> assertFalse(result.passed()),
-                () -> assertFalse(result.lines().getLast().ok()),
+                () -> assertFalse(result.passed(), "an unknown identity fails the check"),
+                () -> assertFalse(result.lines().getLast().ok(), "the identity line is not ok"),
                 () -> assertEquals("provider_verification.tool_identity.credential_unknown",
-                        result.lines().getLast().messageKey()));
+                        result.lines().getLast().messageKey(), "the unproven identity reports its key"));
     }
 
     @Test
@@ -282,7 +284,7 @@ class ProviderVerificationTest {
         var origin = result.lines().getFirst();
         assertAll(
                 () -> assertFalse(origin.answer().contains("A1b2C3d4"), "the token tail is masked"),
-                () -> assertTrue(origin.answer().contains("[redacted]"), "the mask is visible"));
+                () -> assertTrue(origin.answer().contains("[redacted]"), "the mask marker is visible"));
     }
 
     @Test
@@ -315,7 +317,7 @@ class ProviderVerificationTest {
                 () -> assertEquals("provider_verification.tool_identity.differs", identity.messageKey(),
                         "the comparison runs on the answers as given"),
                 () -> assertFalse(identity.toString().contains("sk-credentialabcdefghijkl"),
-                        "the credential identity must not reach the line or its arguments"),
+                        "the credential identity must not reach the line or args"),
                 () -> assertFalse(identity.toString().contains("sk-tooldifferentabcdefghijkl"),
                         "the tool identity must not reach the line or its arguments"),
                 () -> assertTrue(identity.answer().contains("[redacted]"),
@@ -358,11 +360,15 @@ class ProviderVerificationTest {
         var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
 
         assertAll(
-                () -> assertFalse(result.passed()),
-                () -> assertEquals("provider_verification.origin.failed", result.lines().getFirst().messageKey()),
-                () -> assertEquals("503", result.lines().getFirst().answer()),
-                () -> assertEquals("provider_verification.whoami.failed", result.lines().get(1).messageKey()),
-                () -> assertEquals("401 Bad credentials", result.lines().get(1).answer()),
+                () -> assertFalse(result.passed(), "an unreachable origin fails the check"),
+                () -> assertEquals("provider_verification.origin.failed", result.lines().getFirst().messageKey(),
+                        "the origin line reports its key"),
+                () -> assertEquals("503", result.lines().getFirst().answer(),
+                        "the origin answer reaches the line"),
+                () -> assertEquals("provider_verification.whoami.failed", result.lines().get(1).messageKey(),
+                        "the whoami line reports its key"),
+                () -> assertEquals("401 Bad credentials", result.lines().get(1).answer(),
+                        "the credential answer reaches the line"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.PROVIDER_VERIFICATION_FAILED.resolveIdentifierString()));
     }
@@ -373,11 +379,12 @@ class ProviderVerificationTest {
         var result = verify(defaults(ProviderVariant.NATIVE, null), ConsentGate.Answer.YES);
 
         assertAll(
-                () -> assertFalse(result.passed()),
-                () -> assertEquals(2, result.lines().size()),
-                () -> assertEquals("provider_verification.credential.missing", result.lines().getLast().messageKey()),
+                () -> assertFalse(result.passed(), "a missing credential key fails"),
+                () -> assertEquals(2, result.lines().size(), "a missing key leaves two lines"),
+                () -> assertEquals("provider_verification.credential.missing", result.lines().getLast().messageKey(),
+                        "the missing key line reports its key"),
                 () -> assertNull(result.lines().getLast().answer(), "a missing key line carries no answer"),
-                () -> assertEquals(List.of("origin:github"), calls));
+                () -> assertEquals(List.of("origin:github"), calls, "only the origin call is made"));
     }
 
     @Test
@@ -386,10 +393,10 @@ class ProviderVerificationTest {
         var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.NO);
 
         assertAll(
-                () -> assertFalse(result.ran()),
-                () -> assertFalse(result.passed()),
-                () -> assertTrue(result.lines().isEmpty()),
-                () -> assertTrue(calls.isEmpty()));
+                () -> assertFalse(result.ran(), "no consent runs no check"),
+                () -> assertFalse(result.passed(), "a refused consent does not pass"),
+                () -> assertTrue(result.lines().isEmpty(), "a refused consent produces no line"),
+                () -> assertTrue(calls.isEmpty(), "a refused consent calls no probe"));
     }
 
     @Test
@@ -398,8 +405,10 @@ class ProviderVerificationTest {
         var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES_REMEMBER);
 
         assertAll(
-                () -> assertTrue(result.passed()),
-                () -> assertEquals(NOW, result.toRecord().grantedAt()),
-                () -> assertEquals(Consent.Channel.CLI, result.toRecord().channel()));
+                () -> assertTrue(result.passed(), "a remembered consent passes the check"),
+                () -> assertEquals(NOW, result.toRecord().grantedAt(),
+                        "the record carries the grant instant"),
+                () -> assertEquals(Consent.Channel.CLI, result.toRecord().channel(),
+                        "the record carries the CLI channel"));
     }
 }

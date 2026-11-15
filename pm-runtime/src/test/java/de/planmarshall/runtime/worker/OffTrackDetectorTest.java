@@ -99,11 +99,14 @@ class OffTrackDetectorTest {
         var two = three.subList(0, 2);
 
         assertAll(
-                () -> assertEquals(1, detect(three, role).size()),
-                () -> assertEquals(RoleArtifact.OffTrackSignal.REPEATING, detect(three, role).getFirst().signal()),
-                () -> assertEquals(RoleArtifact.OffTrackAction.NUDGE, detect(three, role).getFirst().action()),
-                () -> assertEquals(3.0, detect(three, role).getFirst().measurement()),
-                () -> assertTrue(detect(two, role).isEmpty()));
+                () -> assertEquals(1, detect(three, role).size(), "the three repeats raise one signal"),
+                () -> assertEquals(RoleArtifact.OffTrackSignal.REPEATING, detect(three, role).getFirst().signal(),
+                        "the raised signal is repeating"),
+                () -> assertEquals(RoleArtifact.OffTrackAction.NUDGE, detect(three, role).getFirst().action(),
+                        "the action of the artifact is nudge"),
+                () -> assertEquals(3.0, detect(three, role).getFirst().measurement(),
+                        "the measurement is the third repeat"),
+                () -> assertTrue(detect(two, role).isEmpty(), "two repeats stay below the threshold"));
     }
 
     @Test
@@ -122,8 +125,8 @@ class OffTrackDetectorTest {
         failed.add(toolCall(3, tool, target));
 
         assertAll(
-                () -> assertTrue(detect(written, role).isEmpty()),
-                () -> assertTrue(detect(failed, role).isEmpty()));
+                () -> assertTrue(detect(written, role).isEmpty(), "a write of the target breaks the run"),
+                () -> assertTrue(detect(failed, role).isEmpty(), "a failed result breaks the run"));
     }
 
     @Test
@@ -136,8 +139,8 @@ class OffTrackDetectorTest {
                 turn(7, 10));
 
         assertAll(
-                () -> assertEquals(5.0, detect(five, role).getFirst().measurement()),
-                () -> assertTrue(detect(reset, role).isEmpty()));
+                () -> assertEquals(5.0, detect(five, role).getFirst().measurement(), "five turns measure five"),
+                () -> assertTrue(detect(reset, role).isEmpty(), "the link resets the turn count"));
     }
 
     @Test
@@ -151,9 +154,11 @@ class OffTrackDetectorTest {
         var under = detector.detect(1, entries, role, Set.of(), 100.0, -1);
 
         assertAll(
-                () -> assertEquals(2.4, holding.getFirst().measurement()),
-                () -> assertEquals(RoleArtifact.OffTrackAction.RESTART, holding.getFirst().action()),
-                () -> assertTrue(under.isEmpty()));
+                () -> assertEquals(2.4, holding.getFirst().measurement(),
+                        "sixty tokens over fifty measures 2.4"),
+                () -> assertEquals(RoleArtifact.OffTrackAction.RESTART, holding.getFirst().action(),
+                        "over size action is restart"),
+                () -> assertTrue(under.isEmpty(), "a higher prediction clears the signal"));
     }
 
     @Test
@@ -162,8 +167,10 @@ class OffTrackDetectorTest {
         var role = role(Map.of());
         var entries = List.of(turn(1, 60));
 
-        assertTrue(detector.detect(1, entries, role, Set.of(), null, -1).isEmpty());
-        assertTrue(detector.detect(1, entries, role, Set.of(), 0.0, -1).isEmpty());
+        assertTrue(detector.detect(1, entries, role, Set.of(), null, -1).isEmpty(),
+                "no predicted cost means no over size signal");
+        assertTrue(detector.detect(1, entries, role, Set.of(), 0.0, -1).isEmpty(),
+                "a zero predicted cost means no over size signal");
     }
 
     @Test
@@ -174,9 +181,11 @@ class OffTrackDetectorTest {
 
         assertAll(
                 () -> assertEquals(2.0, detector.detect(1, List.of(turn(1, 1)), role, Set.of(), null, 2)
-                        .getFirst().measurement()),
-                () -> assertTrue(detector.detect(1, List.of(turn(1, 1)), role, Set.of(), null, 1).isEmpty()),
-                () -> assertTrue(detector.detect(1, List.of(turn(1, 1)), role, Set.of(), null, -1).isEmpty()));
+                        .getFirst().measurement(), "two paths outside the footprint measure two"),
+                () -> assertTrue(detector.detect(1, List.of(turn(1, 1)), role, Set.of(), null, 1).isEmpty(),
+                        "one path outside stays below the threshold"),
+                () -> assertTrue(detector.detect(1, List.of(turn(1, 1)), role, Set.of(), null, -1).isEmpty(),
+                        "no footprint bound means no outside signal"));
     }
 
     @Test
@@ -187,8 +196,9 @@ class OffTrackDetectorTest {
         var entries = List.of(turn(1, 10), turn(2, 10), turn(3, 10), turn(4, 10), turn(5, 10));
 
         assertTrue(detector.detect(1, entries, role, Set.of(RoleArtifact.OffTrackSignal.NO_PROGRESS), null, -1)
-                .isEmpty());
-        assertTrue(detector.detect(2, entries, role, Set.of(), null, -1).isEmpty());
+                .isEmpty(), "a raised signal is not raised on the same attempt");
+        assertTrue(detector.detect(2, entries, role, Set.of(), null, -1).isEmpty(),
+                "a fresh attempt has not raised the signal");
     }
 
     @Test
@@ -203,9 +213,10 @@ class OffTrackDetectorTest {
         var signals = detector.detect(1, entries, role, Set.of(), null, -1);
 
         assertAll(
-                () -> assertEquals(RoleArtifact.OffTrackAction.SHOW, signals.getFirst().action()),
+                () -> assertEquals(RoleArtifact.OffTrackAction.SHOW, signals.getFirst().action(),
+                        "the default action is show"),
                 () -> assertEquals(RoleArtifact.OffTrackSignal.NO_PROGRESS.compiledThreshold(),
-                        signals.getFirst().threshold()));
+                        signals.getFirst().threshold(), "the compiled threshold is the signal threshold"));
     }
 
     @Test
@@ -216,6 +227,7 @@ class OffTrackDetectorTest {
                 RoleArtifact.OffTrackAction.SHOW);
 
         assertThrows(IllegalArgumentException.class,
-                () -> raised.effectiveThreshold(RoleArtifact.OffTrackSignal.NO_PROGRESS));
+                () -> raised.effectiveThreshold(RoleArtifact.OffTrackSignal.NO_PROGRESS),
+                "a raised threshold is refused");
     }
 }

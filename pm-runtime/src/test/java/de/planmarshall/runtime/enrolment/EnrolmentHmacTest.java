@@ -54,7 +54,8 @@ class EnrolmentHmacTest {
     void knownAnswers(String keyHex, String data, String expected) {
         var key = new SecretKeySpec(HexFormat.of().parseHex(keyHex), EnrolmentKey.ALGORITHM);
 
-        assertEquals(expected, EnrolmentHmac.hmac(key, data.getBytes(StandardCharsets.US_ASCII)));
+        assertEquals(expected, EnrolmentHmac.hmac(key, data.getBytes(StandardCharsets.US_ASCII)),
+                "the HMAC in lowercase hex of the vector data");
     }
 
     @Test
@@ -64,10 +65,14 @@ class EnrolmentHmacTest {
         changed[0] ^= 1;
 
         assertAll(
-                () -> assertTrue(EnrolmentHmac.verify(KEY, CONTENT, EXPECTED)),
-                () -> assertFalse(EnrolmentHmac.verify(KEY, changed, EXPECTED)),
-                () -> assertFalse(EnrolmentHmac.verify(KEY, CONTENT, EXPECTED.toUpperCase())),
-                () -> assertFalse(EnrolmentHmac.verify(KEY, CONTENT, EXPECTED.substring(1))));
+                () -> assertTrue(EnrolmentHmac.verify(KEY, CONTENT, EXPECTED),
+                        "the HMAC of the exact bytes verifies"),
+                () -> assertFalse(EnrolmentHmac.verify(KEY, changed, EXPECTED),
+                        "a one-byte change no longer verifies"),
+                () -> assertFalse(EnrolmentHmac.verify(KEY, CONTENT, EXPECTED.toUpperCase()),
+                        "an uppercase HMAC is not the recorded one"),
+                () -> assertFalse(EnrolmentHmac.verify(KEY, CONTENT, EXPECTED.substring(1)),
+                        "a truncated HMAC is refused"));
     }
 
     @Test
@@ -76,10 +81,14 @@ class EnrolmentHmacTest {
         var sidecar = EnrolmentHmac.sidecar(KEY, CONTENT);
 
         assertAll(
-                () -> assertEquals(StoreDigest.of(CONTENT), sidecar.digest()),
-                () -> assertEquals(CONTENT.length, sidecar.digest().size()),
-                () -> assertEquals(EXPECTED, sidecar.hmac()),
-                () -> assertTrue(sidecar.matches(CONTENT)));
+                () -> assertEquals(StoreDigest.of(CONTENT), sidecar.digest(),
+                        "the sidecar carries the SHA-256 of the bytes"),
+                () -> assertEquals(CONTENT.length, sidecar.digest().size(),
+                        "the recorded size is the byte length"),
+                () -> assertEquals(EXPECTED, sidecar.hmac(),
+                        "the sidecar carries the HMAC of the bytes"),
+                () -> assertTrue(sidecar.matches(CONTENT),
+                        "the sidecar matches the bytes it describes"));
     }
 
     @Test
@@ -88,11 +97,15 @@ class EnrolmentHmacTest {
         var withoutMaterial = new WithoutMaterial();
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> EnrolmentHmac.hmac(null, CONTENT)),
-                () -> assertThrows(NullPointerException.class, () -> EnrolmentHmac.hmac(KEY, null)),
-                () -> assertThrows(NullPointerException.class, () -> EnrolmentHmac.verify(KEY, CONTENT, null)),
+                () -> assertThrows(NullPointerException.class, () -> EnrolmentHmac.hmac(null, CONTENT),
+                        "a missing key is refused"),
+                () -> assertThrows(NullPointerException.class, () -> EnrolmentHmac.hmac(KEY, null),
+                        "missing content is refused"),
+                () -> assertThrows(NullPointerException.class, () -> EnrolmentHmac.verify(KEY, CONTENT, null),
+                        "a missing HMAC is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> EnrolmentHmac.hmac(withoutMaterial, CONTENT)));
+                        () -> EnrolmentHmac.hmac(withoutMaterial, CONTENT),
+                        "a key without material is refused"));
     }
 
     /** A key that carries no key material, which a MAC refuses to be initialised with. */

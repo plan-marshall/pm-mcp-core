@@ -123,7 +123,7 @@ class WorkerRecyclingTest {
         assertAll(
                 () -> assertEquals(IDLE_WAKEUPS - 1L, result.idleWakeups(), "the leased answer counts no wake-up"),
                 () -> assertNull(result.recycleCause(), "a consulting or holding worker is not idle"),
-                () -> assertFalse(ending.endRequested(generation.generationId())));
+                () -> assertFalse(ending.endRequested(generation.generationId()), "a leased wait requests no end"));
     }
 
     @Test
@@ -134,9 +134,12 @@ class WorkerRecyclingTest {
         var result = recycling.waitAgain(generation);
 
         assertAll(
-                () -> assertEquals(IDLE_WAKEUPS, result.idleWakeups()),
-                () -> assertEquals(RecycleCause.IDLE, result.recycleCause()),
-                () -> assertEquals(Optional.of(EndCause.RECYCLE), ending.requestedCause(generation.generationId())));
+                () -> assertEquals(IDLE_WAKEUPS, result.idleWakeups(),
+                        "the unleased wait counts the idle wake-up"),
+                () -> assertEquals(RecycleCause.IDLE, result.recycleCause(),
+                        "the idle bound recycles the generation"),
+                () -> assertEquals(Optional.of(EndCause.RECYCLE), ending.requestedCause(generation.generationId()),
+                        "the recycle requests the recycle end"));
     }
 
     @Test
@@ -154,9 +157,9 @@ class WorkerRecyclingTest {
 
         assertAll(
                 () -> assertEquals(RecycleCause.IDLE, lower.recycleCause(), "the role lowers the bound"),
-                () -> assertEquals(1L, lower.idleWakeups()),
+                () -> assertEquals(1L, lower.idleWakeups(), "the lower role bound counts one wake-up"),
                 () -> assertEquals(2L, raised.idleWakeups(), "the role cannot raise the host's bound"),
-                () -> assertNull(raised.recycleCause()));
+                () -> assertNull(raised.recycleCause(), "the higher role bound raises no bound"));
     }
 
     @Test
@@ -166,11 +169,13 @@ class WorkerRecyclingTest {
 
         assertAll(
                 () -> assertTrue(recycling.afterTurnCompleted(closed).isEmpty(),
-                        "an unmeasured context stays unmeasured, whatever the run total is"),
+                        "an unmeasured context stays unmeasured here"),
                 () -> assertTrue(recycling.afterTurnCompleted(
-                        closed.withContextTokens(ContextTokens.measured(TOKEN_BUDGET - 1L))).isEmpty()),
+                                closed.withContextTokens(ContextTokens.measured(TOKEN_BUDGET - 1L))).isEmpty(),
+                        "a context below the budget recycles nothing"),
                 () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), recycling.afterTurnCompleted(
-                        closed.withContextTokens(ContextTokens.measured(TOKEN_BUDGET)))));
+                                closed.withContextTokens(ContextTokens.measured(TOKEN_BUDGET))),
+                        "the measured budget recycles at the total"));
     }
 
     @Test
@@ -183,11 +188,11 @@ class WorkerRecyclingTest {
 
         assertAll(
                 () -> assertTrue(recycling.afterTurnCompleted(executing).isEmpty(),
-                        "the context a worker starts with is no reason to end its first task"),
+                        "a start context alone does not recycle"),
                 () -> assertTrue(recycling.afterTurnCompleted(executing.withServedTasks(List.of(firstTask))).isEmpty(),
                         "a task the worker still leases is not recycled at the budget"),
                 () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), recycling.afterTurnCompleted(afterClose),
-                        "the closed task ends the lease, so the budget recycles the next wait"));
+                        "the closed task lets the budget recycle"));
     }
 
     @Test
@@ -196,7 +201,8 @@ class WorkerRecyclingTest {
         var holding = warm().withLifecycle(WorkerLifecycle.HOLDING).withLeasedTask(firstTask)
                 .withContextTokens(ContextTokens.measured(TOKEN_BUDGET));
 
-        assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), recycling.afterTurnCompleted(holding));
+        assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), recycling.afterTurnCompleted(holding),
+                "a holding worker leaves its hold at the budget");
     }
 
     @Test
@@ -209,7 +215,8 @@ class WorkerRecyclingTest {
                 () -> assertTrue(recycling.afterTaskClosed(closed, closed.configurationDigest()).isEmpty(),
                         "an unchanged digest recycles nothing"),
                 () -> assertEquals(Optional.of(RecycleCause.CONFIGURATION_CHANGED),
-                        recycling.afterTaskClosed(closed, changedDigest)),
+                        recycling.afterTaskClosed(closed, changedDigest),
+                        "a changed digest recycles after the task"),
                 () -> assertEquals(List.of("implementer@claude"), cleared,
                         "the guard of the role on its harness is cleared"));
     }
@@ -222,7 +229,8 @@ class WorkerRecyclingTest {
 
         assertAll(
                 () -> assertEquals(Optional.of(RecycleCause.TASKS_PER_GENERATION),
-                        recycling.afterTaskClosed(closed, closed.configurationDigest())),
+                        recycling.afterTaskClosed(closed, closed.configurationDigest()),
+                        "one closed task reaches the per-generation bound"),
                 () -> assertTrue(recycling.afterTaskClosed(closed.withServedTasks(List.of()),
                                 closed.configurationDigest()).isEmpty(),
                         "a generation that closed no task reached no bound"));
@@ -240,7 +248,7 @@ class WorkerRecyclingTest {
                 () -> assertEquals(Optional.of(RecycleCause.TASKS_PER_GENERATION), cause,
                         "the task bound still recycles the generation"),
                 () -> assertEquals(List.of("implementer@claude"), cleared,
-                        "the changed configuration clears the guard in the same recycle"));
+                        "a changed configuration clears the guard here"));
     }
 
     @Test
@@ -254,8 +262,10 @@ class WorkerRecyclingTest {
         ending.exited(generation);
 
         assertAll(
-                () -> assertEquals(Optional.of(RecycleCause.IDLE_YIELD), cause),
-                () -> assertEquals(Optional.of(EndCause.RECYCLE), requested),
+                () -> assertEquals(Optional.of(RecycleCause.IDLE_YIELD), cause,
+                        "the idle yield recycles the longest idle worker"),
+                () -> assertEquals(Optional.of(EndCause.RECYCLE), requested,
+                        "the yield requests the recycle end"),
                 () -> assertEquals(List.of(generation.slot()), fixture.released,
                         "the slot of the idle worker is released for the waiting role"));
     }
@@ -278,8 +288,9 @@ class WorkerRecyclingTest {
         assertAll(
                 () -> assertTrue(sameRole.isEmpty(), "a worker of the waiting role frees nothing for it"),
                 () -> assertTrue(leased.isEmpty(), "a worker holding a lease is never yielded"),
-                () -> assertTrue(nobodyWaits.isEmpty()),
-                () -> assertFalse(ending.endRequested(generation.generationId())));
+                () -> assertTrue(nobodyWaits.isEmpty(), "no yield without a waiting role"),
+                () -> assertFalse(ending.endRequested(generation.generationId()),
+                        "no idle yield requests an end here"));
     }
 
     @Test
@@ -291,7 +302,8 @@ class WorkerRecyclingTest {
         var second = recycling.waitAgain(generation);
 
         assertAll(
-                () -> assertEquals(RecycleCause.IDLE, first.recycleCause()),
+                () -> assertEquals(RecycleCause.IDLE, first.recycleCause(),
+                        "the first wait recycles for the idle bound"),
                 () -> assertNull(second.recycleCause(), "a generation is recycled once"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.WORKER_GENERATION_RECYCLED.resolveIdentifierString()),
@@ -311,7 +323,8 @@ class WorkerRecyclingTest {
     private WorkerGeneration warm(Path workdir) {
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 2);
         var outcome = supervisor.start(List.of(fixture.warmRequest(role, workdir))).getFirst();
-        return assertInstanceOf(StartOutcome.Started.class, outcome).generation();
+        return assertInstanceOf(StartOutcome.Started.class, outcome, "the recycling test starts a warm worker")
+                .generation();
     }
 
     private WorkerGeneration registered(WorkerGeneration generation) {
