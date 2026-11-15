@@ -51,7 +51,7 @@ dependency: `pm-core:tests` is admitted for the modules that already depend on `
 assertion-message scanner of the `junit-core` rule that every assertion carries a message of 20 to 60 characters. The
 operator decided on 2026-11-15 (PLAN-V2-103) that the scan logic is published once, in
 `de.planmarshall.core.testing.assertions`, and that every module guards its own test tree with a thin test over
-it—a per-module copy of the about 400 lines was the alternative, and a `pm-core` test reading a sibling module's
+it—a per-module copy of the scanner class was the alternative, and a `pm-core` test reading a sibling module's
 sources by relative path was the other. The scanner reads a package path and a source root, so a module's guard names
 its own base package and reads its own `src/test/java`; nothing of a consumer's tree is compiled into the artifact.
 

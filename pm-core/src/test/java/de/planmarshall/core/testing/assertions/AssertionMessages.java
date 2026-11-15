@@ -40,13 +40,17 @@ import lombok.experimental.UtilityClass;
  * enclosing call ends; a comparison is therefore measured as the comparison it is. The third argument of
  * {@code assertEquals}, {@code assertNotEquals} and {@code assertArrayEquals} that is neither a string literal, a text
  * block nor a supplier-shaped expression is a tolerance, so such a call carries no message: a message constant in that
- * position is refused and an inline literal, a lambda or a method reference is the way to write it. A single bare name
- * passed to {@code fail} is the cause, not the message. A comment beside a message literal does not hide it from the
- * measurement.
+ * position is refused and an inline literal, a lambda or a method reference is the way to write it. A single argument
+ * passed to {@code fail} that names a throwable the source declares, or that constructs one with {@code new}, is the
+ * cause, not the message. A comment beside a message literal does not hide it from the measurement.
  * <p>
- * A module adds the scan to its own test tree with a thin test that names its base package, as {@code pm-core}'s guard
- * and the thin tests of {@code pm-workflow} and the provider modules do. A package that a scan names and that holds no
- * test source fails the scan instead of passing as empty.
+ * A module adds the scan to its own test tree with a thin test that names its base package; {@code pm-core}'s guard is
+ * the first of them. A package that a scan names and that holds no test source fails the scan instead of passing as
+ * empty.
+ * <p>
+ * The class is longer than the 400-line budget of {@code junit-core} because the scan and the shapes it must tell apart
+ * are one unit; the controls that prove it live beside it in {@code AssertionMessagesTest}, and the budget is reported,
+ * not enforced (standing rule R20).
  *
  * @since 0.1
  */
@@ -228,7 +232,8 @@ public class AssertionMessages {
                 return "no message";
             }
             var first = argument(spans.getFirst(), view, source);
-            if (SIMPLE_NAME.matcher(first).matches() && declaredThrowables(source).contains(first)) {
+            if ((SIMPLE_NAME.matcher(first).matches() && declaredThrowables(source).contains(first))
+                    || first.startsWith("new ")) {
                 return "no message (a cause is not a message)";
             }
             return measure(spans.getFirst(), view, source);
@@ -451,7 +456,8 @@ public class AssertionMessages {
 
     /**
      * @return whether a type argument starts at this index: an upper-case name, a wildcard, an annotation, or a
-     *         lower-case name that a {@code .} qualifies, as in {@code java.lang.String}
+     *         lower-case qualified name whose chain names an upper-case segment, as {@code java.lang.String} does and
+     *         the field access {@code expected.max} of a comparison does not
      */
     private static boolean startsAType(String view, int index) {
         if (index >= view.length()) {
@@ -464,11 +470,24 @@ public class AssertionMessages {
         if (!Character.isJavaIdentifierStart(current)) {
             return false;
         }
+        var qualified = false;
         var scan = index;
         while (scan < view.length() && Character.isJavaIdentifierPart(view.charAt(scan))) {
             scan++;
         }
-        return scan < view.length() && view.charAt(scan) == '.';
+        while (scan + 1 < view.length() && view.charAt(scan) == '.'
+                && Character.isJavaIdentifierStart(view.charAt(scan + 1))) {
+            qualified = true;
+            scan++;
+            var segmentStart = scan;
+            while (scan < view.length() && Character.isJavaIdentifierPart(view.charAt(scan))) {
+                scan++;
+            }
+            if (Character.isUpperCase(view.charAt(segmentStart))) {
+                return qualified;
+            }
+        }
+        return false;
     }
 
     private static int lineAt(String view, int position) {

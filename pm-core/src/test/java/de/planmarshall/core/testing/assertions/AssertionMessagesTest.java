@@ -153,6 +153,11 @@ class AssertionMessagesTest {
                 "assertEquals(a<b, c>d, \"the comparisons should agree\");");
         assertNotReported(temp.resolve("upper-case-comparisons"),
                 "assertEquals(a<MAX, b>0, \"the bounds are read as comparisons\");");
+        assertNotReported(temp.resolve("qualified-comparisons"),
+                "assertEquals(actual.min < expected.max, actual.max > expected.min, "
+                        + "\"the two ranges overlap at a bound\");");
+        assertNotReported(temp.resolve("quoted-number"),
+                "assertEquals(List.of(\"1.0\"), actual, MESSAGE);");
         assertNotReported(temp.resolve("spaced-type-argument"),
                 "assertEquals(Map.of(), new HashMap <String, String>(), \"both maps are equal here\");");
         assertNotReported(temp.resolve("trailing-comment"),
@@ -181,6 +186,8 @@ class AssertionMessagesTest {
                 "Throwable cause = new IllegalStateException(); fail(cause);");
         assertReported(temp.resolve("fail-exception"), "a cause is not a message",
                 "IOException thrown = new IOException(); fail(thrown);");
+        assertReported(temp.resolve("fail-new"), "a cause is not a message",
+                "fail(new AssertionError(\"boom\"));");
         assertReported(temp.resolve("commented-short"), "shorter than " + AssertionMessages.MIN_MESSAGE_LENGTH,
                 "assertTrue(value, \"too short\" /* the reviewer's note */);");
         assertReported(temp.resolve("commented-long"),
@@ -247,10 +254,6 @@ class AssertionMessagesTest {
         var violations = scanTree(packageFixture(root, statement)).violations();
 
         assertTrue(violations.isEmpty(), () -> "expected no violation for " + statement + " but got " + violations);
-    }
-
-    private static boolean reported(Path root, String reason) {
-        return scanTree(root).violations().stream().anyMatch(violation -> violation.contains(reason));
     }
 
     private static AssertionMessages.Scan scanTree(Path root) {

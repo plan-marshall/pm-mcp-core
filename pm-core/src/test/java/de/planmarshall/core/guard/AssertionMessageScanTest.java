@@ -25,7 +25,7 @@ import de.planmarshall.core.testing.assertions.AssertionMessages;
  * The scan walks every test source below {@code de/planmarshall/core} and skips the two packages this list exempts, by
  * name and with a reason: a new package is guarded as soon as it is written, because the list is the exemption and not
  * the population. The scan itself is the shared scanner of the {@code tests} JAR
- * ({@link AssertionMessages}), which {@code pm-workflow} and the provider modules reuse for their own trees.
+ * ({@link AssertionMessages}), which a module's own thin guard reuses for its own tree.
  */
 @DisplayName("Every assertion carries a message")
 class AssertionMessageScanTest {
