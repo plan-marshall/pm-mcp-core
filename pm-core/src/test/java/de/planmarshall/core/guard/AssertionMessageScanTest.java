@@ -95,39 +95,19 @@ class AssertionMessageScanTest {
     }
 
     @Test
-    @DisplayName("an assertion without a message is reported")
-    void assertionWithoutMessageIsReported(@TempDir Path temp) throws Exception {
-        var root = packageFixture(temp, "assertTrue(refusal.isPresent());");
-
-        assertTrue(reported(root, "no message"), "an assertion without a message must be reported");
-    }
-
-    @Test
-    @DisplayName("an assertion inside an assertAll lambda is reported")
-    void assertionInsideAssertAllIsReported(@TempDir Path temp) throws Exception {
-        var root = packageFixture(temp,
-                "assertAll(\"the refusal\", () -> assertTrue(refusal.isPresent()));");
-
-        assertTrue(reported(root, "no message"), "an assertion inside an assertAll lambda must be reported");
-    }
-
-    @Test
-    @DisplayName("a literal message shorter than 20 characters is reported")
-    void shortMessageIsReported(@TempDir Path temp) throws Exception {
-        var root = packageFixture(temp, "assertTrue(refusal.isPresent(), \"too short\");");
-
-        assertTrue(reported(root, "shorter than " + MIN_MESSAGE_LENGTH), "a message below 20 characters must be "
-                + "reported");
-    }
-
-    @Test
-    @DisplayName("a literal message longer than 60 characters is reported")
-    void longMessageIsReported(@TempDir Path temp) throws Exception {
-        var root = packageFixture(temp,
-                "assertTrue(refusal.isPresent(), \"" + "x".repeat(MAX_MESSAGE_LENGTH + 1) + "\");");
-
-        assertTrue(reported(root, "longer than " + MAX_MESSAGE_LENGTH), "a message above 60 characters must be "
-                + "reported");
+    @DisplayName("a missing message and an out-of-range literal message are reported")
+    void missingAndOutOfRangeMessagesAreReported(@TempDir Path temp) throws Exception {
+        assertTrue(reported(packageFixture(temp, "assertTrue(refusal.isPresent());"), "no message"),
+                "an assertion without a message must be reported");
+        assertTrue(reported(packageFixture(temp,
+                "assertAll(\"the refusal\", () -> assertTrue(refusal.isPresent()));"), "no message"),
+                "an assertion inside an assertAll lambda must be reported");
+        assertTrue(reported(packageFixture(temp, "assertTrue(refusal.isPresent(), \"too short\");"),
+                "shorter than " + MIN_MESSAGE_LENGTH),
+                "a message below 20 characters must be reported");
+        assertTrue(reported(packageFixture(temp, "assertTrue(refusal.isPresent(), \""
+                + "x".repeat(MAX_MESSAGE_LENGTH + 1) + "\");"), "longer than " + MAX_MESSAGE_LENGTH),
+                "a message above 60 characters must be reported");
     }
 
     @Test
