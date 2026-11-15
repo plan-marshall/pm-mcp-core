@@ -109,6 +109,13 @@ continuation bounds cut to the harness's `headless.resumability`, one effective 
 the artifact does not name takes the compiled threshold and the action `show`), the context budget (artifact, then
 harness fallback, then the compiled `400000`) and the effective idle wakeups.
 
+`LongContextThresholds` is the other reading of the harness profile the envelope budget needs: the per-model
+long-context price thresholds of `headless.long_context_thresholds`. It sits beside `HarnessProfile` rather than in it,
+because the envelope computation is its only reader and a new component of that record ripples into every constructor of
+it (link:../adr/core-profile/016-the-long-context-thresholds-sit-beside-the-harness-profile.adoc[ADR core-profile/016]).
+`of(LoadedProfile)` reads the document; `forModel` answers `OptionalInt`, empty for a model the profile names no entry
+for.
+
 == The Two Digests
 
 `RoleDigests.configuration(role)` is the SHA-256 of the canonical JSON (RFC 8785) of

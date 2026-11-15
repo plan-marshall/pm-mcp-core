@@ -121,6 +121,24 @@ class ProfileValidatorTest {
             return Stream.of(
                     Arguments.of(ProfileFixtures.valid().set("/headless/bogus", 1),
                             "/headless/bogus", "an undeclared member"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/long_context_thresholds",
+                                    map("acme-frontier", 9_999)),
+                            "/headless/long_context_thresholds/acme-frontier", "a threshold below 10 000"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/long_context_thresholds",
+                                    map("acme-frontier", "many")),
+                            "/headless/long_context_thresholds/acme-frontier", "a threshold that is no integer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/long_context_thresholds",
+                                    map("acme-frontier", -1)),
+                            "/headless/long_context_thresholds/acme-frontier", "a negative threshold"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/long_context_thresholds",
+                                    map("m".repeat(129), 200_000)),
+                            "/headless/long_context_thresholds/" + "m".repeat(129),
+                            "a model id of 129 characters"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/long_context_thresholds",
+                                    map("acme-frontier", 2_147_483_648L)),
+                            "/headless/long_context_thresholds/acme-frontier", "a threshold above the int bound"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/long_context_thresholds", 200_000),
+                            "/headless/long_context_thresholds", "a thresholds member that is no object"),
                     Arguments.of(ProfileFixtures.valid().remove("/headless/executable"),
                             "/headless/executable", "a missing member"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/install_locations/0", "relative/bin"),
@@ -337,7 +355,8 @@ class ProfileValidatorTest {
                     Arguments.of(ProfileFixtures.valid().set("/headless/resumability/resume",
                                     map("argv", List.of("--resume", "{{session_id}}"), "session_id", "/session",
                                             "max_age_seconds", 60)),
-                            "/headless/resumability/resume/max_age_seconds", "a resume max_age_seconds below the bound"),
+                            "/headless/resumability/resume/max_age_seconds",
+                            "a resume max_age_seconds below the bound"),
                     Arguments.of(ProfileFixtures.valid().set("/connection/transport", "http"),
                             "/connection/transport", "a transport that is not stdio"),
                     Arguments.of(ProfileFixtures.valid().set("/headless", null),
@@ -396,7 +415,8 @@ class ProfileValidatorTest {
                                     .set("/headless/capabilities", List.of("ephemeral", "ephemeral")),
                             "/headless/capabilities/1", "a capability that occurs twice"),
                     Arguments.of(ProfileFixtures.valid()
-                                    .set("/tools/idioms", map("lint", map("disposition", "bogus", "replacement", null))),
+                                    .set("/tools/idioms", map("lint", map("disposition", "bogus",
+                                            "replacement", null))),
                             "/tools/idioms/lint/disposition", "an undeclared idiom disposition"),
                     Arguments.of(ProfileFixtures.valid()
                                     .set("/tools/idioms", map("lint", map("disposition", "rewrite", "replacement",
@@ -412,6 +432,16 @@ class ProfileValidatorTest {
             var efforts = ProfileFixtures.valid()
                     .set("/headless/model_efforts", map("acme-frontier", List.of("high")));
             var budget = ProfileFixtures.valid().set("/headless/context_budget_tokens", 20000);
+            var thresholdsAbsent = ProfileFixtures.valid();
+            var thresholdsEmpty = ProfileFixtures.valid().set("/headless/long_context_thresholds", map());
+            var thresholdsOne = ProfileFixtures.valid()
+                    .set("/headless/long_context_thresholds", map("acme-frontier", 200_000));
+            var thresholdsSeveral = ProfileFixtures.valid().set("/headless/long_context_thresholds",
+                    map("acme-frontier", 200_000, "acme-standard", 128_000));
+            var thresholdsBoundary = ProfileFixtures.valid()
+                    .set("/headless/long_context_thresholds", map("m".repeat(128), 10_000));
+            var thresholdsMaximum = ProfileFixtures.valid()
+                    .set("/headless/long_context_thresholds", map("acme-frontier", Integer.MAX_VALUE));
             var models = ProfileFixtures.valid().set("/headless/models_probe",
                     map("argv", List.of("acme", "models"), "format", "json", "pointer", "/id"));
             var hold = ProfileFixtures.valid().set("/headless/resumability/hold", true)
@@ -423,10 +453,16 @@ class ProfileValidatorTest {
             var signal = ProfileFixtures.valid().set("/detection/primary_signals/0/equals", "acme");
             var ports = ProfileFixtures.valid().set("/headless/endpoints", List.of("acme:1", "acme:65535"));
 
-            assertAll(
+            assertAll("The optional blocks and alternative forms load",
                     () -> ProfileValidator.validate(idioms.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(efforts.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(budget.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(thresholdsAbsent.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(thresholdsEmpty.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(thresholdsOne.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(thresholdsSeveral.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(thresholdsBoundary.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(thresholdsMaximum.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(models.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(hold.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(prefix.bytes(), DOCUMENT, ProfileRules.none()),
@@ -478,7 +514,8 @@ class ProfileValidatorTest {
             var rules = ProfileRules.none();
 
             var refusal = assertThrows(ProfileRefusal.class,
-                    () -> ProfileValidator.validate(bytes, DOCUMENT, rules));
+                    () -> ProfileValidator.validate(bytes, DOCUMENT, rules),
+                    "A bounded wait above the margin is refused");
 
             assertEquals("the bounded wait 271 must be at least 30 seconds below the idle timeout 300 without "
                     + "progress frames", refusal.detail(), "the margin refusal states the lower bound");

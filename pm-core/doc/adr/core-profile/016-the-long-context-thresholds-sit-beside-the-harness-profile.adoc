@@ -1,0 +1,62 @@
+= ADR 016: The long-context thresholds sit beside `HarnessProfile`, not in it
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-15.
+
+== Context
+
+The profile schema declares `headless.long_context_thresholds`: per model id of the harness, the input tokens above which
+its provider bills a request at the long-context price (link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#long-context-thresholds[Harness Profiles § Model Tiers & Models of a Harness]). A fallback of the context budget is
+capped at the entry, while a value the role artifact or the operator sets is kept as set (Model Work § Cost Sizing,
+Envelope Budget, item 4).
+
+Two questions had to be answered together. First, where the member is read: `core.role.HarnessProfile` is the projection
+of a validated profile that role validation reads, and it already carries the sibling member
+`headless.context_budget_tokens` as `contextBudgetTokens`. Second, whether the record gains a component: seven test
+classes and two constructors of `HarnessProfile` build that record positionally or through its builder, so a twelfth
+component touches all of them.
+
+== Decision
+
+The thresholds are read by `core.role.LongContextThresholds`, a value of one map component beside `HarnessProfile`:
+`of(JsonNode)` reads `headless.long_context_thresholds` of a profile document's tree, `of(LoadedProfile)` delegates to it, and
+`forModel(String)` answers `OptionalInt` — the entry of the model, or empty where the profile names none for it. A
+document without the member, a `null` `headless` block and an endpoint profile all answer the empty value.
+
+`HarnessProfile` keeps its eleven components. `ProfileValidator` validates the member where the optional
+`context_budget_tokens` is validated: an object whose names are at most 128 characters and whose values are integers of at
+least 10 000. An endpoint profile declares no `headless` member, so it carries no threshold and there is nothing to read.
+
+== Alternatives Considered
+
+1. *A twelfth component of `HarnessProfile` (`Map<String, Integer> longContextThresholds`).*
+   _Rejected_: the record is constructed positionally and through its builder in seven test classes and in the production
+   wiring, so the component forces an edit of all of them for a member that only the envelope computation reads. The
+   projection also serves role validation, which never asks for a threshold.
+2. *A component of `EffectiveRole` instead of the profile projection.*
+   _Rejected_: `EffectiveRole` carries the worker's own budget, and the threshold caps only the envelope's fallbacks; the
+   worker's budget is deliberately not capped, so the two values do not belong in one record.
+3. *Reading the member at the call site of the budget, without a value class.*
+   _Rejected_: the empty cases (absent member, `null` block, endpoint profile) and the byte-exact comparison would be
+   restated by every caller, and the schema's member name would be spelled outside the package that owns the reading.
+
+== Consequences
+
+* A new reader of the member constructs `LongContextThresholds` from the loaded profile; `HarnessProfile` is unchanged and
+  so is every constructor of it.
+* The empty cases are answered once: `forModel` on a document without the member, a null block or an endpoint profile is
+  `OptionalInt.empty()`, and a caller cannot mistake "no threshold" for "no cap of this model" in another way.
+* The comparison is byte-exact by construction (`Map.get`), so a model id with another case or a prefix never matches.
+* The wiring that supplies the threshold to `EnvelopeBudget.resolve` inside `plan.describe-tasks` remains owed; this
+  record decides only where the value is read.
+
+== Source
+
+Plan PLAN-V2-63 (`long-context-thresholds`) of the epic `pm-mcp-core-m2-m4-v2`; Harness Profiles § Model Tiers & Models of
+a Harness, § Normative Harness Profile JSON Schema; Model Work § Cost Sizing, Envelope Budget & Minimum Task Work, item 4.

@@ -117,7 +117,19 @@ received, a profile offered for a later release. Validation then accepts exactly
 * `headless.update_evidence` refuses a method without a signer and `none` with one;
 * `headless.resumability.resume.argv` holds `{{session_id}}` exactly once, and a resume needs persisted session
   residue;
-* a `tool_result_limit_chars` needs a non-empty `resource_tools`.
+* a `tool_result_limit_chars` needs a non-empty `resource_tools`;
+* `headless.long_context_thresholds` is an object whose member names are model ids of at most 128 characters and whose
+  values are integers of at least 10 000: the input tokens above which the provider bills a request of that model at the
+  long-context price. An empty object is valid, the endpoint profile kind declares the member nowhere, and a refusal names
+  the entry (`/headless/long_context_thresholds/<model id>`) or the member for a value that is no object.
+
+The long-context price tier is the member's rule: a context budget the system falls back to (the profile's
+`headless.context_budget_tokens` and the compiled `400K`) is capped at the entry of the worker's model, while a
+`context_budget_tokens` the role artifact sets and the operator's `envelope_budget_tokens` are taken as set (Model Work
+§ Cost Sizing, Envelope Budget, item 4). `core.role.LongContextThresholds` reads the member of a profile document's tree
+(`of(JsonNode)`, and `of(LoadedProfile)` over it): `forModel` answers the entry of a model id byte-exactly — no prefix
+match and no case folding, as `identifiers/01-general-rules-and-registry.adoc` general rule 2 requires — and a model the
+profile names no entry for answers nothing, so it has no cap.
 
 The `connection` block carries the harness's timing facts, and validation relates them: `transport` is `stdio`,
 `idle_timeout_seconds` lies between 45 and 7,200, and `bounded_wait_seconds` between 15 and 3,600. When the

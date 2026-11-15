@@ -71,7 +71,12 @@ public class EnvelopePacker {
             Objects.requireNonNull(taskId, "taskId");
             Objects.requireNonNull(moduleId, "moduleId");
             Objects.requireNonNull(role, "role");
+            Objects.requireNonNull(skillUris, "skillUris");
             Objects.requireNonNull(costSize, "costSize");
+            Objects.requireNonNull(dependsOnTaskIds, "dependsOnTaskIds");
+            if (predictedCostTokens < 0) {
+                throw new IllegalArgumentException("The predicted cost must not be negative: " + predictedCostTokens);
+            }
             skillUris = Set.copyOf(skillUris);
             dependsOnTaskIds = List.copyOf(dependsOnTaskIds);
         }
@@ -126,10 +131,14 @@ public class EnvelopePacker {
      * @param orderedTasks         the plan tasks in topological order over their dependencies, ties broken by task id
      * @param envelopeBudgetTokens the per-envelope budget in tokens
      * @return the envelopes in order, each a contiguous slice of the input; empty for an empty input
+     * @throws IllegalArgumentException if the budget is not positive
      */
     public static List<PackedEnvelope> packEnvelopes(List<PlannedTaskSummary> orderedTasks,
             long envelopeBudgetTokens) {
         Objects.requireNonNull(orderedTasks, "orderedTasks");
+        if (envelopeBudgetTokens <= 0) {
+            throw new IllegalArgumentException("The envelope budget must be positive: " + envelopeBudgetTokens);
+        }
         List<List<PlannedTaskSummary>> groups = new ArrayList<>();
         List<PlannedTaskSummary> current = new ArrayList<>();
         long currentTotal = 0;

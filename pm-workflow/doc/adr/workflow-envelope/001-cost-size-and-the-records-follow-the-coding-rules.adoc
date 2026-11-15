@@ -20,7 +20,7 @@ The specification states the packer as a Java block (link:../../../../doc/specif
 * `EnvelopePacker`, `TaskCostEstimator` and `EnvelopeBudget` are `@UtilityClass` classes with static methods.
 * `PackedEnvelope.belowMinimum()` derives whether the total stays below `MIN_JOB_TOKENS`, so a caller never repeats the comparison.
 
-The algorithm of the block is kept statement for statement.
+The algorithm of the block is kept in behaviour; the merge loop is restructured into `mergeTarget` and `mergeInto`.
 
 == Alternatives Considered
 

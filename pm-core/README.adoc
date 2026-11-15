@@ -92,8 +92,9 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 * link:doc/adr/core-id/[`doc/adr/core-id/`]: the identifier types; ADR 001 the one definition of the short-name grammar
   and its source-scan guard.
 * link:doc/adr/core-profile/[`doc/adr/core-profile/`]: the client profile validator, its digest and sidecar, the refused
-  profile as a value, the bundle-managed paths as installation data, the schema literals named once per class and the
-  endpoint profile:
+  profile as a value, the bundle-managed paths as installation data, the schema literals named once per class, the
+  endpoint profile, the ordered scan and list, the one verification gate, the idle margin and the long-context
+  thresholds:
   link:doc/adr/core-profile/005-schema-literals-named-once-per-class.adoc[ADR 005] the schema literals named once per
   class;
   link:doc/adr/core-profile/010-endpoint-profile-is-a-kind-of-the-profile-sets.adoc[ADR 010] the endpoint profile is a kind
@@ -101,7 +102,15 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
   link:doc/adr/core-profile/011-endpoint-harness-runs-zero-tool-only.adoc[ADR 011] an endpoint harness runs `zero_tool`
   only;
   link:doc/adr/core-profile/012-endpoint-profile-declares-no-supported-range.adoc[ADR 012] an endpoint profile declares no
-  supported version range.
+  supported version range;
+  link:doc/adr/core-profile/013-the-scan-and-list-are-ordered-values.adoc[ADR 013] the scan and the list are ordered
+  values;
+  link:doc/adr/core-profile/014-the-verification-is-admitted-by-one-gate.adoc[ADR 014] the verification is admitted by one
+  gate;
+  link:doc/adr/core-profile/015-the-validator-enforces-the-idle-margin.adoc[ADR 015] the validator enforces the idle
+  margin;
+  link:doc/adr/core-profile/016-the-long-context-thresholds-sit-beside-the-harness-profile.adoc[ADR 016] the long-context
+  thresholds sit beside `HarnessProfile`.
 * link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the task queue; ADRs 001 and 003 are superseded, ADR 002 stands, ADRs 004 to 006 record the generation fence, the record's combinations at the write boundary and the journal's sibling lock.
 * link:doc/adr/core-role-corpus/[`doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
 * link:doc/adr/core-service/[`doc/adr/core-service/`]: the service interfaces:
