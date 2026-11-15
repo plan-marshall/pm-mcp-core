@@ -298,11 +298,6 @@ public class ModelSlotCodec {
                 .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(field, name)));
     }
 
-    private static ScopeType scopeType(String wireName) {
-        return ScopeType.fromWireName(wireName).orElseThrow(
-                () -> unreadable("'scope_type' has the undeclared value '%s'".formatted(wireName)));
-    }
-
     private static void requireNoDuplicateWorker(Document document) {
         var jobs = new HashSet<String>();
         for (var slot : document.slots()) {

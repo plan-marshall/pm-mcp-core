@@ -397,6 +397,8 @@ public final class Enrolments {
      * an interrupted {@code unenrol}, also when the sink refused records, which stay owed in the intent file. A
      * hand-over that throws keeps the sidecar for the next pass.
      */
+    @SuppressWarnings("java:S3516") // the three paths answer different values: the hand-over count, zero when the
+    // enrolment file exists, and the count of the sweep that also removes the orphan sidecar
     private int replayProject(LockTransaction transaction, String projectId, boolean unenrolledOnly) {
         if (!unenrolledOnly) {
             return handOverOwed(transaction, projectId, null);
