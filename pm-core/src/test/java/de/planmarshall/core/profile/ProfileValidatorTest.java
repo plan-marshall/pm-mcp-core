@@ -10,6 +10,7 @@
 package de.planmarshall.core.profile;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,6 +47,34 @@ class ProfileValidatorTest {
         assertAll(
                 () -> assertEquals("acme-cli", ProfileValidator.clientId(profile)),
                 () -> assertEquals("Acme CLI", profile.member("display_name").flatMap(JsonNode::text).orElseThrow()));
+    }
+
+    static Stream<Arguments> loadDirectiveSlots() {
+        return Stream.of(
+                Arguments.of("pm_skill()", true, "a template without the slot is refused"),
+                Arguments.of("pm_skill(uri=\"{{uri}}\")", false, "the slot exactly once loads"),
+                Arguments.of("pm_skill(uri=\"{{uri}}\", again=\"{{uri}}\")", true, "the slot twice is refused"),
+                Arguments.of("pm_skill(uri=\"{ {uri}}\")", true, "a slot split by a space is refused"),
+                Arguments.of("pm_skill(uri=\"{{{uri}}}\")", true, "a slot between extra braces is refused"),
+                Arguments.of("pm_skill(uri=\"{{uri}}}\")", true, "a closing brace after the slot is refused"));
+    }
+
+    @ParameterizedTest(name = "{2}")
+    @MethodSource("loadDirectiveSlots")
+    @DisplayName("the load directive names its skill through the literal slot exactly once")
+    void loadDirectiveNeedsTheUriSlot(String template, boolean refused, String because) {
+        // The literal '{{uri}}' is the contract: a near-synonym is a missing slot, not a second spelling.
+        var bytes = ProfileFixtures.valid().set("/skill_loading/load_directive_template", template).bytes();
+        var rules = ProfileRules.none();
+
+        if (!refused) {
+            assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, rules), because);
+            return;
+        }
+        var refusal = assertThrows(ProfileRefusal.class,
+                () -> ProfileValidator.validate(bytes, DOCUMENT, rules), because);
+
+        assertEquals("/skill_loading/load_directive_template", refusal.pointer(), because);
     }
 
     @Test
@@ -181,7 +210,8 @@ class ProfileValidatorTest {
                                     .set("/connection/progress_resets_timeout", false)
                                     .set("/connection/bounded_wait_seconds", 240)
                                     .set("/connection/idle_timeout_seconds", 240),
-                            "/connection/bounded_wait_seconds", "a bounded wait closer than the margin to the idle timeout"),
+                            "/connection/bounded_wait_seconds",
+                            "a bounded wait closer than the margin to the idle timeout"),
                     Arguments.of(ProfileFixtures.valid()
                                     .set("/connection/progress_resets_timeout", false)
                                     .set("/connection/idle_timeout_seconds", 300)
@@ -413,25 +443,54 @@ class ProfileValidatorTest {
                     .set("/connection/bounded_wait_seconds", 270);
             var progress = ProfileFixtures.valid()
                     .set("/connection/progress_resets_timeout", true)
-                    .set("/connection/idle_timeout_seconds", 240)
-                    .set("/connection/bounded_wait_seconds", 240);
+                    .set("/connection/idle_timeout_seconds", 480)
+                    .set("/connection/bounded_wait_seconds", 480);
             var longest = ProfileFixtures.valid()
                     .set("/connection/progress_resets_timeout", true)
                     .set("/connection/bounded_wait_seconds", 3_600);
+            var atMargin = ProfileValidator.validate(exactly.bytes(), DOCUMENT, ProfileRules.none());
+            var withProgress = ProfileValidator.validate(progress.bytes(), DOCUMENT, ProfileRules.none());
+            var longWait = ProfileValidator.validate(longest.bytes(), DOCUMENT, ProfileRules.none());
 
             assertAll("the connection boundaries",
-                    () -> assertEquals("acme-cli",
-                            ProfileValidator.clientId(ProfileValidator.validate(exactly.bytes(), DOCUMENT,
-                                    ProfileRules.none())),
-                            "a bounded wait exactly at idle minus 30 loads"),
-                    () -> assertEquals("acme-cli",
-                            ProfileValidator.clientId(ProfileValidator.validate(progress.bytes(), DOCUMENT,
-                                    ProfileRules.none())),
-                            "progress frames admit any bounded wait"),
-                    () -> assertEquals("acme-cli",
-                            ProfileValidator.clientId(ProfileValidator.validate(longest.bytes(), DOCUMENT,
-                                    ProfileRules.none())),
+                    () -> assertAll("a bounded wait exactly at idle minus 30 loads",
+                            () -> assertEquals(300, connectionValue(atMargin, "idle_timeout_seconds"),
+                                    "the loaded idle timeout is the case's"),
+                            () -> assertEquals(270, connectionValue(atMargin, "bounded_wait_seconds"),
+                                    "the loaded bounded wait is the margin below")),
+                    () -> assertAll("progress frames admit a wait equal to the idle timeout",
+                            () -> assertEquals(480, connectionValue(withProgress, "idle_timeout_seconds"),
+                                    "the loaded idle timeout is the case's"),
+                            () -> assertEquals(480, connectionValue(withProgress, "bounded_wait_seconds"),
+                                    "the loaded bounded wait is the idle timeout")),
+                    () -> assertEquals(3_600, connectionValue(longWait, "bounded_wait_seconds"),
                             "the longest bounded wait loads with progress"));
+        }
+
+        @Test
+        @DisplayName("the margin refusal says the bounded wait must be at least the margin below the idle timeout")
+        void marginRefusalWording() {
+            var fixture = ProfileFixtures.valid()
+                    .set("/connection/progress_resets_timeout", false)
+                    .set("/connection/idle_timeout_seconds", 300)
+                    .set("/connection/bounded_wait_seconds", 271);
+            var bytes = fixture.bytes();
+            var rules = ProfileRules.none();
+
+            var refusal = assertThrows(ProfileRefusal.class,
+                    () -> ProfileValidator.validate(bytes, DOCUMENT, rules));
+
+            assertEquals("the bounded wait 271 must be at least 30 seconds below the idle timeout 300 without "
+                    + "progress frames", refusal.detail(), "the margin refusal states the lower bound");
+        }
+
+        /** The value the loaded document carries at {@code /connection/<member>}. */
+        private static long connectionValue(JsonNode profile, String member) {
+            return profile.member("connection")
+                    .flatMap(connection -> connection.member(member))
+                    .map(JsonNode::integerValue)
+                    .orElseThrow()
+                    .getAsLong();
         }
 
         /** A map that, unlike {@link Map#of}, admits a null value. */

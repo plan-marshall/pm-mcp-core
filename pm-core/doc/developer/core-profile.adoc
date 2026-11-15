@@ -103,6 +103,8 @@ received, a profile offered for a later release. Validation then accepts exactly
   1,024 characters);
 * the fields a model reads (`display_name`, tool names, an idiom's replacement, the load directive) are limited to the
   characters of a command name or call expression, with the closed placeholders as the only `{{…}}`;
+* `skill_loading.load_directive_template` carries the literal `{{uri}}` exactly once, so the rendered directive always
+  names the skill it loads and never a near-synonym of the slot;
 * `argv`, `args` and `env` values hold literals and the closed slot set only; a URL, an absolute path or a home path
   refuses the profile, and `env` may set no job, interpreter or credential variable;
 * `writable_paths`, `mcp_config.path` and `data_home.login_file` are relative, hold no `..`, and never cover a
