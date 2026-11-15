@@ -136,7 +136,7 @@ class DerivedFactsSchemaParityTest {
                 () -> assertEquals(Boolean.FALSE, schema.get("additionalProperties"),
                         "The document is closed"),
                 () -> assertEquals(Boolean.FALSE, entry.get("additionalProperties"),
-                        "An entry is closed"),
+                        "an entry admits no additional properties"),
                 () -> assertEquals(Boolean.FALSE,
                         SchemaResource.object(entryProperties.get("source")).get("additionalProperties"),
                         "The source is closed"),

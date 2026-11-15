@@ -275,7 +275,7 @@ class AuditLogTest {
             assertAll("an append without the lock is refused",
                     () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(),
                             "the fault names the missing lock"),
-                    () -> assertFalse(Files.exists(log.logFile()), "nothing was written"),
+                    () -> assertFalse(Files.exists(log.logFile()), "the refusal left the log file absent"),
                     () -> assertEquals(List.of(), anchorState.calls, "the anchor was not called"));
         }
 
@@ -480,7 +480,7 @@ class AuditLogTest {
                                     "second"), records.stream().map(AuditRecord::event).toList(),
                             "the repair sits after the checkpoint"),
                     () -> assertEquals(records.get(2), anchorState.lastBefore,
-                            "the anchor saw the repair record, not the checkpoint, as the last line"),
+                            "the anchor saw the repair record last"),
                     () -> assertEquals(second, records.getLast(), "the new record is last"),
                     () -> assertFalse(Files.exists(intentFile()), "the intent was closed"),
                     () -> assertChained(AuditCodec.GENESIS_HASH));
@@ -539,7 +539,7 @@ class AuditLogTest {
                 assertThrows(IllegalStateException.class, () -> log.appendCheckpoint(transaction, checkpoint),
                         "a checkpoint without the audit lock is refused");
             }
-            assertFalse(Files.exists(log.logFile()), "nothing was written");
+            assertFalse(Files.exists(log.logFile()), "the refusal left the log file absent");
         }
 
         @Test
@@ -552,7 +552,7 @@ class AuditLogTest {
                 assertThrows(IllegalArgumentException.class, () -> log.appendCheckpoint(transaction, auditRecord),
                         "a checkpoint of another event is refused");
             }
-            assertFalse(Files.exists(log.logFile()), "nothing was written");
+            assertFalse(Files.exists(log.logFile()), "the refusal left the log file absent");
         }
     }
 
@@ -598,7 +598,7 @@ class AuditLogTest {
                     () -> assertEquals(principal, appended.actor(), "the actor is the OS principal"),
                     () -> assertEquals(event.details(), appended.details(), "the details are those of the event"),
                     () -> assertEquals(List.of("emptyLogPredecessor"), state.calls,
-                            "the anchor was asked for the predecessor only, never before or after an append"));
+                            "the anchor was asked only for the predecessor"));
         }
 
         @Test
@@ -627,7 +627,7 @@ class AuditLogTest {
                 assertThrows(IllegalStateException.class, () -> log.appendOwedRepair(transaction, event),
                         "an owed repair without the audit lock is refused");
             }
-            assertFalse(Files.exists(log.logFile()), "nothing was written");
+            assertFalse(Files.exists(log.logFile()), "the refusal left the log file absent");
         }
 
         @Test
@@ -643,7 +643,7 @@ class AuditLogTest {
                             "a repair of another event is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> appendOwed(unknownCategory),
                             "an unknown category is refused"),
-                    () -> assertFalse(Files.exists(log.logFile()), "nothing was written"));
+                    () -> assertFalse(Files.exists(log.logFile()), "the refusal left the log file absent"));
         }
     }
 

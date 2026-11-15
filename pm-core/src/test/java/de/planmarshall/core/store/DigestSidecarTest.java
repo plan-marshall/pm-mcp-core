@@ -61,10 +61,11 @@ class DigestSidecarTest {
     private StoreRefusal assertRefused(Outcome outcome, String document) {
         var file = file();
         var bytes = document.getBytes(UTF_8);
-        var refusal = assertThrows(StoreRefusal.class, () -> DigestSidecar.read(file, bytes));
+        var refusal = assertThrows(StoreRefusal.class, () -> DigestSidecar.read(file, bytes),
+                "the sidecar read refuses an invalid document");
         assertAll(
-                () -> assertEquals(outcome, refusal.outcome()),
-                () -> assertEquals(file, refusal.file()),
+                () -> assertEquals(outcome, refusal.outcome(), "the refusal carries the published outcome"),
+                () -> assertEquals(file, refusal.file(), "the refusal names the sidecar file"),
                 () -> assertTrue(refusal.getMessage().contains(file.toString()), "the message names the file"));
         return refusal;
     }
