@@ -1085,7 +1085,7 @@ class CredentialStoreMoveTest {
                             "the handed-over record carries the same id"),
                     () -> assertEquals(List.of(first), distinctEvents(movedEvents()),
                             "the reader counts the handed-over record once"),
-                    () -> assertFalse(Files.exists(recordFile()), "the failed delivery leaves no record behind"));
+                    () -> assertFalse(Files.exists(recordFile()), "the completed resume deletes the record"));
         }
 
         @Test

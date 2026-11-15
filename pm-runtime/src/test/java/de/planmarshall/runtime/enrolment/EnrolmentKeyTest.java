@@ -854,7 +854,7 @@ class EnrolmentKeyTest {
 
             assertAll(
                     () -> assertEquals(osStoreAvailable, keyring.entries.containsKey(EnrolmentKey.ACCOUNT),
-                            "the key lands in the found OS store"),
+                            "the key lands in the OS store only when one exists"),
                     () -> assertEquals(!osStoreAvailable, Files.exists(key.keyFile()),
                             "the key file exists only without an OS store"));
         }

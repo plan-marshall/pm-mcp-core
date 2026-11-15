@@ -378,7 +378,7 @@ class EnrolmentCheckTest {
             var content = otherVersionOfSidecar();
             Files.write(store.sidecar(PROJECT), content);
             var expected = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content),
-                    "an unreadable sidecar refuses the strict read");
+                    "a newer format sidecar refuses the strict read");
 
             assertInvalid(refused(PROJECT), Outcome.FORMAT_NEWER, store.sidecar(PROJECT), expected.getMessage());
         }
