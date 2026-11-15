@@ -108,7 +108,7 @@ class QuestionLogRecordReaderReadTest {
             assertEquals(new Resolved("answered"), read,
                     "a resolved record reads back as resolved");
             assertEquals(before, tree(plan.pathBase()),
-                    "a read writes nothing: the tree and its times stay the same");
+                    "a read leaves the names, sizes and times unchanged");
         }
 
         private static Map<String, String> tree(Path root) throws IOException {

@@ -199,7 +199,7 @@ class DbusMessageTest {
         void basic(String type, String bytes, String expected) {
             var value = new DbusReader(hex(bytes), ByteOrder.LITTLE_ENDIAN).read(type).getFirst();
 
-            assertEquals(expected, String.valueOf(value), "the value decodes to the expected text");
+            assertEquals(expected, String.valueOf(value), "the decoded value matches the wire bytes");
         }
 
         @Test

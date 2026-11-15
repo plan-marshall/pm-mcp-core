@@ -563,7 +563,7 @@ class EnrolmentKeyTest {
                 transaction.acquire(projectLock);
 
                 assertThrows(InternalFaultException.class, () -> transaction.acquire(creationLock),
-                        "the creation lock is taken before enrolment");
+                        "the held creation lock refuses the second acquire");
             }
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(creationLock);

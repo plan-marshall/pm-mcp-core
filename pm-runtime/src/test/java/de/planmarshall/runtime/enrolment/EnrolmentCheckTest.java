@@ -471,7 +471,7 @@ class EnrolmentCheckTest {
         var refusal = refused(PROJECT);
 
         assertAll(
-                () -> assertInstanceOf(StoreRefusal.class, refusal, "the refusal is a store refusal instance"),
+                () -> assertInstanceOf(StoreRefusal.class, refusal, "the unreadable sidecar is refused"),
                 () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is unreadable"),
                 () -> assertEquals(store.sidecar(PROJECT), refusal.file(), "the refusal names the sidecar"));
     }

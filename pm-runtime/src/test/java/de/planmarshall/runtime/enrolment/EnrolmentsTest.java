@@ -246,7 +246,7 @@ class EnrolmentsTest {
 
     /** Every record carries a transaction id that is a valid, non-empty {@link TransactionId}. */
     private static void assertValidTransactionIds(List<AuditEvent> records) {
-        assertFalse(records.isEmpty(), "the audit records are not empty");
+        assertFalse(records.isEmpty(), "the audit recorded at least one event");
         for (var event : records) {
             var id = transactionIdOf(event);
             assertEquals(id, new TransactionId(id).value(), "the transaction id round trips");

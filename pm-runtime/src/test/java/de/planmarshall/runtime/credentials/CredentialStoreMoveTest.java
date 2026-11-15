@@ -1269,7 +1269,7 @@ class CredentialStoreMoveTest {
             assertThrows(SecretStoreException.class, mover::resume, "a copy that fails again fails the resume");
 
             assertAll(
-                    () -> assertFalse(moveRecord.targetHeldKey(), "the record names the moved key as copied"),
+                    () -> assertFalse(moveRecord.targetHeldKey(), "the record says the target held no key"),
                     () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
                     () -> assertTrue(keyIn(fileStore).read().isPresent(),
                             "the old store keeps the integrity key"),

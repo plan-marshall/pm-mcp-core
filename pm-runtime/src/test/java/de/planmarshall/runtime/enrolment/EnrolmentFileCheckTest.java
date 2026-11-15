@@ -215,7 +215,7 @@ class EnrolmentFileCheckTest {
                     () -> assertEquals(EnrolmentFileCheck.SYMBOLIC_LINK, snapshot.violation().orElseThrow(),
                             "the link is the reported violation"),
                     () -> assertTrue(snapshot.content().isEmpty(), "a refused link yields no content"),
-                    () -> assertFalse(snapshot.isAbsent(), "a refused link is an absent one"));
+                    () -> assertFalse(snapshot.isAbsent(), "a refused link is not an absent one"));
         }
 
         @ParameterizedTest(name = "mode {0}, expected owner {1}")

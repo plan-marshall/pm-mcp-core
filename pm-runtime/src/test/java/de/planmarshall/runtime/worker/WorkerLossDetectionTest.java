@@ -284,7 +284,7 @@ class WorkerLossDetectionTest {
 
         assertAll(
                 () -> assertTrue(detection.due(deadline.minusMillis(1)).isEmpty(),
-                        "the offer deadline is spent; the answer one rules"),
+                        "the answer deadline is not yet due by a millisecond"),
                 () -> assertEquals(LossReason.ACK_MISSED, detection.due(deadline).orElseThrow().reason(),
                         "the answer deadline fires the missed acknowledgement"),
                 () -> assertEquals(deadline, detection.due(deadline).orElseThrow().deadline(),
