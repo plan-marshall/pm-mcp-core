@@ -91,6 +91,10 @@ Added by the orchestrator. Read at the outline; it extends no Done-when by itsel
 
 See the section of the same name in the spec of PLAN-V2-103: the findings of the landing read of PLAN-V2-102 (the scanner's edge forms, the whitelist, the 649-line class) go into whichever of 103, 104 and 105 is emitted first and extracts the scanner into `pm-core:tests`; this plan only adds its thin test.
 
+## Superseded 2026-11-15 (the orchestrator, at the emit of PLAN-V2-105)
+
+This plan is folded into PLAN-V2-105, as its own carried section said it would be: about 15 messages remain in `pm-runtime` `config` and `corpus`, every other package is at 0, and the plan is too small for a pull request. The row is `superseded`; the spec stays as the audit record. Do NOT emit it.
+
 ## Hand-Off Command
 
 ```text
