@@ -139,9 +139,10 @@ The closed grammar of each typed slot:
 |===
 
 A gap in rule (b) is admitted for exactly one reason: a slot with no value removes its template element, and the flag
-element before it is removed with it (`--json-schema` and its value, `--mcp-config` and its value). The check therefore
-runs before the ephemeral flag is withheld, so the removal of `--no-session-persistence` for a resumable role is not a
-gap it has to explain; the elements removed afterwards are template literals the composer never alters.
+element before it is removed with it (`--json-schema` and its value, `--mcp-config` and its value). The ephemeral flag a
+role that may resume must not receive is withheld from the **template** before it is rendered, not from the rendered
+vector: the template and the vector therefore correspond element for element, no gap is left to explain, and a slot value
+that happens to contain the flag's text is never mistaken for the flag.
 
 Tested by `WorkerVectorCheckTest` (the four template shapes of the fixture profile, one refusing vector per rule, a slot
 grammar per slot, a metacharacter per character, and the path through a real `LaunchComposer` and a recording starter) and

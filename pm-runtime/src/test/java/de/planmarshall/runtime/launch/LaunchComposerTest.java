@@ -342,6 +342,47 @@ class LaunchComposerTest {
         assertEquals(FIXTURE_VECTOR_DIGEST, vectorDigest(launch), "the conforming vector does not move");
     }
 
+    @Test
+    @DisplayName("a resumed session id that names the ephemeral flag is kept")
+    void ephemeralTextInAValueIsKept() {
+        var sessionId = "no-session-persistence";
+
+        var launch = new LaunchComposer().compose(resumedRequest(sessionId));
+
+        assertAll(
+                () -> assertTrue(launch.argv().contains(sessionId), "the session id is kept"),
+                () -> assertEquals(sessionId, launch.argv().get(launch.argv().indexOf("--resume") + 1),
+                        "the resume flag keeps its value"));
+    }
+
+    /** @return a warm plan-worktree request that resumes the stored session */
+    private LaunchRequest resumedRequest(String sessionId) {
+        return LaunchRequest.builder()
+                .role(LaunchFixtures.writer(skills))
+                .block(LaunchFixtures.block())
+                .enrolment(LaunchFixtures.enrolment(LaunchFixtures.enrolmentPath(root), LaunchFixtures
+                        .executableDigest(), harnessVersion))
+                .generationId(generation)
+                .runtimeHome(root.resolve("runtime"))
+                .jobPrivateDirectory(root.resolve("run/jobs").resolve(generation))
+                .workdirKind(LaunchRequest.WorkdirKind.PLAN_WORKTREE)
+                .planId(planIds().next())
+                .workdir(root.resolve("worktree"))
+                .relaySocket(root.resolve("daemon.sock"))
+                .shimParagraph(LaunchFixtures.SHIM)
+                .skills(skills)
+                .fresh(false)
+                .writesFreeText(false)
+                .stateSkills(List.of())
+                .domainSkills(List.of())
+                .envelope(null)
+                .inBandBoundChars(0)
+                .zeroToolPrompt("")
+                .resumeSessionId(sessionId)
+                .clock(LaunchFixtures.clock())
+                .build();
+    }
+
     private String vectorDigest(WorkerLaunch launch) {
         var normalized = launch.argv().stream()
                 .map(argument -> argument.replace(root.toString(), "$ROOT"))

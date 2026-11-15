@@ -58,9 +58,10 @@ import de.planmarshall.core.profile.ProfileRefusal;
  * <li>(e) the vector carries no element that is neither a template element nor a slot value.</li>
  * </ol>
  * <p>
- * The check runs on the vector as it is filled and prefixed with the executable, before the ephemeral flag is withheld;
- * a template element that a skipped slot removes is therefore the only gap rule (b) has to admit, and the vector that is
- * spawned differs from the checked one only in template literals the composer never alters.
+ * The check runs on the vector as it is filled and prefixed with the executable, against the very template that was
+ * filled: the ephemeral flag a role that may resume must not receive is withheld from the template before it is
+ * rendered, so the vector and the template correspond element for element and the only gap rule (b) admits is the one a
+ * skipped slot makes.
  *
  * @since 0.1
  */

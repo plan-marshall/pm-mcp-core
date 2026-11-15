@@ -304,6 +304,7 @@ public final class LaunchComposer {
         var template = request.resumeSessionId() != null && !block.resumeArgv().isEmpty()
                 ? block.resumeArgv()
                 : block.argumentsFor(roleClass);
+        var rendered = mayResume(request) ? withoutEphemeralFlag(template) : template;
         var slots = new LinkedHashMap<String, String>();
         slots.put(MEMBER_MODEL, model);
         slots.put(MEMBER_EFFORT, effort);
@@ -315,14 +316,14 @@ public final class LaunchComposer {
         slots.put("agent", block.agentMode() == HeadlessBlock.AgentMode.INLINE ? inlineAgent(request, model, effort,
                 tools) : null);
         slots.put("session_id", request.resumeSessionId());
-        var filled = fill(template, slots);
+        var filled = fill(rendered, slots);
         if (filled.isEmpty()) {
             throw new CompositionException("the argument template of '%s' rendered empty".formatted(roleClass
                     .wireName()));
         }
         filled.add(0, request.enrolment().executablePath().toString());
         var violation = WorkerVectorCheck.check(WorkerVectorCheck.Input.builder()
-                .template(template)
+                .template(rendered)
                 .vector(filled)
                 .executablePath(request.enrolment().executablePath())
                 .model(model)
@@ -335,10 +336,15 @@ public final class LaunchComposer {
         if (violation.isPresent()) {
             throw CompositionException.argumentRejected(violation.get());
         }
-        if (mayResume(request)) {
-            filled.removeIf(argument -> argument.contains(EPHEMERAL_FLAG));
-        }
         return List.copyOf(filled);
+    }
+
+    /**
+     * @param template the argument template of the class
+     * @return the template without the ephemeral flag, which a role that may resume must not receive
+     */
+    private static List<String> withoutEphemeralFlag(List<String> template) {
+        return template.stream().filter(element -> !element.contains(EPHEMERAL_FLAG)).toList();
     }
 
     /** @return the names of the slots the composition left empty, whose element and flag the template removes */

@@ -27,8 +27,8 @@ an element a profile edit added — reached the harness unflagged.
 == Decision
 
 `WorkerVectorCheck` (package `runtime.launch`) is the check. `LaunchComposer.composeArgv` calls it once, on the vector it
-has filled and prefixed with the enrolled executable, and before the ephemeral flag is withheld and before the
-`WorkerLaunch` is built. A violation throws `CompositionException.argumentRejected`, whose `refusal()` is the new
+has filled and prefixed with the enrolled executable, before the `WorkerLaunch` is built. A violation throws
+`CompositionException.argumentRejected`, whose `refusal()` is the new
 `LaunchRefusal.ARGUMENT_REJECTED` (`argument_rejected`); `WorkerSupervisor` records it through the `refuseWorker` path it
 already has, with the fate `refused`, and is not edited.
 
@@ -52,10 +52,10 @@ grammar of the slot the template names.
 **The check runs at the end of the composition, inside the start path, and not in `SubprocessJobRunner`.** The
 composition is where the vector is made from the profile's data, so it is where the data's conformance is decidable, and
 it is the last step that can still refuse *before* the job record is admitted and the model slot claimed. The check
-runs on the vector as it is filled, before `composeArgv` withholds the ephemeral flag for a role that may resume: rule
-(b) then admits exactly one kind of gap — the one a skipped slot makes, with the flag element the template removes with
-it — instead of a second kind that a filter explains, and the elements the filter removes afterwards are template
-literals the composer never alters.
+runs against the very template that was filled: the ephemeral flag of a role that may resume is withheld from the
+template before it is rendered, so the vector and the template correspond element for element, rule (b) has exactly one
+kind of gap — the one a skipped slot makes — and a slot value that happens to contain the flag's text is never mistaken
+for the flag.
 
 **The two JSON slots are exempt from the metacharacter rule and checked as JSON.** `{{mcp_config}}` and `{{agent}}`
 carry a canonical JSON object the composer serialised itself; a JSON object contains characters a shell metacharacter
@@ -82,10 +82,14 @@ job-private files and after the model slot was claimed and the job record admitt
 state that the composition's own refusal never creates. It also puts the rule in the supervisor, which the specification
 keeps free of composition rules.
 
-**Validating the final vector, after the ephemeral flag is withheld.** Rejected: rule (b) would then have to admit a
-second kind of gap — the elements the filter removes — beside the one a skipped slot makes, and the check would need to
-know the resumability rule to tell an admitted gap from an injected element. Running one step earlier keeps the rule as
-written.
+**Validating the vector after a filter has removed elements from it.** Considered and rejected in favour of withholding
+the flag at the template: a filter over the rendered vector removes by content, so a slot value that happens to contain
+the flag's text (a session id, a path) would remove an element the vector needs and leave its flag dangling, and rule
+(b) would have to admit a second kind of gap — the one the filter explains. Withholding the flag from the template
+before it is rendered leaves the vector and the template in exact correspondence, and no value is ever matched against
+the flag's text. (The rejected candidate was to run the check on the vector before the filter; that keeps the
+correspondence but leaves the filtered vector — the one that is spawned — unchecked against the template, and keeps the
+content match.)
 
 == Consequences
 
@@ -101,7 +105,12 @@ refused generation never starts; a later launch writes its own directory.
 
 Every new typed slot must reach three places: `HeadlessBlock`'s projection, `LaunchComposer.composeArgv` and the closed
 grammar of `WorkerVectorCheck`. A slot the grammar does not name is refused, which is the fail-closed direction: a
-profile that declares a slot this runtime cannot check refuses the launch instead of shipping the value unchecked.
+profile that declares a slot this runtime cannot check refuses the launch instead of shipping the value unchecked. The
+three lists stay three: `ProfileValidator.SLOTS` is the profile schema's contract in `pm-core`, the composer's map is what
+that composition fills, and the check's grammar is the independent witness the decision above requires — deriving the
+last from the others would make the witness agree with the code it checks by construction. A shared registry of the slot
+names would remove the hand-synchronisation without merging the three roles; that is a change of `pm-core` and belongs to
+a plan that owns it.
 
 == Source
 
