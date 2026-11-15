@@ -57,7 +57,7 @@ class QueueStoreTest {
                     () -> assertEquals(LockLevel.QUEUE, store.lockKey().level(),
                             "project queue lock is taken at queue level"),
                     () -> assertEquals(base.resolve("projects/project-a/locks/queue.lock").toAbsolutePath()
-                            .normalize(), store.lockKey().lockFile(),
+                                    .normalize(), store.lockKey().lockFile(),
                             "queue lock file lives in the project lock directory"));
         }
 

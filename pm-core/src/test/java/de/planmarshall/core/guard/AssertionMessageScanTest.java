@@ -226,7 +226,7 @@ class AssertionMessageScanTest {
         var prefix = violations.size() + " assertion-message violation(s)";
         return violations.size() > MAX_REPORTED_VIOLATIONS
                 ? prefix + "; the first " + MAX_REPORTED_VIOLATIONS + " follow; the full list is in " + VIOLATIONS
-                        + ":\n    " + shown
+                + ":\n    " + shown
                 : prefix + "; the full list is in " + VIOLATIONS + ":\n    " + shown;
     }
 

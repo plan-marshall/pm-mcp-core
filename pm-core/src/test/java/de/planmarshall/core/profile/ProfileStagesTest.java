@@ -303,7 +303,7 @@ class ProfileStagesTest {
 
         assertAll(() -> assertEquals(List.of(new StartContext("writer", WRITER_MODEL, OptionalLong.of(115)),
                         new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext(),
-                        "start context sums the first turn"));
+                "start context sums the first turn"));
     }
 
     @Test
@@ -323,7 +323,7 @@ class ProfileStagesTest {
 
         assertEquals(List.of(new StartContext("writer", WRITER_MODEL, OptionalLong.of(10)),
                         new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext(),
-                        "negative figure leaves context unmeasured");
+                "negative figure leaves context unmeasured");
     }
 
     @Test

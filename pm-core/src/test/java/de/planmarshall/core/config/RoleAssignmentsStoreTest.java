@@ -146,7 +146,7 @@ class RoleAssignmentsStoreTest {
                 () -> assertEquals(EffortSetting.DEFAULT, project.read().roles().get("implement").effort(),
                         "a null effort reads as DEFAULT"),
                 () -> assertTrue(Files.exists(base.resolve("projects").resolve(PROJECT)
-                        .resolve(RoleAssignmentsStore.FILE_NAME)),
+                                .resolve(RoleAssignmentsStore.FILE_NAME)),
                         "the project assignment file is written"));
     }
 

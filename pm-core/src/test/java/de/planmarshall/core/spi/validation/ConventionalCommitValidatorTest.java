@@ -124,7 +124,7 @@ class ConventionalCommitValidatorTest {
             var violations = validator.validate(message);
 
             assertEquals(List.of(ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@3",
-                    ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@4"),
+                            ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@4"),
                     keysAndLines(violations), "each trailer line carries its own violation");
         }
 
@@ -147,9 +147,9 @@ class ConventionalCommitValidatorTest {
         var violations = validator.validate(message);
 
         assertEquals(List.of(ConventionalCommitValidator.RULE_TYPE_EMPTY + "@1",
-                ConventionalCommitValidator.RULE_DESCRIPTION_EMPTY + "@1",
-                ConventionalCommitValidator.RULE_BODY_SEPARATION + "@2",
-                ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@2"), keysAndLines(violations),
+                        ConventionalCommitValidator.RULE_DESCRIPTION_EMPTY + "@1",
+                        ConventionalCommitValidator.RULE_BODY_SEPARATION + "@2",
+                        ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@2"), keysAndLines(violations),
                 "every rule of the two offending lines is reported");
     }
 

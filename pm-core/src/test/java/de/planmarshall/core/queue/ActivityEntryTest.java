@@ -66,13 +66,13 @@ class ActivityEntryTest {
     void sourceOfKind() {
         var text = Generators.letterStrings(1, 20).next();
         assertThrows(IllegalArgumentException.class, () -> ActivityEntry.builder()
-                .seq(1)
-                .attempt(1)
-                .source(ActivityEntry.Source.SERVER)
-                .kind(ActivityEntry.Kind.TEXT)
-                .text(text)
-                .at(QueueFixtures.AT)
-                .build(),
+                        .seq(1)
+                        .attempt(1)
+                        .source(ActivityEntry.Source.SERVER)
+                        .kind(ActivityEntry.Kind.TEXT)
+                        .text(text)
+                        .at(QueueFixtures.AT)
+                        .build(),
                 "a text entry cannot be recorded by the server");
     }
 }

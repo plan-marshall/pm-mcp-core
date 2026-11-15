@@ -158,7 +158,7 @@ class FindingSourceKeyTest {
                     () -> assertEquals(Arrays.asList(expected), Arrays.asList(actual),
                             "wire names are the thirteen source kinds"),
                     () -> assertTrue(Arrays.stream(FindingSourceKind.values()).allMatch(
-                            kind -> FindingSourceKind.fromWireName(kind.wireName()).equals(Optional.of(kind))),
+                                    kind -> FindingSourceKind.fromWireName(kind.wireName()).equals(Optional.of(kind))),
                             "every source kind round-trips its wire name"),
                     () -> assertEquals(Optional.empty(), FindingSourceKind.fromWireName("unknown"),
                             "unknown wire name answers empty"));

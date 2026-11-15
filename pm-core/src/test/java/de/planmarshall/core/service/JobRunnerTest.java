@@ -119,16 +119,16 @@ class JobRunnerTest {
                             () -> new StartRequest<>(null, PLAN, "build:verify", 1, FLOOR, REQUEST_TEXT, null),
                             "start request needs a job kind"),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<>(JobId.Kind.BUILD, null,
-                            "build:verify", 1, FLOOR, REQUEST_TEXT, null),
+                                    "build:verify", 1, FLOOR, REQUEST_TEXT, null),
                             "start request needs a scope"),
                     () -> assertThrows(NullPointerException.class,
                             () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, null, 1, FLOOR, REQUEST_TEXT, null),
                             "start request needs a budget key"),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<>(JobId.Kind.BUILD, PLAN,
-                            "build:verify", 1, null, "r", null),
+                                    "build:verify", 1, null, "r", null),
                             "start request needs a budget derivation"),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<String>(JobId.Kind.BUILD,
-                            PLAN, "build:verify", 1, FLOOR, null, null),
+                                    PLAN, "build:verify", 1, FLOOR, null, null),
                             "start request needs the request text"));
         }
 

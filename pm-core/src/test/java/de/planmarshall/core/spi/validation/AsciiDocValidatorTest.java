@@ -186,9 +186,9 @@ class AsciiDocValidatorTest {
         var violations = validator.validate(text);
 
         assertEquals(List.of(AsciiDocValidator.RULE_TITLE_NOT_FIRST + "@2",
-                AsciiDocValidator.RULE_SECTION_LEVEL_SKIPPED + "@3",
-                AsciiDocValidator.RULE_CONTROL_CHARACTER + "@4",
-                AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@5"), keysAndLines(violations),
+                        AsciiDocValidator.RULE_SECTION_LEVEL_SKIPPED + "@3",
+                        AsciiDocValidator.RULE_CONTROL_CHARACTER + "@4",
+                        AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@5"), keysAndLines(violations),
                 "the four violations come back in the order of the lines");
     }
 

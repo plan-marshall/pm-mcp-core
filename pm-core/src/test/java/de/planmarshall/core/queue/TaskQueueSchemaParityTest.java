@@ -197,7 +197,7 @@ class TaskQueueSchemaParityTest {
                     asking);
 
             assertAll(() -> assertEquals(1, ((Number) member(schema(SCHEMA), "format_version").get("const"))
-                    .intValue(), "the format version constant is 1"),
+                            .intValue(), "the format version constant is 1"),
                     () -> records.forEach(task -> assertValid(validator, QueueTaskRecordCodec.write(task))));
         }
     }

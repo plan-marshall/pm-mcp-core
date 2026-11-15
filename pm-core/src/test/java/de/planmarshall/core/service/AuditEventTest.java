@@ -52,7 +52,7 @@ class AuditEventTest {
                 () -> assertEquals("store", event.category(), "tail repair event category is store"),
                 () -> assertEquals("succeeded", event.outcome(), "tail repair outcome is succeeded"),
                 () -> assertEquals(Map.of("store", store.toString(), "truncated_bytes", truncatedBytes,
-                        "truncated_sha256", sha, "transaction_id", TRANSACTION_ID), event.details(),
+                                "truncated_sha256", sha, "transaction_id", TRANSACTION_ID), event.details(),
                         "tail repair details name store, bytes, hash, transaction"));
     }
 
@@ -66,7 +66,7 @@ class AuditEventTest {
                 () -> assertEquals("store", event.category(), "cross-scope category is store"),
                 () -> assertEquals("succeeded", event.outcome(), "cross-scope outcome is succeeded"),
                 () -> assertEquals(Map.of("reconciliation", "plan_end", "store", "lessons/2026-10-10-01.md",
-                        "transaction_id", TRANSACTION_ID), event.details(),
+                                "transaction_id", TRANSACTION_ID), event.details(),
                         "cross-scope details name rule, store and transaction"));
     }
 
@@ -135,7 +135,7 @@ class AuditEventTest {
                     () -> assertEquals("operator", event.category(), "start failure category is operator"),
                     () -> assertEquals("failed", event.outcome(), "start failure outcome is failed"),
                     () -> assertEquals(Map.of("project_id", PROJECT, "role", "supervisor", "harness", "claude",
-                            "harness_error", detail), event.details(),
+                                    "harness_error", detail), event.details(),
                             "start failure names project, role, harness, error"));
         }
 
@@ -177,7 +177,7 @@ class AuditEventTest {
                     () -> assertEquals("store", event.category(), "roll-forward category is store"),
                     () -> assertEquals("succeeded", event.outcome(), "roll-forward outcome is succeeded"),
                     () -> assertEquals(Map.of("scope_type", "plan", "scope_id", scopeId, "transaction_id",
-                            TRANSACTION_ID, "targets", targets), event.details(),
+                                    TRANSACTION_ID, "targets", targets), event.details(),
                             "roll-forward details name scope, transaction, targets"));
         }
 
@@ -191,7 +191,7 @@ class AuditEventTest {
             assertAll(
                     () -> assertFalse(event.details().containsKey("scope_id"), "workspace record has no scope id"),
                     () -> assertEquals(Map.of("scope_type", "workspace", "transaction_id", TRANSACTION_ID, "targets",
-                            List.of("pending/ent-0123abcd.json")), event.details(),
+                                    List.of("pending/ent-0123abcd.json")), event.details(),
                             "workspace record names type, transaction, targets"));
         }
 
@@ -225,7 +225,7 @@ class AuditEventTest {
                 () -> assertEquals("store", event.category(), "pending removal category is store"),
                 () -> assertEquals("succeeded", event.outcome(), "pending removal outcome is succeeded"),
                 () -> assertEquals(Map.of("entry_id", entryId, "store", store, "created_at", createdAt,
-                        "transaction_id", TRANSACTION_ID), event.details(),
+                                "transaction_id", TRANSACTION_ID), event.details(),
                         "pending removal names entry, store, instant, transaction"),
                 () -> assertThrows(NullPointerException.class,
                         () -> AuditEvent.pendingEntryRemoved(null, store, createdAt, TRANSACTION_ID),
@@ -339,15 +339,15 @@ class AuditEventTest {
 
             assertAll(
                     () -> assertTrue(refusals.stream()
-                            .noneMatch(event -> event.details().containsKey("transaction_id")),
+                                    .noneMatch(event -> event.details().containsKey("transaction_id")),
                             "refusal records carry no transaction id"),
                     () -> assertEquals(List.of(
-                            new AuditEvent("enrolment_tampered", "security", "refused",
-                                    Map.of("project_id", PROJECT, "reason", "hmac_mismatch")),
-                            new AuditEvent("enrolment_insecure", "security", "refused",
-                                    Map.of("project_id", PROJECT, "reason", "symbolic link")),
-                            new AuditEvent("unenrol_refused", "operator", "refused",
-                                    Map.of("project_id", PROJECT, "reason", "scope_active"))), refusals,
+                                    new AuditEvent("enrolment_tampered", "security", "refused",
+                                            Map.of("project_id", PROJECT, "reason", "hmac_mismatch")),
+                                    new AuditEvent("enrolment_insecure", "security", "refused",
+                                            Map.of("project_id", PROJECT, "reason", "symbolic link")),
+                                    new AuditEvent("unenrol_refused", "operator", "refused",
+                                            Map.of("project_id", PROJECT, "reason", "scope_active"))), refusals,
                             "refusal records equal the expected three"));
         }
 

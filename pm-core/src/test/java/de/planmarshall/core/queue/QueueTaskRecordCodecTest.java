@@ -156,8 +156,8 @@ class QueueTaskRecordCodecTest {
         @DisplayName("an attempt whose counts disagrees with its end")
         void inconsistentCounts() {
             assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Attempt(1,
-                    QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
-                    null, QueueFixtures.AT, AttemptEnd.RESTART, true),
+                            QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
+                            null, QueueFixtures.AT, AttemptEnd.RESTART, true),
                     "counts that disagree with the end are refused");
         }
 

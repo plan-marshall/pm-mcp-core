@@ -83,7 +83,7 @@ class ParsedBuildTest {
                 () -> assertTrue(build.successMarker(), "The success marker is recorded"),
                 () -> assertFalse(build.noTestsRan(), "A count was reported, so no verdict applies"),
                 () -> assertEquals(2, assertInstanceOf(TestCounts.Measured.class, build.testCounts(),
-                        "The counts stay a measured record").failed(),
+                                "The counts stay a measured record").failed(),
                         "The failing count stays visible beside the status"));
     }
 }

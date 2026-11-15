@@ -72,7 +72,7 @@ class ActivityJournalTest {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
 
         assertEquals(base.resolve("projects/project-a/plans/plan-a/tasks/activity/" + TASK + ".jsonl")
-                .toAbsolutePath().normalize(), journal.journalPath(TASK),
+                        .toAbsolutePath().normalize(), journal.journalPath(TASK),
                 "plan journal sits under the plan's activity directory");
     }
 
@@ -83,7 +83,7 @@ class ActivityJournalTest {
                 new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.WORKSPACE, null), new TestLocks());
 
         assertEquals(base.resolve("projects/project-a/workspace/tasks/activity/" + TASK + ".jsonl")
-                .toAbsolutePath().normalize(), journal.journalPath(TASK),
+                        .toAbsolutePath().normalize(), journal.journalPath(TASK),
                 "workspace journal sits under workspace activity");
     }
 

@@ -57,7 +57,7 @@ class ProfileStagesEndpointTest {
                 () -> assertEquals("passed", result.stageStatuses().get("limits"), "limits stage reports passed"),
                 () -> assertEquals(8, result.values().size(), "eight values are settled"),
                 () -> assertTrue(result.values().stream()
-                        .allMatch(value -> value.status() == ProfileStages.EndpointValueStatus.MEASURED),
+                                .allMatch(value -> value.status() == ProfileStages.EndpointValueStatus.MEASURED),
                         "every value is measured"));
     }
 

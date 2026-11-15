@@ -123,7 +123,7 @@ class EnginePortsTest {
 
             assertAll(
                     () -> assertEquals(reason, assertInstanceOf(StartResult.Refused.class, result,
-                            "a refusal is a value, not an exception").reason(),
+                                    "a refusal is a value, not an exception").reason(),
                             "the refused value carries the reason"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new StartResult.Refused(" "),
                             "a blank refusal reason is refused"),

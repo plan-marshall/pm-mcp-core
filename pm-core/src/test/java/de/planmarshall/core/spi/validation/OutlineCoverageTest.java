@@ -120,10 +120,10 @@ class OutlineCoverageTest {
         var violations = validator.validate(outline, intent);
 
         assertTrue(violations.stream().anyMatch(violation ->
-                OutlineValidator.RULE_SATISFIES_UNKNOWN.equals(violation.ruleKey())),
+                        OutlineValidator.RULE_SATISFIES_UNKNOWN.equals(violation.ruleKey())),
                 "the unknown satisfies entry AC-9 is refused");
         assertTrue(violations.stream().anyMatch(violation ->
-                OutlineValidator.RULE_SATISFIES_UNCOVERED.equals(violation.ruleKey())),
+                        OutlineValidator.RULE_SATISFIES_UNCOVERED.equals(violation.ruleKey())),
                 "the criterion left uncovered by the outline is refused");
     }
 
@@ -137,12 +137,12 @@ class OutlineCoverageTest {
         var violations = validator.validate(outline, intent);
 
         assertTrue(violations.stream().anyMatch(violation ->
-                OutlineValidator.RULE_SATISFIES_UNCOVERED.equals(violation.ruleKey())
-                        && violation.message().contains("AC-2")),
+                        OutlineValidator.RULE_SATISFIES_UNCOVERED.equals(violation.ruleKey())
+                                && violation.message().contains("AC-2")),
                 "the uncovered AC-2 is named in the refusal");
         assertTrue(violations.stream().anyMatch(violation ->
-                OutlineValidator.RULE_SATISFIES_EMPTY.equals(violation.ruleKey())
-                        && violation.message().contains("deliverable 2")),
+                        OutlineValidator.RULE_SATISFIES_EMPTY.equals(violation.ruleKey())
+                                && violation.message().contains("deliverable 2")),
                 "deliverable 2 with an empty satisfies is refused");
     }
 

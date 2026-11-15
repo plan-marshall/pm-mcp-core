@@ -65,7 +65,7 @@ class QueueTaskRecordValidationTest {
     @DisplayName("a closed task holding a lease is refused")
     void closedWithLease() {
         assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted(taskId())
-                .withLease(QueueFixtures.lease(QueueFixtures.GENERATION)).validate(),
+                        .withLease(QueueFixtures.lease(QueueFixtures.GENERATION)).validate(),
                 "a closed task holding a lease is refused");
     }
 
@@ -83,7 +83,7 @@ class QueueTaskRecordValidationTest {
         assertThrows(IllegalArgumentException.class, () -> QueueFixtures.lostAttemptsSpent(taskId())
                 .withReason(null).validate(), "a lost task without its reason is refused");
         assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted(taskId())
-                .withReason(LostReason.WITHDRAWN).validate(),
+                        .withReason(LostReason.WITHDRAWN).validate(),
                 "a submitted task carrying a lost reason is refused");
     }
 
@@ -91,8 +91,8 @@ class QueueTaskRecordValidationTest {
     @DisplayName("the class is absent exactly for a task lost role_undefined")
     void taskClass() {
         assertThrows(IllegalArgumentException.class, () -> base().status(Status.CLOSED)
-                .outcome(Outcome.LOST).reason(LostReason.ATTEMPTS_SPENT).closedAt(QueueFixtures.AT.plusSeconds(1))
-                .taskClass(null).build().validate(),
+                        .outcome(Outcome.LOST).reason(LostReason.ATTEMPTS_SPENT).closedAt(QueueFixtures.AT.plusSeconds(1))
+                        .taskClass(null).build().validate(),
                 "a lost task that is not role_undefined needs a class");
         assertThrows(IllegalArgumentException.class, () -> base().status(Status.CLOSED)
                 .outcome(Outcome.LOST).reason(LostReason.ROLE_UNDEFINED).closedAt(QueueFixtures.AT.plusSeconds(1))
@@ -118,10 +118,10 @@ class QueueTaskRecordValidationTest {
     @DisplayName("the question id is set exactly for the outcome asked")
     void question() {
         assertThrows(IllegalArgumentException.class, () -> base().status(Status.CLOSED)
-                .outcome(Outcome.ASKED).closedAt(QueueFixtures.AT.plusSeconds(1)).build().validate(),
+                        .outcome(Outcome.ASKED).closedAt(QueueFixtures.AT.plusSeconds(1)).build().validate(),
                 "an asked outcome without a question id is refused");
         assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted(taskId())
-                .withQuestionId("Q-001").validate(),
+                        .withQuestionId("Q-001").validate(),
                 "a submitted task carrying a question id is refused");
     }
 
@@ -139,7 +139,7 @@ class QueueTaskRecordValidationTest {
     @DisplayName("a task closes after it was created")
     void closedBeforeCreated() {
         assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted(taskId())
-                .withClosedAt(QueueFixtures.AT.minusSeconds(1)).validate(),
+                        .withClosedAt(QueueFixtures.AT.minusSeconds(1)).validate(),
                 "a task closes only after it was created");
     }
 
@@ -158,10 +158,10 @@ class QueueTaskRecordValidationTest {
     @DisplayName("a lease is acknowledged after it is taken")
     void lease() {
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Lease("not-a-generation",
-                QueueFixtures.GENERATION, QueueFixtures.AT, null),
+                        QueueFixtures.GENERATION, QueueFixtures.AT, null),
                 "a lease generation that is no id is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Lease(QueueFixtures.GENERATION,
-                QueueFixtures.GENERATION, QueueFixtures.AT, QueueFixtures.AT.minusSeconds(1)),
+                        QueueFixtures.GENERATION, QueueFixtures.AT, QueueFixtures.AT.minusSeconds(1)),
                 "a lease acknowledged before it is taken is refused");
     }
 
@@ -172,15 +172,15 @@ class QueueTaskRecordValidationTest {
                 QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
                 null, null, null, false), "an attempt number of zero is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Attempt(1,
-                QueueFixtures.GENERATION, QueueFixtures.GENERATION, "bad", QueueFixtures.AT, null, null, null, false),
+                        QueueFixtures.GENERATION, QueueFixtures.GENERATION, "bad", QueueFixtures.AT, null, null, null, false),
                 "an attempt digest that is no digest is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Attempt(1,
-                QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
-                QueueFixtures.AT.minusSeconds(1), null, null, false),
+                        QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
+                        QueueFixtures.AT.minusSeconds(1), null, null, false),
                 "a started attempt before its take is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Attempt(1,
-                QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
-                null, null, AttemptEnd.WORKER_LOST, false),
+                        QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
+                        null, null, AttemptEnd.WORKER_LOST, false),
                 "an attempt end without counts is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Attempt(1,
                 QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
@@ -191,10 +191,10 @@ class QueueTaskRecordValidationTest {
     @DisplayName("a signal refuses a broken attempt and a non-finite value")
     void signal() {
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Signal(
-                QueueTaskRecord.SignalName.REPEATING, 0, QueueTaskRecord.SignalAction.SHOW, 1, 1, QueueFixtures.AT),
+                        QueueTaskRecord.SignalName.REPEATING, 0, QueueTaskRecord.SignalAction.SHOW, 1, 1, QueueFixtures.AT),
                 "a signal attempt of zero is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Signal(
-                QueueTaskRecord.SignalName.REPEATING, 1, QueueTaskRecord.SignalAction.SHOW, -1, 1, QueueFixtures.AT),
+                        QueueTaskRecord.SignalName.REPEATING, 1, QueueTaskRecord.SignalAction.SHOW, -1, 1, QueueFixtures.AT),
                 "a signal measurement below zero is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Signal(
                 QueueTaskRecord.SignalName.REPEATING, 1, QueueTaskRecord.SignalAction.SHOW, Double.NaN, 1,
@@ -205,16 +205,16 @@ class QueueTaskRecordValidationTest {
     @DisplayName("a continuation refuses a broken question id, digest and head")
     void continuation() {
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Continuation("Q-",
-                ContinuationForm.RESUME, null, null, null, null, null, null, null),
+                        ContinuationForm.RESUME, null, null, null, null, null, null, null),
                 "a continuation question id of Q- is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Continuation("Q-001",
-                ContinuationForm.RESUME, null, null, null, null, "bad", null, null),
+                        ContinuationForm.RESUME, null, null, null, null, "bad", null, null),
                 "a continuation digest that is no digest is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Continuation("Q-001",
-                ContinuationForm.RESUME, null, null, null, null, null, "bad", null),
+                        ContinuationForm.RESUME, null, null, null, null, null, "bad", null),
                 "a continuation head that is no generation is refused");
         assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Continuation("Q-001",
-                ContinuationForm.RESUME, null, "s".repeat(257), null, null, null, null, null),
+                        ContinuationForm.RESUME, null, "s".repeat(257), null, null, null, null, null),
                 "a continuation prompt beyond its bound is refused");
     }
 
@@ -224,25 +224,25 @@ class QueueTaskRecordValidationTest {
         var id = taskId();
         var answer = Generators.letterStrings(3, 20).next();
         assertThrows(IllegalArgumentException.class, () -> new Consultation("bad", "reviewer",
-                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, null, null, null, null),
+                        QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, null, null, null, null),
                 "a consultation record id of bad is refused");
         assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "Reviewer",
-                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, null, null, null, null),
+                        QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, null, null, null, null),
                 "a consultation role that is not a slug is refused");
         assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "reviewer",
-                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, answer, null, null, null),
+                        QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, answer, null, null, null),
                 "an open consultation carrying an answer is refused");
         assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "reviewer",
-                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, null,
-                QueueFixtures.AT.plusSeconds(1), null, null),
+                        QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, null,
+                        QueueFixtures.AT.plusSeconds(1), null, null),
                 "an open consultation carrying a closing instant is refused");
         assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "reviewer",
-                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.ANSWERED, answer,
-                QueueFixtures.AT.plusSeconds(1), QueueFixtures.AT.plusSeconds(2), null),
+                        QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.ANSWERED, answer,
+                        QueueFixtures.AT.plusSeconds(1), QueueFixtures.AT.plusSeconds(2), null),
                 "a delivered answer without a place is refused");
         assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "reviewer",
-                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.ANSWERED, "a".repeat(4001),
-                QueueFixtures.AT.plusSeconds(1), null, null),
+                        QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.ANSWERED, "a".repeat(4001),
+                        QueueFixtures.AT.plusSeconds(1), null, null),
                 "an answer beyond the 4000 character bound is refused");
     }
 
@@ -271,10 +271,10 @@ class QueueTaskRecordValidationTest {
         assertDoesNotThrow(() -> QueueFixtures.consultation(taskId(), taskId()).validate(),
                 "a consultation fixture passes validation");
         assertDoesNotThrow(() -> QueueFixtures.queued(taskId())
-                .status(Status.SUSPENDED).continuation(QueueFixtures.continuation()).build().validate(),
+                        .status(Status.SUSPENDED).continuation(QueueFixtures.continuation()).build().validate(),
                 "a suspended fixture with a continuation validates");
         assertDoesNotThrow(() -> QueueFixtures.queued(taskId())
-                .taskClass(TaskClass.READ_ONLY).build().validate(),
+                        .taskClass(TaskClass.READ_ONLY).build().validate(),
                 "a read-only task class is accepted");
     }
 }

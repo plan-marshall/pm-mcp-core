@@ -59,7 +59,7 @@ class SelfReviewSubmissionTest {
         results.removeIf(result -> omitted.equals(result.itemId()));
 
         var refused = assertInstanceOf(Refused.class, SelfReviewSubmission.validate(
-                new SelfReviewSubmission(results), intentRecord()),
+                        new SelfReviewSubmission(results), intentRecord()),
                 "a round omitting a held item is refused");
         assertTrue(refused.detail().contains(omitted), "the refusal names the omitted item");
     }
@@ -70,7 +70,7 @@ class SelfReviewSubmissionTest {
         var results = replace(clean(), new ItemResult("CN-1", Verdict.RESPECTED, null));
 
         var refused = assertInstanceOf(Refused.class, SelfReviewSubmission.validate(
-                new SelfReviewSubmission(results), intentRecord()),
+                        new SelfReviewSubmission(results), intentRecord()),
                 "a respected constraint without evidence is refused");
         assertTrue(refused.detail().contains("CN-1"), "the refusal names the respected constraint CN-1");
         assertTrue(refused.detail().contains("evidence"), "and says the evidence is missing");
@@ -105,12 +105,12 @@ class SelfReviewSubmissionTest {
         var departed = replace(clean(), new ItemResult("DC-1", Verdict.DEPARTED, null));
 
         assertEquals(Status.FINDINGS, assertInstanceOf(Accepted.class,
-                SelfReviewSubmission.validate(new SelfReviewSubmission(crossed), intentRecord()),
-                "a crossed non-goal still yields an accepted round").round().status(),
+                        SelfReviewSubmission.validate(new SelfReviewSubmission(crossed), intentRecord()),
+                        "a crossed non-goal still yields an accepted round").round().status(),
                 "the crossed non-goal makes the round findings");
         assertEquals(Status.FINDINGS, assertInstanceOf(Accepted.class,
-                SelfReviewSubmission.validate(new SelfReviewSubmission(departed), intentRecord()),
-                "a departed decision still yields an accepted round").round().status(),
+                        SelfReviewSubmission.validate(new SelfReviewSubmission(departed), intentRecord()),
+                        "a departed decision still yields an accepted round").round().status(),
                 "the departed decision makes the round findings");
     }
 
@@ -155,8 +155,8 @@ class SelfReviewSubmissionTest {
         var unknown = new ArrayList<>(clean().results());
         unknown.add(new ItemResult("AC-9", Verdict.MET, null));
         assertTrue(assertInstanceOf(Refused.class, SelfReviewSubmission.validate(
-                new SelfReviewSubmission(unknown), intentRecord()),
-                "a round naming an unknown item is refused").detail().contains("AC-9"),
+                                new SelfReviewSubmission(unknown), intentRecord()),
+                        "a round naming an unknown item is refused").detail().contains("AC-9"),
                 "the refusal names the unknown criterion AC-9");
 
         var duplicate = new ArrayList<>(clean().results());
@@ -178,8 +178,8 @@ class SelfReviewSubmissionTest {
     void notMetCriterionIsAFinding() {
         var results = replace(clean(), new ItemResult("AC-1", Verdict.NOT_MET, null));
         assertEquals(Status.FINDINGS, assertInstanceOf(Accepted.class,
-                SelfReviewSubmission.validate(new SelfReviewSubmission(results), intentRecord()),
-                "a not-met criterion still yields an accepted round").round().status(),
+                        SelfReviewSubmission.validate(new SelfReviewSubmission(results), intentRecord()),
+                        "a not-met criterion still yields an accepted round").round().status(),
                 "the not-met criterion makes the round findings");
     }
 

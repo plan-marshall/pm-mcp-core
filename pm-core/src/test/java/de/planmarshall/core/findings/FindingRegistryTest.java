@@ -104,9 +104,9 @@ class FindingRegistryTest {
             var registry = new FindingRegistry(List.of(), List.of());
 
             assertTrue(Arrays.stream(FindingSourceKind.values())
-                    .filter(kind -> kind != FindingSourceKind.ANALYSIS)
-                    .map(FindingSourceKey::of)
-                    .allMatch(key -> registry.source(key).isEmpty() && registry.responder(key).isEmpty()),
+                            .filter(kind -> kind != FindingSourceKind.ANALYSIS)
+                            .map(FindingSourceKey::of)
+                            .allMatch(key -> registry.source(key).isEmpty() && registry.responder(key).isEmpty()),
                     "empty registry answers empty for all source kinds");
         }
 

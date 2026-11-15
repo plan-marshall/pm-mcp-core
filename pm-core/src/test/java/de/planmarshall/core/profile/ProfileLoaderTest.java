@@ -128,7 +128,7 @@ class ProfileLoaderTest {
                 () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind(),
                         "machine document replaces the shipped one"),
                 () -> assertEquals(PRO_NAME, loaded.effective(CLIENT).orElseThrow().document()
-                        .member("display_name").flatMap(JsonNode::text).orElseThrow(),
+                                .member("display_name").flatMap(JsonNode::text).orElseThrow(),
                         "machine display name wins"));
     }
 
@@ -249,7 +249,7 @@ class ProfileLoaderTest {
                 () -> assertEquals(ProfileSetKind.PROJECT, loaded.effective(CLIENT).orElseThrow().kind(),
                         "project document becomes effective"),
                 () -> assertEquals(PROJECT_NAME, loaded.effective(CLIENT).orElseThrow().document()
-                        .member("display_name").flatMap(JsonNode::text).orElseThrow(),
+                                .member("display_name").flatMap(JsonNode::text).orElseThrow(),
                         "project display name wins"));
     }
 
@@ -321,7 +321,7 @@ class ProfileLoaderTest {
                 () -> assertFalse(loaded.effective(OTHER_CLIENT).isPresent(),
                         "second profile of same precedence is absent"),
                 () -> assertTrue(loaded.refused().stream()
-                        .anyMatch(refused -> "/detection/precedence".equals(refused.refusal().pointer())),
+                                .anyMatch(refused -> "/detection/precedence".equals(refused.refusal().pointer())),
                         "precedence refusal is recorded"));
     }
 

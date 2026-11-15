@@ -148,9 +148,9 @@ class OutlineValidatorTest {
         var violations = validator.validate(outline);
 
         assertEquals(List.of(OutlineValidator.RULE_AFFECTED_FILE_INTENT + "@2",
-                OutlineValidator.RULE_AFFECTED_FILE_UNPARSED + "@3",
-                OutlineValidator.RULE_DEPENDENCY_ECOSYSTEM + "@5",
-                OutlineValidator.RULE_DEPENDENCY_COORDINATE + "@6"), keysAndLines(violations),
+                        OutlineValidator.RULE_AFFECTED_FILE_UNPARSED + "@3",
+                        OutlineValidator.RULE_DEPENDENCY_ECOSYSTEM + "@5",
+                        OutlineValidator.RULE_DEPENDENCY_COORDINATE + "@6"), keysAndLines(violations),
                 "the file rules and the dependency rules keep line order");
     }
 

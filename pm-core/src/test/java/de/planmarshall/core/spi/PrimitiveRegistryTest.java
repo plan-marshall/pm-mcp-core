@@ -73,7 +73,7 @@ class PrimitiveRegistryTest {
             var registry = new PrimitiveRegistry(wellFormedWithJobStarting());
 
             assertEquals(List.of("test.complete", "test.skip-absent", "test.fail", "test.observe", "test.hand-back",
-                    "test.leave", "test.start-job"), List.copyOf(registry.ids()),
+                            "test.leave", "test.start-job"), List.copyOf(registry.ids()),
                     "the registry lists the ids in the order passed");
         }
 

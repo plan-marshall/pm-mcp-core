@@ -111,8 +111,8 @@ class BuilderCheckTest {
 
         var unknown = new Question(Sort.ANSWERED, ANSWERED_QUESTION, List.of("AC-9"), null);
         assertTrue(assertInstanceOf(Refused.class,
-                BuilderCheck.validate(new Submission(List.of(unknown)), intentRecord()),
-                "an answered question naming AC-9 is refused").detail().contains("AC-9"),
+                        BuilderCheck.validate(new Submission(List.of(unknown)), intentRecord()),
+                        "an answered question naming AC-9 is refused").detail().contains("AC-9"),
                 "the refusal names the unknown criterion AC-9");
 
         var two = new Question(Sort.ANSWERED, ANSWERED_QUESTION, List.of("AC-1", "AC-2"), null);

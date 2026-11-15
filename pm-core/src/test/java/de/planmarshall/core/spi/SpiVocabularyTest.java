@@ -35,7 +35,7 @@ class SpiVocabularyTest {
         var names = Arrays.stream(AwaitedEvent.values()).map(Enum::name).toList();
 
         assertEquals(List.of("NONE", "JOB_SETTLED", "TASK_SETTLED", "OPERATOR_WAIVER", "OPERATOR_ACT",
-                "MODEL_SUBMIT", "TIME", "EXTERNAL_STATE", "QUESTION_ANSWER"), names,
+                        "MODEL_SUBMIT", "TIME", "EXTERNAL_STATE", "QUESTION_ANSWER"), names,
                 "the nine awaited events in contract order");
     }
 
