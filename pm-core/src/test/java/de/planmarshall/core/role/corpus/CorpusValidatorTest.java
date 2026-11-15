@@ -266,8 +266,9 @@ class CorpusValidatorTest {
         var ordered = reorder(item);
 
         assertAll(
-                () -> assertEquals(List.of("id", "canary", "unlisted"), List.copyOf(ordered.keySet())),
-                () -> assertEquals("kept", ordered.get("unlisted")));
+                () -> assertEquals(List.of("id", "canary", "unlisted"), List.copyOf(ordered.keySet()),
+                        "the schema order comes first, unlisted after"),
+                () -> assertEquals("kept", ordered.get("unlisted"), "an unlisted member keeps its value"));
     }
 
     private static Map<String, Object> map(Object... members) {
@@ -362,8 +363,8 @@ class CorpusValidatorTest {
                 JsonValue.parse(resource("source-overlay.schema.json")));
 
         assertAll(
-                () -> assertEquals(List.of(), manifestErrors),
-                () -> assertEquals(List.of(), overlayErrors));
+                () -> assertEquals(List.of(), manifestErrors, "the manifest fixture passes its schema"),
+                () -> assertEquals(List.of(), overlayErrors, "the overlay fixture passes its schema"));
     }
 
     private static byte[] resource(String name) throws IOException {
@@ -603,7 +604,8 @@ class CorpusValidatorTest {
 
         assertAll(
                 () -> assertEquals(1, violations.size(), () -> report(violations)),
-                () -> assertEquals(Rule.UNREADABLE, violations.getFirst().rule()));
+                () -> assertEquals(Rule.UNREADABLE, violations.getFirst().rule(),
+                        "a root that is no directory is UNREADABLE"));
     }
 
     /**
@@ -714,7 +716,7 @@ class CorpusValidatorTest {
         var found = CorpusValidator.TRANSIENT.matcher("Stage ١, éE12 xE1 -V7").results()
                 .map(MatchResult::group).toList();
 
-        assertEquals(List.of("Stage ١", "V7"), found);
+        assertEquals(List.of("Stage ١", "V7"), found, "the transient pattern finds both spans");
     }
 
     @Nested
@@ -775,6 +777,7 @@ class CorpusValidatorTest {
                 () -> assertEquals(List.of("$.title: longer than 120",
                                 "$.grading.method: \"vote\" not in [\"exact_choice\", \"label\", \"rubric_items\", "
                                         + "\"rubric_properties\"]"),
-                        violations.stream().map(CorpusViolation::detail).toList()));
+                        violations.stream().map(CorpusViolation::detail).toList(),
+                        "each schema violation is reported with its path"));
     }
 }

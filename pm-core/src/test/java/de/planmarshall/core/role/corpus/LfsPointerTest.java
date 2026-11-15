@@ -46,13 +46,15 @@ class LfsPointerTest {
     @Test
     @DisplayName("a valid pointer is read with its oid and size")
     void valid() {
-        assertEquals(Optional.of(new LfsPointer(OID, SIZE)), parse(VALID));
+        assertEquals(Optional.of(new LfsPointer(OID, SIZE)), parse(VALID),
+                "a valid pointer is read with its oid and size");
     }
 
     @Test
     @DisplayName("a pointer of an empty object is read")
     void emptyObject() {
-        assertEquals(Optional.of(new LfsPointer(OID, 0)), parse(VALID.replace("size " + SIZE, "size 0")));
+        assertEquals(Optional.of(new LfsPointer(OID, 0)), parse(VALID.replace("size " + SIZE, "size 0")),
+                "a pointer of an empty object is read");
     }
 
     @Test
@@ -60,8 +62,10 @@ class LfsPointerTest {
     void roundTrip() {
         var pointer = new LfsPointer(OID, SIZE);
 
-        assertArrayEquals(VALID.getBytes(StandardCharsets.US_ASCII), pointer.toBytes());
-        assertEquals(Optional.of(pointer), LfsPointer.parse(pointer.toBytes()));
+        assertArrayEquals(VALID.getBytes(StandardCharsets.US_ASCII), pointer.toBytes(),
+                "git-lfs writes the pointer text byte for byte");
+        assertEquals(Optional.of(pointer), LfsPointer.parse(pointer.toBytes()),
+                "the written pointer is read back equal");
     }
 
     @Test
@@ -70,7 +74,8 @@ class LfsPointerTest {
     void asciiSize() {
         var pointer = new LfsPointer(OID, SIZE);
 
-        assertArrayEquals(VALID.getBytes(StandardCharsets.US_ASCII), pointer.toBytes());
+        assertArrayEquals(VALID.getBytes(StandardCharsets.US_ASCII), pointer.toBytes(),
+                "the size is written in ASCII digits under any locale");
     }
 
     static Stream<Arguments> notPointers() {
@@ -94,18 +99,20 @@ class LfsPointerTest {
     @MethodSource("notPointers")
     @DisplayName("anything else is not a pointer")
     void notPointer(String name, String text) {
-        assertTrue(parse(text).isEmpty());
+        assertTrue(parse(text).isEmpty(), "text that is no pointer is refused");
     }
 
     @Test
     @DisplayName("a file larger than a pointer is not a pointer")
     void tooLarge() {
-        assertTrue(LfsPointer.parse(new byte[LfsPointer.MAX_POINTER_SIZE + 1]).isEmpty());
+        assertTrue(LfsPointer.parse(new byte[LfsPointer.MAX_POINTER_SIZE + 1]).isEmpty(),
+                "a file larger than a pointer is no pointer");
     }
 
     @Test
     @DisplayName("a pointer with a negative size cannot be made")
     void negativeSize() {
-        assertThrows(IllegalArgumentException.class, () -> new LfsPointer(OID, -1));
+        assertThrows(IllegalArgumentException.class, () -> new LfsPointer(OID, -1),
+                "a negative size cannot make a pointer");
     }
 }

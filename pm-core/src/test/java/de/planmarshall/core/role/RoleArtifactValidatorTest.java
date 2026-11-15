@@ -45,19 +45,20 @@ class RoleArtifactValidatorTest {
         var artifact = RoleFixtures.valid().artifact();
 
         assertAll(
-                () -> assertEquals(1, artifact.formatVersion()),
-                () -> assertEquals(RoleFixtures.ROLE, artifact.name()),
-                () -> assertEquals(RoleClass.READ_ONLY, artifact.roleClass()),
-                () -> assertEquals(RoleForm.FRESH, artifact.form()),
-                () -> assertEquals(2, artifact.count()),
+                () -> assertEquals(1, artifact.formatVersion(), "fixture declares format version one"),
+                () -> assertEquals(RoleFixtures.ROLE, artifact.name(), "artifact name is the fixture role"),
+                () -> assertEquals(RoleClass.READ_ONLY, artifact.roleClass(), "fixture role is read_only"),
+                () -> assertEquals(RoleForm.FRESH, artifact.form(), "fixture form is fresh"),
+                () -> assertEquals(2, artifact.count(), "fixture count is two"),
                 () -> assertEquals(List.of("pm_wait", "pm_state", "pm_do", "pm_skill", "pm_skill_file"),
-                        artifact.tools()),
-                () -> assertEquals(List.of("skill://pm/role/implement/SKILL.md"), artifact.skills()),
-                () -> assertEquals(300, artifact.budgetFloorSeconds()),
-                () -> assertNull(artifact.contextBudgetTokens()),
-                () -> assertNull(artifact.questions()),
-                () -> assertTrue(artifact.offTrack().isEmpty()),
-                () -> assertNull(artifact.recycling()));
+                        artifact.tools(), "tool set is the documented five"),
+                () -> assertEquals(List.of("skill://pm/role/implement/SKILL.md"), artifact.skills(),
+                        "single skill URI is declared"),
+                () -> assertEquals(300, artifact.budgetFloorSeconds(), "budget floor is five minutes"),
+                () -> assertNull(artifact.contextBudgetTokens(), "no context budget is declared"),
+                () -> assertNull(artifact.questions(), "no questions member is declared"),
+                () -> assertTrue(artifact.offTrack().isEmpty(), "off_track map is empty"),
+                () -> assertNull(artifact.recycling(), "fresh artifact has no recycling"));
     }
 
     @Test
@@ -72,10 +73,13 @@ class RoleArtifactValidatorTest {
                 .artifact();
 
         assertAll(
-                () -> assertEquals(RoleForm.WARM, artifact.form()),
-                () -> assertEquals(idleWakeups, artifact.recycling().idleWakeups()),
-                () -> assertEquals(tokenBudget, artifact.recycling().tokenBudget()),
-                () -> assertEquals(tasksPerGeneration, artifact.recycling().tasksPerGeneration()));
+                () -> assertEquals(RoleForm.WARM, artifact.form(), "warm form is projected"),
+                () -> assertEquals(idleWakeups, artifact.recycling().idleWakeups(),
+                        "recycling idle wakeups round-trip"),
+                () -> assertEquals(tokenBudget, artifact.recycling().tokenBudget(),
+                        "recycling token budget round-trips"),
+                () -> assertEquals(tasksPerGeneration, artifact.recycling().tasksPerGeneration(),
+                        "tasks per generation round-trips"));
     }
 
     @Test
@@ -93,16 +97,20 @@ class RoleArtifactValidatorTest {
                 .artifact();
 
         assertAll(
-                () -> assertEquals(contextBudget, artifact.contextBudgetTokens()),
-                () -> assertEquals(hold, artifact.questions().holdSeconds()),
-                () -> assertEquals(resume, artifact.questions().resumeWithinSeconds()),
+                () -> assertEquals(contextBudget, artifact.contextBudgetTokens(), "artifact context budget is kept"),
+                () -> assertEquals(hold, artifact.questions().holdSeconds(), "questions hold seconds round-trip"),
+                () -> assertEquals(resume, artifact.questions().resumeWithinSeconds(), "resume bound round-trips"),
                 () -> assertEquals((double) threshold,
-                        artifact.offTrack().get(RoleArtifact.OffTrackSignal.REPEATING).threshold()),
+                        artifact.offTrack().get(RoleArtifact.OffTrackSignal.REPEATING).threshold(),
+                        "repeating threshold is read back"),
                 () -> assertEquals(RoleArtifact.OffTrackAction.NUDGE,
-                        artifact.offTrack().get(RoleArtifact.OffTrackSignal.REPEATING).action()),
-                () -> assertNull(artifact.offTrack().get(RoleArtifact.OffTrackSignal.NO_PROGRESS).threshold()),
+                        artifact.offTrack().get(RoleArtifact.OffTrackSignal.REPEATING).action(),
+                        "repeating action is nudge"),
+                () -> assertNull(artifact.offTrack().get(RoleArtifact.OffTrackSignal.NO_PROGRESS).threshold(),
+                        "no_progress has no threshold"),
                 () -> assertEquals(RoleArtifact.OffTrackAction.YIELD,
-                        artifact.offTrack().get(RoleArtifact.OffTrackSignal.NO_PROGRESS).action()));
+                        artifact.offTrack().get(RoleArtifact.OffTrackSignal.NO_PROGRESS).action(),
+                        "no_progress action is yield"));
     }
 
     @Nested
@@ -189,11 +197,13 @@ class RoleArtifactValidatorTest {
     @DisplayName("the name must equal the file name")
     void nameMustEqualFileName() {
         var document = RoleFixtures.validBytes();
-        var refusal = assertThrows(RoleRefusal.class, () -> RoleArtifactValidator.validate(document, "review-code"));
+        var refusal = assertThrows(RoleRefusal.class, () -> RoleArtifactValidator.validate(document, "review-code"),
+                "a name mismatch is refused");
 
         assertAll(
-                () -> assertEquals(RoleValidationReason.SCHEMA_INVALID, refusal.reason()),
-                () -> assertEquals("review-code", refusal.role()),
+                () -> assertEquals(RoleValidationReason.SCHEMA_INVALID, refusal.reason(),
+                        "name mismatch refuses as schema_invalid"),
+                () -> assertEquals("review-code", refusal.role(), "refusal names the file's role"),
                 () -> assertTrue(refusal.detail().contains("implement"), refusal.detail()));
     }
 

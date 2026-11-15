@@ -47,7 +47,7 @@ class SourceFetchTest {
     void redactsUserInformation(String name, String detail, String expected) {
         var fetch = SourceFetch.unreachable(detail);
 
-        assertEquals(expected, fetch.detail());
+        assertEquals(expected, fetch.detail(), "the user information up to the last @ is removed");
     }
 
     @Test
@@ -56,7 +56,8 @@ class SourceFetchTest {
         var fetch = SourceFetch.pinMissing("https://user:p@ss@github.com/example/alpha has no commit");
 
         assertAll(
-                () -> assertEquals("https://github.com/example/alpha has no commit", fetch.detail()),
+                () -> assertEquals("https://github.com/example/alpha has no commit", fetch.detail(),
+                        "no part of the password survives the redaction"),
                 () -> assertFalse(fetch.detail().contains("ss@"), fetch::detail));
     }
 
@@ -66,6 +67,7 @@ class SourceFetchTest {
     void textUnderNonLatinDigits() {
         var fetch = SourceFetch.fetched(new byte[12], "twelve bytes");
 
-        assertEquals("SourceFetch[FETCHED, 12 bytes, twelve bytes]", fetch.toString());
+        assertEquals("SourceFetch[FETCHED, 12 bytes, twelve bytes]", fetch.toString(),
+                "the size in the text is written in ASCII digits");
     }
 }

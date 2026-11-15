@@ -46,7 +46,8 @@ class RoleValidationTableTest {
         var skills = check(RoleFixtures.valid().artifact(), RoleFixtures.harness(), RoleFixtures.catalogue(),
                 new EffortValue(null), RoleFixtures.environment(), false);
 
-        assertEquals(List.of(new RoleSkill("skill://pm/role/implement/SKILL.md", RoleFixtures.SKILL_DIGEST)), skills);
+        assertEquals(List.of(new RoleSkill("skill://pm/role/implement/SKILL.md", RoleFixtures.SKILL_DIGEST)), skills,
+                "the valid artifact resolves its skill");
     }
 
     @Test
@@ -169,9 +170,10 @@ class RoleValidationTableTest {
                 () -> assertTrue(names.containsAll(List.of("schema_invalid", "harness_unknown",
                         "harness_not_eligible", "harness_class_not_runnable", "model_restricted",
                         "effort_unsupported", "model_not_allowed", "tool_not_permitted", "form_not_permitted",
-                        "skill_unresolved"))),
-                () -> assertEquals(10, names.size()),
-                () -> assertTrue(names.stream().noneMatch("session_first_not_permitted"::equals)));
+                        "skill_unresolved")), "every reason of the table is present"),
+                () -> assertEquals(10, names.size(), "the table has ten wire names"),
+                () -> assertTrue(names.stream().noneMatch("session_first_not_permitted"::equals),
+                        "session_first_not_permitted is absent"));
     }
 
     private static List<RoleSkill> check(RoleArtifact artifact, HarnessProfile profile, ModelCatalogue catalogue,

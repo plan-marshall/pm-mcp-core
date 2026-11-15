@@ -104,13 +104,15 @@ class SchemaSubsetTest {
         void otherTerminator(String terminator) {
             var errors = SchemaSubset.validate(new JsonString("abc1234" + terminator), json(COMMIT));
 
-            assertEquals(List.of("$: does not match ^[0-9a-f]{7,40}$"), errors);
+            assertEquals(List.of("$: does not match ^[0-9a-f]{7,40}$"), errors,
+                    "a terminator other than one final line feed fails");
         }
 
         @Test
         @DisplayName("an anchored pattern accepts a value ending in one line feed, as re.search does")
         void finalLineFeed() {
-            assertEquals(List.of(), SchemaSubset.validate(new JsonString("abc1234\n"), json(COMMIT)));
+            assertEquals(List.of(), SchemaSubset.validate(new JsonString("abc1234\n"), json(COMMIT)),
+                    "one final line feed is accepted by re.search");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -123,7 +125,8 @@ class SchemaSubsetTest {
         void unicodeSpace(String value, boolean valid) {
             var schema = json("{\"pattern\":\"^https://[^/?#@\\\\s]+(/[^?#\\\\s]*)?$\"}");
 
-            assertEquals(valid, SchemaSubset.validate(new JsonString(value), schema).isEmpty());
+            assertEquals(valid, SchemaSubset.validate(new JsonString(value), schema).isEmpty(),
+                    "Python's whitespace decides the repository pattern");
         }
     }
 
@@ -144,7 +147,8 @@ class SchemaSubsetTest {
 
             var errors = validate(value, BOUNDED);
 
-            assertEquals(List.of("$: longer than 3"), errors);
+            assertEquals(List.of("$: longer than 3"), errors,
+                    "the over-long value yields only the length error");
         }
 
         @Test
@@ -154,7 +158,8 @@ class SchemaSubsetTest {
 
             var errors = validate("\"abcd\"", schema);
 
-            assertEquals(List.of("$: longer than 3"), errors);
+            assertEquals(List.of("$: longer than 3"), errors,
+                    "a broken pattern is never reached past the bound");
         }
 
         @Test
@@ -176,7 +181,7 @@ class SchemaSubsetTest {
 
             var errors = validate(value, BOUNDED);
 
-            assertEquals(List.of("$: does not match ^a+$"), errors);
+            assertEquals(List.of("$: does not match ^a+$"), errors, "the pattern error is reported inside the bound");
         }
 
         @Test
@@ -186,8 +191,10 @@ class SchemaSubsetTest {
             var failing = "\"abb\"";
 
             assertAll(
-                    () -> assertEquals(List.of(), validate(matching, BOUNDED), "matching"),
-                    () -> assertEquals(List.of("$: does not match ^a+$"), validate(failing, BOUNDED), "failing"));
+                    () -> assertEquals(List.of(), validate(matching, BOUNDED),
+                            "a value of exactly maxLength matches"),
+                    () -> assertEquals(List.of("$: does not match ^a+$"), validate(failing, BOUNDED),
+                            "one code point over the bound still fails"));
         }
     }
 
@@ -200,13 +207,15 @@ class SchemaSubsetTest {
         @DisplayName("the path of an array element is written in ASCII digits")
         void elementPath() {
             assertEquals(List.of("$[1]: expected [string]"),
-                    validate("[\"a\",2]", "{\"items\":{\"type\":\"string\"}}"));
+                    validate("[\"a\",2]", "{\"items\":{\"type\":\"string\"}}"),
+                    "the element path is written in ASCII digits");
         }
 
         @Test
         @DisplayName("an escaped character is written in ASCII hexadecimal digits")
         void escape() {
-            assertEquals("\"\\u00e9\\u0661\"", json("\"\\u00e9\\u0661\"").toJson());
+            assertEquals("\"\\u00e9\\u0661\"", json("\"\\u00e9\\u0661\"").toJson(),
+                    "an escaped character keeps its hexadecimal digits");
         }
     }
 
@@ -219,7 +228,7 @@ class SchemaSubsetTest {
         void wrongTypeStops() {
             var errors = validate("1", "{\"type\":\"string\",\"const\":\"a\",\"minimum\":5}");
 
-            assertEquals(List.of("$: expected [string]"), errors);
+            assertEquals(List.of("$: expected [string]"), errors, "a value of a non-admitted type stops there");
         }
 
         @Test
@@ -232,14 +241,15 @@ class SchemaSubsetTest {
             var errors = validate("{\"rows\":[{\"id\":\"a\"},{\"id\":2,\"x\":1},{}]}", schema);
 
             assertEquals(List.of("$.rows[1].id: expected [string]", "$.rows[1]: unknown key x", "$.rows[2]: missing id"),
-                    errors);
+                    errors, "each violation deep in the document carries a path");
         }
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"{\"format\":\"date\"}", "{\"description\":\"d\"}", "{\"$schema\":\"x\"}", "{}"})
         @DisplayName("a keyword outside the subset is not evaluated")
         void otherKeywords(String schema) {
-            assertEquals(List.of(), validate("\"not a date\"", schema));
+            assertEquals(List.of(), validate("\"not a date\"", schema),
+                    "a keyword outside the subset is not evaluated");
         }
 
         @Test
@@ -261,7 +271,8 @@ class SchemaSubsetTest {
         void malformed(String document) {
             var bytes = document.getBytes(UTF_8);
 
-            assertThrows(MalformedJson.class, () -> JsonValue.parse(bytes));
+            assertThrows(MalformedJson.class, () -> JsonValue.parse(bytes),
+                    "a document that is not one JSON value is refused");
         }
 
         @Test
@@ -269,7 +280,8 @@ class SchemaSubsetTest {
         void toJson() {
             var value = json("{\"a\":[1,2.5,true,null],\"b\":\"x\\\"\\u00e9\\n\",\"c\":{}}");
 
-            assertEquals("{\"a\": [1, 2.5, true, null], \"b\": \"x\\\"\\u00e9\\n\", \"c\": {}}", value.toJson());
+            assertEquals("{\"a\": [1, 2.5, true, null], \"b\": \"x\\\"\\u00e9\\n\", \"c\": {}}", value.toJson(),
+                    "the tree is written as Python's json.dumps writes it");
         }
 
         @Test
@@ -277,7 +289,7 @@ class SchemaSubsetTest {
         void toJsonEscapesDel() {
             var value = json("{\"a\":\" ~" + (char) 0x7f + "E1\"}");
 
-            assertEquals("{\"a\": \" ~\\u007fE1\"}", value.toJson());
+            assertEquals("{\"a\": \" ~\\u007fE1\"}", value.toJson(), "DEL is escaped and the printable range kept");
         }
     }
 }

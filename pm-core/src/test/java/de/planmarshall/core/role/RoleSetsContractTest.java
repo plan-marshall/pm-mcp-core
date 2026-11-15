@@ -57,6 +57,6 @@ class RoleSetsContractTest implements ShouldHandleObjectContracts<RoleSets.Shipp
     @DisplayName("a shipped role is deliberately not Serializable")
     public void shouldImplementSerializable() {
         assertFalse(Serializable.class.isAssignableFrom(RoleSets.ShippedRole.class),
-                "The shipped role is not Java-serialized; its document bytes are the wire form");
+                "the shipped role is not Java-serialized");
     }
 }

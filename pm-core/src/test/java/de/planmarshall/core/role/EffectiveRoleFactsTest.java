@@ -63,8 +63,9 @@ class EffectiveRoleFactsTest {
         var role = role(artifact, profile);
 
         assertAll(
-                () -> assertEquals(0, role.questions().holdSeconds()),
-                () -> assertEquals(0, role.questions().resumeWithinSeconds()));
+                () -> assertEquals(0, role.questions().holdSeconds(), "hold is ineffective without harness hold"),
+                () -> assertEquals(0, role.questions().resumeWithinSeconds(),
+                        "resume is ineffective without harness hold"));
     }
 
     @Test
@@ -126,7 +127,7 @@ class EffectiveRoleFactsTest {
                         "the host's value applies"),
                 () -> assertTrue(role(warm, profile(new HarnessProfile.Resumability(false, null, false, null),
                                 Generators.integers(200_000, 800_000).next(), null)).idleWakeups().isEmpty(),
-                        "neither sets it"),
+                        "no idle wakeup when neither side sets one"),
                 () -> assertEquals(OptionalInt.of(4), role(artifactSets, profile(
                                 new HarnessProfile.Resumability(false, null, false, null),
                                 Generators.integers(200_000, 800_000).next(), 3)).idleWakeups(),
@@ -141,19 +142,23 @@ class EffectiveRoleFactsTest {
                 Generators.integers(200_000, 800_000).next(), Generators.integers(1, 10).next()));
 
         assertAll(
-                () -> assertEquals(RoleArtifact.OffTrackSignal.values().length, role.offTrack().size()),
+                () -> assertEquals(RoleArtifact.OffTrackSignal.values().length, role.offTrack().size(),
+                        "every off-track signal has a setting"),
                 () -> assertEquals(RoleArtifact.OffTrackAction.SHOW,
-                        role.offTrack().get(RoleArtifact.OffTrackSignal.NO_PROGRESS).action()),
+                        role.offTrack().get(RoleArtifact.OffTrackSignal.NO_PROGRESS).action(),
+                        "omitted action defaults to show"),
                 () -> assertEquals(RoleArtifact.OffTrackSignal.NO_PROGRESS.compiledThreshold(),
                         role.offTrack().get(RoleArtifact.OffTrackSignal.NO_PROGRESS)
-                                .effectiveThreshold(RoleArtifact.OffTrackSignal.NO_PROGRESS)));
+                                .effectiveThreshold(RoleArtifact.OffTrackSignal.NO_PROGRESS),
+                        "omitted threshold takes the compiled bound"));
     }
 
     @Test
     @DisplayName("a non-finite threshold is refused")
     void nonFiniteThresholdIsRefused() {
         assertThrows(IllegalArgumentException.class,
-                () -> new RoleArtifact.OffTrackSetting(Double.NaN, RoleArtifact.OffTrackAction.SHOW));
+                () -> new RoleArtifact.OffTrackSetting(Double.NaN, RoleArtifact.OffTrackAction.SHOW),
+                "NaN threshold is refused");
     }
 
     @Test
@@ -162,7 +167,8 @@ class EffectiveRoleFactsTest {
         var setting = new RoleArtifact.OffTrackSetting(9.0, RoleArtifact.OffTrackAction.SHOW);
 
         assertThrows(IllegalArgumentException.class,
-                () -> setting.effectiveThreshold(RoleArtifact.OffTrackSignal.REPEATING));
+                () -> setting.effectiveThreshold(RoleArtifact.OffTrackSignal.REPEATING),
+                "a setting above the signal bound is refused");
     }
 
     @Test

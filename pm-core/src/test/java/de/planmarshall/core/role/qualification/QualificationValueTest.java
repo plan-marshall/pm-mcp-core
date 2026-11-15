@@ -48,49 +48,65 @@ class QualificationValueTest {
     @DisplayName("every wire name round-trips and an unknown one is empty")
     void wireNames() {
         for (var topic : Topic.values()) {
-            assertEquals(Optional.of(topic), Topic.fromWireName(topic.wireName()));
+            assertEquals(Optional.of(topic), Topic.fromWireName(topic.wireName()),
+                    "the topic wire name round-trips");
         }
         for (var checkout : Checkout.values()) {
-            assertEquals(Optional.of(checkout), Checkout.fromWireName(checkout.wireName()));
+            assertEquals(Optional.of(checkout), Checkout.fromWireName(checkout.wireName()),
+                    "the checkout wire name round-trips");
         }
         for (var consent : GradingConsent.values()) {
-            assertEquals(Optional.of(consent), GradingConsent.fromWireName(consent.wireName()));
+            assertEquals(Optional.of(consent), GradingConsent.fromWireName(consent.wireName()),
+                    "the grading consent wire name round-trips");
         }
         for (var label : JudgeCheck.Label.values()) {
-            assertEquals(Optional.of(label), JudgeCheck.Label.fromWireName(label.wireName()));
+            assertEquals(Optional.of(label), JudgeCheck.Label.fromWireName(label.wireName()),
+                    "the judge check label round-trips");
         }
         for (var form : RoleForm.values()) {
-            assertEquals(Optional.of(form), RoleForm.fromWireName(form.wireName()));
+            assertEquals(Optional.of(form), RoleForm.fromWireName(form.wireName()),
+                    "the role form wire name round-trips");
         }
-        assertEquals(Optional.empty(), Topic.fromWireName("none"));
-        assertEquals(Optional.empty(), Checkout.fromWireName("none"));
-        assertEquals(Optional.empty(), GradingConsent.fromWireName("none"));
-        assertEquals(Optional.empty(), JudgeCheck.Label.fromWireName("none"));
-        assertEquals(Optional.empty(), RoleForm.fromWireName("none"));
+        assertEquals(Optional.empty(), Topic.fromWireName("none"),
+                "an unknown topic wire name is empty");
+        assertEquals(Optional.empty(), Checkout.fromWireName("none"),
+                "an unknown checkout name is empty");
+        assertEquals(Optional.empty(), GradingConsent.fromWireName("none"),
+                "an unknown consent name is empty");
+        assertEquals(Optional.empty(), JudgeCheck.Label.fromWireName("none"),
+                "an unknown judge label is empty");
+        assertEquals(Optional.empty(), RoleForm.fromWireName("none"),
+                "an unknown form name is empty");
     }
 
     @Test
     @DisplayName("a token total sums measured counts and answers unmeasured when either is")
     void tokenTotal() {
-        assertTrue(TokenTotal.measured(5).measured());
-        assertFalse(TokenTotal.unmeasured().measured());
+        assertTrue(TokenTotal.measured(5).measured(), "a measured total reports measured");
+        assertFalse(TokenTotal.unmeasured().measured(), "an unmeasured total reports otherwise");
         assertEquals(TokenTotal.measured(15),
-                TokenTotal.measured(5).plus(TokenTotal.measured(10)));
-        assertEquals(TokenTotal.unmeasured(), TokenTotal.measured(5).plus(TokenTotal.unmeasured()));
-        assertThrows(IllegalArgumentException.class, () -> new TokenTotal(0L));
-        assertThrows(IllegalArgumentException.class, () -> new TokenTotal(-1L));
+                TokenTotal.measured(5).plus(TokenTotal.measured(10)),
+                "five plus ten measured tokens is fifteen");
+        assertEquals(TokenTotal.unmeasured(), TokenTotal.measured(5).plus(TokenTotal.unmeasured()),
+                "an unmeasured summand keeps the total unmeasured");
+        assertThrows(IllegalArgumentException.class, () -> new TokenTotal(0L),
+                "a zero token total is refused");
+        assertThrows(IllegalArgumentException.class, () -> new TokenTotal(-1L),
+                "a negative token total is refused");
     }
 
     @Test
     @DisplayName("a grade is scored, ungraded, and judged right from 0.5")
     void grade() {
-        assertTrue(Grade.of(true).judgedRight());
-        assertFalse(Grade.of(false).judgedRight());
-        assertFalse(Grade.ungraded().judgedRight());
-        assertTrue(Grade.ungraded().isUngraded());
-        assertEquals(new BigDecimal("0.6"), Grade.scored(new BigDecimal("0.6")).score());
+        assertTrue(Grade.of(true).judgedRight(), "a right grade is judged right");
+        assertFalse(Grade.of(false).judgedRight(), "a wrong grade is not judged right");
+        assertFalse(Grade.ungraded().judgedRight(), "an ungraded grade is not judged right");
+        assertTrue(Grade.ungraded().isUngraded(), "the ungraded grade reports itself");
+        assertEquals(new BigDecimal("0.6"), Grade.scored(new BigDecimal("0.6")).score(),
+                "a scored grade keeps its score");
         var negative = new BigDecimal("-0.1");
-        assertThrows(IllegalArgumentException.class, () -> new Grade(negative));
+        assertThrows(IllegalArgumentException.class, () -> new Grade(negative),
+                "a negative grade score is refused");
     }
 
     @Test
@@ -99,25 +115,28 @@ class QualificationValueTest {
         var configuration = GradedConfiguration.of(QualificationFixtures.role("implement", RoleClass.WRITER,
                 RoleForm.FRESH));
 
-        assertEquals(QualificationFixtures.HARNESS, configuration.harness());
-        assertEquals(QualificationFixtures.VERSION, configuration.harnessVersion());
-        assertEquals(RoleClass.WRITER, configuration.roleClass());
-        assertEquals(1, configuration.skillDigests().size());
+        assertEquals(QualificationFixtures.HARNESS, configuration.harness(),
+                "the configuration keeps the harness");
+        assertEquals(QualificationFixtures.VERSION, configuration.harnessVersion(),
+                "the configuration keeps the version");
+        assertEquals(RoleClass.WRITER, configuration.roleClass(),
+                "the configuration keeps the role class");
+        assertEquals(1, configuration.skillDigests().size(), "one skill digest is covered");
         var noTools = List.<String>of();
         var noDigests = Map.<String, String>of();
         var notADigest = Map.of("skill://pm/role/x/SKILL.md", "not-a-digest");
         var otherSkill = Map.of("other/x", "%064x".formatted(Generators.longs().next()));
 
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("Bad Harness", "1.4", "m", null,
-                noTools, RoleClass.WRITER, noDigests));
+                noTools, RoleClass.WRITER, noDigests), "a padded harness name is refused");
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4.2", "m", null,
-                noTools, RoleClass.WRITER, noDigests));
+                noTools, RoleClass.WRITER, noDigests), "a three part version is refused");
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4", "", null,
-                noTools, RoleClass.WRITER, noDigests));
+                noTools, RoleClass.WRITER, noDigests), "an empty model name is refused");
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4", "m", null,
-                noTools, RoleClass.WRITER, notADigest));
+                noTools, RoleClass.WRITER, notADigest), "a skill digest that is not hex is refused");
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4", "m", null,
-                noTools, RoleClass.WRITER, otherSkill));
+                noTools, RoleClass.WRITER, otherSkill), "a digest for a foreign skill path is refused");
     }
 
     private static JudgeConfiguration judge() {
@@ -148,18 +167,21 @@ class QualificationValueTest {
         var inCheckout = ItemCheckout.none();
 
         assertThrows(IllegalArgumentException.class, () -> new GradingPlan(role, noItems, noSources, "",
-                repository, single, judge, inCheckout, noPrevious));
+                repository, single, judge, inCheckout, noPrevious), "an empty corpus revision is refused");
         assertThrows(IllegalArgumentException.class, () -> new GradingOffer("implement", noTopics, 0, noForms,
-                1, 0, 0));
+                1, 0, 0), "an offer without forms is refused");
         int requested = Generators.integers(2, 10).next();
         assertEquals(requested, new GradingProfile(requested).runsPerItem(), "the profile keeps the requested runs");
         assertTrue(new GradingProfile(requested).repeated(), "more than one requested run is repeated");
         assertEquals(1, single.runsPerItem(), "the default profile offers one run");
         assertFalse(single.repeated(), "the default profile is not repeated");
-        assertThrows(IllegalArgumentException.class, () -> new GradingProfile(0));
-        assertThrows(IllegalArgumentException.class, () -> new GradingOutcome.Declined(false));
+        assertThrows(IllegalArgumentException.class, () -> new GradingProfile(0),
+                "a profile without runs is refused");
+        assertThrows(IllegalArgumentException.class, () -> new GradingOutcome.Declined(false),
+                "a declined outcome holding items is refused");
         var detail = Generators.letterStrings(3, 20).next();
-        assertThrows(NullPointerException.class, () -> new GradingOutcome.Refused(null, detail));
+        assertThrows(NullPointerException.class, () -> new GradingOutcome.Refused(null, detail),
+                "a refusal without a code is rejected");
     }
 
     @Test
@@ -173,11 +195,12 @@ class QualificationValueTest {
 
         var offer = GradingOffer.of(plan);
 
-        assertEquals(2, offer.items());
-        assertEquals(1, offer.runsPerItem());
-        assertEquals(2, offer.judgeItems());
-        assertEquals(2 * 4_000L * 2 + 2 * 2L * 2_000L, offer.expectedTokens());
-        assertEquals(1, GradingOffer.runs(plan));
+        assertEquals(2, offer.items(), "the offer counts two items");
+        assertEquals(1, offer.runsPerItem(), "the default profile runs once");
+        assertEquals(2, offer.judgeItems(), "the offer counts two judge items");
+        assertEquals(2 * 4_000L * 2 + 2 * 2L * 2_000L, offer.expectedTokens(),
+                "the offer sums the expected tokens");
+        assertEquals(1, GradingOffer.runs(plan), "the plan runs every item once");
     }
 
     @Test
@@ -201,8 +224,10 @@ class QualificationValueTest {
     @Test
     @DisplayName("the constant baseline refuses a non-positive denominator and the judge baseline an empty topic")
     void baselineGuards() {
-        assertThrows(IllegalArgumentException.class, () -> ConstantBaseline.percent(0, 0));
-        assertEquals(BigDecimal.ZERO, JudgeCheck.baseline(List.of()));
+        assertThrows(IllegalArgumentException.class, () -> ConstantBaseline.percent(0, 0),
+                "a zero denominator is refused");
+        assertEquals(BigDecimal.ZERO, JudgeCheck.baseline(List.of()),
+                "an empty judge topic has zero baseline");
     }
 
     @Test
@@ -217,11 +242,13 @@ class QualificationValueTest {
         var right = Grade.of(true);
 
         assertThrows(IllegalArgumentException.class, () -> new QualificationRecord.FormResult(noTopics, 0,
-                one, 0));
-        assertThrows(IllegalArgumentException.class, () -> new TopicResult(ninety, zero, 0));
-        assertThrows(IllegalArgumentException.class, () -> new TopicResult(overHundred, zero, 1));
+                one, 0), "a form without a topic is refused");
+        assertThrows(IllegalArgumentException.class, () -> new TopicResult(ninety, zero, 0),
+                "a topic without items is refused");
+        assertThrows(IllegalArgumentException.class, () -> new TopicResult(overHundred, zero, 1),
+                "an agreement above one hundred is refused");
         assertThrows(IllegalArgumentException.class, () -> new ItemResult("", RoleForm.FRESH, Checkout.CURRENT,
-                noAnswer, right, one, 0L));
+                noAnswer, right, one, 0L), "an item without an id is refused");
     }
 
     @Test
@@ -233,19 +260,22 @@ class QualificationValueTest {
         var role = "r" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         var answer = "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
-        assertTrue(topics.contains(Topic.OWN));
-        assertTrue(topics.contains(Topic.GENERIC));
-        assertThrows(NullPointerException.class, () -> new RoleTopics(null));
-        assertTrue(RoleTopics.counts(QualificationFixtures.item(id, role, answer).build()));
+        assertTrue(topics.contains(Topic.OWN), "the topic set holds the own topic");
+        assertTrue(topics.contains(Topic.GENERIC), "the topic set holds the generic topic");
+        assertThrows(NullPointerException.class, () -> new RoleTopics(null), "a null topic set is rejected");
+        assertTrue(RoleTopics.counts(QualificationFixtures.item(id, role, answer).build()),
+                "a confirmed item is counted");
         assertFalse(RoleTopics.counts(QualificationFixtures.item(id, role, answer)
-                .status(ImportedItem.ReviewStatus.RETIRED).build()));
+                .status(ImportedItem.ReviewStatus.RETIRED).build()), "a retired item is not counted");
     }
 
     @Test
     @DisplayName("the qualification settings default to 80 and 5")
     void settings() {
-        assertEquals(80, QualificationSettings.DEFAULT_AGREEMENT_LEVEL);
-        assertEquals(5, QualificationSettings.DEFAULT_ALLOWED_GAP);
-        assertEquals(QualificationSettings.defaults(), QualificationFixtures.settings());
+        assertEquals(80, QualificationSettings.DEFAULT_AGREEMENT_LEVEL,
+                "the default agreement level is eighty");
+        assertEquals(5, QualificationSettings.DEFAULT_ALLOWED_GAP, "the default allowed gap is five");
+        assertEquals(QualificationSettings.defaults(), QualificationFixtures.settings(),
+                "the defaults match the fixture settings");
     }
 }

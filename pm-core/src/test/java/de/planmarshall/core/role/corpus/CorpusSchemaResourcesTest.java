@@ -160,7 +160,8 @@ class CorpusSchemaResourcesTest {
             var text = new String(SourceManifestCodec.write(manifest()), UTF_8)
                     .replace("\"licence\"", "\"homepage\" : \"x\", \"licence\"");
 
-            assertFalse(validate(MANIFEST_SCHEMA, text.getBytes(UTF_8)).isEmpty());
+            assertFalse(validate(MANIFEST_SCHEMA, text.getBytes(UTF_8)).isEmpty(),
+                    "an undeclared manifest member is rejected");
         }
 
         @Test
@@ -169,7 +170,8 @@ class CorpusSchemaResourcesTest {
             var text = new String(ImportedItemCodec.write(ImportedItemCodecTest.closedItem()), UTF_8)
                     .replace("\"fetched\"", "\"extracted\"");
 
-            assertFalse(validate(ITEM_SCHEMA, text.getBytes(UTF_8)).isEmpty());
+            assertFalse(validate(ITEM_SCHEMA, text.getBytes(UTF_8)).isEmpty(),
+                    "an item of another provenance kind is rejected");
         }
 
         @Test
@@ -178,7 +180,8 @@ class CorpusSchemaResourcesTest {
             var text = new String(SourceOverlayCodec.write(overlay(null, "1", "2")), UTF_8)
                     .replace("\"status\" : \"draft\"", "\"status\" : \"draft\", \"extra\" : 1");
 
-            assertFalse(validate(OVERLAY_SCHEMA, text.getBytes(UTF_8)).isEmpty());
+            assertFalse(validate(OVERLAY_SCHEMA, text.getBytes(UTF_8)).isEmpty(),
+                    "an undeclared member deep inside is rejected");
         }
 
         @Test
@@ -206,7 +209,7 @@ class CorpusSchemaResourcesTest {
             walk(parser, "$", problems);
         }
 
-        assertEquals(List.of(), problems);
+        assertEquals(List.of(), problems, "a schema uses only the supported keyword subset");
     }
 
     @ParameterizedTest(name = "{0}")
@@ -260,7 +263,8 @@ class CorpusSchemaResourcesTest {
     @Test
     @DisplayName("an object schema that names no property is rejected when it is not closed")
     void objectSchemaWithoutPropertiesIsRejected() throws Exception {
-        assertFalse(problemsOf("{\"type\": \"object\"}").isEmpty());
+        assertFalse(problemsOf("{\"type\": \"object\"}").isEmpty(),
+                "an unclosed object schema is rejected");
     }
 
     /** The literal pattern of the members that admit any text: the schema's {@code .}. */
@@ -310,7 +314,7 @@ class CorpusSchemaResourcesTest {
         var closedRecord = "{\"type\": \"object\", \"additionalProperties\": false, \"properties\": "
                 + "{ \"answer_schema\": { \"type\": \"object\" } }}";
 
-        assertEquals(List.of(), problemsOf(closedRecord));
+        assertEquals(List.of(), problemsOf(closedRecord), "a literal answer schema is left open");
     }
 
     private static List<String> problemsOf(String schema) throws Exception {

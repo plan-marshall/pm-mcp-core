@@ -413,7 +413,8 @@ class CorpusPatternParityTest {
                   "f": {"type": "string", "description": "no pattern"}}}
                 """.getBytes(UTF_8));
 
-        assertEquals(Set.of("t a", "t b/items", "t c/d/items/e"), schemaPatterns(schema, "t"));
+        assertEquals(Set.of("t a", "t b/items", "t c/d/items/e"), schemaPatterns(schema, "t"),
+                "the walk finds patterns in properties and items");
     }
 
     static Stream<Arguments> hiddenParentSegments() {
@@ -435,12 +436,16 @@ class CorpusPatternParityTest {
         @DisplayName("a .. segment behind a line separator is refused by the schema and by every record")
         void hiddenParentSegment(String name, String path) {
             assertAll(
-                    () -> assertFalse(schemaAccepts(path, MANIFEST, "files", "items", "path"), "manifest schema"),
-                    () -> assertFalse(schemaAccepts(path, OVERLAY, "file"), "overlay schema"),
-                    () -> assertFalse(schemaAccepts(path, ITEM, "provenance", "origin", "path"), "item schema"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new SourceFile(path, HASH, false)),
+                    () -> assertFalse(schemaAccepts(path, MANIFEST, "files", "items", "path"),
+                            "the manifest schema refuses the path"),
+                    () -> assertFalse(schemaAccepts(path, OVERLAY, "file"),
+                            "the overlay schema refuses the path"),
+                    () -> assertFalse(schemaAccepts(path, ITEM, "provenance", "origin", "path"),
+                            "the item schema refuses the origin path"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new SourceFile(path, HASH, false),
+                            "the path cannot make a source file"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Origin(REPOSITORY, COMMIT, path, 1)));
+                            () -> new Origin(REPOSITORY, COMMIT, path, 1), "the path cannot make an origin record"));
         }
 
         @ParameterizedTest(name = "separator {index}")
@@ -450,8 +455,10 @@ class CorpusPatternParityTest {
             var path = "docs" + separator + "/x.csv";
 
             assertAll(
-                    () -> assertTrue(schemaAccepts(path, MANIFEST, "files", "items", "path")),
-                    () -> assertDoesNotThrow(() -> new SourceFile(path, HASH, false)));
+                    () -> assertTrue(schemaAccepts(path, MANIFEST, "files", "items", "path"),
+                            "a separator inside a segment is a character"),
+                    () -> assertDoesNotThrow(() -> new SourceFile(path, HASH, false),
+                            "the source file is made from the path"));
         }
     }
 
@@ -464,9 +471,12 @@ class CorpusPatternParityTest {
         @DisplayName("line feeds only are refused by the schema and by the record")
         void lineFeedsOnly(String key) {
             assertAll(
-                    () -> assertFalse(schemaAccepts(key, OVERLAY, "rows", "items", "key")),
-                    () -> assertFalse(schemaAccepts(key, OVERLAY, "key_field")),
-                    () -> assertFalse(SourceOverlay.KEY.matcher(key).find()));
+                    () -> assertFalse(schemaAccepts(key, OVERLAY, "rows", "items", "key"),
+                            "the overlay schema refuses line feeds only"),
+                    () -> assertFalse(schemaAccepts(key, OVERLAY, "key_field"),
+                            "the overlay key field refuses line feeds"),
+                    () -> assertFalse(SourceOverlay.KEY.matcher(key).find(),
+                            "the overlay key pattern refuses line feeds"));
         }
 
         @ParameterizedTest(name = "value {index}")
@@ -474,8 +484,10 @@ class CorpusPatternParityTest {
         @DisplayName("a value with a character other than a line feed is accepted by both")
         void anyOtherCharacter(String key) {
             assertAll(
-                    () -> assertTrue(schemaAccepts(key, OVERLAY, "rows", "items", "key")),
-                    () -> assertTrue(SourceOverlay.KEY.matcher(key).find()));
+                    () -> assertTrue(schemaAccepts(key, OVERLAY, "rows", "items", "key"),
+                            "the overlay schema accepts another character"),
+                    () -> assertTrue(SourceOverlay.KEY.matcher(key).find(),
+                            "the overlay key pattern accepts the value"));
         }
     }
 

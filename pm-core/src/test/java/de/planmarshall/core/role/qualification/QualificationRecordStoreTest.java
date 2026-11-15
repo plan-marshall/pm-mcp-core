@@ -53,14 +53,16 @@ class QualificationRecordStoreTest {
 
         store.write(entry);
 
-        assertTrue(Files.exists(base.resolve("projects/pm-mcp-core/roles/qualification/review-code.json")));
-        assertEquals(Optional.of(entry), store.lookup("review-code"));
+        assertTrue(Files.exists(base.resolve("projects/pm-mcp-core/roles/qualification/review-code.json")),
+                "the record file is written under the set");
+        assertEquals(Optional.of(entry), store.lookup("review-code"), "the written record is read back");
     }
 
     @Test
     @DisplayName("a role set without the role's record answers empty")
     void absent() {
-        assertEquals(Optional.empty(), store().lookup("review-code"));
+        assertEquals(Optional.empty(), store().lookup("review-code"),
+                "a set without the record answers empty");
     }
 
     @Test
@@ -68,7 +70,8 @@ class QualificationRecordStoreTest {
     void roleGrammar() {
         var store = store();
 
-        assertThrows(IllegalArgumentException.class, () -> store.file("../escape"));
+        assertThrows(IllegalArgumentException.class, () -> store.file("../escape"),
+                "a role name outside its grammar is refused");
     }
 
     @Test
@@ -79,7 +82,8 @@ class QualificationRecordStoreTest {
         Files.createDirectories(directory());
         Files.writeString(file, "{\"format_version\":1}", UTF_8);
 
-        assertThrows(StoreRefusal.class, () -> store.lookup("review-code"));
+        assertThrows(StoreRefusal.class, () -> store.lookup("review-code"),
+                "an unreadable record is refused");
     }
 
     @Test
@@ -95,9 +99,11 @@ class QualificationRecordStoreTest {
 
         var lookup = QualificationRecords.firstOf(project, shipped);
 
-        assertEquals(Optional.of(projectRecord), lookup.lookup("review-code"));
+        assertEquals(Optional.of(projectRecord), lookup.lookup("review-code"),
+                "the project record wins the lookup");
         assertEquals(Optional.empty(), lookup.lookup(
-                "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)));
+                "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)),
+                "an unknown role answers empty");
     }
 
     @Test
@@ -117,9 +123,11 @@ class QualificationRecordStoreTest {
 
         checks.write(entry);
 
-        assertEquals(JudgeCheckStore.FILE_NAME, checks.file().getFileName().toString());
-        assertEquals(Optional.of(entry), checks.lookup());
-        assertTrue(Files.exists(directory().resolve("judge-check.json")));
+        assertEquals(JudgeCheckStore.FILE_NAME, checks.file().getFileName().toString(),
+                "the judge check file is named as declared");
+        assertEquals(Optional.of(entry), checks.lookup(), "the judge record is read back");
+        assertTrue(Files.exists(directory().resolve("judge-check.json")),
+                "the judge check sits beside the records");
     }
 
     private QualificationRecordStore store() {

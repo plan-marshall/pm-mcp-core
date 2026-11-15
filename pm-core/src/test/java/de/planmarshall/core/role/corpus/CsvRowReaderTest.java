@@ -71,7 +71,7 @@ class CsvRowReaderTest {
     @MethodSource("validCases")
     @DisplayName("an RFC 4180 case is read into its rows")
     void valid(String name, String text, List<SourceRow> expected) {
-        assertEquals(expected, read(text));
+        assertEquals(expected, read(text), "an RFC 4180 case is read into its rows");
     }
 
     @Test
@@ -79,7 +79,8 @@ class CsvRowReaderTest {
     void headerOrder() {
         var row = read("z,a,m\n1,2,3\n").getFirst();
 
-        assertEquals(List.of("z", "a", "m"), List.copyOf(row.fields().keySet()));
+        assertEquals(List.of("z", "a", "m"), List.copyOf(row.fields().keySet()),
+                "the fields keep the order of the header");
     }
 
     static Stream<Arguments> malformedCases() {
@@ -107,10 +108,11 @@ class CsvRowReaderTest {
     @MethodSource("malformedCases")
     @DisplayName("a malformed record is refused with the line it starts on")
     void malformed(String name, String text, int line, String detail) {
-        var refusal = assertThrows(MalformedSource.class, () -> read(text));
+        var refusal = assertThrows(MalformedSource.class, () -> read(text),
+                "a malformed record is refused with its start line");
 
         assertAll(
-                () -> assertEquals(line, refusal.line()),
+                () -> assertEquals(line, refusal.line(), "the refusal names the line the record starts on"),
                 () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
     }
 
@@ -118,7 +120,8 @@ class CsvRowReaderTest {
     @DisplayName("a file that is not UTF-8 is refused")
     void notUtf8() {
         var refusal = assertThrows(MalformedSource.class,
-                () -> CsvRowReader.read(new byte[]{'a', '\n', (byte) 0xFF, '\n'}));
+                () -> CsvRowReader.read(new byte[]{'a', '\n', (byte) 0xFF, '\n'}),
+                "a file that is not UTF-8 is refused");
 
         assertTrue(refusal.getMessage().contains("not UTF-8"), refusal::getMessage);
     }

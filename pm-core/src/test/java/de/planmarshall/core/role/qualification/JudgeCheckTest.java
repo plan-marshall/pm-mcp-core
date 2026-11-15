@@ -69,7 +69,7 @@ class JudgeCheckTest {
     @Test
     @DisplayName("a balanced topic has a constant baseline of 50")
     void baseline() {
-        assertEquals(new BigDecimal("50"), JudgeCheck.baseline(items()));
+        assertEquals(new BigDecimal("50"), JudgeCheck.baseline(items()), "a balanced topic sits at fifty");
     }
 
     @Test
@@ -79,11 +79,13 @@ class JudgeCheckTest {
 
         var checkRecord = runner.run();
 
-        assertEquals(new BigDecimal("100"), checkRecord.oracleAccuracy());
-        assertEquals(new BigDecimal("50"), checkRecord.blindAccuracy());
-        assertEquals(new BigDecimal("50"), checkRecord.constantBaseline());
-        assertEquals(0, checkRecord.unscored());
-        assertTrue(JudgeCheck.Verdict.of(checkRecord, digestOf(JudgeCheckTest::judgeRole), CORPUS).passes());
+        assertEquals(new BigDecimal("100"), checkRecord.oracleAccuracy(), "oracle accuracy reaches one hundred");
+        assertEquals(new BigDecimal("50"), checkRecord.blindAccuracy(), "blind accuracy is the constant baseline");
+        assertEquals(new BigDecimal("50"), checkRecord.constantBaseline(),
+                "constant baseline of a balanced topic");
+        assertEquals(0, checkRecord.unscored(), "the following judge leaves nothing unscored");
+        assertTrue(JudgeCheck.Verdict.of(checkRecord, digestOf(JudgeCheckTest::judgeRole), CORPUS).passes(),
+                "a judge that follows the reference passes");
     }
 
     @Test
@@ -94,10 +96,11 @@ class JudgeCheckTest {
         var checkRecord = runner.run();
         var verdict = JudgeCheck.Verdict.of(checkRecord, digestOf(JudgeCheckTest::judgeRole), CORPUS);
 
-        assertEquals(new BigDecimal("50"), checkRecord.oracleAccuracy());
-        assertEquals(new BigDecimal("50"), checkRecord.blindAccuracy());
-        assertFalse(verdict.passes());
-        assertTrue(verdict.reasons().contains("oracle_not_above_baseline"));
+        assertEquals(new BigDecimal("50"), checkRecord.oracleAccuracy(), "a constant judge stays at the baseline");
+        assertEquals(new BigDecimal("50"), checkRecord.blindAccuracy(), "the blind run equals the oracle here");
+        assertFalse(verdict.passes(), "a constant judge must not pass");
+        assertTrue(verdict.reasons().contains("oracle_not_above_baseline"),
+                "the refusal names the oracle baseline");
     }
 
     @Test
@@ -110,9 +113,11 @@ class JudgeCheckTest {
         var checkRecord = runner.run();
         var verdict = JudgeCheck.Verdict.of(checkRecord, digestOf(JudgeCheckTest::judgeRole), CORPUS);
 
-        assertEquals(checkRecord.oracleAccuracy(), checkRecord.blindAccuracy());
-        assertFalse(verdict.passes());
-        assertTrue(verdict.reasons().contains("oracle_not_above_blind"));
+        assertEquals(checkRecord.oracleAccuracy(), checkRecord.blindAccuracy(),
+                "blind accuracy mirrors the oracle again");
+        assertFalse(verdict.passes(), "an agreeing blind run must not pass");
+        assertTrue(verdict.reasons().contains("oracle_not_above_blind"),
+                "the refusal names oracle against blind");
     }
 
     @Test
@@ -125,9 +130,9 @@ class JudgeCheckTest {
         var checkRecord = runner.run();
         var verdict = JudgeCheck.Verdict.of(checkRecord, digestOf(JudgeCheckTest::judgeRole), CORPUS);
 
-        assertEquals(1, checkRecord.unscored());
-        assertFalse(verdict.passes());
-        assertTrue(verdict.reasons().contains("unscored"));
+        assertEquals(1, checkRecord.unscored(), "one lost judge task is left unscored");
+        assertFalse(verdict.passes(), "a lost task leaves the check failing");
+        assertTrue(verdict.reasons().contains("unscored"), "the refusal names the unscored answer");
     }
 
     @Test
@@ -139,11 +144,13 @@ class JudgeCheckTest {
 
         var oracle = runner.prompts.stream().filter(prompt -> prompt.reference() != null).toList();
         var blind = runner.prompts.stream().filter(prompt -> prompt.reference() == null).toList();
-        assertEquals(4, oracle.size());
-        assertEquals(4, blind.size());
-        assertEquals(RIGHT_ANSWER, oracle.getFirst().reference());
-        assertEquals(SECOND_RIGHT_ANSWER, oracle.get(1).reference());
-        assertTrue(blind.stream().allMatch(prompt -> prompt.reference() == null));
+        assertEquals(4, oracle.size(), "four oracle prompts carry the reference");
+        assertEquals(4, blind.size(), "four blind prompts hide the reference");
+        assertEquals(RIGHT_ANSWER, oracle.getFirst().reference(), "the oracle prompt keeps the first reference");
+        assertEquals(SECOND_RIGHT_ANSWER, oracle.get(1).reference(),
+                "the second oracle prompt keeps its reference");
+        assertTrue(blind.stream().allMatch(prompt -> prompt.reference() == null),
+                "no blind prompt carries a reference");
     }
 
     @Test
@@ -153,8 +160,9 @@ class JudgeCheckTest {
 
         runner.run();
 
-        assertEquals(RIGHT_ANSWER, runner.prompts.getFirst().reference());
-        assertNull(runner.prompts.get(1).reference());
+        assertEquals(RIGHT_ANSWER, runner.prompts.getFirst().reference(),
+                "the first prompt is an oracle prompt");
+        assertNull(runner.prompts.get(1).reference(), "the second prompt hides the reference");
     }
 
     @Test
@@ -167,7 +175,8 @@ class JudgeCheckTest {
                 QualificationFixtures.JUDGE_MODEL, CORPUS, new BigDecimal("60"), BigDecimal.ZERO,
                 new BigDecimal("50"), 0, NOW, List.of(scored));
 
-        assertTrue(JudgeCheck.Verdict.of(checkRecord, DIGEST, CORPUS).passes());
+        assertTrue(JudgeCheck.Verdict.of(checkRecord, DIGEST, CORPUS).passes(),
+                "an oracle at baseline plus margin passes");
     }
 
     @Test
@@ -180,7 +189,8 @@ class JudgeCheckTest {
 
         assertThrows(IllegalArgumentException.class, () -> new JudgeCheck.Record(digest,
                 QualificationFixtures.HARNESS, QualificationFixtures.JUDGE_MODEL, CORPUS, oracle,
-                BigDecimal.ZERO, baseline, 0, NOW, noItems));
+                BigDecimal.ZERO, baseline, 0, NOW, noItems),
+                "a judge record without an item is refused");
     }
 
     @Test
@@ -188,9 +198,10 @@ class JudgeCheckTest {
     void staleRecord() {
         var checkRecord = new Runner(JudgeCheckTest::followsReference).run();
 
-        assertFalse(JudgeCheck.Verdict.of(checkRecord, OTHER_DIGEST, CORPUS).passes());
+        assertFalse(JudgeCheck.Verdict.of(checkRecord, OTHER_DIGEST, CORPUS).passes(),
+                "a changed judge digest invalidates it");
         assertFalse(JudgeCheck.Verdict.of(checkRecord, digestOf(JudgeCheckTest::judgeRole), OTHER_CORPUS)
-                .passes());
+                .passes(), "a changed corpus revision invalidates it");
     }
 
     @Test
@@ -200,7 +211,8 @@ class JudgeCheckTest {
         var judge = judgeRole();
         var noItems = List.<JudgeCheck.Item>of();
 
-        assertThrows(IllegalArgumentException.class, () -> runner.check.run(judge, noItems, CORPUS));
+        assertThrows(IllegalArgumentException.class, () -> runner.check.run(judge, noItems, CORPUS),
+                "an empty judge topic is refused");
     }
 
     @Test
@@ -212,9 +224,10 @@ class JudgeCheckTest {
         var document = JudgeCheckCodec.write(checkRecord);
         var read = JudgeCheckCodec.read(file, document);
 
-        assertEquals(checkRecord, read);
+        assertEquals(checkRecord, read, "the record survives the round trip");
         assertEquals(new String(document, StandardCharsets.UTF_8),
-                new String(JudgeCheckCodec.write(read), StandardCharsets.UTF_8));
+                new String(JudgeCheckCodec.write(read), StandardCharsets.UTF_8),
+                "the canonical text is written again unchanged");
     }
 
     @Test
@@ -225,9 +238,10 @@ class JudgeCheckTest {
                 StandardCharsets.UTF_8);
         var document = text.replace("\"label\":\"right\"", "\"label\":\"maybe\"").getBytes(StandardCharsets.UTF_8);
 
-        var refused = assertThrows(StoreRefusal.class, () -> JudgeCheckCodec.read(file, document));
+        var refused = assertThrows(StoreRefusal.class, () -> JudgeCheckCodec.read(file, document),
+                "an unknown label is a store refusal");
 
-        assertEquals(file, refused.file());
+        assertEquals(file, refused.file(), "the refusal names the judge check file");
     }
 
     @Test
@@ -235,7 +249,8 @@ class JudgeCheckTest {
     void scoreRange() {
         var outside = new BigDecimal("1.1");
 
-        assertThrows(IllegalArgumentException.class, () -> Grade.scored(outside));
+        assertThrows(IllegalArgumentException.class, () -> Grade.scored(outside),
+                "a score above one is refused");
     }
 
     private static Optional<JudgeScorer.JudgeScore> followsReference(JudgeScorer.JudgePrompt prompt) {

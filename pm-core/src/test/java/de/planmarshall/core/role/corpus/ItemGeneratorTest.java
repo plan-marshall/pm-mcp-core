@@ -99,19 +99,23 @@ class ItemGeneratorTest {
             var item = generate(overlay().rows().getFirst(), fields());
 
             assertAll(
-                    () -> assertEquals("screening/sample-set/q-1", item.id()),
-                    () -> assertEquals("screening/sample-set", item.topic()),
-                    () -> assertEquals("screening", item.role()),
-                    () -> assertEquals("closed question", item.title()),
-                    () -> assertEquals(List.of("imported"), item.tags()),
-                    () -> assertEquals(QUESTION, item.input().question()),
-                    () -> assertEquals("Subject: " + SUBJECT, item.input().facts()),
-                    () -> assertEquals(List.of(OPTION_A, OPTION_B), item.input().choices()),
-                    () -> assertEquals(OPTION_A, item.target().answer()),
-                    () -> assertEquals("the first holds", item.target().rationale()),
-                    () -> assertEquals(GradingMethod.LABEL, item.grading().method()),
-                    () -> assertEquals(ReviewStatus.DRAFT, item.review().status()),
-                    () -> assertEquals(ItemGenerator.CANARY, item.canary()));
+                    () -> assertEquals("screening/sample-set/q-1", item.id(),
+                            "the item id comes from the overlay and the key"),
+                    () -> assertEquals("screening/sample-set", item.topic(), "the topic comes from the overlay"),
+                    () -> assertEquals("screening", item.role(), "the role is the screening role"),
+                    () -> assertEquals("closed question", item.title(), "the title is the overlay's closed question"),
+                    () -> assertEquals(List.of("imported"), item.tags(), "the tags hold the overlay's imported tag"),
+                    () -> assertEquals(QUESTION, item.input().question(), "the question is filled from the row"),
+                    () -> assertEquals("Subject: " + SUBJECT, item.input().facts(),
+                            "the facts carry the subject prefix"),
+                    () -> assertEquals(List.of(OPTION_A, OPTION_B), item.input().choices(),
+                            "the choices are the two options of the row"),
+                    () -> assertEquals(OPTION_A, item.target().answer(), "the target answer is option A"),
+                    () -> assertEquals("the first holds", item.target().rationale(),
+                            "the rationale is the literal row text"),
+                    () -> assertEquals(GradingMethod.LABEL, item.grading().method(), "the grading method is a label"),
+                    () -> assertEquals(ReviewStatus.DRAFT, item.review().status(), "the review status is draft"),
+                    () -> assertEquals(ItemGenerator.CANARY, item.canary(), "the canary is the generator's constant"));
         }
 
         @Test
@@ -122,8 +126,9 @@ class ItemGeneratorTest {
             var item = generate(row, fields());
 
             assertAll(
-                    () -> assertNotNull(row.answerSchema()),
-                    () -> assertEquals(row.answerSchema(), item.input().answerSchema()));
+                    () -> assertNotNull(row.answerSchema(), "the row declares an answer schema"),
+                    () -> assertEquals(row.answerSchema(), item.input().answerSchema(),
+                            "the answer schema is carried verbatim"));
         }
 
         @Test
@@ -134,13 +139,15 @@ class ItemGeneratorTest {
             var provenance = generate(overlay().rows().getFirst(), fields()).provenance();
 
             assertAll(
-                    () -> assertEquals(LocalDate.of(2026, 10, 14), provenance.created()),
+                    () -> assertEquals(LocalDate.of(2026, 10, 14), provenance.created(),
+                            "the provenance date is the overlay's date"),
                     () -> assertEquals(new Origin(URI.create("https://github.com/example/sample-set"), COMMIT,
-                            "data/test.csv", LINE), provenance.origin()),
+                            "data/test.csv", LINE), provenance.origin(),
+                            "the origin names the file and its line"),
                     () -> assertEquals(List.of("2026-10-14: generated from line 3 of data/test.csv of "
                                     + "https://github.com/example/sample-set at commit " + COMMIT
                                     + ", selected and framed by the overlay of the source sample-set."),
-                            provenance.history()));
+                            provenance.history(), "the history names the source and its commit"));
         }
 
         @Test
@@ -148,7 +155,8 @@ class ItemGeneratorTest {
         void valid() {
             var item = generate(overlay().rows().getFirst(), fields());
 
-            assertEquals(Set.of(), violations(ImportedItemCodec.write(item)));
+            assertEquals(Set.of(), violations(ImportedItemCodec.write(item)),
+                    "the generated item is valid against its schema");
         }
     }
 
@@ -162,14 +170,18 @@ class ItemGeneratorTest {
             var item = generate(overlay().rows().get(1), fields());
 
             assertAll(
-                    () -> assertEquals("review/sample-set/q-2", item.id()),
-                    () -> assertEquals("Review: " + DIFF, item.input().question()),
-                    () -> assertEquals("", item.input().facts()),
-                    () -> assertNull(item.input().choices()),
-                    () -> assertNull(item.target().answer()),
-                    () -> assertEquals(List.of("alternative"), item.target().alternatives()),
-                    () -> assertEquals(List.of(new RubricItem("d1", "the defect")), item.target().items()),
-                    () -> assertEquals(GradingMethod.RUBRIC_PROPERTIES, item.grading().method()));
+                    () -> assertEquals("review/sample-set/q-2", item.id(), "the open id comes from the row key"),
+                    () -> assertEquals("Review: " + DIFF, item.input().question(),
+                            "the question is the review template filled"),
+                    () -> assertEquals("", item.input().facts(), "an open row has empty facts"),
+                    () -> assertNull(item.input().choices(), "an open row has no choices"),
+                    () -> assertNull(item.target().answer(), "an open row has no target answer"),
+                    () -> assertEquals(List.of("alternative"), item.target().alternatives(),
+                            "the alternatives hold the overlay's text"),
+                    () -> assertEquals(List.of(new RubricItem("d1", "the defect")), item.target().items(),
+                            "the rubric items are read from the row"),
+                    () -> assertEquals(GradingMethod.RUBRIC_PROPERTIES, item.grading().method(),
+                            "the grading method is rubric properties"));
         }
 
         @Test
@@ -177,7 +189,8 @@ class ItemGeneratorTest {
         void valid() {
             var item = generate(overlay().rows().get(1), fields());
 
-            assertEquals(Set.of(), violations(ImportedItemCodec.write(item)));
+            assertEquals(Set.of(), violations(ImportedItemCodec.write(item)),
+                    "the open item is valid against its schema");
         }
     }
 
@@ -193,9 +206,11 @@ class ItemGeneratorTest {
             fields.remove("question");
             var row = overlay().rows().getFirst();
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields));
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> generate(row, fields), "a template naming a missing field is refused");
 
-            assertEquals("the row at line 3 has no field 'question' the template names", refusal.getMessage());
+            assertEquals("the row at line 3 has no field 'question' the template names", refusal.getMessage(),
+                    "the refusal names the field and the line");
         }
 
         @Test
@@ -205,7 +220,8 @@ class ItemGeneratorTest {
             fields.remove("option_b");
             var row = overlay().rows().getFirst();
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields));
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> generate(row, fields), "a choice naming a missing field is refused");
 
             assertTrue(refusal.getMessage().contains("'option_b'"), refusal::getMessage);
         }
@@ -235,7 +251,8 @@ class ItemGeneratorTest {
             var row = withTarget(new Target(null, "r", List.of(CODE), List.of(new RubricItem("d1", "d")), false));
             var fields = fields();
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields));
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> generate(row, fields), "a single brace in an alternative is a field");
 
             assertTrue(refusal.getMessage().contains("has no field ' return; '"), refusal::getMessage);
         }
@@ -246,7 +263,8 @@ class ItemGeneratorTest {
             var row = withTarget(new Target(CODE, "r", List.of(), List.of(new RubricItem("d1", "d")), false));
             var fields = fields();
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields));
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> generate(row, fields), "a single brace in the answer is a field");
 
             assertTrue(refusal.getMessage().contains("has no field ' return; '"), refusal::getMessage);
         }
@@ -260,10 +278,12 @@ class ItemGeneratorTest {
             var item = generate(row, fields());
 
             assertAll(
-                    () -> assertEquals(CODE, item.target().answer()),
-                    () -> assertEquals(List.of(CODE), item.target().alternatives()),
-                    () -> assertEquals(CODE, item.target().rationale()),
-                    () -> assertEquals(List.of(new RubricItem("d1", CODE)), item.target().items()));
+                    () -> assertEquals(CODE, item.target().answer(), "a doubled brace is one literal brace"),
+                    () -> assertEquals(List.of(CODE), item.target().alternatives(),
+                            "the alternative keeps its one literal brace"),
+                    () -> assertEquals(CODE, item.target().rationale(), "the rationale is literal, braces included"),
+                    () -> assertEquals(List.of(new RubricItem("d1", CODE)), item.target().items(),
+                            "the rubric item stays literal too"));
         }
     }
 
@@ -291,9 +311,10 @@ class ItemGeneratorTest {
             var item = generate(withMembers(GROUP, CONTAMINATION), fields());
 
             assertAll(
-                    () -> assertEquals(GROUP, item.group()),
-                    () -> assertEquals(CONTAMINATION, item.contamination()),
-                    () -> assertEquals(Set.of(), violations(ImportedItemCodec.write(item))));
+                    () -> assertEquals(GROUP, item.group(), "the group is carried unchanged"),
+                    () -> assertEquals(CONTAMINATION, item.contamination(), "the contamination note keeps its braces"),
+                    () -> assertEquals(Set.of(), violations(ImportedItemCodec.write(item)),
+                            "the item with a brace is still valid"));
         }
 
         @Test
@@ -303,8 +324,8 @@ class ItemGeneratorTest {
 
             var text = new String(ImportedItemCodec.write(item), UTF_8);
             assertAll(
-                    () -> assertNull(item.group()),
-                    () -> assertNull(item.contamination()),
+                    () -> assertNull(item.group(), "a row without a group gives no group"),
+                    () -> assertNull(item.contamination(), "a row without a note gives no note"),
                     () -> assertFalse(text.contains("\"group\""), text),
                     () -> assertFalse(text.contains("\"contamination\""), text));
         }
@@ -319,7 +340,8 @@ class ItemGeneratorTest {
             "}}{a}{{|}x{"})
     @DisplayName("a template fills its fields and keeps doubled braces as one literal brace")
     void fills(String template, String expected) {
-        assertEquals(expected, ItemGenerator.fill(template, Map.of("a", "x", "b", "y"), LINE));
+        assertEquals(expected, ItemGenerator.fill(template, Map.of("a", "x", "b", "y"), LINE),
+                "the template fills its fields and keeps braces");
     }
 
     @ParameterizedTest(name = "''{0}''")
@@ -333,7 +355,8 @@ class ItemGeneratorTest {
     void refuses(String template, String detail) {
         var fields = Map.of("a", "x");
 
-        var refusal = assertThrows(IllegalArgumentException.class, () -> ItemGenerator.fill(template, fields, LINE));
+        var refusal = assertThrows(IllegalArgumentException.class,
+                () -> ItemGenerator.fill(template, fields, LINE), "a template that names no field is refused");
 
         assertTrue(refusal.getMessage().contains(detail), refusal::getMessage);
     }
