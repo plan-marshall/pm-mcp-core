@@ -146,7 +146,7 @@ class EnginePortsTest {
                             "a blank primitive name is refused"),
                     () -> assertThrows(NullPointerException.class,
                             () -> new StartRequest(null, null, "build.run"),
-                            "a null primitive name is refused"));
+                            "a null state name is refused"));
         }
     }
 

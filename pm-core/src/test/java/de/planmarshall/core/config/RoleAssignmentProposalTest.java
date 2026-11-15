@@ -239,7 +239,7 @@ class RoleAssignmentProposalTest {
 
         assertAll(
                 () -> assertEquals(FALLBACK_HARNESS, preferred.get("implement").assignment().harness(),
-                        "the unenrolled preferred harness is skipped"),
+                        "the enrolled preferred harness wins"),
                 () -> assertEquals(HARNESS, fallback.get("implement").assignment().harness(),
                         "the enrolled harness is the fallback"));
     }

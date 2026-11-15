@@ -185,10 +185,10 @@ class ConsentGateTest {
         String noProject = null;
         var machineKindWithProject = assertThrows(IllegalArgumentException.class,
                 () -> gate.answer(inspect, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject),
-                "a machine kind refuses a project");
+                "a project kind demands its project");
         var projectKindWithoutProject = assertThrows(IllegalArgumentException.class,
                 () -> gate.answer(withProject, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject),
-                "a project kind demands its project");
+                "a machine kind refuses a project");
         var scriptsOnAnotherKind = assertThrows(IllegalArgumentException.class,
                 () -> gate.answer(withScripts, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject),
                 "scripts on another kind are refused");
