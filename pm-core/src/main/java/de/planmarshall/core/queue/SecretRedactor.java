@@ -41,6 +41,13 @@ import de.planmarshall.core.build.BuildLogText;
  * hash, a commit id, a path and a prose sentence that merely contains the word {@code token} or {@code PRIVATE KEY} are
  * not secrets and stay readable.
  * <p>
+ * The label, separator, URL and credential-flag patterns are Unicode-aware: their {@code \s}, {@code \S}, {@code \w} and
+ * {@code \b} match their Unicode forms, so a no-break space cannot separate a label from its value, and a quoted
+ * assignment value runs to its closing quote. The provider-token and npm-token shapes stay ASCII, as the wire formats
+ * they encode are. The invisible formatting characters — the zero-width space and joiners, the bidi controls, the soft
+ * hyphen and the byte-order mark — are removed before the shapes are matched, so one of them cannot split a label; none
+ * of them is visible, so removing one costs no evidence.
+ * <p>
  * The replacement keeps the label so the reader knows what was removed: {@code "Authorization: Bearer …"} becomes
  * {@code "Authorization: Bearer [redacted]"}, {@code "https://user:secret@host"} keeps its scheme and user, and a key
  * block is replaced whole (an unclosed block masks from its {@code BEGIN} line to the end of the text).
@@ -60,31 +67,67 @@ public final class SecretRedactor {
     /** The text that replaces a redacted value. */
     public static final String REDACTED = "[redacted]";
 
+    /**
+     * The invisible characters removed before any shape is matched: the soft hyphen, the zero-width space, the
+     * zero-width joiners and marks, the bidi controls and the byte-order mark. A label split by one of them is still a
+     * label, and a stored text that carries them carries no evidence.
+     */
+    private static final Pattern INVISIBLE =
+            Pattern.compile("[\\u00AD\\u200B-\\u200F\\u202A-\\u202E\\u2060\\uFEFF]");
+
     private static final String SEPARATOR = "([\"']?\\s*[:=]\\s*[\"']?)";
 
     private static final String VALUE = "([^\\s\"',;]{4,})";
 
     private static final Pattern AUTH_HEADER = Pattern.compile(
-            "(?i)\\b(authorization)\\b(\\s*[:=]\\s*)((?i:bearer|basic|token)\\s+)?([^\\s\"',;]{4,})");
+            "(?iU)\\b(authorization)\\b(\\s*[:=]\\s*)((?i:bearer|basic|token)\\s+)?([^\\s\"',;]{4,})");
 
     /**
-     * The credential labels, one pattern each: a label's own alternation stays small, so neither the regex nor the
+     * The anchors every assignment form shares: the case-insensitive Unicode mode and the boundary before the label.
+     */
+    private static final String ASSIGNMENT_PREFIX = "(?iU)(?<![a-z0-9])(";
+
+    /** The label of a password-shaped assignment, in the three forms the assignment lists apply. */
+    private static final String LABEL_PASSWORD = "pass(?:[_-]?(?:word|wd|phrase|code|key))?";
+
+    /** The label of a secret-shaped assignment. */
+    private static final String LABEL_SECRET = "secret";
+
+    /** The label of a token-shaped assignment. */
+    private static final String LABEL_TOKEN = "token";
+
+    /** The label of a key-shaped assignment. */
+    private static final String LABEL_KEY = "(?:api|access|private)[_-]?key";
+
+    /** The label of an auth-shaped assignment. */
+    private static final String LABEL_AUTH = "auth";
+
+    /** The camelCase label suffix: a label that follows a letter only when it starts a camelCase word. */
+    private static final String LABEL_CAMEL_CASE = "(?-i:[a-z]+(?=[A-Z]))"
+            + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)";
+
+    /** The credential labels, one entry each, shared by every assignment form so the three lists cannot drift apart. */
+    private static final List<String> ASSIGNMENT_LABELS = List.of(LABEL_PASSWORD, LABEL_SECRET, LABEL_TOKEN, LABEL_KEY,
+            LABEL_AUTH, LABEL_CAMEL_CASE);
+
+    /**
+     * The credential labels as one pattern each: a label's own alternation stays small, so neither the regex nor the
      * reader has to hold a combined 30-branch expression. A label may follow a letter only when it starts a camelCase
      * word, and may be followed by a closing quote before the separator, as a JSON key is.
      */
-    private static final List<Pattern> ASSIGNMENTS = List.of(
-            assignment("pass(?:[_-]?(?:word|wd|phrase|code|key))?"),
-            assignment("secret"),
-            assignment("token"),
-            assignment("(?:api|access|private)[_-]?key"),
-            assignment("auth"),
-            assignment("(?-i:[a-z]+(?=[A-Z]))"
-                    + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)"));
+    private static final List<Pattern> ASSIGNMENTS =
+            ASSIGNMENT_LABELS.stream().map(SecretRedactor::assignment).toList();
 
-    private static final Pattern BEARER = Pattern.compile("(?i)\\b(bearer\\s+)([\\w.~+/=-]{8,})");
+    private static final Pattern BEARER = Pattern.compile("(?iU)\\b(bearer\\s+)([\\w.~+/=-]{8,})");
+
+    /** The prefixes of the provider-token shapes, shared by the token pattern and the cut-tail rule. */
+    private static final String TOKEN_PREFIXES = "sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs]";
+
+    /** The npm access-token prefix, shared by the token pattern and the cut-tail rule. */
+    private static final String NPM_TOKEN_PREFIX = "npm_";
 
     private static final Pattern TOKEN_SHAPE = Pattern.compile(
-            "\\b(?:sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs])[-_][\\w-]{12,}");
+            "\\b(?:" + TOKEN_PREFIXES + ")[-_][\\w-]{12,}");
 
     /**
      * The npm access token: {@code npm_} followed by 36 alphanumeric characters (npm Registry API documentation, "Delete
@@ -93,7 +136,7 @@ public final class SecretRedactor {
      * or more alphanumeric characters after {@code npm_}, a run followed by {@code _} and a run preceded by a word
      * character stay readable as well, because none of them is an npm token.
      */
-    private static final Pattern NPM_ACCESS_TOKEN = Pattern.compile("\\bnpm_[A-Za-z0-9]{36}\\b");
+    private static final Pattern NPM_ACCESS_TOKEN = Pattern.compile("\\b" + NPM_TOKEN_PREFIX + "[A-Za-z0-9]{36}\\b");
 
     /**
      * The user-information form of a URL: {@code scheme://user:secret@host}. The pattern keeps the scheme and the user
@@ -109,7 +152,8 @@ public final class SecretRedactor {
      * </ul>
      * The scheme starts where no scheme character precedes it. The user excludes whitespace, {@code /}, {@code ?},
      * {@code #} and {@code :}, so a query or fragment that carries a colon and an {@code @} before any user information
-     * ({@code https://host/p?at=a:b@c}) stays readable.
+     * ({@code https://host/p?at=a:b@c}) stays readable. The user is optional, so the empty-user form
+     * {@code https://:secret@host} (Azure DevOps, git credential helpers) is masked as well.
      * <p>
      * What stays readable, and why: the single-user form {@code https://<token>@host} has no colon and so no secret
      * part (an operator decision; the token there is a known residue), {@code scheme://host:8080/path} has no
@@ -129,13 +173,26 @@ public final class SecretRedactor {
      * scanned back once from each scheme start, which is quadratic in the length of one line at worst. The unparsed
      * excerpt, the npm diagnostic and the journal cut the line at {@link BuildLogText#MAX_LINE_LENGTH} (or a smaller
      * bound) before the redaction, and that cut bounds the cost there; {@code ProviderVerification} of
-     * {@code pm-runtime} passes a provider answer uncut, a residue ADR {@code core-build/009} and the guide of
-     * {@code core.queue} name.
+     * {@code pm-runtime} cuts its provider answer at the same bound before the redaction.
      */
     private static final Pattern URL_USER_INFORMATION = urlUserInformation("://");
 
     /** The user-information form behind the percent-encoded scheme separator ({@code https%3A%2F%2Fuser:secret@host}). */
     private static final Pattern URL_USER_INFORMATION_ENCODED = urlUserInformation("%3A%2F%2F");
+
+    /**
+     * A URL user-information head that a cut left without its closing {@code @}: the cut can fall between a URL's
+     * password and its {@code @}, and the ordinary URL shape then does not match, so the secret is masked here.
+     */
+    private static final Pattern CUT_URL_HEAD = Pattern.compile(
+            "(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?:://|%3A%2F%2F))([^\\s/?#:]*+):(\\S+)$");
+
+    /**
+     * A provider-token or npm-token head that a cut left incomplete: built from the same prefixes as
+     * {@link #TOKEN_SHAPE} and {@link #NPM_ACCESS_TOKEN}, so a new prefix cannot miss the cut-tail rule.
+     */
+    private static final Pattern CUT_TOKEN_TAIL = Pattern.compile(
+            "(?iU)\\b(?:" + NPM_TOKEN_PREFIX + "[a-z0-9]*|(?:" + TOKEN_PREFIXES + ")[-_][\\w-]*)$");
 
     /**
      * The closed list of credential flags whose value is separated by whitespace instead of {@code :} or {@code =}.
@@ -154,9 +211,9 @@ public final class SecretRedactor {
     private static final String CREDENTIAL_FLAG_NAMES =
             "password|passwd|passphrase|token|secret|auth-token|api-key|apikey|access-token|client-secret|otp";
 
-    /** The shared head of a credential-flag pattern: the flag name and the whitespace after it, kept as groups 1 and 2. */
+    /** The shared head of a credential-flag pattern: the flag name and the horizontal whitespace after it. */
     private static final String CREDENTIAL_FLAG_HEAD =
-            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)";
+            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))(\\h+)";
 
     /** A run of characters of a quoted flag value that are neither a backslash, the opening quote nor a line end. */
     private static final String QUOTED_PLAIN_RUN = "(?:(?!\\3)[^\\\\\\r\\n])*+";
@@ -181,7 +238,8 @@ public final class SecretRedactor {
     private static final String QUOTED_VALUE = QUOTED_LINE + "(?:" + QUOTED_LINE_END + QUOTED_LINE + ")?";
 
     private static final Pattern QUOTED_CREDENTIAL_FLAG = Pattern.compile(
-            CREDENTIAL_FLAG_HEAD + "([\"'])(" + QUOTED_VALUE + ")\\3", Pattern.CASE_INSENSITIVE);
+            CREDENTIAL_FLAG_HEAD + "([\"'])(" + QUOTED_VALUE + ")\\3",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
      * A quoted flag value whose quote does not close on its own line or the next: the lookahead refuses the value
@@ -190,36 +248,73 @@ public final class SecretRedactor {
      * value that closes after one line end, escaped or not, is left to the quoted form.
      */
     private static final Pattern UNCLOSED_CREDENTIAL_FLAG = Pattern.compile(
-            CREDENTIAL_FLAG_HEAD + "([\"'])(?!" + QUOTED_VALUE + "\\3)([^\\r\\n]*)", Pattern.CASE_INSENSITIVE);
+            CREDENTIAL_FLAG_HEAD + "([\"'])(?!" + QUOTED_VALUE + "\\3)([^\\r\\n]*)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
 
     private static final Pattern CREDENTIAL_FLAG = Pattern.compile(
-            CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE);
+            CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
-     * A PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----} to its
-     * {@code END} line) carried inside one text. A window that starts inside a block (its {@code BEGIN} line before the
-     * window) is not masked: that is the residue the class documentation names.
+     * The value of a quoted assignment: the plain runs and escape pairs of {@link #QUOTED_LINE} up to the same closing
+     * quote (group 3). The lookahead accepts a closing quote only when whitespace, a delimiter ({@code , ; ) ] }}) or the
+     * end of the text follows it, so a value cannot swallow the next label and its value ({@code pass="abc token="x"}
+     * and {@code pass="abc token="!x"} both mask the rest of the line instead).
      */
-    private static final Pattern PEM_PRIVATE_KEY = Pattern.compile(
-            "(?s)-----BEGIN [^-]*PRIVATE KEY(?: BLOCK)?-----.*?-----END [^-]*PRIVATE KEY(?: BLOCK)?-----");
+    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_LINE + "\\3" + "(?=[\\s,;)\\]}]|$)";
 
     /**
-     * A PEM or PGP private-key block whose {@code END} line is missing from the text: the text ends inside the block, so
-     * the rest of it is masked. The over-masking is kept deliberately: whatever follows the block in the text is masked
-     * with it, because masking too much costs evidence while leaving a key body readable costs the credential.
+     * The quoted form of a credential-shaped assignment with no acceptable closing quote on its line: it runs after the
+     * closed form, so a value the closed form masked is left alone, and a value whose close would swallow a later label
+     * — the quote followed by something other than whitespace, a delimiter or the end of the text — is masked to the
+     * end of its line instead. The lookahead refuses the text exactly when {@link #QUOTED_ASSIGNMENT_VALUE} reaches an
+     * acceptable close on the line.
      */
-    private static final Pattern PEM_PRIVATE_KEY_UNCLOSED =
-            Pattern.compile("(?s)-----BEGIN [^-]*PRIVATE KEY(?: BLOCK)?-----.*");
+    private static final List<Pattern> UNCLOSED_QUOTED_ASSIGNMENTS =
+            ASSIGNMENT_LABELS.stream().map(SecretRedactor::unclosedQuotedAssignment).toList();
+
+    /**
+     * The quoted form of a credential-shaped assignment. A quoted value runs to its own closing quote, so a value whose
+     * first word is shorter than the four characters the unquoted form requires ({@code token="ab cd ef"}) is masked
+     * whole. The escape handling of {@link #QUOTED_LINE} keeps an escaped quote from closing the value.
+     */
+    private static final List<Pattern> QUOTED_ASSIGNMENTS =
+            ASSIGNMENT_LABELS.stream().map(SecretRedactor::quotedAssignment).toList();
+
+    /**
+     * The head of a PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----}).
+     * A window that starts inside a block (its {@code BEGIN} line before the window) is not masked: that is the
+     * residue the class documentation names.
+     */
+    private static final Pattern PEM_BEGIN = Pattern.compile("-----BEGIN [^-]*PRIVATE KEY(?: BLOCK)?-----");
+
+    /** The tail of a PEM private-key block or a PGP private-key block, the match made from a {@link #PEM_BEGIN}. */
+    private static final Pattern PEM_END = Pattern.compile("-----END [^-]*PRIVATE KEY(?: BLOCK)?-----");
 
     private static final List<Pattern> REPLACEMENTS = List.of(TOKEN_SHAPE, NPM_ACCESS_TOKEN);
 
     private static Pattern assignment(String label) {
-        return Pattern.compile("(?i)(?<![a-z0-9])(" + label + ")\\b" + SEPARATOR + VALUE);
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b" + SEPARATOR + VALUE);
     }
 
-    /** The user-information pattern behind one scheme separator: scheme and separator, user, secret. */
+    /**
+     * The quoted form of one credential label: the label, the separator, the opening quote and the value up to the same
+     * closing quote, read through the escape pairs of {@link #QUOTED_LINE}.
+     */
+    private static Pattern quotedAssignment(String label) {
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])"
+                + QUOTED_ASSIGNMENT_VALUE);
+    }
+
+    /** One unclosed quoted assignment: the label, the separator, the opening quote and the rest of its line. */
+    private static Pattern unclosedQuotedAssignment(String label) {
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])(?!"
+                + QUOTED_ASSIGNMENT_VALUE + ")([^\\r\\n]*)");
+    }
+
+    /** The user-information pattern behind one scheme separator: scheme and separator, an optional user, secret. */
     private static Pattern urlUserInformation(String schemeSeparator) {
-        return Pattern.compile("(?i)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+" + schemeSeparator + ")([^\\s/?#:]++):(\\S+)@");
+        return Pattern.compile("(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+" + schemeSeparator
+                + ")(?:([^\\s/?#:]++))?:(\\S+)@");
     }
 
     /** The replacement prefix that keeps groups 1 to 3 and masks the group that follows them. */
@@ -240,16 +335,29 @@ public final class SecretRedactor {
         if (value.isEmpty()) {
             return Optional.of(value);
         }
-        var masked = AUTH_HEADER.matcher(value).replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
+        var normalized = INVISIBLE.matcher(value).replaceAll("");
+        var masked = AUTH_HEADER.matcher(normalized)
+                .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = BEARER.matcher(masked).replaceAll("$1" + Matcher.quoteReplacement(REDACTED));
+        // a credentialed URL is masked before the assignment passes: an inner match must never remove the `@` that
+        // makes the URL shape recognisable
+        for (var pattern : List.of(URL_USER_INFORMATION, URL_USER_INFORMATION_ENCODED)) {
+            masked = pattern.matcher(masked).replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED) + "@");
+        }
+        // the closed form first: an outer quoted value is masked whole before an inner label can be looked at
+        for (var pattern : QUOTED_ASSIGNMENTS) {
+            masked = pattern.matcher(masked)
+                    .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
+        }
+        for (var pattern : UNCLOSED_QUOTED_ASSIGNMENTS) {
+            masked = pattern.matcher(masked)
+                    .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
+        }
         for (var pattern : ASSIGNMENTS) {
             masked = pattern.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
         }
         for (var pattern : REPLACEMENTS) {
             masked = pattern.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
-        }
-        for (var pattern : List.of(URL_USER_INFORMATION, URL_USER_INFORMATION_ENCODED)) {
-            masked = pattern.matcher(masked).replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED) + "@");
         }
         masked = QUOTED_CREDENTIAL_FLAG.matcher(masked)
                 .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
@@ -257,9 +365,51 @@ public final class SecretRedactor {
                 .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = CREDENTIAL_FLAG.matcher(masked)
                 .replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
-        masked = PEM_PRIVATE_KEY.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
-        masked = PEM_PRIVATE_KEY_UNCLOSED.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
+        masked = redactPrivateKeyBlocks(masked);
         return Optional.of(masked);
+    }
+
+    /**
+     * Masks a URL user-information head that a cut left without its closing {@code @}.
+     *
+     * @param text the text a cut produced, its complete shapes already redacted
+     * @return the text with a trailing incomplete user-information head masked
+     */
+    public static String redactCutUrlHead(String text) {
+        return CUT_URL_HEAD.matcher(text).replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED));
+    }
+
+    /**
+     * Masks a provider-token or npm-token head that a cut left incomplete.
+     *
+     * @param text the text a cut produced, its complete shapes already redacted
+     * @return the text with a trailing incomplete token masked
+     */
+    public static String redactCutTokenTail(String text) {
+        return CUT_TOKEN_TAIL.matcher(text).replaceAll(Matcher.quoteReplacement(REDACTED));
+    }
+
+    /**
+     * Masks every private-key block in one left-to-right pass.
+     * <p>
+     * A block runs from its {@code BEGIN} marker to the next {@code END} marker after it; the scan resumes after that
+     * {@code END}, so a marker already passed is never revisited and the cost stays linear in the length of the text. A
+     * {@code BEGIN} without a later {@code END} masks the rest of the text: the over-masking is kept deliberately,
+     * because masking too much costs evidence while leaving a key body readable costs the credential.
+     */
+    private static String redactPrivateKeyBlocks(String value) {
+        var out = new StringBuilder(value.length());
+        var begin = PEM_BEGIN.matcher(value);
+        var end = PEM_END.matcher(value);
+        var position = 0;
+        while (begin.find(position)) {
+            out.append(value, position, begin.start()).append(REDACTED);
+            if (!end.find(begin.end())) {
+                return out.toString();
+            }
+            position = end.end();
+        }
+        return out.append(value, position, value.length()).toString();
     }
 
     /**

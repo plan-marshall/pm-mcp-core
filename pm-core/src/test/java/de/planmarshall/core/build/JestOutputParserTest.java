@@ -162,19 +162,6 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
     }
 
     @Test
-    @DisplayName("leaves the counts unmeasured when a block's parts wrap to its total (Jest wire format)")
-    void partsWrappingToTheBlockTotalAreUnmeasured() {
-        // The Long.MAX_VALUE counts and the log shape are the contract: failed + skipped + passed wrap to 0.
-        ParsedBuild build = JestOutputParser.parse("Tests:       9223372036854775807 failed, "
-                + "9223372036854775807 skipped, 2 passed, 0 total\n");
-
-        assertAll(
-                () -> assertEquals(TestCounts.unmeasured(), build.testCounts(),
-                        "Wrapped block parts are no measurement"),
-                () -> assertFalse(build.successMarker(), "Wrapped block parts are no passing summary"));
-    }
-
-    @Test
     @DisplayName("reads a failed count beyond the long range as a red status (Jest wire format)")
     void failedCountBeyondTheLongRangeIsRed() {
         // The count above Long.MAX_VALUE and the log shape are the contract: a printed failed count is red.

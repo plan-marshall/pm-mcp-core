@@ -131,7 +131,11 @@ public class BuildLogText {
         while (true) {
             var end = text.indexOf('\n', from);
             var lineEnd = end < 0 ? text.length() : end;
-            bounded.append(text, from, from + Math.min(lineEnd - from, MAX_LINE_LENGTH));
+            var keep = Math.min(lineEnd - from, MAX_LINE_LENGTH);
+            if (keep < lineEnd - from && keep > 0 && Character.isHighSurrogate(text.charAt(from + keep - 1))) {
+                keep--;
+            }
+            bounded.append(text, from, from + keep);
             if (end < 0) {
                 return bounded.toString();
             }
