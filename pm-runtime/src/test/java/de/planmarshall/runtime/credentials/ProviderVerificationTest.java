@@ -286,6 +286,22 @@ class ProviderVerificationTest {
     }
 
     @Test
+    @DisplayName("a URL password cut after an internal @ is masked to the end")
+    void urlHeadWithInternalAtCutByTheBoundIsMasked() {
+        originReachable = false;
+        var url = "https://user:pa@ss";
+        originDetail = "x".repeat(BuildLogText.MAX_LINE_LENGTH - url.length() - 1) + " " + url + "@host.test";
+
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var origin = result.lines().getFirst();
+        assertAll(
+                () -> assertFalse(origin.answer().contains("pa@ss"), "the password tail after the @ is masked"),
+                () -> assertTrue(origin.answer().endsWith("https://user:" + "[redacted]"),
+                        "the whole credential tail is masked"));
+    }
+
+    @Test
     @DisplayName("both identities of the CLI variant are redacted where the line carries them, and still compared")
     void toolIdentityRedacted() {
         credentialIdentity = "token=sk-credentialabcdefghijkl";

@@ -151,18 +151,18 @@ public class JestOutputParser {
         return List.copyOf(diagnostics);
     }
 
+    /** The name of a Jest failure whose test name is only whitespace or invisible characters: still a failure. */
+    private static final String NO_VISIBLE_NAME = "test failure (no visible name)";
+
     private static void add(List<Diagnostic> diagnostics, HashSet<String> seen, @Nullable String file,
             @Nullable String test, List<String> stack) {
         if (test == null || stack.isEmpty()) {
             return;
         }
-        var stored = DiagnosticCollector.storedOrEmpty(test);
-        if (stored.isEmpty()) {
-            return;
-        }
+        String message = DiagnosticCollector.storedOrEmpty(test).orElse(NO_VISIBLE_NAME);
         Integer line = file == null ? null : stackLocation(stack);
         String stackTrace = String.join("\n", stack);
-        var diagnostic = Diagnostic.builder().file(file).line(line).message(stored.get())
+        var diagnostic = Diagnostic.builder().file(file).line(line).message(message)
                 .category(Category.TEST_FAILURE).severity(Severity.ERROR).stackTrace(stackTrace).build();
         if (seen.add(DiagnosticCollector.key(diagnostic))) {
             diagnostics.add(diagnostic);

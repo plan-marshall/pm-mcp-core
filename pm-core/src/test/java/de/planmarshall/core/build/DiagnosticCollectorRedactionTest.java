@@ -142,7 +142,10 @@ class DiagnosticCollectorRedactionTest {
                         "the mypy error keeps a fallback message"),
                 () -> assertEquals(BuildStatus.FAILURE, mypy.status(), "the mypy build stays failed"),
                 () -> assertTrue(tap.diagnostics().isEmpty(), "the TAP line files nothing and does not throw"),
-                () -> assertTrue(jest.diagnostics().isEmpty(), "the Jest name files nothing and does not throw"));
+                () -> assertEquals(BuildStatus.FAILURE, tap.status(), "the TAP status stays failed"),
+                () -> assertEquals("test failure (no visible name)", jest.diagnostics().getFirst().message(),
+                        "the Jest failure keeps a fallback name"),
+                () -> assertEquals(BuildStatus.FAILURE, jest.status(), "the Jest build stays failed"));
     }
 
     @Test

@@ -185,7 +185,7 @@ public final class SecretRedactor {
      * password and its {@code @}, and the ordinary URL shape then does not match, so the secret is masked here.
      */
     private static final Pattern CUT_URL_HEAD = Pattern.compile(
-            "(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?:://|%3A%2F%2F))([^\\s/?#:]*+):([^@\\s]+)$");
+            "(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?:://|%3A%2F%2F))([^\\s/?#:]*+):(\\S+)$");
 
     /**
      * A provider-token or npm-token head that a cut left incomplete: built from the same prefixes as

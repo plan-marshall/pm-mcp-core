@@ -272,8 +272,11 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
 cuts it to the stored length, so the TAP, Jest, ESLint, TypeScript, Maven, Gradle and pyproject messages — and the npm
 ones — reach neither the model nor a store unmasked, and a truncated message cannot keep half a secret.
 `OpenRewriteLogParser` files its own `RewriteFinding` records rather than a `Diagnostic`, so its messages do not pass
-through this seam. `Diagnostic` redacts its collected `stackTrace` in its constructor, so the TAP and Jest frames and
-the frames `StackTraceCollector` attaches to a Maven or Gradle issue are covered by the same rule.
+through this seam. A message that is only whitespace or invisible characters gets a fixed fallback where the parser's
+status depends on the diagnostic (mypy, Ruff, pytest, Jest), so a recognized failure never reads as a green build; where
+the status comes from the tool's own failure marker (Maven, TAP), the empty diagnostic is skipped instead. `Diagnostic`
+redacts its collected `stackTrace` in its constructor, so the TAP and Jest frames and the frames `StackTraceCollector`
+attaches to a Maven or Gradle issue are covered by the same rule.
 
 === Counts of the Six
 
