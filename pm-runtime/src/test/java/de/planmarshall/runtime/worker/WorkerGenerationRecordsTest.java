@@ -28,11 +28,13 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * Proves that the builder of {@link WorkerGeneration} builds the value its canonical constructor builds, including its
- * null refusal for the generation id. Every value is generated; the job-private working directory pair and the
- * unmeasured context are contract values, and the generation id is drawn from the generator artifact of
- * {@code pm-runtime}. The record's own {@code equals} compares the generation id alone, so the comparison reads every
- * record component through its accessor: {@link Class#getRecordComponents()} names all eighteen, and each accessor is
- * invoked on the constructed and on the built value, so a component the builder drops or reorders is visible.
+ * null refusal for the generation id. Every value is generated and none sits at a builder default: the plan id, the
+ * worktree mark and the wakeup count are drawn non-null and non-zero, so a builder line the test omits shows in a
+ * component that differs. The unmeasured context is a contract value, and the generation id and the plan id are drawn
+ * from the generator artifact of {@code pm-runtime}. The record's own {@code equals} compares the generation id alone,
+ * so the comparison reads every record component through its accessor: {@link Class#getRecordComponents()} names all
+ * eighteen, and each accessor is invoked on the constructed and on the built value, so a component the builder drops
+ * or reorders is visible.
  */
 @EnableGeneratorController
 @DisplayName("WorkerGeneration builder")
@@ -46,7 +48,8 @@ class WorkerGenerationRecordsTest {
         var harness = Generators.letterStrings(1, 20).next();
         var model = Generators.letterStrings(1, 20).next();
         var form = Generators.enumValues(RoleForm.class).next();
-        var workdirKind = LaunchRequest.WorkdirKind.JOB_PRIVATE;
+        var workdirKind = LaunchRequest.WorkdirKind.PLAN_WORKTREE;
+        var planId = RuntimeGenerators.planIds().next();
         var workdir = Path.of("/tmp", Generators.letterStrings(1, 20).next());
         var configurationDigest = RuntimeGenerators.sha256Digests().next();
         var startedAt = Instant.ofEpochSecond(Generators.longs(0, 1_900_000_000).next());
@@ -55,12 +58,14 @@ class WorkerGenerationRecordsTest {
         var lifecycle = Generators.enumValues(WorkerLifecycle.class).next();
         var leasedTask = Generators.letterStrings(1, 40).next();
         var servedTasks = List.of(Generators.letterStrings(1, 40).next());
-        var idleWakeups = Generators.longs(0, 1_000).next();
+        var idleWakeups = Generators.longs(1, 1_000).next();
         var contextTokens = WorkerState.ContextTokens.NOT_MEASURED;
+        var worktreeMark = new WorkerState.WorktreeMark(RuntimeGenerators.sha256Digests().next(),
+                List.of(Generators.letterStrings(1, 20).next()), startedAt);
 
-        var constructed = new WorkerGeneration(generationId, role, harness, model, form, workdirKind, null, workdir,
+        var constructed = new WorkerGeneration(generationId, role, harness, model, form, workdirKind, planId, workdir,
                 configurationDigest, startedAt, jobId, slot, lifecycle, leasedTask, servedTasks, idleWakeups,
-                contextTokens, null);
+                contextTokens, worktreeMark);
         var built = WorkerGeneration.builder()
                 .generationId(generationId)
                 .role(role)
@@ -68,7 +73,7 @@ class WorkerGenerationRecordsTest {
                 .model(model)
                 .form(form)
                 .workdirKind(workdirKind)
-                .planId(null)
+                .planId(planId)
                 .workdir(workdir)
                 .configurationDigest(configurationDigest)
                 .startedAt(startedAt)
@@ -79,7 +84,7 @@ class WorkerGenerationRecordsTest {
                 .servedTasks(servedTasks)
                 .idleWakeups(idleWakeups)
                 .contextTokens(contextTokens)
-                .worktreeMark(null)
+                .worktreeMark(worktreeMark)
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same worker generation");
