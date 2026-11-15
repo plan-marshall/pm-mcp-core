@@ -70,7 +70,8 @@ class CredentialStoreMoveRecordRecordsTest {
                 .targetHeldKey(Generators.booleans().next())
                 .operation(Generators.enumValues(CredentialStoreMoveRecord.Operation.class).next())
                 .transactionId(TransactionId.generate(Clock.fixed(startedAt, ZoneOffset.UTC)));
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing from store");
 
         assertEquals("from", refusal.getMessage(), "the refusal names the missing from store");
     }

@@ -88,7 +88,8 @@ class PlanInstanceHeaderRecordsTest {
                 .pruned(List.of())
                 .policyCalls(List.of())
                 .waivedGates(List.of());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing plan id");
 
         assertEquals("planId", exception.getMessage(), "the builder names the missing plan id");
     }

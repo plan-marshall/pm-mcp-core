@@ -52,7 +52,8 @@ class MachineOnboardingRecordsTest {
     void machineOnboardingBuilderRefusesMissingState() {
         var builder = MachineOnboarding.builder()
                 .firstRunCompleted(true);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing state");
 
         assertEquals("state", exception.getMessage(), "the builder names the missing state");
     }

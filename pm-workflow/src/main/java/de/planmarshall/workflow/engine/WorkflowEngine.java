@@ -895,7 +895,12 @@ public final class WorkflowEngine {
             var kind = new JobStarter.StartResult.Started(jobId).kind().wireName();
             status = status.toBuilder()
                     .activeJob(new ActiveJob(node.id(), jobId))
-                    .activeJobs(Map.of(job.primitiveId(), new JobEntry(jobId, kind, "queued", clock.now())))
+                    .activeJobs(Map.of(job.primitiveId(), JobEntry.builder()
+                            .jobId(jobId)
+                            .kind(kind)
+                            .status("queued")
+                            .startedAt(clock.now())
+                            .build()))
                     .build();
             return Optional.empty();
         }
@@ -913,10 +918,21 @@ public final class WorkflowEngine {
                         .formatted(node.id()));
             }
             var entity = modelJob.entityKind();
-            var created = tasks.create(new QueueTaskCreator.CreateRequest(status.scopeId(), node.id(), entity, role));
+            var created = tasks.create(QueueTaskCreator.CreateRequest.builder()
+                    .scopeId(status.scopeId())
+                    .stateId(node.id())
+                    .entityKey(entity)
+                    .role(role)
+                    .build());
             status = status.toBuilder()
                     .activeJob(new ActiveJob(node.id(), node.id()))
-                    .activeTasks(Map.of(entity, new TaskEntry(created.queueTaskId(), role, "queued", null, null)))
+                    .activeTasks(Map.of(entity, TaskEntry.builder()
+                            .queueTaskId(created.queueTaskId())
+                            .role(role)
+                            .state("queued")
+                            .outcome(null)
+                            .reason(null)
+                            .build()))
                     .build();
         }
 

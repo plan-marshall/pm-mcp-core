@@ -50,7 +50,8 @@ class PlanProcessStatesRecordsTest {
     void nodeStateBuilderRefusesMissingNode() {
         var builder = PlanProcessStates.NodeState.builder()
                 .state(PlanProcessStates.State.DONE);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing node");
 
         assertEquals("node", exception.getMessage(), "the builder names the missing node");
     }

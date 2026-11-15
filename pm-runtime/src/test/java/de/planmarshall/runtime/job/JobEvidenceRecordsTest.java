@@ -93,7 +93,8 @@ class JobEvidenceRecordsTest {
                         Generators.integers(0, 1000).next(), Generators.booleans().next(), null))
                 .declaredExitCodes(Set.<Integer>of())
                 .exitReliable(true);
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing kind");
 
         assertEquals("kind", refusal.getMessage(), "the refusal names the job kind");
     }

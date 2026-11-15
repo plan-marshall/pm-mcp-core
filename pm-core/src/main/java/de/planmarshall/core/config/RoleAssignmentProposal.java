@@ -128,12 +128,20 @@ public final class RoleAssignmentProposal {
                     .formatted(model.get(), harness.get().clientId()));
         }
         var effort = narrow(harness.get().profile(), model.get(), defaultRole.effort());
-        return new Proposal(role, defaultRole.tier(), defaultRole.advisory(),
-                new RoleAssignmentValue(harness.get().clientId(), model.get(),
-                        defaultRole.effort() != null && effort.isPresent() ? EffortSetting.VALUE
-                                : EffortSetting.DEFAULT,
-                        effort.orElse(null), null),
-                null);
+        return Proposal.builder()
+                .role(role)
+                .tier(defaultRole.tier())
+                .advisory(defaultRole.advisory())
+                .assignment(RoleAssignmentValue.builder()
+                        .harness(harness.get().clientId())
+                        .model(model.get())
+                        .effort(defaultRole.effort() != null && effort.isPresent() ? EffortSetting.VALUE
+                                : EffortSetting.DEFAULT)
+                        .effortValue(effort.orElse(null))
+                        .escalation(null)
+                        .build())
+                .unresolved(null)
+                .build();
     }
 
     /**

@@ -59,7 +59,8 @@ class SecurityAuditRecordsTest {
                 .queueTaskId(queueTaskId)
                 .attempt(1)
                 .at(at);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing executable");
 
         assertEquals("executable", exception.getMessage(), "the builder names the missing executable");
     }

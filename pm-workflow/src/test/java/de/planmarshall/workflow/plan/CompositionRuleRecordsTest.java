@@ -57,7 +57,8 @@ class CompositionRuleRecordsTest {
                 .when(new CompositionRule.Empty(Generators.letterStrings(1, 20).next()))
                 .prunes(List.of())
                 .bindings(List.of());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing rule id");
 
         assertEquals("id", exception.getMessage(), "the builder names the missing rule id");
     }

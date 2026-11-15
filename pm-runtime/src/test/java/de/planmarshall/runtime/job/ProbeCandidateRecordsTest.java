@@ -70,7 +70,8 @@ class ProbeCandidateRecordsTest {
                 .successExitCodes(Set.of(0))
                 .scope(scope)
                 .workingDirectory(new ProbeCandidate.JobPrivate());
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing probe kind");
 
         assertEquals("kind", refusal.getMessage(), "the refusal names the probe kind");
     }

@@ -66,7 +66,8 @@ class WorkflowEngineRecordsTest {
                 .tasks(tasks)
                 .questions(questions)
                 .clock(clock);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing jobs port");
 
         assertEquals("jobs", exception.getMessage(), "the builder names the missing jobs port");
     }

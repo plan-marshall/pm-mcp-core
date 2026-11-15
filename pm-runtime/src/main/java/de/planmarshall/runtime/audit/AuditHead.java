@@ -193,8 +193,14 @@ public final class AuditHead implements AuditAnchor {
                 LOGGER.warn(WARN.AUDIT_HEAD_NOT_WRITTEN, ANCHORED_LINE_MISSING);
                 return;
             }
-            var unsigned = new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, recordCount.getAsLong(), appended.eventId(),
-                    lineHash, indexSnapshot.headHash(), AuditCodec.GENESIS_HASH);
+            var unsigned = AuditHeadRecord.builder()
+                    .file(AuditHeadRecord.CURRENT_LOG_FILE)
+                    .recordCount(recordCount.getAsLong())
+                    .lastEventId(appended.eventId())
+                    .headHash(lineHash)
+                    .indexHeadHash(indexSnapshot.headHash())
+                    .hmac(AuditCodec.GENESIS_HASH)
+                    .build();
             store.write(transaction, AuditCodec.writeHead(sign(key.get(), unsigned)));
         } catch (UncheckedIOException | StoreRefusal e) {
             LOGGER.warn(e, WARN.AUDIT_HEAD_NOT_WRITTEN, HEAD_UNWRITABLE);

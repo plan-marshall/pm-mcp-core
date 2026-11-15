@@ -54,7 +54,8 @@ class UnitFindingRecordsTest {
                 .file(Generators.letterStrings(1, 24).next())
                 .line(Generators.integers(1, 500).next())
                 .message(Generators.letterStrings(1, 60).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing kind");
 
         assertEquals("kind", exception.getMessage(), "the builder names the missing kind");
     }

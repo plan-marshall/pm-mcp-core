@@ -362,8 +362,12 @@ public final class CorpusImport {
 
     private static SourceMissed hashMismatch(String name, SourceFile file, String found) {
         LOGGER.error(ERROR.CORPUS_SOURCE_HASH_MISMATCH, name, file.path(), file.sha256(), found);
-        return new SourceMissed(new MissedSource(name, Reason.HASH_MISMATCH, file.path(),
-                "expected %s, found %s".formatted(file.sha256(), found)));
+        return new SourceMissed(MissedSource.builder()
+                .name(name)
+                .reason(Reason.HASH_MISMATCH)
+                .file(file.path())
+                .detail("expected %s, found %s".formatted(file.sha256(), found))
+                .build());
     }
 
     /** Reads a document of the corpus's own part. */

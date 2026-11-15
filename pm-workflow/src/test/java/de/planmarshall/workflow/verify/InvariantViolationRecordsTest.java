@@ -52,7 +52,8 @@ class InvariantViolationRecordsTest {
                 .stateId(Generators.letterStrings(1, 20).next())
                 .location(WorkflowGenerators.sourceLocations().next())
                 .message(Generators.letterStrings(1, 60).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing id");
 
         assertEquals("id", exception.getMessage(), "the builder names the missing id");
     }

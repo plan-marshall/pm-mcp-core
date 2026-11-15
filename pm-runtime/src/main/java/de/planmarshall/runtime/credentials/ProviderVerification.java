@@ -229,7 +229,12 @@ public final class ProviderVerification {
         var decision = Objects.requireNonNull(gate, "gate").answer(
                 ConsentGate.Request.machine(ConsentKind.VERIFY_PROVIDERS), answer, channel, deviceId);
         if (!decision.runs()) {
-            return new Verification(provider, false, List.of(), null);
+            return Verification.builder()
+                    .provider(provider)
+                    .ran(false)
+                    .lines(List.of())
+                    .toRecord(null)
+                    .build();
         }
         var lines = new ArrayList<CheckLine>();
         lines.add(line(provider, "origin", probe.origin(provider), "reachability"));
@@ -253,7 +258,12 @@ public final class ProviderVerification {
                 lines.add(sameIdentity(provider, identity, login));
             }
         }
-        var verification = new Verification(provider, true, lines, decision.toRecord());
+        var verification = Verification.builder()
+                .provider(provider)
+                .ran(true)
+                .lines(lines)
+                .toRecord(decision.toRecord())
+                .build();
         if (verification.passed()) {
             LOGGER.info(INFO.PROVIDER_VERIFIED, provider.wireName(), lines.size());
         } else {

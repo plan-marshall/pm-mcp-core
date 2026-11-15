@@ -53,7 +53,8 @@ class LossSignalRecordsTest {
     @DisplayName("the builder refuses a missing reason like the constructor")
     void lossSignalBuilderRefusesMissingReason() {
         var builder = LossSignal.builder();
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing reason");
 
         assertEquals("reason", refusal.getMessage(), "the refusal names the loss reason");
     }

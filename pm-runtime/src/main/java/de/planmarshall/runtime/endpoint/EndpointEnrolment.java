@@ -67,11 +67,21 @@ public final class EndpointEnrolment {
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(enrolled, "enrolled");
         if (profile.weightsProbe() == null) {
-            return new Refreshed(enrolled, List.of(), false, "the profile declares no weights probe");
+            return Refreshed.builder()
+                    .enrolment(enrolled)
+                    .changedModels(List.of())
+                    .written(false)
+                    .detail("the profile declares no weights probe")
+                    .build();
         }
         var models = new LinkedHashSet<>(profile.modelTiers().values());
         if (models.isEmpty()) {
-            return new Refreshed(enrolled, List.of(), false, "the profile names no model to read");
+            return Refreshed.builder()
+                    .enrolment(enrolled)
+                    .changedModels(List.of())
+                    .written(false)
+                    .detail("the profile names no model to read")
+                    .build();
         }
         var weights = new LinkedHashMap<>(enrolled.weights());
         var changed = new LinkedHashMap<String, String>();
@@ -93,15 +103,23 @@ public final class EndpointEnrolment {
             }
         }
         if (!dirty) {
-            return new Refreshed(enrolled, List.of(), false,
-                    "%d of %d models read, no identity changed".formatted(read, models.size()));
+            return Refreshed.builder()
+                    .enrolment(enrolled)
+                    .changedModels(List.of())
+                    .written(false)
+                    .detail("%d of %d models read, no identity changed".formatted(read, models.size()))
+                    .build();
         }
         var updated = enrolled.withWeights(weights, clock.instant());
         var written = writer.enrol(updated);
         changed.forEach((model, oldIdentity) -> audit.append(
                 AuditEvent.harnessWeightsUpdated(enrolled.clientId(), model, oldIdentity, weights.get(model).weightsId())));
-        return new Refreshed(written, List.copyOf(changed.keySet()), true,
-                "%d of %d models read, %d changed".formatted(read, models.size(), changed.size()));
+        return Refreshed.builder()
+                .enrolment(written)
+                .changedModels(List.copyOf(changed.keySet()))
+                .written(true)
+                .detail("%d of %d models read, %d changed".formatted(read, models.size(), changed.size()))
+                .build();
     }
 
     /**

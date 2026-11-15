@@ -57,7 +57,8 @@ class WaitRequestRecordsTest {
                 .generationDigest(generationDigest)
                 .roleDigest(roleDigest)
                 .reOfferBudget(3);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing generation");
 
         assertEquals("generationId", exception.getMessage(), "the builder names the missing generation");
     }

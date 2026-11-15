@@ -56,7 +56,8 @@ class EndpointEnrolmentRecordsTest {
     @DisplayName("the builder refuses a missing enrolment like the constructor")
     void refreshedBuilderRefusesMissingEnrolment() {
         var builder = EndpointEnrolment.Refreshed.builder();
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing enrolment");
 
         assertEquals("enrolment", refusal.getMessage(), "the refusal names the enrolment");
     }

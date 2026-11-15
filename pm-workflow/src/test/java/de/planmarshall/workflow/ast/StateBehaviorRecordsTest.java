@@ -89,7 +89,8 @@ class StateBehaviorRecordsTest {
     @DisplayName("the builder refuses a missing asking form like the constructor")
     void modelJobBuilderRefusesMissingAskForm() {
         var builder = StateBehavior.ModelJob.builder();
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing asking form");
 
         assertEquals("askForm", refusal.getMessage(), "the refusal names the asking form");
     }

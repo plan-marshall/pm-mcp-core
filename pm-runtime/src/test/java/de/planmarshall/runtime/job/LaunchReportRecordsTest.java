@@ -55,7 +55,8 @@ class LaunchReportRecordsTest {
         var confinement = Generators.enumValues(JobRecord.Confinement.class).next();
 
         var builder = LaunchReport.builder().pid(pid).confinement(confinement);
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing start instant");
 
         assertEquals("processStartedAt", refusal.getMessage(), "the refusal names the start instant");
     }
