@@ -49,8 +49,9 @@ and `call(Downcall)` maps it: it rethrows an `Error` and a `SecretStoreException
   its own.
 * The `java:S112` issue is settled by the annotation rather than by a SonarCloud transition; a later reader finds
   the reason beside the declaration.
-* The class stays OS-specific and is exercised by no unit test (`@EnabledOnOs` guards the tests that reach it), and
-  the FFM descriptor registration in
+* The class stays OS-specific: the unit test that reaches it, `KeychainSecretStoreTest`, is
+  `@EnabledOnOs(OS.MAC)` and is skipped on a Linux host, so a green run of this host's build does not exercise the
+  annotation. The FFM descriptor registration in
   `pm-runtime/src/main/resources/META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json`
   is untouched.
 
