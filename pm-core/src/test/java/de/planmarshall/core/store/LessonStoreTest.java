@@ -181,7 +181,7 @@ class LessonStoreTest {
                     () -> assertEquals(NOW, frontMatter.createdAt(), "the store writes the clock's instant"),
                     () -> assertEquals(1, frontMatter.revision(), "the first revision is 1"),
                     () -> assertEquals(1, frontMatter.revisions().size(), "the first revision is recorded"),
-                    () -> assertEquals(1, frontMatter.revisions().getFirst().n(), "the first revision is numbered one"),
+                    () -> assertEquals(1, frontMatter.revisions().getFirst().n(), "the entry names revision one"),
                     () -> assertEquals(NOW, frontMatter.revisions().getFirst().at(), "its instant is the clock's"),
                     () -> assertEquals(newLesson.sources(), frontMatter.revisions().getFirst().sources(),
                             "it carries the sources of the body"),
