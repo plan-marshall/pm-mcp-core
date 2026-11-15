@@ -39,16 +39,17 @@ import org.junit.jupiter.api.io.TempDir;
  * string or a text block is not code and is ignored.
  * <p>
  * The scan reads text, not types, so three shapes stay outside what it can tell. A comma in a top-level type argument
- * is tracked only when the {@code <} follows an identifier, a {@code >} or a {@code .} AND a {@code >} closes it before
- * the enclosing call ends; a comparison that carries a message is therefore still measured, while one without a closing
- * {@code >} is not taken for a type argument. A third argument of an assertion on floating-point operands is read as a
- * tolerance when one of the first two operands carries a floating-point literal, so {@code assertEquals(1.0, value,
- * DELTA)} and {@code assertArrayEquals(new double[]{1.0}, value, DELTA)} are measured while {@code
- * assertEquals(EXPECTED, value, DELTA)} is not — a message constant in that position is refused, and an inline literal,
- * a lambda or a method reference is the way to write it. The measurement is of the source spelling: an escape counts by
- * its spelling, and a comment beside a message literal makes it read as a non-literal. A plan that brings another
- * package to the rule adds it to {@link #SCANNED_PACKAGES}; a package with no test source fails the scan instead of
- * passing as empty.
+ * is tracked only when the {@code <} follows a token that can end a type (whitespace skipped), the character after it
+ * starts a type name, a wildcard or an annotation, and a {@code >} closes it before the enclosing call ends; a
+ * comparison on a lower-cased operand, or one without a closing {@code >}, is therefore still measured. A third argument
+ * of an assertion on floating-point operands is read as a tolerance when one of the first two operands, read from the
+ * blanked view so a number inside a string does not count, carries a floating-point literal — so {@code
+ * assertEquals(1.0, value, DELTA)} and {@code assertArrayEquals(new double[]{1.0}, value, DELTA)} are measured while
+ * {@code assertEquals(EXPECTED, value, DELTA)} is not; a message constant in that position is refused, and an inline
+ * literal, a lambda or a method reference is the way to write it. The measurement is of the source spelling: an escape
+ * counts by its spelling, and a comment beside a message literal makes it read as a non-literal. A plan that brings
+ * another package to the rule adds it to {@link #SCANNED_PACKAGES}; a package with no test source fails the scan instead
+ * of passing as empty.
  * <p>
  * The class keeps the controls of every tracked shape beside the guard, so it is longer than the 400-line budget of
  * {@code junit-core}: splitting it would separate the fixture of a shape from the code the fixture proves, which is the
@@ -163,6 +164,10 @@ class AssertionMessageScanTest {
                 "assertEquals(Map.of(), new HashMap<String, String>());");
         assertReported(temp.resolve("generic-call"), "assertTrue: no message",
                 "assertTrue(Map.<String, String>of().isEmpty());");
+        assertReported(temp.resolve("array-type-argument"), "assertEquals: no message",
+                "assertEquals(Map.of(), new HashMap<String[], String>());");
+        assertReported(temp.resolve("fail-empty"), "fail: no message", "fail( );");
+        assertReported(temp.resolve("fail-comment"), "fail: no message", "fail(/* the reason is missing */);");
         assertReported(temp.resolve("multi-line"), "assertTrue: no message", "assertTrue(\n                value);");
         assertReported(temp.resolve("qualified"), "assertTrue: no message", "Assertions.assertTrue(value);");
         assertNotReported(temp.resolve("twenty"), "assertTrue(value, \"" + "m".repeat(20) + "\");");
@@ -208,6 +213,12 @@ class AssertionMessageScanTest {
                 "assertEquals(1.0, value, DELTA, \"the value stays within the delta\");");
         assertNotReported(temp.resolve("comparison-message"),
                 "assertTrue(map.containsKey(key<a), \"the map holds the lower key\");");
+        assertNotReported(temp.resolve("two-comparisons"),
+                "assertEquals(a<b, c>d, \"the comparisons should agree\");");
+        assertNotReported(temp.resolve("spaced-type-argument"),
+                "assertEquals(Map.of(), new HashMap <String, String>(), \"both maps are equal here\");");
+        assertNotReported(temp.resolve("quoted-number"),
+                "assertEquals(List.of(\"1.0\"), actual, MESSAGE);");
         var message = failureMessage(List.of("A.java:3 assertTrue: no message", "B.java:4 fail: no message"));
 
         assertTrue(message.contains("2 assertion-message violation(s)"), "the failure counts the offenders");
@@ -337,7 +348,7 @@ class AssertionMessageScanTest {
             }
             var spans = argumentSpans(view, open);
             var line = lineAt(view, start);
-            var violation = violationOf(name, spans, source);
+            var violation = violationOf(name, spans, view, source);
             if (violation != null) {
                 violations.add(path + ":" + line + " " + name + ": " + violation);
             }
@@ -348,23 +359,39 @@ class AssertionMessageScanTest {
     /**
      * @param name the assertion method's name
      * @param spans the top-level argument spans of the call
+     * @param view the blanked source the spans index into
      * @param source the unblanked source text the spans index into
      * @return the violation the call carries, or {@code null} when it carries a message the rule accepts
      */
-    private static String violationOf(String name, List<int[]> spans, String source) {
+    private static String violationOf(String name, List<int[]> spans, String view, String source) {
         if (MESSAGE_FIRST_ASSERTIONS.contains(name)) {
-            return spans.isEmpty() ? "no message" : measure(spans.getFirst(), source);
+            if (spans.isEmpty() || carriesNoCode(spans.getFirst(), view, source)) {
+                return "no message";
+            }
+            return measure(spans.getFirst(), source);
         }
         var minimum = ONE_ARGUMENT_ASSERTIONS.contains(name) ? 1 : 2;
         if (spans.size() <= minimum) {
             return "no message";
         }
         var messageSpan = spans.getLast();
+        if (carriesNoCode(messageSpan, view, source)) {
+            return "no message";
+        }
         var message = argument(messageSpan, source);
-        if (isTolerance(name, spans, source, message)) {
+        if (isTolerance(name, spans, view, source, message)) {
             return "no message (a tolerance is not a message)";
         }
         return measure(messageSpan, source);
+    }
+
+    /**
+     * @return whether the argument carries no code at all — whitespace, or a comment whose text the view blanks — while
+     *         not being a string or a text block, whose delimiters the view keeps and whose content is a message
+     */
+    private static boolean carriesNoCode(int[] span, String view, String source) {
+        return view.substring(span[0], span[1]).strip().isEmpty()
+                && !source.substring(span[0], span[1]).contains("\"");
     }
 
     /** @return the violation of a literal message's length, or {@code null} for an accepted message */
@@ -392,7 +419,7 @@ class AssertionMessageScanTest {
      *         message: a numeric literal, or any argument that is neither a literal nor a supplier-shaped expression
      *         when one of the two operands carries a floating-point literal
      */
-    private static boolean isTolerance(String name, List<int[]> spans, String source, String message) {
+    private static boolean isTolerance(String name, List<int[]> spans, String view, String source, String message) {
         if (!isNumericTolerance(name) || spans.size() != 3) {
             return false;
         }
@@ -402,12 +429,12 @@ class AssertionMessageScanTest {
         if (LITERAL.matcher(message).matches() || DYNAMIC_MESSAGE.matcher(message).matches()) {
             return false;
         }
-        return isFloatingLiteral(argument(spans.get(0), source)) || isFloatingLiteral(argument(spans.get(1), source));
+        return isFloatingLiteral(argument(spans.get(0), view)) || isFloatingLiteral(argument(spans.get(1), view));
     }
 
-    /** @return whether the operand of the source text carries a floating-point literal */
+    /** @return whether the operand of the blanked view carries a floating-point literal */
     private static boolean isFloatingLiteral(String operand) {
-        return !operand.startsWith("\"") && FLOATING.matcher(operand).find();
+        return FLOATING.matcher(operand).find();
     }
 
     private static boolean isNumericTolerance(String name) {
@@ -454,12 +481,24 @@ class AssertionMessageScanTest {
     }
 
     /**
-     * @return whether the {@code <} at {@code index} opens a type argument rather than a comparison: its preceding
-     *         character can end a type, and a {@code >} closes it before the enclosing call or array ends
+     * @return whether the {@code <} at {@code index} opens a type argument rather than a comparison: the token before
+     *         it (whitespace skipped) can end a type, the token after it starts one, and a {@code >} closes it before the
+     *         enclosing call ends
      */
     private static boolean opensTypeArgument(String view, int index) {
-        var previous = view.charAt(index - 1);
-        if (!(Character.isJavaIdentifierPart(previous) || previous == '>' || previous == '.')) {
+        var previous = index - 1;
+        while (previous >= 0 && Character.isWhitespace(view.charAt(previous))) {
+            previous--;
+        }
+        if (previous < 0) {
+            return false;
+        }
+        var before = view.charAt(previous);
+        if (!(Character.isJavaIdentifierPart(before) || before == '>' || before == '.')) {
+            return false;
+        }
+        var next = nextNonWhitespace(view, index + 1);
+        if (next >= view.length() || !startsAType(view.charAt(next))) {
             return false;
         }
         var depth = 0;
@@ -472,11 +511,16 @@ class AssertionMessageScanTest {
                     return true;
                 }
                 depth--;
-            } else if (current == ')' || current == ']' || current == '}' || current == ';') {
+            } else if (current == ')' || current == '}' || current == ';') {
                 return false;
             }
         }
         return false;
+    }
+
+    /** @return whether a type argument starts with this character: a type name, a wildcard or an annotation */
+    private static boolean startsAType(char character) {
+        return Character.isUpperCase(character) || character == '?' || character == '@';
     }
 
     private static int lineAt(String view, int position) {
