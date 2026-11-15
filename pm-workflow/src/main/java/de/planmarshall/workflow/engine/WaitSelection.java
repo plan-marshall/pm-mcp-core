@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.util.Objects;
 
 import de.planmarshall.core.spi.WorkflowClock;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -28,10 +29,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class WaitSelection {
-
-    private WaitSelection() {
-    }
 
     /**
      * Selects the wait of one call and starts it at the clock's instant.

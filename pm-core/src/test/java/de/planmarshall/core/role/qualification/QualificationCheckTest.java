@@ -54,9 +54,10 @@ class QualificationCheckTest {
                 QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
         assertAll(
-                () -> assertTrue(verdict.qualified()),
-                () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm()),
-                () -> assertEquals(List.of(), verdict.reasons()));
+                () -> assertTrue(verdict.qualified(), "every topic at the level qualifies"),
+                () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm(),
+                        "the fresh form is the qualified form"),
+                () -> assertEquals(List.of(), verdict.reasons(), "no reason is raised against the record"));
     }
 
     @Test
@@ -69,8 +70,9 @@ class QualificationCheckTest {
                 QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
         assertAll(
-                () -> assertFalse(verdict.qualified()),
-                () -> assertTrue(codes(verdict).contains(Code.BELOW_AGREEMENT_LEVEL)));
+                () -> assertFalse(verdict.qualified(), "a generic topic does not cover own"),
+                () -> assertTrue(codes(verdict).contains(Code.BELOW_AGREEMENT_LEVEL),
+                        "the own topic is below the level"));
     }
 
     @Test
@@ -82,7 +84,7 @@ class QualificationCheckTest {
         var verdict = check(QualificationFixtures.bothTopics()).check(QualificationFixtures.ROLE, qualification,
                 QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
-        assertFalse(verdict.qualified());
+        assertFalse(verdict.qualified(), "an own topic does not cover generic");
     }
 
     @Test
@@ -94,8 +96,9 @@ class QualificationCheckTest {
                 QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
         assertAll(
-                () -> assertFalse(verdict.qualified()),
-                () -> assertTrue(codes(verdict).contains(Code.MISSING_TOPIC)));
+                () -> assertFalse(verdict.qualified(), "the record lacks the generic topic"),
+                () -> assertTrue(codes(verdict).contains(Code.MISSING_TOPIC),
+                        "the missing topic is named"));
     }
 
     @Test
@@ -106,7 +109,7 @@ class QualificationCheckTest {
         var verdict = check(QualificationFixtures.genericOnly()).check(QualificationFixtures.ROLE, qualification,
                 QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
-        assertTrue(verdict.qualified());
+        assertTrue(verdict.qualified(), "a generic-only role qualifies");
     }
 
     @Test
@@ -119,8 +122,9 @@ class QualificationCheckTest {
                 QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
         assertAll(
-                () -> assertFalse(verdict.qualified()),
-                () -> assertEquals(List.of(Code.NO_TOPICS), codes(verdict)));
+                () -> assertFalse(verdict.qualified(), "a role without a topic cannot qualify"),
+                () -> assertEquals(List.of(Code.NO_TOPICS), codes(verdict),
+                        "the verdict names the absent topics"));
     }
 
     @Test
@@ -136,9 +140,10 @@ class QualificationCheckTest {
                         QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
         assertAll(
-                () -> assertTrue(atEighty.qualified()),
-                () -> assertFalse(atNinety.qualified()),
-                () -> assertTrue(codes(atNinety).contains(Code.BELOW_AGREEMENT_LEVEL)));
+                () -> assertTrue(atEighty.qualified(), "eighty qualifies the existing record"),
+                () -> assertFalse(atNinety.qualified(), "ninety rejects the same record"),
+                () -> assertTrue(codes(atNinety).contains(Code.BELOW_AGREEMENT_LEVEL),
+                        "the level change is reported"));
     }
 
     @Test
@@ -153,8 +158,10 @@ class QualificationCheckTest {
                 QualificationFixtures.CORPUS_REVISION + "-stale", RoleForm.FRESH);
 
         assertAll(
-                () -> assertEquals(List.of(Code.STALE_DIGEST), codes(staleDigest)),
-                () -> assertEquals(List.of(Code.STALE_CORPUS), codes(staleCorpus)));
+                () -> assertEquals(List.of(Code.STALE_DIGEST), codes(staleDigest),
+                        "the changed digest is stale"),
+                () -> assertEquals(List.of(Code.STALE_CORPUS), codes(staleCorpus),
+                        "the changed corpus revision is stale"));
     }
 
     @Test
@@ -166,8 +173,8 @@ class QualificationCheckTest {
                 QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
         assertAll(
-                () -> assertFalse(verdict.qualified()),
-                () -> assertTrue(codes(verdict).contains(Code.STALE_ROLE)));
+                () -> assertFalse(verdict.qualified(), "another role does not qualify this one"),
+                () -> assertTrue(codes(verdict).contains(Code.STALE_ROLE), "the stale role is named"));
     }
 
     @Test
@@ -188,8 +195,9 @@ class QualificationCheckTest {
                 QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
         assertAll(
-                () -> assertFalse(verdict.qualified()),
-                () -> assertTrue(codes(verdict).contains(Code.UNGRADED_ITEMS)));
+                () -> assertFalse(verdict.qualified(), "an ungraded item blocks the form"),
+                () -> assertTrue(codes(verdict).contains(Code.UNGRADED_ITEMS),
+                        "the ungraded item is counted"));
     }
 
     @Nested
@@ -206,8 +214,9 @@ class QualificationCheckTest {
                             QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
             assertAll(
-                    () -> assertFalse(verdict.qualified()),
-                    () -> assertTrue(codes(verdict).contains(Code.BELOW_CONSTANT_BASELINE)));
+                    () -> assertFalse(verdict.qualified(), "a constant answerer does not qualify"),
+                    () -> assertTrue(codes(verdict).contains(Code.BELOW_CONSTANT_BASELINE),
+                            "the constant baseline gap is named"));
         }
 
         @Test
@@ -219,7 +228,7 @@ class QualificationCheckTest {
                     QualificationFixtures.ROLE, qualification, QualificationFixtures.DIGEST,
                     QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
-            assertTrue(verdict.qualified());
+            assertTrue(verdict.qualified(), "a control nine of ten right qualifies");
         }
 
         @Test
@@ -233,8 +242,9 @@ class QualificationCheckTest {
                     QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
 
             assertAll(
-                    () -> assertFalse(verdict.qualified()),
-                    () -> assertTrue(codes(verdict).contains(Code.TOO_UNIFORM)));
+                    () -> assertFalse(verdict.qualified(), "baseline plus margin exceeds one hundred"),
+                    () -> assertTrue(codes(verdict).contains(Code.TOO_UNIFORM),
+                            "the uniformity refusal is named"));
         }
     }
 
@@ -253,7 +263,7 @@ class QualificationCheckTest {
             var verdict = check(QualificationFixtures.bothTopics()).check(QualificationFixtures.ROLE, qualification,
                     QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.WARM);
 
-            assertEquals(RoleForm.WARM, verdict.qualifiedForm());
+            assertEquals(RoleForm.WARM, verdict.qualifiedForm(), "the warm form is the qualified form");
         }
 
         @Test
@@ -268,8 +278,9 @@ class QualificationCheckTest {
                     QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.WARM);
 
             assertAll(
-                    () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm()),
-                    () -> assertFalse(verdict.reasons().isEmpty()));
+                    () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm(),
+                            "a warm topic below the level downgrades"),
+                    () -> assertFalse(verdict.reasons().isEmpty(), "the downgrade carries a reason"));
         }
 
         @Test
@@ -284,8 +295,10 @@ class QualificationCheckTest {
                     QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.WARM);
 
             assertAll(
-                    () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm()),
-                    () -> assertTrue(codes(verdict).contains(Code.WARM_GAP_EXCEEDED)));
+                    () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm(),
+                            "the gap above allowance downgrades"),
+                    () -> assertTrue(codes(verdict).contains(Code.WARM_GAP_EXCEEDED),
+                            "the exceeded gap is named"));
         }
 
         @Test
@@ -297,8 +310,10 @@ class QualificationCheckTest {
                     QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.WARM);
 
             assertAll(
-                    () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm()),
-                    () -> assertTrue(codes(verdict).contains(Code.MISSING_WARM_FORM)));
+                    () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm(),
+                            "a missing warm form downgrades"),
+                    () -> assertTrue(codes(verdict).contains(Code.MISSING_WARM_FORM),
+                            "the missing warm form is named"));
         }
     }
 
@@ -328,9 +343,10 @@ class QualificationCheckTest {
 
         assertAll(
                 () -> assertEquals(new BigDecimal("50"), check.catchRate(measured,
-                        RoleForm.FRESH).orElseThrow()),
-                () -> assertFalse(verdict.qualified()),
-                () -> assertTrue(codes(verdict).contains(Code.CATCH_RATE_BELOW_LEVEL)));
+                        RoleForm.FRESH).orElseThrow(), "half the suspicious runs were caught"),
+                () -> assertFalse(verdict.qualified(), "a catch rate below the level fails"),
+                () -> assertTrue(codes(verdict).contains(Code.CATCH_RATE_BELOW_LEVEL),
+                        "the low catch rate is named"));
     }
 
     @Test

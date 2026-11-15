@@ -66,15 +66,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/decision-engine.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/decision-engine.adoc has no commit since 88ec9c70; its 9 What bullets equal D1 to D9
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/decision-engine.adoc at HEAD has 7 Tasks and a Done When of Watch plus Tests; no section What with 9 bullets (restructured by #286). The spec carries no section stating this.
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-22 (`start-source-intake`) (the entry's decision stores and their move)) — read at `doc/plans/decision-engine.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on operator-wait-and-machine-scope and start-source-intake, both rows still listed
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: README row for decision-engine is open and depends only on start-source-intake (README 90-93); operator-wait-and-machine-scope (PLAN-42) shipped and is no longer listed. The spec still lists it.
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: runtime/ root has only question/ (QuestionLogRecordReader) and web/ (TLS state); the answer endpoint is a pm-mcp-server route; workflow/decision and workflow/question are package-info only
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: workflow/question is not package-info only: QuestionBound and QuestionContinuation exist; workflow/decision is package-info only; DecisionRecord is absent; QuestionRecord, QuestionLog, QuestionRefusal exist in core/store.
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the index part holds (row open); use-case agreement and open PRs are not readable
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row is open not blocked; UC-PLN-2 is AGREED in the documentation origin/main (03-plans.adoc:37-40). Open pull requests cannot be read here.
 - OBSERVED: the specification parts above carry the added content — `rationale_origin` and `probabilities` in the vote schema of `store-schemas/18-decision-records.adoc`, the adjudication sentence of `model-work/11-decision-records.adoc` and § Judgment Votes of `model-work/10-decision-quorum.adoc` — read at `4617865`
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: store-schemas/18 required holds rationale_origin and probabilities; model-work/11 adjudication sentence present; model-work/10 Judgment Votes at line 164
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: rationale_origin and probabilities occur in no spec or schema at HEAD; both were deleted by #286 (efecccba) with the judgment-vote content; model-work/10 has no Judgment Votes section. Spec section Specification Added Since
 
 ## Expected Surface
 
@@ -156,6 +156,15 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-22 (`start-source-intake`) (the entry's decision stores and their move); PLAN-V2-06 (`role-name-single-definition`) (`RoleName` and `ClientId` in `core.id`: the one definition of the role-name pattern, enforced by a guard that fails on a copy)
 - Blocks: PLAN-V2-29 (`chat`); PLAN-V2-41 (`operator-reports`)
+
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 0 (contradicted at HEAD): doc/plans/decision-engine.adoc at HEAD has 7 Tasks and a Done When of Watch plus Tests; no section What with 9 bullets (restructured by #286). The spec carries no section stating this.
+- Claim 1 (contradicted at HEAD): README row for decision-engine is open and depends only on start-source-intake (README 90-93); operator-wait-and-machine-scope (PLAN-42) shipped and is no longer listed. The spec still lists it.
+- Claim 2 (contradicted at HEAD): workflow/question is not package-info only: QuestionBound and QuestionContinuation exist; workflow/decision is package-info only; DecisionRecord is absent; QuestionRecord, QuestionLog, QuestionRefusal exist in core/store.
+- Claim 4 (contradicted at HEAD): rationale_origin and probabilities occur in no spec or schema at HEAD; both were deleted by #286 (efecccba) with the judgment-vote content; model-work/10 has no Judgment Votes section. Spec section Specification Added Since is stale.
 
 ## Hand-Off Command
 

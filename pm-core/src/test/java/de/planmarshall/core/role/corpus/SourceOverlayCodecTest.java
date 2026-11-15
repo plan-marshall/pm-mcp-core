@@ -113,12 +113,13 @@ class SourceOverlayCodecTest {
     }
 
     private static StoreRefusal refusalOf(byte[] document) {
-        return assertThrows(StoreRefusal.class, () -> SourceOverlayCodec.read(FILE, document));
+        return assertThrows(StoreRefusal.class, () -> SourceOverlayCodec.read(FILE, document),
+                "a document that is no overlay is refused");
     }
 
     private static void assertUnreadable(StoreRefusal refusal, String detail) {
         assertAll(
-                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is UNREADABLE"),
                 () -> assertEquals(FILE, refusal.file(), "the refusal names the file"),
                 () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()), refusal::getMessage),
                 () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
@@ -135,24 +136,27 @@ class SourceOverlayCodecTest {
 
             var row = overlay.rows().getFirst();
             assertAll(
-                    () -> assertEquals("sample-set", overlay.source()),
-                    () -> assertEquals("data/test.csv", overlay.file()),
-                    () -> assertEquals("question_id", overlay.keyField()),
-                    () -> assertEquals(LocalDate.of(2026, 10, 14), overlay.created()),
-                    () -> assertEquals(2, overlay.rows().size()),
-                    () -> assertEquals("q-1", row.key()),
-                    () -> assertEquals("screening/sample-set/q-1", row.itemId()),
-                    () -> assertEquals("screening", row.role()),
-                    () -> assertEquals(List.of("imported"), row.tags()),
-                    () -> assertEquals("{question}", row.question()),
-                    () -> assertEquals("Subject: {subject}", row.facts()),
-                    () -> assertEquals(List.of("{option_a}", "{option_b}"), row.choices()),
+                    () -> assertEquals("sample-set", overlay.source(), "the source of the overlay is read"),
+                    () -> assertEquals("data/test.csv", overlay.file(), "the source file is data/test.csv"),
+                    () -> assertEquals("question_id", overlay.keyField(), "the key field is question_id"),
+                    () -> assertEquals(LocalDate.of(2026, 10, 14), overlay.created(),
+                            "the creation date is the overlay's date"),
+                    () -> assertEquals(2, overlay.rows().size(), "the overlay holds two rows"),
+                    () -> assertEquals("q-1", row.key(), "the first row key is read"),
+                    () -> assertEquals("screening/sample-set/q-1", row.itemId(), "the item id is built from the key"),
+                    () -> assertEquals("screening", row.role(), "the overlay role is screening"),
+                    () -> assertEquals(List.of("imported"), row.tags(), "the tags hold the imported tag"),
+                    () -> assertEquals("{question}", row.question(), "the question is a template"),
+                    () -> assertEquals("Subject: {subject}", row.facts(), "the facts are a template too"),
+                    () -> assertEquals(List.of("{option_a}", "{option_b}"), row.choices(),
+                            "both choices are templates"),
                     () -> assertEquals(JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8)),
-                            row.answerSchema()),
-                    () -> assertEquals("{option_a}", row.target().answer()),
-                    () -> assertEquals(GradingMethod.EXACT_CHOICE, row.grading().method()),
-                    () -> assertNull(row.grading().passThreshold()),
-                    () -> assertEquals(ReviewStatus.DRAFT, row.review().status()));
+                            row.answerSchema(), "the answer schema is read as a tree"),
+                    () -> assertEquals("{option_a}", row.target().answer(), "the target answer is a template"),
+                    () -> assertEquals(GradingMethod.EXACT_CHOICE, row.grading().method(),
+                            "the grading method is exact choice"),
+                    () -> assertNull(row.grading().passThreshold(), "no pass threshold is declared"),
+                    () -> assertEquals(ReviewStatus.DRAFT, row.review().status(), "a draft review is read"));
         }
 
         @Test
@@ -171,13 +175,15 @@ class SourceOverlayCodecTest {
 
             var read = overlay.rows().getFirst();
             assertAll(
-                    () -> assertNull(read.choices()),
-                    () -> assertNull(read.answerSchema()),
-                    () -> assertNull(read.target().answer()),
-                    () -> assertEquals(List.of(new RubricItem("d1", "names the defect")), read.target().items()),
-                    () -> assertEquals(new BigDecimal("0.75"), read.grading().passThreshold()),
-                    () -> assertEquals("strict", read.grading().judge()),
-                    () -> assertEquals(LocalDate.of(2026, 10, 14), read.review().date()));
+                    () -> assertNull(read.choices(), "the choices of an open row are null"),
+                    () -> assertNull(read.answerSchema(), "an open row has no answer schema"),
+                    () -> assertNull(read.target().answer(), "an open row has no target answer"),
+                    () -> assertEquals(List.of(new RubricItem("d1", "names the defect")), read.target().items(),
+                            "the rubric item is read"),
+                    () -> assertEquals(new BigDecimal("0.75"), read.grading().passThreshold(),
+                            "the threshold is read as 0.75"),
+                    () -> assertEquals("strict", read.grading().judge(), "the judge name is read as strict"),
+                    () -> assertEquals(LocalDate.of(2026, 10, 14), read.review().date(), "the review date is read"));
         }
 
         @Test
@@ -190,8 +196,8 @@ class SourceOverlayCodecTest {
             var overlay = SourceOverlayCodec.read(FILE, document(members));
 
             assertAll(
-                    () -> assertNull(overlay.keyField()),
-                    () -> assertEquals("12", overlay.rows().get(1).key()));
+                    () -> assertNull(overlay.keyField(), "a positional overlay has no key field"),
+                    () -> assertEquals("12", overlay.rows().get(1).key(), "the key is read from the position"));
         }
 
         @Test
@@ -203,8 +209,9 @@ class SourceOverlayCodecTest {
             var reread = SourceOverlayCodec.read(FILE, written);
 
             assertAll(
-                    () -> assertEquals(overlay, reread),
-                    () -> assertArrayEquals(written, SourceOverlayCodec.write(reread)));
+                    () -> assertEquals(overlay, reread, "the overlay is read back equal"),
+                    () -> assertArrayEquals(written, SourceOverlayCodec.write(reread),
+                            "the overlay is written again byte for byte"));
         }
     }
 
@@ -218,8 +225,9 @@ class SourceOverlayCodecTest {
             var refusal = refusalOf(with("format_version", "0"));
 
             assertAll(
-                    () -> assertEquals(Outcome.FORMAT_OUTDATED, refusal.outcome()),
-                    () -> assertEquals(FILE, refusal.file()));
+                    () -> assertEquals(Outcome.FORMAT_OUTDATED, refusal.outcome(),
+                            "an older format version is refused as outdated"),
+                    () -> assertEquals(FILE, refusal.file(), "the refusal names the overlay file"));
         }
 
         @Test
@@ -318,7 +326,7 @@ class SourceOverlayCodecTest {
     void fourDigitYear(String date) {
         var overlay = SourceOverlayCodec.read(FILE, with("created", "\"" + date + "\""));
 
-        assertEquals(LocalDate.parse(date), overlay.created());
+        assertEquals(LocalDate.parse(date), overlay.created(), "a four-digit year date is read");
     }
 
     @Test
@@ -398,9 +406,11 @@ class SourceOverlayCodecTest {
         @MethodSource("nonObjectValues")
         @DisplayName("an answer schema that is no object and no null is refused at construction")
         void nonObjectRefused(String name, JsonValue answerSchema) {
-            var refused = assertThrows(IllegalArgumentException.class, () -> row(answerSchema));
+            var refused = assertThrows(IllegalArgumentException.class, () -> row(answerSchema),
+                    "a non-object answer schema is refused");
 
-            assertEquals("'answer_schema' must be an object or null: " + answerSchema.toJson(), refused.getMessage());
+            assertEquals("'answer_schema' must be an object or null: " + answerSchema.toJson(), refused.getMessage(),
+                    "the refusal names the offending answer schema");
         }
 
         @Test
@@ -409,8 +419,8 @@ class SourceOverlayCodecTest {
             var schema = JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8));
 
             assertAll(
-                    () -> assertEquals(schema, row(schema).answerSchema()),
-                    () -> assertNull(row(null).answerSchema()));
+                    () -> assertEquals(schema, row(schema).answerSchema(), "a JSON object is accepted as a schema"),
+                    () -> assertNull(row(null).answerSchema(), "a null answer schema is accepted"));
         }
     }
 
@@ -445,12 +455,14 @@ class SourceOverlayCodecTest {
 
             var row = overlay.rows().getFirst();
             assertAll(
-                    () -> assertEquals(GROUP, row.group()),
-                    () -> assertEquals(CONTAMINATION, row.contamination()),
-                    () -> assertEquals(overlay, reread),
-                    () -> assertArrayEquals(written, SourceOverlayCodec.write(reread)),
-                    () -> assertEquals(List.of(), overlaySchemaErrors(document)),
-                    () -> assertEquals(List.of(), overlaySchemaErrors(written)));
+                    () -> assertEquals(GROUP, row.group(), "the group is read as written"),
+                    () -> assertEquals(CONTAMINATION, row.contamination(), "the contamination note is read as written"),
+                    () -> assertEquals(overlay, reread, "the overlay round-trips unchanged"),
+                    () -> assertArrayEquals(written, SourceOverlayCodec.write(reread),
+                            "the written overlay is byte for byte the same"),
+                    () -> assertEquals(List.of(), overlaySchemaErrors(document),
+                            "the document passes the overlay schema"),
+                    () -> assertEquals(List.of(), overlaySchemaErrors(written), "the written document passes too"));
         }
 
         @Test
@@ -464,12 +476,13 @@ class SourceOverlayCodecTest {
             var row = overlay.rows().getFirst();
             var text = new String(written, StandardCharsets.UTF_8);
             assertAll(
-                    () -> assertNull(row.group()),
-                    () -> assertNull(row.contamination()),
+                    () -> assertNull(row.group(), "both null members read as null"),
+                    () -> assertNull(row.contamination(), "the absent contamination note is null"),
                     () -> assertTrue(text.contains("\"group\" : null"), text),
                     () -> assertTrue(text.contains("\"contamination\" : null"), text),
-                    () -> assertEquals(overlay, SourceOverlayCodec.read(FILE, written)),
-                    () -> assertEquals(List.of(), overlaySchemaErrors(document)));
+                    () -> assertEquals(overlay, SourceOverlayCodec.read(FILE, written),
+                            "the written overlay reads back equal"),
+                    () -> assertEquals(List.of(), overlaySchemaErrors(document), "the document passes the schema"));
         }
 
         @Test
@@ -530,10 +543,10 @@ class SourceOverlayCodecTest {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new SourceOverlay.Row("q-1", "q-1",
                             "screening/sample-set", "screening", "t", List.of(), "\n\n", "q", "f", null, null,
-                            target, grading, review, null)),
+                            target, grading, review, null), "a group of line feeds only is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new SourceOverlay.Row("q-1", "q-1",
                             "screening/sample-set", "screening", "t", List.of(), null, "q", "f", null, null,
-                            target, grading, review, "")));
+                            target, grading, review, ""), "an empty contamination note is refused"));
         }
     }
 

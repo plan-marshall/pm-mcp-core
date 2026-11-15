@@ -64,7 +64,8 @@ class TypeScriptOutputParserTest extends ParsedBuildPortedTest {
 
         assertAll(
                 () -> assertEquals(1, build.diagnostics().size(), "The diagnostic is still filed"),
-                () -> assertEquals("src/a.ts", build.diagnostics().getFirst().file(), "The file is kept"),
+                () -> assertEquals("src/a.ts", build.diagnostics().getFirst().file(),
+                        "The file is kept when the position is dropped"),
                 () -> assertNull(build.diagnostics().getFirst().line(), "An unrepresentable line is absent"),
                 () -> assertNull(build.diagnostics().getFirst().column(), "The column follows its line"));
     }

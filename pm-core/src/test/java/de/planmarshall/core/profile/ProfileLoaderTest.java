@@ -87,8 +87,10 @@ class ProfileLoaderTest {
         var loaded = loader.load(sets);
 
         assertAll(
-                () -> assertEquals(LoadedProfile.State.VERIFIED, loaded.state(CLIENT).orElseThrow()),
-                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
+                () -> assertEquals(LoadedProfile.State.VERIFIED, loaded.state(CLIENT).orElseThrow(),
+                        "shipped profile loads as verified"),
+                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "effective set is the shipped one"),
                 () -> assertNull(loaded.effective(CLIENT).orElseThrow().verificationRecord(),
                         "A shipped profile is bound to no installation record"),
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString));
@@ -104,8 +106,10 @@ class ProfileLoaderTest {
 
         assertAll(
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
-                () -> assertEquals(LoadedProfile.State.VERIFIED, loaded.state(CLIENT).orElseThrow()),
-                () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind()),
+                () -> assertEquals(LoadedProfile.State.VERIFIED, loaded.state(CLIENT).orElseThrow(),
+                        "machine profile loads as verified"),
+                () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "effective set is the machine one"),
                 () -> assertEquals(CLIENT, loaded.effective(CLIENT).orElseThrow().verificationRecord().clientId(),
                         "The loaded profile carries the record it was bound to"));
     }
@@ -121,9 +125,11 @@ class ProfileLoaderTest {
 
         assertAll(
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
-                () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind()),
+                () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "machine document replaces the shipped one"),
                 () -> assertEquals(PRO_NAME, loaded.effective(CLIENT).orElseThrow().document()
-                        .member("display_name").flatMap(JsonNode::text).orElseThrow()));
+                                .member("display_name").flatMap(JsonNode::text).orElseThrow(),
+                        "machine display name wins"));
     }
 
     @Test
@@ -136,9 +142,11 @@ class ProfileLoaderTest {
                 machine));
 
         assertAll(
-                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_UNVERIFIED, refusal(loaded).outcome()),
-                () -> assertEquals("profile_unverified", refusal(loaded).code()));
+                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "shipped profile stays in force"),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_UNVERIFIED, refusal(loaded).outcome(),
+                        "missing record refusal outcome"),
+                () -> assertEquals("profile_unverified", refusal(loaded).code(), "refusal code names unverified"));
     }
 
     @Test
@@ -152,8 +160,10 @@ class ProfileLoaderTest {
                 machine));
 
         assertAll(
-                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_UNVERIFIED, refusal(loaded).outcome()));
+                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "edited document keeps shipped set"),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_UNVERIFIED, refusal(loaded).outcome(),
+                        "edited record refusal outcome"));
     }
 
     @Test
@@ -167,8 +177,10 @@ class ProfileLoaderTest {
                 machine));
 
         assertAll(
-                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_UNVERIFIED, refusal(loaded).outcome()));
+                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "HMAC failure keeps shipped set"),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_UNVERIFIED, refusal(loaded).outcome(),
+                        "bad sidecar refusal outcome"));
     }
 
     @Test
@@ -182,8 +194,8 @@ class ProfileLoaderTest {
         assertAll(
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
                 () -> assertEquals(LoadedProfile.State.VERIFIED_ON_OTHER_BUILD,
-                        loaded.state(CLIENT).orElseThrow()),
-                () -> assertTrue(loaded.verifiedOnOtherBuild(CLIENT)));
+                        loaded.state(CLIENT).orElseThrow(), "other-build record marks the state"),
+                () -> assertTrue(loaded.verifiedOnOtherBuild(CLIENT), "same harness other build is verified"));
     }
 
     @Test
@@ -198,8 +210,10 @@ class ProfileLoaderTest {
         var loaded = newer.load(ProfileSets.withMachine(Map.of(CLIENT, shipped), machine));
 
         assertAll(
-                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals(ProfileRefusal.Outcome.HARNESS_VERSION_UNSUPPORTED, refusal(loaded).outcome()));
+                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "out-of-range build leaves shipped set"),
+                () -> assertEquals(ProfileRefusal.Outcome.HARNESS_VERSION_UNSUPPORTED, refusal(loaded).outcome(),
+                        "unsupported harness refusal outcome"));
     }
 
     @Test
@@ -215,8 +229,9 @@ class ProfileLoaderTest {
                 Map.of(CLIENT, shipped(base)), null, project), PROJECT_ID);
 
         assertAll(
-                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals("/detection", refusal(loaded).pointer()));
+                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "detection mismatch leaves shipped set"),
+                () -> assertEquals("/detection", refusal(loaded).pointer(), "refusal points at detection block"));
     }
 
     @Test
@@ -231,9 +246,11 @@ class ProfileLoaderTest {
                 PROJECT_ID);
 
         assertAll(
-                () -> assertEquals(ProfileSetKind.PROJECT, loaded.effective(CLIENT).orElseThrow().kind()),
+                () -> assertEquals(ProfileSetKind.PROJECT, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "project document becomes effective"),
                 () -> assertEquals(PROJECT_NAME, loaded.effective(CLIENT).orElseThrow().document()
-                        .member("display_name").flatMap(JsonNode::text).orElseThrow()));
+                                .member("display_name").flatMap(JsonNode::text).orElseThrow(),
+                        "project display name wins"));
     }
 
     @Test
@@ -247,8 +264,10 @@ class ProfileLoaderTest {
                 machine));
 
         assertAll(
-                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_UNVERIFIED, refusal(loaded).outcome()));
+                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "record client mismatch keeps shipped set"),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_UNVERIFIED, refusal(loaded).outcome(),
+                        "client mismatch refusal outcome"));
     }
 
     @Test
@@ -264,7 +283,8 @@ class ProfileLoaderTest {
 
         assertAll(
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
-                () -> assertEquals(ProfileSetKind.PROJECT, loaded.effective(CLIENT).orElseThrow().kind()));
+                () -> assertEquals(ProfileSetKind.PROJECT, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "effective set is the project one"));
     }
 
     @Test
@@ -277,8 +297,9 @@ class ProfileLoaderTest {
                 machine));
 
         assertAll(
-                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals("/client_id", refusal(loaded).pointer()));
+                () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind(),
+                        "client id mismatch keeps shipped set"),
+                () -> assertEquals("/client_id", refusal(loaded).pointer(), "refusal points at client_id"));
     }
 
     @Test
@@ -296,11 +317,12 @@ class ProfileLoaderTest {
         var loaded = otherLoader.load(ProfileSets.withMachine(Map.of(), machine));
 
         assertAll(
-                () -> assertTrue(loaded.effective(CLIENT).isPresent()),
+                () -> assertTrue(loaded.effective(CLIENT).isPresent(), "first profile of precedence is present"),
                 () -> assertFalse(loaded.effective(OTHER_CLIENT).isPresent(),
-                        "The second profile of the same precedence must not take effect"),
+                        "second profile of same precedence is absent"),
                 () -> assertTrue(loaded.refused().stream()
-                        .anyMatch(refused -> "/detection/precedence".equals(refused.refusal().pointer()))));
+                                .anyMatch(refused -> "/detection/precedence".equals(refused.refusal().pointer())),
+                        "precedence refusal is recorded"));
     }
 
     private static ProfileSets.ShippedProfile shipped(byte[] document) {

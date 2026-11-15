@@ -15,6 +15,7 @@ import java.util.List;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,6 +33,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 final class AsciiTableRenderer {
 
     private static final String NONE = "-";
@@ -39,9 +41,6 @@ final class AsciiTableRenderer {
     private static final String CONTINUATION = " ";
     private static final List<String> HEADER = List.of("State", "Task link (rel)", "Offered when",
             "Outcome -> Next State");
-
-    private AsciiTableRenderer() {
-    }
 
     /**
      * Renders a unit.

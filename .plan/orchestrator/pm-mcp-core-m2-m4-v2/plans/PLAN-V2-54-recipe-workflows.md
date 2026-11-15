@@ -51,13 +51,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/recipe-workflows.adoc` § What, Trace, Done When on `origin/main` at `4617865` (3 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/recipe-workflows.adoc unchanged; 3 What bullets and Done When equal D1 to D3
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/recipe-workflows.adoc was restructured by #286: 3 Tasks and Done When, no What section (task 3 names start.recipe-create, spec says recipe.create); the spec text is not the file's words and no section says so
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-V2-24 (`start-from-clients`)) — read at `doc/plans/recipe-workflows.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on phase-sub-workflows and start-from-clients, both rows still listed
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row 132 is open and depends on phase-sub-workflows and start-from-clients; both rows still listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: workflow/plan (30 files), workflow/unit (7), core/recipe package-info only; recipe loaders still absent
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis for the trace matrix; ProjectUnitLoader and PlanInstanceComposer exist, core/recipe holds package-info plus recipe-descriptor-v1.schema.json but no RecipeDescriptor; core-recipe.adoc and its ADR dir absent
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: shipped state intact: composition-rules.json has 13 rules none keyed on recipe_id; UnitType.RECIPE, CompositionEvent.EMPTY_HARVEST exist; workflow-dsl ADRs end at 008
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: composition-rules.json has 13 rules, none mentioning recipe; UnitType.RECIPE:34 and CompositionEvent.EMPTY_HARVEST:49 exist; no recipe_override; workflow-dsl ADRs now end at 011 (text said 008)
 
 ## Expected Surface
 
@@ -134,6 +134,12 @@ Applicability:
 - After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter, recipes included (a recipe is a unit of type `recipe`; grammar `[a-z][a-z0-9._-]{0,63}`, no `..` segment; `PlanInstanceComposer` keeps the icon of the template it composes). A recipe unit this plan writes, and every fixture or inline unit of its tests, carries an `icon:` line; the recipe descriptor needs no icon of its own unless the specification says so, which this verb did not check. The `workflow-dsl` ADR directory exists (ADRs 001 to 008): the next free number is 009 (R11).
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-43 (`phase-sub-workflows`); PLAN-V2-24 (`start-from-clients`)
 - Blocks: PLAN-V2-69 (`process-designer`)
+
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 0 (contradicted at HEAD): doc/plans/recipe-workflows.adoc was restructured by #286: 3 Tasks and Done When, no What section (task 3 names start.recipe-create, spec says recipe.create); the spec text is not the file's words and no section says so
 
 ## Hand-Off Command
 

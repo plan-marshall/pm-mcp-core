@@ -43,13 +43,15 @@ class SecretRedactorTest {
     @DisplayName("an authorization header keeps its label and loses its value")
     void authorizationHeader() {
         assertEquals("Authorization: Bearer " + SecretRedactor.REDACTED,
-                redactValue("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9"));
+                redactValue("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9"),
+                "the bearer value is replaced by the marker");
     }
 
     @Test
     @DisplayName("a bearer value is redacted whatever the header")
     void bearer() {
-        assertEquals("sent Bearer " + SecretRedactor.REDACTED, redactValue("sent Bearer abcdefghijkl"));
+        assertEquals("sent Bearer " + SecretRedactor.REDACTED, redactValue("sent Bearer abcdefghijkl"),
+                "a bare bearer value is redacted");
     }
 
     @Test
@@ -57,11 +59,14 @@ class SecretRedactorTest {
     void assignments() {
         assertAll(
                 () -> assertEquals("api_key=" + SecretRedactor.REDACTED,
-                        redactValue("api_key=abcd1234")),
+                        redactValue("api_key=abcd1234"),
+                        "an api_key assignment loses its value"),
                 () -> assertEquals("password: " + SecretRedactor.REDACTED,
-                        redactValue("password: hunter22")),
+                        redactValue("password: hunter22"),
+                        "a password assignment loses its value"),
                 () -> assertEquals("token=\"" + SecretRedactor.REDACTED + "\"",
-                        redactValue("token=\"abcdefgh\"")));
+                        redactValue("token=\"abcdefgh\""),
+                        "a quoted token keeps its quotes around the marker"));
     }
 
     @Test
@@ -69,13 +74,17 @@ class SecretRedactorTest {
     void environmentVariables() {
         assertAll(
                 () -> assertEquals("DB_PASSWORD=" + SecretRedactor.REDACTED,
-                        redactValue("DB_PASSWORD=hunter22")),
+                        redactValue("DB_PASSWORD=hunter22"),
+                        "an upper case password variable is redacted"),
                 () -> assertEquals("export GITHUB_TOKEN=" + SecretRedactor.REDACTED,
-                        redactValue("export GITHUB_TOKEN=abc12345")),
+                        redactValue("export GITHUB_TOKEN=abc12345"),
+                        "an exported token variable is redacted"),
                 () -> assertEquals("MY_API_KEY=" + SecretRedactor.REDACTED,
-                        redactValue("MY_API_KEY=abcd1234")),
+                        redactValue("MY_API_KEY=abcd1234"),
+                        "a prefixed api key variable is redacted"),
                 () -> assertEquals("AWS_SECRET_ACCESS_KEY=" + SecretRedactor.REDACTED,
-                        redactValue("AWS_SECRET_ACCESS_KEY=abcd1234")));
+                        redactValue("AWS_SECRET_ACCESS_KEY=abcd1234"),
+                        "an aws secret variable is redacted"));
     }
 
     @Test
@@ -83,27 +92,34 @@ class SecretRedactorTest {
     void quotedAndCamelCase() {
         assertAll(
                 () -> assertEquals("{\"password\": \"" + SecretRedactor.REDACTED + "\"}",
-                        redactValue("{\"password\": \"hunter22\"}")),
+                        redactValue("{\"password\": \"hunter22\"}"),
+                        "a quoted json password loses its value"),
                 () -> assertEquals("authToken=" + SecretRedactor.REDACTED,
-                        redactValue("authToken=abcd1234")),
+                        redactValue("authToken=abcd1234"),
+                        "a camel case token label is redacted"),
                 () -> assertEquals("clientSecret: " + SecretRedactor.REDACTED,
-                        redactValue("clientSecret: abcd1234")));
+                        redactValue("clientSecret: abcd1234"),
+                        "a camel case secret label is redacted"));
     }
 
     @Test
     @DisplayName("ordinary build text that starts with pass is not a credential")
     void passIsNarrow() {
         assertAll(
-                () -> assertEquals("passed: 7780", redactValue("passed: 7780")),
-                () -> assertEquals("passthrough=true", redactValue("passthrough=true")),
-                () -> assertEquals("passes=1000", redactValue("passes=1000")));
+                () -> assertEquals("passed: 7780", redactValue("passed: 7780"),
+                        "plain passed text is left alone"),
+                () -> assertEquals("passthrough=true", redactValue("passthrough=true"),
+                        "plain passthrough text is left alone"),
+                () -> assertEquals("passes=1000", redactValue("passes=1000"),
+                        "a plain passes count is left alone"));
     }
 
     @Test
     @DisplayName("a provider token shape is redacted")
     void tokenShape() {
         assertEquals("the key is " + SecretRedactor.REDACTED,
-                redactValue("the key is sk-proj-abcdefghijklmnop"));
+                redactValue("the key is sk-proj-abcdefghijklmnop"),
+                "a provider token shape is redacted");
     }
 
     @Test
@@ -367,10 +383,10 @@ class SecretRedactorTest {
 
         assertAll("invisible characters in a credential assignment",
                 () -> assertEquals("password=" + SecretRedactor.REDACTED, zeroWidthLabel,
-                        "a zero-width space inside the label is removed before the match"),
+                        "a zero-width space is removed before the match"),
                 () -> assertFalse(zeroWidthLabel.contains("abcd1234"), "the value after a split label is gone"),
                 () -> assertEquals("token=" + SecretRedactor.REDACTED, byteOrderMark,
-                        "a byte-order mark after the label is removed before the match"),
+                        "a byte-order mark is removed before the match"),
                 () -> assertFalse(byteOrderMark.contains("\uFEFF"), "the stored text carries no invisible character"));
     }
 
@@ -578,7 +594,7 @@ class SecretRedactorTest {
         var markers = PEM_BEGIN_MARKER.repeat(400_000 / PEM_BEGIN_MARKER.length() + 1).substring(0, 400_000);
 
         var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(markers),
-                "400 000 characters of BEGIN markers must redact within the bound");
+                "the linear redaction finishes within the bound");
 
         assertEquals(400_000, markers.length(), "the cost input holds 400 000 characters");
         assertEquals(SecretRedactor.REDACTED, redacted, "an unclosed block masks the whole text");
@@ -671,11 +687,14 @@ class SecretRedactorTest {
     void keepsOrdinaryText() {
         assertAll(
                 () -> assertEquals("the token budget is 30000",
-                        redactValue("the token budget is 30000")),
-                () -> assertEquals("src/main/java/A.java", redactValue("src/main/java/A.java")),
+                        redactValue("the token budget is 30000"),
+                        "the token budget prose stays readable"),
+                () -> assertEquals("src/main/java/A.java", redactValue("src/main/java/A.java"),
+                        "a source path stays readable"),
                 () -> assertEquals("f4a1bd07f480bbf04c18545192e0690fbca03563",
-                        redactValue("f4a1bd07f480bbf04c18545192e0690fbca03563")),
-                () -> assertEquals("", redactValue("")),
+                        redactValue("f4a1bd07f480bbf04c18545192e0690fbca03563"),
+                        "a commit id stays readable"),
+                () -> assertEquals("", redactValue(""), "an empty text stays empty"),
                 () -> assertTrue(SecretRedactor.redactText(null).isEmpty(), "Null input yields an empty result"));
     }
 
@@ -722,8 +741,10 @@ class SecretRedactorTest {
 
         assertAll(
                 () -> assertEquals("curl -H 'Authorization: Bearer " + SecretRedactor.REDACTED + "'",
-                        SecretRedactor.redact(call).tool().target()),
-                () -> assertEquals("src/secret/config.properties", SecretRedactor.redact(changed).path()));
+                        SecretRedactor.redact(call).tool().target(),
+                        "the tool target's bearer value is masked"),
+                () -> assertEquals("src/secret/config.properties", SecretRedactor.redact(changed).path(),
+                        "a path is not redacted"));
     }
 
     @Test

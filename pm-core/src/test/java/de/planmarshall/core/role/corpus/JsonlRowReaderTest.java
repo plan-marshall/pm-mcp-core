@@ -53,10 +53,12 @@ class JsonlRowReaderTest {
             var rows = read("{\"id\":\"q-1\",\"question\":\"Which?\"}\n{\"id\":\"q-2\",\"question\":\"Why?\"}");
 
             assertAll(
-                    () -> assertEquals(2, rows.size()),
-                    () -> assertEquals(new SourceRow(1, Map.of("id", "q-1", "question", "Which?")), rows.get(0)),
-                    () -> assertEquals(2, rows.get(1).line()),
-                    () -> assertEquals(List.of("id", "question"), List.copyOf(rows.get(1).fields().keySet())));
+                    () -> assertEquals(2, rows.size(), "two lines become two rows"),
+                    () -> assertEquals(new SourceRow(1, Map.of("id", "q-1", "question", "Which?")), rows.get(0),
+                            "the first line becomes a row with fields in order"),
+                    () -> assertEquals(2, rows.get(1).line(), "the second row carries its line number"),
+                    () -> assertEquals(List.of("id", "question"), List.copyOf(rows.get(1).fields().keySet()),
+                            "fields stay in the order the object writes"));
         }
 
         @Test
@@ -66,7 +68,7 @@ class JsonlRowReaderTest {
                     .getFirst();
 
             assertEquals(Map.of("options", "[\"a\",\"b\"]", "meta", "{\"n\":1}", "score", "2.5", "ok", "true",
-                    "x", "null"), row.fields());
+                    "x", "null"), row.fields(), "a nested value keeps its JSON text unconverted");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -76,7 +78,7 @@ class JsonlRowReaderTest {
         void numberText(String number) {
             var row = read("{\"n\":" + number + "}").getFirst();
 
-            assertEquals(number, row.fields().get("n"));
+            assertEquals(number, row.fields().get("n"), "a number keeps the text the line writes");
         }
 
         @Test
@@ -85,8 +87,10 @@ class JsonlRowReaderTest {
             var row = read("{\"meta\": {\"score\" : 2.50, \"list\": [1e3, -0]}, \"after\":\"x\"}").getFirst();
 
             assertAll(
-                    () -> assertEquals("{\"score\" : 2.50, \"list\": [1e3, -0]}", row.fields().get("meta")),
-                    () -> assertEquals("x", row.fields().get("after")));
+                    () -> assertEquals("{\"score\" : 2.50, \"list\": [1e3, -0]}", row.fields().get("meta"),
+                            "the nested object keeps the text it spans"),
+                    () -> assertEquals("x", row.fields().get("after"),
+                            "the field beside the nested object is kept"));
         }
 
         @Test
@@ -95,14 +99,14 @@ class JsonlRowReaderTest {
             var rows = read("{\"id\":\"q-1\"}\r\n{\"id\":\"q-2\"}\r\n");
 
             assertAll(
-                    () -> assertEquals(2, rows.size()),
-                    () -> assertEquals("q-2", rows.get(1).fields().get("id")));
+                    () -> assertEquals(2, rows.size(), "CRLF lines give the same two rows"),
+                    () -> assertEquals("q-2", rows.get(1).fields().get("id"), "the second row keeps its id field"));
         }
 
         @Test
         @DisplayName("an empty file has no rows")
         void empty() {
-            assertEquals(List.of(), read(""));
+            assertEquals(List.of(), read(""), "an empty file has no rows");
         }
     }
 
@@ -127,10 +131,11 @@ class JsonlRowReaderTest {
     @MethodSource("malformed")
     @DisplayName("a malformed line is refused with its line number")
     void malformedLine(String name, String text, int line, String detail) {
-        var refusal = assertThrows(MalformedSource.class, () -> read(text));
+        var refusal = assertThrows(MalformedSource.class, () -> read(text),
+                "a malformed line is refused with its number");
 
         assertAll(
-                () -> assertEquals(line, refusal.line()),
+                () -> assertEquals(line, refusal.line(), "the refusal names the malformed line"),
                 () -> assertTrue(refusal.getMessage().startsWith("line " + line + ": "), refusal::getMessage),
                 () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
     }
@@ -139,7 +144,8 @@ class JsonlRowReaderTest {
     @DisplayName("a file that is not UTF-8 is refused")
     void notUtf8() {
         var refusal = assertThrows(MalformedSource.class,
-                () -> JsonlRowReader.read(new byte[]{'{', '"', 'a', '"', ':', '"', (byte) 0xC3, '"', '}'}));
+                () -> JsonlRowReader.read(new byte[]{'{', '"', 'a', '"', ':', '"', (byte) 0xC3, '"', '}'}),
+                "a file that is not UTF-8 is refused");
 
         assertTrue(refusal.getMessage().contains("not UTF-8"), refusal::getMessage);
     }

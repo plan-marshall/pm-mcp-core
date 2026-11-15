@@ -43,9 +43,12 @@ class ScoringTest {
         var item = QualificationFixtures.item(topic + "/clean-plan", QualificationFixtures.ROLE, reference).build();
 
         assertAll(
-                () -> assertTrue(Scoring.closed(item, reference).judgedRight()),
-                () -> assertFalse(Scoring.closed(item, other).judgedRight()),
-                () -> assertTrue(Scoring.closed(item, " " + reference + " ").judgedRight()));
+                () -> assertTrue(Scoring.closed(item, reference).judgedRight(),
+                        "the reference answer is judged right"),
+                () -> assertFalse(Scoring.closed(item, other).judgedRight(),
+                        "another answer is judged wrong"),
+                () -> assertTrue(Scoring.closed(item, " " + reference + " ").judgedRight(),
+                        "surrounding spaces are trimmed"));
     }
 
     @Test
@@ -71,8 +74,10 @@ class ScoringTest {
                 null, "canary");
 
         assertAll(
-                () -> assertTrue(Scoring.closed(item, "").judgedRight()),
-                () -> assertFalse(Scoring.closed(item, other).judgedRight()));
+                () -> assertTrue(Scoring.closed(item, "").judgedRight(),
+                        "a control answer right on silence"),
+                () -> assertFalse(Scoring.closed(item, other).judgedRight(),
+                        "a spoken control answer is wrong"));
     }
 
     @Test
@@ -83,10 +88,12 @@ class ScoringTest {
                 .method(ImportedItem.GradingMethod.RUBRIC_ITEMS).build();
 
         assertAll(
-                () -> assertTrue(Scoring.right(item, new BigDecimal("0.5"))),
-                () -> assertTrue(Scoring.right(item, BigDecimal.ONE)),
-                () -> assertFalse(Scoring.right(item, new BigDecimal("0.4"))),
-                () -> assertTrue(Scoring.judged(item)));
+                () -> assertTrue(Scoring.right(item, new BigDecimal("0.5")),
+                        "a score at the threshold passes"),
+                () -> assertTrue(Scoring.right(item, BigDecimal.ONE), "a perfect score passes the rubric"),
+                () -> assertFalse(Scoring.right(item, new BigDecimal("0.4")),
+                        "a score below the threshold fails"),
+                () -> assertTrue(Scoring.judged(item), "a rubric item goes to the judge"));
     }
 
     @Test
@@ -130,7 +137,7 @@ class ScoringTest {
         var item = QualificationFixtures.item(topic + "/clean-plan", QualificationFixtures.ROLE,
                 "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)).build();
 
-        assertFalse(Scoring.judged(item));
+        assertFalse(Scoring.judged(item), "a closed item never goes to the judge");
     }
 
     private static ImportedItem rubricItemWith(BigDecimal passThreshold) {

@@ -70,7 +70,8 @@ class VerificationRecordToolTest {
     @DisplayName("a tool without its version is refused at its pointer")
     void missingVersion() {
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> readWithTool("\"tool\": {\"commit\": \"" + TOOL_COMMIT + "\"},"));
+                () -> readWithTool("\"tool\": {\"commit\": \"" + TOOL_COMMIT + "\"},"),
+                "tool without version is refused");
 
         assertAll(
                 () -> assertEquals("/tool/version", refusal.pointer(), "the refusal names the missing version"),
@@ -82,7 +83,8 @@ class VerificationRecordToolTest {
     @DisplayName("a tool without its commit is refused at its pointer")
     void missingCommit() {
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> readWithTool("\"tool\": {\"version\": \"" + TOOL_VERSION + "\"},"));
+                () -> readWithTool("\"tool\": {\"version\": \"" + TOOL_VERSION + "\"},"),
+                "tool without commit is refused");
 
         assertAll(
                 () -> assertEquals("/tool/commit", refusal.pointer(), "the refusal names the missing commit"),
@@ -95,7 +97,8 @@ class VerificationRecordToolTest {
     void unknownMember() {
         var refusal = assertThrows(ProfileRefusal.class,
                 () -> readWithTool("\"tool\": {\"version\": \"" + TOOL_VERSION + "\", \"commit\": \"" + TOOL_COMMIT
-                        + "\", \"dirty\": true},"));
+                        + "\", \"dirty\": true},"),
+                "undeclared tool member is refused");
 
         assertAll(
                 () -> assertEquals("/tool/dirty", refusal.pointer(), "the refusal names the undeclared member"),
@@ -106,7 +109,8 @@ class VerificationRecordToolTest {
     @Test
     @DisplayName("a record without a tool is refused at the tool member")
     void missingTool() {
-        var refusal = assertThrows(ProfileRefusal.class, () -> readWithTool(""));
+        var refusal = assertThrows(ProfileRefusal.class, () -> readWithTool(""),
+                "record without a tool is refused");
 
         assertAll(
                 () -> assertEquals("/tool", refusal.pointer(), "the refusal names the missing tool"),

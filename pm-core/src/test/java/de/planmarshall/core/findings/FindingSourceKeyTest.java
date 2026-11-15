@@ -49,16 +49,19 @@ class FindingSourceKeyTest {
             var key = FindingSourceKey.analysis(provider);
 
             assertAll(
-                    () -> assertEquals(FindingSourceKind.ANALYSIS, key.kind()),
-                    () -> assertEquals(provider, key.provider()),
-                    () -> assertTrue(FindingSourceKey.isProviderId(provider)));
+                    () -> assertEquals(FindingSourceKind.ANALYSIS, key.kind(),
+                            "analysis key carries the analysis kind"),
+                    () -> assertEquals(provider, key.provider(), "analysis key keeps its provider id"),
+                    () -> assertTrue(FindingSourceKey.isProviderId(provider),
+                            "provider id matches the pattern"));
         }
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(value = FindingSourceKind.class, mode = EnumSource.Mode.EXCLUDE, names = "ANALYSIS")
         @DisplayName("a key of every other kind has no provider")
         void otherKind(FindingSourceKind kind) {
-            assertEquals(new FindingSourceKey(kind, null), FindingSourceKey.of(kind));
+            assertEquals(new FindingSourceKey(kind, null), FindingSourceKey.of(kind),
+                    "key of another kind has no provider");
         }
 
         @Test
@@ -66,15 +69,16 @@ class FindingSourceKeyTest {
         void equalByValue() {
             assertAll(
                     () -> assertEquals(FindingSourceKey.analysis(PROVIDER),
-                            new FindingSourceKey(FindingSourceKind.ANALYSIS, PROVIDER)),
+                            new FindingSourceKey(FindingSourceKind.ANALYSIS, PROVIDER),
+                            "keys with the same content are equal"),
                     () -> assertEquals(FindingSourceKey.analysis(PROVIDER).hashCode(),
-                            FindingSourceKey.analysis(PROVIDER).hashCode()),
+                            FindingSourceKey.analysis(PROVIDER).hashCode(), "equal keys share their hash code"),
                     () -> assertNotEquals(FindingSourceKey.analysis(PROVIDER),
-                            FindingSourceKey.analysis(OTHER_PROVIDER)),
+                            FindingSourceKey.analysis(OTHER_PROVIDER), "keys of different providers differ"),
                     () -> assertEquals(FindingSourceKey.of(FindingSourceKind.QGATE),
-                            FindingSourceKey.of(FindingSourceKind.QGATE)),
+                            FindingSourceKey.of(FindingSourceKind.QGATE), "qgate keys of the same kind are equal"),
                     () -> assertNotEquals(FindingSourceKey.of(FindingSourceKind.QGATE),
-                            FindingSourceKey.of(FindingSourceKind.CI)));
+                            FindingSourceKey.of(FindingSourceKind.CI), "qgate and ci keys differ"));
         }
     }
 
@@ -87,15 +91,19 @@ class FindingSourceKeyTest {
         void analysisWithoutProvider() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> FindingSourceKey.of(FindingSourceKind.ANALYSIS)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> FindingSourceKey.analysis(null)));
+                            () -> FindingSourceKey.of(FindingSourceKind.ANALYSIS),
+                            "analysis key without a provider is refused"),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> FindingSourceKey.analysis(null),
+                            "analysis key with a null provider is refused"));
         }
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(value = FindingSourceKind.class, mode = EnumSource.Mode.EXCLUDE, names = "ANALYSIS")
         @DisplayName("a key of another kind with a provider is refused")
         void otherKindWithProvider(FindingSourceKind kind) {
-            assertThrows(IllegalArgumentException.class, () -> new FindingSourceKey(kind, PROVIDER));
+            assertThrows(IllegalArgumentException.class, () -> new FindingSourceKey(kind, PROVIDER),
+                    "other kind with a provider is refused");
         }
 
         @ParameterizedTest(name = "\"{0}\"")
@@ -103,8 +111,11 @@ class FindingSourceKeyTest {
         @DisplayName("a provider outside the pattern is refused")
         void providerPattern(String provider) {
             assertAll(
-                    () -> assertFalse(FindingSourceKey.isProviderId(provider)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> FindingSourceKey.analysis(provider)));
+                    () -> assertFalse(FindingSourceKey.isProviderId(provider),
+                            "provider outside the id pattern is refused"),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> FindingSourceKey.analysis(provider),
+                            "analysis key of an invalid provider is refused"));
         }
 
         @Test
@@ -114,14 +125,18 @@ class FindingSourceKeyTest {
             var tooLong = "a".repeat(65);
 
             assertAll(
-                    () -> assertTrue(FindingSourceKey.isProviderId(longest)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> FindingSourceKey.analysis(tooLong)));
+                    () -> assertTrue(FindingSourceKey.isProviderId(longest),
+                            "64-character provider id is accepted"),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> FindingSourceKey.analysis(tooLong),
+                            "65-character provider id is refused"));
         }
 
         @Test
         @DisplayName("a key without a kind is refused")
         void missingKind() {
-            assertThrows(NullPointerException.class, () -> new FindingSourceKey(null, null));
+            assertThrows(NullPointerException.class, () -> new FindingSourceKey(null, null),
+                    "key without a kind is refused");
         }
     }
 
@@ -140,10 +155,13 @@ class FindingSourceKeyTest {
                     .toArray(String[]::new);
 
             assertAll(
-                    () -> assertEquals(Arrays.asList(expected), Arrays.asList(actual)),
+                    () -> assertEquals(Arrays.asList(expected), Arrays.asList(actual),
+                            "wire names are the thirteen source kinds"),
                     () -> assertTrue(Arrays.stream(FindingSourceKind.values()).allMatch(
-                            kind -> FindingSourceKind.fromWireName(kind.wireName()).equals(Optional.of(kind)))),
-                    () -> assertEquals(Optional.empty(), FindingSourceKind.fromWireName("unknown")));
+                                    kind -> FindingSourceKind.fromWireName(kind.wireName()).equals(Optional.of(kind))),
+                            "every source kind round-trips its wire name"),
+                    () -> assertEquals(Optional.empty(), FindingSourceKind.fromWireName("unknown"),
+                            "unknown wire name answers empty"));
         }
     }
 }

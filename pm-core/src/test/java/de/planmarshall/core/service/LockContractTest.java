@@ -67,9 +67,9 @@ class LockContractTest {
             var event = AuditEvent.lockOrderViolation(List.of(WORKSPACE, QUEUE), PLAN);
 
             assertAll(
-                    () -> assertEquals("lock_order_violation", event.event()),
-                    () -> assertEquals("store", event.category()),
-                    () -> assertEquals("refused", event.outcome()));
+                    () -> assertEquals("lock_order_violation", event.event(), "lock order violation event name"),
+                    () -> assertEquals("store", event.category(), "lock order violation category is store"),
+                    () -> assertEquals("refused", event.outcome(), "lock order violation outcome is refused"));
         }
 
         @Test
@@ -77,7 +77,8 @@ class LockContractTest {
         void details() {
             var event = AuditEvent.lockOrderViolation(List.of(WORKSPACE, QUEUE), PLAN);
 
-            assertEquals(Map.of("held", List.of(WORKSPACE_LOCK, QUEUE_LOCK), "requested", PLAN_LOCK), event.details());
+            assertEquals(Map.of("held", List.of(WORKSPACE_LOCK, QUEUE_LOCK), "requested", PLAN_LOCK), event.details(),
+                    "details name the held and requested lock paths");
         }
 
         @Test
@@ -91,8 +92,9 @@ class LockContractTest {
             var held = List.of();
 
             assertAll(
-                    () -> assertEquals(Set.of("requested"), event.details().keySet()),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> details.put("held", held)));
+                    () -> assertEquals(Set.of("requested"), event.details().keySet(), "the details have one key"),
+                    () -> assertThrows(UnsupportedOperationException.class,
+                            () -> details.put("held", held), "the details map is unmodifiable"));
         }
 
         @Test
@@ -102,13 +104,17 @@ class LockContractTest {
 
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> new AuditEvent(null, "store", "refused", details)),
+                            () -> new AuditEvent(null, "store", "refused", details),
+                            "an audit event needs its name"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new AuditEvent("lock_order_violation", null, "refused", details)),
+                            () -> new AuditEvent("lock_order_violation", null, "refused", details),
+                            "an audit event needs its category"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new AuditEvent("lock_order_violation", "store", null, details)),
+                            () -> new AuditEvent("lock_order_violation", "store", null, details),
+                            "an audit event needs its outcome"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new AuditEvent("lock_order_violation", "store", "refused", null)));
+                            () -> new AuditEvent("lock_order_violation", "store", "refused", null),
+                            "an audit event needs its details"));
         }
 
         @Test
@@ -122,7 +128,7 @@ class LockContractTest {
             sink.append(first);
             sink.append(second);
 
-            assertEquals(List.of(first, second), appended);
+            assertEquals(List.of(first, second), appended, "the sink keeps the append order");
         }
     }
 
@@ -136,10 +142,11 @@ class LockContractTest {
             var fault = InternalFaultException.lockOrderViolation(List.of(WORKSPACE, QUEUE), PLAN);
 
             assertAll(
-                    () -> assertEquals(Reason.LOCK_ORDER_VIOLATION, fault.reason()),
-                    () -> assertEquals("lock_order_violation", fault.reason().code()),
+                    () -> assertEquals(Reason.LOCK_ORDER_VIOLATION, fault.reason(), "the fault carries its reason"),
+                    () -> assertEquals("lock_order_violation", fault.reason().code(),
+                            "the reason code is the event name"),
                     () -> assertEquals(AuditEvent.lockOrderViolation(List.of(WORKSPACE, QUEUE), PLAN).details(),
-                            fault.details()));
+                            fault.details(), "the fault carries the audit event details"));
         }
 
         @Test
@@ -150,13 +157,14 @@ class LockContractTest {
             var paths = Pattern.compile("/[^\\s',\\]]+").matcher(fault.getMessage()).results()
                     .map(MatchResult::group).toList();
 
-            assertEquals(List.of(PLAN_LOCK, WORKSPACE_LOCK, QUEUE_LOCK), paths);
+            assertEquals(List.of(PLAN_LOCK, WORKSPACE_LOCK, QUEUE_LOCK), paths,
+                    "the message names the three lock paths");
         }
 
         @Test
         @DisplayName("the reason of a fault is closed and starts with the lock order violation")
         void reasons() {
-            assertEquals(Reason.LOCK_ORDER_VIOLATION, Reason.values()[0]);
+            assertEquals(Reason.LOCK_ORDER_VIOLATION, Reason.values()[0], "the violation opens the closed reasons");
         }
 
         @Test
@@ -167,11 +175,13 @@ class LockContractTest {
 
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> new InternalFaultException(null, message, details)),
+                            () -> new InternalFaultException(null, message, details), "a fault needs its reason"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new InternalFaultException(Reason.LOCK_ORDER_VIOLATION, null, details)),
+                            () -> new InternalFaultException(Reason.LOCK_ORDER_VIOLATION, null, details),
+                            "a fault needs its message"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new InternalFaultException(Reason.LOCK_ORDER_VIOLATION, message, null)));
+                            () -> new InternalFaultException(Reason.LOCK_ORDER_VIOLATION, message, null),
+                            "a fault needs its details"));
         }
 
         @Test
@@ -189,10 +199,12 @@ class LockContractTest {
             }
 
             assertAll(
-                    () -> assertEquals(Reason.LOCK_ORDER_VIOLATION, restored.reason()),
-                    () -> assertEquals(fault.getMessage(), restored.getMessage()),
-                    () -> assertTrue(restored.details().isEmpty()),
-                    () -> assertFalse(fault.details().isEmpty()));
+                    () -> assertEquals(Reason.LOCK_ORDER_VIOLATION, restored.reason(),
+                            "the reason survives serialization"),
+                    () -> assertEquals(fault.getMessage(), restored.getMessage(),
+                            "the message survives serialization"),
+                    () -> assertTrue(restored.details().isEmpty(), "the restored fault has no details"),
+                    () -> assertFalse(fault.details().isEmpty(), "the original fault still has details"));
         }
     }
 }

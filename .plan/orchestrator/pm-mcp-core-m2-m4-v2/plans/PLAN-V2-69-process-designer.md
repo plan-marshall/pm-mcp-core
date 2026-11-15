@@ -62,13 +62,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/process-designer.adoc` § What, Trace, Done When on `origin/main` at `4617865` (12 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/process-designer.adoc has no commit since 88ec9c70; 12 What bullets equal D1 to D12 (several cited spec parts changed since: see the record)
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/process-designer.adoc was rewritten by #286: the What bullets are now a Tasks list of 7 numbered items, so the 12-bullet text is no longer the package file's own
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-V2-54 (`recipe-workflows`); PLAN-46 (`machine-onboarding-unit`) (the plan axes and their variants); PLAN-V2-22 (`start-source-intake`) (the short landings); PLAN-26 (`role-sets-and-model-caller`) (the effective role set)) — read at `doc/plans/process-designer.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row lists phase-sub-workflows, recipe-workflows, machine-onboarding-unit, start-source-intake only; PLAN-26 shipped (#146, no row); the spec still lists it
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README row process-designer is open and depends on phase-sub-workflows, recipe-workflows, machine-onboarding-unit, start-source-intake only; PLAN-26 is not listed; the Re-grounding Record of the spec states it shipped (#146)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: runtime/ cannot hold designer endpoints or git.land-unit (pm-mcp-server and plan-marshall-mcp); unit/ is loaders only, UnitOrigin has DEFAULT and PROJECT only; no catalogue or machine level
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: UnitOrigin.java has DEFAULT and PROJECT only; designer endpoints and git.land-unit are not pm-runtime; the Re-grounding Record states both facts; the package file Where line still names pm-runtime
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the index part holds; all four dependency rows present, none blocked
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure clause for the executing plan, not a fact; the index row is open with all four dependency rows present
 
 ## Expected Surface
 
@@ -193,6 +193,12 @@ Applicability:
 - **Landing note (2026-10-29):** PLAN-105 landed (#230): the Mermaid instance form lists composed files with digests but has no phase composites.
 - After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter (a stable icon id, never a file path; grammar `[a-z][a-z0-9._-]{0,63}`, no `..` segment). The designer's catalogue and validate endpoints (deliverables 6 and 7) list and check the frontmatter fields exactly as the loader does, so `icon` is one of them: a machine or project copy of a unit keeps the icon of the unit it copies, a unit without one is refused as the loader refuses it. Whether the catalogue entry of a unit also shows its icon id is for the specification to say (not read for this note). The icon assets and the visual language are the `pm-mcp-clients` plan `workflow-visual-language-and-icons`, not this one. The `workflow-dsl` ADR directory exists (ADRs 001 to 008): the next free number is 009 (R11).
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-43 (`phase-sub-workflows`); PLAN-V2-54 (`recipe-workflows`); PLAN-46 (`machine-onboarding-unit`) (the plan axes and their variants); PLAN-V2-22 (`start-source-intake`) (the short landings); PLAN-26 (`role-sets-and-model-caller`) (the effective role set)
+
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 0 (contradicted at HEAD): doc/plans/process-designer.adoc was rewritten by #286: the What bullets are now a Tasks list of 7 numbered items, so the 12-bullet text is no longer the package file's own
 
 ## Hand-Off Command
 

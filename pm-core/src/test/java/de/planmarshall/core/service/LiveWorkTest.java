@@ -47,9 +47,9 @@ class LiveWorkTest {
             var item = new Item(kind, id);
 
             assertAll(
-                    () -> assertEquals(kind, item.kind()),
-                    () -> assertEquals(id, item.id()),
-                    () -> assertEquals(name, item.toString()));
+                    () -> assertEquals(kind, item.kind(), "the item keeps its kind"),
+                    () -> assertEquals(id, item.id(), "the item keeps its id"),
+                    () -> assertEquals(name, item.toString(), "the item is named by kind code and id"));
         }
 
         @Test
@@ -58,22 +58,24 @@ class LiveWorkTest {
             var id = Generators.letterStrings(3, 10).next();
 
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> new Item(null, id)),
-                    () -> assertThrows(NullPointerException.class, () -> new Item(Kind.PLAN, null)));
+                    () -> assertThrows(NullPointerException.class, () -> new Item(null, id), "an item needs its kind"),
+                    () -> assertThrows(NullPointerException.class, () -> new Item(Kind.PLAN, null),
+                            "an item needs a non-null id"));
         }
 
         @ParameterizedTest
         @ValueSource(strings = {"", " ", "\t"})
         @DisplayName("refuses a blank id")
         void blankId(String id) {
-            assertThrows(IllegalArgumentException.class, () -> new Item(Kind.JOB, id));
+            assertThrows(IllegalArgumentException.class, () -> new Item(Kind.JOB, id), "a blank id is refused");
         }
     }
 
     @Test
     @DisplayName("the kinds are exactly plan, epic and job")
     void kinds() {
-        assertEquals(List.of("plan", "epic", "job"), List.of(Kind.values()).stream().map(Kind::code).toList());
+        assertEquals(List.of("plan", "epic", "job"), List.of(Kind.values()).stream().map(Kind::code).toList(),
+                "the kinds are exactly plan, epic and job");
     }
 
     @Nested
@@ -86,7 +88,7 @@ class LiveWorkTest {
             var projectId = Generators.letterStrings(5, 20).next();
             LiveWork none = ignored -> List.of();
 
-            assertTrue(none.of(projectId).isEmpty());
+            assertTrue(none.of(projectId).isEmpty(), "an empty report holds no live work");
         }
 
         @Test
@@ -100,8 +102,8 @@ class LiveWorkTest {
             LiveWork work = candidate -> projectId.equals(candidate) ? items : List.of();
 
             assertAll(
-                    () -> assertEquals(items, work.of(projectId)),
-                    () -> assertTrue(work.of(otherProject).isEmpty()));
+                    () -> assertEquals(items, work.of(projectId), "the report names every item of the project"),
+                    () -> assertTrue(work.of(otherProject).isEmpty(), "another project has no live work"));
         }
     }
 }

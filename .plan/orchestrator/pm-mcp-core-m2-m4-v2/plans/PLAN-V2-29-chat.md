@@ -59,13 +59,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/chat.adoc` § What, Trace, Done When on `origin/main` at `4617865` (11 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/chat.adoc unchanged since 88ec9c70; 11 What bullets
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/chat.adoc at HEAD (restructured by #286 efecccba) has a Tasks section of 9 numbered tasks, no section What and not 11 bullets; Done When is a Watch (none) plus a Tests bullet; the spec carries no section that stat
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-43 (`phase-sub-workflows`); PLAN-28 (`task-queue-and-protocol`); PLAN-26 (`role-sets-and-model-caller`); PLAN-34 (`role-qualification`); PLAN-V2-23 (`decision-engine`); PLAN-V2-24 (`start-from-clients`) (chat while starting); PLAN-V2-22 (`start-source-intake`) (the entry's `chat/` and its move); PLAN-V2-26 (`process-and-overview`) (ended work)) — read at `doc/plans/chat.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row chat lists seven dependencies (operator-wait-and-machine-scope, phase-sub-workflows, role-qualification, decision-engine, start-from-clients, start-source-intake, process-and-overview); the spec still names PLAN-28 and PLAN-26, both shipped
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc:138-142 row chat is open and lists five dependencies (phase-sub-workflows, decision-engine, start-from-clients, start-source-intake, process-and-overview); PLAN-28 and PLAN-26 are gone. Re-grounding Record claim 1 corrects it.
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: still wrong: workflow/unit has loaders only; runtime/web holds Der, WebState, WebTls, WebListenerConflictException (no routes); core/store has no transcript type
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: workflow/unit holds loaders only; workflow/primitive is package-info only; runtime/web holds TLS, state and Activity* classes, no chat routes; core/store has no transcript type. Re-grounding Record records the same.
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: chat row open, not blocked; all seven dependency rows open; no PR; #185 and #190 touch nothing of chat
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:138-142 chat is open, not blocked; all five dependency rows are open; no chat code exists at HEAD; queue row PLAN-V2-29 is parked, nothing shipped; open-pull-request part not readable.
 
 ## Expected Surface
 
@@ -145,6 +145,12 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-43 (`phase-sub-workflows`); PLAN-28 (`task-queue-and-protocol`); PLAN-26 (`role-sets-and-model-caller`); PLAN-34 (`role-qualification`); PLAN-V2-23 (`decision-engine`); PLAN-V2-24 (`start-from-clients`) (chat while starting); PLAN-V2-22 (`start-source-intake`) (the entry's `chat/` and its move); PLAN-V2-26 (`process-and-overview`) (ended work); PLAN-V2-01 (`primitive-failure-reasons`) (the `chat.*` state primitives follow the settled SPI, as for PLAN-V2-24)
 - Blocks: PLAN-V2-32 (`epic-decomposition`); PLAN-V2-74 (`cleanup`); PLAN-V2-75 (`chat-plan-revision`); PLAN-V2-64 (`epic-review`)
+
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 0 (contradicted at HEAD): doc/plans/chat.adoc at HEAD (restructured by #286 efecccba) has a Tasks section of 9 numbered tasks, no section What and not 11 bullets; Done When is a Watch (none) plus a Tests bullet; the spec carries no section that states this, Deliverables still quote 11 bullets.
 
 ## Hand-Off Command
 

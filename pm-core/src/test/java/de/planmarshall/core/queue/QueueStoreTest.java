@@ -52,10 +52,13 @@ class QueueStoreTest {
 
             assertAll(
                     () -> assertEquals(base.resolve("projects/project-a/queue").toAbsolutePath().normalize(),
-                            store.directory()),
-                    () -> assertEquals(LockLevel.QUEUE, store.lockKey().level()),
+                            store.directory(),
+                            "project queue directory sits under projects"),
+                    () -> assertEquals(LockLevel.QUEUE, store.lockKey().level(),
+                            "project queue lock is taken at queue level"),
                     () -> assertEquals(base.resolve("projects/project-a/locks/queue.lock").toAbsolutePath()
-                            .normalize(), store.lockKey().lockFile()));
+                                    .normalize(), store.lockKey().lockFile(),
+                            "queue lock file lives in the project lock directory"));
         }
 
         @Test
@@ -64,9 +67,10 @@ class QueueStoreTest {
             var store = QueueStore.ofMachine(base, new TestLocks());
 
             assertAll(
-                    () -> assertEquals(base.resolve("machine/queue").toAbsolutePath().normalize(), store.directory()),
+                    () -> assertEquals(base.resolve("machine/queue").toAbsolutePath().normalize(),
+                            store.directory(), "machine queue directory sits under machine"),
                     () -> assertEquals(base.resolve("machine/locks/queue.lock").toAbsolutePath().normalize(),
-                            store.lockKey().lockFile()));
+                            store.lockKey().lockFile(), "machine queue lock file sits in machine locks"));
         }
     }
 
@@ -83,9 +87,12 @@ class QueueStoreTest {
             store.create(task);
 
             assertAll(
-                    () -> assertTrue(Files.exists(store.recordPath(task.queueTaskId()))),
-                    () -> assertEquals(task, store.read(task.queueTaskId()).orElseThrow()),
-                    () -> assertEquals(List.of(task), store.records()));
+                    () -> assertTrue(Files.exists(store.recordPath(task.queueTaskId())),
+                            "record file exists after the create"),
+                    () -> assertEquals(task, store.read(task.queueTaskId()).orElseThrow(),
+                            "created record is read back unchanged"),
+                    () -> assertEquals(List.of(task), store.records(),
+                            "listing holds the created record"));
         }
 
         @Test
@@ -95,7 +102,8 @@ class QueueStoreTest {
             var task = QueueFixtures.queued(taskId()).build();
             store.create(task);
 
-            assertThrows(IllegalArgumentException.class, () -> store.create(task));
+            assertThrows(IllegalArgumentException.class, () -> store.create(task),
+                    "a record is not created twice");
         }
 
         @Test
@@ -109,7 +117,8 @@ class QueueStoreTest {
             Files.write(store.directory().resolve(otherId + ".json"),
                     QueueTaskRecordCodec.write(task));
 
-            assertThrows(StoreRefusal.class, () -> store.read(otherId));
+            assertThrows(StoreRefusal.class, () -> store.read(otherId),
+                    "record id differs from its file name");
         }
 
         @Test
@@ -122,7 +131,7 @@ class QueueStoreTest {
             Files.writeString(store.directory().resolve("notes.txt"), "not a task");
 
             assertEquals(List.of(new QueueTaskId(id)),
-                    List.copyOf(store.queueTaskIds()));
+                    List.copyOf(store.queueTaskIds()), "listing names only queue task records");
         }
 
         @Test
@@ -140,8 +149,10 @@ class QueueStoreTest {
 
             assertAll(
                     () -> assertEquals(List.of("reviewer", "reviewer"),
-                            after.stream().map(QueueTaskRecord::role).toList()),
-                    () -> assertEquals("reviewer", store.read(first.queueTaskId()).orElseThrow().role()));
+                            after.stream().map(QueueTaskRecord::role).toList(),
+                            "every record carries the reviewer role"),
+                    () -> assertEquals("reviewer", store.read(first.queueTaskId()).orElseThrow().role(),
+                            "stored record carries the new role"));
         }
 
         @Test
@@ -155,10 +166,12 @@ class QueueStoreTest {
 
             assertThrows(IllegalArgumentException.class, () -> store.updateAll(records -> List.of(
                     records.getFirst().withStatus(QueueTaskRecord.Status.CLOSED),
-                    records.getLast().withRole("reviewer"))));
+                    records.getLast().withRole("reviewer"))), "an invalid revision aborts the whole update");
             assertAll(
-                    () -> assertEquals(first, store.read(first.queueTaskId()).orElseThrow()),
-                    () -> assertEquals(second, store.read(second.queueTaskId()).orElseThrow()));
+                    () -> assertEquals(first, store.read(first.queueTaskId()).orElseThrow(),
+                            "first record is left untouched by the refusal"),
+                    () -> assertEquals(second, store.read(second.queueTaskId()).orElseThrow(),
+                            "second record is left untouched by the refusal"));
         }
 
         @Test
@@ -171,10 +184,12 @@ class QueueStoreTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> store.updateAll(records -> List.of())),
+                            () -> store.updateAll(records -> List.of()),
+                            "dropping every record is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> store.updateAll(records -> List.of(task.withQueueTaskId(
-                                    renamed)))));
+                                    renamed))),
+                            "renaming a record is refused"));
         }
     }
 }

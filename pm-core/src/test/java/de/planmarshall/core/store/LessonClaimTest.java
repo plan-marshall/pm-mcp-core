@@ -459,6 +459,6 @@ class LessonClaimTest {
     }
 
     private Lesson readFound() {
-        return assertInstanceOf(Found.class, store.get(LESSON_ID)).lesson();
+        return assertInstanceOf(Found.class, store.get(LESSON_ID), "the stored lesson is the found outcome").lesson();
     }
 }

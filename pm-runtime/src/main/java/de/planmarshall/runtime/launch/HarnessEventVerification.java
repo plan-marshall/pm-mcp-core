@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.queue.ActivityEntry;
@@ -35,6 +36,7 @@ import de.planmarshall.runtime.worker.ActivityEventMapper;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class HarnessEventVerification {
 
     /** The result of one kind. */
@@ -42,9 +44,6 @@ public final class HarnessEventVerification {
 
     /** A kind the recorded output never carried. */
     public static final String MISSING = "missing";
-
-    private HarnessEventVerification() {
-    }
 
     /**
      * @param mapping       the profile's events mapping; {@code null} for a harness without an event stream

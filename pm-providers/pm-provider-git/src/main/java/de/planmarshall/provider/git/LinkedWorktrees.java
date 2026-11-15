@@ -21,6 +21,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import lombok.experimental.UtilityClass;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
 import org.jspecify.annotations.Nullable;
@@ -37,15 +38,13 @@ import de.planmarshall.provider.git.GitOperations.Worktree;
  *
  * @since 0.1
  */
+@UtilityClass
 final class LinkedWorktrees {
 
     static final String WORKTREES = "worktrees";
     static final String LOCKED = "locked";
     private static final String COMMONDIR = "commondir";
     private static final String REF_PREFIX = "ref: ";
-
-    private LinkedWorktrees() {
-    }
 
     /**
      * Writes the administration files of a new linked worktree, locked while initializing.

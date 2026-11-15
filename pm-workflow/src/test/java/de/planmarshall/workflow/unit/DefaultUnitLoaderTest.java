@@ -9,7 +9,6 @@
  */
 package de.planmarshall.workflow.unit;
 
-import static de.planmarshall.workflow.log.WorkflowLogMessages.ERROR;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,6 +39,7 @@ import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.RefusalRule;
+import de.planmarshall.workflow.log.WorkflowLogMessages.ERROR;
 import de.planmarshall.workflow.verify.InvariantFixtures;
 import de.planmarshall.workflow.verify.VerificationRule;
 

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.IntentRecord.Decider;
 
@@ -27,13 +28,11 @@ import de.planmarshall.core.store.IntentRecord.Decider;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class ClarifiedRequestRenderer {
 
     /** The heading of the rendered section. */
     public static final String HEADING = "## Clarified Request";
-
-    private ClarifiedRequestRenderer() {
-    }
 
     /**
      * @param store the intent store

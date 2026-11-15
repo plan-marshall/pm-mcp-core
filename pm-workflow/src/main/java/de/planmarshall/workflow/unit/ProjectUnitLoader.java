@@ -9,9 +9,6 @@
  */
 package de.planmarshall.workflow.unit;
 
-import static de.planmarshall.workflow.log.WorkflowLogMessages.INFO;
-import static de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -51,6 +48,8 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 import de.planmarshall.workflow.finalize.PipelineViolation;
+import de.planmarshall.workflow.log.WorkflowLogMessages.INFO;
+import de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
 import de.planmarshall.workflow.verify.CompiledInvariants;
 import de.planmarshall.workflow.verify.DeclarationBounds;
 

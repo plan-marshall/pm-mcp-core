@@ -92,10 +92,10 @@ class LockOrderTest {
     }
 
     private static void assertViolation(List<LockKey> held, LockKey requested, LockOrder.Decision decision) {
-        var violation = assertInstanceOf(Violation.class, decision);
+        var violation = assertInstanceOf(Violation.class, decision, "the decision is a lock-order violation");
         assertAll(
-                () -> assertEquals(held, violation.held()),
-                () -> assertEquals(requested, violation.requested()));
+                () -> assertEquals(held, violation.held(), "the violation names the held key"),
+                () -> assertEquals(requested, violation.requested(), "the violation names the requested key"));
     }
 
     @Nested

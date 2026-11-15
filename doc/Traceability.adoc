@@ -521,21 +521,23 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsSt
 Implementation (the task envelopes of the first bullet, added by the work package `envelope-packing` as far as the
 library module `pm-workflow` carries them, as a pure computation over plain values: the cost sizing `derive-cost-size`
 with its six sizes, the size-to-token table with its compiled defaults and their basis `uncalibrated`, the per-envelope
-budget with its precedence, the cap of its two fallbacks at the long-context threshold and the flag on a kept value
-above it, and the Next-Fit packer with the sharing by module and role and the below-minimum merge. Not implemented
-yet: the wiring into `plan.describe-tasks`, the sequential task yield within an envelope, the recalibration
-`cost_calibration`, the reading of `envelope_budget_tokens` from `local-config.json`, the profile member
-`headless.long_context_thresholds` and the rendering of `below_minimum_task`):
+budget with its precedence, the cap of its two fallbacks at the long-context threshold read beside the harness projection
+(`LongContextThresholds`) and the flag on a kept value above it, and the Next-Fit packer with the sharing by module and
+role and the below-minimum merge. Not implemented yet: the wiring into `plan.describe-tasks` and the supply of the
+threshold there, the sequential task yield within an envelope, the recalibration `cost_calibration`, the reading of
+`envelope_budget_tokens` from `local-config.json` and the rendering of `below_minimum_task`):
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/TaskCostEstimator.java[TaskCostEstimator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/SizeTokenTable.java[SizeTokenTable],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/CostSize.java[CostSize],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/EnvelopePacker.java[EnvelopePacker],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/EnvelopeBudget.java[EnvelopeBudget]
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/EnvelopeBudget.java[EnvelopeBudget],
+link:../pm-core/src/main/java/de/planmarshall/core/role/LongContextThresholds.java[LongContextThresholds]
 
 Verified by (the task envelopes):
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/envelope/TaskCostEstimatorTest.java[TaskCostEstimatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/envelope/EnvelopePackerTest.java[EnvelopePackerTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/envelope/EnvelopeBudgetTest.java[EnvelopeBudgetTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/envelope/EnvelopeBudgetTest.java[EnvelopeBudgetTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/envelope/EnvelopeBudgetProfileThresholdTest.java[EnvelopeBudgetProfileThresholdTest]
 
 Documentation (the task envelopes):
 link:../pm-workflow/doc/developer/workflow-envelope.adoc[Task Envelopes Developer Guide],
@@ -1716,8 +1718,9 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/WorkerVectorChec
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchComposerTest.java[LaunchComposerTest]
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
-link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer Guide § Endpoint
-profiles], link:../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide],
+link:../pm-core/doc/developer/core-profile.adoc#_reading_and_validation[Profile Loader and Schema Developer Guide
+§ Reading and Validation], link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[§ Endpoint profiles],
+link:../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide],
 link:../pm-runtime/doc/developer/runtime-launch.adoc#_the_composed_vector_check[Worker Launch Developer Guide § The
 Composed-Vector Check]
 
@@ -1791,18 +1794,26 @@ link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Gui
 link:../pm-core/doc/adr/core-profile/007-usage-stage-start-context-and-coverage.adoc[ADR core-profile/007],
 link:../pm-runtime/doc/adr/runtime-launch/007-the-usage-report-keeps-the-start-context.adoc[ADR runtime-launch/007]
 
+Implementation (the `headless.long_context_thresholds` member: bounded per model id by the validator and read beside
+`HarnessProfile` as the threshold the envelope fallbacks are capped at):
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java[ProfileValidator],
+link:../pm-core/src/main/java/de/planmarshall/core/role/LongContextThresholds.java[LongContextThresholds]
+
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileLoaderTest.java[ProfileLoaderTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java[ProfileValidatorTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileStagesTest.java[ProfileStagesTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedProfilesTest.java[ShippedProfilesTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/CanonicalJsonTest.java[CanonicalJsonTest],
+link:../pm-core/src/test/java/de/planmarshall/core/role/LongContextThresholdsTest.java[LongContextThresholdsTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileNeutralityArchTest.java[ProfileNeutralityArchTest]
 
 Documentation: link:../pm-core/doc/developer/core-profile.adoc[Harness Profiles Developer Guide],
+link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
 link:../pm-core/doc/adr/core-profile/001-hand-written-closed-validator-over-jackson-core.adoc[ADR core-profile/001],
 link:../pm-core/doc/adr/core-profile/002-canonical-digest-and-hmac-sidecar.adoc[ADR core-profile/002],
 link:../pm-core/doc/adr/core-profile/003-refused-profile-is-a-value-next-set-in-force.adoc[ADR core-profile/003],
-link:../pm-core/doc/adr/core-profile/004-bundle-managed-paths-as-installation-data.adoc[ADR core-profile/004]
+link:../pm-core/doc/adr/core-profile/004-bundle-managed-paths-as-installation-data.adoc[ADR core-profile/004],
+link:../pm-core/doc/adr/core-profile/016-the-long-context-thresholds-sit-beside-the-harness-profile.adoc[ADR core-profile/016]
 
 Implementation (the load-time gate and the three verification controls, as far as the library module `pm-runtime`
 carries them and not yet wired into the runtime `pm-mcpd`: the pure predicate the supervisor consults before every

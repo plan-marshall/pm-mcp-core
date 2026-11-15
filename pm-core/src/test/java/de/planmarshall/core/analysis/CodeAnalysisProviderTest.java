@@ -130,9 +130,10 @@ class CodeAnalysisProviderTest {
             var result = new FixtureProvider(outcome, null).status(TARGET);
 
             assertAll(
-                    () -> assertEquals(outcome, result.outcome()),
-                    () -> assertEquals(outcome == AnalysisOutcome.OK, result.value() != null),
-                    () -> assertNull(result.completeness()));
+                    () -> assertEquals(outcome, result.outcome(), "the answered outcome is the given one"),
+                    () -> assertEquals(outcome == AnalysisOutcome.OK, result.value() != null,
+                            "only an ok outcome carries a value"),
+                    () -> assertNull(result.completeness(), "a status result carries no completeness"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -141,7 +142,8 @@ class CodeAnalysisProviderTest {
         void transportWithValueRefused(AnalysisOutcome outcome) {
             var provider = new LeakingProvider(outcome);
 
-            assertThrows(IllegalArgumentException.class, () -> provider.status(TARGET));
+            assertThrows(IllegalArgumentException.class, () -> provider.status(TARGET),
+                    "a transport status with a value is refused");
         }
 
         @Test
@@ -150,8 +152,8 @@ class CodeAnalysisProviderTest {
             var result = new FixtureProvider(AnalysisOutcome.OK, null).status(TARGET).value();
 
             assertAll(
-                    () -> assertEquals(PROVIDER_ID, result.provider()),
-                    () -> assertEquals(TARGET, result.target()));
+                    () -> assertEquals(PROVIDER_ID, result.provider(), "an ok result names its own provider"),
+                    () -> assertEquals(TARGET, result.target(), "an ok result observes the asked target"));
         }
     }
 
@@ -166,10 +168,11 @@ class CodeAnalysisProviderTest {
             var result = new FixtureProvider(outcome, Completeness.COMPLETE).issues(TARGET);
 
             assertAll(
-                    () -> assertEquals(outcome, result.outcome()),
-                    () -> assertEquals(outcome == AnalysisOutcome.OK, result.value() != null),
+                    () -> assertEquals(outcome, result.outcome(), "the answered outcome is carried through"),
+                    () -> assertEquals(outcome == AnalysisOutcome.OK, result.value() != null,
+                            "only an ok issues call carries issues"),
                     () -> assertEquals(outcome == AnalysisOutcome.OK ? Completeness.COMPLETE : null,
-                            result.completeness()));
+                            result.completeness(), "an ok call reports the complete flag"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -179,9 +182,9 @@ class CodeAnalysisProviderTest {
             var result = new FixtureProvider(outcome, Completeness.INCOMPLETE).issues(TARGET);
 
             assertAll(
-                    () -> assertEquals(outcome, result.outcome()),
+                    () -> assertEquals(outcome, result.outcome(), "the incomplete outcome is answered back"),
                     () -> assertEquals(outcome == AnalysisOutcome.OK ? Completeness.INCOMPLETE : null,
-                            result.completeness()));
+                            result.completeness(), "an ok call reports the incomplete flag"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -190,7 +193,8 @@ class CodeAnalysisProviderTest {
         void transportWithValueRefused(AnalysisOutcome outcome) {
             var provider = new LeakingProvider(outcome);
 
-            assertThrows(IllegalArgumentException.class, () -> provider.issues(TARGET));
+            assertThrows(IllegalArgumentException.class, () -> provider.issues(TARGET),
+                    "a transport issues call with a value is refused");
         }
 
         @Test
@@ -198,7 +202,8 @@ class CodeAnalysisProviderTest {
         void okWithoutCompletenessRefused() {
             var provider = new FixtureProvider(AnalysisOutcome.OK, null);
 
-            assertThrows(IllegalArgumentException.class, () -> provider.issues(TARGET));
+            assertThrows(IllegalArgumentException.class, () -> provider.issues(TARGET),
+                    "an ok call without a completeness is refused");
         }
 
         @Test
@@ -207,10 +212,13 @@ class CodeAnalysisProviderTest {
             var issues = new FixtureProvider(AnalysisOutcome.OK, Completeness.COMPLETE).issues(TARGET).value();
 
             assertAll(
-                    () -> assertEquals(1, issues.size()),
-                    () -> assertEquals(FindingSourceKind.ANALYSIS, issues.getFirst().source()),
-                    () -> assertEquals(PROVIDER_ID, issues.getFirst().provider()),
-                    () -> assertEquals(ISSUE_KEY, issues.getFirst().providerRef().issueKey()));
+                    () -> assertEquals(1, issues.size(), "the issues answer holds one issue"),
+                    () -> assertEquals(FindingSourceKind.ANALYSIS, issues.getFirst().source(),
+                            "the issue source is an analysis finding"),
+                    () -> assertEquals(PROVIDER_ID, issues.getFirst().provider(),
+                            "the issue names the answering provider"),
+                    () -> assertEquals(ISSUE_KEY, issues.getFirst().providerRef().issueKey(),
+                            "the issue key is the provider's own key"));
         }
     }
 }

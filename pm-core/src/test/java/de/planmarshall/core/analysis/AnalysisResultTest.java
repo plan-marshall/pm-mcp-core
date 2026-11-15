@@ -77,7 +77,8 @@ class AnalysisResultTest {
     }
 
     private static void assertRefused(String rule, Executable construction) {
-        var refusal = assertThrows(IllegalArgumentException.class, construction);
+        var refusal = assertThrows(IllegalArgumentException.class,
+                construction, "an invalid result is refused as illegal argument");
         assertTrue(refusal.getMessage().contains(rule),
                 () -> "the refusal names the rule '%s': %s".formatted(rule, refusal.getMessage()));
     }
@@ -92,16 +93,21 @@ class AnalysisResultTest {
             var result = passed().build();
 
             assertAll(
-                    () -> assertEquals(AnalysisResult.FORMAT_VERSION, result.formatVersion()),
-                    () -> assertEquals(PROVIDER, result.provider()),
-                    () -> assertEquals(FindingScope.commit(SHA), result.target()),
-                    () -> assertEquals(AnalysisStatus.PASSED, result.status()),
-                    () -> assertNull(result.gate()),
-                    () -> assertEquals(CountStatus.MEASURED, result.countStatus()),
-                    () -> assertEquals(0L, result.newCodeIssueCount()),
-                    () -> assertEquals(0L, result.issuesFetched()),
-                    () -> assertEquals(ANALYSIS_REF, result.analysisRef()),
-                    () -> assertEquals(OBSERVED_AT, result.observedAt()));
+                    () -> assertEquals(AnalysisResult.FORMAT_VERSION, result.formatVersion(),
+                            "the format version is the one written"),
+                    () -> assertEquals(PROVIDER, result.provider(), "the provider id is kept on the result"),
+                    () -> assertEquals(FindingScope.commit(SHA), result.target(),
+                            "the target is the commit under test"),
+                    () -> assertEquals(AnalysisStatus.PASSED, result.status(), "the status is the passed status"),
+                    () -> assertNull(result.gate(), "a passed result carries no gate"),
+                    () -> assertEquals(CountStatus.MEASURED, result.countStatus(),
+                            "the count status is measured"),
+                    () -> assertEquals(0L, result.newCodeIssueCount(), "no new issues were counted"),
+                    () -> assertEquals(0L, result.issuesFetched(), "no issues were fetched"),
+                    () -> assertEquals(ANALYSIS_REF, result.analysisRef(),
+                            "the analysis reference is carried over"),
+                    () -> assertEquals(OBSERVED_AT, result.observedAt(),
+                            "the observation instant is carried over"));
         }
 
         @Test
@@ -110,8 +116,10 @@ class AnalysisResultTest {
             var result = passed().target(FindingScope.pullRequest(SHA, 42)).gate(PASSED_GATE).build();
 
             assertAll(
-                    () -> assertEquals(FindingScope.Kind.PULL_REQUEST, result.target().kind()),
-                    () -> assertEquals(List.of(PASSED_CONDITION), result.gate().conditions()));
+                    () -> assertEquals(FindingScope.Kind.PULL_REQUEST, result.target().kind(),
+                            "a pull request target reports its kind"),
+                    () -> assertEquals(List.of(PASSED_CONDITION), result.gate().conditions(),
+                            "the gate holds its passed condition"));
         }
 
         @Test
@@ -119,7 +127,7 @@ class AnalysisResultTest {
         void gateFailed() {
             var result = passed().status(AnalysisStatus.GATE_FAILED).gate(FAILED_GATE).newCodeIssueCount(3L).build();
 
-            assertEquals(GateResult.FAILED, result.gate().result());
+            assertEquals(GateResult.FAILED, result.gate().result(), "the gate result is failed");
         }
 
         @Test
@@ -129,8 +137,8 @@ class AnalysisResultTest {
                     .issuesFetched(2).workPerformed(true).build();
 
             assertAll(
-                    () -> assertEquals(2L, result.newCodeIssueCount()),
-                    () -> assertTrue(result.workPerformed()));
+                    () -> assertEquals(2L, result.newCodeIssueCount(), "two new issues were counted"),
+                    () -> assertTrue(result.workPerformed(), "the findings result reports work performed"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -141,8 +149,8 @@ class AnalysisResultTest {
                     .analysisRef(null).build();
 
             assertAll(
-                    () -> assertNull(result.newCodeIssueCount()),
-                    () -> assertNull(result.analysisRef()));
+                    () -> assertNull(result.newCodeIssueCount(), "an indeterminate count has no value"),
+                    () -> assertNull(result.analysisRef(), "an indeterminate result has no analysis reference"));
         }
 
         @Test
@@ -154,8 +162,11 @@ class AnalysisResultTest {
             var held = gate.conditions();
 
             assertAll(
-                    () -> assertEquals(List.of(PASSED_CONDITION), held),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> held.add(FAILED_CONDITION)));
+                    () -> assertEquals(List.of(PASSED_CONDITION), held,
+                            "the gate keeps the condition it was given"),
+                    () -> assertThrows(UnsupportedOperationException.class,
+                            () -> held.add(FAILED_CONDITION),
+                            "the conditions of a gate cannot be changed"));
         }
 
         @Test
@@ -166,8 +177,9 @@ class AnalysisResultTest {
             var result = passed().gate(gate).analysisRef("r".repeat(256)).build();
 
             assertAll(
-                    () -> assertEquals(AnalysisResult.MAX_CONDITIONS, result.gate().conditions().size()),
-                    () -> assertNull(condition.actual()));
+                    () -> assertEquals(AnalysisResult.MAX_CONDITIONS, result.gate().conditions().size(),
+                            "the gate holds the maximum condition count"),
+                    () -> assertNull(condition.actual(), "a condition may have no actual value"));
         }
 
         @ParameterizedTest(name = "{0} is {1}")
@@ -175,8 +187,9 @@ class AnalysisResultTest {
         @DisplayName("the count statuses carry their wire names and are found by them")
         void countStatusWireNames(CountStatus value, String wireName) {
             assertAll(
-                    () -> assertEquals(wireName, value.wireName()),
-                    () -> assertEquals(Optional.of(value), CountStatus.fromWireName(wireName)));
+                    () -> assertEquals(wireName, value.wireName(), "the count status carries its wire name"),
+                    () -> assertEquals(Optional.of(value), CountStatus.fromWireName(wireName),
+                            "its wire name finds the count status"));
         }
 
         @ParameterizedTest(name = "{0} is {1}")
@@ -184,8 +197,9 @@ class AnalysisResultTest {
         @DisplayName("the gate results carry their wire names and are found by them")
         void gateResultWireNames(GateResult value, String wireName) {
             assertAll(
-                    () -> assertEquals(wireName, value.wireName()),
-                    () -> assertEquals(Optional.of(value), GateResult.fromWireName(wireName)));
+                    () -> assertEquals(wireName, value.wireName(), "the gate result carries its wire name"),
+                    () -> assertEquals(Optional.of(value), GateResult.fromWireName(wireName),
+                            "its wire name finds the gate result"));
         }
 
         @ParameterizedTest(name = "{0} is {1}")
@@ -193,17 +207,21 @@ class AnalysisResultTest {
         @DisplayName("the comparators carry their wire names and are found by them")
         void comparatorWireNames(Comparator value, String wireName) {
             assertAll(
-                    () -> assertEquals(wireName, value.wireName()),
-                    () -> assertEquals(Optional.of(value), Comparator.fromWireName(wireName)));
+                    () -> assertEquals(wireName, value.wireName(), "the comparator carries its wire name"),
+                    () -> assertEquals(Optional.of(value), Comparator.fromWireName(wireName),
+                            "its wire name finds the comparator"));
         }
 
         @Test
         @DisplayName("an undeclared wire name finds no value")
         void undeclaredWireName() {
             assertAll(
-                    () -> assertEquals(Optional.empty(), CountStatus.fromWireName("MEASURED")),
-                    () -> assertEquals(Optional.empty(), GateResult.fromWireName("error")),
-                    () -> assertEquals(Optional.empty(), Comparator.fromWireName("<")));
+                    () -> assertEquals(Optional.empty(), CountStatus.fromWireName("MEASURED"),
+                            "an upper case count status name finds none"),
+                    () -> assertEquals(Optional.empty(), GateResult.fromWireName("error"),
+                            "an unknown gate result name finds none"),
+                    () -> assertEquals(Optional.empty(), Comparator.fromWireName("<"),
+                            "an unknown comparator name finds none"));
         }
     }
 
@@ -363,21 +381,32 @@ class AnalysisResultTest {
             var withoutObservedAt = passed().observedAt(null);
 
             assertAll(
-                    () -> assertThrows(NullPointerException.class, withoutProvider::build),
-                    () -> assertThrows(NullPointerException.class, withoutTarget::build),
-                    () -> assertThrows(NullPointerException.class, withoutStatus::build),
-                    () -> assertThrows(NullPointerException.class, withoutCountStatus::build),
-                    () -> assertThrows(NullPointerException.class, withoutObservedAt::build),
-                    () -> assertThrows(NullPointerException.class, () -> new Gate(null, List.of())),
-                    () -> assertThrows(NullPointerException.class, () -> new Gate(GateResult.PASSED, null)),
+                    () -> assertThrows(NullPointerException.class, withoutProvider::build,
+                            "a result without a provider is refused"),
+                    () -> assertThrows(NullPointerException.class, withoutTarget::build,
+                            "a result without a target is refused"),
+                    () -> assertThrows(NullPointerException.class, withoutStatus::build,
+                            "a result without a status is refused"),
+                    () -> assertThrows(NullPointerException.class, withoutCountStatus::build,
+                            "a result without a count status is refused"),
+                    () -> assertThrows(NullPointerException.class, withoutObservedAt::build,
+                            "a result without observedAt is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new Gate(null, List.of()),
+                            "a gate without a result is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new Gate(GateResult.PASSED, null),
+                            "a gate without conditions is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Condition(null, Comparator.LT, THRESHOLD, null, GateResult.PASSED)),
+                            () -> new Condition(null, Comparator.LT, THRESHOLD, null, GateResult.PASSED),
+                            "a condition without a metric is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Condition(METRIC, null, THRESHOLD, null, GateResult.PASSED)),
+                            () -> new Condition(METRIC, null, THRESHOLD, null, GateResult.PASSED),
+                            "a condition without a comparator is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Condition(METRIC, Comparator.LT, null, null, GateResult.PASSED)),
+                            () -> new Condition(METRIC, Comparator.LT, null, null, GateResult.PASSED),
+                            "a condition without a threshold is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Condition(METRIC, Comparator.LT, THRESHOLD, null, null)));
+                            () -> new Condition(METRIC, Comparator.LT, THRESHOLD, null, null),
+                            "a condition without a gate result is refused"));
         }
     }
 }

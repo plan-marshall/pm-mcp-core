@@ -209,11 +209,16 @@ class UnparsedEvidenceTest {
     @DisplayName("refuses an absent plan id, job id or log")
     void refusesAbsentInput() {
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> UnparsedEvidence.of(" ", JOB, "log")),
-                () -> assertThrows(NullPointerException.class, () -> UnparsedEvidence.of(null, JOB, "log")),
-                () -> assertThrows(NullPointerException.class, () -> UnparsedEvidence.of(PLAN, null, "log")),
-                () -> assertThrows(NullPointerException.class, () -> UnparsedEvidence.of(PLAN, JOB, null)),
-                () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence("", " ")));
+                () -> assertThrows(IllegalArgumentException.class, () -> UnparsedEvidence.of(" ", JOB, "log"),
+                        "a blank plan id is refused"),
+                () -> assertThrows(NullPointerException.class, () -> UnparsedEvidence.of(null, JOB, "log"),
+                        "an absent plan id is refused"),
+                () -> assertThrows(NullPointerException.class, () -> UnparsedEvidence.of(PLAN, null, "log"),
+                        "an absent job id is refused"),
+                () -> assertThrows(NullPointerException.class, () -> UnparsedEvidence.of(PLAN, JOB, null),
+                        "an absent log is refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence("", " "),
+                        "blank excerpt text and uri are refused"));
     }
 
     @Test
@@ -225,8 +230,10 @@ class UnparsedEvidenceTest {
         var tooManyLines = "line\n".repeat(UnparsedEvidence.MAX_LINES + 1);
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence(tooLong, uri)),
-                () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence(tooManyLines, uri)));
+                () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence(tooLong, uri),
+                        "an excerpt beyond four kilobytes is refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence(tooManyLines, uri),
+                        "an excerpt beyond fifty lines is refused"));
     }
 
     @Test

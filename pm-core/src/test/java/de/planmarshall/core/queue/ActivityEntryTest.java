@@ -47,17 +47,18 @@ class ActivityEntryTest {
 
         var read = ActivityEntryCodec.read(Path.of("activity.jsonl"), ActivityEntryCodec.write(entry));
 
-        assertEquals(entry, read);
+        assertEquals(entry, read, "signal entry round-trips through the codec");
     }
 
     @Test
     @DisplayName("an agent_started entry with any other action is refused")
     void agentStartedWithAnotherAction() {
         var refusal = assertThrows(IllegalArgumentException.class,
-                () -> new ActivityEntry.Signal(SignalName.AGENT_STARTED, SignalAction.SHOW));
+                () -> new ActivityEntry.Signal(SignalName.AGENT_STARTED, SignalAction.SHOW),
+                "agent_started with action show is refused");
 
         assertEquals("An 'agent_started' signal always takes the action 'restart', not 'show'",
-                refusal.getMessage());
+                refusal.getMessage(), "refusal names the required restart action");
     }
 
     @Test
@@ -65,12 +66,13 @@ class ActivityEntryTest {
     void sourceOfKind() {
         var text = Generators.letterStrings(1, 20).next();
         assertThrows(IllegalArgumentException.class, () -> ActivityEntry.builder()
-                .seq(1)
-                .attempt(1)
-                .source(ActivityEntry.Source.SERVER)
-                .kind(ActivityEntry.Kind.TEXT)
-                .text(text)
-                .at(QueueFixtures.AT)
-                .build());
+                        .seq(1)
+                        .attempt(1)
+                        .source(ActivityEntry.Source.SERVER)
+                        .kind(ActivityEntry.Kind.TEXT)
+                        .text(text)
+                        .at(QueueFixtures.AT)
+                        .build(),
+                "a text entry cannot be recorded by the server");
     }
 }

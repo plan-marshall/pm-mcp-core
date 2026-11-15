@@ -22,6 +22,7 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -38,10 +39,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class PlanProcessStates {
-
-    private PlanProcessStates() {
-    }
 
     /**
      * @param instance the instance version in force

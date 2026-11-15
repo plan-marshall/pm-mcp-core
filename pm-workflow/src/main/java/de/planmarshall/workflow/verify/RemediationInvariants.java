@@ -29,6 +29,7 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
+import lombok.experimental.UtilityClass;
 
 /**
  * The invariants of the remediation units and their call sites, {@code INV-REM-1} to {@code INV-REM-7} (PM-IMPL-5,
@@ -73,6 +74,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  *
  * @since 0.1
  */
+@UtilityClass
 final class RemediationInvariants {
 
     /** The remediation units of the classes with a {@code met}-waivable gate. */
@@ -144,9 +146,6 @@ final class RemediationInvariants {
     private static final Map<String, OutcomeClass> TERMINALS = Map.of("resolved", OutcomeClass.SUCCESS,
             GeneralInvariants.WAIVED, OutcomeClass.SUCCESS, EXHAUSTED, OutcomeClass.FAILURE, FIX_REQUESTED_OUTCOME,
             OutcomeClass.UNSETTLED);
-
-    private RemediationInvariants() {
-    }
 
     static Map<InvariantId, Check> checks() {
         return Map.of(

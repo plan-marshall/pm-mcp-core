@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * The token-based clone detection the server runs before the {@code finalize.simplify} task, in-process and without a
  * model (Phase Workflows § Finalize Step Ordering Bands): the lines the plan added, tokenized with identifiers and
@@ -29,6 +31,7 @@ import java.util.Objects;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class CloneDetector {
 
     private static final String IDENTIFIER = "i";
@@ -36,9 +39,6 @@ public final class CloneDetector {
     private static final String LITERAL = "l";
 
     private static final String TEXT = "s";
-
-    private CloneDetector() {
-    }
 
     /**
      * One source file with the line ranges the plan added.

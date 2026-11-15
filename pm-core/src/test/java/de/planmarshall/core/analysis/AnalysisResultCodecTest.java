@@ -169,7 +169,8 @@ class AnalysisResultCodecTest {
         @MethodSource("de.planmarshall.core.analysis.AnalysisResultCodecTest#fixtures")
         @DisplayName("a result is written as its fixed canonical line")
         void writesCanonicalLine(String name, AnalysisResult result, String line) {
-            assertEquals(line, new String(AnalysisResultCodec.write(result), UTF_8));
+            assertEquals(line, new String(AnalysisResultCodec.write(result), UTF_8),
+                    "a result is written as its canonical line");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -181,8 +182,9 @@ class AnalysisResultCodecTest {
             var read = AnalysisResultCodec.read(bytes);
 
             assertAll(
-                    () -> assertEquals(result, read),
-                    () -> assertArrayEquals(bytes, AnalysisResultCodec.write(read)));
+                    () -> assertEquals(result, read, "a canonical line reads back equal"),
+                    () -> assertArrayEquals(bytes, AnalysisResultCodec.write(read),
+                            "the line is written again byte for byte"));
         }
 
         @Test
@@ -190,7 +192,7 @@ class AnalysisResultCodecTest {
         void noTrailingLineBreak() {
             var line = AnalysisResultCodec.write(PASSED_COMMIT);
 
-            assertEquals('}', line[line.length - 1]);
+            assertEquals('}', line[line.length - 1], "the written line ends with a closing brace");
         }
     }
 
@@ -204,7 +206,8 @@ class AnalysisResultCodecTest {
         void refused(String name, String line, String expected) {
             var bytes = line.getBytes(UTF_8);
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> AnalysisResultCodec.read(bytes));
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> AnalysisResultCodec.read(bytes), "a line outside the shape is refused");
 
             assertTrue(refusal.getMessage().contains(expected),
                     () -> "expected '%s' in: %s".formatted(expected, refusal.getMessage()));
@@ -215,15 +218,20 @@ class AnalysisResultCodecTest {
         void emptyLine() {
             var empty = new byte[0];
 
-            assertThrows(IllegalArgumentException.class, () -> AnalysisResultCodec.read(empty));
+            assertThrows(IllegalArgumentException.class, () -> AnalysisResultCodec.read(empty),
+                    "an empty line is refused as not JSON");
         }
 
         @Test
         @DisplayName("a missing result or line is refused")
         void missingArguments() {
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> AnalysisResultCodec.write(null)),
-                    () -> assertThrows(NullPointerException.class, () -> AnalysisResultCodec.read(null)));
+                    () -> assertThrows(NullPointerException.class,
+                            () -> AnalysisResultCodec.write(null),
+                            "a missing result is refused as null pointer"),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> AnalysisResultCodec.read(null),
+                            "a missing line is refused as null pointer"));
         }
     }
 }

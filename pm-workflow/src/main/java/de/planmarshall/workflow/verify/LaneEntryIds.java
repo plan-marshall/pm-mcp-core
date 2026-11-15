@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.verify;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * The entry state of each plan lane (PM-IMPL-5): the state the {@code deep} lane enters and the one the {@code light}
  * lane enters after the split at {@code init.ready}. This is the one definition of both ids; it lives in this package
@@ -17,6 +19,7 @@ package de.planmarshall.workflow.verify;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class LaneEntryIds {
 
     /** The entry of the deep lane, which the deep exit of the split enters. */
@@ -24,7 +27,4 @@ public final class LaneEntryIds {
 
     /** The entry of the light lane, which the light exit of the split enters. */
     public static final String LIGHT_ENTRY = "init.light-gate";
-
-    private LaneEntryIds() {
-    }
 }

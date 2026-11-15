@@ -13,6 +13,7 @@ import java.util.Objects;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.plan.PlanInstance;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -41,10 +42,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class WorkflowDiagramGenerator {
-
-    private WorkflowDiagramGenerator() {
-    }
 
     /**
      * Renders a unit as a Mermaid {@code stateDiagram-v2}, its states grouped into one composite state per phase

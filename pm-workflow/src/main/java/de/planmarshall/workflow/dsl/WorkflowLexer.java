@@ -12,6 +12,8 @@ package de.planmarshall.workflow.dsl;
 import java.util.ArrayList;
 import java.util.List;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * The line-oriented tokenizer of the workflow language (PM-IMPL-5).
  * <p>
@@ -24,13 +26,11 @@ import java.util.List;
  * {@link Token.Kind#JSON} token, so a {@code #} inside it is no comment. The lexer never refuses: an unknown
  * character becomes an {@link Token.Kind#INVALID} token that the parser refuses where it occurs.
  */
+@UtilityClass
 final class WorkflowLexer {
 
     private static final String INSTANCE_KEYWORD = "instance";
     private static final String SINGLE_PUNCTUATION = ".:,()[]<>|=?/";
-
-    private WorkflowLexer() {
-    }
 
     /**
      * The tokens of one line that holds at least one token.

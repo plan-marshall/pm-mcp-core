@@ -478,7 +478,7 @@ class LessonResolverTest {
                     () -> assertEquals(List.of(), store.unclaimed(),
                             "a lesson with an unverified digest is no candidate"),
                     () -> assertEquals(LessonResolution.State.FOUND, store.get(lessonId).state(),
-                            "the lesson is still listed as found, with an unverified digest"));
+                            "the unverified digest keeps the lesson found"));
         }
 
         @Test
@@ -494,7 +494,7 @@ class LessonResolverTest {
             assertAll(
                     "Claims separates claimed from unreadable",
                     () -> assertEquals(List.of(claimed.frontMatter().lessonId()), claims.claimed().stream()
-                            .map(found -> found.lessonId()).toList(), "the claim is listed"),
+                            .map(found -> found.lessonId()).toList(), "the claimed lesson is listed"),
                     () -> assertEquals(List.of(new LessonId("2026-11-02-09-003")),
                             List.copyOf(claims.unreadable()), "the unreadable lesson is listed by id"),
                     () -> assertEquals(List.of(claimed.frontMatter().lessonId()),

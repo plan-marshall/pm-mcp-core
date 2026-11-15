@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffortValue;
@@ -40,10 +41,8 @@ import de.planmarshall.core.role.RoleSet;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class RoleAssignmentProposal {
-
-    private RoleAssignmentProposal() {
-    }
 
     /**
      * One enrolled harness with the facts of its profile.

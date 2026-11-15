@@ -66,10 +66,10 @@ class RoleEffectiveConfigurationTest {
         var role = resolved(RoleFixtures.shippedValid(), RoleFixtures.environment(), RoleAssignment.none());
 
         assertAll(
-                () -> assertEquals(RoleFixtures.HARNESS, role.harness()),
-                () -> assertEquals(RoleFixtures.MODEL, role.model()),
-                () -> assertNull(role.effort().value()),
-                () -> assertEquals("1.4", role.harnessVersion()));
+                () -> assertEquals(RoleFixtures.HARNESS, role.harness(), "artifact harness is used as-is"),
+                () -> assertEquals(RoleFixtures.MODEL, role.model(), "artifact model is used as-is"),
+                () -> assertNull(role.effort().value(), "artifact names no effort"),
+                () -> assertEquals("1.4", role.harnessVersion(), "artifact harness version is 1.4"));
     }
 
     @Test
@@ -86,7 +86,7 @@ class RoleEffectiveConfigurationTest {
         assertAll(
                 () -> assertEquals(FRONTIER, afterProject.model(), "the project names no model"),
                 () -> assertEquals(RoleFixtures.HARNESS, afterProject.harness(), "no level names a harness"),
-                () -> assertEquals("medium", afterProject.effort().value()),
+                () -> assertEquals("medium", afterProject.effort().value(), "project assignment effort is medium"),
                 () -> assertEquals(RoleFixtures.MODEL, afterPlan.model(), "the plan names the model"),
                 () -> assertEquals("medium", afterPlan.effort().value(), "the plan names no effort"));
     }
@@ -101,7 +101,7 @@ class RoleEffectiveConfigurationTest {
 
         var role = resolved(RoleFixtures.shippedValid(), environment, RoleAssignment.none());
 
-        assertNull(role.effort().value());
+        assertNull(role.effort().value(), "named null effort clears the effort");
     }
 
     @Test
@@ -118,10 +118,12 @@ class RoleEffectiveConfigurationTest {
         var after = defined(catalog.resolve(RoleFixtures.ROLE, RoleAssignment.none()));
 
         assertAll(
-                () -> assertEquals(FRONTIER, before.model()),
-                () -> assertEquals(FAST, after.model()),
-                () -> assertNotEquals(before.configurationDigest(), after.configurationDigest()),
-                () -> assertNotEquals(before.qualificationDigest(), after.qualificationDigest()));
+                () -> assertEquals(FRONTIER, before.model(), "before the edit the model is frontier"),
+                () -> assertEquals(FAST, after.model(), "after the edit the model is fast"),
+                () -> assertNotEquals(before.configurationDigest(), after.configurationDigest(),
+                        "the changed model moves the configuration digest"),
+                () -> assertNotEquals(before.qualificationDigest(), after.qualificationDigest(),
+                        "the changed model moves the qualification digest"));
     }
 
     @Test
@@ -152,9 +154,11 @@ class RoleEffectiveConfigurationTest {
         var after = defined(catalog.forPlan(overrides).resolve(RoleFixtures.ROLE));
 
         assertAll(
-                () -> assertEquals(FAST, after.model()),
-                () -> assertNotEquals(before.configurationDigest(), after.configurationDigest()),
-                () -> assertNotEquals(before.qualificationDigest(), after.qualificationDigest()));
+                () -> assertEquals(FAST, after.model(), "the plan override sets the fast model"),
+                () -> assertNotEquals(before.configurationDigest(), after.configurationDigest(),
+                        "the plan override moves the configuration digest"),
+                () -> assertNotEquals(before.qualificationDigest(), after.qualificationDigest(),
+                        "the plan override moves the qualification digest"));
     }
 
     @Test
@@ -164,7 +168,7 @@ class RoleEffectiveConfigurationTest {
         var refusal = definedRisky(new RoleCatalog(RoleFixtures.shippedValid(), environment)
                 .resolve(RoleFixtures.ROLE, assignment(null, FAST, null)));
 
-        assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, refusal);
+        assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, refusal, "the disallowed fast model is refused");
     }
 
     @Test
@@ -175,7 +179,7 @@ class RoleEffectiveConfigurationTest {
         var refusal = definedRisky(new RoleCatalog(RoleFixtures.shippedValid(), environment)
                 .resolve(RoleFixtures.ROLE, RoleAssignment.none()));
 
-        assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, refusal);
+        assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, refusal, "an absent catalogue refuses the model");
     }
 
     @Test
@@ -187,7 +191,8 @@ class RoleEffectiveConfigurationTest {
         var resolution = new RoleCatalog(RoleFixtures.shippedValid(), environment)
                 .resolve(RoleFixtures.ROLE, RoleAssignment.none());
 
-        assertEquals(RoleValidationReason.HARNESS_UNKNOWN, ((RoleResolution.Undefined) resolution).reason());
+        assertEquals(RoleValidationReason.HARNESS_UNKNOWN, ((RoleResolution.Undefined) resolution).reason(),
+                "an unparsable version leaves harness unknown");
     }
 
     @Test
@@ -215,8 +220,10 @@ class RoleEffectiveConfigurationTest {
                 .resolve(absent, RoleAssignment.none());
 
         assertAll(
-                () -> assertInstanceOf(RoleResolution.Undefined.class, resolution),
-                () -> assertNull(((RoleResolution.Undefined) resolution).reason()));
+                () -> assertInstanceOf(RoleResolution.Undefined.class, resolution,
+                        "an absent role resolves to undefined"),
+                () -> assertNull(((RoleResolution.Undefined) resolution).reason(),
+                        "an absent role carries no reason"));
     }
 
     @Test
@@ -228,7 +235,8 @@ class RoleEffectiveConfigurationTest {
         var resolution = new RoleCatalog(sets, RoleFixtures.environment())
                 .resolve(RoleFixtures.ROLE, RoleAssignment.none());
 
-        assertEquals(RoleValidationReason.SCHEMA_INVALID, ((RoleResolution.Undefined) resolution).reason());
+        assertEquals(RoleValidationReason.SCHEMA_INVALID, ((RoleResolution.Undefined) resolution).reason(),
+                "an invalid artifact refuses as schema_invalid");
     }
 
     @Nested
@@ -242,7 +250,7 @@ class RoleEffectiveConfigurationTest {
             var role = defined(new RoleCatalog(sets, RoleFixtures.environment()).resolveSteward());
 
             assertAll(
-                    () -> assertEquals(RoleFixtures.HARNESS, role.harness()),
+                    () -> assertEquals(RoleFixtures.HARNESS, role.harness(), "steward runs on the default harness"),
                     () -> assertEquals(RoleFixtures.MODEL, role.model(), "the tier standard of the default harness"),
                     () -> assertEquals("medium", role.effort().value(), "the default assignment's effort"));
         }
@@ -256,7 +264,7 @@ class RoleEffectiveConfigurationTest {
 
             var role = defined(new RoleCatalog(sets, environment).resolveSteward());
 
-            assertEquals(RoleFixtures.MODEL, role.model());
+            assertEquals(RoleFixtures.MODEL, role.model(), "steward skips the model catalogue");
         }
 
         @Test
@@ -268,8 +276,8 @@ class RoleEffectiveConfigurationTest {
                     .resolve(RoleCatalog.STEWARD, RoleAssignment.none()));
 
             assertAll(
-                    () -> assertEquals(RoleFixtures.HARNESS, role.harness()),
-                    () -> assertEquals(RoleFixtures.MODEL, role.model()));
+                    () -> assertEquals(RoleFixtures.HARNESS, role.harness(), "steward harness comes from the machine"),
+                    () -> assertEquals(RoleFixtures.MODEL, role.model(), "steward model comes from the machine"));
         }
 
         @Test
@@ -280,7 +288,8 @@ class RoleEffectiveConfigurationTest {
 
             var resolution = new RoleCatalog(sets, environment).resolveSteward();
 
-            assertEquals(RoleValidationReason.HARNESS_UNKNOWN, ((RoleResolution.Undefined) resolution).reason());
+            assertEquals(RoleValidationReason.HARNESS_UNKNOWN, ((RoleResolution.Undefined) resolution).reason(),
+                    "no default harness leaves the steward undefined");
         }
     }
 

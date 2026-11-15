@@ -49,7 +49,8 @@ class ConstantBaselineTest {
             results.add(result(item.id(), majority));
         }
 
-        assertEquals(new BigDecimal("80"), ConstantBaseline.of(items, results));
+        assertEquals(new BigDecimal("80"), ConstantBaseline.of(items, results),
+                "eight of ten references agree");
     }
 
     @Test
@@ -67,7 +68,7 @@ class ConstantBaselineTest {
                 List.of(result(exact.id(), answer),
                         result(rubric.id(), "f" + Generators.letterStrings(3, 10).next())));
 
-        assertEquals(new BigDecimal("50"), baseline);
+        assertEquals(new BigDecimal("50"), baseline, "rubric item counts only in the denominator");
     }
 
     @Test
@@ -84,7 +85,8 @@ class ConstantBaselineTest {
             results.add(result(item.id(), answer));
         }
 
-        assertEquals(new BigDecimal("100"), ConstantBaseline.of(List.of(item), results));
+        assertEquals(new BigDecimal("100"), ConstantBaseline.of(List.of(item), results),
+                "five repeated runs all answer the same");
     }
 
     @Test
@@ -102,7 +104,8 @@ class ConstantBaselineTest {
     @Test
     @DisplayName("the share is rounded to two decimals")
     void rounding() {
-        assertEquals(new BigDecimal("33.33"), ConstantBaseline.percent(1, 3));
+        assertEquals(new BigDecimal("33.33"), ConstantBaseline.percent(1, 3),
+                "the share rounds to two decimals");
     }
 
     private static QualificationRecord.ItemResult result(String itemId, String answer) {

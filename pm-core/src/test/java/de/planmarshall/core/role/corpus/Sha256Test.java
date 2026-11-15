@@ -42,7 +42,8 @@ class Sha256Test {
     @MethodSource("vectors")
     @DisplayName("the hash of bytes is the known vector")
     void bytes(String input, String expected) {
-        assertEquals(expected, Sha256.hex(input.getBytes(StandardCharsets.US_ASCII)));
+        assertEquals(expected, Sha256.hex(input.getBytes(StandardCharsets.US_ASCII)),
+                "SHA-256 of the ASCII bytes is the FIPS vector");
     }
 
     @ParameterizedTest(name = "\"{0}\"")
@@ -50,26 +51,29 @@ class Sha256Test {
     @DisplayName("the hash of a stream is the known vector")
     void stream(String input, String expected) throws Exception {
         try (var in = new ByteArrayInputStream(input.getBytes(StandardCharsets.US_ASCII))) {
-            assertEquals(expected, Sha256.hex(in));
+            assertEquals(expected, Sha256.hex(in), "SHA-256 of the stream is the FIPS vector");
         }
     }
 
     @Test
     @DisplayName("bytes match their own hash")
     void matches() {
-        assertTrue(Sha256.matches("abc".getBytes(StandardCharsets.US_ASCII), ABC));
+        assertTrue(Sha256.matches("abc".getBytes(StandardCharsets.US_ASCII), ABC),
+                "matches() accepts the bytes of abc for their hash");
     }
 
     @Test
     @DisplayName("an upper-case spelling of the hash is not the lower-case format and does not match")
     void upperCase() {
-        assertFalse(Sha256.matches("abc".getBytes(StandardCharsets.US_ASCII), ABC.toUpperCase()));
+        assertFalse(Sha256.matches("abc".getBytes(StandardCharsets.US_ASCII), ABC.toUpperCase()),
+                "an upper-case hash is not the lower-case format");
     }
 
     @ParameterizedTest(name = "\"{0}\"")
     @ValueSource(strings = {EMPTY, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ae", "abc", ""})
     @DisplayName("bytes do not match another hash or a value that is no hash")
     void mismatch(String expected) {
-        assertFalse(Sha256.matches("abc".getBytes(StandardCharsets.US_ASCII), expected));
+        assertFalse(Sha256.matches("abc".getBytes(StandardCharsets.US_ASCII), expected),
+                "no match for another hash or a value that is no hash");
     }
 }

@@ -106,7 +106,7 @@ class ConsentCodecTest {
         var bytes = document.getBytes(UTF_8);
 
         var refusal = assertThrows(StoreRefusal.class, () -> ConsentCodec.read(path, bytes), what);
-        assertEquals(path, refusal.file());
+        assertEquals(path, refusal.file(), "refusal names the file it refused");
     }
 
     @Test
@@ -125,9 +125,11 @@ class ConsentCodecTest {
         var read = ConsentCodec.read(file(), document);
 
         assertAll(
-                () -> assertEquals(revision, read.revision()),
-                () -> assertEquals(List.of(consent), read.consents()),
-                () -> assertTrue(new String(document, UTF_8).contains("\"scripts\":[{\"path\":\"" + script + "\"")));
+                () -> assertEquals(revision, read.revision(), "the reported revision is read back"),
+                () -> assertEquals(List.of(consent), read.consents(), "the consent entry round-trips"),
+                () -> assertTrue(
+                        new String(document, UTF_8).contains("\"scripts\":[{\"path\":\"" + script + "\""),
+                        "the written document carries the script path"));
     }
 
     @Test
@@ -135,8 +137,8 @@ class ConsentCodecTest {
     void empty() {
         var read = ConsentCodec.read(file(), ConsentCodec.write(List.of(), 0));
         assertAll(
-                () -> assertTrue(read.consents().isEmpty()),
-                () -> assertEquals(0L, read.revision()));
+                () -> assertTrue(read.consents().isEmpty(), "an empty list reads back with no entry"),
+                () -> assertEquals(0L, read.revision(), "an empty document is at revision 0"));
     }
 
     @Test
@@ -144,6 +146,7 @@ class ConsentCodecTest {
     void invalidProjectId() {
         var granted = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
         assertThrows(IllegalArgumentException.class,
-                () -> Consent.project(ConsentKind.INSPECT_CHECKOUT, "Upper", granted, Consent.Channel.CLI, null));
+                () -> Consent.project(ConsentKind.INSPECT_CHECKOUT, "Upper", granted, Consent.Channel.CLI, null),
+                "an uppercase project id is refused");
     }
 }

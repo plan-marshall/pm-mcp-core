@@ -114,7 +114,7 @@ class DerivedFactsCodecTest {
         assertAll("The document round-trips",
                 () -> assertEquals(store(), read(GOLDEN), "The golden document reads into the store"),
                 () -> assertEquals(store(), DerivedFactsCodec.read(FILE, DerivedFactsCodec.write(store())),
-                        "read(write(x)) is x"),
+                        "a written store reads back as the same store"),
                 () -> assertTrue(Arrays.equals(document,
                                 DerivedFactsCodec.write(DerivedFactsCodec.read(FILE, document))),
                         "write(read(b)) is b for canonical bytes"));
@@ -163,7 +163,7 @@ class DerivedFactsCodecTest {
         var fact = read(document).fact(new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null)).orElseThrow();
 
         assertAll("A failed entry with a generated reason round-trips",
-                () -> assertEquals(DerivedFact.State.FAILED, fact.state(), "The entry is failed"),
+                () -> assertEquals(DerivedFact.State.FAILED, fact.state(), "the failed entry keeps its failed state"),
                 () -> assertEquals(reason, fact.failure().reason(), "The failure reason round-trips"),
                 () -> assertEquals(document, new String(DerivedFactsCodec.write(read(document)), UTF_8),
                         "The failed entry is written canonically"));

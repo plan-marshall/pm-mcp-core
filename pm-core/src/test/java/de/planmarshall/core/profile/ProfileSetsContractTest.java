@@ -39,6 +39,6 @@ class ProfileSetsContractTest implements ShouldHandleObjectContracts<ProfileSets
     @DisplayName("a shipped profile is deliberately not Serializable")
     public void shouldImplementSerializable() {
         assertFalse(Serializable.class.isAssignableFrom(ProfileSets.ShippedProfile.class),
-                "The shipped profile is not Java-serialized; its document bytes are the wire form");
+                "Not Serializable; bytes are the shipped wire form");
     }
 }
