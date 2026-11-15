@@ -11,6 +11,7 @@ package de.planmarshall.runtime.launch;
 
 import java.util.List;
 import java.util.Objects;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
@@ -24,10 +25,8 @@ import de.planmarshall.core.profile.JsonNode;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class FreeTextDerivation {
-
-    private FreeTextDerivation() {
-    }
 
     /**
      * @param links the links the task's entity offers

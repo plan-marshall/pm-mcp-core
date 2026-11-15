@@ -11,6 +11,7 @@ package de.planmarshall.core.role.qualification;
 
 import java.math.BigDecimal;
 import java.util.Objects;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.role.corpus.ImportedItem;
 
@@ -22,13 +23,11 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class Scoring {
 
     /** The compiled pass threshold of a rubric item that declares none. */
     public static final BigDecimal DEFAULT_PASS_THRESHOLD = new BigDecimal("0.5");
-
-    private Scoring() {
-    }
 
     /**
      * @param item an item with a closed answer

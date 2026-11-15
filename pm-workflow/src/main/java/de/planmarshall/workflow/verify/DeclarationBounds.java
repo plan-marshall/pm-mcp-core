@@ -21,6 +21,7 @@ import de.planmarshall.workflow.ast.DecisionDeclaration;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 
 /**
  * The compiled declaration schemas of the units that declare parameters, and the check of a unit's {@code declare} and
@@ -50,7 +51,8 @@ import lombok.Builder;
  *
  * @since 0.1
  */
-public final class DeclarationBounds {
+public @UtilityClass
+final class DeclarationBounds {
 
     /** The code of every finding of this check. */
     public static final String DECLARATION_INVALID = "declaration_invalid";
@@ -138,9 +140,6 @@ public final class DeclarationBounds {
             ASK_EVERY_PHASE, askingSchema(List.of("init", "refine", "plan", "execute"), YES, NO),
             ASK_KEY_POINTS, askingSchema(List.of(), YES, NO),
             ASK_QUESTIONS_ONLY, askingSchema(List.of(), NO, YES));
-
-    private DeclarationBounds() {
-    }
 
     private static List<Declaration> methodSchema(String order) {
         return List.of(new Declaration(ORDER, TASK_ORDERS, new CallValue.EnumValue(order)));

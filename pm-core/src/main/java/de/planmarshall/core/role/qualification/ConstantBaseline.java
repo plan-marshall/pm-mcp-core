@@ -14,6 +14,7 @@ import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.role.corpus.ImportedItem;
 
@@ -28,10 +29,8 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class ConstantBaseline {
-
-    private ConstantBaseline() {
-    }
 
     /**
      * @param items   the counted items of the topic

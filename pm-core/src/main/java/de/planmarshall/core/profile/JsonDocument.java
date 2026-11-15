@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class JsonDocument {
 
     /** The largest profile or record document, in bytes. */
@@ -41,9 +43,6 @@ public final class JsonDocument {
     public static final int MAX_STRING = 64 * 1024;
 
     private static final JsonFactory JSON = new JsonFactory();
-
-    private JsonDocument() {
-    }
 
     /**
      * @param document the document, UTF-8 encoded

@@ -13,6 +13,7 @@ import java.util.Map;
 
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
+import lombok.experimental.UtilityClass;
 
 /**
  * The invariant of the plan phase (Phase 4) of the plan unit, {@code INV-PLAN-1} (PM-IMPL-5).
@@ -25,13 +26,11 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  *
  * @since 0.1
  */
+@UtilityClass
 final class PlanInvariants {
 
     /** The Q-Gate of the plan phase. */
     static final String QGATE = "plan.qgate";
-
-    private PlanInvariants() {
-    }
 
     static Map<InvariantId, Check> checks() {
         return Map.of(InvariantId.INV_PLAN_1, PlanInvariants::pathIntoExecution);

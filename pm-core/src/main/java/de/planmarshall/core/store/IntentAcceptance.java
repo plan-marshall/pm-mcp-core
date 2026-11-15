@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.IntentRecord.Decision;
@@ -34,6 +35,7 @@ import de.planmarshall.core.store.IntentStore.Revision;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class IntentAcceptance {
 
     /** The channel a question part was answered through. */
@@ -153,9 +155,6 @@ public final class IntentAcceptance {
         public Refused {
             Objects.requireNonNull(detail, "detail");
         }
-    }
-
-    private IntentAcceptance() {
     }
 
     /**

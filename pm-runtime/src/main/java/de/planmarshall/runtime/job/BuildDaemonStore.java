@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
+import lombok.experimental.UtilityClass;
 
 /**
  * The per-project build daemon store (PM-EXEC-4, PM-SEC-5): the directory below the runtime base that holds the
@@ -42,6 +43,7 @@ import java.util.Objects;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class BuildDaemonStore {
 
     /** The directory of the daemons of one project below {@code projects/<project_id>/}. */
@@ -61,9 +63,6 @@ public final class BuildDaemonStore {
 
     /** The name of the store argument in the null checks. */
     private static final String ARG_STORE = "store";
-
-    private BuildDaemonStore() {
-    }
 
     /**
      * The digest of a write set: the first {@value #DIGEST_LENGTH} hex characters of the SHA-256 over the sorted,

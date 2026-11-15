@@ -26,6 +26,7 @@ import de.planmarshall.workflow.plan.HeaderJson.NullNode;
 import de.planmarshall.workflow.plan.HeaderJson.NumberNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
+import lombok.experimental.UtilityClass;
 
 /**
  * Checks a plan instance header against every constraint of the {@code PlanInstanceHeader} schema (PM-IMPL-5,
@@ -50,7 +51,8 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
  *
  * @since 0.1
  */
-public final class HeaderSchemaCheck {
+public @UtilityClass
+final class HeaderSchemaCheck {
 
     static final String MISSING = "required member is missing";
     static final String NOT_ALLOWED = "member is not declared by the schema";
@@ -116,9 +118,6 @@ public final class HeaderSchemaCheck {
     private static final List<String> UNIT_REF_REQUIRED = List.of(HeaderJson.UNIT, HeaderJson.DIGEST,
             HeaderJson.ORIGIN);
     private static final List<String> UNIT_REF_OPTIONAL = List.of(HeaderJson.FILE);
-
-    private HeaderSchemaCheck() {
-    }
 
     /**
      * Checks the JSON of an {@code instance} line.

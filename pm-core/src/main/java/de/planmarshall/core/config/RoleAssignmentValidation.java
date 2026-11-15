@@ -12,6 +12,7 @@ package de.planmarshall.core.config;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EnrolledHarness;
@@ -36,10 +37,8 @@ import de.planmarshall.core.role.RoleValidationReason;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class RoleAssignmentValidation {
-
-    private RoleAssignmentValidation() {
-    }
 
     /**
      * The lookups every value is validated against.

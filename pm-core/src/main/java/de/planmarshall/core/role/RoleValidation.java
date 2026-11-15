@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EnrolledHarness;
@@ -31,6 +32,7 @@ import de.planmarshall.core.profile.EnrolledHarness;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class RoleValidation {
 
     /** The PM-MCP tools every role names (PM-WORK-1, Tool Sets). */
@@ -52,9 +54,6 @@ public final class RoleValidation {
     /** Harness tools that no role may name: they start a sub-agent, ask the user, or reach the web. */
     private static final Set<String> FORBIDDEN_TOOLS = Set.of("agent", "task", "spawn_agent", "webfetch", "websearch",
             "web_search", "web_fetch");
-
-    private RoleValidation() {
-    }
 
     /**
      * The three effective values a role is validated with.

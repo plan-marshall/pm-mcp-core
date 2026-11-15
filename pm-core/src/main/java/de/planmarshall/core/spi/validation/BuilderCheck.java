@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.IntentRecord;
 import de.planmarshall.core.store.IntentRecord.Decider;
@@ -35,6 +36,7 @@ import de.planmarshall.core.store.IntentRecord.Decision;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class BuilderCheck {
 
     /** How the builder sorted one question. */
@@ -147,9 +149,6 @@ public final class BuilderCheck {
         public Refused {
             Objects.requireNonNull(detail, "detail");
         }
-    }
-
-    private BuilderCheck() {
     }
 
     /** The longest minor decision the record's decision text holds beside the marker: the record's 500-character text
