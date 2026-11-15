@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -63,6 +64,9 @@ class LaunchComposerTest {
 
     @TempDir
     Path root;
+
+    /** The SHA-256 of the fixture writer vector once the temporary root, the generation and the token are normalised. */
+    private static final String FIXTURE_VECTOR_DIGEST = "09861683eae4b11dedd3439c1ad090006665a632b5ca8ee14cd33ed296446737";
 
     private final SkillSource skills = LaunchFixtures.skills();
 
@@ -299,6 +303,54 @@ class LaunchComposerTest {
         assertEquals(client, launch.harness(), "the launch names the operator's harness");
     }
 
+    @Test
+    @DisplayName("a profile whose template renders a metacharacter into a slot is refused argument_rejected")
+    void metacharacterInASlotIsRefused() {
+        var block = HeadlessBlock.of(LaunchFixtures.profile(LaunchFixtures.documentWithMetacharacterInArgv()));
+        var request = requestWithBlock(block, LaunchFixtures.writer(skills));
+
+        var failure = assertThrows(LaunchComposer.CompositionException.class,
+                () -> new LaunchComposer().compose(request));
+
+        assertAll(
+                () -> assertEquals(LaunchRefusal.ARGUMENT_REJECTED, failure.refusal(),
+                        "the refusal names the rejected argument"),
+                () -> assertTrue(failure.getMessage().contains("(d)"), "the detail names the rule"),
+                () -> assertTrue(failure.getMessage().contains("element"), "the detail names the position"),
+                () -> assertFalse(failure.getMessage().contains(";"), "the detail never carries the value"));
+    }
+
+    @Test
+    @DisplayName("a refused composition leaves only the files it wrote before the check")
+    void refusalLeavesOnlyTheWrittenFiles() throws Exception {
+        var block = HeadlessBlock.of(LaunchFixtures.profile(LaunchFixtures.documentWithMetacharacterInArgv()));
+        var request = requestWithBlock(block, LaunchFixtures.writer(skills));
+
+        assertThrows(LaunchComposer.CompositionException.class, () -> new LaunchComposer().compose(request));
+
+        try (var files = Files.list(request.jobPrivateDirectory())) {
+            assertEquals(List.of("prompt.md", "result-schema.json"), files.map(file -> file.getFileName().toString())
+                    .sorted().toList(), "only the files written before the check exist");
+        }
+    }
+
+    @Test
+    @DisplayName("a conforming launch keeps the fixture vector byte for byte")
+    void conformingVectorDoesNotMove() {
+        var launch = compose(LaunchFixtures.writer(skills), true, false);
+
+        assertEquals(FIXTURE_VECTOR_DIGEST, vectorDigest(launch), "the conforming vector does not move");
+    }
+
+    private String vectorDigest(WorkerLaunch launch) {
+        var normalized = launch.argv().stream()
+                .map(argument -> argument.replace(root.toString(), "$ROOT"))
+                .map(argument -> argument.replace(generation, "$GENERATION"))
+                .map(argument -> launch.jobToken().isEmpty() ? argument : argument.replace(launch.jobToken(), "$TOKEN"))
+                .toList();
+        return JobTokens.sha256Hex(String.join("\u0000", normalized));
+    }
+
     private WorkerLaunch compose(EffectiveRole role, boolean fresh, boolean freeText) {
         return new LaunchComposer().compose(request(role, fresh, LaunchRequest.WorkdirKind.PLAN_WORKTREE, freeText));
     }
@@ -311,12 +363,23 @@ class LaunchComposerTest {
 
     private LaunchRequest request(EffectiveRole role, boolean fresh, LaunchRequest.WorkdirKind kind,
             boolean freeText, HarnessEnrolment enrolment) {
+        return request(LaunchFixtures.block(), role, fresh, kind, freeText, enrolment);
+    }
+
+    /** @return a fresh plan-worktree request over the given launch contract, with the fixture enrolment */
+    private LaunchRequest requestWithBlock(HeadlessBlock block, EffectiveRole role) {
+        return request(block, role, true, LaunchRequest.WorkdirKind.PLAN_WORKTREE, false, LaunchFixtures.enrolment(
+                LaunchFixtures.enrolmentPath(root), LaunchFixtures.executableDigest(), harnessVersion));
+    }
+
+    private LaunchRequest request(HeadlessBlock block, EffectiveRole role, boolean fresh, LaunchRequest.WorkdirKind kind,
+            boolean freeText, HarnessEnrolment enrolment) {
         var jobPrivate = root.resolve("run/jobs").resolve(generation);
         var workdir = kind == LaunchRequest.WorkdirKind.JOB_PRIVATE ? null : root.resolve("worktree");
         var planId = planIds().next();
         var zeroToolPrompt = Generators.letterStrings(2, 10).next() + " " + Generators.letterStrings(2, 10).next()
                 + ".";
-        return new LaunchRequest(role, LaunchFixtures.block(), enrolment, generation,
+        return new LaunchRequest(role, block, enrolment, generation,
                 root.resolve("runtime"), jobPrivate, kind, kind == LaunchRequest.WorkdirKind.PLAN_WORKTREE
                         ? planId : null, workdir, root.resolve("daemon.sock"), LaunchFixtures.SHIM, skills,
                 fresh, freeText, List.of("skill://pm/state/outline/SKILL.md"), List.of(
