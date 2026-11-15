@@ -33,16 +33,14 @@ import org.junit.jupiter.api.io.TempDir;
  * The scan reads the source text of the scanned test packages. A call of one of the assertion methods of the rule that
  * carries no message argument fails, and a message written as one string literal outside the 20 to 60 character range
  * fails too. A message that is not a single literal — a supplier, a method reference, the exception's own message, a
- * concatenation or a constant — is accepted and not measured, because its length is not a property of the source. An
- * assertion call inside a comment, a string or a text block is not code and is ignored.
+ * concatenation or a constant — is accepted and not measured. An assertion call inside a comment, a string or a text
+ * block is not code and is ignored.
  * <p>
  * The scan reads text, not types, so two shapes are outside what it can tell: a tolerance passed as an identifier or a
  * call ({@code assertEquals(a, b, DELTA)} reads as a message) and a comma inside a top-level type argument of a
- * single-argument assertion. The measurement is of the source spelling: an escape sequence counts by its spelling, and a
- * comment beside a message literal makes it read as a non-literal. None of these occurs in the scanned packages today.
- * <p>
- * A plan that brings another package of this module to the rule adds that package to {@link #SCANNED_PACKAGES}; a
- * package whose directory holds no test source fails the scan instead of passing it as empty.
+ * single-argument assertion. The measurement is of the source spelling: an escape counts by its spelling, and a comment
+ * beside a message literal makes it read as a non-literal. A plan that brings another package to the rule adds it to
+ * {@link #SCANNED_PACKAGES}; a package with no test source fails the scan instead of passing as empty.
  */
 @EnableGeneratorController
 @DisplayName("Every assertion carries a message")
@@ -63,8 +61,9 @@ class AssertionMessageScanTest {
     private static final Set<String> ONE_ARGUMENT_ASSERTIONS = Set.of("assertTrue", "assertFalse", "assertNull",
             "assertNotNull", "assertDoesNotThrow");
 
-    private static final Pattern NUMERIC =
-            Pattern.compile("[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?[dDfF]?");
+    private static final Pattern NUMERIC = Pattern.compile(
+            "[+-]?(?:0[xX](?:[0-9a-fA-F][0-9a-fA-F_]*(?:\\.[0-9a-fA-F_]*)?|\\.[0-9a-fA-F][0-9a-fA-F_]*)[pP][+-]?\\d+"
+                    + "|(?:\\d[\\d_]*(?:\\.[\\d_]*)?|\\.[\\d_]+)(?:[eE][+-]?\\d[\\d_]*)?)[dDfF]?");
 
     private static final Pattern LITERAL = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"");
 
@@ -97,23 +96,26 @@ class AssertionMessageScanTest {
     }
 
     @Test
-    @DisplayName("a missing message and an out-of-range literal message are reported")
+    @DisplayName("a missing message, an out-of-range message and a tolerance are reported")
     void missingAndOutOfRangeMessagesAreReported(@TempDir Path temp) throws Exception {
-        assertTrue(reported(packageFixture(temp.resolve("missing"), "assertTrue(refusal.isPresent());"), "no message"),
-                "an assertion without a message must be reported");
-        assertTrue(reported(packageFixture(temp.resolve("nested"),
-                "assertAll(\"the refusal\", () -> assertTrue(refusal.isPresent()));"), "no message"),
-                "an assertion inside an assertAll lambda must be reported");
-        assertTrue(reported(packageFixture(temp.resolve("short"), "assertTrue(refusal.isPresent(), \"too short\");"),
-                "shorter than " + MIN_MESSAGE_LENGTH),
-                "a message below 20 characters must be reported");
-        assertTrue(reported(packageFixture(temp.resolve("long"), "assertTrue(refusal.isPresent(), \""
-                + "x".repeat(MAX_MESSAGE_LENGTH + 1) + "\");"), "longer than " + MAX_MESSAGE_LENGTH),
-                "a message above 60 characters must be reported");
-        assertTrue(reported(packageFixture(temp.resolve("tolerance"),
-                "assertEquals(1.0, value, 1e-6); assertArrayEquals(EXPECTED, value, 0.001);"),
-                "a tolerance is not a message"),
-                "a numeric tolerance must not be read as a message");
+        assertReported(temp.resolve("missing"), "assertTrue: no message", "assertTrue(refusal.isPresent());");
+        assertReported(temp.resolve("nested"), "assertTrue: no message",
+                "assertAll(\"the refusal\", () -> assertTrue(refusal.isPresent()));");
+        assertReported(temp.resolve("short"), "shorter than " + MIN_MESSAGE_LENGTH,
+                "assertTrue(refusal.isPresent(), \"too short\");");
+        assertReported(temp.resolve("long"), "longer than " + MAX_MESSAGE_LENGTH,
+                "assertTrue(refusal.isPresent(), \"" + "x".repeat(MAX_MESSAGE_LENGTH + 1) + "\");");
+        assertReported(temp.resolve("array-tolerance"), "assertArrayEquals: no message",
+                "assertArrayEquals(EXPECTED, value, 0.001);");
+        for (var tolerance : List.of("1e-6", "1_000.0", "0x1.0p-6")) {
+            assertReported(temp.resolve("tolerance-" + tolerance), "assertEquals: no message",
+                    "assertEquals(1.0, value, " + tolerance + ");");
+        }
+    }
+
+    private static void assertReported(Path root, String reason, String statement) throws IOException {
+        assertTrue(reported(packageFixture(root, statement), reason),
+                () -> "expected '" + reason + "' for " + statement);
     }
 
     @Test
