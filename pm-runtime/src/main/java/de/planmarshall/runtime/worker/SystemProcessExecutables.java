@@ -154,6 +154,7 @@ public final class SystemProcessExecutables implements ProcessExecutables {
     }
 
     /** The {@code proc_pidpath} call: the number of bytes written, or 0 when the process answers no path. */
+    @SuppressWarnings("java:S1181") // MethodHandle.invokeExact declares Throwable; Errors are rethrown
     private static Optional<Path> macPath(MethodHandle pidPath, long pid) {
         try (var arena = Arena.ofConfined()) {
             var buffer = arena.allocate(PATH_BUFFER);
