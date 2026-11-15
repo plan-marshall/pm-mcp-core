@@ -51,8 +51,8 @@ import lombok.experimental.UtilityClass;
  *
  * @since 0.1
  */
-public @UtilityClass
-final class DeclarationBounds {
+@UtilityClass
+public final class DeclarationBounds {
 
     /** The code of every finding of this check. */
     public static final String DECLARATION_INVALID = "declaration_invalid";

@@ -38,9 +38,9 @@ import de.planmarshall.core.profile.ProfileRefusal;
  *
  * @since 0.1
  */
+@UtilityClass
 @SuppressWarnings("java:S1192")
 // the member names are the schema's own strings, set members and pointer segments alike
-@UtilityClass
 public final class RoleArtifactValidator {
 
     /** The one format version a role artifact declares. */

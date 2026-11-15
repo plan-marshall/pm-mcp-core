@@ -51,8 +51,8 @@ import lombok.experimental.UtilityClass;
  *
  * @since 0.1
  */
-public @UtilityClass
-final class HeaderSchemaCheck {
+@UtilityClass
+public final class HeaderSchemaCheck {
 
     static final String MISSING = "required member is missing";
     static final String NOT_ALLOWED = "member is not declared by the schema";
