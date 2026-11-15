@@ -112,6 +112,10 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc` (no requirem
 - The ADR exists; the native-image statement and the dependency trees are in the pull request body; the links check reports `BROKEN LINKS 0`.
 - The pull request exists and carries the label `skip-bot-review` (read back), the CI of the pull request and its Sonar search are green or dismissed with a reason, and #71 is closed in favour of it.
 
+## Dependabot #383 (3.0.9), decided 2026-11-15 (handle-open, orchestrator, confidence 92)
+
+Dependabot opened pull request #383 for `json-schema-validator` 3.0.9 (the open #71 of the origin text is the older 3.0.8 bump). B3 (the operator, 2026-11-10, "a1") already decides it: the version is 3.0.8, "a newer 3.x only if the lane reads its POM first and reports it". The lane therefore reads the 3.0.9 POM at the refine and reports; it takes 3.0.9 if that POM keeps the Jackson 3 coordinates and class names the plan relies on, else 3.0.8. When this plan has landed, #383 (and #71, if still open) is superseded: the operator closes it, the orchestrator does not.
+
 ## Hand-Off Command
 
 ```text

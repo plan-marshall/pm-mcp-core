@@ -56,19 +56,19 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `Change Map`, `change-map`, `change_map`, and the index has no row for `change-map` — `grep` of `doc/plans/` and `ls doc/plans/change-map.adoc` at `4617865`
-  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/change-map.adoc exists (8 What bullets), row blocked, Milestone 10; unchanged
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/change-map.adoc exists (created #143, restructured #286 to 6 Tasks) and README row 246 is blocked; the Re-grounding Records of 2026-10-25 and 2026-10-26 state it
 - OBSERVED: the specification this plan builds exists and carries the anchors it names — `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc`, `doc/implementation-watch/phase-workflows.adoc`
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: phase-workflows/05 dependency-delta and change-map anchors present (moved by #177, #186, #189, #191); PM-WATCH-PHASE-114 at phase-workflows.adoc:1712, text unchanged
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: phase-workflows/05 holds anchors dependency-delta (252), added-line-scan (341), change-map (358); PM-WATCH-PHASE-114 at implementation-watch/phase-workflows.adoc:1630
 - OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-V2-77, PLAN-43); `PLAN-96` is the plan that writes the package file and the index row
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: PLAN-96 shipped (#143); PLAN-V2-77 and PLAN-43 open rows; queue files exist in the ledger
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: Only PLAN-V2-77 (parked) is a queue row of this v2 ledger; PLAN-96 (shipped #143) and PLAN-43 (landed) have no row in queue/ of pm-mcp-core-m2-m4-v2; they belong to the predecessor epic
 - OBSERVED: the packages this one waits on have no work package — the index and the package files under `doc/plans/` build none of `Dependency Delta`, `module discovery`, `build-file dependency parser`; the index will keep this package `blocked` on them
-  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: domain-extensions-and-architecture.adoc and finalize-pipeline-and-merge.adoc exist (index rows open); code absent: core/discovery is package-info only, no change_map symbol in main Java
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/domain-extensions-and-architecture.adoc and finalize-pipeline-and-merge.adoc exist with rows open and README change-map row depends on them; code absent (core/discovery package-info only); re-grounding records state it
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the specification parts — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis; workflow/finalize holds FinalizePipelineValidator, FinalizeStepDescriptor, PipelineRule, PipelineViolation; workflow/diagram holds the renderers
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis for the trace matrix; GitOperations still has no tree listing, ChangeMap.java and core-discovery.adoc absent, workflow/finalize and workflow/diagram exist; no change_map symbol in Java
 - HYPOTHESIS: the milestone in the `Serves` line and the edges of the `Dependencies` section are the orchestrator's reading of the roadmap and of the specification, not an operator decision — confirm/refute at `doc/plans/README.adoc` and the roadmap items of `plan-marshall-documentation` (verify-at-outline)
-  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: milestone holds (10); the index row depends on own-calls, phase-sub-workflows, domain-extensions-and-architecture and finalize-pipeline-and-merge while the spec lists three and parks the packages as no work package
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: Milestone 10 holds but README row depends on own-calls, phase-sub-workflows, domain-extensions-and-architecture, finalize-pipeline-and-merge while the spec lists three; Re-grounding Records of 2026-10-25 and -26 state the corrected edges
 - Verify-first clause: before scoping, check that PLAN-96 has landed (the package file and the index row exist), that the packages this one depends on are done or in flight, and list the open pull requests for one that names the package; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: package file and row exist; PLAN-96 landed; dependencies not done so the plan is not ready; the open-PR list is not readable
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Package file and row exist, PLAN-96 landed (#143); dependency packages not done so the plan is not ready; open-PR list not readable
 
 ## Expected Surface
 
@@ -165,6 +165,12 @@ Specification changes carried (not yet in the Deliverables above):
 - Parked: the module discovery, the build-file dependency parser, the Dependency Delta Check, and the finalize pipeline of Milestone 10 have no work package; the index keeps this package `blocked` on them
 - Blocks: nothing
 - Overlaps with: computed by `corpus cross-check` at emit time
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 2 (contradicted at HEAD): Only PLAN-V2-77 (parked) is a queue row of this v2 ledger; PLAN-96 (shipped #143) and PLAN-43 (landed) have no row in queue/ of pm-mcp-core-m2-m4-v2; they belong to the predecessor epic
+
 ## Hand-Off Command
 
 ```text

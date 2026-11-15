@@ -54,21 +54,21 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/epic-review.adoc` § What, Trace, Done When on `origin/main` at `4617865` (6 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/epic-review.adoc unchanged; 6 What bullets and Done When equal D1 to D6
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/epic-review.adoc was rewritten by #286: the What bullets are now a Tasks list of 5 numbered items, so the 6-bullet D1 to D6 text is no longer the package file's own
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-29 (`chat`); PLAN-V2-27 (`epic-resource-and-release`) (the archive check reads its registers)) — read at `doc/plans/epic-review.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on operator-wait-and-machine-scope, chat, epic-resource-and-release, all listed
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: README index row epic-review is open and depends on chat and epic-resource-and-release only; operator-wait-and-machine-scope has no row and no package file at HEAD, yet the spec still lists it
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file and the class-level surfaces of the former specs, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: workflow/epic and workflow/primitive package-info only; no register store, no review.json code
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis to settle at the trace matrix; note workflow/epic now holds EpicTokens.java beside package-info; no register store seen
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5) — `static final LogRecord` counted on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: holders and range/unique tests exist; Core 5, Workflow 5, Runtime 89 (the 81 in the text is stale)
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: HEAD counts: CoreLogMessages 5, WorkflowLogMessages 5, RuntimeLogMessages 95, not 81; no binding section of this spec states the corrected count
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis about log need; nothing to read
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about a log need; nothing to read
 - HYPOTHESIS: whether the package makes an HTTP call is decided at the specification sections of the trace starting set; the two HTTP constraints bind only if the trace matrix shows one, and only in `pm-runtime` or a provider module — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: the epic spec parts are unchanged since 4617865 and show no outbound HTTP
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about outbound HTTP, decided at the trace matrix; nothing to read
 - OBSERVED: the specification and watch parts of the Expected Surface changed since the claims were last grounded at `c281f6c` only as listed in the verdict — `git diff --numstat c281f6c..4617865`; the executing plan re-reads them at its branch point
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: model-work/08, state-catalogue/06 and 17, store-schemas/04 have no commit after 4617865; model-work/01 changed (#189 screener repeated runs), the default role set untouched
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: model-work/08, state-catalogue/06 and 17, store-schemas/04 and model-work/01 have commits after f4a1bd07 (#286, #330, #338, #380, #404); the spec's no-change reading is stale
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `epic-review`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, dependencies listed, package file unchanged
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure clause for the executing plan, not a fact; the index row is open but the dependency list no longer matches it
 
 ## Expected Surface
 
@@ -132,6 +132,15 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 - Sequenced with: PLAN-V2-32 (`epic-decomposition`): the two packages are the halves of what PLAN-75 merged and #111 split again, and both edit `model-work/08-epic-coordination.adoc`, `state-catalogue/06-setup-epic-other.adoc`, `state-catalogue/17-epic-decomposition-and-review.adoc` and `store-schemas/04-epic-and-change-ledger.adoc`; run them one after the other, not in parallel
 - Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc` and `doc/Traceability.adoc`; the plans of the same module through its log holder, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
+
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 0 (contradicted at HEAD): doc/plans/epic-review.adoc was rewritten by #286: the What bullets are now a Tasks list of 5 numbered items, so the 6-bullet D1 to D6 text is no longer the package file's own
+- Claim 1 (contradicted at HEAD): README index row epic-review is open and depends on chat and epic-resource-and-release only; operator-wait-and-machine-scope has no row and no package file at HEAD, yet the spec still lists it
+- Claim 3 (contradicted at HEAD): HEAD counts: CoreLogMessages 5, WorkflowLogMessages 5, RuntimeLogMessages 95, not 81; no binding section of this spec states the corrected count
+- Claim 6 (contradicted at HEAD): model-work/08, state-catalogue/06 and 17, store-schemas/04 and model-work/01 have commits after f4a1bd07 (#286, #330, #338, #380, #404); the spec's no-change reading is stale
 
 ## Hand-Off Command
 
