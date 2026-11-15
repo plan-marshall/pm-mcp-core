@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.id;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * The one place a short lower-case name grammar is written: two to 32 characters, the first a lower-case letter, the
  * rest lower-case letters, digits or {@code -}.
@@ -22,13 +24,11 @@ package de.planmarshall.core.id;
  *
  * @since 0.1
  */
+@UtilityClass
 final class ShortName {
 
     /**
      * The grammar of a name of two to 32 characters: a lower-case letter, then lower-case letters, digits or hyphens.
      */
     static final String TEXT = "^[a-z][a-z0-9-]{1,31}$";
-
-    private ShortName() {
-    }
 }

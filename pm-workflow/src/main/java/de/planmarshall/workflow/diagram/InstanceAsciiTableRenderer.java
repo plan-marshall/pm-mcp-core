@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.experimental.UtilityClass;
 
 /**
  * Renders a plan instance version as tables for terminal output, drawn with Unicode box-drawing characters and
@@ -29,10 +30,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  *
  * @since 0.1
  */
+@UtilityClass
 final class InstanceAsciiTableRenderer {
-
-    private InstanceAsciiTableRenderer() {
-    }
 
     /**
      * Renders an instance version.

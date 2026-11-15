@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonNode;
@@ -42,12 +43,10 @@ import de.planmarshall.core.profile.JsonNode;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class RoleDigests {
 
     private static final HexFormat HEX = HexFormat.of();
-
-    private RoleDigests() {
-    }
 
     /**
      * @param role an effective role

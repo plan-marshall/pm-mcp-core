@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -34,12 +35,10 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class RoleSetLoader {
 
     private static final String SUFFIX = ".json";
-
-    private RoleSetLoader() {
-    }
 
     /**
      * @param sets the three sets

@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
+import lombok.experimental.UtilityClass;
 
 /**
  * The framing of {@code git.worktree-sha} version 1 over a path set (job runtime specification,
@@ -32,13 +33,11 @@ import java.util.List;
  *
  * @since 0.1
  */
+@UtilityClass
 final class WorktreeShaDigest {
 
     private static final byte NUL = 0;
     private static final int BUFFER = 64 * 1024;
-
-    private WorktreeShaDigest() {
-    }
 
     /**
      * @param head  the lower-case hex {@code HEAD} commit id

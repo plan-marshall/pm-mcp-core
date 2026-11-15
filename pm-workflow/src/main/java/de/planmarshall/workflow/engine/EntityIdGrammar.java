@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import de.planmarshall.core.store.EntryId;
+import lombok.experimental.UtilityClass;
 
 /**
  * The grammar of an addressed entity identifier and of the forms it takes (PM-ARCH-4, PM-WF-1). This is the only place
@@ -30,6 +31,7 @@ import de.planmarshall.core.store.EntryId;
  * </ul>
  * Identifiers are compared byte-exactly; no case is folded.
  */
+@UtilityClass
 final class EntityIdGrammar {
 
     /** The prefix of an {@code entry_id}. */
@@ -58,9 +60,6 @@ final class EntityIdGrammar {
         QUEUE_TASK,
         /** Any other entity of a task. */
         OTHER
-    }
-
-    private EntityIdGrammar() {
     }
 
     /**

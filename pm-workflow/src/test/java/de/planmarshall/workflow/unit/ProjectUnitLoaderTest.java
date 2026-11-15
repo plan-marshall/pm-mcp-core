@@ -9,8 +9,6 @@
  */
 package de.planmarshall.workflow.unit;
 
-import static de.planmarshall.workflow.log.WorkflowLogMessages.INFO;
-import static de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
 import static de.planmarshall.workflow.unit.UnitFixtures.configPath;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +52,8 @@ import de.planmarshall.workflow.dsl.RefusalRule;
 import de.planmarshall.workflow.dsl.UnitFrontmatterReader;
 import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.finalize.PipelineRule;
+import de.planmarshall.workflow.log.WorkflowLogMessages.INFO;
+import de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
 import de.planmarshall.workflow.verify.InvariantFixtures;
 import de.planmarshall.workflow.verify.InvariantId;
 

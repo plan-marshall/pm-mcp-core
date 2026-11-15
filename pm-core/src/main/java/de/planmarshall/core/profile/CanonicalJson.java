@@ -16,6 +16,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.TreeMap;
+import lombok.experimental.UtilityClass;
 
 /**
  * The canonical JSON of a client profile or verification record (RFC 8785, JCS), which its {@code profile_digest} is
@@ -30,12 +31,10 @@ import java.util.TreeMap;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class CanonicalJson {
 
     private static final HexFormat HEX = HexFormat.of();
-
-    private CanonicalJson() {
-    }
 
     /**
      * @param root the document

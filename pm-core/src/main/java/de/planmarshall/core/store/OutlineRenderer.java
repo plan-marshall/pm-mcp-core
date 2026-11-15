@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import java.util.Objects;
 import java.util.stream.Collectors;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
 import de.planmarshall.core.store.OutlineRecord.Profile;
@@ -22,10 +23,8 @@ import de.planmarshall.core.store.OutlineRecord.Profile;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class OutlineRenderer {
-
-    private OutlineRenderer() {
-    }
 
     /**
      * @param store the outline store

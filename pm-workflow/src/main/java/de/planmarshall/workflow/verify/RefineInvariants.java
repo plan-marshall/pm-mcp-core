@@ -21,6 +21,7 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
 import de.planmarshall.workflow.verify.CompiledInvariants.Edge;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -37,6 +38,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 final class RefineInvariants {
 
     /** The analysis of the refine phase. */
@@ -51,9 +53,6 @@ final class RefineInvariants {
     /** The states a path may leave the phase for without passing the deep-path states. */
     private static final Set<String> FALLBACKS = Set.of(CompiledInvariants.PLAN_RETURN, CompiledInvariants.HAND_BACK,
             CompiledInvariants.PLAN_ABORTED);
-
-    private RefineInvariants() {
-    }
 
     static Map<InvariantId, Check> checks() {
         return Map.of(InvariantId.INV_REFINE_1, RefineInvariants::deepPath);

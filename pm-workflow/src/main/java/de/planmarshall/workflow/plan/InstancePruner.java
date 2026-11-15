@@ -32,6 +32,7 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.LaneEntryIds;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -72,6 +73,7 @@ import org.jspecify.annotations.Nullable;
  * pruned by lane. A light version keeps the deep route, the target of its escalation, and so prunes nothing by lane;
  * a deep version holds no state of the light route.
  */
+@UtilityClass
 final class InstancePruner {
 
     /** The selector of every Phase 6 step below an order. */
@@ -88,9 +90,6 @@ final class InstancePruner {
 
     /** The source fact of a prune by lane. */
     private static final String LANE_FACT = "lane";
-
-    private InstancePruner() {
-    }
 
     /**
      * @param template          the plan template

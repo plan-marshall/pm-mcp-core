@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonNode;
@@ -32,6 +33,7 @@ import de.planmarshall.core.profile.JsonPointer;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class AnswerSchema {
 
     /** The deepest nesting the check follows, so a recursive schema ends instead of looping. */
@@ -43,9 +45,6 @@ public final class AnswerSchema {
     private static final Set<String> KEYWORDS = Set.of("type", "const", "enum", "required", "properties",
             "additionalProperties", "items", "minItems", "maxItems", "minLength", "maxLength", "minimum", "maximum",
             "$ref");
-
-    private AnswerSchema() {
-    }
 
     /**
      * @param schema the role's result schema

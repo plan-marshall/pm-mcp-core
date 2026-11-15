@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.experimental.UtilityClass;
 import org.eclipse.jgit.errors.AmbiguousObjectException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Repository;
@@ -32,6 +33,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class GitIdentity {
 
     /** A full commit id: 40 hexadecimal digits, in either case. */
@@ -40,9 +42,6 @@ public final class GitIdentity {
     /** A prefix that may abbreviate a commit id: 4 to 39 hexadecimal digits, in either case. */
     private static final Pattern ABBREVIATED_COMMIT_ID =
             Pattern.compile("[0-9a-f]{4,39}", Pattern.CASE_INSENSITIVE);
-
-    private GitIdentity() {
-    }
 
     /**
      * How a revision string is addressed.

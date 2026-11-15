@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.experimental.UtilityClass;
 
 /**
  * Renders a plan instance version as a Mermaid {@code stateDiagram-v2} (PM-IMPL-5, Workflow DSL Specification, Plan
@@ -38,6 +39,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  *
  * @since 0.1
  */
+@UtilityClass
 final class InstanceMermaidRenderer {
 
     private static final String INDENT = "    ";
@@ -45,9 +47,6 @@ final class InstanceMermaidRenderer {
 
     /** The most digits a numeric suffix of the unit's diagram can have; a longer suffix is no suffix of it. */
     private static final int MAX_SUFFIX_DIGITS = 9;
-
-    private InstanceMermaidRenderer() {
-    }
 
     /**
      * Renders an instance version.

@@ -21,6 +21,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.Lane;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
 import de.planmarshall.workflow.finalize.ProposalRecord.Disposition;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 
 /**
  * The {@code default:finalize-step-simplify} step and the two tasks of its firing (Phase Workflows § Finalize Step
@@ -33,6 +34,7 @@ import lombok.Builder;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class SimplifyStep {
 
     /** The step id. */
@@ -58,9 +60,6 @@ public final class SimplifyStep {
 
     /** The name of the proposal-record list parameter, as a null refusal names it. */
     private static final String RECORDS = "records";
-
-    private SimplifyStep() {
-    }
 
     /**
      * @return the descriptor of the step, read-only at order 5
