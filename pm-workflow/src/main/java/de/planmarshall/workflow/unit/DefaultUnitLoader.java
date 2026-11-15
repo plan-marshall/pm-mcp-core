@@ -9,8 +9,6 @@
  */
 package de.planmarshall.workflow.unit;
 
-import static de.planmarshall.workflow.log.WorkflowLogMessages.ERROR;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -26,6 +24,7 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
+import de.planmarshall.workflow.log.WorkflowLogMessages.ERROR;
 
 /**
  * Loads the default units, the project-ownable units compiled into the release, from a classpath root (PM-IMPL-5).

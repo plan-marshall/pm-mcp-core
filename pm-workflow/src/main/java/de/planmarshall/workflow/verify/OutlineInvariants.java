@@ -15,6 +15,7 @@ import java.util.Set;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
+import lombok.experimental.UtilityClass;
 
 /**
  * The invariants of the outline phase of the plan unit, {@code INV-OUTLINE-1} and {@code INV-OUTLINE-2} (PM-IMPL-5).
@@ -32,6 +33,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  *
  * @since 0.1
  */
+@UtilityClass
 final class OutlineInvariants {
 
     /** The gate of the outline phase towards Phase 4. */
@@ -48,9 +50,6 @@ final class OutlineInvariants {
 
     /** The first state of the plan phase, which every path into Phase 4 passes. */
     private static final String PHASE_FOUR_ENTRY = "plan.derive";
-
-    private OutlineInvariants() {
-    }
 
     static Map<InvariantId, Check> checks() {
         return Map.of(

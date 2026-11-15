@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
+import lombok.experimental.UtilityClass;
 
 /**
  * Checks a roster of finalize steps against the static rules of the pipeline (PM-IMPL-5): the default roster at build
@@ -34,6 +35,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class FinalizePipelineValidator {
 
     /** The step id of the pre-push quality gate. */
@@ -53,9 +55,6 @@ public final class FinalizePipelineValidator {
 
     /** The fact by which a step ordered before {@code record-metrics} declares that it reads the labelled snapshot. */
     static final String MEASURED_UNTIL = "measured_until";
-
-    private FinalizePipelineValidator() {
-    }
 
     /**
      * Checks a roster.

@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.config;
 
 import java.util.Objects;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -22,6 +23,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class MachineDefaultsValidation {
 
     /** The landing variant that opens a pull request. */
@@ -35,9 +37,6 @@ public final class MachineDefaultsValidation {
 
     /** The prefix of every message key of a verdict. */
     static final String MESSAGE_KEY_PREFIX = "defaults.validation.";
-
-    private MachineDefaultsValidation() {
-    }
 
     /**
      * One verdict of the machine's check.

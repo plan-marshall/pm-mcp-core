@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.id.RoleName;
@@ -37,7 +38,9 @@ import de.planmarshall.core.profile.ProfileRefusal;
  *
  * @since 0.1
  */
-@SuppressWarnings("java:S1192") // the member names are the schema's own strings, set members and pointer segments alike
+@UtilityClass
+@SuppressWarnings("java:S1192")
+// the member names are the schema's own strings, set members and pointer segments alike
 public final class RoleArtifactValidator {
 
     /** The one format version a role artifact declares. */
@@ -64,9 +67,6 @@ public final class RoleArtifactValidator {
     private static final String SKILL_SUFFIX = "/SKILL.md";
 
     private static final Map<String, RoleArtifact.OffTrackSignal> SIGNALS = signals();
-
-    private RoleArtifactValidator() {
-    }
 
     /**
      * @param document the artifact document, UTF-8 encoded

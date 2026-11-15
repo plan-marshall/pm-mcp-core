@@ -18,6 +18,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
+import lombok.experimental.UtilityClass;
 
 /**
  * The invariants of the execute phase (Phase 5) of the plan unit and its {@code land} lane, {@code INV-EXEC-1} to
@@ -44,6 +45,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  *
  * @since 0.1
  */
+@UtilityClass
 final class ExecuteInvariants {
 
     /** The worktree initialization of the execute phase. */
@@ -100,9 +102,6 @@ final class ExecuteInvariants {
             "aborted");
 
     private static final String PHASE_OUTLINE = "outline";
-
-    private ExecuteInvariants() {
-    }
 
     static Map<InvariantId, Check> checks() {
         return Map.of(

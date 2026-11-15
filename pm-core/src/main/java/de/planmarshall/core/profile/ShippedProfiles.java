@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
+import lombok.experimental.UtilityClass;
 
 /**
  * Reads the shipped profile set from the resources of {@code pm-api} (PM-CLIENT-5, Profile Sets): the documents
@@ -33,15 +34,13 @@ import java.util.regex.Pattern;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class ShippedProfiles {
 
     private static final String DIRECTORY = "profiles";
     /** The suffix of a shipped profile document. */
     private static final String PROFILE_SUFFIX = ".json";
     private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
-
-    private ShippedProfiles() {
-    }
 
     /**
      * @param loader the loader of the resources

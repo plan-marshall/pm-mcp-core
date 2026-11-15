@@ -30,6 +30,7 @@ import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
 import de.planmarshall.workflow.ast.UnitType;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -69,6 +70,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class UnitFrontmatterReader {
 
     /** The line that opens and closes the frontmatter. */
@@ -134,9 +136,6 @@ public final class UnitFrontmatterReader {
 
     private static final String VALUE_TYPES = Arrays.stream(UnitType.values()).map(UnitType::wireName)
             .collect(Collectors.joining(", "));
-
-    private UnitFrontmatterReader() {
-    }
 
     /**
      * Reads the frontmatter of a unit.

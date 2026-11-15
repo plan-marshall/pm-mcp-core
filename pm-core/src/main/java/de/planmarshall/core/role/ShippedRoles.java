@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.jar.JarFile;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.id.RoleName;
 
@@ -37,14 +38,12 @@ import de.planmarshall.core.id.RoleName;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class ShippedRoles {
 
     private static final String DIRECTORY = "roles";
     private static final String SUFFIX = ".json";
     private static final String RESERVED = "default-assignment";
-
-    private ShippedRoles() {
-    }
 
     /**
      * @param loader the loader of the resources

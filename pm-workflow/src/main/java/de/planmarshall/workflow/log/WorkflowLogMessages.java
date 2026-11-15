@@ -11,6 +11,7 @@ package de.planmarshall.workflow.log;
 
 import de.cuioss.tools.logging.LogRecord;
 import de.cuioss.tools.logging.LogRecordModel;
+import lombok.experimental.UtilityClass;
 
 /**
  * Log messages of the module {@code pm-workflow}.
@@ -20,15 +21,14 @@ import de.cuioss.tools.logging.LogRecordModel;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class WorkflowLogMessages {
 
     /** Prefix of all log messages of {@code pm-workflow}. */
     public static final String PREFIX = "PM_WORKFLOW";
 
-    private WorkflowLogMessages() {
-    }
-
     /** INFO level messages. */
+    @UtilityClass
     public static final class INFO {
 
         /**
@@ -57,12 +57,10 @@ public final class WorkflowLogMessages {
                 .identifier(2)
                 .template("Plan instance version %s of plan '%s' recorded for the event '%s'")
                 .build();
-
-        private INFO() {
-        }
     }
 
     /** WARN level messages. */
+    @UtilityClass
     public static final class WARN {
 
         /**
@@ -94,12 +92,10 @@ public final class WorkflowLogMessages {
                 .identifier(101)
                 .template("Composition '%s' of plan '%s' refused with '%s', the version in force is kept")
                 .build();
-
-        private WARN() {
-        }
     }
 
     /** ERROR level messages. */
+    @UtilityClass
     public static final class ERROR {
 
         /**
@@ -115,8 +111,5 @@ public final class WorkflowLogMessages {
                 .identifier(200)
                 .template("Default unit '%s' refused at line %s by '%s'")
                 .build();
-
-        private ERROR() {
-        }
     }
 }

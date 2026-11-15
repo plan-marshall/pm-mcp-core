@@ -19,6 +19,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.FallbackReason;
 import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.workflow.ast.StateBehavior;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -46,10 +47,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class QuestionContinuation {
-
-    private QuestionContinuation() {
-    }
 
     /**
      * The form in force for a continuation.

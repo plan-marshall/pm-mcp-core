@@ -24,6 +24,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.InstanceInputs;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -46,6 +47,7 @@ import org.jspecify.annotations.Nullable;
  * which carries the column of the JSON text the defect lies at, when the defect has one; a jackson-core
  * {@link IOException} is mapped to that refusal and never rethrown.
  */
+@UtilityClass
 final class InstanceHeaderReader {
 
     private static final String FIELD_PLAN_ID = "plan_id";
@@ -73,9 +75,6 @@ final class InstanceHeaderReader {
     private static final String ROOT = "";
 
     private static final JsonFactory JSON = new JsonFactory();
-
-    private InstanceHeaderReader() {
-    }
 
     /**
      * Reads an instance header.

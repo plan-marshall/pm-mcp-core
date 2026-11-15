@@ -37,6 +37,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -50,6 +51,7 @@ import org.jspecify.annotations.Nullable;
  * The reader parses a line into a {@link Node} tree, refusing a line that is no single JSON value or names a member of
  * an object twice, checks the tree with {@link HeaderSchemaCheck}, and maps a tree without violations to the header.
  */
+@UtilityClass
 final class HeaderJson {
 
     static final String FORMAT_VERSION = "format_version";
@@ -100,9 +102,6 @@ final class HeaderJson {
     private static final int MAX_INT_DIGITS = 10;
 
     private static final JsonFactory JSON = new JsonFactory();
-
-    private HeaderJson() {
-    }
 
     /**
      * @param header the header to write

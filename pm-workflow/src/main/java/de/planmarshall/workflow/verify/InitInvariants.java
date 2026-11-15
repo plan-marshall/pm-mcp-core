@@ -17,6 +17,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
+import lombok.experimental.UtilityClass;
 
 /**
  * The invariants of the init phase of the plan unit, {@code INV-INIT-1} and {@code INV-INIT-2} (PM-IMPL-5), as path
@@ -38,6 +39,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  *
  * @since 0.1
  */
+@UtilityClass
 final class InitInvariants {
 
     /** The re-entrant classification state of the init phase. */
@@ -57,9 +59,6 @@ final class InitInvariants {
 
     /** The wire name of the light lane, the one lane besides an unknown lane that needs the ratchet. */
     static final String LANE_LIGHT = "light";
-
-    private InitInvariants() {
-    }
 
     static Map<InvariantId, Check> checks() {
         return Map.of(
