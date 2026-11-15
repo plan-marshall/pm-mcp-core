@@ -11,7 +11,7 @@ Accepted.
 
 == Context
 
-The specification relates the two connection timings of a harness: for a host whose
+The specification relates the two connection timings of a harness: for a harness whose
 `connection.progress_resets_timeout` is `false`, profile validation rejects a `connection.bounded_wait_seconds`
 above `connection.idle_timeout_seconds − 30` (Timeouts & Budgets § Bounded Wait Window, § Harness Integration).
 The margin was enforced at one place only: `ConnectionSettings` of `pm-workflow` refuses a bounded wait closer
@@ -25,14 +25,14 @@ reverse, so the validator cannot read `ConnectionSettings.IDLE_MARGIN`.
 
 == Decision
 
-`ProfileValidator.connection` enforces the margin for a host whose `progress_resets_timeout` is `false`: a
+`ProfileValidator.connection` enforces the margin for a harness whose `progress_resets_timeout` is `false`: a
 bounded wait above `idle_timeout_seconds − IDLE_MARGIN_SECONDS` refuses the profile at load with the shape the
 other connection refusals carry — the pointer `/connection/bounded_wait_seconds` and a message naming the
 bounded wait, the idle timeout and the margin. `IDLE_MARGIN_SECONDS` is a private constant of the validator and
 holds 30 seconds.
 
 A bounded wait exactly `idle_timeout_seconds − 30` is accepted, because the specification rejects a value
-*above* it. A host whose progress frames reset the timer keeps the schema's own bound only: any bounded wait
+*above* it. A harness whose progress frames reset the timer keeps the schema's own bound only: any bounded wait
 from 15 to 3,600 seconds loads, whatever the idle timeout.
 
 The margin is therefore named twice, in `ProfileValidator` and in `ConnectionSettings`, and this record is the
