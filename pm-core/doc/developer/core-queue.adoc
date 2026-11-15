@@ -184,9 +184,9 @@ marker, finds the next `END` marker after it once, masks the span and resumes af
 `BEGIN` markers without an `END` costs one pass; the former lazy `.*?` under `(?s)` scanned to the end of the text from
 every such marker, quadratic in the text and not bounded by the per-line cut at all. `SecretRedactorTest` bounds that cost
 with a wall-clock test over 400 000 characters of `BEGIN` markers and a 3 700-marker input, and asserts that a
-1 000 000-character quoted flag value redacts without a stack overflow. The residue: `ProviderVerification` of
-`pm-runtime` (`runtime.credentials`) cuts a probe answer at the same line bound before it redacts it, so that input is
-bounded too.
+1 000 000-character quoted flag value redacts without a stack overflow. The `ProviderVerification` of
+`pm-runtime` (`runtime.credentials`) cuts a probe answer at the same line bound before it redacts it, and masks a
+user-information head that the cut leaves without its `@`, so that input is bounded and carries no residue.
 
 == How to use and extend it
 

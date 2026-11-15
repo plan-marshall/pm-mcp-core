@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -304,11 +306,22 @@ public final class ProviderVerification {
     }
 
     /**
+     * A URL user-information head left without its closing {@code @} by the bound: the cut can fall between a URL's
+     * password and its {@code @}, and the ordinary URL shape then does not match. The hidden secret is masked, so the
+     * bound removes neither the credential nor its protection.
+     */
+    private static final Pattern CUT_URL_HEAD = Pattern.compile(
+            "(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?::\\/\\/|%3A%2F%2F))([^\\s/?#:]*+):([^@\\s]+)$");
+
+    /**
      * @return the answer, cut at the line bound the redaction paths use and with everything credential-shaped removed,
      *         before a line or a log carries it
      */
     private static String redacted(String detail) {
-        return SecretRedactor.redactText(bounded(detail)).orElseThrow();
+        var cut = detail.length() > BuildLogText.MAX_LINE_LENGTH;
+        var masked = SecretRedactor.redactText(bounded(detail)).orElseThrow();
+        return cut ? CUT_URL_HEAD.matcher(masked)
+                .replaceAll("$1$2:" + Matcher.quoteReplacement(SecretRedactor.REDACTED)) : masked;
     }
 
     /**

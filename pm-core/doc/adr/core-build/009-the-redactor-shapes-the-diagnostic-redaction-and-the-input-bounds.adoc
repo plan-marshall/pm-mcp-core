@@ -94,13 +94,13 @@ numbered `Decision` sections below.
 * an unquoted assignment value shorter than four characters, a bearer value under eight characters and a secret with no
   label — the deliberate minimum, kept as an accepted residue. A quoted assignment value is not subject to that
   minimum (see below);
-* a head-residue of a cut line: a credentialed URL whose closing `@` lies beyond the `BuildLogText.MAX_LINE_LENGTH`
-  (8192) cut leaves `scheme://user:<partial password>` readable, because the URL shape needs its closing `@` to match.
-  Its exposure is bounded by the path's stored cut — 500 characters for a diagnostic message, the
-  `BuildLogText.MAX_LINE_LENGTH` head for a provider answer, which applies no 500 cut — so only as much of the partial
-  password as fits in that head is carried. It is bounded, not removed — the cut limits the length of the residue, and
-  a message whose head holds the URL carries it. The line-bound clause of item 5 below states the order that produces
-  it;
+* a head-residue of a cut diagnostic line: a credentialed URL whose closing `@` lies beyond the
+  `BuildLogText.MAX_LINE_LENGTH` (8192) cut leaves `scheme://user:<partial password>` readable, because the URL shape
+  needs its closing `@` to match. Its exposure is bounded by the stored-message cut — 500 characters — so only as much
+  of the partial password as fits in that head is carried. It is bounded, not removed — the cut limits the length of
+  the residue, and a message whose head holds the URL carries it. The line-bound clause of item 5 below states the
+  order that produces it. The provider path has no such residue: `ProviderVerification` masks a user-information head
+  that its own cut leaves without the `@`;
 * a quoted assignment whose closing quote lies on the next line: the assignment form closes on its own line only, so
   such a value is read as unclosed and only the first line is masked; the continuation stays readable. A close on the
   next line is indistinguishable from the next label's quote, which the blocked-swallow rule refuses.
@@ -159,7 +159,8 @@ without any `@`, the shape that is scanned back from every scheme start) is reda
 unchanged result asserted.
 The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and the answer is cut at
 `BuildLogText.MAX_LINE_LENGTH` characters — never splitting a surrogate pair — before the redaction, which bounds that
-input.
+input; a user-information head the cut leaves without its `@` is masked there, so the bound removes neither the
+credential nor its protection.
 
 === The package dependency `core.queue → core.build`
 

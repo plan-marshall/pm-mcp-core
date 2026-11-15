@@ -254,6 +254,23 @@ class ProviderVerificationTest {
     }
 
     @Test
+    @DisplayName("a URL head cut by the answer bound is still masked")
+    void urlHeadCutByTheBoundIsMasked() {
+        originReachable = false;
+        var url = "https://alice:violet42";
+        originDetail = "x".repeat(BuildLogText.MAX_LINE_LENGTH - url.length() - 1) + " " + url + "@host.test";
+
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var origin = result.lines().getFirst();
+        assertAll(
+                () -> assertFalse(origin.answer().contains("violet42"),
+                        "the partial URL password is masked"),
+                () -> assertTrue(origin.answer().endsWith("https://alice:" + "[redacted]"),
+                        "the head keeps its scheme and user with the secret masked"));
+    }
+
+    @Test
     @DisplayName("both identities of the CLI variant are redacted where the line carries them, and still compared")
     void toolIdentityRedacted() {
         credentialIdentity = "token=sk-credentialabcdefghijkl";
