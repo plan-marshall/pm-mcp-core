@@ -56,7 +56,11 @@ import org.junit.jupiter.api.io.TempDir;
 class AssertionMessageScanTest {
 
     /** The test packages under the module's {@code src/test/java} that this guard scans. */
-    private static final List<String> SCANNED_PACKAGES = List.of("de/planmarshall/core/store");
+    private static final List<String> SCANNED_PACKAGES = List.of("de/planmarshall/core/store",
+            "de/planmarshall/core/analysis", "de/planmarshall/core/build", "de/planmarshall/core/config",
+            "de/planmarshall/core/findings", "de/planmarshall/core/guard", "de/planmarshall/core/log",
+            "de/planmarshall/core/profile", "de/planmarshall/core/queue", "de/planmarshall/core/service",
+            "de/planmarshall/core/spi", "de/planmarshall/core/spi/validation", "de/planmarshall/core/toon");
 
     private static final int MIN_MESSAGE_LENGTH = 20;
 
