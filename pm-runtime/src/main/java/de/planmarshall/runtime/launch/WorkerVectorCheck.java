@@ -100,12 +100,37 @@ class WorkerVectorCheck {
      */
     static Optional<Violation> check(Input input) {
         Objects.requireNonNull(input, "input");
-        var vector = input.vector();
-        if (vector.isEmpty() || !vector.getFirst().equals(input.executablePath().toString())) {
+        if (!starts(input)) {
             return Optional.of(new Violation(Rule.EXECUTABLE, 0));
         }
-        var rendered = vector.subList(1, vector.size());
         var parsed = new ArrayList<SlotValue>();
+        var structure = correspondence(input, parsed);
+        if (structure.isPresent()) {
+            return structure;
+        }
+        var grammar = grammar(parsed, input);
+        if (grammar.isPresent()) {
+            return grammar;
+        }
+        return metacharacter(input, parsed);
+    }
+
+    /** @return whether element 0 of the vector is the enrolled executable, and the vector is not empty */
+    private static boolean starts(Input input) {
+        var vector = input.vector();
+        return !vector.isEmpty() && vector.getFirst().equals(input.executablePath().toString());
+    }
+
+    /**
+     * Rules (b) and (e): every kept template element is matched against the next vector element in order, and nothing may
+     * be left over.
+     *
+     * @param input  the check's input
+     * @param parsed receives the slot values the vector carries, at the position of their element
+     * @return the violation of rule (b) or (e), or empty
+     */
+    private static Optional<Violation> correspondence(Input input, List<SlotValue> parsed) {
+        var rendered = input.vector().subList(1, input.vector().size());
         var cursor = 0;
         for (var index : keptIndices(input.template(), input.absentSlots())) {
             if (cursor >= rendered.size()) {
@@ -120,14 +145,22 @@ class WorkerVectorCheck {
             }
             cursor++;
         }
-        if (cursor < rendered.size()) {
-            return Optional.of(new Violation(Rule.SURPLUS, cursor + 1));
-        }
+        return cursor < rendered.size() ? Optional.of(new Violation(Rule.SURPLUS, cursor + 1)) : Optional.empty();
+    }
+
+    /** Rule (c): each slot value the vector carries matches the closed grammar of the slot the template names. */
+    private static Optional<Violation> grammar(List<SlotValue> parsed, Input input) {
         for (var value : parsed) {
             if (!conforms(value, input)) {
                 return Optional.of(new Violation(Rule.SLOT_GRAMMAR, value.position()));
             }
         }
+        return Optional.empty();
+    }
+
+    /** Rule (d): no element outside the two JSON slots carries a shell metacharacter. */
+    private static Optional<Violation> metacharacter(Input input, List<SlotValue> parsed) {
+        var vector = input.vector();
         var jsonSlots = jsonSlots(parsed);
         for (var position = 0; position < vector.size(); position++) {
             if (!jsonSlots.contains(position) && containsMetacharacter(vector.get(position))) {
@@ -220,30 +253,42 @@ class WorkerVectorCheck {
         var cursor = 0;
         for (var index = 0; index < segments.size(); index++) {
             var segment = segments.get(index);
-            if (!segment.isSlot()) {
-                if (!rendered.startsWith(segment.text(), cursor)) {
+            if (segment.isSlot()) {
+                var carried = carried(segments, index, rendered, cursor);
+                if (carried.isEmpty()) {
                     return Optional.empty();
                 }
+                parsed.add(new SlotValue(segment.slot(), carried.get().text(), SlotValue.UNPLACED));
+                cursor = carried.get().end();
+            } else if (!rendered.startsWith(segment.text(), cursor)) {
+                return Optional.empty();
+            } else {
                 cursor += segment.text().length();
-                continue;
             }
-            if (index == segments.size() - 1) {
-                parsed.add(new SlotValue(segment.slot(), rendered.substring(cursor), SlotValue.UNPLACED));
-                cursor = rendered.length();
-                continue;
-            }
-            var next = segments.get(index + 1);
-            if (next.isSlot()) {
-                return Optional.empty();
-            }
-            var boundary = rendered.indexOf(next.text(), cursor);
-            if (boundary < 0) {
-                return Optional.empty();
-            }
-            parsed.add(new SlotValue(segment.slot(), rendered.substring(cursor, boundary), SlotValue.UNPLACED));
-            cursor = boundary;
         }
         return cursor == rendered.length() ? Optional.of(parsed) : Optional.empty();
+    }
+
+    /**
+     * @param segments the template element of the slot
+     * @param index    the position of the slot marker in it
+     * @param rendered the vector element
+     * @param cursor   the position the previous fragment ended at
+     * @return the text the slot carries and the position after it, or empty when the element does not carry it
+     */
+    private static Optional<Carried> carried(List<Segment> segments, int index, String rendered, int cursor) {
+        if (index == segments.size() - 1) {
+            return Optional.of(new Carried(rendered.substring(cursor), rendered.length()));
+        }
+        var next = segments.get(index + 1);
+        if (next.isSlot()) {
+            return Optional.empty();
+        }
+        var boundary = rendered.indexOf(next.text(), cursor);
+        if (boundary < 0) {
+            return Optional.empty();
+        }
+        return Optional.of(new Carried(rendered.substring(cursor, boundary), boundary));
     }
 
     private static boolean conforms(SlotValue value, Input input) {
@@ -359,12 +404,12 @@ class WorkerVectorCheck {
             Objects.requireNonNull(vector, "vector");
             vector = List.copyOf(vector);
             Objects.requireNonNull(executablePath, "executablePath");
-            Objects.requireNonNull(model, "model");
+            Objects.requireNonNull(model);
             Objects.requireNonNull(acceptedEfforts, "acceptedEfforts");
             acceptedEfforts = List.copyOf(acceptedEfforts);
             Objects.requireNonNull(jobPrivateDirectory, "jobPrivateDirectory");
             Objects.requireNonNull(workingDirectory, "workingDirectory");
-            Objects.requireNonNull(tools, "tools");
+            Objects.requireNonNull(tools);
             tools = List.copyOf(tools);
             Objects.requireNonNull(absentSlots, "absentSlots");
             absentSlots = Collections.unmodifiableSet(new LinkedHashSet<>(absentSlots));
@@ -447,5 +492,14 @@ class WorkerVectorCheck {
 
         /** The position of a value read out of the vector before the element that carries it is known. */
         static final int UNPLACED = -1;
+    }
+
+    /**
+     * The text one slot carries out of a rendered element, and the position the element continues at.
+     *
+     * @param text the value the slot carries
+     * @param end  the position after the value in the rendered element
+     */
+    private record Carried(String text, int end) {
     }
 }
