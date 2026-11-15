@@ -9,7 +9,6 @@
  */
 package de.planmarshall.core.guard;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -32,12 +31,17 @@ import org.junit.jupiter.api.io.TempDir;
  * Guards the rule of the {@code junit-core} skill that every assertion carries a message of 20 to 60 characters.
  * <p>
  * The scan reads the source text of the scanned test packages. A call of one of the assertion methods of the rule that
- * carries no message argument fails, and a literal message outside the 20 to 60 character range fails too. A dynamic
- * message — a supplier, a method reference, the exception's own message or a concatenation — is accepted and not
- * measured, because its length is not a property of the source. An assertion call inside a comment, a string or a text
- * block is not code and is ignored.
+ * carries no message argument fails, and a message written as one string literal outside the 20 to 60 character range
+ * fails too. A message that is not a single literal — a supplier, a method reference, the exception's own message, a
+ * concatenation or a constant — is accepted and not measured, because its length is not a property of the source. An
+ * assertion call inside a comment, a string or a text block is not code and is ignored.
  * <p>
- * A plan that brings another package of this module to the rule adds that package to {@link #SCANNED_PACKAGES}.
+ * The scan reads text, not types, so two shapes are outside what it can tell: a tolerance passed as an identifier or a
+ * call ({@code assertEquals(a, b, DELTA)} reads as a message) and a comma inside a top-level type argument of a
+ * single-argument assertion. Neither shape occurs in the scanned packages today.
+ * <p>
+ * A plan that brings another package of this module to the rule adds that package to {@link #SCANNED_PACKAGES}; a
+ * package whose directory holds no test source fails the scan instead of passing it as empty.
  */
 @EnableGeneratorController
 @DisplayName("Every assertion carries a message")
@@ -76,7 +80,11 @@ class AssertionMessageScanTest {
         var root = testSourceRoot();
         var violations = new ArrayList<String>();
         for (var scannedPackage : SCANNED_PACKAGES) {
-            violations.addAll(scanTree(root.resolve(scannedPackage)));
+            var scan = scanTree(root.resolve(scannedPackage));
+            if (scan.files() == 0) {
+                violations.add(scannedPackage + ": no test source was scanned");
+            }
+            violations.addAll(scan.violations());
         }
         if (!violations.isEmpty()) {
             writeViolations(violations);
@@ -130,7 +138,7 @@ class AssertionMessageScanTest {
                 "assertEquals(\"the refusal\", refusal.orElseThrow().getMessage(), failure::getMessage);",
                 "assertThrows(IllegalStateException.class, () -> store.read(file), () -> \"the store refuses\");");
 
-        assertFalse(scanTree(root).stream().anyMatch(violation -> violation.contains("no message")),
+        assertTrue(scanTree(root).violations().isEmpty(),
                 "a message in range and a dynamic message are accepted");
     }
 
@@ -144,12 +152,12 @@ class AssertionMessageScanTest {
                 "var block = \"\"\"\n                assertTrue(value);\n                \"\"\";",
                 "assertFalse(block.isBlank(), \"the planted text block is not blank\");");
 
-        assertFalse(scanTree(root).stream().anyMatch(violation -> violation.contains("no message")),
+        assertTrue(scanTree(root).violations().isEmpty(),
                 "an assertion call in a comment or a string is not code");
     }
 
     private static boolean reported(Path root, String reason) {
-        return scanTree(root).stream().anyMatch(violation -> violation.contains(reason));
+        return scanTree(root).violations().stream().anyMatch(violation -> violation.contains(reason));
     }
 
     private static void writeViolations(List<String> violations) {
@@ -186,20 +194,29 @@ class AssertionMessageScanTest {
         return fail("the root of the pm-core test sources was not found");
     }
 
-    private static List<String> scanTree(Path root) {
+    private static Scan scanTree(Path root) {
         if (!Files.isDirectory(root)) {
-            return List.of();
+            return new Scan(0, List.of());
         }
         var violations = new ArrayList<String>();
-        try (Stream<Path> files = Files.walk(root)) {
-            files.filter(Files::isRegularFile)
+        var files = new ArrayList<Path>();
+        try (Stream<Path> walk = Files.walk(root)) {
+            walk.filter(Files::isRegularFile)
                     .filter(file -> file.toString().endsWith(".java"))
                     .sorted()
-                    .forEach(file -> violations.addAll(scan(relative(root, file), read(file))));
+                    .forEach(files::add);
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
-        return violations;
+        files.forEach(file -> violations.addAll(scan(relative(root, file), read(file))));
+        return new Scan(files.size(), violations);
+    }
+
+    /**
+     * @param files the number of source files the scan read, so a package that holds none fails instead of passing
+     * @param violations the assertion-message violations the scan found
+     */
+    private record Scan(int files, List<String> violations) {
     }
 
     private static String relative(Path root, Path file) {
