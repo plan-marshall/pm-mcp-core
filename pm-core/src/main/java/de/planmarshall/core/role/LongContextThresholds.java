@@ -1,0 +1,98 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.core.role;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.OptionalInt;
+
+import de.planmarshall.core.profile.JsonNode;
+import de.planmarshall.core.profile.LoadedProfile;
+import de.planmarshall.core.profile.ProfileValidator;
+
+/**
+ * The long-context price thresholds of a validated client profile (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models
+ * of a Harness): per model id of the harness, the input tokens above which its provider bills a request at the
+ * long-context price. A fallback of the context budget is capped at the entry, never a value the role artifact or the
+ * operator sets.
+ * <p>
+ * The thresholds are read beside {@link HarnessProfile}, not as a component of that record: the member is read by the
+ * envelope budget alone, and a new component of the record ripples into every constructor of it.
+ * <p>
+ * {@link #of(JsonNode)} reads a validated profile document; {@link #forModel(String)} compares the model id byte-exactly,
+ * as {@code identifiers/01-general-rules-and-registry.adoc} general rule 2 requires — no prefix match and no case
+ * folding.
+ *
+ * @param byModel the threshold of each model id the profile declares
+ * @since 0.1
+ */
+public record LongContextThresholds(Map<String, Integer> byModel) {
+
+    private static final String NAME_HEADLESS = "headless";
+
+    private static final String NAME_LONG_CONTEXT_THRESHOLDS = "long_context_thresholds";
+
+    /** The thresholds of a profile that declares none. */
+    private static final LongContextThresholds EMPTY = new LongContextThresholds(Map.of());
+
+    /**
+     * Copies the map.
+     *
+     * @param byModel the threshold of each model id the profile declares
+     */
+    public LongContextThresholds {
+        Objects.requireNonNull(byModel, "byModel");
+        byModel = Map.copyOf(byModel);
+    }
+
+    /**
+     * Reads the thresholds of a validated profile document.
+     *
+     * @param document a profile document, validated by {@link ProfileValidator}
+     * @return the thresholds; empty for a document without the member, without a {@code headless} block and for an
+     *         endpoint profile
+     */
+    public static LongContextThresholds of(JsonNode document) {
+        if (ProfileValidator.isEndpoint(document)) {
+            return EMPTY;
+        }
+        var headless = document.member(NAME_HEADLESS).orElse(null);
+        if (headless == null || headless.isNull()) {
+            return EMPTY;
+        }
+        var declared = headless.member(NAME_LONG_CONTEXT_THRESHOLDS).orElse(null);
+        if (declared == null || declared.isNull()) {
+            return EMPTY;
+        }
+        var byModel = new LinkedHashMap<String, Integer>();
+        for (var member : declared.members().entrySet()) {
+            member.getValue().integerValue().ifPresent(value -> byModel.put(member.getKey(), Math.toIntExact(value)));
+        }
+        return new LongContextThresholds(byModel);
+    }
+
+    /**
+     * @param profile a validated profile
+     * @return the thresholds of its document
+     */
+    public static LongContextThresholds of(LoadedProfile profile) {
+        return of(profile.document());
+    }
+
+    /**
+     * @param modelId a model identifier
+     * @return the long-context threshold of the model, or empty when the profile names none for it
+     */
+    public OptionalInt forModel(String modelId) {
+        var threshold = byModel.get(modelId);
+        return threshold == null ? OptionalInt.empty() : OptionalInt.of(threshold);
+    }
+}
