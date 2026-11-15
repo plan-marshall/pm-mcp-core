@@ -2,10 +2,10 @@
   "id": "PLAN-V2-143",
   "slug": "secret-redactor-followup",
   "workstream": "WS-07",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#434",
+  "landing": "landings/PLAN-V2-143.md",
   "seq": 131
 }
