@@ -26,10 +26,10 @@ import de.planmarshall.core.profile.LoadedProfile;
  * envelope budget alone, and a new component of the record ripples into every constructor of it.
  * <p>
  * {@link #of(JsonNode)} reads the {@code headless.long_context_thresholds} member of a profile document's tree — the
- * tree {@code JsonDocument.parse} returns, or the tree a validated profile carries. A member value that is no integer
- * within the range of a threshold is ignored, so the read never fails; the validator is what refuses such a document
- * before production reads it. {@link #forModel(String)} compares the model id byte-exactly, as
- * {@code identifiers/01-general-rules-and-registry.adoc} general rule 2 requires — no prefix match and no case folding.
+ * tree {@code JsonDocument.parse} returns, or the tree a validated profile carries. A value that is no positive integer
+ * within the range of an {@code int} is ignored, so the read never fails; the validator is what refuses a document whose
+ * entries lie outside the schema's bounds (at least 10 000). {@link #forModel(String)} compares the model id byte-exactly,
+ * as {@code identifiers/01-general-rules-and-registry.adoc} general rule 2 requires — no prefix match and no case folding.
  *
  * @param byModel the threshold of each model id the profile declares
  * @since 0.1
