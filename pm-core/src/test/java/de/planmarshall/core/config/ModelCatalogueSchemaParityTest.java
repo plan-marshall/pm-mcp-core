@@ -13,6 +13,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.networknt.schema.InputFormat;
@@ -96,6 +97,18 @@ class ModelCatalogueSchemaParityTest {
 
         assertEquals(Set.of(), validator().validate(new String(written, UTF_8), InputFormat.JSON),
                 () -> "The written catalogue is valid: " + new String(written, UTF_8));
+    }
+
+    @Test
+    @DisplayName("a catalogue with an undeclared member is refused by the schema")
+    void rejectingUndeclaredMember() {
+        var written = new String(ModelCatalogueCodec.write(Map.of("opencode",
+                List.of(new CatalogueModel("m", ModelSource.OPERATOR,
+                        Instant.parse("2026-11-14T10:00:00Z")))), 1), UTF_8);
+        var extended = written.substring(0, written.length() - 1) + ",\"undeclared_member\":1}";
+
+        assertFalse(validator().validate(extended, InputFormat.JSON).isEmpty(),
+                "an undeclared catalogue member should be refused");
     }
 
     private static JsonSchema validator() {

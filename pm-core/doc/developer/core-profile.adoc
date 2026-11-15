@@ -103,6 +103,8 @@ received, a profile offered for a later release. Validation then accepts exactly
   1,024 characters);
 * the fields a model reads (`display_name`, tool names, an idiom's replacement, the load directive) are limited to the
   characters of a command name or call expression, with the closed placeholders as the only `{{…}}`;
+* `skill_loading.load_directive_template` carries the literal `{{uri}}` exactly once, so the rendered directive always
+  names the skill it loads and never a near-synonym of the slot;
 * `argv`, `args` and `env` values hold literals and the closed slot set only; a URL, an absolute path or a home path
   refuses the profile, and `env` may set no job, interpreter or credential variable;
 * `writable_paths`, `mcp_config.path` and `data_home.login_file` are relative, hold no `..`, and never cover a
@@ -117,11 +119,19 @@ received, a profile offered for a later release. Validation then accepts exactly
   residue;
 * a `tool_result_limit_chars` needs a non-empty `resource_tools`.
 
+The `connection` block carries the harness's timing facts, and validation relates them: `transport` is `stdio`,
+`idle_timeout_seconds` lies between 45 and 7,200, and `bounded_wait_seconds` between 15 and 3,600. When the
+harness's progress frames do not reset its tool-call timer (`progress_resets_timeout: false`), the bounded wait
+must stay at least 30 seconds below the idle timeout (`bounded_wait_seconds` at most
+`idle_timeout_seconds − 30`); when they do, any bounded wait of the schema's range is admitted (Timeouts & Budgets
+§ Bounded Wait Window).
+
 A failure is a `ProfileRefusal` carrying the document and the JSON Pointer of the value, and it refuses the document as
 a whole. The runtime never runs on a part of a profile.
 
 The shape of the `usage` block is validated here; its meaning (including the
-rule that `input_tokens` and `output_tokens` are never `not_applicable`) belongs to `ProfileStages` and to the stage `usage`.
+rule that `input_tokens`, `output_tokens` and `tool_uses` are never `not_applicable`, stated in the
+`headless.usage` schema under Harness Profiles § Tokens, Not Money) belongs to `ProfileStages` and to the stage `usage`.
 
 == Resolution, Record and Sidecar
 

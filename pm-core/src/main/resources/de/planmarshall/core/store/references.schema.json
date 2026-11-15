@@ -61,10 +61,17 @@
         "base_ref": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
         "base_commits_behind": { "type": ["integer", "null"], "minimum": 0 },
         "captured_at": { "type": ["string", "null"], "format": "date-time" },
+        "head": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "The commit the size measured (store-schemas/13, The Size of a Plan's Change); null unless state == measured." },
         "files_total": { "type": ["integer", "null"], "minimum": 0, "description": "The size of the plan's change at this capture (store-schemas/13, The Size of a Plan's Change); null unless state == measured." },
         "insertions_total": { "type": ["integer", "null"], "minimum": 0 },
         "deletions_total": { "type": ["integer", "null"], "minimum": 0 }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "measured" } }, "required": ["state"] },
+          "else": { "properties": { "head": { "type": "null" } } }
+        }
+      ]
     },
     "captured_changes": {
       "type": ["object", "null"],

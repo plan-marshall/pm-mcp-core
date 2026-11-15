@@ -1,0 +1,39 @@
+# Landing Analysis: PLAN-V2-123 — schema parity drift and the unread schema files
+
+epic: pm-mcp-core-m2-m4-v2
+workstream: WS-12
+pr: #427 (merge `f3c0dd2d`), `merged` through the merge queue, no label
+
+> Landing record written by the `analyze` drain of 2026-11-14 from the message `rb-v2-123-schema-parity-drift-and-readers-001.md` of the runbook lane (harness opencode, model deepseek-v4.1-flash/high, executor 0.1.2125, standing rules r7). The message is a lead. The three layers were read by one read-only leaf from git at `f3c0dd2d` (no build, no test run); the orchestrator re-read the points marked "re-read"; Sonar `pullRequest=427`: 0 open (re-read).
+
+## Deliverable Fidelity vs Spec
+
+46 files, +1629 / −267. The lane read the binding "State at the emit" line over HTTPS because the file tool truncates a line at 2000 characters; every decision matches the line (the 16 files covered, owners of the other 36 named in the PR body, 129-moot branches handled, `pom.xml` and `SpecificationDocument` untouched).
+
+| Deliverable | Verdict | Evidence |
+|---|---|---|
+| D1 intent record equals its file | met | `IntentRecord` has 12 components with `choices` and `@Nullable repairs`, `Decider.ROLE("role")` at `IntentRecord.java:~494`; callers `IntentAcceptance:197-203`, `BuilderCheck:185-196,244-258`, `SelfReviewSubmission:287`, `ClarifiedRequestRenderer:66-71`; `IntentSchemaParityTest` lost the three pins, compares `choices[]`, `adr`, `criteria[]` items and `verified_by`, keeps both matched controls; mutation log `maven-2026-11-14-211333.log`: 4 failures. `constraints[]` and `assumptions[]` item members are not compared (enums only). The "named plan is a merged plan" check is not built (no seam; the spec allows it). |
+| D2 header and composition record | met, limited | `NO_CODE_DELTA`, `NO_PRODUCTION_DELTA`, `OPERATOR_PATH` in file order; `PlanInstanceHeaderTest` reads both files and holds no copied enumeration. `newPruneReasonsValidate` and `newFallbackCauseValidates` cannot fail independently (the validator reads its enum from the type); the per-event trigger pairs and the per-constant pairing were weakened to set membership and list equality; `HeaderSchemaCheckTest` (off surface) now derives `REASONS_REASON` from the enum. |
+| D3 the 16 unread files | partly met | all 16 are read (11 codec-less in `UnreadSchemaFilesTest.CODECLESS`, `judge-check-record`, `qualification-record`, `build-timings` by their parity tests, `composition-record` and `plan-instance-header` in `PlanSchemaFilesTest`); but `UnreadSchemaFilesTest` and `PlanSchemaFilesTest` hold only "the file passes" assertions (re-read: no `assertThrows`, no negative case), so a broken checker passes; `localReferencesResolve` is vacuous without a `$ref`; `idsAreUris` passes on a null `$id`; the one mutation run shows the `required` check only; table completeness is derived for two packages and hand-listed for the eight `core/store` entries. The PR body says "not met as written" while the landing message says "met". |
+| D4 parity-test controls | partly met | `ProjectConfigurationSchemaParityTest.settingsNegativeControls`, undeclared-member cases in Consent, ModelCatalogue, RoleAssignments, `LeaseOwner` missing holder, `PlanHistory` pattern probes; `EndpointProfileSchemaParityTest` has no rejecting case; `MachineConfigurationSchemaParityTest` and `HarnessEnrolmentSchemaParityTest` carry only a Javadoc "gap" comment and no pin; three supplier messages stay over 60 characters when they fire (re-read: `ConsentSchemaParityTest:114`, `ModelCatalogueSchemaParityTest:99`, `RoleAssignmentsSchemaParityTest:99`); `CredentialStoreMoveRecordParityTest` lost its `startsWith("{\"format_version\":1,")` assertion (re-read in the diff). |
+| D5 documentation | met | ADR 018 Consequences restated, `core-store.adoc` "Tested by", `workflow-plan.adoc` lines 29 and 43, the 129 contradictions moot. |
+
+## Three-Layer Analysis
+
+### Layer 1 — Specified
+Coherent. Decided by the lane with no recorded decision: no ADR for the `decisions` → `choices` rename (ask-at-refine item 5); the renderer heading "Model's Calls" became "Role's Calls"; `repairs` has no bound or blank check (the file has none); the `pm-runtime` gap without a JSON-schema validator; the placement of the D3 table check; extra schema constraints from CodeRabbit.
+
+### Layer 2 — Implemented
+As the table. Seven schema files edited, all at format version 1 with their `$id`: `endpoint-profile` (icon, update_evidence, model_tiers typed, closed, conditional, `maxLength` 256/256/128), `harness-profile-v1` (icon `maxLength` and form coupling), `references` (`realized_state.head` and a conditional), `judge-score-v1`, `log-parser-facts-v1`, `screen-verdict-v1` (`$schema` only). `ProfileValidator` already enforces 256 and the source/bundled coupling, there is no runtime schema validator, so no stored data is newly refused. Off surface: `harness-profile-v1.schema.json`, `references.schema.json`, `HeaderSchemaCheckTest`, ADR 016.
+
+### Layer 3 — Correct
+No code bug found. The rename is a hard cut: the codec reader is strict, so a stored `intent.json` with `decisions`, decider `model` or no `repairs` is unreadable (R13 and the pre-1.0 rule: no shim). No consumer in the four modules or in `plan-marshall-mcp` still says `decisions()`/`Decider.MODEL`. Stale text left behind (re-read): `BuilderCheck.java:31,169`, `core-spi.adoc:405`, `IntentRecordTest.java:354` (DisplayName "a model decider"), `workflow-dsl/07-…adoc:115` (an example with `"decisions":[]`), and `doc/plans/decision-log-renames.adoc:32` (re-read: still says old names stay readable; contradicts R13 and CLAUDE.md "no backward-compatibility shims"). `ProjectScriptInputSchemaParityTest:54` ties the schema's format version to `ProjectEnrolment.FORMAT_VERSION` while its Javadoc says the version "stays 1": a future enrolment bump breaks it. The Javadoc says the endpoint reader accepts a null `update_evidence` while the file requires an object; nothing pins that. Assertion messages in a 20-message sample are within 20 to 60; dynamic messages (`"every local reference should resolve: " + ref`, `"the listed resource should exist: " + resource`) exceed it when they fire. Literal fixtures without a controller or contract comment in the new parity tests; `PlanSchemaFilesTest` copies about 100 lines of helpers (no helper in `pm-core:tests`); DisplayName over-claims (`QualificationRecordSchemaParityTest.itemRequiredAreProperties`, `boundsAreTheLimits` in Judge and Qualification; Judge Javadoc "One drift" vs "two drifts").
+
+## Leftovers (placed, none asked)
+- pm-core and pm-workflow test residue (rejecting cases, vacuity, completeness, messages, generators, helper duplication, relaxed pairs, Endpoint and PlanSchemaFiles): PLAN-V2-125 new section "Carried residue of PLAN-V2-123".
+- pm-runtime test residue (`MachineConfigurationSchemaParityTest`, `HarnessEnrolmentSchemaParityTest` pins, `CredentialStoreMoveRecordParityTest` first-member assertion, `ProjectScriptInputSchemaParityTest` coupling, the 7 runtime unread files): PLAN-V2-126, same section.
+- stale text, the `decision-log-renames` correction, the missing ADR for the rename, `repairs` bound: PLAN-V2-114, new items.
+- the other 36 unread files: owners are in the PR body (10 of #404 to their codec packages, 19 older `core/store` files with `epic-intent-v1` and `queue-row` to PLAN-V2-03, 7 runtime files); no further owner exists.
+
+## Unverified leads
+Whether any test passes; mutation logs `211407`, `211517`, `211550` unread; the 19 + 7 lists against the State line's "26 older files" name by name; the claim that the machine-configuration codec accepts an undeclared top-level member (a lane comment only); `model_tiers` `maxLength` 128 against the validator; documentation repo articles that still say decider `model` (`intent-definition*.adoc`, the checkout may lag).

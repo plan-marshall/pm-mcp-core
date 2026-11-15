@@ -61,9 +61,8 @@ class HeaderSchemaCheckTest {
     private static final String ELEMENTS_REASON = "must be one of [step, state, link, policy_action, call]";
 
     /** The reason a prune reason outside the {@code prune_reason} enumeration of the schema is refused with. */
-    private static final String REASONS_REASON = "must be one of [posture, provider_unconfigured,"
-            + " footprint_disjoint, change_type_exempt, local_only, land_lane, adopt, other_lane, merge_by_operator,"
-            + " plan_default, returned, handed_back, empty_harvest]";
+    private static final String REASONS_REASON = "must be one of "
+            + Arrays.stream(PruneReason.values()).map(PruneReason::wireName).toList();
 
     /** A header that satisfies the schema, with one element in every list and both optional argument members. */
     private static final String VALID = """

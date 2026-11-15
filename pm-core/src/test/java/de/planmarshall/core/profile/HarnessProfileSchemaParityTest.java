@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -33,12 +34,15 @@ import de.planmarshall.core.SchemaResource;
  * file is {@code harness-profile-v1.schema.json} in {@code pm-core/src/main/resources/de/planmarshall/core/profile/},
  * read through {@link SchemaResource}. Three deviations are pinned, each with its owner: the id member
  * ({@code harness_id} in the file, {@code client_id} in the validator, owned by the staged harness-rename packages);
- * {@code headless.inline_settings} (owned by the {@code client-profile-measured-values} package), {@code headless.loaded}
- * (owned by the Model Work § Loaded at Start runtime check) and {@code headless.readable_paths} (owned by the
- * {@code job-confinement-and-environment} package); and {@code headless.usage.model} (owned by PLAN-V2-135) with
- * {@code headless.usage.accumulation}. The comparison is structural: the file's relative {@code $ref} to
+ * {@code headless.inline_settings} and {@code headless.loaded} (owned by the {@code client-profile-measured-values}
+ * package), {@code headless.readable_paths} (owned by the
+ * {@code job-confinement-and-environment} package); and {@code headless.usage.model} and
+ * {@code headless.usage.accumulation} (owned by PLAN-V2-135). The comparison is structural: the file's relative
+ * {@code $ref} to
  * {@code endpoint-profile.json} is not resolved here, and the validator's demand for each required member is the generic
- * required check, not a per-member case. The member names are the wire format; they are literals here for that reason.
+ * required check, not a per-member case. The file also requires the three members the validator does not implement, so
+ * the validator's own document cannot be validated against the file; the rejecting control therefore runs through the
+ * validator. The member names are the wire format; they are literals here for that reason.
  */
 @DisplayName("Harness profile schema parity")
 class HarnessProfileSchemaParityTest {
@@ -59,9 +63,21 @@ class HarnessProfileSchemaParityTest {
 
         assertAll(
                 () -> assertEquals(Set.copyOf(expected), Set.copyOf(names(document.keySet())),
-                        "The document's members are the file's, with the reader's id name"),
-                () -> assertDoesNotThrow(() -> validate(),
+                        "The document's members are the file's"),
+                () -> assertDoesNotThrow(HarnessProfileSchemaParityTest::validate,
                         "The validator accepts its own document"));
+    }
+
+    @Test
+    @DisplayName("the validator refuses a member the file does not declare")
+    void undeclaredMemberRefused() {
+        var document = new String(ProfileFixtures.validBytes(), UTF_8).replaceFirst("\\{", "{\"undeclared\": 1,");
+        var documentBytes = document.getBytes(UTF_8);
+        var rules = ProfileRules.none();
+
+        assertThrows(ProfileRefusal.class,
+                () -> ProfileValidator.validate(documentBytes, "profiles/acme-cli.json", rules),
+                "The validator refuses an undeclared member");
     }
 
     @Test

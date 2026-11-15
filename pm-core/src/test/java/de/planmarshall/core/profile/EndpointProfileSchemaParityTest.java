@@ -22,6 +22,7 @@ import com.networknt.schema.SpecVersion;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,13 +39,16 @@ import de.planmarshall.core.SchemaResource;
  * {@code endpoint-profile.schema.json} in {@code pm-core/src/main/resources/de/planmarshall/core/profile/}, read through
  * {@link SchemaResource}. The file requires {@code harness_id} while the validator reads {@code client_id}; the drift is
  * pinned here and owned by the staged harness-rename packages (the profiles follow the file's name once that package
- * lands). The {@code update_evidence} and {@code model_tiers} blocks carry only a cross-reference in the file, so this
- * test does not compare them. The member names are the wire format; they are literals here for that reason.
+ * lands). The {@code icon}, {@code update_evidence} and {@code model_tiers} blocks are the harness profile's definitions
+ * of the same names, compared here without their descriptions; the reader additionally accepts a {@code null}
+ * {@code update_evidence}, a leniency owned by the endpoint reader's package. The member names are the wire format; they
+ * are literals here for that reason.
  */
 @DisplayName("Endpoint profile schema parity")
 class EndpointProfileSchemaParityTest {
 
     private static final String SCHEMA = "de/planmarshall/core/profile/endpoint-profile.schema.json";
+    private static final String HARNESS = "de/planmarshall/core/profile/harness-profile-v1.schema.json";
     private static final String ID_MEMBER = "harness_id";
     private static final String READER_ID_MEMBER = "client_id";
 
@@ -94,6 +98,32 @@ class EndpointProfileSchemaParityTest {
     }
 
     @Test
+    @DisplayName("the top-level required members are the reader's document")
+    void topLevelRequired() {
+        var schema = SchemaResource.load(SCHEMA);
+        var required = names(SchemaResource.array(schema.get("required")));
+        var document = SchemaResource.object(SchemaResource.parse(renamed(EndpointProfileFixtures.VALID)));
+
+        assertEquals(Set.copyOf(required), Set.copyOf(names(document.keySet())),
+                "The file requires exactly the reader's members");
+    }
+
+    @Test
+    @DisplayName("the shared blocks are the harness profile's definitions")
+    void sharedBlocks() {
+        var harness = SchemaResource.object(SchemaResource.load(HARNESS).get("properties"));
+        var harnessHeadless = SchemaResource.object(SchemaResource.object(harness.get("headless")).get("properties"));
+
+        assertAll(
+                () -> assertEquals(withoutDescriptions(SchemaResource.object(harness.get("icon"))),
+                        withoutDescriptions(block("icon")), "The icon block is the harness profile's"),
+                () -> assertEquals(withoutDescriptions(SchemaResource.object(harnessHeadless.get("update_evidence"))),
+                        withoutDescriptions(block("update_evidence")), "The update evidence is the harness profile's"),
+                () -> assertEquals(withoutDescriptions(SchemaResource.object(harnessHeadless.get("model_tiers"))),
+                        withoutDescriptions(block("model_tiers")), "The model tiers are the harness profile's"));
+    }
+
+    @Test
     @DisplayName("the profile kind and the schema version are the reader's constants")
     void constants() {
         var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
@@ -119,7 +149,7 @@ class EndpointProfileSchemaParityTest {
                 () -> assertEquals(Set.of("openai_chat"),
                         Set.copyOf(names(SchemaResource.array(
                                 SchemaResource.object(endpoint.get("protocol")).get("enum")))),
-                        "The file names the reader's one protocol (no constant exists)"),
+                        "The file names the reader's one protocol"),
                 () -> assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(other),
                         "The reader refuses another protocol"),
                 () -> assertFalse(fileAcceptsOther, "The file refuses another protocol"));
@@ -166,6 +196,22 @@ class EndpointProfileSchemaParityTest {
     private static Map<?, ?> block(String name) {
         var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
         return SchemaResource.object(properties.get(name));
+    }
+
+    private static Object withoutDescriptions(Object value) {
+        return switch (value) {
+            case Map<?, ?> map -> {
+                var copy = new LinkedHashMap<String, Object>();
+                map.forEach((name, child) -> {
+                    if (!"description".equals(String.valueOf(name))) {
+                        copy.put(String.valueOf(name), withoutDescriptions(child));
+                    }
+                });
+                yield copy;
+            }
+            case List<?> list -> list.stream().map(EndpointProfileSchemaParityTest::withoutDescriptions).toList();
+            default -> value;
+        };
     }
 
     private static String renamed(String document) {

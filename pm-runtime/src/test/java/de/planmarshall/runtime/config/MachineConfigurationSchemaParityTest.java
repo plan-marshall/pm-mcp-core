@@ -125,6 +125,12 @@ class MachineConfigurationSchemaParityTest {
                         "the lowest LSP idle timeout is the schema's"));
     }
 
+    /**
+     * The rejecting case and the external {@code $ref} to {@code local-config.json#/$defs/settings} are stated as a
+     * gap, not closed: the codec's strict reader accepts an undeclared top-level member, and the module carries no
+     * JSON-schema validator in its test scope while no dependency is added. The referenced settings block is checked by
+     * that file's own parity test. Owner: the work package {@code runtime-schema-validation}.
+     */
     private static Map<?, ?> document(byte[] written) {
         return SchemaResource.object(SchemaResource.parse(new String(written, UTF_8)));
     }

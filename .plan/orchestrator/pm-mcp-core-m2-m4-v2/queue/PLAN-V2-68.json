@@ -2,10 +2,10 @@
   "id": "PLAN-V2-68",
   "slug": "profile-wait-margin",
   "workstream": "WS-04",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#426",
+  "landing": "landings/PLAN-V2-68.md",
   "seq": 68
 }

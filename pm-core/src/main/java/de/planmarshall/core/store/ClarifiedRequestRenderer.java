@@ -18,7 +18,7 @@ import de.planmarshall.core.store.IntentRecord.Decider;
 
 /**
  * Renders {@code ## Clarified Request} of {@code request.md} from the accepted intent record (Phase Workflows § The
- * Intent Record, Rendering): the record's members as sections, each item with its identifier, and the model's own calls
+ * Intent Record, Rendering): the record's members as sections, each item with its identifier, and the role's own calls
  * under their own heading, never mixed with the operator's decisions.
  * <p>
  * The section is derived, never read back: a later phase that names the clarified request means this section. An
@@ -63,12 +63,12 @@ public final class ClarifiedRequestRenderer {
         }
         nonGoals(out, intentRecord.nonGoals());
         constraints(out, intentRecord.constraints());
-        decisions(out, "Operator Decisions", intentRecord.decisions().stream()
+        decisions(out, "Operator Decisions", intentRecord.choices().stream()
                 .filter(item -> item.decider() == Decider.OPERATOR || item.decider() == Decider.QUORUM).toList());
-        decisions(out, "Decisions from Facts", intentRecord.decisions().stream()
+        decisions(out, "Decisions from Facts", intentRecord.choices().stream()
                 .filter(item -> item.decider() == Decider.FACT).toList());
-        decisions(out, "Model's Calls", intentRecord.decisions().stream()
-                .filter(item -> item.decider() == Decider.MODEL).toList());
+        decisions(out, "Role's Calls", intentRecord.choices().stream()
+                .filter(item -> item.decider() == Decider.ROLE).toList());
         assumptions(out, intentRecord.assumptions());
         openQuestions(out, intentRecord.openQuestions());
         deferred(out, intentRecord.deferred());

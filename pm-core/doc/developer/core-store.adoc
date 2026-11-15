@@ -2469,8 +2469,9 @@ construction) and `PlanHistorySchemaParityTest`, which reads the schema file
 members the codec writes are the schema's members in schema order and all required, that the events and the format
 version are the schema's, that the schema's bounds are the limits the codec enforces (the `maxItems` of the call path,
 the minimums of `seq` and `instance_version`, the `minLength` of `node` and the `outcome` pattern, each with the value
-on the bound accepted and the one beyond it refused), and that every written line is valid against the schema while a line with an undeclared
-member is not.
+on the bound accepted and the one beyond it refused), that the codec's `OUTCOME_PATTERN` is the schema's pattern
+character for character and refuses a digit-first, an underscore-first and a hyphenated outcome, and that every written
+line is valid against the schema while a line with an undeclared member is not.
 
 link:../adr/core-store/051-the-plan-history-in-core-store.adoc[ADR 051]: the plan's history is an append-only log in
 `core.store`, written through the scope transaction.
@@ -2599,10 +2600,12 @@ read and the aggregate carries its coverage.
 Intent Record). `IntentRecord` is the model-supplied document and the named parameter schema `intent-record`. A
 criterion carries `id`, `text`, `kind` and `verified_by`; the record holds one to 30 criteria and up to 20 non-goals
 (`non_goals` is bounded `0` to `20`, so a record without non-goals is a valid record; the deep lane's rule of at least
-one non-goal is a check of the acceptance, below). It refuses a member out of its bounds, a `fix` criterion without its current
+one non-goal is a check of the acceptance, below). Its choices carry the `choices` member, items `DC-<n>` with their
+`decider` kind (`operator`, `quorum`, `role` or `fact`); `repairs` names the landed plan whose work a `fix` criterion
+repairs and is `null` otherwise. It refuses a member out of its bounds, a `fix` criterion without its current
 behaviour and an `unchanged` criterion, a `current_behaviour` without a `fix` criterion or outside
-`WHEN <condition> THEN THE <system> <behaviour>`, an unverified assumption without exactly one riskiest one, a repeated
-identifier, and a source claim that lands in no item of the record.
+`WHEN <condition> THEN THE <system> <behaviour>`, a `repairs` without a `fix` criterion, an unverified assumption
+without exactly one riskiest one, a repeated identifier, and a source claim that lands in no item of the record.
 
 `IntentStore` is the document around it: the accepted revision as `current`, every earlier one in `history[]`. Its
 `accept(Revision)` is the data change of the accepting transaction — it refuses a revision that does not follow the
@@ -2619,7 +2622,7 @@ detail naming `non_goals`; the light envelope's `submit:outline` and a re-planni
 rule lives in the acceptance and not in the record's bounds, because the record without non-goals stays valid.
 
 `ClarifiedRequestRenderer` renders `## Clarified Request` from the current record, each item with its identifier, and
-lists the model's own calls under their own heading. Each criterion is rendered with its kind and its `verified_by`;
+lists the role's own calls under their own heading. Each criterion is rendered with its kind and its `verified_by`;
 the non-goals, like the constraints and the assumptions, get their heading only when the record holds one.
 
 == The Outline Record

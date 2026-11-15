@@ -27,6 +27,7 @@ import org.junit.jupiter.api.function.Executable;
 
 import de.planmarshall.core.SchemaResource;
 import de.planmarshall.core.store.QualificationSettings;
+import de.planmarshall.core.store.SchemaParity;
 
 /**
  * The project-configuration schema files of {@code store-schemas/07} and {@code store-schemas/08} are the files of
@@ -92,10 +93,27 @@ class ProjectConfigurationSchemaParityTest {
                         "the agreement level maximum stays 100"),
                 () -> assertEquals(QualificationSettings.DEFAULT_AGREEMENT_LEVEL,
                         ((Number) object(properties.get("agreement_level")).get("default")).intValue(),
-                        "the compiled agreement default should equal the file's default"),
+                        "the compiled default should equal the file's"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new QualificationSettings(101, QualificationSettings.DEFAULT_ALLOWED_GAP, List.of(),
                                 false),
-                        "the settings refuse an agreement level above the file's maximum"));
+                        "the settings refuse a level above the maximum"));
+    }
+
+    @Test
+    @DisplayName("the settings comparison reports a one-sided member")
+    void settingsNegativeControls() {
+        var qualification = qualification();
+        var members = componentNames();
+
+        assertAll(
+                () -> assertEquals(List.of(), SchemaParity.memberDiffs(members, qualification),
+                        "the unchanged file should equal the settings"),
+                () -> assertEquals(List.of("file-only:synthetic_member"),
+                        SchemaParity.withFileOnly(members, qualification, "synthetic_member"),
+                        "a file-only member should be reported"),
+                () -> assertEquals(List.of("record-only:agreement_level"),
+                        SchemaParity.withRecordOnly(members, qualification, "agreement_level"),
+                        "a record-only member should be reported"));
     }
 }
