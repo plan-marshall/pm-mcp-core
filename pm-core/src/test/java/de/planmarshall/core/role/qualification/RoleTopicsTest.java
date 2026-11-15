@@ -63,7 +63,7 @@ class RoleTopicsTest {
                 item("judge/right", ROLE, ImportedItem.ReviewStatus.CONFIRMED));
 
         assertTrue(RoleTopics.of(ROLE, RoleClass.READ_ONLY, items).isEmpty(),
-                "draft, contested and retired grade none");
+                "contested, retired and judge items grade none");
         assertEquals(0, RoleTopics.items(items, Topic.OWN, ROLE).size(),
                 "the topic holds no countable item");
     }

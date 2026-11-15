@@ -194,7 +194,7 @@ class SchemaSubsetTest {
                     () -> assertEquals(List.of(), validate(matching, BOUNDED),
                             "a value of exactly maxLength matches"),
                     () -> assertEquals(List.of("$: does not match ^a+$"), validate(failing, BOUNDED),
-                            "one code point over the bound still fails"));
+                            "a value at maxLength still fails its pattern"));
         }
     }
 
