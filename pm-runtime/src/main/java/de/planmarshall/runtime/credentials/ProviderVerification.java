@@ -17,6 +17,7 @@ import java.util.Objects;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.build.BuildLogText;
 import de.planmarshall.core.config.Consent;
 import de.planmarshall.core.config.ConsentGate;
 import de.planmarshall.core.config.ConsentKind;
@@ -312,8 +313,30 @@ public final class ProviderVerification {
                 .build();
     }
 
-    /** @return the answer with everything credential-shaped removed, before a line or a log carries it */
+    /**
+     * @return the answer, cut at the line bound the redaction paths use and with everything credential-shaped removed,
+     *         before a line or a log carries it
+     */
     private static String redacted(String detail) {
-        return SecretRedactor.redactText(detail).orElseThrow();
+        var cut = detail.length() > BuildLogText.MAX_LINE_LENGTH;
+        var masked = SecretRedactor.redactText(bounded(detail)).orElseThrow();
+        if (!cut) {
+            return masked;
+        }
+        return SecretRedactor.redactCutTokenTail(SecretRedactor.redactCutUrlHead(masked));
+    }
+
+    /**
+     * Cuts an answer at the line bound before it is redacted, never splitting a surrogate pair: the redactor's URL shape
+     * costs the square of one line's length at worst, and the bound is what keeps an unbounded provider answer from
+     * paying it.
+     */
+    private static String bounded(String detail) {
+        if (detail.length() <= BuildLogText.MAX_LINE_LENGTH) {
+            return detail;
+        }
+        var end = Character.isHighSurrogate(detail.charAt(BuildLogText.MAX_LINE_LENGTH - 1))
+                ? BuildLogText.MAX_LINE_LENGTH - 1 : BuildLogText.MAX_LINE_LENGTH;
+        return detail.substring(0, end);
     }
 }

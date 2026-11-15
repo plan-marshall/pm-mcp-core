@@ -17,12 +17,19 @@ import java.util.Set;
 import java.util.function.Function;
 import lombok.experimental.UtilityClass;
 
+import de.planmarshall.core.queue.SecretRedactor;
+
 /**
- * The deduplication, filing and message truncation the JVM parsers share.
+ * The deduplication, filing, redaction and message truncation the JVM parsers share.
  * <p>
  * The ported parsers deduplicate by category, file, line and the first 100 characters of the message, so the reactor
- * summary and the per-module output of one error produce one diagnostic, and they store at most 500 characters of the
- * message. Both parsers use this one implementation, so the two identities cannot drift apart.
+ * summary and the per-module output of one error produce one diagnostic. Every message passes through
+ * {@link #stored(String)}, which redacts the credential shapes and then stores at most 500 characters of the message: the
+ * redaction runs first, so a cut value cannot keep a prefix the redactor would have matched whole. Both parsers use this
+ * one implementation, so the two identities cannot drift apart, and every parser that files a {@link Diagnostic} passes
+ * its message through {@code stored} (the OpenRewrite log parser files its own {@code RewriteFinding} records instead);
+ * the one model field the seam does not reach — the collected stack trace — is redacted in the {@link Diagnostic}
+ * constructor.
  *
  * @since 0.1
  */
@@ -64,13 +71,29 @@ class DiagnosticCollector {
     }
 
     /**
-     * Truncates a message to the stored length.
+     * Redacts a message and truncates it to the stored length.
+     * <p>
+     * The redaction runs before the cut, so a value the cut would split cannot keep a prefix the redactor would have
+     * matched whole. Every parser files its message through here, so one seam covers all of them.
      *
      * @param message the message
-     * @return the message, or its first {@value #MAX_MESSAGE_LENGTH} characters
+     * @return the redacted message, or its first {@value #MAX_MESSAGE_LENGTH} characters
      */
     static String stored(String message) {
-        return truncate(message, MAX_MESSAGE_LENGTH);
+        return truncate(SecretRedactor.redactText(message).orElseThrow(), MAX_MESSAGE_LENGTH);
+    }
+
+    /**
+     * Redacts and truncates a message, or reports it absent when only whitespace or invisible characters are left after
+     * the redaction. A producer skips such a line: {@link Diagnostic} rejects a blank message, so filing it would fail
+     * the parse of the whole log.
+     *
+     * @param message the message
+     * @return the redacted stored message, or {@link Optional#empty()} when nothing visible is left
+     */
+    static Optional<String> storedOrEmpty(String message) {
+        String stored = stored(message);
+        return stored.isBlank() ? Optional.empty() : Optional.of(stored);
     }
 
     private static String truncate(String text, int maxLength) {

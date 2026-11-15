@@ -24,15 +24,18 @@ import lombok.experimental.UtilityClass;
  * helper exists once so the four parsers cannot spell the prefix differently.
  * <p>
  * It is also the one seam every refusal passes, so it is where the echo of report content is bounded: the reason keeps
- * the format prefix and at most the first {@value #MAX_DETAIL_LENGTH} characters of the detail. The parsers' own echo
- * sites stay as they are.
+ * the format prefix and at most the first {@value #MAX_DETAIL_LENGTH} characters of the echoed content, a file name is
+ * cut before its failure kind is appended so the kind always survives, and the parsers' own echo sites stay as they are.
  *
  * @since 0.1
  */
 @UtilityClass
 class CoverageRefusals {
 
-    /** The most characters of a refusal's detail the reason carries after the format prefix. */
+    /**
+     * The most characters of a refusal's echoed content: a detail is cut to it, and a file name is cut to it before the
+     * failure kind is appended, so the reason can carry this many characters plus the kind.
+     */
     static final int MAX_DETAIL_LENGTH = 256;
 
     /**
@@ -45,7 +48,7 @@ class CoverageRefusals {
     static CoverageParseResult.Refused of(CoverageFormat format, Exception cause) {
         String message = cause.getMessage();
         String detail = message == null ? cause.getClass().getSimpleName() : message;
-        return refused(format, detail);
+        return refused(format, cut(detail));
     }
 
     /**
@@ -68,29 +71,38 @@ class CoverageRefusals {
         }
         Path fileName = reportFile.getFileName();
         String name = fileName == null ? "the report file" : fileName.toString();
-        return refused(format, name + ": " + kind(failure));
+        String failureKind = cutTo(kind(failure), MAX_DETAIL_LENGTH / 2);
+        return refused(format, cutTo(name, MAX_DETAIL_LENGTH - failureKind.length() - 2) + ": " + failureKind);
     }
 
     /**
-     * Builds a refusal whose reason is the format prefix and at most {@value #MAX_DETAIL_LENGTH} characters of the
-     * detail. The detail echoes report content (a type name, a counter value, a file name), so the cut bounds what an
-     * untrusted report can write into a reason; a cut never splits a surrogate pair.
+     * Builds a refusal whose reason is the format prefix and the given detail, already bounded by {@link #cut(String)}.
+     * The detail echoes report content (a type name, a counter value, a file name), so the cut bounds what an untrusted
+     * report can write into a reason; a cut never splits a surrogate pair. A file-system failure's name is cut before
+     * the failure kind is appended, so a name near the bound never loses the kind.
      *
      * @param format the format that was refused
-     * @param detail the detail of the refusal
+     * @param detail the bounded detail of the refusal
      * @return the refusal, its reason opening with the format identifier
      */
     private static CoverageParseResult.Refused refused(CoverageFormat format, String detail) {
-        return new CoverageParseResult.Refused(format, format.id() + ": " + cut(detail));
+        return new CoverageParseResult.Refused(format, format.id() + ": " + detail);
     }
 
     private static String cut(String detail) {
-        if (detail.length() <= MAX_DETAIL_LENGTH) {
+        return cutTo(detail, MAX_DETAIL_LENGTH);
+    }
+
+    /** Cuts an echoed text to at most {@code bound} characters, never splitting a surrogate pair. */
+    private static String cutTo(String detail, int bound) {
+        if (bound <= 0) {
+            return "";
+        }
+        if (detail.length() <= bound) {
             return detail;
         }
-        int end = Character.isHighSurrogate(detail.charAt(MAX_DETAIL_LENGTH - 1))
-                ? MAX_DETAIL_LENGTH - 1 : MAX_DETAIL_LENGTH;
-        return detail.substring(0, end);
+        int end = Character.isHighSurrogate(detail.charAt(bound - 1)) ? bound - 1 : bound;
+        return detail.substring(0, Math.max(end, 0));
     }
 
     private static String kind(FileSystemException failure) {
