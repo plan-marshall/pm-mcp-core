@@ -41,7 +41,7 @@ public final class ProfileValidator {
     /** The one schema version a profile declares. */
     public static final int SCHEMA_VERSION = 1;
 
-    /** The margin the idle timeout must leave above the bounded wait of a host whose progress resets no timer. */
+    /** The margin the idle timeout must leave above the bounded wait of a harness whose progress resets no timer. */
     private static final long IDLE_MARGIN_SECONDS = 30;
 
     // The member names of the client profile schema, named once each (ADR core-profile/005).
@@ -176,6 +176,7 @@ public final class ProfileValidator {
     private static final String PTR_LOGIN_FILE = "/login_file";
     private static final String PTR_RESTRICTED_MODELS = "/restricted_models";
     private static final String PTR_ACK_DEADLINE_SECONDS = "/ack_deadline_seconds";
+    private static final String PTR_LOAD_DIRECTIVE_TEMPLATE = "/load_directive_template";
 
     /** The one refusal detail that names a JSON Pointer, used wherever a pointer is read from the document. */
     private static final String MSG_NOT_A_POINTER = "not a JSON Pointer: '%s'";
@@ -249,6 +250,13 @@ public final class ProfileValidator {
     private static final Pattern ENDPOINT_PATH = Pattern.compile("^/[A-Za-z0-9._/-]{0,127}$");
     private static final Pattern LOOPBACK_URL = Pattern.compile("^http://(127\\.0\\.0\\.1|\\[::1\\]):(\\d{1,5})$");
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([^{}]*)\\}\\}");
+
+    /** The one slot the load directive carries; the template names the skill it loads through it. */
+    private static final String SKILL_URI_SLOT = "{{uri}}";
+
+    /** The slot as a whole token: a ``{`` immediately before or a ``}`` immediately after is a different spelling. */
+    private static final Pattern SKILL_URI_SLOT_TOKEN =
+            Pattern.compile("(?<!\\{)\\Q" + SKILL_URI_SLOT + "\\E(?!\\})");
 
     private ProfileValidator() {
     }
@@ -515,11 +523,24 @@ public final class ProfileValidator {
             enumValue(required(skill, pointer, "mode"), pointer + "/mode", "mode",
                     Set.of(NAME_TOOL_CALL, "mcp_resource", "view_file"));
             var template = text(required(skill, pointer, NAME_LOAD_DIRECTIVE_TEMPLATE),
-                    pointer + "/load_directive_template", NAME_LOAD_DIRECTIVE_TEMPLATE, 256);
-            stringRule(template, pointer + "/load_directive_template", true);
+                    pointer + PTR_LOAD_DIRECTIVE_TEMPLATE, NAME_LOAD_DIRECTIVE_TEMPLATE, 256);
+            stringRule(template, pointer + PTR_LOAD_DIRECTIVE_TEMPLATE, true);
+            skillUriSlot(template, pointer + PTR_LOAD_DIRECTIVE_TEMPLATE);
             enumValue(required(skill, pointer, NAME_SCHEMA_RESIDENCY), pointer + "/schema_residency", NAME_SCHEMA_RESIDENCY,
                     Set.of("resident", "on_demand"));
             bool(required(skill, pointer, NAME_SKILLS_EXTENSION), pointer + "/skills_extension", NAME_SKILLS_EXTENSION);
+        }
+
+        private void skillUriSlot(String template, String pointer) {
+            var slot = SKILL_URI_SLOT_TOKEN.matcher(template);
+            var occurrences = 0;
+            while (slot.find()) {
+                occurrences++;
+            }
+            if (occurrences != 1) {
+                throw invalid(pointer, "the load directive carries the slot '%s' %d times, not exactly once"
+                        .formatted(SKILL_URI_SLOT, occurrences));
+            }
         }
 
         private void headless(JsonNode headless, String pointer) {
@@ -1045,7 +1066,7 @@ public final class ProfileValidator {
                     pointer + "/progress_resets_timeout", NAME_PROGRESS_RESETS_TIMEOUT);
             if (!progress && bounded > idle - IDLE_MARGIN_SECONDS) {
                 throw invalid(pointer + "/bounded_wait_seconds",
-                        "the bounded wait %d is not %d seconds below the idle timeout %d without progress frames"
+                        "the bounded wait %d must be at least %d seconds below the idle timeout %d without progress frames"
                                 .formatted(bounded, IDLE_MARGIN_SECONDS, idle));
             }
         }
