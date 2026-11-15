@@ -2,10 +2,10 @@
   "id": "PLAN-V2-63",
   "slug": "long-context-thresholds",
   "workstream": "WS-04",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#441",
+  "landing": "landings/PLAN-V2-63.md",
   "seq": 63
 }

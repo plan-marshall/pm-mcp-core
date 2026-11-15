@@ -44,9 +44,10 @@ numbered `Decision` sections below.
 * *R1: URL user information.* `URL_USER_INFORMATION` and `URL_USER_INFORMATION_ENCODED` mask a password that holds a raw `/`, `?` or `#`, runs the password
    to the last `@` of the token (a raw `@` inside it is masked with it), lets the user hold a raw `@` (the user runs to
    the first colon), and accepts the percent-encoded separator `%3A%2F%2F`. The scheme, the user and the host stay
-   readable, and a percent-encoded password stays masked whole. The user still excludes whitespace, `/`, `?`, `#` and
-   `:`, so a query or fragment that carries a colon and an `@` before any user information (ADR 006's control) stays
-   readable.
+   readable, and a percent-encoded password stays masked whole. The user is optional, so the empty-user form
+   `https://:secret@host` (Azure DevOps, git credential helpers) is masked too. The user still excludes whitespace, `/`,
+   `?`, `#` and `:`, so a query or fragment that carries a colon and an `@` before any user information (ADR 006's
+   control) stays readable.
 * *R2: Credential flags.* The three flag patterns are case-insensitive; the closed list gains `auth-token`, `api-key`,
    `apikey`, `access-token`, `client-secret` and `otp`, and not `key`. An unquoted value runs to the next whitespace and
    may hold a `,`, a `;` or a quote; a quoted value keeps its escape pairs (read as an unrolled loop) and may run across one line end to
@@ -54,18 +55,24 @@ numbered `Decision` sections below.
    continuation inside the quotes) and still counts as the one line end, so both halves of such a value are masked. An
    unclosed quote masks the rest of its line; the unclosed form's lookahead reads the same value as the quoted form, so a
    value that closes after one line end, escaped or not, is never taken for an unclosed one.
-* *R3: Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. The PEM
-   patterns also match `-----BEGIN PGP PRIVATE KEY BLOCK-----` to its `END` line (label tail
-   `PRIVATE KEY(?: BLOCK)?-----`), and the unclosed form keeps its over-masking of the rest of the text.
+* *R3: Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. A
+   PEM block or a PGP block (`-----BEGIN PGP PRIVATE KEY BLOCK-----` to its `END` line, label tail
+   `PRIVATE KEY(?: BLOCK)?-----`) is masked by a single left-to-right scan, and a `BEGIN` without a later `END` keeps
+   its over-masking of the rest of the text.
 * *R4: The journal path strips escape sequences.* `SecretRedactor.redact(ActivityEntry)` strips the escape sequences of
    the text, the tool target and the link target through `BuildLogText.stripAnsi` — the expression the unparsed excerpt
    uses — before it redacts them, and applies each part's bound after the redaction as before. The label patterns are
    unchanged, and the stored journal text carries no escape sequence. `redactText(String)` leaves escape sequences to
    its caller.
-* *R5: Every npm message is redacted before its cut.* `NpmErrorParser` routes the `E404` and `ERESOLVE` messages through
-   the same `storedRedacted` as the generic block's (redact, then the stored-length cut). This supersedes the sentence of
-   ADR 006 that those messages are built from dependency names and stay unchanged. The other parsers' messages at
-   `DiagnosticCollector.stored` remain the carried decision of ADR 006.
+* *R5: Every stored diagnostic message is redacted before its cut.* `DiagnosticCollector.stored` redacts the message
+   through `SecretRedactor` and then cuts it to the stored length, so every parser that files a diagnostic — TAP, Jest,
+   ESLint, TypeScript, Maven, Gradle, pyproject and npm — is covered by one seam, and a cut value cannot keep a prefix
+   the redactor would have matched whole. `OpenRewriteLogParser` files its own `RewriteFinding` records rather than a
+   diagnostic and does not pass through the seam. `NpmErrorParser` keeps its own `storedRedacted`, which is idempotent
+   beside the seam. `Diagnostic` redacts its collected `stackTrace` in its constructor, so the TAP and Jest stack blocks
+   and the frames `StackTraceCollector` attaches are masked too. This supersedes the sentence of ADR 006 that those
+   messages are built from dependency names and stay unchanged, and its carried decision that the other parsers'
+   messages stay unredacted.
 
 === What stays readable, by decision
 
@@ -83,9 +90,46 @@ numbered `Decision` sections below.
 * a PEM or PGP block whose `BEGIN` line lies before the excerpt's window: the window is not widened to reach the marker;
 * a secret in an unlabelled query parameter, a bare JSON Web Token, an AWS access-key id, and the credential after the
   scheme word of an `Authorization:` header of a scheme other than `Bearer`, `Basic` or `Token` (the scheme word is
-  taken as the value and masked) — shapes no anchored pattern marks, left for a later decision.
+  taken as the value and masked) — shapes no anchored pattern marks, left for a later decision;
+* an unquoted assignment value shorter than four characters, a bearer value under eight characters and a secret with no
+  label — the deliberate minimum, kept as an accepted residue. A quoted assignment value is not subject to that
+  minimum (see below);
+* a head-residue of a cut diagnostic line: a credentialed URL whose closing `@` lies beyond the
+  `BuildLogText.MAX_LINE_LENGTH` (8192) cut leaves `scheme://user:<partial password>` readable, because the URL shape
+  needs its closing `@` to match. Its exposure is bounded by the stored-message cut — 500 characters — so only as much
+  of the partial password as fits in that head is carried. It is bounded, not removed — the cut limits the length of
+  the residue, and a message whose head holds the URL carries it. The line-bound clause of item 5 below states the
+  order that produces it. The provider path has no such residue: `ProviderVerification` masks a user-information head
+  that its own cut leaves without the `@`;
+* a quoted assignment whose closing quote lies on the next line: the assignment form closes on its own line only, so
+  such a value is read as unclosed and only the first line is masked; the continuation stays readable. A close on the
+  next line is indistinguishable from the next label's quote, which the blocked-swallow rule refuses.
 
-=== Decision 1: the cost is bounded on every path, not by a new linear construction
+=== The quoted assignment value runs to its closing quote
+
+An assignment whose value is quoted (`token="ab cd ef"`, `password="my pass phrase"`) masks the whole quoted value: the
+value runs to its own closing quote on its line, and the escape handling of the flag form keeps an escaped quote from
+closing it. A closing quote is accepted only when whitespace, a delimiter (`, ; ) ] }`) or the end of the text follows
+it; anything else is refused, because it would swallow the next label and leave that label's value readable, and such a
+text is masked by the unclosed form instead, to the end of its line. The closed form runs before the unclosed one, so an
+enclosing quoted value is masked whole before an inner label is looked at, and a credentialed URL is masked before the
+assignment forms, so an inner match cannot remove the `@` the URL shape needs. The assignment form closes on its own
+line only: a value that would close on the next line is read as unclosed, because a cross-line close is
+indistinguishable from the next label's quote, and that residue is named in "What stays readable". The four-character
+minimum therefore applies to unquoted values only. The false-positive costs: a short quoted value of an ordinary text is
+masked with its label, and a refused close masks the rest of its line.
+
+=== The matcher is Unicode-aware, and invisible characters are removed
+
+The label and separator classes match their Unicode forms (`\s`, `\S`, `\w` and `\b`), so a no-break space (`U+00A0`) or
+a narrow no-break space (`U+202F`) between a label and its separator is an ordinary space. The invisible formatting
+characters — the zero-width space and joiners (`U+200B` to `U+200D`), the bidi controls (`U+200E` to `U+200F`, `U+202A`
+to `U+202E`), the word joiner (`U+2060`), the soft hyphen (`U+00AD`) and the byte-order mark (`U+FEFF`) — are removed
+before the shapes are matched, so a label split by one of them (`pass<U+200B>word=value`) is matched and a stored text
+carries none of them. They are invisible, so removing one costs no evidence. The false-positive cost: a text that
+carries an invisible character loses it, and a quoted assignment whose first word is short is masked whole.
+
+=== Decision 1: the input is bounded on every path, and the key-block scan is linear
 
 The redactor runs on the unparsed excerpt, on the npm diagnostic and on the journal; `ProviderVerification` of
 `pm-runtime` also calls `redactText`. No Java pattern has a time bound, so each caller bounds its input before the
@@ -106,26 +150,39 @@ to the last `@` of the token by giving characters back. That cost is not linear 
 scanned back once from each scheme start, quadratic in one line at worst — and the per-path line bound above is what
 bounds it. The quoted credential-flag value is an unrolled loop (a plain run, then escape pairs each followed by a plain
 run) whose repetitions are all possessive and hold no alternation, so it neither backtracks nor recurses per character
-on a long value. `SecretRedactorTest` measures the cost without a clock: a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`,
-the same run followed by `://`, and the run `x://y:x://y:…` without any `@`, the shape that is scanned back from every
-scheme start) is redacted through `redactText` and its unchanged result asserted.
-The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and this plan does not bound that
-input.
+on a long value. The key block is not a pattern that can rescan the text: it is a single left-to-right scan that finds a
+`BEGIN` marker, finds the next `END` marker after it once, masks the span and resumes after that `END`, so a text of
+many `BEGIN` markers without an `END` costs one pass. The former lazy `.*?` under `(?s)` scanned to the end of the text
+from every such marker: quadratic in the text, and not bounded by the per-line cut at all, because the match crosses
+line ends. `SecretRedactorTest` therefore bounds the cost with a wall-clock test: 400 000 characters of `BEGIN` markers
+without an `END` and a 3 700-marker input must redact within a stated bound that the former pattern exceeded, and a
+1 000 000-character quoted flag value must redact without a stack overflow. The URL shapes are measured without a clock:
+a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`, the same run followed by `://`, and the run `x://y:x://y:…`
+without any `@`, the shape that is scanned back from every scheme start) is redacted through `redactText` and its
+unchanged result asserted.
+The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and the answer is cut at
+`BuildLogText.MAX_LINE_LENGTH` characters — never splitting a surrogate pair — before the redaction, which bounds that
+input; a user-information head or a provider-token head the cut leaves incomplete is masked there, so the bound removes
+neither the credential nor its protection.
 
 === The package dependency `core.queue → core.build`
 
 R4 makes `core.queue` call `BuildLogText.stripAnsi` of `core.build`, which already depends on `core.queue`
-(`UnparsedEvidence` and `NpmErrorParser` call `SecretRedactor`). The two packages now depend on each other. No guard
-forbids a cycle of packages within one module, and the escape-sequence expression exists once instead of being copied.
+(`UnparsedEvidence` and `NpmErrorParser` call `SecretRedactor`), and the stored-message seam extends the cycle:
+`DiagnosticCollector.stored` and the `Diagnostic` constructor call `SecretRedactor` of `core.queue`. The two packages now
+depend on each other. No guard forbids a cycle of packages within one module, and each expression exists once instead of
+being copied.
 
 === Decision 3: an unfinished TAP plan is no success marker
 
 A top-level plan line `1..N` announces the test points the run will print. `TapOutputParser` checks the plan per run:
 a run starts at every line that starts with `TAP version`, and the lines before the first such line, or the whole log
 when it carries none, are one run. Per run it sums the counts of the run's own top-level plan lines and compares the
-sum with the run's own number of top-level test points (`ok` / `not ok` at the start of a line); when they differ, the
+sum with the run's own number of top-level test points (the TAP point shape: `ok` or `not ok`, followed by a space or
+the line end, so a numbered point, a bare point and a description or directive all count); when they differ, the
 run did not finish its plan — the evidence class of `Bail out!` — and the passing summary is no marker, even with
-exit 0. The log finished its plan only when every run did, so a later run of concatenated runs
+exit 0. A prose line that merely starts with the word `ok` is no point. The log finished its plan only when every run did,
+so a later run of concatenated runs
 (`npm test --workspaces`) cannot supply the point an earlier run is missing. The counts stay as the summary measured them, summed
 over all runs. An indented (subtest) plan line or test point is not read, a matching plan changes nothing, and a run
 without a top-level plan line announced no plan. A plan count too large for a `long`, or plan counts whose sum
@@ -146,8 +203,9 @@ parsers: `JestOutputParser` adds its `Tests:` blocks and each block's parts with
 count beyond the `long` range as red, and `EslintOutputParser` adds its problem summaries with `Math.addExact` and
 reports no summary when a count or a sum cannot be represented. The remaining count sums of the package are bounded:
 `GradleOutputParser` and `PyprojectOutputParser` check every addition against `Integer.MAX_VALUE`, and the `long` sums
-of `MavenOutputParser` and `LcovReportParser` stay below 2^58 because every summand is at most an `int` (or the sum of
-two) and the input holds fewer than 2^27 count lines or records; the Javadoc of each spot names its bound.
+of `MavenOutputParser` and `LcovReportParser` each stay below 2^58 — not one merged 2^59 — because every summand is at
+most an `int` (or the sum of two) and the input holds fewer than 2^27 count lines or records; the Javadoc of each spot
+names its bound.
 
 *A deviation from the outline, accepted when the plan ran unattended.* The outline compared the plan with the summed
 `# tests` total. The ported real log of `node --test` (`npm-tap-test-real.log` of the fixture `npm-tap-success`) prints
@@ -180,12 +238,15 @@ line cut was corrected to name the input size as its bound.
   whitespace repetition.
 * (b) `UnparsedEvidence.of` runs its steps in the order strip, reduce, window, line bound, redact, byte cap. Its line
   bound keeps the *end* of each line (the last `MAX_LINE_LENGTH` characters), not its head as `boundLines` does, because
-  the excerpt is the log's tail and its existing contract keeps the end of a long last line. The accepted residue of the
-  order: a secret that straddles the line cut loses its label before the redactor sees it, so the rest of its value is
-  unlabeled and the label-anchored shapes do not match it. It stays readable only where the byte bound keeps it, which
-  takes a retained value of about 4096 characters (`UnparsedEvidence.MAX_BYTES`) or more; masking the retained text of a
-  cut line instead would trade evidence for that case and is a maintainer decision. The cut comes before the redaction
-  because it is what bounds the redactor's cost.
+  the excerpt is the log's tail and its existing contract keeps the end of a long last line. Neither bound splits a
+  surrogate pair. The accepted residue of the order: a secret that straddles the line cut loses its label before the
+  redactor sees it, so the rest of its value is unlabeled and the label-anchored shapes do not match it. It stays
+  readable only where the byte bound keeps it, which takes a retained value of about 4096 characters
+  (`UnparsedEvidence.MAX_BYTES`) or more; masking the retained text of a cut line instead would trade evidence for that
+  case and is a maintainer decision. The head bound of `boundLines` produces the mirror residue: a credentialed URL
+  whose closing `@` lies beyond the cut loses it, so `scheme://user:<partial password>` stays readable; its exposure is
+  bounded, not removed, by the stored cut of the path that carries it, as "What stays readable" states. The cut comes
+  before the redaction because it is what bounds the redactor's cost.
 
 === Decision 4 (item 6): the coverage limits, the refusal echo and the XML factory
 
@@ -212,12 +273,16 @@ line cut was corrected to name the input size as its bound.
   would cost the evidence of every clone and registry URL; the operator kept it readable and it is named as residue.
 * *Add `--key` to the flag list.* It would mask the value of every tool's `--key` option (a cache key, a sort key); the
   operator kept the list closed without it.
+* *Leave the matcher ASCII-only and record the residue.* The operator chose to widen it: a no-break space or a
+  zero-width character is what an accident produces when text passes through a word processor or a terminal, and the
+  cost is only a wider notion of whitespace and word characters.
 * *Accept an `npm_` run of any length.* A package or variable named `npm_<something>` would lose its text; the exact length
   is the documented token shape.
 * *Strip escape sequences inside the label patterns.* Every label pattern would carry an optional escape run between its
   parts, which multiplies their alternation; one strip before the redaction covers every pattern, a later one included.
 * *A linear construction of the URL pattern without the bounds.* It would bound one pattern and leave the others
-  exposed; the per-path bound covers every pattern of the redactor at once.
+  exposed; the per-line bound covers every pattern whose match stays on one line, while the key-block shape — whose
+  match crosses line ends — is a linear scan instead, as Decision 1 states.
 * *Compare the TAP plan with `# tests`.* Refused by the measured `node --test` log (Decision 3).
 * *Keep the head of a long line in the excerpt.* It would break the excerpt's contract that the end of a long last
   line — where a stack trace ends and a tool prints its verdict — is kept.
@@ -244,8 +309,9 @@ line cut was corrected to name the input size as its bound.
 * Remaining, outside this plan: `JobLog.MAX_BYTES` of `pm-runtime` still narrows its limit with
   `Math.toIntExact(LimitProperties.read(..))`, and so do the three limit reads of `pm-workflow`
   (`ProjectUnitLoader.MAX_UNIT_FILE_BYTES`, `UnitFrontmatterReader.MAX_FRONTMATTER_LINES` and `MAX_ECHO_LENGTH`); they
-  are an open follow-up for `readInt`. `ProviderVerification`'s input stays unbounded. The other parsers'
-  messages at `DiagnosticCollector.stored` stay unredacted (ADR 006).
+  are an open follow-up for `readInt`. Every parser's stored message is redacted at `DiagnosticCollector.stored`, and a
+  diagnostic's collected stack trace at the `Diagnostic` constructor; `ProviderVerification`'s answer is cut at the line
+  bound before its redaction.
 * The plan carried nine deliverables against a soft cap of about six; the rationale is recorded in its outline, and no
   cut was made.
 

@@ -82,6 +82,8 @@ class EndpointProfileValidatorTest {
                     + "| /tools",
             "a headless block is present | \"executable\": \"ollama\", | \"headless\": null, \"executable\": "
                     + "\"ollama\", | /headless",
+            "the client member long-context thresholds | \"client_id\": \"local-runner\", | \"client_id\": "
+                    + "\"local-runner\", \"long_context_thresholds\": {}, | /long_context_thresholds",
             "the answer reserve does not stay below the context | \"answer_reserve_tokens\": 1024 | "
                     + "\"answer_reserve_tokens\": 8192 | /endpoint/answer_reserve_tokens",
             "the weights probe fills the other source | \"argv\": null, \"pattern\": null} | \"argv\": [\"--x\"], "

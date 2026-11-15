@@ -33,7 +33,16 @@ ordered PlannedTaskSummary list + budget ──► EnvelopePacker ──► enve
 
 . The caller sizes every plan task with `TaskCostEstimator.estimate` and stamps the predicted tokens and their basis on the task.
 . The caller resolves the budget with `EnvelopeBudget.resolve`: the operator's `envelope_budget_tokens`, else the role's `context_budget_tokens`, else the harness profile's `headless.context_budget_tokens`, else the compiled 400 000; the two fallbacks are capped at the long-context threshold of the role's model, a kept operator or role value above it is flagged `aboveThreshold`.
-. The caller passes the tasks in topological order over their dependencies to `EnvelopePacker.packEnvelopes` with the budget. The packer closes the open envelope on a task of another module or role or on the budget; a task over the budget alone sits alone. An envelope below 10 000 tokens is then merged into its adjacent envelope of the same module and role, the preceding one first, else the following one; without such a neighbour it stays alone and reports `belowMinimum()`. Every envelope is a contiguous slice of the input, and its skills are the sorted distinct union of its tasks' skills.
+. The caller passes the tasks in topological order over their dependencies to `EnvelopePacker.packEnvelopes` with the budget. The packer closes the open envelope on a task of another module or role or on the budget; a task over the budget alone sits alone. An envelope below 10 000 tokens is then merged into its adjacent envelope of the same module and role, the preceding one first, else the following one; without such a neighbour it stays alone and reports `belowMinimum()`. A merge is judged on the group's head, the index is kept after a merge so the group that now sits there is examined next (a cascade), and a lone group is never revisited; a merge only enlarges envelopes, and the minimum task work takes precedence over the budget by design. Every envelope is a contiguous slice of the input, and its skills are the sorted distinct union of its tasks' skills.
+
+== Where the Threshold Comes From
+
+The long-context threshold of item 4 is a value of the harness profile, never of this package: `core.role.LongContextThresholds`
+reads `headless.long_context_thresholds` of the profile document the caller parsed, and `forModel(modelId)` answers the entry
+of the worker's model — `OptionalInt.empty()` for a model the profile names no entry for, and byte-exactly, so no prefix and
+no case folding matches. The caller hands the value to `EnvelopeBudget.resolve` as a `@Nullable Long`; `null` means "no
+threshold", and then neither fallback is capped. No production type of `core.profile` or `core.role` is imported (invariant
+1); the test that proves the cap imports the three types it needs, `JsonDocument`, `JsonNode` and `LongContextThresholds`.
 
 == Deliberate Changes Against `plan-marshall`
 
@@ -51,7 +60,10 @@ The re-verification against `plan-marshall` found two further differences, repor
 * The sequential task yield within an envelope and the Phase 5 envelope states.
 * The recalibration of the table and the derived fact `cost_calibration`.
 * The reading of `envelope_budget_tokens` from `local-config.json`, and the role view that shows a budget above the threshold.
-* The rendering of the fact `below_minimum_task`, and the profile member `headless.long_context_thresholds` that supplies the threshold.
+* The rendering of the fact `below_minimum_task`.
+
+The threshold the fallbacks are capped at is read (`core.role.LongContextThresholds`, Harness Profiles § Model Tiers &
+Models of a Harness); what is owed is the caller that resolves the budget inside `plan.describe-tasks` and hands it over.
 
 == Usage
 
@@ -64,14 +76,14 @@ List<PackedEnvelope> envelopes = EnvelopePacker.packEnvelopes(orderedTasks, budg
 
 == Invariants and Failure Modes
 
-1. **Plain values**: no type of `core.store`, `core.queue`, `core.role` or `core.profile` is imported.
+1. **Plain values**: no production type of `core.store`, `core.queue`, `core.role` or `core.profile` is imported.
 2. **Determinism**: the same input yields the same envelopes; nothing is read from the clock or a store.
 3. **Order kept**: every envelope is a contiguous slice of the ordered input, so no task precedes one of its dependencies.
-4. **Refusals**: a negative count, a negative or missing table value and a non-positive budget input throw `IllegalArgumentException`; an absent budget input is a `@Nullable` parameter, and the resolved budget is never absent.
+4. **Refusals**: a negative count, a negative or missing table value, a non-positive budget input and a negative predicted cost throw `IllegalArgumentException`; a missing required component, `skillUris` and `dependsOnTaskIds` included, throws a `NullPointerException` that names it; an absent budget input is a `@Nullable` parameter, and the resolved budget is never absent.
 
 == Testing
 
-`TaskCostEstimatorTest` covers every band edge, each profile weight, monotonicity, the table and its basis; `EnvelopePackerTest` the Next-Fit closures, the three outcomes of the below-minimum merge, contiguity, order and the skill union; `EnvelopeBudgetTest` every precedence step, the cap of both fallbacks and the flag on operator and role values above the threshold.
+`TaskCostEstimatorTest` covers every band edge, each profile weight, monotonicity, the table and its basis; `EnvelopePackerTest` the Next-Fit closures, the three outcomes of the below-minimum merge, contiguity, order, the skill union and the refused inputs; `EnvelopeBudgetTest` every precedence step, the cap of both fallbacks, the exact equality at the threshold and the flag on operator and role values above it; `EnvelopeBudgetProfileThresholdTest` the cap on a threshold read from a parsed profile document.
 
 == Specification Tracing
 

@@ -71,6 +71,12 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 
 - Depends on: PLAN-V2-83 (the dependencies and rule R20) and PLAN-V2-91, 93, 99, 106 and PLAN-V2-101 (the scanner test).
 
+## Carried from the landing of PLAN-V2-101 (2026-11-15, `landings/PLAN-V2-101.md`)
+
+Added by the orchestrator. Read at the outline; it extends no Done-when by itself, and **it overrides the wording of this spec about the scanner** ("a plain regex over `src/test/java`", "the plan that lands first creates it; the others extend it", "the packages of this plan are added to its list"). The scanner shipped with PLAN-V2-101 (#438) is `pm-core/src/test/java/de/planmarshall/core/guard/AssertionMessageScanTest.java`: a lexer plus argument splitter, `SCANNED_PACKAGES = List.of("de/planmarshall/core/store")` (`:50`), and `testSourceRoot()` (`:170-183`) resolves only the current module's `src/test/java` or `pm-core/src/test/java`. A `de/planmarshall/workflow/...`, `runtime/...` or provider entry in that list therefore fails with "no test source was scanned": **this plan cannot add its packages to the pm-core scanner.** The first decision at the refine (R07, the operator's: it touches the generator-artifact rules of ADR `doc/adr/012`) is how the scan reaches this plan's module: (1) a per-module scanner test beside the module's `HandWrittenDoubleScanTest` (ADR 026 `:126` sets that precedent, three copies exist), each copy about 400 lines; (2) the scan logic published once in `pm-core:tests` and a thin test per module (one place for the hardening of PLAN-V2-102, but `pm-core:tests` carries only generators and `SchemaResource` today: an ADR 012 amendment); (3) a `pm-core` test that reads the sibling module's sources by relative path (couples the module builds). No recommendation above 90 %; PLAN-V2-141 carries the ADR 012 question and may settle it first. Whatever is chosen, the scanner of PLAN-V2-102 has been hardened by then (angle brackets, tolerance, the missing assertion names, the offender list in the failure message): use that version.
+
+**Counts at `2813564b` (a port of the scanner; re-measure at the outline):** `pm-runtime` `credentials` 612 (+5 out of range), `credentials/dbus` 64, `endpoint` 130, `enrolment` 538 (+1), `question` 52 (+3), `worker` 203 (+20): about 1 620 in 51 files. Disjoint from the running PLAN-V2-48 and 94 at the test level (94 changes only production in `endpoint/AnswerSchema` and `worker/SystemProcessExecutables`). PLAN-V2-114 says it is emitted before 104 and 105.
+
 ## Hand-Off Command
 
 ```text

@@ -137,7 +137,8 @@ class JsonlStoreFileTest {
                         "the fault names the missing lock"),
                 () -> assertEquals(store.toString(), fault.details().get("store"),
                         "the fault names the store path"),
-                () -> assertArrayEquals(before, Files.readAllBytes(store), "nothing was written"),
+                () -> assertArrayEquals(before, Files.readAllBytes(store),
+                        "the refused append left the store untouched"),
                 () -> assertEquals(List.of(), auditEvents.getValues(), "nothing was recorded"));
     }
 
@@ -398,8 +399,10 @@ class JsonlStoreFileTest {
             repairWith(refusing);
 
             assertAll("a sink that refuses the tail repair record",
-                    () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store), "the cut is done"),
-                    () -> assertTrue(Files.exists(storeFile.auditIntentFile()), "the intent survives"),
+                    () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store),
+                            "the store already holds the cut content"),
+                    () -> assertTrue(Files.exists(storeFile.auditIntentFile()),
+                            "the audit intent record survives the refusal"),
                     () -> assertEquals(List.of(), refused.getValues(), "the refusing sink recorded nothing"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()));

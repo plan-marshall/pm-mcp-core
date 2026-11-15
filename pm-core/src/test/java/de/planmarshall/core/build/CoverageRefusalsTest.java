@@ -160,7 +160,7 @@ class CoverageRefusalsTest {
     }
 
     @Test
-    @DisplayName("cuts a hostile long file name of a file-system failure")
+    @DisplayName("cuts a hostile long file name of a file-system failure and keeps the failure kind")
     void cutsAHostileLongFileName() {
         Path reportFile = directory.resolve(Generators.letterStrings(300, 400).next() + ".xml");
 
@@ -168,10 +168,30 @@ class CoverageRefusalsTest {
                 new NoSuchFileException(reportFile.toString()));
 
         assertAll(
-                () -> assertEquals("cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
-                        refused.reason().length(), "The file-system detail is cut to the bound"),
+                () -> assertTrue(refused.reason().length()
+                        <= "cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
+                        "The whole detail is bounded"),
+                () -> assertTrue(refused.reason().endsWith(": no such file"),
+                        "A name near the bound never loses the failure kind"),
                 () -> assertTrue(refused.reason().startsWith("cobertura: " + reportFile.getFileName()
                         .toString().substring(0, 100)), "The reason keeps the head of the file name"));
+    }
+
+    @Test
+    @DisplayName("cuts a hostile long file-system reason and keeps it after the bounded file name")
+    void cutsAHostileLongReason() {
+        Path reportFile = reportFile();
+        String reason = "x".repeat(1_000_000);
+
+        CoverageParseResult.Refused refused = CoverageRefusals.of(CoverageFormat.LCOV, reportFile,
+                new FileSystemException(reportFile.toString(), null, reason));
+
+        assertAll(
+                () -> assertTrue(refused.reason().length() <= "lcov: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
+                        "The whole refusal detail is bounded"),
+                () -> assertTrue(refused.reason().contains(": " + reportFile.getFileName()),
+                        "The bounded file name stays in the reason"),
+                () -> assertTrue(refused.reason().endsWith("x"), "The reason is kept, cut to its bound"));
     }
 
     private Path reportFile() {

@@ -101,8 +101,13 @@ public class TapOutputParser {
     /** A top-level plan line: at the start of the line, so an indented subtest plan is not one. */
     private static final Pattern PLAN = Pattern.compile("^1\\.\\.(\\d+)");
 
-    /** A top-level test point, {@code ok} or {@code not ok}: at the start of the line, as its plan line is. */
-    private static final Pattern TOP_LEVEL_POINT = Pattern.compile("^(?:not )?ok\\b");
+    /**
+     * A top-level test point, {@code ok} or {@code not ok} followed by a tab, a space or the end of the line: the TAP
+     * point shape allows a bare point, a number, a {@code - description} and a {@code # directive}, and all of them
+     * follow that separator. A prose line that merely starts with the word {@code ok} (such as {@code ok, the copy is
+     * done}) is no point. The negative lookahead states the separator without an alternation.
+     */
+    private static final Pattern TOP_LEVEL_POINT = Pattern.compile("^(?:not )?ok(?![^ \t])");
 
     /**
      * Parses a TAP test log.
@@ -160,8 +165,8 @@ public class TapOutputParser {
      * {@code TAP version}; the lines before the first such line, or the whole log when it carries none, are one run, so
      * concatenated runs ({@code npm test --workspaces}) are checked one by one and a later run cannot supply the test point
      * an earlier run is missing. A run finished its plan when it announced no top-level plan line, or when the summed
-     * count of its own top-level plan lines equals its own number of top-level test points ({@code ok} / {@code not ok}
-     * at the start of a line). A top-level plan line whose count is too large for a {@code long}, or whose count makes
+     * count of its own top-level plan lines equals its own number of top-level test points ({@code ok <number>} or
+     * {@code not ok <number>} at the start of a line). A top-level plan line whose count is too large for a {@code long}, or whose count makes
      * the run's sum overflow one, leaves that run unfinished. An indented (subtest) plan line and an indented test point belong to a subtest and are not
      * read. The plan counts test points, not the {@code # tests} total: {@code node --test} prints one top-level point
      * per suite and counts the tests inside them in {@code # tests}.
@@ -224,10 +229,11 @@ public class TapOutputParser {
         var cursor = new Cursor(index + 1);
         YamlBlock block = yamlBlock(lines, cursor);
         String message = block.errorMessage().isEmpty() ? testName : block.errorMessage();
-        if (!message.isBlank()) {
+        var stored = DiagnosticCollector.storedOrEmpty(message);
+        if (stored.isPresent()) {
             Location location = location(block.location());
             var diagnostic = Diagnostic.builder().file(location.file()).line(location.line())
-                    .message(DiagnosticCollector.stored(message)).category(Category.TEST_FAILURE)
+                    .message(stored.get()).category(Category.TEST_FAILURE)
                     .severity(Severity.ERROR).stackTrace(block.stackTrace()).build();
             if (seen.add(DiagnosticCollector.key(diagnostic))) {
                 diagnostics.add(diagnostic);

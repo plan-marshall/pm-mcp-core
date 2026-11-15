@@ -10,12 +10,15 @@
 package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -205,6 +208,174 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("an empty user in a URL is masked (the Azure DevOps and credential-helper form)")
+    void urlUserInformationEmptyUser() {
+        assertAll("URL with an empty user",
+                () -> assertEquals("clone https://:" + SecretRedactor.REDACTED + "@host/repo",
+                        redactValue("clone https://:token-value@host/repo"),
+                        "an empty user does not leave the secret readable"),
+                () -> assertEquals("https%3A%2F%2F:" + SecretRedactor.REDACTED + "@host",
+                        redactValue("https%3A%2F%2F:token-value@host"),
+                        "the percent-encoded separator accepts an empty user too"));
+    }
+
+    @Test
+    @DisplayName("an unquoted assignment shorter than four characters stays readable (the deliberate minimum)")
+    void shortUnquotedAssignmentStaysReadable() {
+        assertEquals("token =x", redactValue("token =x"),
+                "the four-character minimum is an accepted residue");
+    }
+
+    @Test
+    @DisplayName("a quoted assignment whose first word is short is masked whole")
+    void shortQuotedAssignment() {
+        assertAll("short quoted assignments",
+                () -> assertEquals("token=\"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("token=\"ab cd ef\""),
+                        "a two-character first word no longer stops the mask"),
+                () -> assertEquals("password=\"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("password=\"my pass phrase\""),
+                        "a three-character first word no longer stops the mask"),
+                () -> assertEquals("{\"token\": \"" + SecretRedactor.REDACTED + "\"}",
+                        redactValue("{\"token\": \"a b\"}"),
+                        "a one-character quoted JSON value is masked"));
+    }
+
+    @Test
+    @DisplayName("a cross-line quoted value does not swallow the label after it")
+    void crossLineQuotedValueDoesNotSwallowTheNextLabel() {
+        // the close is refused when a word character follows it, so the unclosed rule stops at the first line end
+        var redacted = redactValue("pass=\"abc\ntoken=\"s3cret\"");
+
+        assertAll("cross-line quoted value",
+                () -> assertFalse(redacted.contains("s3cret"), "the second credential is still masked"),
+                () -> assertEquals("pass=\"" + SecretRedactor.REDACTED + "\ntoken=\""
+                        + SecretRedactor.REDACTED + "\"", redacted, "each value is masked on its own line"),
+                () -> assertEquals(redacted, redactValue(redacted), "redacting the masked value changes nothing"));
+    }
+
+    @Test
+    @DisplayName("an escaped quote is no close, so the rest of the line is masked")
+    void escapedQuoteIsNoCloseInAnAssignment() {
+        var redacted = redactValue("password=\"abc\\\"def");
+
+        assertEquals("password=\"" + SecretRedactor.REDACTED, redacted, "the escaped quote does not close the value");
+    }
+
+    @Test
+    @DisplayName("a close followed by a word character is read as unclosed (the accepted cost)")
+    void closeFollowedByAWordCharacterIsUnclosed() {
+        var redacted = redactValue("password=\"my pass\"x");
+
+        assertEquals("password=\"" + SecretRedactor.REDACTED, redacted, "the refused close masks the rest of the line");
+    }
+
+    @Test
+    @DisplayName("an enclosing quoted assignment keeps its closing quote after an inner label is masked")
+    void enclosingQuotedAssignmentSurvivesAnInnerLabel() {
+        var redacted = redactValue("password=\"my secret token='abc\"");
+
+        assertAll("nested quoted assignment",
+                () -> assertFalse(redacted.contains("my secret"), "the outer value is masked whole"),
+                () -> assertEquals("password=\"" + SecretRedactor.REDACTED + "\"", redacted,
+                        "the outer value keeps both quotes"));
+    }
+
+    @Test
+    @DisplayName("a credentialed URL is masked before an inner assignment can remove its @")
+    void urlIsMaskedBeforeAnInnerAssignment() {
+        var redacted = redactValue("https://user:token='abc@host/repo");
+
+        assertAll("URL before assignment passes",
+                () -> assertEquals("https://user:" + SecretRedactor.REDACTED + "@host/repo", redacted,
+                        "the URL keeps its host and masks the password"),
+                () -> assertFalse(redacted.contains("token='abc"), "the URL password is gone"));
+    }
+
+    @Test
+    @DisplayName("a punctuation-leading value is not swallowed by a quoted assignment")
+    void quotedAssignmentDoesNotSwallowAPunctuationLeadingValue() {
+        var redacted = redactValue("pass=\"abc token=\"!s3cret-value\"");
+
+        assertFalse(redacted.contains("s3cret-value"), "a refused close masks the rest of the line");
+    }
+
+    @Test
+    @DisplayName("a no-break space after a credential flag does not hide the value")
+    void credentialFlagWithNonAsciiSpace() {
+        assertAll("Unicode whitespace after a credential flag",
+                () -> assertEquals("--token\u00A0" + SecretRedactor.REDACTED,
+                        redactValue("--token\u00A0abcd1234"), "an unquoted value is masked"),
+                () -> assertEquals("--token\u00A0\"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("--token\u00A0\"abcd1234\""), "a quoted value is masked"));
+    }
+
+    @Test
+    @DisplayName("a quoted assignment does not swallow a later label on its own line")
+    void quotedAssignmentDoesNotSwallowALaterLabelOnItsLine() {
+        var redacted = redactValue("pass=\"abc token=\"s3cret\"");
+
+        assertAll("same-line refused close",
+                () -> assertFalse(redacted.contains("s3cret"), "the later value is masked with the rest of the line"),
+                () -> assertFalse(redacted.contains("abc"), "the first value is masked too"),
+                () -> assertEquals(redacted, redactValue(redacted), "redacting the masked value changes nothing"));
+    }
+
+    @Test
+    @DisplayName("a quoted assignment value that closes on the next line is read as unclosed (the accepted residue)")
+    void quotedAssignmentClosingOnTheNextLineIsUnclosed() {
+        // the assignment form closes on its own line only: a cross-line close is indistinguishable from the next label's quote
+        var redacted = redactValue("password=\"first line\nsecond line\" done");
+
+        assertAll("cross-line quoted assignment",
+                () -> assertEquals("password=\"" + SecretRedactor.REDACTED + "\nsecond line\" done", redacted,
+                        "the unclosed rule masks the rest of the first line"),
+                () -> assertEquals(redacted, redactValue(redacted), "redacting the masked value changes nothing"));
+    }
+
+    @Test
+    @DisplayName("an unclosed quoted assignment masks the rest of its line")
+    void unclosedQuotedAssignmentIsMasked() {
+        // `as the flag forms do`: an unclosed quote masks the rest of the line, so a short first word is not left readable
+        var doubleQuoted = redactValue("password=\"my pass");
+
+        assertAll("unclosed quoted assignment",
+                () -> assertEquals("password=\"" + SecretRedactor.REDACTED, doubleQuoted,
+                        "the unclosed quoted value is masked to the line end"),
+                () -> assertFalse(doubleQuoted.contains("my pass"), "the value behind the quote is gone"));
+    }
+
+    @Test
+    @DisplayName("a non-ASCII space in a credential assignment does not hide the value")
+    void assignmentWithNonAsciiSpace() {
+        // U+00A0 NO-BREAK SPACE and U+202F NARROW NO-BREAK SPACE are not matched by an ASCII-only \s
+        assertAll("Unicode whitespace in a credential assignment",
+                () -> assertEquals("password\u00A0=" + SecretRedactor.REDACTED,
+                        redactValue("password\u00A0=abcd1234"),
+                        "a no-break space before the separator is matched"),
+                () -> assertEquals("token \u202F= " + SecretRedactor.REDACTED,
+                        redactValue("token \u202F= abcd1234"),
+                        "a narrow no-break space after the label is matched"));
+    }
+
+    @Test
+    @DisplayName("invisible formatting characters do not hide a credential")
+    void assignmentWithInvisibleCharacters() {
+        // U+200B ZERO WIDTH SPACE inside the label; U+FEFF ZERO WIDTH NO-BREAK SPACE in the separator
+        var zeroWidthLabel = redactValue("pass\u200Bword=abcd1234");
+        var byteOrderMark = redactValue("token\uFEFF=abcd1234");
+
+        assertAll("invisible characters in a credential assignment",
+                () -> assertEquals("password=" + SecretRedactor.REDACTED, zeroWidthLabel,
+                        "a zero-width space inside the label is removed before the match"),
+                () -> assertFalse(zeroWidthLabel.contains("abcd1234"), "the value after a split label is gone"),
+                () -> assertEquals("token=" + SecretRedactor.REDACTED, byteOrderMark,
+                        "a byte-order mark after the label is removed before the match"),
+                () -> assertFalse(byteOrderMark.contains("\uFEFF"), "the stored text carries no invisible character"));
+    }
+
+
+    @Test
     @DisplayName("a credential flag with a space is redacted and keeps the flag")
     void spacedCredentialFlags() {
         assertAll("spaced credential flags",
@@ -392,6 +563,50 @@ class SecretRedactorTest {
 
         assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
                 "an unclosed PGP key block is masked to the end");
+    }
+
+    /** A wall-clock bound a left-to-right scan meets easily and the former lazy pattern exceeds. */
+    private static final Duration REDACTION_BOUND = Duration.ofSeconds(5);
+
+    private static final String PEM_BEGIN_MARKER = "-----BEGIN PRIVATE KEY-----";
+
+    @Test
+    @DisplayName("400 000 characters of BEGIN markers without an END are redacted within the bound")
+    void pemBeginMarkersWithoutEndAreLinear() {
+        // the excerpt maximum of 50 lines of MAX_LINE_LENGTH characters is about 409 600 characters;
+        // no END follows any marker, so every marker was scanned to the end of the text before the fix
+        var markers = PEM_BEGIN_MARKER.repeat(400_000 / PEM_BEGIN_MARKER.length() + 1).substring(0, 400_000);
+
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(markers),
+                "400 000 characters of BEGIN markers must redact within the bound");
+
+        assertEquals(400_000, markers.length(), "the cost input holds 400 000 characters");
+        assertEquals(SecretRedactor.REDACTED, redacted, "an unclosed block masks the whole text");
+    }
+
+    @Test
+    @DisplayName("3 700 BEGIN markers without an END are redacted within the bound")
+    void pemManyBeginMarkersWithoutEndAreLinear() {
+        var markers = PEM_BEGIN_MARKER.repeat(3_700);
+
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(markers),
+                "3 700 BEGIN markers must redact within the bound");
+
+        assertEquals(3_700, markers.length() / PEM_BEGIN_MARKER.length(), "the input holds 3 700 markers");
+        assertEquals(SecretRedactor.REDACTED, redacted, "an unclosed block masks the whole text");
+    }
+
+    @Test
+    @DisplayName("a 1 000 000-character quoted flag value is masked without a stack overflow")
+    void quotedFlagValueOfOneMillionCharacters() {
+        // the quoted value is one plain run: a per-character recursion would overflow the stack here
+        var log = "--password \"" + "a".repeat(1_000_000) + "\"";
+
+        var redacted = assertDoesNotThrow(() -> redactValue(log),
+                "a million-character quoted value must not overflow the stack");
+
+        assertEquals("--password \"" + SecretRedactor.REDACTED + "\"", redacted,
+                "the whole quoted value is masked");
     }
 
     @Test

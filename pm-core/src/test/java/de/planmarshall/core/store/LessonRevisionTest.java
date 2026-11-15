@@ -262,9 +262,10 @@ class LessonRevisionTest {
 
             run(write -> store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant()));
 
-            var found = assertInstanceOf(Found.class, store.get(lessonId));
+            var found = assertInstanceOf(Found.class, store.get(lessonId),
+                    "the revised lesson is listed as found");
             assertTrue(found.lesson().frontMatter().derivedFromUntrusted(),
-                    "a blank persisted lesson marked untrusted still marks the revision");
+                    "an untrusted blank source marks the revision");
         }
 
         @Test
@@ -277,9 +278,10 @@ class LessonRevisionTest {
 
             run(write -> store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant()));
 
-            var found = assertInstanceOf(Found.class, store.get(lessonId));
+            var found = assertInstanceOf(Found.class, store.get(lessonId),
+                    "the revised lesson is listed as found");
             assertFalse(found.lesson().frontMatter().derivedFromUntrusted(),
-                    "a cited lesson that does not resolve does not mark the revision");
+                    "an unresolved citation leaves the revision clean");
         }
 
         @Test
@@ -296,7 +298,8 @@ class LessonRevisionTest {
                 return store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant());
             });
 
-            var revised = assertInstanceOf(LessonResolution.Revised.class, outcome);
+            var revised = assertInstanceOf(LessonResolution.Revised.class, outcome,
+                    "the revision outcome is the revised lesson");
             assertFalse(revised.lesson().frontMatter().derivedFromUntrusted(),
                     "a pending clean lesson does not mark the revision");
         }

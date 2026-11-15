@@ -339,7 +339,7 @@ class LessonRetirementTest {
                     retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()), "a deleted lesson is unavailable");
 
             assertEquals(Refusal.DELETED_OUT_OF_BAND, unavailable.refusal(),
-                    "a vanished file with its entry is reported deleted_out_of_band");
+                    "a vanished file is reported deleted out of band");
         }
 
         @Test
@@ -356,7 +356,8 @@ class LessonRetirementTest {
         }
 
         private Lesson readFound() {
-            return assertInstanceOf(Found.class, store.get(LESSON_ID)).lesson();
+            return assertInstanceOf(Found.class, store.get(LESSON_ID), "the stored lesson is the found outcome")
+                    .lesson();
         }
     }
 
@@ -374,7 +375,8 @@ class LessonRetirementTest {
 
             var outcome = withoutCommit(write -> store.claim(write, LESSON_ID, "a-plan", CLOCK.instant()));
 
-            var claimed = assertInstanceOf(LessonResolution.Claimed.class, outcome);
+            var claimed = assertInstanceOf(LessonResolution.Claimed.class, outcome,
+                    "the claim outcome is the claimed lesson");
             assertEquals(LESSON_ID, claimed.lessonId(),
                     "the outcome names the id the lesson is listed under");
         }
