@@ -74,8 +74,8 @@ class ConsentGateTest {
                 ConsentGate.Answer.YES, Consent.Channel.CLI, null);
 
         assertAll(
-                () -> assertTrue(decision.runs()),
-                () -> assertNull(decision.toRecord()));
+                () -> assertTrue(decision.runs(), "a yes answer runs the action"),
+                () -> assertNull(decision.toRecord(), "a yes answer records nothing"));
     }
 
     @Test
@@ -85,8 +85,8 @@ class ConsentGateTest {
                 ConsentGate.Answer.NO, Consent.Channel.CLI, null);
 
         assertAll(
-                () -> assertFalse(decision.runs()),
-                () -> assertNull(decision.toRecord()));
+                () -> assertFalse(decision.runs(), "a no answer does not run the action"),
+                () -> assertNull(decision.toRecord(), "a no answer records nothing"));
     }
 
     @Test
@@ -97,11 +97,11 @@ class ConsentGateTest {
 
         var recorded = decision.toRecord();
         assertAll(
-                () -> assertTrue(decision.runs()),
-                () -> assertEquals(ConsentKind.VERIFY_PROVIDERS, recorded.kind()),
-                () -> assertEquals(NOW, recorded.grantedAt()),
-                () -> assertEquals(Consent.Channel.CLI, recorded.channel()),
-                () -> assertNull(recorded.projectId()));
+                () -> assertTrue(decision.runs(), "a remembered yes runs the action"),
+                () -> assertEquals(ConsentKind.VERIFY_PROVIDERS, recorded.kind(), "the record keeps the asked kind"),
+                () -> assertEquals(NOW, recorded.grantedAt(), "the record keeps the grant time"),
+                () -> assertEquals(Consent.Channel.CLI, recorded.channel(), "the record keeps the cli channel"),
+                () -> assertNull(recorded.projectId(), "a machine kind records no project"));
     }
 
     @Test
@@ -113,8 +113,8 @@ class ConsentGateTest {
                 .answer(request, ConsentGate.Answer.NO, Consent.Channel.CLI, null);
 
         assertAll(
-                () -> assertTrue(decision.runs()),
-                () -> assertNull(decision.toRecord()));
+                () -> assertTrue(decision.runs(), "a remembered kind runs without asking"),
+                () -> assertNull(decision.toRecord(), "a remembered pass records nothing"));
     }
 
     @Test
@@ -123,10 +123,14 @@ class ConsentGateTest {
         var gate = remembered(ConsentKind.INSPECT_CHECKOUT, PROJECT, List.of());
 
         assertAll(
-                () -> assertTrue(gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, PROJECT),
-                        ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs()),
-                () -> assertFalse(gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, OTHER_PROJECT),
-                        ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs()));
+                () -> assertTrue(
+                        gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, PROJECT),
+                                ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs(),
+                        "the remembered project kind runs here"),
+                () -> assertFalse(
+                        gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, OTHER_PROJECT),
+                                ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs(),
+                        "another project does not run the kind"));
     }
 
     @Test
@@ -136,11 +140,15 @@ class ConsentGateTest {
         var gate = remembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, PROJECT, List.of(granted));
 
         assertAll(
-                () -> assertTrue(gate.answer(ConsentGate.Request.checkoutScripts(PROJECT, List.of(granted)),
-                        ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs()),
-                () -> assertFalse(gate.answer(ConsentGate.Request.checkoutScripts(PROJECT,
-                                List.of(new ConsentScript(SCRIPT, OTHER_SHA))),
-                        ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs()));
+                () -> assertTrue(
+                        gate.answer(ConsentGate.Request.checkoutScripts(PROJECT, List.of(granted)),
+                                ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs(),
+                        "the remembered script digest runs"),
+                () -> assertFalse(
+                        gate.answer(ConsentGate.Request.checkoutScripts(PROJECT,
+                                        List.of(new ConsentScript(SCRIPT, OTHER_SHA))),
+                                ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs(),
+                        "a changed script digest asks again"));
     }
 
     @Test
@@ -152,15 +160,18 @@ class ConsentGateTest {
         String noDevice = null;
         var harnessProfile = assertThrows(IllegalArgumentException.class,
                 () -> gate.answer(verifyProfileRequest, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI,
-                        noDevice));
+                        noDevice),
+                "verify_harness_profile cannot be remembered");
         var autoRun = assertThrows(IllegalArgumentException.class,
-                () -> gate.answer(autoRunRequest, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, noDevice));
+                () -> gate.answer(autoRunRequest, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, noDevice),
+                "auto_run cannot be remembered");
         var harnessMessage = harnessProfile.getMessage();
         var autoRunMessage = autoRun.getMessage();
 
         assertAll(
-                () -> assertTrue(harnessMessage.contains("verify_harness_profile")),
-                () -> assertTrue(autoRunMessage.contains("auto_run")));
+                () -> assertTrue(harnessMessage.contains("verify_harness_profile"),
+                        "the refusal names verify_harness_profile"),
+                () -> assertTrue(autoRunMessage.contains("auto_run"), "the refusal names auto_run"));
     }
 
     @Test
@@ -173,19 +184,22 @@ class ConsentGateTest {
                 List.of(new ConsentScript(OTHER_SCRIPT, SHA)));
         String noProject = null;
         var machineKindWithProject = assertThrows(IllegalArgumentException.class,
-                () -> gate.answer(inspect, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject));
+                () -> gate.answer(inspect, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject),
+                "a machine kind refuses a project");
         var projectKindWithoutProject = assertThrows(IllegalArgumentException.class,
-                () -> gate.answer(withProject, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject));
+                () -> gate.answer(withProject, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject),
+                "a project kind demands its project");
         var scriptsOnAnotherKind = assertThrows(IllegalArgumentException.class,
-                () -> gate.answer(withScripts, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject));
+                () -> gate.answer(withScripts, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject),
+                "scripts on another kind are refused");
         var machineMessage = machineKindWithProject.getMessage();
         var projectMessage = projectKindWithoutProject.getMessage();
         var scriptsMessage = scriptsOnAnotherKind.getMessage();
 
         assertAll(
-                () -> assertTrue(machineMessage.contains("inspect_checkout")),
-                () -> assertTrue(projectMessage.contains("scan_harnesses")),
-                () -> assertTrue(scriptsMessage.contains("scripts")));
+                () -> assertTrue(machineMessage.contains("inspect_checkout"), "the refusal names inspect_checkout"),
+                () -> assertTrue(projectMessage.contains("scan_harnesses"), "the refusal names scan_harnesses"),
+                () -> assertTrue(scriptsMessage.contains("scripts"), "the refusal names the scripts"));
     }
 
     @Test
@@ -198,16 +212,19 @@ class ConsentGateTest {
         var remembered = gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.WEB, paired);
         var device = remembered.toRecord().deviceId();
         var deviceOnCli = assertThrows(IllegalArgumentException.class,
-                () -> gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, paired));
+                () -> gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, paired),
+                "a paired device is refused on the cli");
         var notADevice = assertThrows(IllegalArgumentException.class,
-                () -> gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.WEB, laptop));
+                () -> gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.WEB, laptop),
+                "a malformed device is refused on the web");
         var deviceOnCliMessage = deviceOnCli.getMessage();
         var notADeviceMessage = notADevice.getMessage();
 
         assertAll(
-                () -> assertEquals(paired, device),
-                () -> assertTrue(deviceOnCliMessage.contains(DEVICE)),
-                () -> assertTrue(notADeviceMessage.contains(NOT_A_DEVICE)));
+                () -> assertEquals(paired, device, "the record keeps the paired device"),
+                () -> assertTrue(deviceOnCliMessage.contains(DEVICE), "the refusal carries the cli device"),
+                () -> assertTrue(notADeviceMessage.contains(NOT_A_DEVICE),
+                        "the refusal carries the malformed device"));
     }
 
     @Test
@@ -238,19 +255,23 @@ class ConsentGateTest {
         var decision = ConsentGate.operatorAct();
 
         assertAll(
-                () -> assertTrue(decision.runs()),
-                () -> assertNull(decision.toRecord()));
+                () -> assertTrue(decision.runs(), "an operator act runs without consent"),
+                () -> assertNull(decision.toRecord(), "an operator act records nothing"));
     }
 
     @Test
     @DisplayName("the answer links are the closed set of the consent state")
     void answers() {
         assertAll(
-                () -> assertEquals(ConsentGate.Answer.YES, ConsentGate.Answer.of("yes").orElseThrow()),
+                () -> assertEquals(ConsentGate.Answer.YES, ConsentGate.Answer.of("yes").orElseThrow(),
+                        "the yes link maps to YES"),
                 () -> assertEquals(ConsentGate.Answer.YES_REMEMBER,
-                        ConsentGate.Answer.of("yes_remember").orElseThrow()),
-                () -> assertEquals(ConsentGate.Answer.NO, ConsentGate.Answer.of("no").orElseThrow()),
-                () -> assertTrue(ConsentGate.Answer.of("maybe").isEmpty()),
-                () -> assertEquals("yes_remember", ConsentGate.Answer.YES_REMEMBER.wireName()));
+                        ConsentGate.Answer.of("yes_remember").orElseThrow(),
+                        "the yes_remember link maps to YES_REMEMBER"),
+                () -> assertEquals(ConsentGate.Answer.NO, ConsentGate.Answer.of("no").orElseThrow(),
+                        "the no link maps to NO"),
+                () -> assertTrue(ConsentGate.Answer.of("maybe").isEmpty(), "an unknown answer link is empty"),
+                () -> assertEquals("yes_remember", ConsentGate.Answer.YES_REMEMBER.wireName(),
+                        "the wire name of YES_REMEMBER is kept"));
     }
 }

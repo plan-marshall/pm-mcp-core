@@ -69,8 +69,10 @@ class PrimitiveContractTest {
                     .toList();
 
             assertAll(
-                    () -> assertEquals(OutcomeClass.values().length, covered.size()),
-                    () -> assertEquals(EnumSet.allOf(OutcomeClass.class), EnumSet.copyOf(covered)));
+                    () -> assertEquals(OutcomeClass.values().length, covered.size(),
+                            "the fixture has one case per outcome class"),
+                    () -> assertEquals(EnumSet.allOf(OutcomeClass.class), EnumSet.copyOf(covered),
+                            "the cases cover every outcome class"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -81,8 +83,10 @@ class PrimitiveContractTest {
                     testCase.parameters());
 
             assertAll(
-                    () -> assertEquals(testCase.outcomeClass(), result.outcome().outcomeClass()),
-                    () -> assertEquals(testCase.wireName(), result.outcome().wireName()));
+                    () -> assertEquals(testCase.outcomeClass(), result.outcome().outcomeClass(),
+                            "the outcome reports the class of its case"),
+                    () -> assertEquals(testCase.wireName(), result.outcome().wireName(),
+                            "the outcome wire name matches the case"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -92,7 +96,8 @@ class PrimitiveContractTest {
             var result = TestPrimitives.run(testCase.primitive(), TestPrimitives.scope(PLAN_ID),
                     testCase.parameters());
 
-            assertEquals(testCase.primitive().outcomeType(), result.outcome().getDeclaringClass());
+            assertEquals(testCase.primitive().outcomeType(), result.outcome().getDeclaringClass(),
+                    "the returned outcome keeps the declared type");
         }
 
         /**
@@ -109,9 +114,12 @@ class PrimitiveContractTest {
                     .collect(Collectors.toMap(PrimitiveOutcome::wireName, PrimitiveOutcome::outcomeClass));
 
             assertAll(
-                    () -> assertEquals(OutcomeClass.FAILURE, classesByWireName.get("failed")),
-                    () -> assertEquals(OutcomeClass.INDETERMINATE, classesByWireName.get("unobservable")),
-                    () -> assertEquals(OutcomeClass.SUCCESS, classesByWireName.get("done")));
+                    () -> assertEquals(OutcomeClass.FAILURE, classesByWireName.get("failed"),
+                            "the failed wire name carries FAILURE"),
+                    () -> assertEquals(OutcomeClass.INDETERMINATE, classesByWireName.get("unobservable"),
+                            "the unobservable wire name maps to INDETERMINATE"),
+                    () -> assertEquals(OutcomeClass.SUCCESS, classesByWireName.get("done"),
+                            "the done wire name carries SUCCESS"));
         }
     }
 
@@ -125,7 +133,8 @@ class PrimitiveContractTest {
             var result = new TestPrimitives.Complete().execute(TestPrimitives.scope(PLAN_ID),
                     new CompleteParams(SUBJECT));
 
-            assertEquals(Map.of("subject", SUBJECT, "scope", PLAN_ID), result.updatedFacts());
+            assertEquals(Map.of("subject", SUBJECT, "scope", PLAN_ID), result.updatedFacts(),
+                    "the plan scope is added to the facts");
         }
 
         @Test
@@ -134,7 +143,8 @@ class PrimitiveContractTest {
             var result = new TestPrimitives.Complete().execute(TestPrimitives.workspace(),
                     new CompleteParams(SUBJECT));
 
-            assertEquals(Map.of("subject", SUBJECT), result.updatedFacts());
+            assertEquals(Map.of("subject", SUBJECT), result.updatedFacts(),
+                    "a workspace scope adds no scope fact");
         }
     }
 
@@ -149,18 +159,22 @@ class PrimitiveContractTest {
         @DisplayName("a primitive that overrides nothing declares no side effect, no measure and no exhaustion")
         void primitiveDefaults() {
             assertAll(
-                    () -> assertEquals(Set.of(), primitive.producedArtifacts()),
-                    () -> assertEquals(Set.of(), primitive.requiredArtifacts()),
-                    () -> assertEquals(Set.of(), primitive.waivableGates()),
-                    () -> assertFalse(primitive.enqueuesJob()),
-                    () -> assertEquals(CycleMeasure.NONE, primitive.cycleMeasure()),
-                    () -> assertEquals(Optional.empty(), primitive.exhaustionOutcome()));
+                    () -> assertEquals(Set.of(), primitive.producedArtifacts(),
+                            "no artifacts are produced by default"),
+                    () -> assertEquals(Set.of(), primitive.requiredArtifacts(),
+                            "no artifacts are required by default"),
+                    () -> assertEquals(Set.of(), primitive.waivableGates(), "no gates are waivable by default"),
+                    () -> assertFalse(primitive.enqueuesJob(), "a primitive enqueues no job by default"),
+                    () -> assertEquals(CycleMeasure.NONE, primitive.cycleMeasure(),
+                            "the cycle measure defaults to NONE"),
+                    () -> assertEquals(Optional.empty(), primitive.exhaustionOutcome(),
+                            "no exhaustion outcome is declared"));
         }
 
         @Test
         @DisplayName("an outcome starts no job unless it says so")
         void outcomeStartsNoJob() {
-            assertFalse(FailOutcome.FAILED.startsJob());
+            assertFalse(FailOutcome.FAILED.startsJob(), "a plain outcome starts no job");
         }
 
         @Test
@@ -171,9 +185,10 @@ class PrimitiveContractTest {
             var result = jobStarter.execute(TestPrimitives.scope(PLAN_ID), new StartJobParams());
 
             assertAll(
-                    () -> assertTrue(jobStarter.enqueuesJob()),
-                    () -> assertTrue(result.outcome().startsJob()),
-                    () -> assertEquals(TestPrimitives.SPAWNED_JOB_ID, result.spawnedJobId()));
+                    () -> assertTrue(jobStarter.enqueuesJob(), "the job-starting primitive enqueues a job"),
+                    () -> assertTrue(result.outcome().startsJob(), "the returned outcome starts a job"),
+                    () -> assertEquals(TestPrimitives.SPAWNED_JOB_ID, result.spawnedJobId(),
+                            "the outcome carries the spawned job_id"));
         }
     }
 
@@ -201,9 +216,10 @@ class PrimitiveContractTest {
         @MethodSource("resultsWithNull")
         @DisplayName("refuses a null component and a null in a fact, naming it")
         void refusesNull(String refused, Executable construction) {
-            var thrown = assertThrows(NullPointerException.class, construction);
+            var thrown = assertThrows(NullPointerException.class, construction,
+                    "the refusal names the null component");
 
-            assertEquals(refused, thrown.getMessage());
+            assertEquals(refused, thrown.getMessage(), "the message names the refused component");
         }
 
         @Test
@@ -216,7 +232,8 @@ class PrimitiveContractTest {
             facts.put("subject", OTHER_SUBJECT);
             facts.put(ADDED_FACT, LATER_VALUE);
 
-            assertEquals(Map.of("subject", SUBJECT), result.updatedFacts());
+            assertEquals(Map.of("subject", SUBJECT), result.updatedFacts(),
+                    "the later fact does not leak in");
         }
 
         @Test
@@ -225,7 +242,8 @@ class PrimitiveContractTest {
             var result = new PrimitiveResult<>(CompleteOutcome.DONE, Map.of("subject", SUBJECT), null);
             var facts = result.updatedFacts();
 
-            assertThrows(UnsupportedOperationException.class, () -> facts.put(ADDED_FACT, LATER_VALUE));
+            assertThrows(UnsupportedOperationException.class, () -> facts.put(ADDED_FACT, LATER_VALUE),
+                    "the returned facts are unmodifiable");
         }
     }
 }

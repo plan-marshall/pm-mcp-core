@@ -62,18 +62,33 @@ class ActivityEventMappingTest {
         var mapping = mapping();
 
         assertAll(
-                () -> assertEquals("/type", mapping.kindPointer()),
-                () -> assertEquals(Optional.of(ActivityEntry.Kind.TEXT), mapping.kindOf("assistant")),
-                () -> assertEquals(Optional.of(ActivityEntry.Kind.TOOL_CALL), mapping.kindOf("tool_use")),
-                () -> assertEquals(Optional.of(ActivityEntry.Kind.TOOL_RESULT), mapping.kindOf("tool_result")),
-                () -> assertEquals(Optional.of(ActivityEntry.Kind.FILE_CHANGED), mapping.kindOf("file")),
-                () -> assertEquals(Optional.of(ActivityEntry.Kind.TURN), mapping.kindOf("result")),
-                () -> assertEquals(Optional.empty(), mapping.kindOf("unknown")),
-                () -> assertEquals(Optional.empty(), mapping.kindOf(null)),
-                () -> assertEquals("/message/content", mapping.kinds().get(ActivityEntry.Kind.TEXT).textPointer()),
-                () -> assertEquals(2, mapping.kinds().get(ActivityEntry.Kind.TOOL_CALL).targetPointers().size()),
-                () -> assertEquals("/failed", mapping.kinds().get(ActivityEntry.Kind.TOOL_RESULT).isErrorPointer()),
-                () -> assertEquals("/stop_reason", mapping.kinds().get(ActivityEntry.Kind.TURN).stopReasonPointer()));
+                () -> assertEquals("/type", mapping.kindPointer(),
+                        "kind pointer is the JSON pointer /type"),
+                () -> assertEquals(Optional.of(ActivityEntry.Kind.TEXT), mapping.kindOf("assistant"),
+                        "assistant matches the text kind"),
+                () -> assertEquals(Optional.of(ActivityEntry.Kind.TOOL_CALL), mapping.kindOf("tool_use"),
+                        "tool_use matches the tool_call kind"),
+                () -> assertEquals(Optional.of(ActivityEntry.Kind.TOOL_RESULT), mapping.kindOf("tool_result"),
+                        "tool_result matches the tool_result kind"),
+                () -> assertEquals(Optional.of(ActivityEntry.Kind.FILE_CHANGED), mapping.kindOf("file"),
+                        "a file event maps to the file_changed kind"),
+                () -> assertEquals(Optional.of(ActivityEntry.Kind.TURN), mapping.kindOf("result"),
+                        "a result event maps to the turn kind"),
+                () -> assertEquals(Optional.empty(), mapping.kindOf("unknown"),
+                        "an unknown harness kind yields no kind"),
+                () -> assertEquals(Optional.empty(), mapping.kindOf(null),
+                        "a null harness kind yields no kind"),
+                () -> assertEquals("/message/content",
+                        mapping.kinds().get(ActivityEntry.Kind.TEXT).textPointer(),
+                        "the text kind points at /message/content"),
+                () -> assertEquals(2, mapping.kinds().get(ActivityEntry.Kind.TOOL_CALL).targetPointers().size(),
+                        "the tool_call kind keeps two target pointers"),
+                () -> assertEquals("/failed",
+                        mapping.kinds().get(ActivityEntry.Kind.TOOL_RESULT).isErrorPointer(),
+                        "the tool_result kind reads /failed"),
+                () -> assertEquals("/stop_reason",
+                        mapping.kinds().get(ActivityEntry.Kind.TURN).stopReasonPointer(),
+                        "the turn kind reads /stop_reason"));
     }
 
     @Test
@@ -92,8 +107,10 @@ class ActivityEventMappingTest {
                 }
                 """.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow();
 
-        assertNull(mapping.kinds().get(ActivityEntry.Kind.TURN).stopReasonPointer());
-        assertNull(mapping.kinds().get(ActivityEntry.Kind.TOOL_RESULT).isErrorPointer());
+        assertNull(mapping.kinds().get(ActivityEntry.Kind.TURN).stopReasonPointer(),
+                "a null stop_reason keeps no pointer");
+        assertNull(mapping.kinds().get(ActivityEntry.Kind.TOOL_RESULT).isErrorPointer(),
+                "a null is_error keeps no pointer");
     }
 
     @Test
@@ -112,6 +129,7 @@ class ActivityEventMappingTest {
                 }
                 """.getBytes(StandardCharsets.UTF_8), "events");
 
-        assertThrows(IllegalArgumentException.class, () -> ActivityEventMapping.of(document));
+        assertThrows(IllegalArgumentException.class, () -> ActivityEventMapping.of(document),
+                "kind_pointer type is not a JSON pointer");
     }
 }

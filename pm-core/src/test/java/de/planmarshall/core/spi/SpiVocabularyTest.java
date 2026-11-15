@@ -25,7 +25,8 @@ class SpiVocabularyTest {
     void outcomeClasses() {
         var names = Arrays.stream(OutcomeClass.values()).map(Enum::name).toList();
 
-        assertEquals(List.of("SUCCESS", "SKIP", "FAILURE", "INDETERMINATE", "UNSETTLED", "STEPPED_OUT"), names);
+        assertEquals(List.of("SUCCESS", "SKIP", "FAILURE", "INDETERMINATE", "UNSETTLED",
+                "STEPPED_OUT"), names, "the six outcome classes in contract order");
     }
 
     @Test
@@ -34,7 +35,8 @@ class SpiVocabularyTest {
         var names = Arrays.stream(AwaitedEvent.values()).map(Enum::name).toList();
 
         assertEquals(List.of("NONE", "JOB_SETTLED", "TASK_SETTLED", "OPERATOR_WAIVER", "OPERATOR_ACT",
-                "MODEL_SUBMIT", "TIME", "EXTERNAL_STATE", "QUESTION_ANSWER"), names);
+                "MODEL_SUBMIT", "TIME", "EXTERNAL_STATE", "QUESTION_ANSWER"), names,
+                "the nine awaited events in contract order");
     }
 
     @Test
@@ -42,6 +44,7 @@ class SpiVocabularyTest {
     void cycleMeasures() {
         var names = Arrays.stream(CycleMeasure.values()).map(Enum::name).toList();
 
-        assertEquals(List.of("NONE", "STEP_LIST", "ARCHIVE_STEPS", "ATTEMPT_CAP"), names);
+        assertEquals(List.of("NONE", "STEP_LIST", "ARCHIVE_STEPS", "ATTEMPT_CAP"), names,
+                "the four cycle measures in contract order");
     }
 }

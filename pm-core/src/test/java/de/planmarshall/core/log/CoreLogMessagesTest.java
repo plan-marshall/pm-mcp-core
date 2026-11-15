@@ -65,7 +65,8 @@ class CoreLogMessagesTest {
 
         assertFalse(records.isEmpty(), level);
         for (LogRecord logRecord : records) {
-            assertEquals(CoreLogMessages.PREFIX, logRecord.getPrefix());
+            assertEquals(CoreLogMessages.PREFIX, logRecord.getPrefix(),
+                    "the record carries the holder's prefix");
             assertTrue(logRecord.getIdentifier() >= first && logRecord.getIdentifier() <= last,
                     logRecord.resolveIdentifierString());
         }
@@ -129,8 +130,9 @@ class CoreLogMessagesTest {
     @DisplayName("the named records carry their identifier and template")
     void namedRecord(LogRecord logRecord, String identifier, String template) {
         assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
-                () -> assertEquals(template, logRecord.getTemplate()));
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record resolves to its listed identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(), "the record keeps its documented template"));
     }
 
     @Test

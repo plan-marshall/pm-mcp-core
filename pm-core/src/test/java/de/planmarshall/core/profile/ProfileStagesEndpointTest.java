@@ -48,14 +48,17 @@ class ProfileStagesEndpointTest {
                 new ProfileStages.EndpointClasses(false, true), new ProfileStages.EndpointLimits(true, 8192));
 
         assertAll(
-                () -> assertFalse(result.refusesDraft()),
-                () -> assertTrue(result.identity().probeDeclared()),
-                () -> assertEquals("tools_ignored", result.classes().results().get("tools")),
-                () -> assertEquals("none", result.classes().results().get("tool_call")),
-                () -> assertEquals("passed", result.stageStatuses().get("limits")),
-                () -> assertEquals(8, result.values().size()),
+                () -> assertFalse(result.refusesDraft(), "passed run does not refuse the draft"),
+                () -> assertTrue(result.identity().probeDeclared(), "identity probe is declared"),
+                () -> assertEquals("tools_ignored", result.classes().results().get("tools"),
+                        "tools class is ignored on the wire"),
+                () -> assertEquals("none", result.classes().results().get("tool_call"),
+                        "tool_call class has no result"),
+                () -> assertEquals("passed", result.stageStatuses().get("limits"), "limits stage reports passed"),
+                () -> assertEquals(8, result.values().size(), "eight values are settled"),
                 () -> assertTrue(result.values().stream()
-                        .allMatch(value -> value.status() == ProfileStages.EndpointValueStatus.MEASURED)));
+                        .allMatch(value -> value.status() == ProfileStages.EndpointValueStatus.MEASURED),
+                        "every value is measured"));
     }
 
     @Test
@@ -66,11 +69,11 @@ class ProfileStagesEndpointTest {
                 new ProfileStages.EndpointClasses(false, false), new ProfileStages.EndpointLimits(false, 0));
 
         assertAll(
-                () -> assertTrue(result.refusesDraft()),
-                () -> assertEquals("failed", result.stageStatuses().get("launch")),
-                () -> assertEquals("not_run", result.stageStatuses().get("limits")),
+                () -> assertTrue(result.refusesDraft(), "failed run refuses the draft"),
+                () -> assertEquals("failed", result.stageStatuses().get("launch"), "launch stage reports failed"),
+                () -> assertEquals("not_run", result.stageStatuses().get("limits"), "limits stage is not run"),
                 () -> assertEquals(ProfileStages.EndpointValueStatus.NOT_MEASURED,
-                        result.values().get(5).status()));
+                        result.values().get(5).status(), "unsettled limit is not measured"));
     }
 
     @Test
@@ -78,10 +81,13 @@ class ProfileStagesEndpointTest {
     void refusals() {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new ProfileStages.EndpointIdentity(true, null, null, List.of(), Map.of())),
+                        () -> new ProfileStages.EndpointIdentity(true, null, null, List.of(), Map.of()),
+                        "passed identity needs an executable"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new ProfileStages.EndpointLaunch(true, true, "unknown", true)),
+                        () -> new ProfileStages.EndpointLaunch(true, true, "unknown", true),
+                        "passed launch needs a known status"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new ProfileStages.EndpointLimits(true, 0)));
+                        () -> new ProfileStages.EndpointLimits(true, 0),
+                        "passed limits need a positive value"));
     }
 }

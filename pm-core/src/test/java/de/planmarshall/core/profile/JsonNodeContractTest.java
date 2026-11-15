@@ -42,6 +42,6 @@ class JsonNodeContractTest implements ShouldHandleObjectContracts<JsonNode> {
     @DisplayName("the tree is deliberately not Serializable")
     public void shouldImplementSerializable() {
         assertFalse(Serializable.class.isAssignableFrom(JsonNode.class),
-                "The profile tree is not Java-serialized; canonical JSON is its wire form");
+                "Not Serializable; canonical JSON is the wire form");
     }
 }

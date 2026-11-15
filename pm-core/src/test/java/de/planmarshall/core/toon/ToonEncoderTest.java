@@ -79,7 +79,7 @@ class ToonEncoderTest {
                     failures: []
                     facts:
                       alpha: x
-                      zeta: 1""", toon);
+                      zeta: 1""", toon, "the representation renders in record order");
         }
 
         @Test
@@ -90,9 +90,11 @@ class ToonEncoderTest {
 
             String toon = ToonEncoder.encode(value);
 
-            assertEquals("body: \"# Heading\\n\\nSaid \\\"hi\\\"\\r\\n\\tindented\\\\path\"", toon);
+            assertEquals("body: \"# Heading\\n\\nSaid \\\"hi\\\"\\r\\n\\tindented\\\\path\"", toon,
+                    "the body keeps its escapes on one line");
             assertFalse(toon.contains("\n"), "a multi-line value stays on its line");
-            assertEquals(body, unescape(toon.substring("body: ".length())));
+            assertEquals(body, unescape(toon.substring("body: ".length())),
+                    "the multi-line body unescapes to its input");
         }
 
         @Test
@@ -103,9 +105,10 @@ class ToonEncoderTest {
 
             byte[] bytes = ToonEncoder.encodeUtf8(first);
 
-            assertArrayEquals(bytes, ToonEncoder.encodeUtf8(second));
-            assertEquals("k: ä ö 🚀\nn: 1.5", new String(bytes, StandardCharsets.UTF_8));
-            assertFalse(bytes.length > 0 && bytes[0] == (byte) 0xEF, "no byte-order mark");
+            assertArrayEquals(bytes, ToonEncoder.encodeUtf8(second), "the second encoding repeats the bytes");
+            assertEquals("k: ä ö 🚀\nn: 1.5", new String(bytes, StandardCharsets.UTF_8),
+                    "the UTF-8 bytes spell the value");
+            assertFalse(bytes.length > 0 && bytes[0] == (byte) 0xEF, "the encoding writes no byte-order mark");
         }
 
         private static String unescape(String quoted) {
@@ -139,7 +142,7 @@ class ToonEncoderTest {
         void quotesRootString() {
             var encoded = ToonEncoder.encode(ToonValue.of(MARKED));
 
-            assertEquals("\"" + MARKED + "\"", encoded);
+            assertEquals("\"" + MARKED + "\"", encoded, "the marked root string is quoted");
         }
 
         @Test
@@ -147,7 +150,7 @@ class ToonEncoderTest {
         void leavesFieldValueUnquoted() {
             var encoded = ToonEncoder.encode(ToonObject.builder().add("k", MARKED).build());
 
-            assertEquals("k: " + MARKED, encoded);
+            assertEquals("k: " + MARKED, encoded, "the field value stays unquoted");
         }
     }
 
@@ -169,15 +172,18 @@ class ToonEncoderTest {
         })
         @DisplayName("renders canonical decimal and exponent forms")
         void canonical(String input, String expected) {
-            assertEquals(expected, ToonEncoder.number(new BigDecimal(input)));
+            assertEquals(expected, ToonEncoder.number(new BigDecimal(input)),
+                    "the decimal renders in canonical form");
         }
 
         @Test
         @DisplayName("normalizes non-finite doubles to null")
         void nonFinite() {
-            assertInstanceOf(ToonNull.class, ToonValue.of(Double.NaN));
-            assertInstanceOf(ToonNull.class, ToonValue.of(Double.POSITIVE_INFINITY));
-            assertEquals("0.1", ToonEncoder.encode(ToonValue.of(0.1)));
+            assertInstanceOf(ToonNull.class, ToonValue.of(Double.NaN), "a NaN becomes a TOON null");
+            assertInstanceOf(ToonNull.class, ToonValue.of(Double.POSITIVE_INFINITY),
+                    "an infinite double becomes a TOON null");
+            assertEquals("0.1", ToonEncoder.encode(ToonValue.of(0.1)),
+                    "a finite double renders as its decimal");
         }
     }
 
@@ -189,15 +195,18 @@ class ToonEncoderTest {
         @DisplayName("refuses unpaired surrogates in values and keys")
         void unpairedSurrogate() {
             var value = new ToonString("a\uD800");
-            var inValue = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(value));
+            var inValue = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(value),
+                    "an unpaired high surrogate in a value is refused");
             var object = ToonObject.builder().add("\uDC00", 1).build();
-            var inKey = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(object));
+            var inKey = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(object),
+                    "an unpaired low surrogate in a key is refused");
             var reversedValue = new ToonString("\uDC00\uD800");
-            var reversed = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(reversedValue));
+            var reversed = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(reversedValue),
+                    "a reversed surrogate pair is refused");
 
-            assertEquals(Reason.UNPAIRED_SURROGATE, inValue.getReason());
-            assertEquals(Reason.UNPAIRED_SURROGATE, inKey.getReason());
-            assertEquals(Reason.UNPAIRED_SURROGATE, reversed.getReason());
+            assertEquals(Reason.UNPAIRED_SURROGATE, inValue.getReason(), "the value refusal names the surrogate");
+            assertEquals(Reason.UNPAIRED_SURROGATE, inKey.getReason(), "the key refusal names the surrogate");
+            assertEquals(Reason.UNPAIRED_SURROGATE, reversed.getReason(), "the reversed pair is a surrogate refusal");
         }
 
         @Test
@@ -207,9 +216,10 @@ class ToonEncoderTest {
             var builder = ToonObject.builder().add(key, Generators.integers(0, 1_000).next())
                     .add(key, Generators.integers(0, 1_000).next());
 
-            var refusal = assertThrows(ToonEncodingException.class, builder::build);
+            var refusal = assertThrows(ToonEncodingException.class, builder::build,
+                    "a duplicate key is refused by the builder");
 
-            assertEquals(Reason.DUPLICATE_KEY, refusal.getReason());
+            assertEquals(Reason.DUPLICATE_KEY, refusal.getReason(), "the refusal names the duplicate key");
         }
     }
 
@@ -227,7 +237,7 @@ class ToonEncoderTest {
             assertEquals("""
                     m[2:]{x,y}:
                       a: 1,"p,q"
-                      "my key": 2,r""", ToonEncoder.encode(value));
+                      "my key": 2,r""", ToonEncoder.encode(value), "a uniform nested object renders keyed");
         }
 
         @Test
@@ -243,7 +253,7 @@ class ToonEncoderTest {
             assertEquals("""
                     [2:]{name,geo{lat,lon}}:
                       eu: Europe,50,10
-                      us: America,40,-100""", ToonEncoder.encode(value));
+                      us: America,40,-100""", ToonEncoder.encode(value), "the root header carries the field group");
         }
 
         @Test
@@ -266,7 +276,7 @@ class ToonEncoderTest {
                           href: s
                       - links[1]{rel,href}:
                           next,n
-                        done: true""", ToonEncoder.encode(value));
+                        done: true""", ToonEncoder.encode(value), "mixed elements render in list form");
         }
     }
 
@@ -280,12 +290,12 @@ class ToonEncoderTest {
             var object = ToonObject.builder().add("a", true).add("b", ToonValue.of(false))
                     .add("c", new ToonNumber(BigDecimal.TEN)).build();
 
-            assertEquals(List.of("a", "b", "c"), object.keys());
-            assertTrue(object.get("c").isPresent());
-            assertTrue(object.get("z").isEmpty());
-            assertTrue(new ToonNull().isPrimitive());
-            assertFalse(object.isPrimitive());
-            assertFalse(new ToonArray(List.of()).isPrimitive());
+            assertEquals(List.of("a", "b", "c"), object.keys(), "the object exposes its keys in record order");
+            assertTrue(object.get("c").isPresent(), "a present key resolves to its value");
+            assertTrue(object.get("z").isEmpty(), "an absent key yields no value");
+            assertTrue(new ToonNull().isPrimitive(), "the null node is a primitive");
+            assertFalse(object.isPrimitive(), "an object node is no primitive");
+            assertFalse(new ToonArray(List.of()).isPrimitive(), "an empty array node is no primitive");
         }
     }
 }

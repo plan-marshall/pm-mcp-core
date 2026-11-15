@@ -48,11 +48,12 @@ class AuditEventTest {
         var event = AuditEvent.jsonlTailRepaired(store, truncatedBytes, sha, TRANSACTION_ID);
 
         assertAll(
-                () -> assertEquals("jsonl_tail_repaired", event.event()),
-                () -> assertEquals("store", event.category()),
-                () -> assertEquals("succeeded", event.outcome()),
+                () -> assertEquals("jsonl_tail_repaired", event.event(), "torn tail repair event name"),
+                () -> assertEquals("store", event.category(), "tail repair event category is store"),
+                () -> assertEquals("succeeded", event.outcome(), "tail repair outcome is succeeded"),
                 () -> assertEquals(Map.of("store", store.toString(), "truncated_bytes", truncatedBytes,
-                        "truncated_sha256", sha, "transaction_id", TRANSACTION_ID), event.details()));
+                        "truncated_sha256", sha, "transaction_id", TRANSACTION_ID), event.details(),
+                        "tail repair details name store, bytes, hash, transaction"));
     }
 
     @Test
@@ -61,11 +62,12 @@ class AuditEventTest {
         var event = AuditEvent.crossScopeReconciled("plan_end", "lessons/2026-10-10-01.md", TRANSACTION_ID);
 
         assertAll(
-                () -> assertEquals("cross_scope_reconciled", event.event()),
-                () -> assertEquals("store", event.category()),
-                () -> assertEquals("succeeded", event.outcome()),
+                () -> assertEquals("cross_scope_reconciled", event.event(), "cross-scope event name"),
+                () -> assertEquals("store", event.category(), "cross-scope category is store"),
+                () -> assertEquals("succeeded", event.outcome(), "cross-scope outcome is succeeded"),
                 () -> assertEquals(Map.of("reconciliation", "plan_end", "store", "lessons/2026-10-10-01.md",
-                        "transaction_id", TRANSACTION_ID), event.details()));
+                        "transaction_id", TRANSACTION_ID), event.details(),
+                        "cross-scope details name rule, store and transaction"));
     }
 
     @Test
@@ -78,12 +80,12 @@ class AuditEventTest {
         var event = AuditEvent.planStalled("plan", scopeId, "execute.review", "no_progress", progress, idleSeconds);
 
         assertAll(
-                () -> assertEquals("plan_stalled", event.event()),
-                () -> assertEquals("transition", event.category()),
-                () -> assertEquals("warning", event.outcome()),
+                () -> assertEquals("plan_stalled", event.event(), "stall record event name is plan_stalled"),
+                () -> assertEquals("transition", event.category(), "stall record category is transition"),
+                () -> assertEquals("warning", event.outcome(), "stall record outcome is warning"),
                 () -> assertEquals(Map.of("scope_type", "plan", "scope_id", scopeId, "state", "execute.review",
                         "cause", "no_progress", "idle_since", progress.toString(), "idle_seconds",
-                        idleSeconds), event.details()));
+                        idleSeconds), event.details(), "stall details name scope, state, cause and span"));
     }
 
     @Test
@@ -96,15 +98,20 @@ class AuditEventTest {
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled(null, scopeId, state, "no_progress", progress, idleSeconds)),
+                        () -> AuditEvent.planStalled(null, scopeId, state, "no_progress", progress, idleSeconds),
+                        "stall record needs a scope type"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled("plan", null, state, "no_progress", progress, idleSeconds)),
+                        () -> AuditEvent.planStalled("plan", null, state, "no_progress", progress, idleSeconds),
+                        "stall record needs a scope id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled("plan", scopeId, null, "no_progress", progress, idleSeconds)),
+                        () -> AuditEvent.planStalled("plan", scopeId, null, "no_progress", progress, idleSeconds),
+                        "stall record needs a state"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled("plan", scopeId, state, null, progress, idleSeconds)),
+                        () -> AuditEvent.planStalled("plan", scopeId, state, null, progress, idleSeconds),
+                        "stall record needs a cause"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled("plan", scopeId, state, "no_progress", null, idleSeconds)));
+                        () -> AuditEvent.planStalled("plan", scopeId, state, "no_progress", null, idleSeconds),
+                        "stall record needs an idle instant"));
     }
 
     @Nested
@@ -122,12 +129,14 @@ class AuditEventTest {
             var event = AuditEvent.workerStartFailed(PROJECT, "supervisor", "claude", detail);
 
             assertAll(
-                    () -> assertEquals("worker_start_failed", event.event()),
-                    () -> assertEquals(AuditEvent.WORKER_START_FAILED, event.event()),
-                    () -> assertEquals("operator", event.category()),
-                    () -> assertEquals("failed", event.outcome()),
+                    () -> assertEquals("worker_start_failed", event.event(), "start failure event name"),
+                    () -> assertEquals(AuditEvent.WORKER_START_FAILED, event.event(),
+                            "start failure constant agrees"),
+                    () -> assertEquals("operator", event.category(), "start failure category is operator"),
+                    () -> assertEquals("failed", event.outcome(), "start failure outcome is failed"),
                     () -> assertEquals(Map.of("project_id", PROJECT, "role", "supervisor", "harness", "claude",
-                            "harness_error", detail), event.details()));
+                            "harness_error", detail), event.details(),
+                            "start failure names project, role, harness, error"));
         }
 
         @Test
@@ -137,13 +146,17 @@ class AuditEventTest {
 
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.workerStartFailed(null, "supervisor", "claude", detail)),
+                            () -> AuditEvent.workerStartFailed(null, "supervisor", "claude", detail),
+                            "start failure needs a project id"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.workerStartFailed(PROJECT, null, "claude", detail)),
+                            () -> AuditEvent.workerStartFailed(PROJECT, null, "claude", detail),
+                            "start failure needs a role"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.workerStartFailed(PROJECT, "supervisor", null, detail)),
+                            () -> AuditEvent.workerStartFailed(PROJECT, "supervisor", null, detail),
+                            "start failure needs a harness"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.workerStartFailed(PROJECT, "supervisor", "claude", null)));
+                            () -> AuditEvent.workerStartFailed(PROJECT, "supervisor", "claude", null),
+                            "start failure needs the error text"));
         }
     }
 
@@ -160,11 +173,12 @@ class AuditEventTest {
             var event = AuditEvent.transactionRolledForward("plan", scopeId, TRANSACTION_ID, targets);
 
             assertAll(
-                    () -> assertEquals("transaction_rolled_forward", event.event()),
-                    () -> assertEquals("store", event.category()),
-                    () -> assertEquals("succeeded", event.outcome()),
+                    () -> assertEquals("transaction_rolled_forward", event.event(), "roll-forward event name"),
+                    () -> assertEquals("store", event.category(), "roll-forward category is store"),
+                    () -> assertEquals("succeeded", event.outcome(), "roll-forward outcome is succeeded"),
                     () -> assertEquals(Map.of("scope_type", "plan", "scope_id", scopeId, "transaction_id",
-                            TRANSACTION_ID, "targets", targets), event.details()));
+                            TRANSACTION_ID, "targets", targets), event.details(),
+                            "roll-forward details name scope, transaction, targets"));
         }
 
         /** The matched case to the one above: the workspace scope has no id, so the detail is left out. */
@@ -175,9 +189,10 @@ class AuditEventTest {
                     List.of("pending/ent-0123abcd.json"));
 
             assertAll(
-                    () -> assertFalse(event.details().containsKey("scope_id")),
+                    () -> assertFalse(event.details().containsKey("scope_id"), "workspace record has no scope id"),
                     () -> assertEquals(Map.of("scope_type", "workspace", "transaction_id", TRANSACTION_ID, "targets",
-                            List.of("pending/ent-0123abcd.json")), event.details()));
+                            List.of("pending/ent-0123abcd.json")), event.details(),
+                            "workspace record names type, transaction, targets"));
         }
 
         @Test
@@ -189,7 +204,8 @@ class AuditEventTest {
             var event = AuditEvent.transactionRolledForward("epic", scopeId, TRANSACTION_ID, targets);
             targets.add("status.json");
 
-            assertEquals(List.of("mcp/status.json"), event.details().get("targets"));
+            assertEquals(List.of("mcp/status.json"), event.details().get("targets"),
+                    "targets list is copied, not shared");
         }
     }
 
@@ -203,20 +219,26 @@ class AuditEventTest {
         var event = AuditEvent.pendingEntryRemoved(entryId, store, createdAt, TRANSACTION_ID);
 
         assertAll(
-                () -> assertEquals("pending_entry_removed", event.event()),
-                () -> assertEquals(AuditEvent.PENDING_ENTRY_REMOVED, event.event()),
-                () -> assertEquals("store", event.category()),
-                () -> assertEquals("succeeded", event.outcome()),
+                () -> assertEquals("pending_entry_removed", event.event(), "pending removal event name"),
+                () -> assertEquals(AuditEvent.PENDING_ENTRY_REMOVED, event.event(),
+                        "pending removal constant agrees"),
+                () -> assertEquals("store", event.category(), "pending removal category is store"),
+                () -> assertEquals("succeeded", event.outcome(), "pending removal outcome is succeeded"),
                 () -> assertEquals(Map.of("entry_id", entryId, "store", store, "created_at", createdAt,
-                        "transaction_id", TRANSACTION_ID), event.details()),
+                        "transaction_id", TRANSACTION_ID), event.details(),
+                        "pending removal names entry, store, instant, transaction"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved(null, store, createdAt, TRANSACTION_ID)),
+                        () -> AuditEvent.pendingEntryRemoved(null, store, createdAt, TRANSACTION_ID),
+                        "removal needs an entry id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved(entryId, null, createdAt, TRANSACTION_ID)),
+                        () -> AuditEvent.pendingEntryRemoved(entryId, null, createdAt, TRANSACTION_ID),
+                        "removal needs a store"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved(entryId, store, null, TRANSACTION_ID)),
+                        () -> AuditEvent.pendingEntryRemoved(entryId, store, null, TRANSACTION_ID),
+                        "removal needs a creation instant"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved(entryId, store, createdAt, null)));
+                        () -> AuditEvent.pendingEntryRemoved(entryId, store, createdAt, null),
+                        "removal needs a transaction id"));
     }
 
     @Nested
@@ -232,10 +254,11 @@ class AuditEventTest {
             var event = AuditEvent.enrolmentTampered(PROJECT, "hmac_mismatch");
 
             assertAll(
-                    () -> assertEquals("enrolment_tampered", event.event()),
-                    () -> assertEquals("security", event.category()),
-                    () -> assertEquals("refused", event.outcome()),
-                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", "hmac_mismatch"), event.details()));
+                    () -> assertEquals("enrolment_tampered", event.event(), "tampered enrolment event name"),
+                    () -> assertEquals("security", event.category(), "tampered enrolment category is security"),
+                    () -> assertEquals("refused", event.outcome(), "tampered enrolment outcome is refused"),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", "hmac_mismatch"), event.details(),
+                            "tampered enrolment names project and reason"));
         }
 
         @Test
@@ -244,11 +267,11 @@ class AuditEventTest {
             var event = AuditEvent.enrolmentInsecure(PROJECT, "mode broader than 0600");
 
             assertAll(
-                    () -> assertEquals("enrolment_insecure", event.event()),
-                    () -> assertEquals("security", event.category()),
-                    () -> assertEquals("refused", event.outcome()),
+                    () -> assertEquals("enrolment_insecure", event.event(), "insecure enrolment event name"),
+                    () -> assertEquals("security", event.category(), "insecure enrolment category is security"),
+                    () -> assertEquals("refused", event.outcome(), "insecure enrolment outcome is refused"),
                     () -> assertEquals(Map.of("project_id", PROJECT, "reason", "mode broader than 0600"),
-                            event.details()));
+                            event.details(), "insecure enrolment names project and reason"));
         }
 
         /** Built like the insecure record above, which is its matched control: same shape, another event name. */
@@ -261,15 +284,18 @@ class AuditEventTest {
             var insecure = AuditEvent.enrolmentInsecure(PROJECT, reason);
 
             assertAll(
-                    () -> assertEquals("enrolment_invalid", event.event()),
-                    () -> assertEquals(AuditEvent.ENROLMENT_INVALID, event.event()),
-                    () -> assertEquals("security", event.category()),
-                    () -> assertEquals("refused", event.outcome()),
-                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", reason), event.details()),
-                    () -> assertFalse(event.details().containsKey("transaction_id")),
-                    () -> assertEquals(insecure.category(), event.category()),
-                    () -> assertEquals(insecure.outcome(), event.outcome()),
-                    () -> assertEquals(insecure.details(), event.details()));
+                    () -> assertEquals("enrolment_invalid", event.event(), "invalid enrolment event name"),
+                    () -> assertEquals(AuditEvent.ENROLMENT_INVALID, event.event(),
+                            "invalid enrolment constant agrees"),
+                    () -> assertEquals("security", event.category(), "invalid enrolment category is security"),
+                    () -> assertEquals("refused", event.outcome(), "invalid enrolment outcome is refused"),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", reason), event.details(),
+                            "invalid enrolment names project and reason"),
+                    () -> assertFalse(event.details().containsKey("transaction_id"),
+                            "invalid enrolment carries no transaction"),
+                    () -> assertEquals(insecure.category(), event.category(), "invalid matches insecure category"),
+                    () -> assertEquals(insecure.outcome(), event.outcome(), "invalid matches insecure outcome"),
+                    () -> assertEquals(insecure.details(), event.details(), "invalid matches insecure details"));
         }
 
         @Test
@@ -278,10 +304,11 @@ class AuditEventTest {
             var event = AuditEvent.unenrolRefused(PROJECT);
 
             assertAll(
-                    () -> assertEquals("unenrol_refused", event.event()),
-                    () -> assertEquals("operator", event.category()),
-                    () -> assertEquals("refused", event.outcome()),
-                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", "scope_active"), event.details()));
+                    () -> assertEquals("unenrol_refused", event.event(), "unenrol refusal event name"),
+                    () -> assertEquals("operator", event.category(), "unenrol refusal category is operator"),
+                    () -> assertEquals("refused", event.outcome(), "unenrol refusal outcome is refused"),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", "scope_active"), event.details(),
+                            "unenrol refusal names the reason scope_active"));
         }
 
         @Test
@@ -312,14 +339,16 @@ class AuditEventTest {
 
             assertAll(
                     () -> assertTrue(refusals.stream()
-                            .noneMatch(event -> event.details().containsKey("transaction_id"))),
+                            .noneMatch(event -> event.details().containsKey("transaction_id")),
+                            "refusal records carry no transaction id"),
                     () -> assertEquals(List.of(
                             new AuditEvent("enrolment_tampered", "security", "refused",
                                     Map.of("project_id", PROJECT, "reason", "hmac_mismatch")),
                             new AuditEvent("enrolment_insecure", "security", "refused",
                                     Map.of("project_id", PROJECT, "reason", "symbolic link")),
                             new AuditEvent("unenrol_refused", "operator", "refused",
-                                    Map.of("project_id", PROJECT, "reason", "scope_active"))), refusals));
+                                    Map.of("project_id", PROJECT, "reason", "scope_active"))), refusals,
+                            "refusal records equal the expected three"));
         }
 
         @Test
@@ -330,12 +359,12 @@ class AuditEventTest {
             var unconfirmed = succeeded.notConfirmed();
 
             assertAll(
-                    () -> assertEquals("enrolment_written", unconfirmed.event()),
-                    () -> assertEquals("operator", unconfirmed.category()),
-                    () -> assertEquals("failed", unconfirmed.outcome()),
+                    () -> assertEquals("enrolment_written", unconfirmed.event(), "unconfirmed keeps the event name"),
+                    () -> assertEquals("operator", unconfirmed.category(), "unconfirmed keeps the category"),
+                    () -> assertEquals("failed", unconfirmed.outcome(), "unconfirmed outcome is failed"),
                     () -> assertEquals(Map.of("project_id", PROJECT, "transaction_id", TRANSACTION_ID, "reason",
-                            "not_confirmed"), unconfirmed.details()),
-                    () -> assertEquals("succeeded", succeeded.outcome()));
+                            "not_confirmed"), unconfirmed.details(), "unconfirmed names reason not_confirmed"),
+                    () -> assertEquals("succeeded", succeeded.outcome(), "the original outcome stays succeeded"));
         }
 
         @Test
@@ -347,18 +376,21 @@ class AuditEventTest {
                     Map.of("project_id", PROJECT));
 
             assertAll(
-                    () -> assertThrows(IllegalStateException.class, refusal::notConfirmed),
-                    () -> assertThrows(IllegalStateException.class, unconfirmed::notConfirmed),
-                    () -> assertThrows(IllegalStateException.class, withoutTransaction::notConfirmed));
+                    () -> assertThrows(IllegalStateException.class, refusal::notConfirmed,
+                            "a refusal has no unconfirmed form"),
+                    () -> assertThrows(IllegalStateException.class, unconfirmed::notConfirmed,
+                            "an unconfirmed record cannot be unconfirmed again"),
+                    () -> assertThrows(IllegalStateException.class, withoutTransaction::notConfirmed,
+                            "a record without transaction has no unconfirmed form"));
         }
 
         private void assertSucceededOperatorEvent(String name, AuditEvent event) {
             assertAll(
-                    () -> assertEquals(name, event.event()),
-                    () -> assertEquals("operator", event.category()),
-                    () -> assertEquals("succeeded", event.outcome()),
+                    () -> assertEquals(name, event.event(), "succeeded operator event name"),
+                    () -> assertEquals("operator", event.category(), "succeeded operator category"),
+                    () -> assertEquals("succeeded", event.outcome(), "succeeded operator outcome"),
                     () -> assertEquals(Map.of("project_id", PROJECT, "transaction_id", TRANSACTION_ID),
-                            event.details()));
+                            event.details(), "succeeded operator names project and transaction"));
         }
     }
 
@@ -377,45 +409,67 @@ class AuditEventTest {
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.jsonlTailRepaired(null, truncatedBytes, sha, TRANSACTION_ID)),
+                        () -> AuditEvent.jsonlTailRepaired(null, truncatedBytes, sha, TRANSACTION_ID),
+                        "tail repair needs a store"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.jsonlTailRepaired(store, truncatedBytes, null, TRANSACTION_ID)),
+                        () -> AuditEvent.jsonlTailRepaired(store, truncatedBytes, null, TRANSACTION_ID),
+                        "tail repair needs the SHA-256"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.jsonlTailRepaired(store, truncatedBytes, sha, null)),
+                        () -> AuditEvent.jsonlTailRepaired(store, truncatedBytes, sha, null),
+                        "tail repair needs a transaction id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.transactionRolledForward(null, null, TRANSACTION_ID, targets)),
+                        () -> AuditEvent.transactionRolledForward(null, null, TRANSACTION_ID, targets),
+                        "roll-forward needs a scope type"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.transactionRolledForward("plan", scopeId, null, targets)),
+                        () -> AuditEvent.transactionRolledForward("plan", scopeId, null, targets),
+                        "roll-forward needs a transaction id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.transactionRolledForward("plan", scopeId, TRANSACTION_ID, null)),
+                        () -> AuditEvent.transactionRolledForward("plan", scopeId, TRANSACTION_ID, null),
+                        "roll-forward needs a target list"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.crossScopeReconciled(null, storeName, TRANSACTION_ID)),
+                        () -> AuditEvent.crossScopeReconciled(null, storeName, TRANSACTION_ID),
+                        "cross-scope needs a reconciliation rule"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.crossScopeReconciled(reconciliation, null, TRANSACTION_ID)),
+                        () -> AuditEvent.crossScopeReconciled(reconciliation, null, TRANSACTION_ID),
+                        "cross-scope needs a store"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.crossScopeReconciled(reconciliation, storeName, null)),
+                        () -> AuditEvent.crossScopeReconciled(reconciliation, storeName, null),
+                        "cross-scope needs a transaction id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentTampered(null, reason)),
+                        () -> AuditEvent.enrolmentTampered(null, reason),
+                        "tampered enrolment needs a project id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentTampered(project, null)),
+                        () -> AuditEvent.enrolmentTampered(project, null),
+                        "tampered enrolment needs a reason"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentInsecure(null, reason)),
+                        () -> AuditEvent.enrolmentInsecure(null, reason),
+                        "insecure enrolment needs a project id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentInsecure(project, null)),
+                        () -> AuditEvent.enrolmentInsecure(project, null),
+                        "insecure enrolment needs a reason"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentInvalid(null, reason)),
+                        () -> AuditEvent.enrolmentInvalid(null, reason),
+                        "invalid enrolment needs a project id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentInvalid(project, null)),
+                        () -> AuditEvent.enrolmentInvalid(project, null),
+                        "invalid enrolment needs a reason"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentWritten(null, TRANSACTION_ID)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentWritten(project, null)),
+                        () -> AuditEvent.enrolmentWritten(null, TRANSACTION_ID),
+                        "written enrolment needs a project id"),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentWritten(project, null),
+                        "written enrolment needs a transaction id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentRemoved(null, TRANSACTION_ID)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentRemoved(project, null)),
+                        () -> AuditEvent.enrolmentRemoved(null, TRANSACTION_ID),
+                        "removed enrolment needs a project id"),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentRemoved(project, null),
+                        "removed enrolment needs a transaction id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentRebaselined(null, TRANSACTION_ID)),
+                        () -> AuditEvent.enrolmentRebaselined(null, TRANSACTION_ID),
+                        "rebaselined enrolment needs a project id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.enrolmentRebaselined(project, null)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.unenrolRefused(null)));
+                        () -> AuditEvent.enrolmentRebaselined(project, null),
+                        "rebaselined enrolment needs a transaction id"),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.unenrolRefused(null),
+                        "unenrol refusal needs a project id"));
     }
 }

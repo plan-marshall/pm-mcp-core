@@ -112,7 +112,8 @@ class ConventionalCommitValidatorTest {
 
             var violations = validator.validate(message);
 
-            assertEquals(List.of(ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@3"), keysAndLines(violations));
+            assertEquals(List.of(ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@3"),
+                    keysAndLines(violations), "the trailer on the third line is the only violation");
         }
 
         @Test
@@ -123,7 +124,8 @@ class ConventionalCommitValidatorTest {
             var violations = validator.validate(message);
 
             assertEquals(List.of(ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@3",
-                    ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@4"), keysAndLines(violations));
+                    ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@4"),
+                    keysAndLines(violations), "each trailer line carries its own violation");
         }
 
         @Test
@@ -147,12 +149,14 @@ class ConventionalCommitValidatorTest {
         assertEquals(List.of(ConventionalCommitValidator.RULE_TYPE_EMPTY + "@1",
                 ConventionalCommitValidator.RULE_DESCRIPTION_EMPTY + "@1",
                 ConventionalCommitValidator.RULE_BODY_SEPARATION + "@2",
-                ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@2"), keysAndLines(violations));
+                ConventionalCommitValidator.RULE_CO_AUTHORED_BY + "@2"), keysAndLines(violations),
+                "every rule of the two offending lines is reported");
     }
 
     @Test
     @DisplayName("refuses null instead of returning a violation")
     void nullText() {
-        assertThrows(NullPointerException.class, () -> validator.validate(null));
+        assertThrows(NullPointerException.class, () -> validator.validate(null),
+                "a null commit message is refused, not reported");
     }
 }

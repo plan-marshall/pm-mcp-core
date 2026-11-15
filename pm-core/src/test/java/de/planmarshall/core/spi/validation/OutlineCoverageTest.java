@@ -41,11 +41,15 @@ class OutlineCoverageTest {
 
         var violations = validator.validate(outline, intent);
 
-        assertEquals(1, violations.size());
-        assertEquals(OutlineValidator.RULE_UNCHANGED_GUARD_DOWNSTREAM, violations.getFirst().ruleKey());
-        assertTrue(violations.getFirst().message().contains("AC-2"));
-        assertTrue(violations.getFirst().message().contains("deliverable 2"));
-        assertTrue(violations.getFirst().message().contains("deliverable 1"));
+        assertEquals(1, violations.size(), "the downstream guard is reported once");
+        assertEquals(OutlineValidator.RULE_UNCHANGED_GUARD_DOWNSTREAM, violations.getFirst().ruleKey(),
+                "the refusal is the unchanged-guard rule");
+        assertTrue(violations.getFirst().message().contains("AC-2"),
+                "the refusal names the guarded criterion AC-2");
+        assertTrue(violations.getFirst().message().contains("deliverable 2"),
+                "the refusal names deliverable 2 as the guard");
+        assertTrue(violations.getFirst().message().contains("deliverable 1"),
+                "the change it guards lives in deliverable 1");
     }
 
     @DisplayName("The guard is refused through two other deliverables")
@@ -58,9 +62,11 @@ class OutlineCoverageTest {
 
         var violations = validator.validate(outline, intent);
 
-        assertEquals(1, violations.size());
-        assertTrue(violations.getFirst().message().contains("deliverable 3"));
-        assertTrue(violations.getFirst().message().contains("deliverable 1"));
+        assertEquals(1, violations.size(), "the guard is reported once through two deliverables");
+        assertTrue(violations.getFirst().message().contains("deliverable 3"),
+                "deliverable 3 is named as the late guard");
+        assertTrue(violations.getFirst().message().contains("deliverable 1"),
+                "and the guarded change in deliverable 1");
     }
 
     @DisplayName("A deliverable that satisfies both kinds is not refused")
@@ -70,7 +76,8 @@ class OutlineCoverageTest {
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST));
         var outline = outline(deliverable(1, List.of(), "AC-1", "AC-2"));
 
-        assertTrue(validator.validate(outline, intent).isEmpty());
+        assertTrue(validator.validate(outline, intent).isEmpty(),
+                "one deliverable satisfying both kinds is accepted");
     }
 
     @DisplayName("An unchanged criterion verified by inspection or demonstration is not checked")
@@ -80,7 +87,8 @@ class OutlineCoverageTest {
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.INSPECTION));
         var outline = outline(deliverable(1, List.of(), "AC-1"), deliverable(2, List.of(1), "AC-2"));
 
-        assertTrue(validator.validate(outline, intent).isEmpty());
+        assertTrue(validator.validate(outline, intent).isEmpty(),
+                "an inspection guard downstream is not checked");
     }
 
     @DisplayName("A plan without an unchanged criterion is unaffected")
@@ -88,7 +96,8 @@ class OutlineCoverageTest {
     void planWithoutUnchangedCriterionIsUnaffected() {
         var intent = intent(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST));
         var outline = outline(deliverable(1, List.of(), "AC-1"));
-        assertTrue(validator.validate(outline, intent).isEmpty());
+        assertTrue(validator.validate(outline, intent).isEmpty(),
+                "a plan without an unchanged criterion is unaffected");
     }
 
     @DisplayName("Matched control: the guard first, the change after it, is accepted")
@@ -98,7 +107,8 @@ class OutlineCoverageTest {
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST));
         var outline = outline(deliverable(1, List.of(), "AC-2"), deliverable(2, List.of(1), "AC-1"));
 
-        assertTrue(validator.validate(outline, intent).isEmpty());
+        assertTrue(validator.validate(outline, intent).isEmpty(),
+                "the guard first and the change after it is accepted");
     }
 
     @DisplayName("A satisfies entry the record does not hold is refused")
@@ -110,9 +120,11 @@ class OutlineCoverageTest {
         var violations = validator.validate(outline, intent);
 
         assertTrue(violations.stream().anyMatch(violation ->
-                OutlineValidator.RULE_SATISFIES_UNKNOWN.equals(violation.ruleKey())));
+                OutlineValidator.RULE_SATISFIES_UNKNOWN.equals(violation.ruleKey())),
+                "the unknown satisfies entry AC-9 is refused");
         assertTrue(violations.stream().anyMatch(violation ->
-                OutlineValidator.RULE_SATISFIES_UNCOVERED.equals(violation.ruleKey())));
+                OutlineValidator.RULE_SATISFIES_UNCOVERED.equals(violation.ruleKey())),
+                "the criterion left uncovered by the outline is refused");
     }
 
     @DisplayName("A criterion no deliverable names is refused, and an empty satisfies too")
@@ -126,24 +138,29 @@ class OutlineCoverageTest {
 
         assertTrue(violations.stream().anyMatch(violation ->
                 OutlineValidator.RULE_SATISFIES_UNCOVERED.equals(violation.ruleKey())
-                        && violation.message().contains("AC-2")));
+                        && violation.message().contains("AC-2")),
+                "the uncovered AC-2 is named in the refusal");
         assertTrue(violations.stream().anyMatch(violation ->
                 OutlineValidator.RULE_SATISFIES_EMPTY.equals(violation.ruleKey())
-                        && violation.message().contains("deliverable 2")));
+                        && violation.message().contains("deliverable 2")),
+                "deliverable 2 with an empty satisfies is refused");
     }
 
     @DisplayName("The record-based check does not weaken the text check")
     @Test
     void textCheckStaysIndependent() {
-        assertTrue(validator.validate("## 1. Deliverable\n\n**Affected files:**\n- `A.java` (write-new)\n").isEmpty());
+        assertTrue(validator.validate("## 1. Deliverable\n\n**Affected files:**\n- `A.java` (write-new)\n").isEmpty(),
+                "the text check still accepts a well-formed outline");
     }
 
     @DisplayName("The intent record is required")
     @Test
     void refusesNullArguments() {
         var validIntent = intent(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST));
-        assertThrows(NullPointerException.class, () -> validator.validate((OutlineRecord) null, validIntent));
+        assertThrows(NullPointerException.class, () -> validator.validate((OutlineRecord) null, validIntent),
+                "a null outline is refused before the intent is read");
         var validOutline = outline(deliverable(1, List.of(), "AC-1"));
-        assertThrows(NullPointerException.class, () -> validator.validate(validOutline, (IntentRecord) null));
+        assertThrows(NullPointerException.class, () -> validator.validate(validOutline, (IntentRecord) null),
+                "a null intent record is refused in turn");
     }
 }

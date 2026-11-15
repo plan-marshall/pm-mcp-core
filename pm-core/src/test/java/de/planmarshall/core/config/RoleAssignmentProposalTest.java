@@ -116,10 +116,12 @@ class RoleAssignmentProposalTest {
         var proposals = propose(catalogue());
 
         assertAll(
-                () -> assertFalse(proposals.containsKey("steward")),
-                () -> assertTrue(proposals.containsKey("implement")),
-                () -> assertTrue(roleSet().effective().containsKey("steward")),
-                () -> assertFalse(roleSet().assignable().containsKey("steward")));
+                () -> assertFalse(proposals.containsKey("steward"), "the steward is not proposed"),
+                () -> assertTrue(proposals.containsKey("implement"), "the implement role is proposed"),
+                () -> assertTrue(roleSet().effective().containsKey("steward"),
+                        "the steward is an effective role"),
+                () -> assertFalse(roleSet().assignable().containsKey("steward"),
+                        "the steward is not assignable"));
     }
 
     @Test
@@ -129,14 +131,17 @@ class RoleAssignmentProposalTest {
 
         var value = proposal.assignment();
         assertAll(
-                () -> assertEquals("standard", proposal.tier()),
-                () -> assertEquals("Implements the tasks of a plan.", proposal.advisory()),
-                () -> assertNull(proposal.unresolved()),
-                () -> assertEquals(HARNESS, value.harness()),
-                () -> assertEquals(STANDARD_MODEL, value.model()),
-                () -> assertEquals(EffortSetting.VALUE, value.effort()),
-                () -> assertEquals(new EffortValue("high"), value.effortValue()),
-                () -> assertEquals(new EffortValue("high"), value.assignment().effort()));
+                () -> assertEquals("standard", proposal.tier(), "the proposal keeps the default tier"),
+                () -> assertEquals("Implements the tasks of a plan.", proposal.advisory(),
+                        "the proposal keeps the advisory"),
+                () -> assertNull(proposal.unresolved(), "the proposal has no unresolved reason"),
+                () -> assertEquals(HARNESS, value.harness(), "the value uses the preferred harness"),
+                () -> assertEquals(STANDARD_MODEL, value.model(), "the tier maps to the standard model"),
+                () -> assertEquals(EffortSetting.VALUE, value.effort(), "the value carries an effort setting"),
+                () -> assertEquals(new EffortValue("high"), value.effortValue(),
+                        "the value carries the high effort"),
+                () -> assertEquals(new EffortValue("high"), value.assignment().effort(),
+                        "the assignment carries the high effort"));
     }
 
     @Test
@@ -145,8 +150,9 @@ class RoleAssignmentProposalTest {
         var outline = propose(catalogue()).get("outline").assignment();
 
         assertAll(
-                () -> assertEquals(EffortSetting.VALUE, outline.effort()),
-                () -> assertEquals(new EffortValue("high"), outline.effortValue()));
+                () -> assertEquals(EffortSetting.VALUE, outline.effort(), "the outline role keeps an effort value"),
+                () -> assertEquals(new EffortValue("high"), outline.effortValue(),
+                        "max is narrowed to the high effort"));
     }
 
     @Test
@@ -155,9 +161,10 @@ class RoleAssignmentProposalTest {
         var screener = propose(catalogue()).get("screener").assignment();
 
         assertAll(
-                () -> assertEquals(FAST_MODEL, screener.model()),
-                () -> assertEquals(EffortSetting.DEFAULT, screener.effort()),
-                () -> assertNull(screener.effortValue()));
+                () -> assertEquals(FAST_MODEL, screener.model(), "the screener uses the fast model"),
+                () -> assertEquals(EffortSetting.DEFAULT, screener.effort(),
+                        "a model without effort gets DEFAULT"),
+                () -> assertNull(screener.effortValue(), "no effort value is set"));
     }
 
     @Test
@@ -167,9 +174,11 @@ class RoleAssignmentProposalTest {
                 .get("implement");
 
         assertAll(
-                () -> assertNull(proposal.assignment()),
-                () -> assertTrue(proposal.unresolved().contains("does not allow")),
-                () -> assertEquals("Implements the tasks of a plan.", proposal.advisory()));
+                () -> assertNull(proposal.assignment(), "a disallowed model has no assignment"),
+                () -> assertTrue(proposal.unresolved().contains("does not allow"),
+                        "the reason names the catalogue refusal"),
+                () -> assertEquals("Implements the tasks of a plan.", proposal.advisory(),
+                        "the advisory is still reported"));
     }
 
     @Test
@@ -178,8 +187,9 @@ class RoleAssignmentProposalTest {
         var proposal = propose(Optional.empty()).get("implement");
 
         assertAll(
-                () -> assertNull(proposal.assignment()),
-                () -> assertEquals("no effective model catalogue exists yet", proposal.unresolved()));
+                () -> assertNull(proposal.assignment(), "a missing catalogue has no assignment"),
+                () -> assertEquals("no effective model catalogue exists yet", proposal.unresolved(),
+                        "the reason names the missing catalogue"));
     }
 
     @Test
@@ -188,9 +198,10 @@ class RoleAssignmentProposalTest {
         var proposals = RoleAssignmentProposal.propose(roleSet(), defaults(), List.of(), catalogue().orElse(null));
 
         assertAll(
-                () -> assertNull(proposals.get("implement").assignment()),
+                () -> assertNull(proposals.get("implement").assignment(),
+                        "no enrolled harness has no assignment"),
                 () -> assertEquals("no enrolled harness runs the role's class",
-                        proposals.get("implement").unresolved()));
+                        proposals.get("implement").unresolved(), "the reason names the missing harness"));
     }
 
     @Test
@@ -204,9 +215,11 @@ class RoleAssignmentProposalTest {
                 List.of(new RoleAssignmentProposal.Harness(HARNESS, profile())), catalogue().orElse(null));
 
         assertAll(
-                () -> assertNull(proposals.get("replan").assignment()),
-                () -> assertTrue(proposals.get("replan").unresolved().contains("names no such role")),
-                () -> assertNotNull(proposals.get("implement").assignment()));
+                () -> assertNull(proposals.get("replan").assignment(), "a role without default has no value"),
+                () -> assertTrue(proposals.get("replan").unresolved().contains("names no such role"),
+                        "the reason names the absent default"),
+                () -> assertNotNull(proposals.get("implement").assignment(),
+                        "the defaulted role still has a value"));
     }
 
     @Test
@@ -225,7 +238,9 @@ class RoleAssignmentProposalTest {
         var fallback = RoleAssignmentProposal.propose(roleSet(), defaults, List.of(first), both.orElse(null));
 
         assertAll(
-                () -> assertEquals(FALLBACK_HARNESS, preferred.get("implement").assignment().harness()),
-                () -> assertEquals(HARNESS, fallback.get("implement").assignment().harness()));
+                () -> assertEquals(FALLBACK_HARNESS, preferred.get("implement").assignment().harness(),
+                        "the unenrolled preferred harness is skipped"),
+                () -> assertEquals(HARNESS, fallback.get("implement").assignment().harness(),
+                        "the enrolled harness is the fallback"));
     }
 }

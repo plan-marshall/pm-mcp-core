@@ -48,7 +48,8 @@ class PrimitiveRegistryTest {
     }
 
     private static PrimitiveRegistrationException refusalOf(List<? extends Primitive<?, ?>> primitives) {
-        return assertThrows(PrimitiveRegistrationException.class, () -> new PrimitiveRegistry(primitives));
+        return assertThrows(PrimitiveRegistrationException.class, () -> new PrimitiveRegistry(primitives),
+                "malformed primitives are refused at construction");
     }
 
     @Nested
@@ -72,7 +73,8 @@ class PrimitiveRegistryTest {
             var registry = new PrimitiveRegistry(wellFormedWithJobStarting());
 
             assertEquals(List.of("test.complete", "test.skip-absent", "test.fail", "test.observe", "test.hand-back",
-                    "test.leave", "test.start-job"), List.copyOf(registry.ids()));
+                    "test.leave", "test.start-job"), List.copyOf(registry.ids()),
+                    "the registry lists the ids in the order passed");
         }
 
         @Test
@@ -80,7 +82,7 @@ class PrimitiveRegistryTest {
         void findsNothingForUnknownId() {
             var registry = new PrimitiveRegistry(TestPrimitives.wellFormed());
 
-            assertEquals(Optional.empty(), registry.find("test.unknown"));
+            assertEquals(Optional.empty(), registry.find("test.unknown"), "an unknown id finds no primitive");
         }
 
         @Test
@@ -88,7 +90,7 @@ class PrimitiveRegistryTest {
         void acceptsNoPrimitives() {
             var registry = new PrimitiveRegistry(List.of());
 
-            assertEquals(Set.of(), registry.ids());
+            assertEquals(Set.of(), registry.ids(), "an empty registry has no ids");
         }
 
         @Test
@@ -97,8 +99,10 @@ class PrimitiveRegistryTest {
             var ids = new PrimitiveRegistry(TestPrimitives.wellFormed()).ids();
 
             assertAll(
-                    () -> assertThrows(UnsupportedOperationException.class, () -> ids.add("test.added")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> ids.remove("test.fail")));
+                    () -> assertThrows(UnsupportedOperationException.class, () -> ids.add("test.added"),
+                            "the returned id set cannot be added to"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> ids.remove("test.fail"),
+                            "no id can be removed from the set"));
         }
 
         @Test
@@ -109,7 +113,8 @@ class PrimitiveRegistryTest {
 
             primitives.add(new TestPrimitives.StartJob());
 
-            assertEquals(Optional.empty(), registry.find("test.start-job"));
+            assertEquals(Optional.empty(), registry.find("test.start-job"),
+                    "a primitive added afterwards is not registered");
         }
 
         @Test
@@ -119,7 +124,8 @@ class PrimitiveRegistryTest {
 
             var registry = new PrimitiveRegistry(List.of(capped));
 
-            assertSame(capped, registry.find("test.retry-capped").orElseThrow());
+            assertSame(capped, registry.find("test.retry-capped").orElseThrow(),
+                    "the capped primitive is registered under its id");
         }
 
         @Test
@@ -129,7 +135,8 @@ class PrimitiveRegistryTest {
 
             var registry = new PrimitiveRegistry(List.of(exact));
 
-            assertSame(exact, registry.find("test.free-exact").orElseThrow());
+            assertSame(exact, registry.find("test.free-exact").orElseThrow(),
+                    "the free-parameter primitive registers");
         }
 
         @ParameterizedTest(name = "with the measure {0}")
@@ -140,7 +147,8 @@ class PrimitiveRegistryTest {
 
             var registry = new PrimitiveRegistry(List.of(measured));
 
-            assertSame(measured, registry.find("test.measured").orElseThrow());
+            assertSame(measured, registry.find("test.measured").orElseThrow(),
+                    "a non-capped measure registers with no exhaustion");
         }
 
         /**
@@ -153,7 +161,8 @@ class PrimitiveRegistryTest {
 
             var registry = new PrimitiveRegistry(List.of(measured));
 
-            assertSame(measured, registry.find("test.measured").orElseThrow());
+            assertSame(measured, registry.find("test.measured").orElseThrow(),
+                    "a missing exhaustion still registers without a cap");
         }
 
         @Test
@@ -180,8 +189,10 @@ class PrimitiveRegistryTest {
             var withNull = Arrays.<Primitive<?, ?>>asList(TestPrimitives.capped(), null);
 
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> new PrimitiveRegistry(null)),
-                    () -> assertThrows(NullPointerException.class, () -> new PrimitiveRegistry(withNull)));
+                    () -> assertThrows(NullPointerException.class, () -> new PrimitiveRegistry(null),
+                            "a null collection of primitives is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new PrimitiveRegistry(withNull),
+                            "a null primitive inside the list is refused"));
         }
     }
 
@@ -194,7 +205,8 @@ class PrimitiveRegistryTest {
         void fixtureCoversEveryReason() {
             var covered = refused().stream().map(TestPrimitives.Refusal::reason).toList();
 
-            assertEquals(EnumSet.allOf(Reason.class), EnumSet.copyOf(covered));
+            assertEquals(EnumSet.allOf(Reason.class), EnumSet.copyOf(covered),
+                    "the fixture covers every refusal reason");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -204,8 +216,10 @@ class PrimitiveRegistryTest {
             var thrown = refusalOf(refusal.primitives());
 
             assertAll(
-                    () -> assertEquals(refusal.reason(), thrown.getReason()),
-                    () -> assertEquals(refusal.refusedId(), thrown.getPrimitiveId()),
+                    () -> assertEquals(refusal.reason(), thrown.getReason(),
+                            "the thrown refusal carries its reason"),
+                    () -> assertEquals(refusal.refusedId(), thrown.getPrimitiveId(),
+                            "the refusal names the refused primitive id"),
                     () -> assertTrue(thrown.getMessage().startsWith(refusal.reason() + ": primitive '"
                             + refusal.refusedId() + "' "), thrown.getMessage()));
         }
@@ -230,8 +244,10 @@ class PrimitiveRegistryTest {
             var thrown = refusalOf(List.of(first, second));
 
             assertAll(
-                    () -> assertEquals(Reason.DUPLICATE_ID, thrown.getReason()),
-                    () -> assertEquals("git.commit", thrown.getPrimitiveId()));
+                    () -> assertEquals(Reason.DUPLICATE_ID, thrown.getReason(),
+                            "a duplicated id is refused as a duplicate"),
+                    () -> assertEquals("git.commit", thrown.getPrimitiveId(),
+                            "the refusal names the second primitive id"));
         }
 
         @Test
@@ -242,7 +258,8 @@ class PrimitiveRegistryTest {
 
             var thrown = refusalOf(List.of(open));
 
-            assertEquals(Reason.OPEN_OUTCOME_SET, thrown.getReason());
+            assertEquals(Reason.OPEN_OUTCOME_SET, thrown.getReason(),
+                    "an outcome type without a constant is refused");
         }
 
         @Test
@@ -250,7 +267,8 @@ class PrimitiveRegistryTest {
         void refusesUndeclaredJobSideEffect() {
             var thrown = refusalOf(List.of(TestPrimitives.enqueuingWithoutJobStartingOutcome()));
 
-            assertEquals(Reason.UNDECLARED_JOB_SIDE_EFFECT, thrown.getReason());
+            assertEquals(Reason.UNDECLARED_JOB_SIDE_EFFECT, thrown.getReason(),
+                    "a job side effect without the outcome is refused");
         }
 
         static Stream<Arguments> malformedFreeParameters() {
@@ -273,9 +291,10 @@ class PrimitiveRegistryTest {
             var thrown = refusalOf(List.of(TestPrimitives.withParameters("test.free", parameterType)));
 
             assertAll(
-                    () -> assertEquals(Reason.MALFORMED_FREE_PARAMETER, thrown.getReason()),
+                    () -> assertEquals(Reason.MALFORMED_FREE_PARAMETER, thrown.getReason(),
+                            "a malformed free parameter is refused"),
                     () -> assertEquals("MALFORMED_FREE_PARAMETER: primitive 'test.free' " + detail,
-                            thrown.getMessage()));
+                            thrown.getMessage(), "the refusal names the parameter and its defect"));
         }
 
         /**
@@ -290,7 +309,8 @@ class PrimitiveRegistryTest {
             var thrown = refusalOf(List.of(measured));
 
             assertAll(
-                    () -> assertEquals(Reason.EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP, thrown.getReason()),
+                    () -> assertEquals(Reason.EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP, thrown.getReason(),
+                            "an exhaustion outcome without a cap is refused"),
                     () -> assertTrue(thrown.getMessage().contains("'failed'"), thrown.getMessage()),
                     () -> assertTrue(thrown.getMessage().contains("STEP_LIST"), thrown.getMessage()));
         }
@@ -305,7 +325,8 @@ class PrimitiveRegistryTest {
         void refusesAttemptCapWithoutFailureExhaustion() {
             var thrown = refusalOf(List.of(TestPrimitives.cappedWithSuccessAsExhaustion()));
 
-            assertEquals(Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION, thrown.getReason());
+            assertEquals(Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION, thrown.getReason(),
+                    "a cap whose exhaustion is no failure is refused");
         }
 
         /**
@@ -318,7 +339,8 @@ class PrimitiveRegistryTest {
         void refusesMissingAwaitedEvent() {
             var thrown = refusalOf(List.of(TestPrimitives.awaitingNothingDeclared()));
 
-            assertEquals(Reason.MISSING_AWAITED_EVENT, thrown.getReason());
+            assertEquals(Reason.MISSING_AWAITED_EVENT, thrown.getReason(),
+                    "a primitive awaiting no declared event is refused");
         }
 
         @Test
@@ -329,7 +351,8 @@ class PrimitiveRegistryTest {
 
             var thrown = refusalOf(primitives);
 
-            assertEquals("test.await-undeclared", thrown.getPrimitiveId());
+            assertEquals("test.await-undeclared", thrown.getPrimitiveId(),
+                    "the malformed primitive is the one named");
         }
     }
 }

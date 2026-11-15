@@ -44,7 +44,8 @@ class ActivityJournalMaskingTest {
                 .at(QueueFixtures.AT)
                 .build());
 
-        assertEquals("api_key=" + SecretRedactor.REDACTED, journal.entries(TASK).getFirst().text());
+        assertEquals("api_key=" + SecretRedactor.REDACTED, journal.entries(TASK).getFirst().text(),
+                "appended text is masked as a secret");
     }
 
     @Test
@@ -65,9 +66,11 @@ class ActivityJournalMaskingTest {
         var written = journal.entries(TASK).getFirst();
         assertAll(
                 () -> assertEquals(ActivityEntry.TEXT_BOUND,
-                        written.text().codePointCount(0, written.text().length())),
-                () -> assertTrue(written.truncated()),
-                () -> assertTrue(written.text().contains(SecretRedactor.REDACTED)));
+                        written.text().codePointCount(0, written.text().length()),
+                        "redacted text is refitted to the bound"),
+                () -> assertTrue(written.truncated(), "the refitted text is marked truncated"),
+                () -> assertTrue(written.text().contains(SecretRedactor.REDACTED),
+                        "the written text carries the redaction marker"));
     }
 
     @Test
@@ -87,15 +90,19 @@ class ActivityJournalMaskingTest {
         var archived = journal.archiveInto(TASK, base.resolve("archive"));
 
         assertAll(
-                () -> assertTrue(archived.isPresent()),
-                () -> assertTrue(Files.exists(archived.get())),
-                () -> assertTrue(Files.exists(journal.journalPath(TASK))));
+                () -> assertTrue(archived.isPresent(), "archiving a task returns its target path"),
+                () -> assertTrue(Files.exists(archived.get()),
+                        "the archive file exists after archiving"),
+                () -> assertTrue(Files.exists(journal.journalPath(TASK)),
+                        "the live journal is kept after archiving"));
 
         journal.delete(TASK);
 
         assertAll(
-                () -> assertFalse(Files.exists(journal.journalPath(TASK))),
-                () -> assertFalse(Files.exists(journal.directory().resolve(TASK + ".jsonl.lock"))));
+                () -> assertFalse(Files.exists(journal.journalPath(TASK)),
+                        "delete removes the task journal file"),
+                () -> assertFalse(Files.exists(journal.directory().resolve(TASK + ".jsonl.lock")),
+                        "delete removes the journal lock file"));
     }
 
     @Test
@@ -103,6 +110,7 @@ class ActivityJournalMaskingTest {
     void archiveAbsent(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
 
-        assertTrue(journal.archiveInto(TASK, base.resolve("archive")).isEmpty());
+        assertTrue(journal.archiveInto(TASK, base.resolve("archive")).isEmpty(),
+                "absent journal archives to no path");
     }
 }

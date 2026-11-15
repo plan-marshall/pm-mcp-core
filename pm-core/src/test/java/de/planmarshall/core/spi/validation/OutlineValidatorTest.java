@@ -150,7 +150,8 @@ class OutlineValidatorTest {
         assertEquals(List.of(OutlineValidator.RULE_AFFECTED_FILE_INTENT + "@2",
                 OutlineValidator.RULE_AFFECTED_FILE_UNPARSED + "@3",
                 OutlineValidator.RULE_DEPENDENCY_ECOSYSTEM + "@5",
-                OutlineValidator.RULE_DEPENDENCY_COORDINATE + "@6"), keysAndLines(violations));
+                OutlineValidator.RULE_DEPENDENCY_COORDINATE + "@6"), keysAndLines(violations),
+                "the file rules and the dependency rules keep line order");
     }
 
     @Test
@@ -166,6 +167,7 @@ class OutlineValidatorTest {
     @Test
     @DisplayName("refuses null instead of returning a violation")
     void nullText() {
-        assertThrows(NullPointerException.class, () -> validator.validate(null));
+        assertThrows(NullPointerException.class, () -> validator.validate(null),
+                "a null outline text is refused, not reported");
     }
 }

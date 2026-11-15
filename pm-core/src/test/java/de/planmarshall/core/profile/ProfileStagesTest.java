@@ -78,9 +78,9 @@ class ProfileStagesTest {
         var result = ProfileStages.isolation(profile(), true, true);
 
         assertAll(
-                () -> assertTrue(result.exclusive()),
-                () -> assertTrue(result.projectSettingsControl()),
-                () -> assertTrue(result.extensionIsolation()));
+                () -> assertTrue(result.exclusive(), "isolation records exclusive access"),
+                () -> assertTrue(result.projectSettingsControl(), "isolation records settings control"),
+                () -> assertTrue(result.extensionIsolation(), "isolation records extension boundary"));
     }
 
     @Test
@@ -88,7 +88,7 @@ class ProfileStagesTest {
     void egressRecorded() {
         var result = ProfileStages.egress(profile());
 
-        assertEquals(List.of("api.acme.test:443"), result.endpoints());
+        assertEquals(List.of("api.acme.test:443"), result.endpoints(), "egress admits the proxy endpoint");
     }
 
     @Test
@@ -98,22 +98,24 @@ class ProfileStagesTest {
                 ProfileStages.FormMeasurement.notMeasured());
 
         assertAll(
-                () -> assertTrue(result.holdVerified()),
-                () -> assertEquals(3600, result.maxHoldSeconds()),
-                () -> assertFalse(result.resumeVerified()),
-                () -> assertNull(result.maxResumeAgeSeconds()),
+                () -> assertTrue(result.holdVerified(), "measured hold is verified"),
+                () -> assertEquals(3600, result.maxHoldSeconds(), "hold limit is 3600 seconds"),
+                () -> assertFalse(result.resumeVerified(), "unmeasured resume is not verified"),
+                () -> assertNull(result.maxResumeAgeSeconds(), "no resume age without a measurement"),
                 () -> assertEquals(List.of(
                                 new ProfileStages.ValueEntry("/headless/resumability/hold", "measured"),
                                 new ProfileStages.ValueEntry("/headless/resumability/resume", "not_measured")),
-                        result.values()));
+                        result.values(), "both resumability values are recorded"));
     }
 
     @Test
     @DisplayName("a measured limit outside the profile schema's range is refused")
     void resumabilityRanges() {
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> resultWithHold(3_601)),
-                () -> assertThrows(IllegalArgumentException.class, () -> resultWithResume(604_801)));
+                () -> assertThrows(IllegalArgumentException.class, () -> resultWithHold(3_601),
+                        "hold above 3600 seconds is refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> resultWithResume(604_801),
+                        "resume above 604800 seconds refused"));
     }
 
     private static void resultWithHold(int seconds) {
@@ -131,9 +133,11 @@ class ProfileStagesTest {
     void resumabilityRefusals() {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new ProfileStages.FormMeasurement(true, null)),
+                        () -> new ProfileStages.FormMeasurement(true, null),
+                        "measured form without a limit refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new ProfileStages.FormMeasurement(false, 3600)));
+                        () -> new ProfileStages.FormMeasurement(false, 3600),
+                        "unmeasured form with a limit refused"));
     }
 
     @Test
@@ -144,14 +148,18 @@ class ProfileStagesTest {
                 """), Map.of());
 
         assertAll(
-                () -> assertEquals(ProfileStages.UsageStatus.REPORTED, result.figures().get("input_tokens")),
-                () -> assertEquals(ProfileStages.UsageStatus.REPORTED, result.figures().get("output_tokens")),
-                () -> assertEquals(ProfileStages.UsageStatus.MISSING, result.figures().get("cache_read")),
+                () -> assertEquals(ProfileStages.UsageStatus.REPORTED, result.figures().get("input_tokens"),
+                        "input tokens are reported"),
+                () -> assertEquals(ProfileStages.UsageStatus.REPORTED, result.figures().get("output_tokens"),
+                        "output tokens are reported"),
+                () -> assertEquals(ProfileStages.UsageStatus.MISSING, result.figures().get("cache_read"),
+                        "cache read is missing"),
                 () -> assertEquals(ProfileStages.UsageStatus.NOT_APPLICABLE,
-                        result.figures().get("cache_creation")),
-                () -> assertEquals(ProfileStages.UsageStatus.MISSING, result.figures().get("reasoning")),
+                        result.figures().get("cache_creation"), "cache creation is not applicable"),
+                () -> assertEquals(ProfileStages.UsageStatus.MISSING, result.figures().get("reasoning"),
+                        "reasoning is missing"),
                 () -> assertEquals(Map.of("input_tokens", new BigDecimal("10"), "output_tokens",
-                        new BigDecimal("5")), result.parsed()));
+                        new BigDecimal("5")), result.parsed(), "parsed input and output figures"));
     }
 
     @Test
@@ -163,7 +171,7 @@ class ProfileStagesTest {
                 new BigDecimal("5")));
 
         assertEquals(Map.of("input_tokens", new BigDecimal("10"), "output_tokens",
-                new BigDecimal("5")), result.parsed());
+                new BigDecimal("5")), result.parsed(), "parsed figures echo the report");
     }
 
     @Test
@@ -175,11 +183,13 @@ class ProfileStagesTest {
                 """);
         var harnessRecord = Map.of("input_tokens", new BigDecimal("11"));
 
-        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, output, harnessRecord));
+        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, output, harnessRecord),
+                "differing figure is refused");
 
         assertAll(
-                () -> assertEquals("/usage/input_tokens", refusal.pointer()),
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()));
+                () -> assertEquals("/usage/input_tokens", refusal.pointer(), "refusal points at input_tokens"),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(),
+                        "differing figure is profile invalid"));
     }
 
     @Test
@@ -195,8 +205,10 @@ class ProfileStagesTest {
                 """), Map.of("cost_usd", new BigDecimal("0.25")));
 
         assertAll(
-                () -> assertEquals(ProfileStages.UsageStatus.REPORTED, result.figures().get("cost_usd")),
-                () -> assertEquals(new BigDecimal("0.25"), result.parsed().get("cost_usd")));
+                () -> assertEquals(ProfileStages.UsageStatus.REPORTED, result.figures().get("cost_usd"),
+                        "cost figure is reported"),
+                () -> assertEquals(new BigDecimal("0.25"), result.parsed().get("cost_usd"),
+                        "cost is parsed as a decimal"));
     }
 
     @Test
@@ -210,9 +222,10 @@ class ProfileStagesTest {
         var output = turn("""
                 {"usage":{"input_tokens":10,"output_tokens":5}}
                 """);
-        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, output, Map.of()));
+        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, output, Map.of()),
+                "unresolved pointer is refused");
 
-        assertEquals("/usage/absent", refusal.pointer());
+        assertEquals("/usage/absent", refusal.pointer(), "refusal points at absent path");
     }
 
     @Test
@@ -224,8 +237,8 @@ class ProfileStagesTest {
         var figures = new LinkedHashMap<>(result.figures());
 
         var view = result.figures();
-        assertThrows(UnsupportedOperationException.class, view::clear);
-        assertEquals(figures, result.figures());
+        assertThrows(UnsupportedOperationException.class, view::clear, "figures view cannot be cleared");
+        assertEquals(figures, result.figures(), "figures map is unchanged");
     }
 
     private static LoadedProfile profile(ProfileFixtures.ProfileFixture fixture) {
@@ -242,8 +255,9 @@ class ProfileStagesTest {
                 {"usage":{"input_tokens":10,"output_tokens":5}}
                 """), Map.of());
 
-        assertAll(() -> assertEquals(UsageCoverage.PARTIAL, result.coverage()),
-                () -> assertEquals(List.of("cache_read", "reasoning", "tool_uses"), result.missingFigures()));
+        assertAll(() -> assertEquals(UsageCoverage.PARTIAL, result.coverage(), "usage coverage is partial"),
+                () -> assertEquals(List.of("cache_read", "reasoning", "tool_uses"), result.missingFigures(),
+                        "missing figures are named"));
     }
 
     @Test
@@ -256,8 +270,8 @@ class ProfileStagesTest {
                 {"usage":{"input_tokens":10,"output_tokens":5,"cache_read":3,"reasoning":1,"tool_uses":2}}
                 """), Map.of());
 
-        assertAll(() -> assertEquals(UsageCoverage.COMPLETE, result.coverage()),
-                () -> assertTrue(result.missingFigures().isEmpty()));
+        assertAll(() -> assertEquals(UsageCoverage.COMPLETE, result.coverage(), "usage coverage is complete"),
+                () -> assertTrue(result.missingFigures().isEmpty(), "no figures are missing"));
     }
 
     @Test
@@ -268,7 +282,7 @@ class ProfileStagesTest {
                 .set("/headless/usage/cache_creation", null));
         var result = ProfileStages.usage(loaded, turn("{\"usage\":{}}"), Map.of());
 
-        assertEquals(UsageCoverage.NOT_REPORTED, result.coverage());
+        assertEquals(UsageCoverage.NOT_REPORTED, result.coverage(), "usage coverage is not reported");
     }
 
     @Test
@@ -288,7 +302,8 @@ class ProfileStagesTest {
                         new StartContextInput("read_only", READ_ONLY_MODEL, withoutCacheRead)));
 
         assertAll(() -> assertEquals(List.of(new StartContext("writer", WRITER_MODEL, OptionalLong.of(115)),
-                new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext()));
+                        new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext(),
+                        "start context sums the first turn"));
     }
 
     @Test
@@ -307,7 +322,8 @@ class ProfileStagesTest {
                         new StartContextInput("read_only", READ_ONLY_MODEL, negative)));
 
         assertEquals(List.of(new StartContext("writer", WRITER_MODEL, OptionalLong.of(10)),
-                new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext());
+                        new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext(),
+                        "negative figure leaves context unmeasured");
     }
 
     @Test
@@ -316,9 +332,13 @@ class ProfileStagesTest {
         var loaded = profile(ProfileFixtures.valid().set("/headless/usage/input_tokens", "not_applicable"));
         var output = turn("{\"usage\":{}}");
 
-        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, output, Map.of()));
+        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, output, Map.of()),
+                "not applicable input is refused");
 
-        assertAll(() -> assertEquals("/headless/usage/input_tokens", refusal.pointer()),
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()));
+        assertAll(
+                () -> assertEquals("/headless/usage/input_tokens", refusal.pointer(),
+                        "refusal points at input_tokens"),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(),
+                        "invalid profile outcome is reported"));
     }
 }

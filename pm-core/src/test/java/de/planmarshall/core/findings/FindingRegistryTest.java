@@ -63,9 +63,12 @@ class FindingRegistryTest {
             var registry = new FindingRegistry(List.of(analysisSource, reviewSource), List.of(analysisResponder));
 
             assertAll(
-                    () -> assertEquals(Optional.of(analysisSource), registry.source(ANALYSIS)),
-                    () -> assertEquals(Optional.of(reviewSource), registry.source(REVIEW)),
-                    () -> assertEquals(Optional.of(analysisResponder), registry.responder(ANALYSIS)));
+                    () -> assertEquals(Optional.of(analysisSource), registry.source(ANALYSIS),
+                            "source is found under its analysis key"),
+                    () -> assertEquals(Optional.of(reviewSource), registry.source(REVIEW),
+                            "source of another kind is found by its key"),
+                    () -> assertEquals(Optional.of(analysisResponder), registry.responder(ANALYSIS),
+                            "responder is found under its analysis key"));
         }
 
         @Test
@@ -74,9 +77,12 @@ class FindingRegistryTest {
             var registry = new FindingRegistry(List.of(source(ANALYSIS)), List.of(responder(ANALYSIS)));
 
             assertAll(
-                    () -> assertTrue(registry.source(REVIEW).isEmpty()),
-                    () -> assertTrue(registry.responder(REVIEW).isEmpty()),
-                    () -> assertTrue(registry.source(FindingSourceKey.of(FindingSourceKind.QGATE)).isEmpty()));
+                    () -> assertTrue(registry.source(REVIEW).isEmpty(),
+                            "unregistered review source answers empty"),
+                    () -> assertTrue(registry.responder(REVIEW).isEmpty(),
+                            "unregistered review responder answers empty"),
+                    () -> assertTrue(registry.source(FindingSourceKey.of(FindingSourceKind.QGATE)).isEmpty(),
+                            "qgate source is not registered and answers empty"));
         }
 
         @Test
@@ -86,8 +92,10 @@ class FindingRegistryTest {
             var other = FindingSourceKey.analysis(OTHER_PROVIDER);
 
             assertAll(
-                    () -> assertTrue(registry.source(other).isEmpty()),
-                    () -> assertTrue(registry.responder(other).isEmpty()));
+                    () -> assertTrue(registry.source(other).isEmpty(),
+                            "source of another provider id answers empty"),
+                    () -> assertTrue(registry.responder(other).isEmpty(),
+                            "responder of another provider id answers empty"));
         }
 
         @Test
@@ -98,7 +106,8 @@ class FindingRegistryTest {
             assertTrue(Arrays.stream(FindingSourceKind.values())
                     .filter(kind -> kind != FindingSourceKind.ANALYSIS)
                     .map(FindingSourceKey::of)
-                    .allMatch(key -> registry.source(key).isEmpty() && registry.responder(key).isEmpty()));
+                    .allMatch(key -> registry.source(key).isEmpty() && registry.responder(key).isEmpty()),
+                    "empty registry answers empty for all source kinds");
         }
 
         @Test
@@ -109,7 +118,7 @@ class FindingRegistryTest {
 
             sources.add(source(REVIEW));
 
-            assertTrue(registry.source(REVIEW).isEmpty());
+            assertTrue(registry.source(REVIEW).isEmpty(), "source added after construction is not seen");
         }
     }
 
@@ -123,7 +132,8 @@ class FindingRegistryTest {
             var sources = List.of(source(ANALYSIS), source(ANALYSIS));
             List<FindingResponder> responders = List.of();
 
-            assertThrows(IllegalArgumentException.class, () -> new FindingRegistry(sources, responders));
+            assertThrows(IllegalArgumentException.class, () -> new FindingRegistry(sources, responders),
+                    "a duplicate source key is refused");
         }
 
         @Test
@@ -132,7 +142,8 @@ class FindingRegistryTest {
             List<FindingSource> sources = List.of();
             var responders = List.of(responder(REVIEW), responder(REVIEW));
 
-            assertThrows(IllegalArgumentException.class, () -> new FindingRegistry(sources, responders));
+            assertThrows(IllegalArgumentException.class, () -> new FindingRegistry(sources, responders),
+                    "a duplicate responder key is refused");
         }
 
         @Test
@@ -141,8 +152,8 @@ class FindingRegistryTest {
             var registry = new FindingRegistry(List.of(source(REVIEW)), List.of(responder(REVIEW)));
 
             assertAll(
-                    () -> assertTrue(registry.source(REVIEW).isPresent()),
-                    () -> assertTrue(registry.responder(REVIEW).isPresent()));
+                    () -> assertTrue(registry.source(REVIEW).isPresent(), "source shares its review key"),
+                    () -> assertTrue(registry.responder(REVIEW).isPresent(), "responder shares its review key"));
         }
 
         @Test
@@ -153,9 +164,12 @@ class FindingRegistryTest {
             var keyless = List.of(source(null));
 
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> new FindingRegistry(null, noResponders)),
-                    () -> assertThrows(NullPointerException.class, () -> new FindingRegistry(noSources, null)),
-                    () -> assertThrows(NullPointerException.class, () -> new FindingRegistry(keyless, noResponders)));
+                    () -> assertThrows(NullPointerException.class, () -> new FindingRegistry(null, noResponders),
+                            "a null source collection is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new FindingRegistry(noSources, null),
+                            "a null responder collection is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new FindingRegistry(keyless, noResponders),
+                            "a source without a key is refused"));
         }
     }
 }

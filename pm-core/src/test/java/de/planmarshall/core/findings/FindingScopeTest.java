@@ -51,9 +51,10 @@ class FindingScopeTest {
             var scope = FindingScope.commit(sha);
 
             assertAll(
-                    () -> assertEquals(FindingScope.Kind.COMMIT, scope.kind()),
-                    () -> assertEquals(sha, scope.commitSha()),
-                    () -> assertNull(scope.prNumber()));
+                    () -> assertEquals(FindingScope.Kind.COMMIT, scope.kind(),
+                            "commit scope carries the commit kind"),
+                    () -> assertEquals(sha, scope.commitSha(), "commit scope keeps the commit hash"),
+                    () -> assertNull(scope.prNumber(), "commit scope has no pull-request number"));
         }
 
         @Test
@@ -63,8 +64,10 @@ class FindingScopeTest {
             var scope = FindingScope.pullRequest(SHA_1, prNumber);
 
             assertAll(
-                    () -> assertEquals(FindingScope.Kind.PULL_REQUEST, scope.kind()),
-                    () -> assertEquals(prNumber, scope.prNumber()));
+                    () -> assertEquals(FindingScope.Kind.PULL_REQUEST, scope.kind(),
+                            "pull-request scope carries its kind"),
+                    () -> assertEquals(prNumber, scope.prNumber(),
+                            "pull-request scope keeps its number"));
         }
 
         @Test
@@ -79,8 +82,9 @@ class FindingScopeTest {
         @DisplayName("the kinds carry their wire names and are found by them")
         void wireNames(FindingScope.Kind kind, String wireName) {
             assertAll(
-                    () -> assertEquals(wireName, kind.wireName()),
-                    () -> assertEquals(Optional.of(kind), FindingScope.Kind.fromWireName(wireName)));
+                    () -> assertEquals(wireName, kind.wireName(), "kind carries its wire name"),
+                    () -> assertEquals(Optional.of(kind), FindingScope.Kind.fromWireName(wireName),
+                            "kind is found by its wire name"));
         }
     }
 
@@ -93,7 +97,8 @@ class FindingScopeTest {
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"})
         @DisplayName("a commit of a wrong digest length is refused")
         void wrongLength(String sha) {
-            assertThrows(IllegalArgumentException.class, () -> FindingScope.commit(sha));
+            assertThrows(IllegalArgumentException.class, () -> FindingScope.commit(sha),
+                    "commit of a wrong digest length is refused");
         }
 
         @Test
@@ -101,14 +106,16 @@ class FindingScopeTest {
         void upperCase() {
             var upper = SHA_1.toUpperCase();
 
-            assertThrows(IllegalArgumentException.class, () -> FindingScope.commit(upper));
+            assertThrows(IllegalArgumentException.class, () -> FindingScope.commit(upper),
+                    "upper-case commit hash is refused");
         }
 
         @Test
         @DisplayName("a pull-request scope without its number is refused")
         void missingPrNumber() {
             assertThrows(IllegalArgumentException.class,
-                    () -> new FindingScope(FindingScope.Kind.PULL_REQUEST, SHA_1, null));
+                    () -> new FindingScope(FindingScope.Kind.PULL_REQUEST, SHA_1, null),
+                    "pull-request scope without a number is refused");
         }
 
         @Test
@@ -117,22 +124,26 @@ class FindingScopeTest {
             var prNumber = Generators.integers(1, 9_999).next();
 
             assertThrows(IllegalArgumentException.class,
-                    () -> new FindingScope(FindingScope.Kind.COMMIT, SHA_1, prNumber));
+                    () -> new FindingScope(FindingScope.Kind.COMMIT, SHA_1, prNumber),
+                    "commit scope with a number is refused");
         }
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(ints = {0, -1})
         @DisplayName("a pull-request number below 1 is refused")
         void prNumberBelowOne(int prNumber) {
-            assertThrows(IllegalArgumentException.class, () -> FindingScope.pullRequest(SHA_1, prNumber));
+            assertThrows(IllegalArgumentException.class, () -> FindingScope.pullRequest(SHA_1, prNumber),
+                    "pull-request number below 1 is refused");
         }
 
         @Test
         @DisplayName("a missing kind or commit is refused")
         void missingMembers() {
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> new FindingScope(null, SHA_1, null)),
-                    () -> assertThrows(NullPointerException.class, () -> FindingScope.commit(null)));
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new FindingScope(null, SHA_1, null), "scope without a kind is refused"),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> FindingScope.commit(null), "commit without a hash is refused"));
         }
     }
 }

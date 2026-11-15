@@ -49,13 +49,11 @@ class ShippedProfilesTest {
     void everyShippedProfileValidates() {
         var shipped = ShippedProfiles.read().shipped();
 
-        assertFalse(shipped.isEmpty(),
-                "The resources of pm-api must hold at least one profile below classpath:/profiles/");
+        assertFalse(shipped.isEmpty(), "pm-api ships at least one profile");
         assertAll(shipped.keySet().stream().map(clientId -> (Executable) () -> {
             var document = shipped.get(clientId).document();
             var profile = ProfileValidator.validate(document, "profiles/" + clientId + ".json", ProfileRules.none());
-            assertEquals(clientId, ProfileValidator.clientId(profile),
-                    "The client id of the profile must equal the name of its resource");
+            assertEquals(clientId, ProfileValidator.clientId(profile), "client id equals its resource name");
         }).toList());
     }
 
@@ -96,7 +94,7 @@ class ShippedProfilesTest {
             var shipped = ShippedProfiles.read(loader).shipped();
 
             assertEquals(Set.of("acme-cli"), shipped.keySet(), "only a document directly below profiles/ is shipped");
-            assertArrayEquals(document, shipped.get("acme-cli").document());
+            assertArrayEquals(document, shipped.get("acme-cli").document(), "document bytes are kept unchanged");
         }
     }
 
@@ -107,7 +105,8 @@ class ShippedProfilesTest {
         Files.write(profiles.resolve("Acme CLI.json"), ProfileFixtures.validBytes());
 
         try (var loader = new URLClassLoader(new URL[]{directory.toUri().toURL()}, null)) {
-            var thrown = assertThrows(IllegalStateException.class, () -> ShippedProfiles.read(loader));
+            var thrown = assertThrows(IllegalStateException.class, () -> ShippedProfiles.read(loader),
+                    "file name without client id is refused");
 
             assertTrue(thrown.getMessage().contains("Acme CLI.json"), thrown.getMessage());
         }

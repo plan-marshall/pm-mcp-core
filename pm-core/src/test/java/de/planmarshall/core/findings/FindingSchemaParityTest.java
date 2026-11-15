@@ -174,7 +174,8 @@ class FindingSchemaParityTest {
     void walkReachesNestedRecords() {
         var types = objects().stream().map(RecordObject::type).collect(Collectors.toSet());
 
-        assertEquals(recordTree(Finding.class), types);
+        assertEquals(recordTree(Finding.class), types,
+                "walk collects the record and every nested record");
     }
 
     /** The record and every record reachable from its components, derived from the types themselves. */
@@ -223,7 +224,8 @@ class FindingSchemaParityTest {
                 .map(RecordComponent::getType).filter(Class::isEnum).collect(Collectors.toSet());
 
         assertAll(
-                () -> assertTrue(checked.contains(FindingSourceKind.class), "source is checked"),
-                () -> assertEquals(declared, checked));
+                () -> assertTrue(checked.contains(FindingSourceKind.class),
+                        "source kind is among the checked enumerations"),
+                () -> assertEquals(declared, checked, "every enum component is checked"));
     }
 }

@@ -84,9 +84,10 @@ class ConsentStoreTest {
         var read = store.read();
 
         assertAll(
-                () -> assertTrue(read.consents().isEmpty()),
-                () -> assertEquals(0L, read.revision()),
-                () -> assertFalse(read.isRemembered(ConsentKind.SCAN_HARNESSES, null)));
+                () -> assertTrue(read.consents().isEmpty(), "an absent document holds no consent"),
+                () -> assertEquals(0L, read.revision(), "an absent document is at revision 0"),
+                () -> assertFalse(read.isRemembered(ConsentKind.SCAN_HARNESSES, null),
+                        "nothing is remembered yet"));
     }
 
     @Test
@@ -96,12 +97,16 @@ class ConsentStoreTest {
 
         var read = store.read();
         assertAll(
-                () -> assertEquals(1, read.consents().size()),
-                () -> assertEquals(1L, read.revision()),
-                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, null)),
-                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, ANY_PROJECT)),
-                () -> assertEquals(ConsentKind.SCAN_HARNESSES, read.consents().getFirst().kind()),
-                () -> assertEquals(Consent.Channel.CLI, read.consents().getFirst().channel()));
+                () -> assertEquals(1, read.consents().size(), "one consent entry is stored"),
+                () -> assertEquals(1L, read.revision(), "the grant bumps the revision to 1"),
+                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, null),
+                        "the machine kind is remembered"),
+                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, ANY_PROJECT),
+                        "a machine kind needs no project"),
+                () -> assertEquals(ConsentKind.SCAN_HARNESSES, read.consents().getFirst().kind(),
+                        "the stored entry keeps the kind"),
+                () -> assertEquals(Consent.Channel.CLI, read.consents().getFirst().channel(),
+                        "the stored entry keeps the channel"));
     }
 
     @Test
@@ -111,9 +116,12 @@ class ConsentStoreTest {
 
         var read = store.read();
         assertAll(
-                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, null)),
-                () -> assertFalse(read.isRemembered(ConsentKind.PROBE_HARNESS_LOGIN, null)),
-                () -> assertFalse(read.isRemembered(ConsentKind.PROBE_HARNESS_MODELS, null)));
+                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, null),
+                        "the granted kind is remembered"),
+                () -> assertFalse(read.isRemembered(ConsentKind.PROBE_HARNESS_LOGIN, null),
+                        "probe_harness_login is not covered"),
+                () -> assertFalse(read.isRemembered(ConsentKind.PROBE_HARNESS_MODELS, null),
+                        "probe_harness_models is not covered"));
     }
 
     @Test
@@ -124,11 +132,14 @@ class ConsentStoreTest {
 
         var read = store.read();
         assertAll(
-                () -> assertTrue(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, PROJECT)),
-                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, OTHER_PROJECT)),
-                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, null)),
-                () -> assertEquals(1, read.ofProject(PROJECT).size()),
-                () -> assertTrue(read.ofProject(OTHER_PROJECT).isEmpty()));
+                () -> assertTrue(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, PROJECT),
+                        "the project kind is remembered here"),
+                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, OTHER_PROJECT),
+                        "another project is not covered"),
+                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, null),
+                        "a project kind is not machine-wide"),
+                () -> assertEquals(1, read.ofProject(PROJECT).size(), "the project holds one consent entry"),
+                () -> assertTrue(read.ofProject(OTHER_PROJECT).isEmpty(), "another project holds no entry"));
     }
 
     @Test
@@ -141,11 +152,11 @@ class ConsentStoreTest {
         var read = store.read();
         assertAll(
                 () -> assertTrue(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, PROJECT,
-                        List.of(granted))),
+                        List.of(granted)), "the granted script digest runs"),
                 () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, PROJECT,
-                        List.of(new ConsentScript(SCRIPT, OTHER_SHA)))),
+                        List.of(new ConsentScript(SCRIPT, OTHER_SHA))), "a changed digest asks again"),
                 () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, PROJECT,
-                        List.of(new ConsentScript(OTHER_SCRIPT, SHA)))));
+                        List.of(new ConsentScript(OTHER_SCRIPT, SHA))), "another script asks again"));
     }
 
     @Test
@@ -160,10 +171,13 @@ class ConsentStoreTest {
 
         var read = store.read();
         assertAll(
-                () -> assertEquals(1, read.consents().size()),
-                () -> assertEquals(replacedAt, read.consents().getFirst().grantedAt()),
-                () -> assertEquals(Consent.Channel.WEB, read.consents().getFirst().channel()),
-                () -> assertTrue(Files.readString(file, UTF_8).contains("\"revision\":2")));
+                () -> assertEquals(1, read.consents().size(), "the entry is replaced, not added"),
+                () -> assertEquals(replacedAt, read.consents().getFirst().grantedAt(),
+                        "the newer grant time replaces the old"),
+                () -> assertEquals(Consent.Channel.WEB, read.consents().getFirst().channel(),
+                        "the newer channel replaces the old"),
+                () -> assertTrue(Files.readString(file, UTF_8).contains("\"revision\":2"),
+                        "the second write records revision 2"));
     }
 
     @Test
@@ -172,19 +186,23 @@ class ConsentStoreTest {
         store.grant(machine(ConsentKind.SCAN_HARNESSES), 0L);
 
         var conflicting = machine(ConsentKind.FETCH_ICONS);
-        var conflict = assertThrows(SettingsConflict.class, () -> store.grant(conflicting, 0L));
+        var conflict = assertThrows(SettingsConflict.class, () -> store.grant(conflicting, 0L),
+                "a stale revision is refused");
 
         assertAll(
-                () -> assertEquals(SettingsConflict.ERROR_CODE, conflict.code()),
-                () -> assertEquals(SettingsConflict.HTTP_STATUS, conflict.status()),
-                () -> assertEquals(409, conflict.status()),
-                () -> assertEquals(0L, conflict.expectedRevision()),
-                () -> assertEquals(1L, conflict.currentRevision()),
-                () -> assertInstanceOf(ConsentStore.Snapshot.class, conflict.currentValue()),
+                () -> assertEquals(SettingsConflict.ERROR_CODE, conflict.code(),
+                        "the refusal keeps the conflict code"),
+                () -> assertEquals(SettingsConflict.HTTP_STATUS, conflict.status(),
+                        "the refusal keeps the conflict status"),
+                () -> assertEquals(409, conflict.status(), "the conflict status is 409"),
+                () -> assertEquals(0L, conflict.expectedRevision(), "the refusal names the expected revision"),
+                () -> assertEquals(1L, conflict.currentRevision(), "the refusal names the current revision"),
+                () -> assertInstanceOf(ConsentStore.Snapshot.class, conflict.currentValue(),
+                        "the refusal carries the current snapshot"),
                 () -> assertEquals(List.of(ConsentKind.SCAN_HARNESSES),
                         ((ConsentStore.Snapshot) conflict.currentValue()).consents().stream()
-                                .map(Consent::kind).toList()),
-                () -> assertEquals(1, store.read().consents().size()));
+                                .map(Consent::kind).toList(), "the snapshot carries the stored kind"),
+                () -> assertEquals(1, store.read().consents().size(), "the store keeps its one entry"));
     }
 
     @Test
@@ -196,10 +214,11 @@ class ConsentStoreTest {
         var withdrawn = store.withdraw(ConsentKind.SCAN_HARNESSES, null, revision);
 
         assertAll(
-                () -> assertTrue(withdrawn),
-                () -> assertTrue(store.read().consents().isEmpty()),
-                () -> assertEquals(2L, store.read().revision()),
-                () -> assertFalse(store.read().isRemembered(ConsentKind.SCAN_HARNESSES, null)));
+                () -> assertTrue(withdrawn, "the existing entry is withdrawn"),
+                () -> assertTrue(store.read().consents().isEmpty(), "no consent remains after withdrawal"),
+                () -> assertEquals(2L, store.read().revision(), "the withdrawal bumps the revision"),
+                () -> assertFalse(store.read().isRemembered(ConsentKind.SCAN_HARNESSES, null),
+                        "the withdrawn kind is forgotten"));
     }
 
     @Test
@@ -211,9 +230,9 @@ class ConsentStoreTest {
         var withdrawn = store.withdraw(ConsentKind.FETCH_ICONS, null, revision);
 
         assertAll(
-                () -> assertFalse(withdrawn),
-                () -> assertEquals(revision, store.read().revision()),
-                () -> assertEquals(1, store.read().consents().size()));
+                () -> assertFalse(withdrawn, "an absent entry is not withdrawn"),
+                () -> assertEquals(revision, store.read().revision(), "a missed withdrawal keeps the revision"),
+                () -> assertEquals(1, store.read().consents().size(), "the untouched entry remains"));
     }
 
     @Test
@@ -228,9 +247,10 @@ class ConsentStoreTest {
         var removed = store.removeProject(PROJECT, store.read().revision());
 
         assertAll(
-                () -> assertEquals(2, removed),
-                () -> assertEquals(1, store.read().consents().size()),
-                () -> assertEquals(ConsentKind.SCAN_HARNESSES, store.read().consents().getFirst().kind()));
+                () -> assertEquals(2, removed, "both project consents are removed"),
+                () -> assertEquals(1, store.read().consents().size(), "the machine consent remains"),
+                () -> assertEquals(ConsentKind.SCAN_HARNESSES, store.read().consents().getFirst().kind(),
+                        "the machine kind is the survivor"));
     }
 
     @Test
@@ -238,14 +258,17 @@ class ConsentStoreTest {
     void neverRemembered() {
         var harnessProfileRefused = assertThrows(IllegalArgumentException.class,
                 () -> Consent.machine(ConsentKind.VERIFY_HARNESS_PROFILE, GRANTED, Consent.Channel.CLI,
-                        null));
+                        null),
+                "verify_harness_profile cannot be granted");
         var autoRunRefused = assertThrows(IllegalArgumentException.class,
-                () -> Consent.machine(ConsentKind.AUTO_RUN, GRANTED, Consent.Channel.CLI, null));
+                () -> Consent.machine(ConsentKind.AUTO_RUN, GRANTED, Consent.Channel.CLI, null),
+                "auto_run cannot be granted");
 
         assertAll(
-                () -> assertTrue(harnessProfileRefused.getMessage().contains("verify_harness_profile")),
-                () -> assertTrue(autoRunRefused.getMessage().contains("auto_run")),
-                () -> assertFalse(Files.exists(file)));
+                () -> assertTrue(harnessProfileRefused.getMessage().contains("verify_harness_profile"),
+                        "the refusal names verify_harness_profile"),
+                () -> assertTrue(autoRunRefused.getMessage().contains("auto_run"), "the refusal names auto_run"),
+                () -> assertFalse(Files.exists(file), "a refused grant writes no document"));
     }
 
     @Test
@@ -257,13 +280,15 @@ class ConsentStoreTest {
         });
         var consent = machine(ConsentKind.SCAN_HARNESSES);
 
-        var refused = assertThrows(UncheckedIOException.class, () -> failing.grant(consent, 0L));
+        var refused = assertThrows(UncheckedIOException.class, () -> failing.grant(consent, 0L),
+                "a failing audit sink aborts the grant");
 
         assertAll(
-                () -> assertTrue(refused.getMessage().contains("audit sink")),
-                () -> assertTrue(store.read().consents().isEmpty()),
-                () -> assertEquals(0L, store.read().revision()),
-                () -> assertFalse(Files.exists(file)));
+                () -> assertTrue(refused.getMessage().contains("audit sink"),
+                        "the refusal carries the audit sink reason"),
+                () -> assertTrue(store.read().consents().isEmpty(), "no consent is committed"),
+                () -> assertEquals(0L, store.read().revision(), "the failed write keeps revision 0"),
+                () -> assertFalse(Files.exists(file), "the failed write leaves no file"));
     }
 
     @Test
@@ -275,11 +300,12 @@ class ConsentStoreTest {
 
         assertAll(
                 () -> assertEquals(List.of("consent_remembered", "consent_withdrawn"),
-                        events.stream().map(AuditEvent::event).toList()),
+                        events.stream().map(AuditEvent::event).toList(), "both operator records are appended"),
                 () -> assertEquals(PROJECT,
-                        events.getFirst().details().get(AuditEvent.DETAIL_PROJECT_ID)),
+                        events.getFirst().details().get(AuditEvent.DETAIL_PROJECT_ID),
+                        "the record names the project"),
                 () -> assertEquals("model_cost",
-                        events.getFirst().details().get(AuditEvent.DETAIL_KIND)));
+                        events.getFirst().details().get(AuditEvent.DETAIL_KIND), "the record names the kind"));
     }
 
     @Test
@@ -287,8 +313,8 @@ class ConsentStoreTest {
     void unreadable() throws Exception {
         Files.writeString(file, "{\"format_version\":1,\"revision\":1,\"consents\":[{\"kind\":\"mystery\"}]}", UTF_8);
 
-        var refusal = assertThrows(StoreRefusal.class, store::read);
-        assertEquals(file, refusal.file());
+        var refusal = assertThrows(StoreRefusal.class, store::read, "a malformed document is refused");
+        assertEquals(file, refusal.file(), "the refusal names the consents file");
     }
 
     @Test
@@ -297,11 +323,12 @@ class ConsentStoreTest {
         var wrong = new AtomicStoreFile(file, LockKey.machineConfiguration(base));
 
         var wrongLock = assertThrows(IllegalArgumentException.class,
-                () -> new ConsentStore(wrong, locks, events::add));
+                () -> new ConsentStore(wrong, locks, events::add), "a wrong lock key is refused");
 
         assertAll(
-                () -> assertTrue(wrongLock.getMessage().contains("consents")),
+                () -> assertTrue(wrongLock.getMessage().contains("consents"),
+                        "the refusal names the consents lock"),
                 () -> assertEquals(LockKey.consents(base).lockFile(),
-                        ConsentStore.file(base).lockKey().lockFile()));
+                        ConsentStore.file(base).lockKey().lockFile(), "the store uses the consents lock"));
     }
 }

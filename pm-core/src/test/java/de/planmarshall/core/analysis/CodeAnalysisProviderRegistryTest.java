@@ -60,7 +60,8 @@ class CodeAnalysisProviderRegistryTest {
         var provider = new NamedProvider(PROVIDER);
         var registry = new CodeAnalysisProviderRegistry(List.of(provider, new NamedProvider(OTHER)));
 
-        assertSame(provider, registry.find(PROVIDER).orElseThrow());
+        assertSame(provider, registry.find(PROVIDER).orElseThrow(),
+                "the found provider is the same instance");
     }
 
     @Test
@@ -69,9 +70,11 @@ class CodeAnalysisProviderRegistryTest {
         var registry = new CodeAnalysisProviderRegistry(List.of(new NamedProvider(PROVIDER)));
 
         assertAll(
-                () -> assertEquals(Optional.empty(), registry.find(OTHER)),
-                () -> assertEquals(Optional.empty(), registry.find(null)),
-                () -> assertEquals(Optional.empty(), new CodeAnalysisProviderRegistry(List.of()).find(PROVIDER)));
+                () -> assertEquals(Optional.empty(), registry.find(OTHER), "an unregistered id answers empty"),
+                () -> assertEquals(Optional.empty(), registry.find(null), "a null id answers empty"),
+                () -> assertEquals(Optional.empty(),
+                        new CodeAnalysisProviderRegistry(List.of()).find(PROVIDER),
+                        "an empty registry answers empty"));
     }
 
     @Test
@@ -83,8 +86,10 @@ class CodeAnalysisProviderRegistryTest {
         var added = Generators.letterStrings(3, 10).next();
 
         assertAll(
-                () -> assertEquals(List.of(THIRD, PROVIDER, OTHER), new ArrayList<>(ids)),
-                () -> assertThrows(UnsupportedOperationException.class, () -> ids.add(added)));
+                () -> assertEquals(List.of(THIRD, PROVIDER, OTHER), new ArrayList<>(ids),
+                        "the ids keep the order the providers were passed in"),
+                () -> assertThrows(UnsupportedOperationException.class,
+                        () -> ids.add(added), "the ids cannot be changed by a caller"));
     }
 
     @Test
@@ -94,7 +99,8 @@ class CodeAnalysisProviderRegistryTest {
         var registry = new CodeAnalysisProviderRegistry(providers);
         providers.add(new NamedProvider(OTHER));
 
-        assertEquals(Optional.empty(), registry.find(OTHER));
+        assertEquals(Optional.empty(), registry.find(OTHER),
+                "the registry does not hold the later provider");
     }
 
     @Test
@@ -102,7 +108,8 @@ class CodeAnalysisProviderRegistryTest {
     void duplicate() {
         var providers = List.of(new NamedProvider(PROVIDER), new NamedProvider(PROVIDER));
 
-        assertThrows(IllegalArgumentException.class, () -> new CodeAnalysisProviderRegistry(providers));
+        assertThrows(IllegalArgumentException.class, () -> new CodeAnalysisProviderRegistry(providers),
+                "a duplicate provider id is refused");
     }
 
     @ParameterizedTest(name = "\"{0}\"")
@@ -111,7 +118,8 @@ class CodeAnalysisProviderRegistryTest {
     void invalidId(String id) {
         var providers = List.of(new NamedProvider(id));
 
-        assertThrows(IllegalArgumentException.class, () -> new CodeAnalysisProviderRegistry(providers));
+        assertThrows(IllegalArgumentException.class, () -> new CodeAnalysisProviderRegistry(providers),
+                "an id outside the pattern is refused");
     }
 
     @Test
@@ -121,9 +129,12 @@ class CodeAnalysisProviderRegistryTest {
         var withNullId = List.of(new NamedProvider(null));
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new CodeAnalysisProviderRegistry(null)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new CodeAnalysisProviderRegistry(withNullProvider)),
-                () -> assertThrows(NullPointerException.class, () -> new CodeAnalysisProviderRegistry(withNullId)));
+                        () -> new CodeAnalysisProviderRegistry(null), "a missing collection is refused"),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new CodeAnalysisProviderRegistry(withNullProvider),
+                        "a null provider in the list is refused"),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new CodeAnalysisProviderRegistry(withNullId), "a null provider id is refused"));
     }
 }

@@ -58,7 +58,7 @@ class QueueTaskRecordCodecTest {
         void queued() {
             var task = QueueFixtures.queued(taskId()).build();
 
-            assertEquals(task, roundTrip(task));
+            assertEquals(task, roundTrip(task), "a queued task round-trips through the codec");
         }
 
         @Test
@@ -72,10 +72,12 @@ class QueueTaskRecordCodecTest {
             var read = roundTrip(task);
 
             assertAll(
-                    () -> assertEquals(task, read),
-                    () -> assertEquals(AttemptEnd.SUSPENDED, read.currentAttempt().orElseThrow().end()),
-                    () -> assertEquals("Q-001", read.continuation().questionId()),
-                    () -> assertEquals(1, read.signals().size()));
+                    () -> assertEquals(task, read, "the task survives the write and read"),
+                    () -> assertEquals(AttemptEnd.SUSPENDED, read.currentAttempt().orElseThrow().end(),
+                            "the attempt end is suspended"),
+                    () -> assertEquals("Q-001", read.continuation().questionId(),
+                            "the continuation keeps its question id"),
+                    () -> assertEquals(1, read.signals().size(), "the record keeps its one signal"));
         }
 
         @Test
@@ -91,11 +93,15 @@ class QueueTaskRecordCodecTest {
             var read = roundTrip(task);
 
             assertAll(
-                    () -> assertEquals(task, read),
-                    () -> assertEquals(SignalName.AGENT_STARTED, read.signals().getFirst().signal()),
-                    () -> assertEquals(SignalAction.RESTART, read.signals().getFirst().action()),
-                    () -> assertEquals(1, read.signals().getFirst().attempt()),
-                    () -> assertEquals(QueueFixtures.AT.plusSeconds(9), read.signals().getFirst().at()));
+                    () -> assertEquals(task, read, "the record with its signal round-trips"),
+                    () -> assertEquals(SignalName.AGENT_STARTED, read.signals().getFirst().signal(),
+                            "the signal name is agent_started"),
+                    () -> assertEquals(SignalAction.RESTART, read.signals().getFirst().action(),
+                            "the signal action is restart"),
+                    () -> assertEquals(1, read.signals().getFirst().attempt(),
+                            "the signal names its attempt"),
+                    () -> assertEquals(QueueFixtures.AT.plusSeconds(9), read.signals().getFirst().at(),
+                            "the signal keeps the instant it was made"));
         }
 
         @Test
@@ -103,7 +109,7 @@ class QueueTaskRecordCodecTest {
         void submitted() {
             var task = QueueFixtures.closedSubmitted(taskId());
 
-            assertEquals(task, roundTrip(task));
+            assertEquals(task, roundTrip(task), "a closed submitted task round-trips");
         }
 
         @Test
@@ -111,7 +117,7 @@ class QueueTaskRecordCodecTest {
         void lost() {
             var task = QueueFixtures.lostAttemptsSpent(taskId());
 
-            assertEquals(task, roundTrip(task));
+            assertEquals(task, roundTrip(task), "a lost task keeps its reason over a round-trip");
         }
 
         @Test
@@ -125,8 +131,9 @@ class QueueTaskRecordCodecTest {
             var consultation = QueueFixtures.consultation(consultationId, askingId);
 
             assertAll(
-                    () -> assertEquals(asking, roundTrip(asking)),
-                    () -> assertEquals(consultation, roundTrip(consultation)));
+                    () -> assertEquals(asking, roundTrip(asking), "the asking task keeps its consultation"),
+                    () -> assertEquals(consultation, roundTrip(consultation),
+                            "the consultation record round-trips too"));
         }
     }
 
@@ -138,10 +145,11 @@ class QueueTaskRecordCodecTest {
         @DisplayName("an agent_started signal with any action but restart")
         void agentStartedWithAnotherAction() {
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new Signal(SignalName.AGENT_STARTED, 1, SignalAction.NUDGE, 1, 1, Instant.EPOCH));
+                    () -> new Signal(SignalName.AGENT_STARTED, 1, SignalAction.NUDGE, 1, 1, Instant.EPOCH),
+                    "agent_started with action nudge is refused");
 
             assertEquals("An 'agent_started' signal always takes the action 'restart', not 'nudge'",
-                    refusal.getMessage());
+                    refusal.getMessage(), "refusal names the required restart action");
         }
 
         @Test
@@ -149,16 +157,18 @@ class QueueTaskRecordCodecTest {
         void inconsistentCounts() {
             assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Attempt(1,
                     QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
-                    null, QueueFixtures.AT, AttemptEnd.RESTART, true));
+                    null, QueueFixtures.AT, AttemptEnd.RESTART, true),
+                    "counts that disagree with the end are refused");
         }
 
         @Test
         @DisplayName("a withdrawal and an expired vote spend no re-offer")
         void closingEndsSpendNothing() {
             assertAll(
-                    () -> assertFalse(AttemptEnd.WITHDRAWN.counts()),
-                    () -> assertFalse(AttemptEnd.DEADLINE_EXPIRED.counts()),
-                    () -> assertTrue(AttemptEnd.WORKER_LOST.counts()));
+                    () -> assertFalse(AttemptEnd.WITHDRAWN.counts(), "a withdrawn end spends no re-offer"),
+                    () -> assertFalse(AttemptEnd.DEADLINE_EXPIRED.counts(),
+                            "a deadline expiry spends no re-offer"),
+                    () -> assertTrue(AttemptEnd.WORKER_LOST.counts(), "a worker loss spends a re-offer"));
         }
 
         @Test
@@ -167,17 +177,20 @@ class QueueTaskRecordCodecTest {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new Signal(SignalName.REPEATING, 1, SignalAction.SHOW, Double.NaN, 1,
-                                    QueueFixtures.AT)),
+                                    QueueFixtures.AT),
+                            "a NaN measurement is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new Signal(SignalName.REPEATING, 1, SignalAction.SHOW, 1,
-                                    Double.POSITIVE_INFINITY, QueueFixtures.AT)));
+                                    Double.POSITIVE_INFINITY, QueueFixtures.AT),
+                            "an infinite measurement is refused"));
         }
 
         @Test
         @DisplayName("a generation in upper case is refused")
         void upperCaseGeneration() {
             assertThrows(IllegalArgumentException.class,
-                    () -> new FencedGenerations.Fence("l-0123456789ABCDEF", QueueFixtures.AT));
+                    () -> new FencedGenerations.Fence("l-0123456789ABCDEF", QueueFixtures.AT),
+                    "an upper case generation is refused");
         }
     }
 }

@@ -57,7 +57,8 @@ class IstanbulSummaryParserTest {
 
         assertAll(
                 () -> assertEquals(2, report.items().size(), "The summary carries two files"),
-                () -> assertEquals("/src/utils/helper.js", report.items().getFirst().name(), "The file is named"),
+                () -> assertEquals("/src/utils/helper.js", report.items().getFirst().name(),
+                        "The first summary item is named after its file"),
                 () -> assertEquals(95.0, report.items().getFirst().line(), "The file lines.pct is 95"),
                 () -> assertEquals(88.0, report.items().getFirst().branch(), "The file branches.pct is 88"),
                 () -> assertEquals("/src/utils/format.js", report.items().get(1).name(), "The second file is named"),

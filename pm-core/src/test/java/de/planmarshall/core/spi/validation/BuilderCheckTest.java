@@ -62,8 +62,10 @@ class BuilderCheckTest {
     void constraintQuestionIsTheOperators() {
         var question = new Question(Sort.OPERATOR, OPERATOR_QUESTION, List.of("CN-1", "AC-1"), null);
         var accepted = assertInstanceOf(Accepted.class,
-                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
-        assertEquals(List.of(question), accepted.operatorQuestions());
+                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()),
+                "the operator question about CN-1 is accepted");
+        assertEquals(List.of(question), accepted.operatorQuestions(),
+                "the accepted round holds exactly the one operator question");
     }
 
     @DisplayName("A minor question that names a constraint is refused")
@@ -71,15 +73,17 @@ class BuilderCheckTest {
     void minorQuestionAboutConstraintIsRefused() {
         var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("CN-1"), MINOR_DECISION);
         var refused = assertInstanceOf(Refused.class,
-                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
-        assertTrue(refused.detail().contains("CN-1"));
+                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()),
+                "a minor question naming CN-1 is refused");
+        assertTrue(refused.detail().contains("CN-1"), "the refusal names the constraint CN-1");
     }
 
     @DisplayName("A minor question that names two criteria is refused")
     @Test
     void minorQuestionAboutTwoCriteriaIsRefused() {
         var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1", "AC-2"), MINOR_DECISION);
-        assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
+        assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(question)), intentRecord()),
+                "a minor question naming two criteria is refused");
     }
 
     @DisplayName("The builder's own call becomes a model decision of the record")
@@ -87,26 +91,33 @@ class BuilderCheckTest {
     void minorCallBecomesModelDecision() {
         var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1"), MINOR_DECISION);
         var accepted = assertInstanceOf(Accepted.class,
-                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
+                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()),
+                "the builder's minor call is accepted");
         var decision = accepted.intentRecord().choices().getLast();
-        assertEquals("DC-2", decision.id());
-        assertEquals(Decider.ROLE, decision.decider());
-        assertTrue(decision.text().startsWith("from the builder check:"));
-        assertFalse(accepted.operatorQuestions().contains(question));
+        assertEquals("DC-2", decision.id(), "the builder's call takes the next decision id");
+        assertEquals(Decider.ROLE, decision.decider(), "the decision is attributed to the builder role");
+        assertTrue(decision.text().startsWith("from the builder check:"),
+                "the decision text is prefixed as a builder call");
+        assertFalse(accepted.operatorQuestions().contains(question),
+                "the minor call is not an operator question");
     }
 
     @DisplayName("An answered question names exactly one item the record holds")
     @Test
     void answeredQuestionNamesOneHeldItem() {
         var answered = new Question(Sort.ANSWERED, ANSWERED_QUESTION, List.of("AC-1"), null);
-        assertInstanceOf(Accepted.class, BuilderCheck.validate(new Submission(List.of(answered)), intentRecord()));
+        assertInstanceOf(Accepted.class, BuilderCheck.validate(new Submission(List.of(answered)), intentRecord()),
+                "an answered question naming one held item is accepted");
 
         var unknown = new Question(Sort.ANSWERED, ANSWERED_QUESTION, List.of("AC-9"), null);
         assertTrue(assertInstanceOf(Refused.class,
-                BuilderCheck.validate(new Submission(List.of(unknown)), intentRecord())).detail().contains("AC-9"));
+                BuilderCheck.validate(new Submission(List.of(unknown)), intentRecord()),
+                "an answered question naming AC-9 is refused").detail().contains("AC-9"),
+                "the refusal names the unknown criterion AC-9");
 
         var two = new Question(Sort.ANSWERED, ANSWERED_QUESTION, List.of("AC-1", "AC-2"), null);
-        assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(two)), intentRecord()));
+        assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(two)), intentRecord()),
+                "an answered question naming two items is refused");
     }
 
     @DisplayName("The facts carry the intent record only")
@@ -126,17 +137,20 @@ class BuilderCheckTest {
     void refusesOverlongMinorDecision() {
         var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1"), "x".repeat(401));
         var refused = assertInstanceOf(Refused.class,
-                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
-        assertTrue(refused.detail().contains("longer"));
+                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()),
+                "a minor decision beyond the record bound is refused");
+        assertTrue(refused.detail().contains("longer"), "the refusal names the overlong decision");
     }
 
     @DisplayName("A question's text is bounded")
     @Test
     void questionIsBounded() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Question(Sort.OPERATOR, "no", List.of(), null));
+                () -> new Question(Sort.OPERATOR, "no", List.of(), null),
+                "a question text below the bound is refused");
         assertThrows(IllegalArgumentException.class,
-                () -> new Question(Sort.MINOR, MINOR_QUESTION, List.of(), "no"));
+                () -> new Question(Sort.MINOR, MINOR_QUESTION, List.of(), "no"),
+                "a minor decision text below the bound is refused");
     }
 
     @DisplayName("A builder that would exceed the decision bound is refused, not thrown")
@@ -154,8 +168,10 @@ class BuilderCheckTest {
         var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1"), MINOR_DECISION);
 
         var refused = assertInstanceOf(Refused.class,
-                BuilderCheck.validate(new Submission(List.of(question)), full));
-        assertTrue(refused.detail().contains("more than the 30"));
+                BuilderCheck.validate(new Submission(List.of(question)), full),
+                "a builder beyond the 30-decision bound is refused");
+        assertTrue(refused.detail().contains("more than the 30"),
+                "the refusal names the exceeded decision bound");
     }
 
     @DisplayName("The facts are an immutable map")

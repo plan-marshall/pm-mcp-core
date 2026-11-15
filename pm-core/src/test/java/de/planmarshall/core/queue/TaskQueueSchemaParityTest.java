@@ -125,9 +125,12 @@ class TaskQueueSchemaParityTest {
             var schema = schema(SCHEMA);
 
             assertAll(
-                    () -> assertFalse(TaskQueueSchemaParityTest.members(schema).isEmpty()),
-                    () -> assertEquals(QueueTaskRecordCodec.FIELDS, TaskQueueSchemaParityTest.members(schema)),
-                    () -> assertEquals(QueueTaskRecordCodec.REQUIRED, required(schema)));
+                    () -> assertFalse(TaskQueueSchemaParityTest.members(schema).isEmpty(),
+                            "the schema declares its members"),
+                    () -> assertEquals(QueueTaskRecordCodec.FIELDS, TaskQueueSchemaParityTest.members(schema),
+                            "the codec fields are the schema members in order"),
+                    () -> assertEquals(QueueTaskRecordCodec.REQUIRED, required(schema),
+                            "the required members are in schema order"));
         }
 
         @Test
@@ -138,31 +141,42 @@ class TaskQueueSchemaParityTest {
             assertAll(
                     () -> assertEquals(Set.of("work", "consultation"),
                             SchemaResource.array(member(schema, "kind").get("enum")).stream()
-                                    .map(String::valueOf).collect(Collectors.toUnmodifiableSet())),
+                                    .map(String::valueOf).collect(Collectors.toUnmodifiableSet()),
+                            "the kind enum holds work and consultation"),
                     () -> assertEquals(wireNames(QueueTaskRecord.Kind.values(), QueueTaskRecord.Kind::wireName),
-                            enumOf(schema, "kind")),
+                            enumOf(schema, "kind"), "the kind enum matches the record kinds"),
                     () -> assertEquals(wireNames(TaskClass.values(), TaskClass::wireName),
-                            enumOf(schema, "class")),
-                    () -> assertEquals(wireNames(Status.values(), Status::wireName), enumOf(schema, "status")),
-                    () -> assertEquals(wireNames(Outcome.values(), Outcome::wireName), enumOf(schema, "outcome")),
+                            enumOf(schema, "class"), "the class enum matches the task classes"),
+                    () -> assertEquals(wireNames(Status.values(), Status::wireName), enumOf(schema, "status"),
+                            "the status enum matches the statuses"),
+                    () -> assertEquals(wireNames(Outcome.values(), Outcome::wireName), enumOf(schema, "outcome"),
+                            "the outcome enum matches the outcomes"),
                     () -> assertEquals(wireNames(LostReason.values(), LostReason::wireName),
-                            enumOf(schema, "reason")),
+                            enumOf(schema, "reason"), "the reason enum matches the lost reasons"),
                     () -> assertEquals(wireNames(ScopeType.values(), ScopeType::wireName),
-                            nestedEnum(schema, "scope", "type")),
+                            nestedEnum(schema, "scope", "type"),
+                            "the scope type enum matches the schema"),
                     () -> assertEquals(wireNames(ContinuationForm.values(), ContinuationForm::wireName),
-                            nestedEnum(schema, "continuation", "form")),
+                            nestedEnum(schema, "continuation", "form"),
+                            "the continuation form enum matches"),
                     () -> assertEquals(wireNames(FallbackReason.values(), FallbackReason::wireName),
-                            nestedEnum(schema, "continuation", "fallback_reason")),
+                            nestedEnum(schema, "continuation", "fallback_reason"),
+                            "the fallback reason enum matches"),
                     () -> assertEquals(wireNames(AttemptEnd.values(), AttemptEnd::wireName),
-                            itemEnum(schema, "attempts", "end")),
+                            itemEnum(schema, "attempts", "end"),
+                            "the attempt end enum matches the schema"),
                     () -> assertEquals(wireNames(SignalName.values(), SignalName::wireName),
-                            itemEnum(schema, "signals", "signal")),
+                            itemEnum(schema, "signals", "signal"),
+                            "the signal name enum matches the schema"),
                     () -> assertEquals(wireNames(SignalAction.values(), SignalAction::wireName),
-                            itemEnum(schema, "signals", "action")),
+                            itemEnum(schema, "signals", "action"),
+                            "the signal action enum matches the schema"),
                     () -> assertEquals(wireNames(ConsultationStatus.values(), ConsultationStatus::wireName),
-                            itemEnum(schema, "consultations", "status")),
+                            itemEnum(schema, "consultations", "status"),
+                            "the consultation status enum matches"),
                     () -> assertEquals(wireNames(DeliveredTo.values(), DeliveredTo::wireName),
-                            itemEnum(schema, "consultations", "delivered_to")));
+                            itemEnum(schema, "consultations", "delivered_to"),
+                            "the delivered to enum matches the schema"));
         }
 
         @Test
@@ -183,8 +197,8 @@ class TaskQueueSchemaParityTest {
                     asking);
 
             assertAll(() -> assertEquals(1, ((Number) member(schema(SCHEMA), "format_version").get("const"))
-                    .intValue()), () -> records.forEach(task -> assertValid(validator,
-                    QueueTaskRecordCodec.write(task))));
+                    .intValue(), "the format version constant is 1"),
+                    () -> records.forEach(task -> assertValid(validator, QueueTaskRecordCodec.write(task))));
         }
     }
 
@@ -201,8 +215,10 @@ class TaskQueueSchemaParityTest {
             var schema = schema(SCHEMA);
 
             assertAll(
-                    () -> assertEquals(ActivityEntryCodec.FIELDS, TaskQueueSchemaParityTest.members(schema)),
-                    () -> assertEquals(ActivityEntryCodec.REQUIRED, required(schema)));
+                    () -> assertEquals(ActivityEntryCodec.FIELDS, TaskQueueSchemaParityTest.members(schema),
+                            "the entry codec fields are in schema order"),
+                    () -> assertEquals(ActivityEntryCodec.REQUIRED, required(schema),
+                            "the entry required members are in order"));
         }
 
         @Test
@@ -211,17 +227,19 @@ class TaskQueueSchemaParityTest {
             var schema = schema(SCHEMA);
 
             assertAll(
-                    () -> assertEquals(wireNames(Source.values(), Source::wireName), enumOf(schema, "source")),
+                    () -> assertEquals(wireNames(Source.values(), Source::wireName), enumOf(schema, "source"),
+                            "the source enum matches the entry sources"),
                     () -> assertEquals(wireNames(ActivityEntry.Kind.values(), ActivityEntry.Kind::wireName),
-                            enumOf(schema, "kind")),
+                            enumOf(schema, "kind"), "the kind enum matches the entry kinds"),
                     () -> assertEquals(wireNames(StopReason.values(), StopReason::wireName),
-                            enumOf(schema, "stop_reason")),
+                            enumOf(schema, "stop_reason"), "the stop reason enum matches the schema"),
                     () -> assertEquals(wireNames(LinkRelation.values(), LinkRelation::wireName),
-                            nestedEnum(schema, "link", "rel")),
+                            nestedEnum(schema, "link", "rel"), "the link relation enum matches"),
                     () -> assertEquals(wireNames(SignalName.values(), SignalName::wireName),
-                            nestedEnum(schema, "signal", "signal")),
+                            nestedEnum(schema, "signal", "signal"), "the signal name enum matches the schema"),
                     () -> assertEquals(wireNames(SignalAction.values(), SignalAction::wireName),
-                            nestedEnum(schema, "signal", "action")));
+                            nestedEnum(schema, "signal", "action"),
+                            "the signal action enum matches the schema"));
         }
 
         @Test
