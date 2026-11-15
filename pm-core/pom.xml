@@ -135,13 +135,16 @@
                             <goal>test-jar</goal>
                         </goals>
                         <configuration>
-                            <!-- The artifact holds the generator package (PLAN-V2-107) and the schema loader
-                                 SchemaResource with its synthetic classes (the enum switch of its parser compiles to
-                                 SchemaResource$1): the move packages of pm-runtime load their schema files through it
-                                 (ADR 016). The tests of this module are not published, and a fixture joins the
-                                 generator package when a generator needs it. -->
+                            <!-- The artifact holds the generator package (PLAN-V2-107), the assertion-message
+                                 scanner (PLAN-V2-103, ADR 012 amended) and the schema loader SchemaResource with its
+                                 synthetic classes (the enum switch of its parser compiles to SchemaResource$1): the
+                                 move packages of pm-runtime load their schema files through it (ADR 016), and the
+                                 thin guards of pm-workflow and the provider modules scan their own test trees
+                                 through the scanner. The tests of this module are not published, and a fixture joins
+                                 the generator package when a generator needs it. -->
                             <includes>
                                 <include>de/planmarshall/core/testing/generators/**</include>
+                                <include>de/planmarshall/core/testing/assertions/**</include>
                                 <include>de/planmarshall/core/SchemaResource.class</include>
                                 <include>de/planmarshall/core/SchemaResource$*.class</include>
                             </includes>

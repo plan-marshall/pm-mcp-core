@@ -3,12 +3,13 @@
 
 == Status
 
-Accepted, amended by ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016] (`pm-core:tests` also carries `SchemaResource`)
+Accepted, amended by ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016] (`pm-core:tests` also carries `SchemaResource`),
+and by the operator's decision of 2026-11-15 (`pm-core:tests` also carries the assertion-message scanner, PLAN-V2-103)
 
 == Date
 
 2026-10-31; amended 2026-11-06 by operator decision (PLAN-V2-92: the provider artifacts `pm-provider-ci:tests` and
-`pm-provider-git:tests`).
+`pm-provider-git:tests`); amended 2026-11-15 by operator decision (PLAN-V2-103: the shared assertion-message scanner).
 
 == Context
 
@@ -46,6 +47,14 @@ A consumer declares the artifact as a test-scope dependency of type `test-jar`; 
 dependency: `pm-core:tests` is admitted for the modules that already depend on `pm-core`, and the tests of
 `pm-workflow` and `pm-runtime` stay refused for each other, test scope included.
 
+`pm-core:tests` carries a third kind of shared test support beside the generators and `SchemaResource`: the
+assertion-message scanner of the `junit-core` rule that every assertion carries a message of 20 to 60 characters. The
+operator decided on 2026-11-15 (PLAN-V2-103) that the scan logic is published once, in
+`de.planmarshall.core.testing.assertions`, and that every module guards its own test tree with a thin test over
+it—a per-module copy of the about 400 lines was the alternative, and a `pm-core` test reading a sibling module's
+sources by relative path was the other. The scanner reads a package path and a source root, so a module's guard names
+its own base package and reads its own `src/test/java`; nothing of a consumer's tree is compiled into the artifact.
+
 The rule for later work: **a test that needs a generator for a type of another module takes it from that module's
 artifact; a new generator for a type of this module goes into this module's artifact, not into a test class.**
 
@@ -64,8 +73,11 @@ artifact; a new generator for a type of this module goes into this module's arti
 * A module that adds a generator publishes it with its own artifact; the artifact must be built by `verify` and
   deployed with the `SNAPSHOT`, so a consumer needs no local build of the producer.
 * The five generator artifacts package only their generator package: the `test-jar` goal's `includes` narrows the artifact
-  to it, so a module's own test classes, fixtures and fakes are not published. `pm-runtime:tests` keeps its whole test
-  scope, because the assembly already consumes `TestBases` and the fakes there; the generator package joins it.
+  to it, so a module's own test classes, fixtures and fakes are not published. `pm-core:tests` adds the assertion-message
+  scanner of PLAN-V2-103 to the artifact beside the generator package and `SchemaResource`; the scan's own controls
+  (`AssertionMessagesTest`) stay unpublished, because the `*Test` exclusion removes them. `pm-runtime:tests` keeps its
+  whole test scope, because the assembly already consumes `TestBases` and the fakes there; the generator package joins
+  it.
   PLAN-V2-106 started the replacement of the hand-written fakes by EasyMock doubles; PLAN-V2-136 completed it and keeps
   `FakeBus`, `FakeSecretService` and `FakePmExec` as the closed list of ADR
   link:026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc[026] (corrected 2026-11-14, PR #416).
@@ -89,5 +101,7 @@ artifact; a new generator for a type of this module goes into this module's arti
 
 The decision is recorded in the operator's decision of 2026-10-30 (epic `pm-mcp-core-m2-m4-v2`, decision "generator
 artifacts") and implemented by the pull request of PLAN-V2-107. The two provider artifacts `pm-provider-ci:tests` and
-`pm-provider-git:tests` are the operator's decision of 2026-11-06, implemented by the pull request of PLAN-V2-92. The dependency rules are those of `CLAUDE.md` §
+`pm-provider-git:tests` are the operator's decision of 2026-11-06, implemented by the pull request of PLAN-V2-92. The
+shared assertion-message scanner is the operator's decision of 2026-11-15 (option 1 of the three the orchestrator put
+to it), implemented by the pull request of PLAN-V2-103. The dependency rules are those of `CLAUDE.md` §
 Dependency Rules and the Module Structure Specification; the generator framework is `cui-test-generator` (R20).
