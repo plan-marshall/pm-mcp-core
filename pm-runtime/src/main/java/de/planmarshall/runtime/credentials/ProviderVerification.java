@@ -14,8 +14,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -316,21 +314,6 @@ public final class ProviderVerification {
     }
 
     /**
-     * A URL user-information head left without its closing {@code @} by the bound: the cut can fall between a URL's
-     * password and its {@code @}, and the ordinary URL shape then does not match. The hidden secret is masked, so the
-     * bound removes neither the credential nor its protection.
-     */
-    private static final Pattern CUT_URL_HEAD = Pattern.compile(
-            "(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?::\\/\\/|%3A%2F%2F))([^\\s/?#:]*+):([^@\\s]+)$");
-
-    /**
-     * A provider-token or npm-token head the cut leaves incomplete: the secret is masked, so a token split by the bound
-     * is not readable. Applied only when the answer was cut.
-     */
-    private static final Pattern CUT_TOKEN_TAIL = Pattern.compile(
-            "(?iU)\\b(?:npm_[A-Za-z0-9]*|(?:sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs])[-_][\\w-]*)$");
-
-    /**
      * @return the answer, cut at the line bound the redaction paths use and with everything credential-shaped removed,
      *         before a line or a log carries it
      */
@@ -340,9 +323,7 @@ public final class ProviderVerification {
         if (!cut) {
             return masked;
         }
-        masked = CUT_URL_HEAD.matcher(masked)
-                .replaceAll("$1$2:" + Matcher.quoteReplacement(SecretRedactor.REDACTED));
-        return CUT_TOKEN_TAIL.matcher(masked).replaceAll(Matcher.quoteReplacement(SecretRedactor.REDACTED));
+        return SecretRedactor.redactCutTokenTail(SecretRedactor.redactCutUrlHead(masked));
     }
 
     /**

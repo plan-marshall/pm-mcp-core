@@ -105,9 +105,9 @@ public class TapOutputParser {
      * A top-level test point, {@code ok} or {@code not ok} followed by a tab, a space or the end of the line: the TAP
      * point shape allows a bare point, a number, a {@code - description} and a {@code # directive}, and all of them
      * follow that separator. A prose line that merely starts with the word {@code ok} (such as {@code ok, the copy is
-     * done}) is no point.
+     * done}) is no point. The negative lookahead states the separator without an alternation.
      */
-    private static final Pattern TOP_LEVEL_POINT = Pattern.compile("^(?:not )?ok(?:[ \t]|$)");
+    private static final Pattern TOP_LEVEL_POINT = Pattern.compile("^(?:not )?ok(?![^ \t])");
 
     /**
      * Parses a TAP test log.

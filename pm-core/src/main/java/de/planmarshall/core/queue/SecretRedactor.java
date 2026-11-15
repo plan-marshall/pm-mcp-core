@@ -120,8 +120,14 @@ public final class SecretRedactor {
 
     private static final Pattern BEARER = Pattern.compile("(?iU)\\b(bearer\\s+)([\\w.~+/=-]{8,})");
 
+    /** The prefixes of the provider-token shapes, shared by the token pattern and the cut-tail rule. */
+    private static final String TOKEN_PREFIXES = "sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs]";
+
+    /** The npm access-token prefix, shared by the token pattern and the cut-tail rule. */
+    private static final String NPM_TOKEN_PREFIX = "npm_";
+
     private static final Pattern TOKEN_SHAPE = Pattern.compile(
-            "\\b(?:sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs])[-_][\\w-]{12,}");
+            "\\b(?:" + TOKEN_PREFIXES + ")[-_][\\w-]{12,}");
 
     /**
      * The npm access token: {@code npm_} followed by 36 alphanumeric characters (npm Registry API documentation, "Delete
@@ -130,7 +136,7 @@ public final class SecretRedactor {
      * or more alphanumeric characters after {@code npm_}, a run followed by {@code _} and a run preceded by a word
      * character stay readable as well, because none of them is an npm token.
      */
-    private static final Pattern NPM_ACCESS_TOKEN = Pattern.compile("\\bnpm_[A-Za-z0-9]{36}\\b");
+    private static final Pattern NPM_ACCESS_TOKEN = Pattern.compile("\\b" + NPM_TOKEN_PREFIX + "[A-Za-z0-9]{36}\\b");
 
     /**
      * The user-information form of a URL: {@code scheme://user:secret@host}. The pattern keeps the scheme and the user
@@ -173,6 +179,20 @@ public final class SecretRedactor {
 
     /** The user-information form behind the percent-encoded scheme separator ({@code https%3A%2F%2Fuser:secret@host}). */
     private static final Pattern URL_USER_INFORMATION_ENCODED = urlUserInformation("%3A%2F%2F");
+
+    /**
+     * A URL user-information head that a cut left without its closing {@code @}: the cut can fall between a URL's
+     * password and its {@code @}, and the ordinary URL shape then does not match, so the secret is masked here.
+     */
+    private static final Pattern CUT_URL_HEAD = Pattern.compile(
+            "(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?:://|%3A%2F%2F))([^\\s/?#:]*+):([^@\\s]+)$");
+
+    /**
+     * A provider-token or npm-token head that a cut left incomplete: built from the same prefixes as
+     * {@link #TOKEN_SHAPE} and {@link #NPM_ACCESS_TOKEN}, so a new prefix cannot miss the cut-tail rule.
+     */
+    private static final Pattern CUT_TOKEN_TAIL = Pattern.compile(
+            "(?iU)\\b(?:" + NPM_TOKEN_PREFIX + "[a-z0-9]*|(?:" + TOKEN_PREFIXES + ")[-_][\\w-]*)$");
 
     /**
      * The closed list of credential flags whose value is separated by whitespace instead of {@code :} or {@code =}.
@@ -347,6 +367,26 @@ public final class SecretRedactor {
                 .replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
         masked = redactPrivateKeyBlocks(masked);
         return Optional.of(masked);
+    }
+
+    /**
+     * Masks a URL user-information head that a cut left without its closing {@code @}.
+     *
+     * @param text the text a cut produced, its complete shapes already redacted
+     * @return the text with a trailing incomplete user-information head masked
+     */
+    public static String redactCutUrlHead(String text) {
+        return CUT_URL_HEAD.matcher(text).replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED));
+    }
+
+    /**
+     * Masks a provider-token or npm-token head that a cut left incomplete.
+     *
+     * @param text the text a cut produced, its complete shapes already redacted
+     * @return the text with a trailing incomplete token masked
+     */
+    public static String redactCutTokenTail(String text) {
+        return CUT_TOKEN_TAIL.matcher(text).replaceAll(Matcher.quoteReplacement(REDACTED));
     }
 
     /**
