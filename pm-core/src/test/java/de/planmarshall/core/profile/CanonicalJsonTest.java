@@ -88,7 +88,7 @@ class CanonicalJsonTest {
                 MessageDigest.getInstance("SHA-256").digest("{\"a\":1}".getBytes(UTF_8)));
 
         assertAll(
-                () -> assertTrue(digest.matches("sha256:[0-9a-f]{64}"), digest),
+                () -> assertTrue(digest.matches("sha256:[0-9a-f]{64}"), "the digest carries the sha256 prefix"),
                 () -> assertEquals(expected, digest, "digest is sha256 of the bytes"),
                 () -> assertEquals("[1,\"x\"]", CanonicalJson.write(JsonNode.array(List.of(JsonNode.integer(1),
                         JsonNode.string("x")))), "array of number and string"));

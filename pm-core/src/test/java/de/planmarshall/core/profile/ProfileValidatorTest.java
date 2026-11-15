@@ -112,7 +112,7 @@ class ProfileValidatorTest {
         var classes = profile.member("headless").flatMap(headless -> headless.member("classes")).orElseThrow();
 
         assertTrue(classes.members().values().stream().noneMatch(JsonNode::isNull),
-                "Every declared class must be runnable");
+                "no declared class is left unconfigured");
     }
 
     @Nested

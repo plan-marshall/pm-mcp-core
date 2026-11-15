@@ -49,7 +49,7 @@ class ShippedProfilesTest {
     void everyShippedProfileValidates() {
         var shipped = ShippedProfiles.read().shipped();
 
-        assertFalse(shipped.isEmpty(), "pm-api ships at least one profile");
+        assertFalse(shipped.isEmpty(), "pm-api ships a profile under classpath:/profiles/");
         assertAll(shipped.keySet().stream().map(clientId -> (Executable) () -> {
             var document = shipped.get(clientId).document();
             var profile = ProfileValidator.validate(document, "profiles/" + clientId + ".json", ProfileRules.none());

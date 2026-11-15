@@ -178,13 +178,13 @@ class ToonConformanceTest {
                 default -> parser.skipChildren();
             }
         }
-        assertNotNull(input, id);
+        assertNotNull(input, "the fixture carries an input section");
         return new Fixture(id, name, input, expected, options, skipReason);
     }
 
     private static String resource(String name) {
         try (InputStream in = ToonConformanceTest.class.getResourceAsStream(BASE + name)) {
-            assertNotNull(in, name);
+            assertNotNull(in, "the fixture resource is on the classpath");
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
