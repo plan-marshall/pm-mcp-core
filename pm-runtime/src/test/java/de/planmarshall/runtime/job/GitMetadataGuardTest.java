@@ -109,17 +109,37 @@ class GitMetadataGuardTest {
     }
 
     @Test
-    @DisplayName("Should answer changed for a tree it cannot read, even when the baseline is the same")
-    void shouldAnswerChangedForAnUnreadableTree() throws Exception {
+    @DisplayName("Should answer changed when a readable tree becomes unreadable")
+    void shouldAnswerChangedWhenReadableBecomesUnreadable() throws Exception {
+        var root = repository();
+        var guard = new GitMetadataGuard();
+        guard.record(root);
+        Files.delete(root.resolve(".git/config"));
+        Files.delete(root.resolve(".git/hooks"));
+        Files.delete(root.resolve(".git"));
+        Files.createSymbolicLink(root.resolve(".git"), Files.createDirectories(base.resolve(name())));
+
+        var verdict = guard.verify(root);
+
+        assertEquals(GitMetadataGuard.Changed.class, verdict.getClass(), "a tree that became unreadable differs");
+    }
+
+    @Test
+    @DisplayName("Should let the operator's act accept an unreadable tree")
+    void shouldRebaselineAnUnreadableTree() throws Exception {
         var root = Files.createDirectories(base.resolve(name()));
         Files.createSymbolicLink(root.resolve(".git"), Files.createDirectories(base.resolve(name())));
         var guard = new GitMetadataGuard();
-
         guard.record(root);
-        var verdict = guard.verify(root);
 
-        assertEquals(new GitMetadataGuard.Changed(new TreeSet<>(Set.of(GitMetadataDigest.UNREADABLE))), verdict,
-                "an unreadable tree is fail closed");
+        assertAll("An unreadable tree is recoverable",
+                () -> assertEquals(new GitMetadataGuard.Unchanged(), guard.verify(root),
+                        "the recorded unreadable tree compares equal"),
+                () -> {
+                    guard.rebaseline(root);
+                    assertEquals(new GitMetadataGuard.Unchanged(), guard.verify(root),
+                            "the operator's act accepts it");
+                });
     }
 
     private Path repository() throws IOException {

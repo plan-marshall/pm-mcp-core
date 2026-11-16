@@ -166,7 +166,6 @@ public final class GitMetadataDigest {
         }
         for (var target : scan.paths()) {
             if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-                failures.add(name(root, target));
                 continue;
             }
             digestFile(root, target, parts, failures);
@@ -206,7 +205,7 @@ public final class GitMetadataDigest {
             if (!PATH.equals(key)) {
                 continue;
             }
-            var value = unquote(comment(line.substring(separator + 1)));
+            var value = value(line.substring(separator + 1));
             if (value.isEmpty()) {
                 continue;
             }
@@ -218,20 +217,25 @@ public final class GitMetadataDigest {
         return new IncludeScan(List.copyOf(includes), false);
     }
 
-    /** @return the value without a trailing comment, trimmed */
-    private static String comment(String value) {
-        for (var index = 0; index < value.length(); index++) {
-            var character = value.charAt(index);
-            if ((character == '#' || character == ';')
-                    && (index == 0 || Character.isWhitespace(value.charAt(index - 1)))) {
-                return value.substring(0, index).strip();
+    /**
+     * @return the value as git's config parser gives it: surrounding quotes removed and a comment outside the quotes cut
+     *         off, so a {@code #} inside a quoted path is part of the path
+     */
+    private static String value(String raw) {
+        var value = new StringBuilder();
+        var quoted = false;
+        for (var index = 0; index < raw.length(); index++) {
+            var character = raw.charAt(index);
+            if (character == '"') {
+                quoted = !quoted;
+                continue;
             }
+            if (!quoted && (character == '#' || character == ';')) {
+                break;
+            }
+            value.append(character);
         }
-        return value.strip();
-    }
-
-    private static String unquote(String value) {
-        return value.replace("\"", "").replace("'", "");
+        return value.toString().strip();
     }
 
     private static String expandHome(String value) {

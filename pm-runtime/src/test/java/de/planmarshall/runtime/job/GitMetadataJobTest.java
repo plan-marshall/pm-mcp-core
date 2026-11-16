@@ -208,7 +208,7 @@ class GitMetadataJobTest {
 
         assertAll("A missing report leaves the honest value",
                 () -> assertEquals(GitMetadata.UNENFORCED, written.gitMetadata(),
-                        "the write-ahead record states unenforced"),
+                        "the first record read states unenforced"),
                 () -> assertEquals(GitMetadata.UNENFORCED, settled.gitMetadata(),
                         "the fate record states unenforced"));
     }

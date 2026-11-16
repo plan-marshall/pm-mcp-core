@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -45,7 +44,8 @@ public final class GitMetadataGuard {
      * @param projectRoot the canonical enrolled project root
      */
     public void record(Path projectRoot) {
-        baselines.computeIfAbsent(key(projectRoot), _ -> GitMetadataDigest.of(projectRoot));
+        var digest = GitMetadataDigest.of(projectRoot);
+        baselines.putIfAbsent(key(projectRoot), digest);
     }
 
     /**
@@ -60,11 +60,7 @@ public final class GitMetadataGuard {
         if (baseline == null) {
             return new Unchanged();
         }
-        var current = GitMetadataDigest.of(projectRoot);
-        if (current.containsKey(GitMetadataDigest.UNREADABLE)) {
-            return new Changed(new TreeSet<>(Set.of(GitMetadataDigest.UNREADABLE)));
-        }
-        var parts = GitMetadataDigest.differences(baseline, current);
+        var parts = GitMetadataDigest.differences(baseline, GitMetadataDigest.of(projectRoot));
         return parts.isEmpty() ? new Unchanged() : new Changed(parts);
     }
 

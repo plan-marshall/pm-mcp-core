@@ -151,11 +151,17 @@ class GitMetadataPathsTest {
 
             var result = GitMetadataPaths.of(main);
 
+            Files.writeString(worktree.resolve(".git"), GITDIR_PREFIX + admin + "\n");
+            Files.writeString(admin.resolve("gitdir"), worktree.resolve(".git") + "\n");
+            var control = GitMetadataPaths.of(main);
+
             assertAll("Record naming another administration",
                     () -> assertTrue(result.linkFiles().isEmpty(), "the record yields no link file"),
                     () -> assertEquals(List.of(new GitMetadataPaths.Skipped(admin.resolve("gitdir"),
                                     GitMetadataPaths.NOT_NAMED_BACK)), result.skipped(),
-                            "the record names another administration"));
+                            "the record names another administration"),
+                    () -> assertEquals(List.of(worktree.resolve(".git")), control.linkFiles(),
+                            "the repaired record yields the link file"));
         }
 
         @Test
@@ -171,11 +177,18 @@ class GitMetadataPathsTest {
 
             var result = GitMetadataPaths.of(worktree);
 
+            Files.delete(adminLink);
+            Files.createDirectories(adminLink);
+            Files.writeString(adminLink.resolve("commondir"), "../..\n");
+            var control = GitMetadataPaths.of(worktree);
+
             assertAll("Symlinked administration directory",
                     () -> assertNull(result.gitDirectory(), "a refused administration directory yields none"),
                     () -> assertEquals(List.of(new GitMetadataPaths.Refused(adminLink,
                                     GitMetadataPaths.PATH_TRAVERSAL_REJECTED)), result.refused(),
-                            "the symlinked administration directory is refused"));
+                            "the symlinked administration directory is refused"),
+                    () -> assertEquals(main.resolve(".git"), control.gitDirectory(),
+                            "the real administration directory is found"));
         }
 
         @Test
@@ -190,11 +203,17 @@ class GitMetadataPathsTest {
 
             var result = GitMetadataPaths.of(main);
 
+            Files.delete(linkFile);
+            Files.writeString(linkFile, GITDIR_PREFIX + admin + "\n");
+            Files.writeString(admin.resolve("commondir"), "../..\n");
+            var control = GitMetadataPaths.of(main);
+
             assertAll("Symlinked link file",
                     () -> assertTrue(result.linkFiles().isEmpty(), "the refused link file is not returned"),
                     () -> assertEquals(List.of(new GitMetadataPaths.Refused(linkFile,
                                     GitMetadataPaths.PATH_TRAVERSAL_REJECTED)), result.refused(),
-                            "the symlinked link file is refused"));
+                            "the symlinked link file is refused"),
+                    () -> assertEquals(List.of(linkFile), control.linkFiles(), "the real link file is found"));
         }
 
         @Test

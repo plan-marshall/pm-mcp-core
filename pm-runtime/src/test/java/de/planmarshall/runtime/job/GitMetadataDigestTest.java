@@ -209,14 +209,28 @@ class GitMetadataDigestTest {
     }
 
     @Test
-    @DisplayName("Should answer unreadable for a missing include")
-    void shouldAnswerUnreadableForMissingInclude() throws Exception {
+    @DisplayName("Should ignore a missing include, as git does")
+    void shouldIgnoreAMissingInclude() throws Exception {
         var root = repository();
         Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = " + name() + ".cfg\n");
 
         var parts = GitMetadataDigest.of(root);
 
-        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE), "a missing include is fail closed");
+        assertFalse(parts.containsKey(GitMetadataDigest.UNREADABLE), "a missing include is absent, not unreadable");
+    }
+
+    @Test
+    @DisplayName("Should read a quoted include path with a trailing comment")
+    void shouldReadQuotedIncludeWithComment() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = \"extra.cfg\" ; a comment\n");
+        Files.writeString(root.resolve(".git/extra.cfg"), "[core]\n\tfsmonitor = " + name() + "\n");
+        var before = GitMetadataDigest.of(root);
+        Files.writeString(root.resolve(".git/extra.cfg"), "[core]\n\tfsmonitor = attacker\n");
+
+        var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
+
+        assertEquals(java.util.Set.of(".git/extra.cfg"), changed, "a quoted path with a comment is digested");
     }
 
     @Test

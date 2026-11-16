@@ -263,6 +263,26 @@ class JobConfinementComposerTest {
             assertTrue(confinement.readOnlyPaths().isEmpty(), "a project without git names no path");
         }
 
+        @Test
+        @DisplayName("a linked worktree outside the root is not named as a read-only path")
+        void outsideWorktreeIsNotReadOnly() throws IOException {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var admin = Files.createDirectories(project.resolve(".git/worktrees/outside"));
+            Files.writeString(admin.resolve("commondir"), "../..\n");
+            var outside = Files.createDirectories(base.resolve("outside-worktree"));
+            var outsideLink = outside.resolve(".git");
+            Files.writeString(outsideLink, "gitdir: " + admin + "\n");
+            Files.writeString(admin.resolve("gitdir"), outsideLink + "\n");
+
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+
+            assertAll("Only the metadata inside the root is read-only",
+                    () -> assertTrue(confinement.readOnlyPaths().contains(project.resolve(".git")),
+                            "the git directory of the root is read-only"),
+                    () -> assertFalse(confinement.readOnlyPaths().contains(outsideLink),
+                            "a link file outside the root is not read-only"));
+        }
+
         /** @return the {@code .git} link file of a linked worktree of the project */
         private Path gitProject() throws IOException {
             var admin = Files.createDirectories(project.resolve(".git/worktrees/linked"));
