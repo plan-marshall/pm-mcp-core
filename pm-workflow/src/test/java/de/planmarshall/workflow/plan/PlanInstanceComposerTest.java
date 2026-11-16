@@ -1162,4 +1162,33 @@ class PlanInstanceComposerTest {
             assertEquals(2, next.version());
         }
     }
+
+    @Nested
+    @DisplayName("Landing variant of the project")
+    class Landing {
+
+        @Test
+        @DisplayName("a pull request the project cannot open refuses the composition with its reason")
+        void landingRefused() {
+            var refused = refused(composer().compose(start(facts().build()),
+                    new LandingVariantValidation.Project(false, false)));
+
+            assertAll(
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertTrue(refused.violations().stream()
+                                    .anyMatch(violation -> violation.startsWith("landing: the variant "
+                                            + "'landing.pull-request' does not fit the project:")),
+                            refused.violations()::toString));
+        }
+
+        @Test
+        @DisplayName("a pull request the project can open composes as it does without the check")
+        void landingFits() {
+            var withProject = composed(composer().compose(start(facts().build()),
+                    new LandingVariantValidation.Project(true, false)));
+            var withoutProject = composed(composer().compose(start(facts().build())));
+
+            assertEquals(withoutProject.text(), withProject.text(), "A fitting project changes nothing");
+        }
+    }
 }
