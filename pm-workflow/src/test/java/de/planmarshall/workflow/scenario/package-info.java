@@ -15,10 +15,16 @@
  * {@code scenario <name>}, the declaration of the scripted worker of each role, and one directive per line. The
  * harness runs the directives the engine and the task protocol support today: {@code start}, {@code complete_job},
  * {@code answer_question}, {@code assert_state}, {@code assert_outcome}, {@code assert_task_outcome},
- * {@code operator_do}, {@code worker_wait}, {@code worker_do}, {@code assert_worker_state} and
- * {@code assert_refused}. Every other directive the specification names (the link directives, the worker faults, the
- * runtime restart, the unqualified role, the instance version and the operator verbs) is refused by name with its line
- * and the work package that brings it; a word that is no directive at all is refused as unknown.
+ * {@code operator_do}, {@code worker_wait}, {@code worker_do}, {@code assert_worker_state}, {@code assert_refused},
+ * the worker faults {@code kill_worker}, {@code stall_worker <seconds>}, {@code end_turn} and {@code kill_relay}, and
+ * the runtime restart {@code restart_runtime}. Every other directive the specification names (the link directives,
+ * the unqualified role, the instance version and the operator verbs) is refused by name with its line and the work
+ * package that brings it; a word that is no directive at all is refused as unknown.
+ * <p>
+ * A fault applies the fact the supervisor reports for it at the deadline the fixture worker values give that fact (the
+ * exit is observed at once), and fences the lost generation; the runtime restart rebuilds the engine, the task
+ * protocol and the stores' objects over the same directory of the replay (ADR 010,
+ * `pm-workflow/doc/adr/workflow-scenario/010-worker-faults-apply-the-supervisors-facts.adoc`).
  * <p>
  * The {@link de.planmarshall.workflow.scenario.ScenarioReplayRunner} replays a script against the real
  * {@link de.planmarshall.workflow.engine.WorkflowEngine} over the fixtures of
