@@ -57,8 +57,13 @@ the job record, the lesson front matter, the pending entry and the workflow stat
 
 * This ADR supersedes the sentence of ADR 007 "The schema parity tests read the specification of this repository
   (`pm.specification.root`)." ADR 007 stays accepted otherwise; its status names this amendment.
-* The premise of ADR 009 and the `**/doc/**` entry of the include list of ADR 015 stay until the work package
-  `adoc-reading-retired` has moved the last reader off the `.adoc` files; `SpecificationDocument` stays until then too.
+* The work package `adoc-reading-retired` moved the last reader off the `.adoc` files: `SpecificationDocument` and
+  the property `pm.specification.root` are deleted, so the premise of ADR
+  link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009] no longer holds, and the `**/doc/**` entry
+  of the include list of ADR link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015] is narrowed to the
+  generated log message listings `doc/log-messages/*.adoc` (ADR
+  link:019-generated-log-message-listings.adoc[019]), the only files below a `doc/` tree a test still reads. The index
+  of the ADRs marks both entries superseded.
 * The work packages that move the schema blocks follow the layout and the include convention above; `trace.py` checks
   that every `include::` target exists and reports a schema block that is still inline.
 * A stored record is not validated against its schema file at run time: the schema files are the contract the parity
