@@ -1,0 +1,170 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.runtime.worker;
+
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
+
+import de.planmarshall.core.queue.QueueTaskRecord;
+import de.planmarshall.core.store.JobRecord;
+import de.planmarshall.core.store.JobRecordStore;
+import de.planmarshall.runtime.job.JobLog;
+
+/**
+ * One periodic step of the supervision (PM-WORK-3, PM-WORK-7): the part of the loop that reads the world and settles
+ * what it finds, as a function the assembly schedules.
+ * <p>
+ * The class starts no thread and owns no timer: the deadlines of {@link LossDetection} keep running on
+ * {@link WorkerTimers}, which already owns the supervisor's one scheduler thread, so {@link #run()} is a step a caller
+ * drives from wherever its scheduling belongs. It takes one reading of the clock and, for every generation that is not
+ * terminal, reads the generation's job record from the store the terminal-state writer reads. A job the record reports
+ * as ended settles its detection with {@link LossDetection#exit(Instant)} and completes the end through
+ * {@link WorkerEnding#exited(WorkerGeneration)}, a loss going through
+ * {@link WorkerEnding#end(WorkerGeneration, LossSignal)} first. A generation that holds a task reads its job log from
+ * the offset its pump last read, hands the complete lines to that generation's {@link WorkerActivityPump} and runs
+ * {@link AgentStartedDetector#detect(WorkerGeneration, long, AgentStartedDetector.HeldTask)} with the PID of the job
+ * record. Once per pass the recycling yields an idle slot to a role that waits for one.
+ * <p>
+ * A pass that finds nothing to do reads the job records and their logs and writes nothing; a log that is unreadable or
+ * truncated appends nothing and is read again at the next pass (ADR {@code runtime-worker/011}). Every state change of
+ * a generation is written through {@link WorkerSupervisor#replaced(WorkerGeneration)} and its {@link WorkerLifecycle}
+ * transition table.
+ *
+ * @since 0.1
+ */
+public final class SupervisionPass {
+
+    private final WorkerSupervisor supervisor;
+    private final SupervisorCalls calls;
+    private final WorkerEnding ending;
+    private final WorkerRecycling recycling;
+    private final WorkerTaskActivity tasks;
+    private final AgentStartedDetector detector;
+    private final Function<WorkerGeneration, WorkerActivityPump> pumps;
+    private final Map<String, WorkerActivityPump> active = new HashMap<>();
+
+    /**
+     * @param supervisor the supervisor whose registry the pass advances
+     * @param calls      the supervisor's inbound calls, which own the per-generation loss detections
+     * @param ending     the one end path of a generation
+     * @param recycling  the recycling decision of the idle yield
+     * @param tasks      the facts of a served task, which name the attempt the {@code agent_started} signal carries
+     * @param detector   the {@code agent_started} detection of a generation's process tree
+     * @param pumps      the activity pump of one generation, which the caller composes with its mapper and recorder
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public SupervisionPass(WorkerSupervisor supervisor, SupervisorCalls calls, WorkerEnding ending,
+            WorkerRecycling recycling, WorkerTaskActivity tasks, AgentStartedDetector detector,
+            Function<WorkerGeneration, WorkerActivityPump> pumps) {
+        this.supervisor = Objects.requireNonNull(supervisor, "supervisor");
+        this.calls = Objects.requireNonNull(calls, "calls");
+        this.ending = Objects.requireNonNull(ending, "ending");
+        this.recycling = Objects.requireNonNull(recycling, "recycling");
+        this.tasks = Objects.requireNonNull(tasks, "tasks");
+        this.detector = Objects.requireNonNull(detector, "detector");
+        this.pumps = Objects.requireNonNull(pumps, "pumps");
+    }
+
+    /**
+     * Runs one step of the supervision over the supervisor's registry, the job records and the job logs.
+     */
+    public synchronized void run() {
+        var environment = supervisor.environment();
+        var now = environment.clock().instant();
+        var jobs = JobRecordStore.ofProject(environment.base(), environment.projectId());
+        for (var generation : supervisor.generations()) {
+            if (generation.terminal()) {
+                continue;
+            }
+            var record = jobs.read(generation.jobId());
+            if (record.isEmpty()) {
+                continue;
+            }
+            if (record.get().status().isSettled()) {
+                completeEnd(generation, now);
+                continue;
+            }
+            var task = generation.leasedTask();
+            if (task != null) {
+                observe(generation, task, record.get(), jobs);
+            }
+        }
+        recycling.yieldIdleSlot();
+    }
+
+    /**
+     * Reads the log a generation's task grew and examines its process tree. The log's offset lives in the pump, so a
+     * line the log gained is appended once however often the pass runs.
+     */
+    private void observe(WorkerGeneration generation, String task, JobRecord job, JobRecordStore jobs) {
+        var pump = active.computeIfAbsent(generation.generationId(), ignored -> pumps.apply(generation));
+        pump.pump(task, generation.generationId(), new JobLog(jobs.logPath(generation.jobId())));
+        var pid = job.pid();
+        if (pid == null) {
+            return;
+        }
+        tasks.facts(task).ifPresent(facts -> detector.detect(generation, pid,
+                new AgentStartedDetector.HeldTask(task, facts.attempt())));
+    }
+
+    /**
+     * Settles a generation whose job record is settled: a deadline or the observed exit decides the loss, an exit
+     * before the first call is the start failure, and the one end path completes the end exactly once.
+     */
+    private void completeEnd(WorkerGeneration generation, Instant now) {
+        var generationId = generation.generationId();
+        var detection = calls.detection(generation);
+        var exit = detection.exit(now);
+        exit.ifPresent(signal -> ending.end(generation, signal));
+        var loss = exit.or(() -> calls.loss(generationId));
+        var requested = ending.requestedCause(generationId);
+        if (requested.isEmpty() && detection.startFailure()) {
+            ending.end(generation, EndCause.START_FAILURE);
+            requested = ending.requestedCause(generationId);
+        }
+        supervisor.replaced(ending.exited(generation));
+        finishAttempt(generation, requested, loss);
+        calls.forget(generationId);
+    }
+
+    /**
+     * Appends the attempt's end to the journal of the task the generation held, through the pump that read its log; a
+     * generation whose log was never pumped appends nothing, because the attempt has no journal in this run.
+     */
+    private void finishAttempt(WorkerGeneration generation, Optional<EndCause> cause, Optional<LossSignal> loss) {
+        var task = generation.leasedTask();
+        var pump = active.remove(generation.generationId());
+        if (task == null || pump == null || tasks.facts(task).isEmpty()) {
+            return;
+        }
+        pump.finish(task, generation.generationId(), attemptEnd(cause, loss));
+    }
+
+    /**
+     * @param cause why the generation was ended; empty when the registry holds no requested end
+     * @param loss  the signal that settled its detection; empty when it was not lost
+     * @return how the attempt of the held task ended
+     */
+    private static QueueTaskRecord.AttemptEnd attemptEnd(Optional<EndCause> cause, Optional<LossSignal> loss) {
+        return switch (cause.orElse(EndCause.LOST)) {
+            case TASK_DONE, RECYCLE -> QueueTaskRecord.AttemptEnd.CLOSED;
+            case DRAIN -> QueueTaskRecord.AttemptEnd.DRAIN;
+            case PAUSE_AT_ONCE -> QueueTaskRecord.AttemptEnd.PAUSED;
+            case OFF_TRACK -> QueueTaskRecord.AttemptEnd.OFF_TRACK;
+            case START_FAILURE -> QueueTaskRecord.AttemptEnd.START_FAILURE;
+            case LOST -> loss.map(signal -> signal.reason().attemptEnd())
+                    .orElse(QueueTaskRecord.AttemptEnd.WORKER_LOST);
+        };
+    }
+}
