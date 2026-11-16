@@ -231,6 +231,19 @@ class JudgeCheckTest {
     }
 
     @Test
+    @DisplayName("an item that carries a token split is refused as undeclared")
+    void tokenSplitRefused() {
+        var file = directory.resolve("judge-check.json");
+        var text = new String(JudgeCheckCodec.write(new Runner(JudgeCheckTest::followsReference).run()),
+                StandardCharsets.UTF_8);
+        var document = text.replace("\"total_tokens\":", "\"tokens_in\":1,\"total_tokens\":")
+                .getBytes(StandardCharsets.UTF_8);
+
+        assertThrows(StoreRefusal.class, () -> JudgeCheckCodec.read(file, document),
+                "an undeclared split is a store refusal");
+    }
+
+    @Test
     @DisplayName("an unreadable judge check is refused with the file named")
     void unreadable() {
         var file = directory.resolve("judge-check.json");

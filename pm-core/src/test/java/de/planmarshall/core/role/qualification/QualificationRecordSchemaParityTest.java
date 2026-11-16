@@ -27,10 +27,9 @@ import de.planmarshall.core.store.SchemaParity;
 /**
  * The qualification record keeps parity with {@code qualification-record.schema.json}: the codec writes the file's
  * members in its order, every required member is written, the closed enumerations are the file's, and the bounds are
- * the record's own limits. Two drifts are pinned: the file declares an optional {@code judge_check} member the codec
- * neither writes nor reads (owner: the work package {@code qualification-evidence}), and the codec writes
- * {@code tokens_in}/{@code tokens_out} on a form and an item where the file declares only {@code total_tokens}
- * (owner: {@code PLAN-V2-56}, qualification-token-split).
+ * the record's own limits. One drift is pinned: the file declares an optional {@code judge_check} member the codec
+ * neither writes nor reads (owner: the work package {@code qualification-evidence}). The codec writes no token split,
+ * as the file declares only {@code total_tokens}.
  */
 @DisplayName("Qualification record schema parity")
 class QualificationRecordSchemaParityTest {
@@ -88,15 +87,15 @@ class QualificationRecordSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the codec's form members are pinned to PLAN-V2-56")
-    void tokenSplitIsPinned() {
+    @DisplayName("the codec's form members are the file's, without a token split")
+    void formMembersAreTheFiles() {
         var schema = SchemaParity.load(SCHEMA);
         var form = SchemaParity.object(SchemaParity.object(schema.get("$defs")).get("formResult"));
         var writtenForm = SchemaParity.object(SchemaParity.object(document().get("forms")).get("fresh"));
 
-        assertEquals(List.of("record-only:tokens_in", "record-only:tokens_out"),
+        assertEquals(List.of(),
                 SchemaParity.memberDiffs(SchemaParity.members(writtenForm), form),
-                "the form token split is pinned to PLAN-V2-56");
+                "the form members should equal the schema's");
     }
 
     @Test
