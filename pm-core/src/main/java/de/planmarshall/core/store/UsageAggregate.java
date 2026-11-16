@@ -31,7 +31,7 @@ import de.planmarshall.core.store.MetricsRow.Phase;
 import de.planmarshall.core.store.MetricsRow.SpendClass;
 
 /**
- * One aggregate of the metrics rows (PM-WF-14, PM-WORK-3, Store Schemas § Metrics Store, Aggregates): the tokens used
+ * One aggregate of the metrics rows (PM-WF-14, PM-WORK-3, Store Schemas § Metrics Store): the tokens used
  * with their split, and the coverage those figures rest on.
  * <p>
  * An aggregate is never persisted: it is derived on read from the rows of a {@code metrics.json}, and the views derive

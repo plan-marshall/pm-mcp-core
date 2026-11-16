@@ -27,8 +27,7 @@ import de.planmarshall.core.store.SchemaParity;
 /**
  * The judge check record keeps parity with {@code judge-check-record.schema.json}: the codec writes the file's members
  * in its order, every required member is written, the label enumeration is the file's, and the bounds are the record's
- * own limits. One drift is pinned: the codec writes {@code tokens_in} and {@code tokens_out} on an item, which the file
- * does not declare; {@code PLAN-V2-56} (qualification-token-split) removes them from the codec.
+ * own limits. The codec writes no token split, as the file declares only {@code total_tokens}.
  */
 @DisplayName("Judge check record schema parity")
 class JudgeCheckSchemaParityTest {
@@ -81,15 +80,15 @@ class JudgeCheckSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the codec's item members are the file's, with two drifts pinned")
-    void itemMembersArePinned() {
+    @DisplayName("the codec's item members are the file's, without a token split")
+    void itemMembersAreTheFiles() {
         var schema = SchemaParity.load(SCHEMA);
         var items = SchemaParity.object(SchemaParity.member(schema, "items").get("items"));
         var writtenItem = SchemaParity.object(SchemaParity.array(document().get("items")).getFirst());
 
-        assertEquals(List.of("record-only:tokens_in", "record-only:tokens_out"),
+        assertEquals(List.of(),
                 SchemaParity.memberDiffs(SchemaParity.members(writtenItem), items),
-                "the item token split is pinned to PLAN-V2-56");
+                "the item members should equal the schema's");
     }
 
     @Test

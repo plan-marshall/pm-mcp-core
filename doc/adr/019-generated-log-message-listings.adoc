@@ -52,8 +52,9 @@ listing is regenerated from the holder, so the test fails until the committed fi
 states the component or the description; both live in the Javadoc, which the document links per holder.
 
 A test still reads a file below a `doc/` tree — only the three generated listings, which one glob names. The docs-only
-build skip of ADR link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015] keeps those files buildable until
-the follow-up narrows the include list to them.
+build skip of ADR link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015] keeps those files buildable; the
+follow-up narrowed its include list to them (`doc/log-messages/*.adoc`), so every other documentation file skips the
+build.
 
 == Source
 

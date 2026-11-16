@@ -21,11 +21,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
+import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.store.JournalScope;
+import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatusStore;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -36,6 +39,7 @@ import de.planmarshall.workflow.engine.EngineEvent;
 import de.planmarshall.workflow.engine.EngineStep;
 import de.planmarshall.workflow.engine.WorkflowEngine;
 import de.planmarshall.workflow.task.CallResult;
+import de.planmarshall.workflow.task.TaskCall;
 import de.planmarshall.workflow.task.WaitAnswer;
 
 /**
@@ -53,6 +57,10 @@ import de.planmarshall.workflow.task.WaitAnswer;
  * {@link de.planmarshall.workflow.task.TaskProtocol}, {@code worker_do} its acknowledgement, submit, infeasible
  * report or consultation, and {@code assert_worker_state} and {@code assert_refused} the state of its task and the
  * refusal of its last call;</li>
+ * <li>{@code kill_worker}, {@code end_turn}, {@code kill_relay} and {@code stall_worker} apply the fact the supervisor
+ * reports for the loss of a protocol worker at the instant it is detected, and fence its generation, and
+ * {@code restart_runtime} rebuilds the engine, the task protocol and the stores' objects over the replay's directory;
+ * </li>
  * <li>{@code assert_state} compares the state of the stored status, {@code assert_outcome} the outcome the run ended
  * with, and {@code assert_task_outcome} the outcome of the last task the worker of a role settled.</li>
  * </ul>
@@ -73,12 +81,15 @@ import de.planmarshall.workflow.task.WaitAnswer;
 final class ScenarioReplayRunner {
 
     private final ScenarioFixtures fixtures;
-    private final WorkflowEngine engine;
+    private final WorkflowDefinition unit;
     private final Path directory;
     private final List<Snapshot> snapshots = new ArrayList<>();
     private final Map<String, ScriptedFixtureWorker> workers = new LinkedHashMap<>();
     private final Map<String, ScriptedProtocolWorker> protocolWorkers = new LinkedHashMap<>();
+    private WorkflowEngine engine;
     private JournalScope scope;
+    private JournalScopeType scopeType;
+    private String scopeId;
     private WorkflowStatusStore store;
     private WorkflowStatus status;
     private EngineStep.Ended ended;
@@ -92,8 +103,9 @@ final class ScenarioReplayRunner {
      */
     ScenarioReplayRunner(WorkflowDefinition unit, Path directory) {
         this.directory = Objects.requireNonNull(directory, "directory");
+        this.unit = Objects.requireNonNull(unit, "unit");
         this.fixtures = new ScenarioFixtures(directory);
-        this.engine = fixtures.engine(Objects.requireNonNull(unit, "unit"));
+        this.engine = fixtures.engine(this.unit);
     }
 
     /**
@@ -213,6 +225,22 @@ final class ScenarioReplayRunner {
         return fixtures;
     }
 
+    /**
+     * The state of the task of one role's protocol worker, as {@code assert_worker_state} derives it; the seam a test
+     * uses for a state a script cannot reach (a release the fence did not cause).
+     *
+     * @param role the role whose protocol worker's task is read
+     * @return the state, or empty when the worker holds no task
+     */
+    Optional<String> workerStateOf(String role) {
+        var worker = protocolWorkers.get(role);
+        var taskId = worker == null ? null : worker.queueTaskId().orElse(null);
+        if (taskId == null) {
+            return Optional.empty();
+        }
+        return Optional.of(workerState(fixtures.queue.read(taskId).orElseThrow()));
+    }
+
     /** @return whether the step settles the resting task before it runs */
     private static boolean settles(ScenarioDirective directive) {
         return !(directive instanceof ScenarioDirective.AssertState
@@ -241,6 +269,11 @@ final class ScenarioReplayRunner {
             case ScenarioDirective.OperatorDo act -> operatorAct(act);
             case ScenarioDirective.WorkerWait wait -> wait(wait);
             case ScenarioDirective.WorkerDo call -> workerDo(call, expectsRefusal);
+            case ScenarioDirective.KillWorker fault -> killWorker(fault);
+            case ScenarioDirective.EndTurn fault -> endTurn(fault);
+            case ScenarioDirective.KillRelay fault -> killRelay(fault);
+            case ScenarioDirective.StallWorker fault -> stallWorker(fault);
+            case ScenarioDirective.RestartRuntime restart -> restartRuntime(restart);
             case ScenarioDirective.AssertWorkerState assertion -> assertWorkerState(assertion);
             case ScenarioDirective.AssertRefused assertion -> assertRefused(assertion);
         }
@@ -311,6 +344,10 @@ final class ScenarioReplayRunner {
     /** Starts the generation of a protocol worker: its wait is the shipped protocol's, and an offer is required. */
     private void wait(ScenarioDirective.WorkerWait step) {
         var worker = protocolWorkers.get(step.role());
+        if (worker.replaced()) {
+            worker = worker.successor(fixtures.generation());
+            protocolWorkers.put(step.role(), worker);
+        }
         currentWorker = worker;
         fixtures.clock.tick();
         var answer = worker.wait(fixtures.clock.now());
@@ -413,6 +450,7 @@ final class ScenarioReplayRunner {
     private void openConsultation(ScenarioDirective.WorkerDo call, ScenarioDirective.Action.Consult consult,
             ScriptedProtocolWorker worker, Instant at) {
         var taskId = requireTask(call.line(), worker);
+        worker.consulted(at);
         var request = ConsultationRequest.builder()
                 .askingTaskId(taskId)
                 .generationId(worker.generation())
@@ -437,6 +475,7 @@ final class ScenarioReplayRunner {
     /** Answers the consultation the protocol worker holds, through the shipped consultation service. */
     private void answerConsultation(ScenarioDirective.WorkerDo call, ScriptedProtocolWorker worker, Instant at) {
         var taskId = requireTask(call.line(), worker);
+        worker.consulted(at);
         switch (fixtures.consultations.answer(taskId, worker.generation(), call.call().arguments().get("answer"), at)) {
             case ConsultationOutcome.Answered(_, _) -> {
                 // the answer is delivered to the asker's next wait
@@ -543,11 +582,180 @@ final class ScenarioReplayRunner {
         lastWorkerCall = null;
     }
 
+    /**
+     * A worker lost between its offer and its acknowledgement, or between its acknowledgement and its submit: the
+     * attempt ends with the fact the deadline of the open attempt reports, and the generation is fenced at that
+     * deadline.
+     */
+    private void killWorker(ScenarioDirective.KillWorker fault) {
+        var worker = workerOf(fault.line(), fault.role(), "kill_worker");
+        lose(fault.line(), worker, AttemptEnd.WORKER_LOST, deadline(fault.line(), worker).instant());
+    }
+
+    /**
+     * A worker that ends its turn without a submit: the supervisor observes the exit of the worker's process after its
+     * first call, at once.
+     */
+    private void endTurn(ScenarioDirective.EndTurn fault) {
+        requireAcknowledged(fault.line(), fault.role(), "end_turn");
+        fixtures.clock.tick();
+        lose(fault.line(), workerOf(fault.line(), fault.role(), "end_turn"),
+                AttemptEnd.EXITED_WITHOUT_SUBMIT, fixtures.clock.now());
+    }
+
+    /**
+     * A relay killed under the wait its acknowledged worker holds: the held wait dies with the relay, so the silence
+     * limit counts again from the relay's death and the loss is detected at its end.
+     */
+    private void killRelay(ScenarioDirective.KillRelay fault) {
+        requireAcknowledged(fault.line(), fault.role(), "kill_relay");
+        fixtures.clock.tick();
+        var at = fixtures.clock.now().plusSeconds(ScenarioFixtures.WORKER_PARAMETERS.silenceLimitSeconds());
+        lose(fault.line(), workerOf(fault.line(), fault.role(), "kill_relay"), AttemptEnd.WORKER_LOST, at);
+    }
+
+    /**
+     * A worker that makes no call for the given time: shorter than the limit that governs its open attempt it changes
+     * nothing and the worker is not replaced; at or beyond the limit the attempt ends with the loss at that limit.
+     * Stalls add up, as silence does: two stalls whose times sum past the limit have the worker lost.
+     */
+    private void stallWorker(ScenarioDirective.StallWorker fault) {
+        var worker = workerOf(fault.line(), fault.role(), "stall_worker");
+        var deadline = deadline(fault.line(), worker);
+        var until = fixtures.clock.now().plusSeconds(fault.seconds());
+        if (until.isBefore(deadline.instant())) {
+            fixtures.clock.advanceTo(until);
+            return;
+        }
+        fixtures.clock.advanceTo(deadline.instant());
+        lose(fault.line(), worker, AttemptEnd.WORKER_LOST, deadline.instant());
+    }
+
+    /**
+     * The runtime restart: the engine, the task protocol and the stores' objects are rebuilt over the same directory,
+     * the status is re-read from its bytes, and every protocol worker is rebuilt over its own generation with the lease
+     * the queue record still names. Nothing in memory survives; a lease, a fence and a queue record do.
+     */
+    private void restartRuntime(ScenarioDirective.RestartRuntime restart) {
+        if (status == null) {
+            throw new ScenarioFailure(restart.line(), "the scope has not been started");
+        }
+        if (ended != null) {
+            var message = "restart_runtime has nothing to continue: the scope ended with '%s'";
+            throw new ScenarioFailure(restart.line(), message.formatted(ended.outcomeId()));
+        }
+        var before = new LinkedHashMap<>(protocolWorkers);
+        fixtures.restart();
+        engine = fixtures.engine(unit);
+        fixtures.queueTasks.scope(ScenarioFixtures.taskScope(scopeType, scopeId));
+        store = new WorkflowStatusStore(scope);
+        status = store.read().orElseThrow(() -> new ScenarioFailure(restart.line(), "the status store is empty"));
+        protocolWorkers.clear();
+        before.forEach((role, worker) -> {
+            var restarted = new ScriptedProtocolWorker(role, worker.generation(), fixtures.protocol());
+            restarted.replaced(worker.replaced());
+            var held = worker.queueTaskId().flatMap(id -> fixtures.queue.read(id)).orElse(null);
+            if (held != null) {
+                restarted.leased(held);
+            }
+            protocolWorkers.put(role, restarted);
+        });
+        currentWorker = currentWorker == null ? null : protocolWorkers.get(currentWorker.role());
+        lastWorkerCall = null;
+    }
+
+    /**
+     * Ends the open attempt of a role's protocol worker with the fact of its loss, at the instant the loss is
+     * detected, and fences the generation there: the task is queued again within its re-offer budget, or closed
+     * {@code lost} with {@code attempts_spent} when the budget is spent.
+     */
+    private void lose(int line, ScriptedProtocolWorker worker, AttemptEnd end, Instant at) {
+        var role = worker.role();
+        var taskId = requireTask(line, worker);
+        var target = queueTask(line, taskId);
+        if (target.kind() == QueueTaskRecord.Kind.CONSULTATION) {
+            var message = "a fault acts on a work task, but the task %s of role %s is a consultation";
+            throw new ScenarioFailure(line, message.formatted(taskId, role));
+        }
+        fixtures.clock.advanceTo(at);
+        var reported = fixtures.protocol().report(new TaskCall(taskId, worker.generation()), end,
+                ScenarioFixtures.RE_OFFER_BUDGET, at);
+        if (reported instanceof CallResult.Refused refused) {
+            var message = "the loss of the worker of role %s was refused '%s'";
+            throw new ScenarioFailure(line, message.formatted(role, refused.refusal().wireName()));
+        }
+        fixtures.protocol().fence(worker.generation(), at);
+        worker.replaced(true);
+        lastWorkerCall = null;
+        var task = ((CallResult.Accepted) reported).task();
+        if (task.isClosed()) {
+            settle(line, task);
+        }
+    }
+
+    /** @return the role's protocol worker, or a failure naming the missing declaration */
+    private ScriptedProtocolWorker workerOf(int line, String role, String directive) {
+        var worker = protocolWorkers.get(role);
+        if (worker == null) {
+            throw new ScenarioFailure(line, "%s names the role %s, which the script never declares with worker_wait"
+                    .formatted(directive, role));
+        }
+        return worker;
+    }
+
+    /** Refuses a fault the state of the role's task does not admit. */
+    private void requireAcknowledged(int line, String role, String directive) {
+        var worker = workerOf(line, role, directive);
+        var taskId = requireTask(line, worker);
+        var task = queueTask(line, taskId);
+        if (task.status() != QueueTaskRecord.Status.EXECUTING) {
+            var message = "%s acts on a task the worker of role %s has acknowledged, but its task %s is '%s'";
+            throw new ScenarioFailure(line, message.formatted(directive, role, taskId, task.status().wireName()));
+        }
+    }
+
+    /**
+     * The deadline that governs the role's open attempt, from the worker's compiled limits read from
+     * {@link ScenarioFixtures#WORKER_PARAMETERS}: the acknowledgement deadline of an unacknowledged offer, otherwise
+     * the silence limit of the last call.
+     *
+     * @param line   the line of the fault
+     * @param worker the role's protocol worker, whose open attempt a fault ends
+     * @return the limit in seconds and the instant it falls at
+     */
+    private Deadline deadline(int line, ScriptedProtocolWorker worker) {
+        var taskId = requireTask(line, worker);
+        var task = queueTask(line, taskId);
+        var parameters = ScenarioFixtures.WORKER_PARAMETERS;
+        var ackDeadline = parameters.ackDeadlineSeconds();
+        if (task.status() == QueueTaskRecord.Status.OFFERED && !parameters.ackInformational()
+                && ackDeadline.isPresent()) {
+            var offeredAt = worker.offeredAt().orElseThrow(() -> new ScenarioFailure(line,
+                    "the worker of role %s holds no offer instant".formatted(worker.role())));
+            return new Deadline(ackDeadline.getAsInt(), offeredAt.plusSeconds(ackDeadline.getAsInt()));
+        }
+        var lastCallAt = worker.lastCallAt().orElseThrow(() -> new ScenarioFailure(line,
+                "the worker of role %s made no call".formatted(worker.role())));
+        var limit = parameters.silenceLimitSeconds();
+        return new Deadline(limit, lastCallAt.plusSeconds(limit));
+    }
+
+    /**
+     * A deadline of the compiled worker values: the limit in seconds and the instant it falls at.
+     *
+     * @param seconds the limit in seconds
+     * @param instant the instant the limit falls at
+     */
+    private record Deadline(int seconds, Instant instant) {
+    }
+
     private void start(ScenarioDirective.Start start) {
         if (status != null) {
             throw new ScenarioFailure(start.line(), "the scope was started already");
         }
         scope = ScenarioFixtures.scope(directory, start.scope(), start.scopeId());
+        scopeType = start.scope();
+        scopeId = start.scopeId();
         store = new WorkflowStatusStore(scope);
         try {
             Files.createDirectories(store.store().getParent());

@@ -70,8 +70,6 @@ public class JudgeCheckCodec {
     private static final String ORACLE_SCORE = "oracle_score";
     private static final String BLIND_SCORE = "blind_score";
     private static final String TOTAL_TOKENS = "total_tokens";
-    private static final String TOKENS_IN = "tokens_in";
-    private static final String TOKENS_OUT = "tokens_out";
     private static final String DURATION_MS = "duration_ms";
 
     /** The members of a judge check record, in the order of its schema. */
@@ -79,8 +77,8 @@ public class JudgeCheckCodec {
             ORACLE_ACCURACY, BLIND_ACCURACY, CONSTANT_BASELINE, UNSCORED, CHECKED_AT, ITEMS);
 
     /** The members of an item score, in the order of its schema. */
-    static final List<String> ITEM_MEMBERS = List.of(ITEM_ID, LABEL, ORACLE_SCORE, BLIND_SCORE, TOTAL_TOKENS, TOKENS_IN,
-            TOKENS_OUT, DURATION_MS);
+    static final List<String> ITEM_MEMBERS = List.of(ITEM_ID, LABEL, ORACLE_SCORE, BLIND_SCORE, TOTAL_TOKENS,
+            DURATION_MS);
 
     /**
      * @param entry a judge check record
@@ -151,8 +149,6 @@ public class JudgeCheckCodec {
         @Nullable Grade oracleScore = null;
         @Nullable Grade blindScore = null;
         @Nullable TokenTotal totalTokens = null;
-        @Nullable Long tokensIn = null;
-        @Nullable Long tokensOut = null;
         @Nullable Long duration = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -162,8 +158,6 @@ public class JudgeCheckCodec {
                 case ORACLE_SCORE -> oracleScore = grade(parser, field);
                 case BLIND_SCORE -> blindScore = grade(parser, field);
                 case TOTAL_TOKENS -> totalTokens = tokens(parser, field);
-                case TOKENS_IN -> tokensIn = split(parser, field).orElse(null);
-                case TOKENS_OUT -> tokensOut = split(parser, field).orElse(null);
                 case DURATION_MS -> duration = parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : integer(parser, field);
                 default -> throw undeclared(field);
@@ -171,9 +165,7 @@ public class JudgeCheckCodec {
         }
         requireFields(seen, name, ITEM_MEMBERS.toArray(String[]::new));
         try {
-            return new ItemScore(itemId, label, oracleScore, blindScore,
-                    new TokenTotal(totalTokens.measured() ? totalTokens.tokens() : null, tokensIn, tokensOut),
-                    duration);
+            return new ItemScore(itemId, label, oracleScore, blindScore, totalTokens, duration);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }
@@ -188,21 +180,6 @@ public class JudgeCheckCodec {
             throw unreadable("'%s' is a score or 'unscored': %s".formatted(field, text));
         }
         return Grade.scored(decimal(parser, field));
-    }
-
-    private static Optional<Long> split(JsonParser parser, String field) throws IOException {
-        if (parser.currentToken() == JsonToken.VALUE_STRING) {
-            var text = string(parser, field);
-            if (TokenTotal.UNMEASURED_MARK.equals(text)) {
-                return Optional.empty();
-            }
-            throw unreadable("'%s' is a count or '%s': %s".formatted(field, TokenTotal.UNMEASURED_MARK, text));
-        }
-        var value = integer(parser, field);
-        if (value < 0) {
-            throw unreadable("'%s' must not be negative: %d".formatted(field, value));
-        }
-        return Optional.of(value);
     }
 
     private static TokenTotal tokens(JsonParser parser, String field) throws IOException {
@@ -275,10 +252,6 @@ public class JudgeCheckCodec {
         members.put(TOTAL_TOKENS, score.totalTokens().measured()
                 ? JsonNode.integer(score.totalTokens().tokens())
                 : JsonNode.string(TokenTotal.UNMEASURED_MARK));
-        members.put(TOKENS_IN, score.totalTokens().tokensIn() == null ? JsonNode.string(TokenTotal.UNMEASURED_MARK)
-                : JsonNode.integer(score.totalTokens().tokensIn()));
-        members.put(TOKENS_OUT, score.totalTokens().tokensOut() == null ? JsonNode.string(TokenTotal.UNMEASURED_MARK)
-                : JsonNode.integer(score.totalTokens().tokensOut()));
         members.put(DURATION_MS, score.durationMs() == null
                 ? JsonNode.nullValue()
                 : JsonNode.integer(score.durationMs()));
