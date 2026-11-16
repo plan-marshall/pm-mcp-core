@@ -22,9 +22,9 @@ import org.junit.jupiter.api.Test;
  * The confinement of a job as {@code pm-exec} takes it (PM-SEC-5): every option is followed by its absolute, normalized
  * path, the order is stable and the empty confinement passes nothing.
  * <p>
- * Contract literals that stay: the launcher options {@code --write}, {@code --read} and {@code --deny-read}, and the
- * {@code ..} segment the normalization removes. The paths are generated; their prefixes {@code a-} and {@code b-} fix
- * the sorted order the test expects, and the input lists them unsorted on purpose.
+ * Contract literals that stay: the launcher options {@code --write}, {@code --read}, {@code --read-only} and
+ * {@code --deny-read}, and the {@code ..} segment the normalization removes. The paths are generated; their prefixes
+ * {@code a-} and {@code b-} fix the sorted order the test expects, and the input lists them unsorted on purpose.
  */
 @EnableGeneratorController
 @DisplayName("Job confinement")
@@ -36,16 +36,19 @@ class JobConfinementTest {
         var first = "/a-" + words().next();
         var second = "/b-" + words().next() + "/" + words().next();
         var read = "/" + words().next() + "/" + words().next();
+        var readOnly = "/" + words().next() + "/" + words().next();
         var denied = "/" + words().next();
         var confinement = new JobConfinement(
                 List.of(Path.of(second + "/../" + Path.of(second).getFileName()), Path.of(first), Path.of(first)),
                 List.of(Path.of(read)),
+                List.of(Path.of(readOnly)),
                 List.of(Path.of(denied)));
 
         assertEquals(List.of(
                         "--write", first,
                         "--write", second,
                         "--read", read,
+                        "--read-only", readOnly,
                         "--deny-read", denied), confinement.launcherArguments(),
                 "the options carry sorted, normalized, distinct paths");
     }

@@ -19,10 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -215,6 +217,61 @@ class JobConfinementComposerTest {
                             "the job-private directory is readable"),
                     () -> assertTrue(confinement.readPaths().contains(base.resolve("run/runtime.sock")),
                             "the runtime socket is readable"));
+        }
+    }
+
+    @Nested
+    @DisplayName("the read-only set of a worker")
+    class ReadOnly {
+
+        @Test
+        @DisplayName("a worker names the git directory and every link file as read-only")
+        void workerNamesGitMetadata() throws IOException {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var linkFile = gitProject();
+
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+
+            assertAll(
+                    () -> assertTrue(confinement.readOnlyPaths().contains(project.resolve(".git")),
+                            "the git directory is read-only"),
+                    () -> assertTrue(confinement.readOnlyPaths().contains(linkFile),
+                            "the worktree's link file is read-only"));
+        }
+
+        @Test
+        @DisplayName("the other five kinds name no read-only path")
+        void otherKindsNameNone() throws IOException {
+            gitProject();
+            var enrolment = enrolment(null, Map.of());
+
+            assertAll(Stream.of(JobId.Kind.BUILD, JobId.Kind.PROJECT_SCRIPT, JobId.Kind.GIT, JobId.Kind.CI,
+                            JobId.Kind.PROBE)
+                    .map(kind -> () -> assertTrue(composer()
+                                    .forJob(enrolment, new JobId(jobIds(kind).next()), List.of(), false)
+                                    .readOnlyPaths().isEmpty(),
+                            "a non-worker kind names no read-only path")));
+        }
+
+        @Test
+        @DisplayName("a project without git names no read-only path")
+        void projectWithoutGitNamesNone() {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+
+            assertTrue(confinement.readOnlyPaths().isEmpty(), "a project without git names no path");
+        }
+
+        /** @return the {@code .git} link file of a linked worktree of the project */
+        private Path gitProject() throws IOException {
+            var admin = Files.createDirectories(project.resolve(".git/worktrees/linked"));
+            Files.writeString(admin.resolve("commondir"), "../..\n");
+            var worktree = Files.createDirectories(project.resolve("linked"));
+            var linkFile = worktree.resolve(".git");
+            Files.writeString(linkFile, "gitdir: " + admin + "\n");
+            Files.writeString(admin.resolve("gitdir"), linkFile + "\n");
+            return linkFile;
         }
     }
 

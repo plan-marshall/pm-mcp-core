@@ -15,35 +15,44 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 
 /**
- * The filesystem confinement a job is launched with (PM-SEC-5): the write set, the extra read paths and the paths
- * excluded from the read set, as the {@code pm-exec} launcher takes them.
+ * The filesystem confinement a job is launched with (PM-SEC-5): the write set, the extra read paths, the read-only
+ * paths inside the write set and the paths excluded from the read set, as the {@code pm-exec} launcher takes them.
  * <p>
  * The launcher builds the read set as an enumeration of the filesystem at job start, less every {@code --deny-read}
  * path, and grants write access only to the {@code --write} paths. Every {@code --read} path is granted in addition to
  * the enumerated read set; it is how the runtime names the job-private directory of a worker or a probe and the runtime
- * socket of a worker, which lie inside the denied base directory.
+ * socket of a worker, which lie inside the denied base directory. Every {@code --read-only} path lies inside the write
+ * set and is made unwritable for the job: on Linux a read-only mount in the job's own mount namespace, on macOS a
+ * sandbox deny of writes; it is how the runtime hides the git metadata of a project from a worker.
  * <p>
  * The launcher applies the sets on Linux with Landlock and, where the platform provides it, with its own sandbox
  * profile; on a platform without a ruleset it records {@code confinement: unavailable}. This type only composes the
  * argument vector and never claims the ruleset was applied.
  * <p>
  * Specification: {@code doc/specification/job-runtime/02-confinement-and-environment.adoc} (Linux Filesystem
- * Confinement, Read set, Build Daemons, Container Engine, Session Bus, Probe Jobs).
+ * Confinement, Read set, Git Metadata, Build Daemons, Container Engine, Session Bus, Probe Jobs).
  *
- * @param writePaths  the write set; absolute, normalized, sorted, without duplicates
- * @param readPaths   the paths granted read access in addition to the enumerated read set
- * @param deniedPaths the paths excluded from the read set
+ * @param writePaths    the write set; absolute, normalized, sorted, without duplicates
+ * @param readPaths     the paths granted read access in addition to the enumerated read set
+ * @param readOnlyPaths the paths inside the write set the launcher makes unwritable for the job
+ * @param deniedPaths   the paths excluded from the read set
  * @since 0.1
  */
-public record JobConfinement(List<Path> writePaths, List<Path> readPaths, List<Path> deniedPaths) {
+@Builder
+public record JobConfinement(List<Path> writePaths, List<Path> readPaths, List<Path> readOnlyPaths,
+        List<Path> deniedPaths) {
 
     /** The option adding a path to the write set, as {@code pm-exec} parses it. */
     public static final String WRITE = "--write";
 
     /** The option adding a path to the read set, as {@code pm-exec} parses it. */
     public static final String READ = "--read";
+
+    /** The option making a path inside the write set unwritable for the job, as {@code pm-exec} parses it. */
+    public static final String READ_ONLY = "--read-only";
 
     /** The option excluding a path from the read set, as {@code pm-exec} parses it. */
     public static final String DENY_READ = "--deny-read";
@@ -57,12 +66,13 @@ public record JobConfinement(List<Path> writePaths, List<Path> readPaths, List<P
     public JobConfinement {
         writePaths = sorted(writePaths, "writePaths");
         readPaths = sorted(readPaths, "readPaths");
+        readOnlyPaths = sorted(readOnlyPaths, "readOnlyPaths");
         deniedPaths = sorted(deniedPaths, "deniedPaths");
     }
 
-    /** @return a confinement that grants nothing and denies nothing */
+    /** @return a confinement that grants nothing, makes nothing read-only and denies nothing */
     public static JobConfinement none() {
-        return new JobConfinement(List.of(), List.of(), List.of());
+        return new JobConfinement(List.of(), List.of(), List.of(), List.of());
     }
 
     /**
@@ -73,9 +83,10 @@ public record JobConfinement(List<Path> writePaths, List<Path> readPaths, List<P
      */
     public List<String> launcherArguments() {
         var arguments = new ArrayList<String>(
-                (writePaths.size() + readPaths.size() + deniedPaths.size()) * 2);
+                (writePaths.size() + readPaths.size() + readOnlyPaths.size() + deniedPaths.size()) * 2);
         append(arguments, WRITE, writePaths);
         append(arguments, READ, readPaths);
+        append(arguments, READ_ONLY, readOnlyPaths);
         append(arguments, DENY_READ, deniedPaths);
         return List.copyOf(arguments);
     }
