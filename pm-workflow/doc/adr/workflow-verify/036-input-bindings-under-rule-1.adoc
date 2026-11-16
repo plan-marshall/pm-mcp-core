@@ -1,0 +1,49 @@
+= ADR 036: The Input Bindings Live Under Rule 1
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+The static verification rules are a closed, numbered list; the counts are pinned by tests (`VerificationResultTest`,
+`WorkflowValidatorTest`). The new checks read the closed configuration (`reads_config`), the fact kinds (`reads_fact`) and
+the input declaration (the fallback, its domain, the shadowing of a fact kind).
+
+A new rule number would renumber nothing today but would say that the checks are a new family, while they are the same
+family as `SCHEMA_BINDING` and `ENTITY_KIND_BINDING`: a name in the unit checked against a registry.
+
+== Decision
+
+* The checks are `VerificationRule` constants of specification rule 1: `CONFIG_KEY_BINDING`, `FACT_KIND_BINDING` and
+  `INPUT_DECLARATION`.
+* `CONFIG_KEY_BINDING`: every `reads_config` key exists in `ConfigKeyRegistry` and names no `derived.` fact.
+* `FACT_KIND_BINDING`: every `reads_fact` names a kind of `FactKindRegistry`.
+* `INPUT_DECLARATION`: every input is declared once; its `input_fallback` is a key the unit lists in `reads_config`; the
+  key's domain is assignable to the input type; a required input's fallback key has a compiled default; an input name is
+  not a `reads_fact` kind of the same unit.
+* Rule 6 (`SUBWORKFLOW_CALL_CONTRACT`) keeps the call-site checks: a required input bound exactly once, an input with a
+  default, a fallback or the `?` omitted, no binding of an undeclared input, and every bound value compatible with the
+  type.
+
+== Alternatives Considered
+
+* *A new rule number 13.* Not taken: the rules are a closed list the tests pin, and these checks assert that a name
+  exists in a registry, which is rule 1's family.
+* *One constant for all three checks.* Not taken: a violation names the one check it fails, so the remedy is readable.
+
+== Consequences
+
+* The rule map grows from 32 to 35 constants, all at specification rule 1; `VerificationResultTest` and the rule
+  accounting of `WorkflowValidatorTest` are updated with them.
+* A new registry check is added to this family, never given a number of its own.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 1)
+* link:../../developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules]

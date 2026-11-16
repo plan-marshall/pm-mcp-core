@@ -116,6 +116,20 @@ never a file path (link:workflow-dsl.adoc#unit-frontmatter[Workflow DSL § The U
 |The exits the unit returns to its caller through, in declaration order; never `stepped_out`, the implicit control exit
 of every sub-workflow.
 
+|`readsConfig`
+|`List<String>`
+|The effective configuration keys the unit reads, in declaration order. The verifier checks each against the closed
+configuration and refuses the `derived.` stem
+(link:workflow-verify.adoc#the-static-reads[Workflow Verification § The Static Reads]).
+
+|`readsFact`
+|`List<String>`
+|The derived fact kinds the unit reads, in declaration order. The verifier checks each against the closed set of kinds.
+
+|`inputs`
+|`List<InputDecl>`
+|The inputs a caller binds, in declaration order.
+
 |`modificationDate`
 |`LocalDate`
 |The date of the last change of the file.
@@ -142,6 +156,22 @@ unit's revision, which the `workflow` header counts.
 `UnitFrontmatter.InterfaceElement` is one entry or one exit: its `name` (an identifier for an entry, an outcome id for
 an exit) and its optional `description`, the line directly below it. The descriptions are documentation: no check and
 no comparison reads them.
+
+`InputDecl` is one input: its `name` (a `param_name`), its closed `type`, whether its absence is legal (`optional`, the
+trailing `?`), its `defaultValue` (a `CallValue`, `null` when there is none), its `fallback` configuration key, its
+optional `description` and the location of its `input` line. `required()` is the one place that decides whether a call
+must bind the input: it is false for the optional form, a default or a fallback. `InputType` is the sealed type of the
+three closed forms:
+
+* `InputType.Enumeration(List<String> values)` — `enum[…]`;
+* `InputType.IntRange(@Nullable Integer min, @Nullable Integer max)` — `int` with its optional range, both bounds or
+  none;
+* `InputType.EnumList(List<String> values)` — `list<enum[…]>`, a non-empty list of distinct members.
+
+`InputType.sourceText()` is the source form the printer writes, so the type has one spelling in the tree and in the
+source. The optional form is a component of the declaration, not a fourth type
+(link:../adr/workflow-dsl/013-input-type-carries-the-optional-form.adoc[ADR 013]); an input name is a `param_name`
+(link:../adr/workflow-ast/004-input-name-is-a-param-name.adoc[ADR 004]).
 
 [#unit-types]
 == Unit Types

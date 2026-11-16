@@ -1,0 +1,46 @@
+= ADR 037: `reads_config` Never Names a Derived Fact
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+A unit that wants a derived fact can reach it two ways: the fact kind through `reads_fact`, or its effective
+configuration form `derived.<kind>`. Two spellings for one value would let a unit declare the same read twice and let
+the two namespaces - configuration and facts - blur, which is what the plan's three-namespace split prevents.
+
+`depends_on_config` of a guard keeps accepting `derived.<kind>` unchanged (the guard reads the effective configuration,
+`01-grammar.adoc` line 243); that clause is out of this plan's scope.
+
+== Decision
+
+* A `reads_config` key with the stem `derived.` is refused as `CONFIG_KEY_BINDING`, naming the key and pointing at
+  `reads_fact`; the fact kind is declared without the stem.
+* `reads_fact` names the kind alone; the domain of a fact is not a configuration key and has no fallback.
+* `depends_on_config` keeps accepting `derived.<kind>`: the guard clause is a configuration read of the guard, not an
+  input declaration of the unit.
+
+== Alternatives Considered
+
+* *Accepting both spellings.* Not taken: two names for one value defeat the readable separation of the namespaces and
+  make `INV-GEN-1` and the read set ambiguous.
+* *Renaming `depends_on_config` too.* Not taken: it is a guard clause with its own specification section and is not part
+  of this plan.
+
+== Consequences
+
+* A unit that reads a fact writes `reads_fact: push_remote` and never `reads_config: derived.push_remote`.
+* The refusal is a `CONFIG_KEY_BINDING` violation, reported at the unit's frontmatter, so the remedy is the rule that
+  owns the read set.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:../../../../doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc[Store Schemas Specification § Derived Facts Store]
+* link:../../developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules]
