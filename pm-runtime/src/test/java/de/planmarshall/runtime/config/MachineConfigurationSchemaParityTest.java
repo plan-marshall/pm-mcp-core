@@ -28,9 +28,10 @@ import de.planmarshall.core.SchemaResource;
  * {@link MachineConfigurationCodec} keeps parity with the schema of Store Schemas § Machine Configuration Store: a
  * document the codec creates carries exactly the members the schema requires, in schema order, its provider keys and
  * variant values are the schema's closed lists, and its two defaults and its format version are the schema's. The codec
- * owns only {@code providers} and copies every other member through, so the parity is stated over the document it
- * creates, not over the members the owner may add. The schema is the file {@code machine-config.schema.json} beside the
- * codec in {@code pm-runtime/src/main/resources/de/planmarshall/runtime/config/}, read from the class path through
+ * owns {@code providers}, {@code sources.documents_mode} and {@code cleanup} and copies every other member through, so
+ * the parity is stated over the document it creates, not over the members the owner may add. The schema is the file
+ * {@code machine-config.schema.json} beside the codec in
+ * {@code pm-runtime/src/main/resources/de/planmarshall/runtime/config/}, read from the class path through
  * {@link SchemaResource}.
  */
 @DisplayName("Machine configuration schema parity")
@@ -123,6 +124,46 @@ class MachineConfigurationSchemaParityTest {
                 () -> assertEquals(MachineConfigurationCodec.MIN_LSP_IDLE_TIMEOUT_SECONDS,
                         ((Number) lspIdleTimeout.get("minimum")).intValue(),
                         "the lowest LSP idle timeout is the schema's"));
+    }
+
+    @Test
+    @DisplayName("the documents mode and its default are the schema's")
+    void documentsMode() {
+        var sources = SchemaResource.object(SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"))
+                .get("sources"));
+        var mode = SchemaResource.object(SchemaResource.object(sources.get("properties")).get("documents_mode"));
+
+        assertAll(
+                () -> assertEquals(Arrays.stream(DocumentsMode.values()).map(DocumentsMode::wireName).toList(),
+                        names(SchemaResource.array(mode.get("enum"))), "the documents modes are the schema's list"),
+                () -> assertEquals(DocumentsMode.DEFAULT.wireName(), mode.get("default"),
+                        "the default documents mode is the schema's"));
+    }
+
+    @Test
+    @DisplayName("the cleanup durations and their bounds are the schema's")
+    void cleanup() {
+        var schema = SchemaResource.load(SCHEMA);
+        var cleanup = SchemaResource.object(SchemaResource.object(schema.get("properties")).get("cleanup"));
+        var properties = SchemaResource.object(cleanup.get("properties"));
+        var duration = SchemaResource.object(SchemaResource.object(schema.get("$defs")).get("cleanup_duration"));
+        var days = SchemaResource.object(SchemaResource.array(duration.get("oneOf")).getFirst());
+        var reminder = SchemaResource.object(properties.get("remind_after_days"));
+        var created = document(MachineConfigurationCodec.createCleanup(CleanupDurations.defaults()));
+        var written = SchemaResource.object(created.get("cleanup"));
+
+        assertAll(
+                () -> assertEquals(names(properties.keySet()), names(written.keySet()),
+                        "the written cleanup members are the schema's"),
+                () -> assertEquals(CleanupDuration.MIN_DAYS, ((Number) days.get("minimum")).intValue(),
+                        "the lowest cleanup duration is the schema's"),
+                () -> assertEquals(CleanupDuration.DEFAULT_DAYS, ((Number) duration.get("default")).intValue(),
+                        "the default cleanup duration is the schema's"),
+                () -> assertEquals(CleanupDurations.MIN_REMIND_DAYS, ((Number) reminder.get("minimum")).intValue(),
+                        "the lowest reminder interval is the schema's"),
+                () -> assertEquals(CleanupDurations.DEFAULT_REMIND_DAYS,
+                        ((Number) reminder.get("default")).intValue(),
+                        "the default reminder interval is the schema's"));
     }
 
     /**

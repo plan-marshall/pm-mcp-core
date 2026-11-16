@@ -148,6 +148,11 @@ A plan's own values are its *overrides*, kept in the plan store `overrides.json`
 4. *Qualification*: An override to a role configuration without a current qualification record is shown as unqualified when it is set, and its tasks take the qualification fallback of `PM-WORK-6` until the project grades it (link:../model-work/01-roles-and-configuration.adoc#conservative-fallback[Model Work Specification, Conservative Fallback]).
 5. *Never a decider*: An override changes how the plan runs, never what a decision decided; it is no answer to a question and never passes a gate.
 
+The document's storage and the landing variant's check are documented in the
+link:../../../pm-core/doc/developer/core-store.adoc#_the_plan_overrides[`core.store`] and
+link:../../../pm-workflow/doc/developer/workflow-plan.adoc#_the_landing_variant_of_the_project[`workflow.plan`] developer
+guides.
+
 === Display
 
 The diagram generator renders the instance, not the templates: `pm://plan/{plan_id}/diagram` shows the version in force with the active state, the pruned elements with their reason, and the waived gates with their waiver id; `pm://plan/{plan_id}/instance[/{version}]` returns the DSL text with its header (xref:07-loop-back-diagrams-verification.adoc#_automated_mermaid_asciidoc_table_and_ascii_diagram_generation[Diagram Generation]). The operator's clients show the composed process of the version in force as the plan's process resource: a tree of the plan, its phases, every unit's states in their order, and every call with the sub-workflow it calls, expanded down to the leaves, each node with its derived state and the plan's current position, the pruned phase calls and variants as _not in this plan_ with their prune reason (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#process-resource[Runtime & Interaction Model Specification, The Plan's Process as a Structure]). Version 1, composed when the plan is created, is also the preview of the plan's process (for example of its posture and its bound variants).
