@@ -298,7 +298,9 @@ final class MacSecurity {
 
     /**
      * A downcall; {@link MethodHandle#invokeExact} declares {@link Throwable}, so the interface mirrors it and
-     * {@link #call(Downcall)} maps the failure. The exact descriptor is the compile-time check of every call site.
+     * {@link #call(Downcall)} maps the failure. The descriptor of a call site is linked at run time, not checked by
+     * the compiler: a mismatch fails with a {@link java.lang.invoke.WrongMethodTypeException}, which
+     * {@link #call(Downcall)} wraps as a failed call.
      */
     @FunctionalInterface
     @SuppressWarnings("java:S112") // MethodHandle.invokeExact declares Throwable; the interface cannot declare less

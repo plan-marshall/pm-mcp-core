@@ -18,6 +18,10 @@ abstract method declares less cannot be the target of such a lambda. The interfa
 and `call(Downcall)` maps it: it rethrows an `Error` and a `SecretStoreException` and wraps everything else in a
 `SecretStoreException`. Sonar flags the declaration as `java:S112` ("generic exceptions should never be thrown").
 
+Because `invokeExact` is signature-polymorphic, the compiler derives a call site's descriptor from the static types
+it sees and does not compare them with the handle's type: a wrong descriptor compiles and fails when the call is
+linked, with a `WrongMethodTypeException`. A reader must not count on the build to catch a mismatched descriptor.
+
 == Decision
 
 * `MacSecurity.Downcall` keeps the signature `T call() throws Throwable;`. The interface cannot declare a narrower
@@ -34,8 +38,10 @@ and `call(Downcall)` maps it: it rethrows an `Error` and a `SecretStoreException
 1. *Declare an unchecked type or a narrower checked type on `call()`.* _Not taken_: a lambda whose body throws the
    checked `Throwable` that `invokeExact` declares does not compile against a functional interface that declares
    less, and an unchecked declaration would hide the failure the mapping exists for.
-2. *Replace `invokeExact` with `invoke` and declare the reflective exceptions.* _Not taken_: `invokeExact` is the
-   compile-time check of every downcall descriptor; `invoke` gives that up and changes every call site of the class.
+2. *Replace `invokeExact` with `invoke`.* _Not taken_: `invokeExact` links the call site to the exact descriptor at
+   run time, so a mismatch fails with a `WrongMethodTypeException` instead of being silently adapted; `invoke`
+   performs the conversions and would hide a wrong descriptor. The change would also touch every call site of the
+   class.
 3. *Catch the `Throwable` inside each call site instead of in `call(Downcall)`.* _Not taken_: it repeats the
    mapping once per Security.framework call and loses the one place that decides whether a failure is rethrown or
    wrapped.
@@ -47,6 +53,9 @@ and `call(Downcall)` maps it: it rethrows an `Error` and a `SecretStoreException
 
 * The class keeps one mapping point for Security.framework failures, and a new call site needs no error handling of
   its own.
+* The descriptor of each call site is checked when the call is linked, not by the compiler: a mismatch surfaces as a
+  `WrongMethodTypeException`, which `call(Downcall)` wraps as a failed call. A compile-only check of the file cannot
+  show that a descriptor is right.
 * The `java:S112` issue is settled by the annotation rather than by a SonarCloud transition; a later reader finds
   the reason beside the declaration.
 * The class stays OS-specific: the unit test that reaches it, `KeychainSecretStoreTest`, is
