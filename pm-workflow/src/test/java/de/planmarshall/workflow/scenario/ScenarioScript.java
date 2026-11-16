@@ -324,12 +324,9 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
                 line.requireArity(1, "worker_wait <role>");
                 yield line.build(() -> new ScenarioDirective.WorkerWait(line.number(), line.args().getFirst()));
             }
-            case "kill_worker" -> roleFault(line, "kill_worker <role>",
-                    (number, role) -> new ScenarioDirective.KillWorker(number, role));
-            case "end_turn" -> roleFault(line, "end_turn <role>",
-                    (number, role) -> new ScenarioDirective.EndTurn(number, role));
-            case "kill_relay" -> roleFault(line, "kill_relay <role>",
-                    (number, role) -> new ScenarioDirective.KillRelay(number, role));
+            case "kill_worker" -> roleFault(line, "kill_worker <role>", ScenarioDirective.KillWorker::new);
+            case "end_turn" -> roleFault(line, "end_turn <role>", ScenarioDirective.EndTurn::new);
+            case "kill_relay" -> roleFault(line, "kill_relay <role>", ScenarioDirective.KillRelay::new);
             case "stall_worker" -> {
                 line.requireNoJson();
                 line.requireArity(2, "stall_worker <role> <seconds>");
@@ -395,7 +392,7 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
     private static int seconds(Line line, String value) {
         try {
             return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             throw line.refused("'%s' is no number of seconds".formatted(value));
         }
     }
