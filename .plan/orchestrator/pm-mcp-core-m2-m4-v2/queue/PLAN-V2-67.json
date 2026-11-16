@@ -2,10 +2,10 @@
   "id": "PLAN-V2-67",
   "slug": "main-hygiene-leftovers",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-67-main-hygiene-leftovers",
+  "pr": "#445",
+  "landing": "landings/PLAN-V2-67.md",
   "seq": 67
 }
