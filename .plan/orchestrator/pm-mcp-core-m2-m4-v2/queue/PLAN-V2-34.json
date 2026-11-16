@@ -2,10 +2,10 @@
   "id": "PLAN-V2-34",
   "slug": "r05-reduction-waits-launch-protocol",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-34-r05-reduction-waits-launch-protocol",
+  "pr": "#456",
+  "landing": "landings/PLAN-V2-34.md",
   "seq": 34
 }
