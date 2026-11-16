@@ -2,10 +2,10 @@
   "id": "PLAN-V2-103",
   "slug": "assertion-messages-workflow-and-providers",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-103-assertion-messages-workflow-and-providers",
+  "pr": "#450, #452",
+  "landing": "landings/PLAN-V2-103.md",
   "seq": -3
 }
