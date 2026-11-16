@@ -2443,10 +2443,9 @@ same files. Each file lies in `pm-core/src/main/resources/de/planmarshall/core/s
 |===
 
 An absent resource or a file that is not a JSON object is a failure, never a skipped test. `AuditSchemaParityTest`, the
-tests of `core.config` and `LeaseOwnerSchemaParityTest` read their schema files the same way. No parity test reads
-the specification of this repository any more; `SpecificationDocument` stays in the test sources until
-`adoc-reading-retired`. A parity check over a schema the code does not implement is `@Disabled`, its reason naming
-what it waits for.
+tests of `core.config` and `LeaseOwnerSchemaParityTest` read their schema files the same way. No test reads a
+specification document: the parity tests load the files above from the class path. A parity check over a schema the
+code does not implement is `@Disabled`, its reason naming what it waits for.
 
 == The Plan's History
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
