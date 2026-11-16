@@ -65,10 +65,18 @@ references.
 
 == Source
 
-Pull request: PLAN-V2-34 (`r05-reduction-waits-launch-protocol`) of the epic `pm-mcp-core-m2-m4-v2`.
-Work package: `doc/plans/` of the closed epic `pm-mcp-core-m2-m4` (packages `waits`, `task-queue-and-protocol`,
-`worker-launch`, `slots-usage-and-budgets`, `consultation`).
-Specification sections the decision rests on: `doc/specification/timeouts/01-job-budgets-and-waits.adoc#waits`,
-`doc/specification/model-work/02-task-protocol.adoc`, `doc/specification/model-work/04-worker-launch.adoc`,
-`doc/specification/model-work/05-consultation.adoc`; requirement entries `PM-IMPL-4`, `PM-WORK-2`, `PM-WORK-4`,
-`PM-WF-5` of `doc/Traceability.adoc`; ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016].
+Pull request: link:https://github.com/plan-marshall/pm-mcp-core/pull/456[#456] (`r05-reduction-waits-launch-protocol`)
+of the epic `pm-mcp-core-m2-m4-v2`.
+
+Work package: the packages `waits`, `task-queue-and-protocol`, `worker-launch`, `slots-usage-and-budgets` and
+`consultation` of the closed epic `pm-mcp-core-m2-m4` below link:../plans/README.adoc[`doc/plans/`] (their files are
+gone; the packages are done).
+
+Specification sections the decision rests on:
+link:../specification/timeouts/01-job-budgets-and-waits.adoc#waits[Timeouts & Budgets § Waits & Long-Polls],
+link:../specification/model-work/02-task-protocol.adoc[Model Work § Task Protocol],
+link:../specification/model-work/04-worker-launch.adoc[Model Work § Worker Launch],
+link:../specification/model-work/05-consultation.adoc[Model Work § Consultation]; requirement entries
+link:../Traceability.adoc#PM-IMPL-4[PM-IMPL-4], link:../Traceability.adoc#PM-WORK-2[PM-WORK-2],
+link:../Traceability.adoc#PM-WORK-4[PM-WORK-4] and link:../Traceability.adoc#PM-WF-5[PM-WF-5]; ADR
+link:016-schemas-are-files-of-the-implementing-module.adoc[016 Schemas Are Files of the Implementing Module].
