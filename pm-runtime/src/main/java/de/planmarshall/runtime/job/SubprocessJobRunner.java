@@ -1045,8 +1045,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /** The record that replaces the write-ahead record once the launch report is read. */
     private static JobRecord postSpawnRecord(JobRecord writeAhead, LaunchReport report, Instant spawnedAt) {
-        return writeAhead.toBuilder().pid(report.pid()).processStartedAt(report.processStartedAt())
-                .spawnedAt(spawnedAt).confinement(report.confinement()).landlockAbi(report.landlockAbi()).build();
+        var record = writeAhead.toBuilder().pid(report.pid()).processStartedAt(report.processStartedAt())
+                .spawnedAt(spawnedAt).confinement(report.confinement()).landlockAbi(report.landlockAbi());
+        if (writeAhead.kind() == JobId.Kind.LLM) {
+            record.gitMetadata(report.gitMetadata() != null ? report.gitMetadata() : GitMetadata.UNENFORCED);
+        }
+        return record.build();
     }
 
     /**

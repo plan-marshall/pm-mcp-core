@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/launch-report.json",
+  "title": "LaunchReport",
+  "type": "object",
+  "required": ["pid", "process_started_at", "confinement", "landlock_abi"],
+  "additionalProperties": false,
+  "properties": {
+    "pid": { "type": "integer", "minimum": 1, "description": "The PID of the job, equal to its process-group id (job-runtime.adoc, Launch report)." },
+    "process_started_at": { "type": "string", "format": "date-time", "description": "The start instant of the process, on the clock of the operating system." },
+    "confinement": { "type": "string", "enum": ["confined", "partial(abi=1)", "partial(container_engine)", "seatbelt", "unavailable", "not_applicable"], "description": "The confinement applied to the job (job-runtime.adoc, Linux Filesystem Confinement and macOS Confinement); unavailable when no ruleset could be applied." },
+    "landlock_abi": { "type": ["integer", "null"], "minimum": 2, "description": "The Landlock ABI version of the applied ruleset; null when none was applied." },
+    "git_metadata": { "type": ["string", "null"], "enum": ["enforced", "unenforced", null], "description": "For a worker: enforced when the launcher states that the git directory of the project and the .git link file of every linked worktree are unwritable for the job, unenforced otherwise; absent or null for every other kind (job-runtime.adoc, Git Metadata)." }
+  }
+}

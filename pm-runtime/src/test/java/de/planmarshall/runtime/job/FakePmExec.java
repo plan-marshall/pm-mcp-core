@@ -68,6 +68,12 @@ public final class FakePmExec {
             printf "ARGV:%s\\n" "$0" >&2; exec "$@"' "$RAW_ARGS" "$@"
             """;
 
+    private static final String REPORT_GIT_METADATA_AND_EXEC = """
+            exec @SETSID@ /bin/sh -c 'printf "{\\"pid\\":%s,\\"process_started_at\\":\\"%s\\",\\"confinement\\":\
+            \\"confined\\",\\"landlock_abi\\":3,\\"git_metadata\\":\\"enforced\\"}\\n" "@PID@" \
+            "$(@DATE@ -u +%Y-%m-%dT%H:%M:%SZ)" >&2; exec "$@"' pm-exec "$@"
+            """;
+
     private static final String EXEC = """
             exec @SETSID@ "$@"
             """;
@@ -90,6 +96,8 @@ public final class FakePmExec {
         REPORT(0),
         /** {@link #REPORT}, and a second line naming the raw argument vector the runner passed. */
         REPORT_ARGV(0),
+        /** {@link #REPORT}, with a report that states the git metadata of the job's project was made unwritable. */
+        REPORT_GIT_METADATA(0),
         /** A new process group and the target, but no launch report. */
         NO_REPORT(0),
         /** Exit {@code 64} (usage) without a report and without starting the target. */
@@ -186,6 +194,8 @@ public final class FakePmExec {
             case REPORT -> REPORT_AND_EXEC.replace("@SETSID@", tool("setsid").toString())
                     .replace("@DATE@", tool("date").toString()).replace("@PID@", "\"$$\"");
             case REPORT_ARGV -> REPORT_ARGV_AND_EXEC.replace("@SETSID@", tool("setsid").toString())
+                    .replace("@DATE@", tool("date").toString()).replace("@PID@", "\"$$\"");
+            case REPORT_GIT_METADATA -> REPORT_GIT_METADATA_AND_EXEC.replace("@SETSID@", tool("setsid").toString())
                     .replace("@DATE@", tool("date").toString()).replace("@PID@", "\"$$\"");
             case NO_REPORT -> EXEC.replace("@SETSID@", tool("setsid").toString());
             case EXIT_64, EXIT_126, EXIT_127 -> FAIL.replace("@CODE@", Integer.toString(mode.exitCode()));
