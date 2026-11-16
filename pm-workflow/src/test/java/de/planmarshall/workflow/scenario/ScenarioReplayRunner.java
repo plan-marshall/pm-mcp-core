@@ -673,7 +673,7 @@ final class ScenarioReplayRunner {
                 .filter(task -> task.lease() != null && task.lease().generationId().equals(generation))
                 .findFirst()
                 .or(() -> records.stream().filter(task -> task.attempts().stream()
-                                .anyMatch(attempt -> attempt.generationId().equals(generation)))
+                        .anyMatch(attempt -> attempt.generationId().equals(generation)))
                         .findFirst())
                 .orElse(null);
     }
