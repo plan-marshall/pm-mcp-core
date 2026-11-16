@@ -148,7 +148,7 @@ class ProbeWorkspaceTest {
         var observation = workspace.observe("the token is " + workspace.canary());
 
         assertAll(
-                () -> assertTrue(observation.canaryReturned(), "the canary is named"),
+                () -> assertTrue(observation.canaryReturned(), "the canary is named in the output"),
                 () -> assertTrue(observation.outsideWrites().contains(createdOutside),
                         "a new path outside is reported"),
                 () -> assertTrue(observation.outsideWrites().contains(readPath),

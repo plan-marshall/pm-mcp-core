@@ -216,8 +216,7 @@ class OffTrackScenarioTest {
     }
 
     private void assertNothingEndedThePlanOrWaitedForTheOperator(Observed observed) {
-        assertFalse(observed.ended(),
-                "an off-track signal neither fences the generation nor closes a task nor raises an operator wait");
+        assertFalse(observed.ended(), "the signal neither ends the plan nor waits");
     }
 
     @Test
@@ -231,9 +230,11 @@ class OffTrackScenarioTest {
                 () -> assertEquals(0, observed.reportsAfterEachLine().get(3), "four calls are below the threshold"),
                 () -> assertEquals(1, observed.reportsAfterEachLine().get(4), "the fifth call raises the signal"),
                 () -> assertEquals(1, observed.reports().size(), "one cause takes its action once"),
-                () -> assertEquals("repeating", observed.reports().getFirst().signal()),
-                () -> assertEquals(5.0, observed.reports().getFirst().measurement()),
-                () -> assertEquals(5.0, observed.reports().getFirst().threshold()),
+                () -> assertEquals("repeating", observed.reports().getFirst().signal(),
+                        "the reported signal is repeating"),
+                () -> assertEquals(5.0, observed.reports().getFirst().measurement(),
+                        "the measurement is the fifth call"),
+                () -> assertEquals(5.0, observed.reports().getFirst().threshold(), "the threshold is the fifth call"),
                 () -> assertNothingEndedThePlanOrWaitedForTheOperator(observed));
     }
 
@@ -247,8 +248,10 @@ class OffTrackScenarioTest {
         assertAll(
                 () -> assertEquals(0, observed.reportsAfterEachLine().get(38), "39 turns are below the threshold"),
                 () -> assertEquals(1, observed.reportsAfterEachLine().get(39), "the 40th turn raises the signal"),
-                () -> assertEquals("no_progress", observed.reports().getFirst().signal()),
-                () -> assertEquals(40.0, observed.reports().getFirst().measurement()),
+                () -> assertEquals("no_progress", observed.reports().getFirst().signal(),
+                        "the reported signal is no progress"),
+                () -> assertEquals(40.0, observed.reports().getFirst().measurement(),
+                        "the measurement is the fortieth turn"),
                 () -> assertNothingEndedThePlanOrWaitedForTheOperator(observed));
     }
 
@@ -262,9 +265,12 @@ class OffTrackScenarioTest {
         assertAll(
                 () -> assertEquals(0, observed.reportsAfterEachLine().get(4), "250 tokens of 100 is below 3 times"),
                 () -> assertEquals(1, observed.reportsAfterEachLine().get(5), "300 tokens of 100 is 3 times"),
-                () -> assertEquals("over_size", observed.reports().getFirst().signal()),
-                () -> assertEquals(3.0, observed.reports().getFirst().measurement()),
-                () -> assertEquals(3.0, observed.reports().getFirst().threshold()),
+                () -> assertEquals("over_size", observed.reports().getFirst().signal(),
+                        "the reported signal is over size"),
+                () -> assertEquals(3.0, observed.reports().getFirst().measurement(),
+                        "the measurement is three times the cost"),
+                () -> assertEquals(3.0, observed.reports().getFirst().threshold(),
+                        "the threshold is three times the cost"),
                 () -> assertNothingEndedThePlanOrWaitedForTheOperator(observed));
     }
 
@@ -282,8 +288,10 @@ class OffTrackScenarioTest {
         assertAll(
                 () -> assertTrue(below.reports().isEmpty(), "two unplanned files are below the threshold"),
                 () -> assertEquals(1, at.reports().size(), "three unplanned files raise the signal"),
-                () -> assertEquals("outside_footprint", at.reports().getFirst().signal()),
-                () -> assertEquals(3.0, at.reports().getFirst().measurement()),
+                () -> assertEquals("outside_footprint", at.reports().getFirst().signal(),
+                        "the reported signal is outside footprint"),
+                () -> assertEquals(3.0, at.reports().getFirst().measurement(),
+                        "the measurement is three unplanned files"),
                 () -> assertNothingEndedThePlanOrWaitedForTheOperator(at));
     }
 
@@ -302,10 +310,11 @@ class OffTrackScenarioTest {
                 var observed = entry.getValue();
                 var reports = observed.reports();
                 assertEquals(1, reports.size(), "one report for " + entry.getKey());
-                assertEquals(entry.getKey().wireName(), reports.getFirst().action());
-                assertEquals("repeating", reports.getFirst().signal());
-                assertEquals(5.0, reports.getFirst().measurement());
-                assertEquals(5.0, reports.getFirst().threshold());
+                assertEquals(entry.getKey().wireName(), reports.getFirst().action(),
+                        "the reported action is the loop's action");
+                assertEquals("repeating", reports.getFirst().signal(), "the reported signal stays repeating");
+                assertEquals(5.0, reports.getFirst().measurement(), "the measurement is the fifth call");
+                assertEquals(5.0, reports.getFirst().threshold(), "the threshold is the fifth call");
                 assertNothingEndedThePlanOrWaitedForTheOperator(observed);
             });
         }
@@ -346,8 +355,9 @@ class OffTrackScenarioTest {
 
         assertAll(
                 () -> assertEquals(1, observed.reports().size(), "one cause takes its action once"),
-                () -> assertEquals("nudge", observed.reports().getFirst().action()),
-                () -> assertEquals(1, observed.reportsAfterEachLine().getLast()));
+                () -> assertEquals("nudge", observed.reports().getFirst().action(),
+                        "the reported action is nudge"),
+                () -> assertEquals(1, observed.reportsAfterEachLine().getLast(), "the last line reports once"));
     }
 
     private static WorkerProtocol protocol(List<Reported> reports, List<String> fences, List<String> closed) {

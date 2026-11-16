@@ -81,7 +81,8 @@ class SecretServiceStoreTest {
     @Test
     @DisplayName("the service object path is the bus name as a path")
     void servicePathIsTheBusNameAsAPath() {
-        assertEquals("/org/freedesktop/secrets", SecretServiceStore.SERVICE_PATH);
+        assertEquals("/org/freedesktop/secrets", SecretServiceStore.SERVICE_PATH,
+                "service object path is the bus name path");
     }
 
     @Nested
@@ -94,13 +95,14 @@ class SecretServiceStoreTest {
             store.put(GITHUB, "tok€n");
 
             var item = secrets.items.values().iterator().next();
-            assertEquals(Map.of("service", SERVICE, "credential_key", "github"), item.attributes);
-            assertEquals(SERVICE + " github", item.label);
-            assertEquals(Optional.of("tok€n"), store.get(GITHUB));
-            assertTrue(store.delete(GITHUB));
-            assertFalse(store.delete(GITHUB));
-            assertEquals(Optional.empty(), store.get(GITHUB));
-            assertEquals(SecretStore.SECRET_SERVICE, store.name());
+            assertEquals(Map.of("service", SERVICE, "credential_key", "github"), item.attributes,
+                    "item carries the service and key attributes");
+            assertEquals(SERVICE + " github", item.label, "item label joins service and key");
+            assertEquals(Optional.of("tok€n"), store.get(GITHUB), "get returns the secret of the item");
+            assertTrue(store.delete(GITHUB), "delete removes the stored item");
+            assertFalse(store.delete(GITHUB), "repeated delete of a missing item is false");
+            assertEquals(Optional.empty(), store.get(GITHUB), "deleted item reads as no secret");
+            assertEquals(SecretStore.SECRET_SERVICE, store.name(), "store name is the secret service backend");
         }
 
         @Test
@@ -109,9 +111,9 @@ class SecretServiceStoreTest {
             store.put(GITHUB, firstSecret);
             store.put(GITHUB, secondSecret);
 
-            assertEquals(1, secrets.items.size());
-            assertTrue(secrets.members.contains("SetSecret"));
-            assertEquals(Optional.of(secondSecret), store.get(GITHUB));
+            assertEquals(1, secrets.items.size(), "second put keeps a single item");
+            assertTrue(secrets.members.contains("SetSecret"), "second put sends the SetSecret call");
+            assertEquals(Optional.of(secondSecret), store.get(GITHUB), "second put replaces the stored secret");
         }
 
         @Test
@@ -120,11 +122,14 @@ class SecretServiceStoreTest {
             store.put(projectGithub, projectSecret);
 
             assertEquals(Optional.empty(), store.get(GITHUB), "global lookup ignores project items");
-            assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"));
+            assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"),
+                    "project entry resolves before global");
             store.put(GITHUB, globalSecret);
-            assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"));
-            assertEquals(Optional.of(globalSecret), store.resolve(otherProject, "github"));
-            assertEquals(2, secrets.items.size());
+            assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"),
+                    "project secret still resolves after both puts");
+            assertEquals(Optional.of(globalSecret), store.resolve(otherProject, "github"),
+                    "another project falls back to the global entry");
+            assertEquals(2, secrets.items.size(), "both puts leave exactly two items");
         }
     }
 
@@ -140,7 +145,7 @@ class SecretServiceStoreTest {
         @Test
         @DisplayName("an empty collection lists no entry")
         void empty() {
-            assertEquals(List.of(), store.entries());
+            assertEquals(List.of(), store.entries(), "empty collection lists no entry");
         }
 
         @Test
@@ -151,7 +156,7 @@ class SecretServiceStoreTest {
             store.put(CredentialAccount.global("enrolment-integrity-key"), firstSecret);
 
             assertEquals(List.of(CredentialAccount.global("enrolment-integrity-key"), GITHUB, projectGithub),
-                    store.entries());
+                    store.entries(), "entries list accounts in order");
         }
 
         @Test
@@ -161,7 +166,7 @@ class SecretServiceStoreTest {
             foreignItem("other-service", Map.of("service", SERVICE + "/0123456789abcdef", "credential_key", "sonar"));
             foreignItem("no-key", Map.of("service", SERVICE));
 
-            assertEquals(List.of(GITHUB), store.entries());
+            assertEquals(List.of(GITHUB), store.entries(), "foreign items are not listed");
         }
 
         @Test
@@ -169,8 +174,10 @@ class SecretServiceStoreTest {
         void invalidName() {
             foreignItem("bad", Map.of("service", SERVICE, "credential_key", "bad name"));
 
-            var e = assertThrows(SecretStoreException.class, store::entries);
-            assertEquals(SecretStoreException.Reason.FAILED, e.reason());
+            var e = assertThrows(SecretStoreException.class, store::entries,
+                    "an invalid attribute name fails the listing");
+            assertEquals(SecretStoreException.Reason.FAILED, e.reason(),
+                    "invalid attribute name reports the failed reason");
         }
 
         @Test
@@ -179,9 +186,12 @@ class SecretServiceStoreTest {
             store.put(GITHUB, globalSecret);
             secrets.itemsLocked = true;
 
-            var e = assertThrows(SecretStoreException.class, store::entries);
-            assertEquals(SecretStoreException.Reason.LOCKED, e.reason());
-            assertEquals("credential_store_locked", e.reason().code());
+            var e = assertThrows(SecretStoreException.class, store::entries,
+                    "locked matching items fail the listing");
+            assertEquals(SecretStoreException.Reason.LOCKED, e.reason(),
+                    "locked items report the locked reason");
+            assertEquals("credential_store_locked", e.reason().code(),
+                    "locked items report the locked error code");
         }
 
         @Test
@@ -189,8 +199,10 @@ class SecretServiceStoreTest {
         void serviceUnknown() {
             secrets.serviceUnknown = true;
 
-            var e = assertThrows(SecretStoreException.class, store::entries);
-            assertEquals(SecretStoreException.Reason.FAILED, e.reason());
+            var e = assertThrows(SecretStoreException.class, store::entries,
+                    "unknown service fails the listing");
+            assertEquals(SecretStoreException.Reason.FAILED, e.reason(),
+                    "unknown service reports the failed reason");
         }
     }
 
@@ -203,9 +215,11 @@ class SecretServiceStoreTest {
         void lockedCollection() {
             secrets.collectionLocked = true;
 
-            var e = assertThrows(SecretStoreException.class, () -> store.put(GITHUB, firstSecret));
-            assertEquals(SecretStoreException.Reason.LOCKED, e.reason());
-            assertFalse(secrets.members.contains("Unlock"));
+            var e = assertThrows(SecretStoreException.class, () -> store.put(GITHUB, firstSecret),
+                    "put into a locked collection fails");
+            assertEquals(SecretStoreException.Reason.LOCKED, e.reason(),
+                    "locked collection reports the locked reason");
+            assertFalse(secrets.members.contains("Unlock"), "a locked put never calls Unlock");
         }
 
         @Test
@@ -214,8 +228,10 @@ class SecretServiceStoreTest {
             store.put(GITHUB, firstSecret);
             secrets.itemsLocked = true;
 
-            var e = assertThrows(SecretStoreException.class, () -> store.get(GITHUB));
-            assertEquals(SecretStoreException.Reason.LOCKED, e.reason());
+            var e = assertThrows(SecretStoreException.class, () -> store.get(GITHUB),
+                    "get of a locked item fails the read");
+            assertEquals(SecretStoreException.Reason.LOCKED, e.reason(),
+                    "locked item reports the locked reason");
         }
 
         @Test
@@ -223,8 +239,10 @@ class SecretServiceStoreTest {
         void prompt() {
             secrets.promptOnCreate = true;
 
-            var e = assertThrows(SecretStoreException.class, () -> store.put(GITHUB, firstSecret));
-            assertEquals(SecretStoreException.Reason.LOCKED, e.reason());
+            var e = assertThrows(SecretStoreException.class, () -> store.put(GITHUB, firstSecret),
+                    "a create that needs a prompt fails");
+            assertEquals(SecretStoreException.Reason.LOCKED, e.reason(),
+                    "prompted create reports the locked reason");
         }
     }
 
@@ -235,19 +253,19 @@ class SecretServiceStoreTest {
         @Test
         @DisplayName("available with an unlocked default collection")
         void available() {
-            assertTrue(store.available());
+            assertTrue(store.available(), "store is available with a default collection");
         }
 
         @Test
         @DisplayName("not available when locked, without a default collection, or without the service")
         void notAvailable() {
             secrets.collectionLocked = true;
-            assertFalse(store.available());
+            assertFalse(store.available(), "a locked collection is not available");
             secrets.collectionLocked = false;
             secrets.noDefaultCollection = true;
-            assertFalse(store.available());
+            assertFalse(store.available(), "no default collection is not available");
             secrets.serviceUnknown = true;
-            assertFalse(store.available());
+            assertFalse(store.available(), "an unknown service is not available");
         }
 
         @Test
@@ -255,8 +273,10 @@ class SecretServiceStoreTest {
         void serviceUnknown() {
             secrets.serviceUnknown = true;
 
-            var e = assertThrows(SecretStoreException.class, () -> store.get(GITHUB));
-            assertEquals(SecretStoreException.Reason.FAILED, e.reason());
+            var e = assertThrows(SecretStoreException.class, () -> store.get(GITHUB),
+                    "get against an unknown service fails");
+            assertEquals(SecretStoreException.Reason.FAILED, e.reason(),
+                    "unknown service reports the failed reason");
             assertTrue(e.getMessage().contains("ServiceUnknown"), e.getMessage());
         }
 
@@ -265,8 +285,9 @@ class SecretServiceStoreTest {
         void noBus() {
             var missing = new SecretServiceStore(temp.resolve("none"), UID, SERVICE, Duration.ofSeconds(1));
 
-            assertFalse(missing.available());
-            assertThrows(SecretStoreException.class, () -> missing.delete(GITHUB));
+            assertFalse(missing.available(), "store without a bus is not available");
+            assertThrows(SecretStoreException.class, () -> missing.delete(GITHUB),
+                    "delete without a bus fails");
         }
     }
 }

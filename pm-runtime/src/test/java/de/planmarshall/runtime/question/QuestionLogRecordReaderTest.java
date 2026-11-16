@@ -143,8 +143,10 @@ class QuestionLogRecordReaderTest {
             append(plan, endOfLine, asked(question), asked("Q-002"));
 
             assertAll(
-                    () -> assertEquals(new Open(), reader.read(request(question))),
-                    () -> assertEquals(new Open(), reader.read(request("Q-002"))));
+                    () -> assertEquals(new Open(), reader.read(request(question)),
+                            "a multi-part question read alone is open"),
+                    () -> assertEquals(new Open(), reader.read(request("Q-002")),
+                            "the sibling question of the set reads open"));
         }
     }
 
@@ -183,8 +185,10 @@ class QuestionLogRecordReaderTest {
             append(plan, endOfLine, asked(question), asked("Q-002"), closing(question, QuestionEvent.ANSWERED));
 
             assertAll(
-                    () -> assertEquals(new Resolved("answered"), reader.read(request(question))),
-                    () -> assertEquals(new Open(), reader.read(request("Q-002"))));
+                    () -> assertEquals(new Resolved("answered"), reader.read(request(question)),
+                            "a closed question among open ones reads resolved"),
+                    () -> assertEquals(new Open(), reader.read(request("Q-002")),
+                            "the open sibling stays open beside the closed one"));
         }
     }
 
@@ -224,8 +228,10 @@ class QuestionLogRecordReaderTest {
             var read = reader.read(request(question));
 
             assertNotEquals(new Open(), read, "a broken log is never reported open");
-            var unreadable = assertInstanceOf(Unreadable.class, read);
-            assertEquals(expectedReason, unreadable.reason());
+            var unreadable = assertInstanceOf(Unreadable.class, read,
+                    "a broken question log is an unreadable value");
+            assertEquals(expectedReason, unreadable.reason(),
+                    "the reason names the cause of the broken log");
         }
 
         private String createFixture(UnreadableCause cause, EndOfLine endOfLine) throws IOException {
@@ -279,7 +285,8 @@ class QuestionLogRecordReaderTest {
 
             var unreadable = assertInstanceOf(Unreadable.class, read,
                     "the whole log is judged, not only the lines of the question");
-            assertEquals("the question log holds a refused line 2", unreadable.reason());
+            assertEquals("the question log holds a refused line 2", unreadable.reason(),
+                    "the refused line is numbered after the valid one");
         }
 
         @ParameterizedTest
@@ -292,10 +299,13 @@ class QuestionLogRecordReaderTest {
             var refusal = appendRefused(asked("Q-002"));
 
             assertAll("the refused line refuses an append and the read",
-                    () -> assertEquals("unreadable", refusal.code()),
+                    () -> assertEquals("unreadable", refusal.code(),
+                            "the append to a refused log is refused"),
                     () -> assertEquals("the question log holds a refused line 3",
-                            ((Unreadable) reader.read(request(question))).reason()),
-                    () -> assertNotEquals(new Open(), reader.read(request(question))));
+                            ((Unreadable) reader.read(request(question))).reason(),
+                            "the read names the third line as refused"),
+                    () -> assertNotEquals(new Open(), reader.read(request(question)),
+                            "a resolved log with a refused line is never open"));
         }
 
         private QuestionRefusal appendRefused(QuestionRecord questionRecord) {
@@ -305,7 +315,7 @@ class QuestionLogRecordReaderTest {
                     // the test records nothing
                 }, QuestionFixtures.CLOCK);
                 var refusal = new QuestionLog(plan).append(write, List.of(questionRecord));
-                assertTrue(refusal.isPresent(), "ADR core-store/039 refuses every append to a log with a refused line");
+                assertTrue(refusal.isPresent(), "ADR core-store/039 refuses an append to a refused log");
                 return refusal.get();
             }
         }
@@ -322,7 +332,8 @@ class QuestionLogRecordReaderTest {
 
             var read = reader.read(request(question));
 
-            assertEquals(new Unreadable("the question log ends in a torn tail at byte 0"), read);
+            assertEquals(new Unreadable("the question log ends in a torn tail at byte 0"), read,
+                    "a torn tail at the first byte is unreadable");
         }
 
         @ParameterizedTest
@@ -333,7 +344,8 @@ class QuestionLogRecordReaderTest {
 
             var read = reader.read(request(question));
 
-            assertEquals(new Unreadable("the question log holds a refused line 1"), read);
+            assertEquals(new Unreadable("the question log holds a refused line 1"), read,
+                    "the refused line is named before the torn tail");
         }
 
         @ParameterizedTest
@@ -345,7 +357,8 @@ class QuestionLogRecordReaderTest {
 
             var read = reader.read(request(question));
 
-            assertEquals(new Unreadable("the question log holds a refused line 1"), read);
+            assertEquals(new Unreadable("the question log holds a refused line 1"), read,
+                    "the first of several refused lines is named");
         }
     }
 
@@ -361,7 +374,8 @@ class QuestionLogRecordReaderTest {
         void readsTheWorkspaceScope(EndOfLine endOfLine) {
             append(workspace, endOfLine, asked(question));
 
-            assertEquals(new Open(), reader.read(new ReadRequest(null, question)));
+            assertEquals(new Open(), reader.read(new ReadRequest(null, question)),
+                    "an empty scope id reads the workspace log");
         }
 
         @ParameterizedTest
@@ -373,7 +387,8 @@ class QuestionLogRecordReaderTest {
             createDirectory(epic.journalFile().getParent());
             append(epic, endOfLine, asked(question));
 
-            assertEquals(new Open(), reader.read(new ReadRequest(EPIC, question)));
+            assertEquals(new Open(), reader.read(new ReadRequest(EPIC, question)),
+                    "a scope id naming an epic reads the epic log");
         }
 
         @Test
@@ -381,7 +396,8 @@ class QuestionLogRecordReaderTest {
         void readsUnreadableForAnAbsentScope() {
             var read = reader.read(new ReadRequest("absent-scope", question));
 
-            assertEquals(new Unreadable("no question log for the scope"), read);
+            assertEquals(new Unreadable("no question log for the scope"), read,
+                    "an absent scope has no question log");
         }
 
         @Test
@@ -392,17 +408,21 @@ class QuestionLogRecordReaderTest {
 
             var read = reader.read(request(question));
 
-            assertEquals(new Unreadable("the scope a-plan names a plan and an epic"), read);
+            assertEquals(new Unreadable("the scope a-plan names a plan and an epic"), read,
+                    "a scope naming a plan and an epic is unreadable");
         }
 
         @Test
         @DisplayName("reads Unreadable for a scope id that is no identifier, throwing nothing")
         void readsUnreadableForAnInvalidScopeId() {
             var read = assertDoesNotThrow(
-                    () -> reader.read(new ReadRequest("../../escape", question)));
+                    () -> reader.read(new ReadRequest("../../escape", question)),
+                    "an invalid scope id is answered, not thrown");
 
-            var unreadable = assertInstanceOf(Unreadable.class, read);
-            assertEquals("the scope is not an identifier: ../../escape", unreadable.reason());
+            var unreadable = assertInstanceOf(Unreadable.class, read,
+                    "the invalid scope is an unreadable value");
+            assertEquals("the scope is not an identifier: ../../escape", unreadable.reason(),
+                    "the reason names the scope that is no identifier");
         }
 
         @ParameterizedTest
@@ -412,7 +432,8 @@ class QuestionLogRecordReaderTest {
             append(plan, endOfLine, asked("Q-002"));
 
             assertEquals(new Unreadable("the question " + question + " is not in the log"),
-                    reader.read(request(question)));
+                    reader.read(request(question)),
+                    "a question absent from a log with others is unreadable");
         }
     }
 
@@ -433,14 +454,16 @@ class QuestionLogRecordReaderTest {
                     "Q-003", new Resolved("withdrawn"));
             var lines = new QuestionLog(plan).read();
             var questionIds = lines.records().stream().map(QuestionRecord::questionId).distinct().toList();
-            assertEquals(List.of(question, "Q-002", "Q-003"), questionIds);
+            assertEquals(List.of(question, "Q-002", "Q-003"), questionIds,
+                    "the log holds the three asked questions in order");
 
             for (var entry : expected.entrySet()) {
                 var current = lines.current(entry.getKey()).orElseThrow();
                 assertAll("the store and the adapter agree on " + entry.getKey(),
-                        () -> assertEquals(entry.getValue(), reader.read(request(entry.getKey()))),
+                        () -> assertEquals(entry.getValue(), reader.read(request(entry.getKey())),
+                                "the adapter returns the read the store records"),
                         () -> assertEquals(entry.getValue() instanceof Resolved, current.closes(),
-                                "the store's current line closes exactly when the expected read is resolved"));
+                                "the current line closes exactly when the read is resolved"));
             }
         }
     }
@@ -456,17 +479,21 @@ class QuestionLogRecordReaderTest {
         void refusesNulls() {
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> new QuestionLogRecordReader(null, PROJECT)),
+                            () -> new QuestionLogRecordReader(null, PROJECT),
+                            "a null base is refused on construction"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new QuestionLogRecordReader(base, null)),
-                    () -> assertThrows(NullPointerException.class, () -> reader.read(null)));
+                            () -> new QuestionLogRecordReader(base, null),
+                            "a null project id is refused on construction"),
+                    () -> assertThrows(NullPointerException.class, () -> reader.read(null),
+                            "a null read request is refused"));
         }
 
         @Test
         @DisplayName("refuses a project id that is no identifier")
         void refusesAnInvalidProjectId() {
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new QuestionLogRecordReader(base, "../../escape"));
+                    () -> new QuestionLogRecordReader(base, "../../escape"),
+                    "a project id that is no identifier is refused");
 
             assertTrue(refusal.getMessage().contains("projectId"),
                     "the refusal names the project id: " + refusal.getMessage());
@@ -477,9 +504,11 @@ class QuestionLogRecordReaderTest {
         void readsUnreadableForANonExistentBase() {
             var missing = new QuestionLogRecordReader(base.resolve("missing"), PROJECT);
 
-            var read = assertDoesNotThrow(() -> missing.read(request(question)));
+            var read = assertDoesNotThrow(() -> missing.read(request(question)),
+                    "an absent base is answered, not thrown");
 
-            assertEquals(new Unreadable("no question log for the scope"), read);
+            assertEquals(new Unreadable("no question log for the scope"), read,
+                    "a base that does not exist has no question log");
         }
     }
 }

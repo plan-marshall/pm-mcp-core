@@ -55,10 +55,14 @@ class SocketOwnerTest {
 
             assertAll(
                     () -> assertTrue(lookup.isFound(), () -> tables(socket.getLocalPort()) + " — " + lookup.detail()),
-                    () -> assertTrue(Path.of(lookup.executablePath()).isAbsolute()),
-                    () -> assertTrue(Files.isRegularFile(Path.of(lookup.executablePath()))),
-                    () -> assertTrue(lookup.runs(lookup.executablePath())),
-                    () -> assertFalse(lookup.runs(absentProgram)));
+                    () -> assertTrue(Path.of(lookup.executablePath()).isAbsolute(),
+                            "the owner path is absolute"),
+                    () -> assertTrue(Files.isRegularFile(Path.of(lookup.executablePath())),
+                            "the owner path is a regular file"),
+                    () -> assertTrue(lookup.runs(lookup.executablePath()),
+                            "the owner runs its own executable"),
+                    () -> assertFalse(lookup.runs(absentProgram),
+                            "the owner does not run another program"));
         }
     }
 
@@ -87,14 +91,16 @@ class SocketOwnerTest {
         var lookup = SocketOwner.ofThisMachine().ownerOf("127.0.0.1", port);
 
         assertAll(
-                () -> assertFalse(lookup.isFound()),
-                () -> assertFalse(lookup.runs(absentProgram)),
-                () -> assertTrue(lookup.detail().contains("no program listens")));
+                () -> assertFalse(lookup.isFound(), "a port nobody listens on has no owner"),
+                () -> assertFalse(lookup.runs(absentProgram), "no owner runs the absent program"),
+                () -> assertTrue(lookup.detail().contains("no program listens"),
+                        "the detail says no program listens"));
     }
 
     @Test
     @DisplayName("a lookup that found nothing never runs an enrolled program")
     void notFoundNeverRuns() {
-        assertFalse(SocketOwner.Lookup.notFound("the platform keeps no socket table").runs(""));
+        assertFalse(SocketOwner.Lookup.notFound("the platform keeps no socket table").runs(""),
+                "a not-found lookup never runs a program");
     }
 }

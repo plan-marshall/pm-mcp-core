@@ -246,10 +246,10 @@ class EnrolmentsTest {
 
     /** Every record carries a transaction id that is a valid, non-empty {@link TransactionId}. */
     private static void assertValidTransactionIds(List<AuditEvent> records) {
-        assertFalse(records.isEmpty(), "no record to check");
+        assertFalse(records.isEmpty(), "the audit recorded at least one event");
         for (var event : records) {
             var id = transactionIdOf(event);
-            assertEquals(id, new TransactionId(id).value());
+            assertEquals(id, new TransactionId(id).value(), "the transaction id round trips");
         }
     }
 
@@ -263,11 +263,12 @@ class EnrolmentsTest {
             var written = enrolments.enrol(enrolment(false, null), false);
 
             assertAll(
-                    () -> assertEquals(written, verify()),
-                    () -> assertArrayEquals(EnrolmentCodec.write(written), Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertTrue(Files.exists(key.keyFile())),
+                    () -> assertEquals(written, verify(), "the written enrolment verifies"),
+                    () -> assertArrayEquals(EnrolmentCodec.write(written), Files.readAllBytes(store.file(PROJECT)),
+                            "the file holds the written enrolment"),
+                    () -> assertTrue(Files.exists(key.keyFile()), "the integrity key file exists"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, PROJECT)),
-                            withoutTransactionIds(events)),
+                            withoutTransactionIds(events), "one written event is audited"),
                     () -> assertValidTransactionIds(events),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.ENROLMENT_WRITTEN.resolveIdentifierString()));
@@ -279,9 +280,9 @@ class EnrolmentsTest {
             var written = enrolments.enrol(enrolment(false, Instant.parse("2026-10-11T09:00:00Z")), true);
 
             assertAll(
-                    () -> assertTrue(written.pilot()),
-                    () -> assertNull(written.releasedAt()),
-                    () -> assertTrue(verify().pilot()));
+                    () -> assertTrue(written.pilot(), "the enrolment is marked pilot"),
+                    () -> assertNull(written.releasedAt(), "the release is cleared"),
+                    () -> assertTrue(verify().pilot(), "the stored enrolment is pilot"));
         }
 
         @Test
@@ -291,7 +292,7 @@ class EnrolmentsTest {
 
             enrolments.enrol(enrolment(true, null), false);
 
-            assertFalse(verify().pilot());
+            assertFalse(verify().pilot(), "the pilot flag is cleared");
         }
 
         @Test
@@ -303,8 +304,9 @@ class EnrolmentsTest {
             var schema = written.projectScripts().get("parse-log").argumentSchema();
 
             assertAll(
-                    () -> assertEquals(written, verify()),
-                    () -> assertEquals(ceiling, schema.maxLength().longValue()));
+                    () -> assertEquals(written, verify(), "the written enrolment verifies"),
+                    () -> assertEquals(ceiling, schema.maxLength().longValue(),
+                            "the ceiling is accepted as maxLength"));
         }
 
         @Test
@@ -314,13 +316,15 @@ class EnrolmentsTest {
 
             var candidate = withArgumentSchema(enrolment(false, null), patternSchema(above));
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false),
+                    "the candidate enrolment is refused");
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome(),
+                            "the refusal outcome is enrolment invalid"),
                     () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
-                    () -> assertFalse(Files.exists(store.file(PROJECT))),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))));
+                    () -> assertFalse(Files.exists(store.file(PROJECT)), "no enrolment file is written"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)), "the sidecar file is not left behind"));
         }
 
         @Test
@@ -333,13 +337,15 @@ class EnrolmentsTest {
 
             var candidate = withArgumentSchema(enrolment(false, null), root);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false),
+                    "the candidate enrolment is refused");
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome(),
+                            "the refusal outcome is enrolment invalid"),
                     () -> assertTrue(refusal.getMessage().contains("100%s"), refusal.getMessage()),
                     () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
-                    () -> assertFalse(Files.exists(store.file(PROJECT))));
+                    () -> assertFalse(Files.exists(store.file(PROJECT)), "no enrolment file is written"));
         }
 
         @Test
@@ -352,14 +358,17 @@ class EnrolmentsTest {
 
             var candidate = withArgumentSchema(enrolment(false, null), untyped);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false),
+                    "the candidate enrolment is refused");
             var written = enrolments.enrol(withArgumentSchema(enrolment(false, null), objectSchema), false);
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome(),
+                            "the refusal outcome is enrolment invalid"),
                     () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
                     () -> assertEquals(above,
-                            written.projectScripts().get("parse-log").argumentSchema().maxLength().longValue()));
+                            written.projectScripts().get("parse-log").argumentSchema().maxLength().longValue(),
+                            "a non string schema admits above the ceiling"));
         }
     }
 
@@ -390,13 +399,15 @@ class EnrolmentsTest {
 
         private void assertRefusedForKeySwitch(StoreRefusal refusal, String firstProject) {
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
-                    () -> assertEquals(store.file(firstProject), refusal.file()),
+                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome(),
+                            "the refusal outcome is enrolment tampered"),
+                    () -> assertEquals(store.file(firstProject), refusal.file(),
+                            "the refusal names the enrolment file"),
                     () -> assertTrue(refusal.getMessage().contains(EnrolmentCheck.KEY_ABSENT), refusal.getMessage()),
                     () -> assertTrue(refusal.getMessage().contains("pm-operator accept-edit enrolment " + firstProject),
                             refusal.getMessage()),
                     () -> assertEquals(List.of(AuditEvent.enrolmentTampered(firstProject, EnrolmentCheck.KEY_ABSENT)),
-                            events),
+                            events, "one tampered event is audited"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_TAMPERED.resolveIdentifierString()));
         }
@@ -407,9 +418,10 @@ class EnrolmentsTest {
             var written = keyringEnrolments.enrol(enrolment(false, null), false);
 
             assertAll(
-                    () -> assertEquals(written, verifyWith(keyringKey, PROJECT)),
-                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
-                    () -> assertFalse(Files.exists(keyringKey.keyFile())));
+                    () -> assertEquals(written, verifyWith(keyringKey, PROJECT),
+                            "the keyring key verifies the project"),
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT), "the key is in the keyring"),
+                    () -> assertFalse(Files.exists(keyringKey.keyFile()), "no key file is created"));
         }
 
         @Test
@@ -421,15 +433,18 @@ class EnrolmentsTest {
             events.clear();
             var other = enrolment(OTHER, false, null);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> keyringEnrolments.enrol(other, false));
+            var refusal = assertThrows(StoreRefusal.class, () -> keyringEnrolments.enrol(other, false),
+                    "the key source switch is refused");
 
             assertRefusedForKeySwitch(refusal, PROJECT);
             assertAll(
-                    () -> assertTrue(keyring.entries.isEmpty()),
-                    () -> assertFalse(Files.exists(store.file(OTHER))),
-                    () -> assertFalse(Files.exists(store.sidecar(OTHER))),
-                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))));
+                    () -> assertTrue(keyring.entries.isEmpty(), "the keyring stays empty"),
+                    () -> assertFalse(Files.exists(store.file(OTHER)), "no file for the other project"),
+                    () -> assertFalse(Files.exists(store.sidecar(OTHER)), "no sidecar for the other project"),
+                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT)),
+                            "the project file is unchanged"),
+                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)),
+                            "the sidecar is unchanged"));
         }
 
         @Test
@@ -439,13 +454,14 @@ class EnrolmentsTest {
             events.clear();
             var other = enrolment(OTHER, false, null);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(other, false));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(other, false),
+                    "the keyring to file switch is refused");
 
             assertRefusedForKeySwitch(refusal, PROJECT);
             assertAll(
-                    () -> assertFalse(Files.exists(key.keyFile())),
-                    () -> assertFalse(Files.exists(store.file(OTHER))),
-                    () -> assertFalse(Files.exists(store.sidecar(OTHER))));
+                    () -> assertFalse(Files.exists(key.keyFile()), "no key file is created"),
+                    () -> assertFalse(Files.exists(store.file(OTHER)), "no file for the other project"),
+                    () -> assertFalse(Files.exists(store.sidecar(OTHER)), "no sidecar for the other project"));
         }
 
         @Test
@@ -458,13 +474,16 @@ class EnrolmentsTest {
             });
             var other = enrolment(OTHER, false, null);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> failing.enrol(other, false));
+            var refusal = assertThrows(StoreRefusal.class, () -> failing.enrol(other, false),
+                    "a failing sink does not lift the refusal");
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
-                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())),
-                    () -> assertTrue(keyring.entries.isEmpty()),
-                    () -> assertFalse(Files.exists(store.file(OTHER))));
+                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome(),
+                            "the refusal outcome is enrolment tampered"),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed()),
+                            "the sink failure is carried by the refusal"),
+                    () -> assertTrue(keyring.entries.isEmpty(), "the keyring stays empty"),
+                    () -> assertFalse(Files.exists(store.file(OTHER)), "no file for the other project"));
         }
 
         @Test
@@ -476,12 +495,14 @@ class EnrolmentsTest {
             events.clear();
             var again = enrolment(false, null);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(again, true));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(again, true),
+                    "a vanished key refuses the re-enrol");
 
             assertRefusedForKeySwitch(refusal, PROJECT);
             assertAll(
-                    () -> assertFalse(Files.exists(key.keyFile())),
-                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))));
+                    () -> assertFalse(Files.exists(key.keyFile()), "no key file is created"),
+                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT)),
+                            "the project file is unchanged"));
         }
 
         @Test
@@ -490,19 +511,24 @@ class EnrolmentsTest {
             enrolments.enrol(enrolment(false, null), false);
             enrolments.enrol(enrolment(THIRD, false, null), false);
             var refused = enrolment(OTHER, false, null);
-            assertThrows(StoreRefusal.class, () -> keyringEnrolments.enrol(refused, false));
+            assertThrows(StoreRefusal.class, () -> keyringEnrolments.enrol(refused, false),
+                    "the other project is refused first");
             events.clear();
 
             keyringEnrolments.rebaseline(PROJECT);
             var other = keyringEnrolments.enrol(refused, false);
             events.clear();
 
-            var third = assertThrows(StoreRefusal.class, () -> verifyWith(keyringKey, THIRD));
+            var third = assertThrows(StoreRefusal.class, () -> verifyWith(keyringKey, THIRD),
+                    "the third project fails by HMAC");
             assertAll(
-                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
-                    () -> assertEquals(PROJECT, verifyWith(keyringKey, PROJECT).projectId()),
-                    () -> assertEquals(other, verifyWith(keyringKey, OTHER)),
-                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, third.outcome()),
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT), "the key is in the keyring"),
+                    () -> assertEquals(PROJECT, verifyWith(keyringKey, PROJECT).projectId(),
+                            "the rebaselined project verifies"),
+                    () -> assertEquals(other, verifyWith(keyringKey, OTHER),
+                            "the other project verifies with the new key"),
+                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, third.outcome(),
+                            "the third project is tampered"),
                     () -> assertTrue(third.getMessage().contains(EnrolmentCheck.HMAC_MISMATCH), third.getMessage()),
                     () -> assertTrue(third.getMessage().contains("pm-operator accept-edit enrolment " + THIRD),
                             third.getMessage()));
@@ -515,12 +541,13 @@ class EnrolmentsTest {
             Files.setPosixFilePermissions(key.keyFile(), PosixFilePermissions.fromString("rw-r--r--"));
             var other = enrolment(OTHER, false, null);
 
-            var thrown = assertThrows(SecretStoreException.class, () -> enrolments.enrol(other, false));
+            var thrown = assertThrows(SecretStoreException.class, () -> enrolments.enrol(other, false),
+                    "an unusable key throws on enrol");
 
             assertAll(
-                    () -> assertEquals(Reason.INSECURE, thrown.reason()),
-                    () -> assertFalse(Files.exists(store.file(OTHER))),
-                    () -> assertFalse(Files.exists(store.sidecar(OTHER))));
+                    () -> assertEquals(Reason.INSECURE, thrown.reason(), "the insecure key reason is insecure"),
+                    () -> assertFalse(Files.exists(store.file(OTHER)), "no file for the other project"),
+                    () -> assertFalse(Files.exists(store.sidecar(OTHER)), "no sidecar for the other project"));
         }
 
         @Test
@@ -530,12 +557,13 @@ class EnrolmentsTest {
             Files.writeString(key.keyFile(), "not base64!");
             var other = enrolment(OTHER, false, null);
 
-            var thrown = assertThrows(SecretStoreException.class, () -> enrolments.enrol(other, false));
+            var thrown = assertThrows(SecretStoreException.class, () -> enrolments.enrol(other, false),
+                    "an unusable key throws on enrol");
 
             assertAll(
-                    () -> assertEquals(Reason.INVALID, thrown.reason()),
-                    () -> assertFalse(Files.exists(store.file(OTHER))),
-                    () -> assertFalse(Files.exists(store.sidecar(OTHER))));
+                    () -> assertEquals(Reason.INVALID, thrown.reason(), "the malformed key reason is invalid"),
+                    () -> assertFalse(Files.exists(store.file(OTHER)), "no file for the other project"),
+                    () -> assertFalse(Files.exists(store.sidecar(OTHER)), "no sidecar for the other project"));
         }
     }
 
@@ -552,19 +580,22 @@ class EnrolmentsTest {
                     new Item(Kind.JOB, liveJob));
             liveWork.put(PROJECT, items);
 
-            var refusal = assertThrows(ScopeActiveException.class, () -> enrolments.unenrol(PROJECT));
+            var refusal = assertThrows(ScopeActiveException.class, () -> enrolments.unenrol(PROJECT),
+                    "live work refuses the unenrol");
 
             assertAll(
-                    () -> assertEquals(PROJECT, refusal.projectId()),
-                    () -> assertEquals(items, refusal.items()),
-                    () -> assertTrue(refusal.getMessage().contains(ScopeActiveException.CODE)),
+                    () -> assertEquals(PROJECT, refusal.projectId(), "the refusal names the project"),
+                    () -> assertEquals(items, refusal.items(), "the refusal lists the live items"),
+                    () -> assertTrue(refusal.getMessage().contains(ScopeActiveException.CODE),
+                            "the message carries the scope code"),
                     () -> assertTrue(refusal.getMessage().contains(
                                     "plan " + livePlan + ", epic " + liveEpic + ", job " + liveJob),
                             refusal.getMessage()),
-                    () -> assertTrue(Files.exists(store.file(PROJECT))),
-                    () -> assertTrue(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertEquals(List.of(AuditEvent.unenrolRefused(PROJECT)), events),
-                    () -> assertEquals(0, refusal.getSuppressed().length),
+                    () -> assertTrue(Files.exists(store.file(PROJECT)), "the enrolment file is kept"),
+                    () -> assertTrue(Files.exists(store.sidecar(PROJECT)), "the sidecar file is kept"),
+                    () -> assertEquals(List.of(AuditEvent.unenrolRefused(PROJECT)), events,
+                            "one refused event is audited"),
+                    () -> assertEquals(0, refusal.getSuppressed().length, "the refusal has no suppressed failure"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.UNENROL_REFUSED.resolveIdentifierString()));
         }
@@ -578,16 +609,18 @@ class EnrolmentsTest {
             var failure = auditFailure();
             var failing = enrolmentsWith(key, failingWith(failure));
 
-            var refusal = assertThrows(ScopeActiveException.class, () -> failing.unenrol(PROJECT));
+            var refusal = assertThrows(ScopeActiveException.class, () -> failing.unenrol(PROJECT),
+                    "the failing sink keeps the refusal");
 
             assertAll(
-                    () -> assertEquals(PROJECT, refusal.projectId()),
-                    () -> assertEquals(items, refusal.items()),
+                    () -> assertEquals(PROJECT, refusal.projectId(), "the refusal names the project"),
+                    () -> assertEquals(items, refusal.items(), "the refusal lists the live items"),
                     () -> assertTrue(refusal.getMessage().contains(ScopeActiveException.CODE), refusal.getMessage()),
-                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())),
-                    () -> assertTrue(Files.exists(store.file(PROJECT))),
-                    () -> assertTrue(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertTrue(store.auditOwingProjectIds().isEmpty()),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed()),
+                            "the sink failure is carried by the refusal"),
+                    () -> assertTrue(Files.exists(store.file(PROJECT)), "the enrolment file is kept"),
+                    () -> assertTrue(Files.exists(store.sidecar(PROJECT)), "the sidecar file is kept"),
+                    () -> assertTrue(store.auditOwingProjectIds().isEmpty(), "no project owes an audit record"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.UNENROL_REFUSED.resolveIdentifierString()));
         }
@@ -604,13 +637,14 @@ class EnrolmentsTest {
             var removed = enrolments.unenrol(PROJECT);
 
             assertAll(
-                    () -> assertTrue(removed),
-                    () -> assertFalse(Files.exists(store.file(PROJECT))),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertArrayEquals(before, Files.readAllBytes(storeFile)),
-                    () -> assertEquals(List.of(storeFile), listing(projectStore)),
+                    () -> assertTrue(removed, "the unenrol reports a removal"),
+                    () -> assertFalse(Files.exists(store.file(PROJECT)), "the enrolment file is removed"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)), "the sidecar file is not left behind"),
+                    () -> assertArrayEquals(before, Files.readAllBytes(storeFile), "the project store is unchanged"),
+                    () -> assertEquals(List.of(storeFile), listing(projectStore),
+                            "only the project store file is listed"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT)),
-                            withoutTransactionIds(events)),
+                            withoutTransactionIds(events), "one removed event is audited"),
                     () -> assertValidTransactionIds(events),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.ENROLMENT_REMOVED.resolveIdentifierString()));
@@ -620,8 +654,8 @@ class EnrolmentsTest {
         @DisplayName("of a project that is not enrolled removes nothing and records nothing")
         void notEnrolled() {
             assertAll(
-                    () -> assertFalse(enrolments.unenrol(PROJECT)),
-                    () -> assertTrue(events.isEmpty()));
+                    () -> assertFalse(enrolments.unenrol(PROJECT), "an unenrolled project removes nothing"),
+                    () -> assertTrue(events.isEmpty(), "no audit event is appended"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -636,18 +670,18 @@ class EnrolmentsTest {
             var recovered = recoverPair();
 
             assertAll(
-                    () -> assertTrue(removed),
+                    () -> assertTrue(removed, "the unenrol reports a removal"),
                     () -> assertTrue(namesAfterUnenrol.isEmpty(), namesAfterUnenrol::toString),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT)),
-                            withoutTransactionIds(events)),
+                            withoutTransactionIds(events), "one removed event is audited"),
                     () -> assertValidTransactionIds(events),
-                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT))),
+                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT)), "no audit intent is left"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.ENROLMENT_REMOVED.resolveIdentifierString()),
-                    () -> assertTrue(recovered.isEmpty()),
-                    () -> assertFalse(Files.exists(store.file(PROJECT))),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertTrue(store.projectIds().isEmpty()));
+                    () -> assertTrue(recovered.isEmpty(), "no stopped write is recovered"),
+                    () -> assertFalse(Files.exists(store.file(PROJECT)), "the enrolment file is removed"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)), "the sidecar file is not left behind"),
+                    () -> assertTrue(store.projectIds().isEmpty(), "no enrolment file is listed"));
         }
 
         @Test
@@ -661,13 +695,13 @@ class EnrolmentsTest {
             var removed = enrolments.unenrol(PROJECT);
 
             assertAll(
-                    () -> assertTrue(removed),
-                    () -> assertTrue(stagedNames().isEmpty()),
-                    () -> assertFalse(Files.exists(store.file(PROJECT))),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertTrue(recoverPair().isEmpty()),
+                    () -> assertTrue(removed, "the unenrol reports a removal"),
+                    () -> assertTrue(stagedNames().isEmpty(), "no staged file is left"),
+                    () -> assertFalse(Files.exists(store.file(PROJECT)), "the enrolment file is removed"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)), "the sidecar file is not left behind"),
+                    () -> assertTrue(recoverPair().isEmpty(), "no pair is left to recover"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT)),
-                            withoutTransactionIds(events)));
+                            withoutTransactionIds(events), "one removed event is audited"));
         }
 
         private List<Path> listing(Path directory) throws IOException {
@@ -722,19 +756,19 @@ class EnrolmentsTest {
             var recorded = StoreDigest.of(EnrolmentCodec.write(written));
             var edited = EnrolmentCodec.write(enrolment(true, null));
             Files.write(store.file(PROJECT), edited);
-            assertThrows(StoreRefusal.class, EnrolmentsTest.this::verify);
+            assertThrows(StoreRefusal.class, EnrolmentsTest.this::verify, "the edit fails the check");
             events.clear();
 
             var outcome = enrolments.rebaseline(PROJECT);
 
             assertAll(
-                    () -> assertEquals(store.file(PROJECT), outcome.file()),
-                    () -> assertEquals(recorded, outcome.recorded()),
-                    () -> assertEquals(StoreDigest.of(edited), outcome.current()),
-                    () -> assertTrue(outcome.settled().isEmpty()),
-                    () -> assertTrue(verify().pilot()),
+                    () -> assertEquals(store.file(PROJECT), outcome.file(), "the report names the enrolment file"),
+                    () -> assertEquals(recorded, outcome.recorded(), "the recorded digest is reported"),
+                    () -> assertEquals(StoreDigest.of(edited), outcome.current(), "the current digest is reported"),
+                    () -> assertTrue(outcome.settled().isEmpty(), "no stopped write is settled"),
+                    () -> assertTrue(verify().pilot(), "the edited file now is pilot"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REBASELINED, PROJECT)),
-                            withoutTransactionIds(events)),
+                            withoutTransactionIds(events), "one rebaselined event is audited"),
                     () -> assertValidTransactionIds(events),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.ENROLMENT_REBASELINED.resolveIdentifierString()));
@@ -776,19 +810,26 @@ class EnrolmentsTest {
             var recovered = recoverPair();
             assertAll(
                     () -> assertTrue(namesAfterRebaseline.isEmpty(), namesAfterRebaseline::toString),
-                    () -> assertArrayEquals(expected, file),
-                    () -> assertEquals(StoreDigest.of(expected), store.decodeSidecar(PROJECT, sidecar).digest()),
-                    () -> assertEquals(StoreDigest.of(expected), outcome.current()),
+                    () -> assertArrayEquals(expected, file, "the settled file is the expected one"),
+                    () -> assertEquals(StoreDigest.of(expected), store.decodeSidecar(PROJECT, sidecar).digest(),
+                            "the sidecar digest matches the file"),
+                    () -> assertEquals(StoreDigest.of(expected), outcome.current(),
+                            "the current digest is the expected one"),
                     () -> assertEquals(stopped.settled,
-                            outcome.settled().stream().map(PairRecovery::getClass).toList()),
+                            outcome.settled().stream().map(PairRecovery::getClass).toList(),
+                            "the settled kinds are as expected"),
                     () -> assertTrue(outcome.settled().stream()
-                            .filter(PairRecovery.Discarded.class::isInstance)
-                            .map(PairRecovery.Discarded.class::cast)
-                            .noneMatch(discarded -> discarded.reason().isBlank())),
-                    () -> assertTrue(recovered.isEmpty()),
-                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))),
-                    () -> assertEquals(stopped.newFileInPlace, verify().pilot()));
+                                    .filter(PairRecovery.Discarded.class::isInstance)
+                                    .map(PairRecovery.Discarded.class::cast)
+                                    .noneMatch(discarded -> discarded.reason().isBlank()),
+                            "every discarded kind carries a reason"),
+                    () -> assertTrue(recovered.isEmpty(), "no stopped write is recovered"),
+                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT)),
+                            "the project file is unchanged"),
+                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)),
+                            "the sidecar is unchanged"),
+                    () -> assertEquals(stopped.newFileInPlace, verify().pilot(),
+                            "the pilot flag matches the stopped write"));
         }
 
         @Test
@@ -800,19 +841,20 @@ class EnrolmentsTest {
             var outcome = enrolments.rebaseline(PROJECT);
 
             assertAll(
-                    () -> assertNull(outcome.recorded()),
-                    () -> assertFalse(verify().pilot()));
+                    () -> assertNull(outcome.recorded(), "no recorded digest is reported"),
+                    () -> assertFalse(verify().pilot(), "the file stays not pilot"));
         }
 
         @Test
         @DisplayName("of a project without an enrolment file is refused as absent and writes nothing")
         void absent() {
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT),
+                    "the rebaseline is refused");
 
             assertAll(
-                    () -> assertEquals(Outcome.ABSENT, refusal.outcome()),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertTrue(events.isEmpty()));
+                    () -> assertEquals(Outcome.ABSENT, refusal.outcome(), "the refusal outcome is absent"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)), "the sidecar file is not left behind"),
+                    () -> assertTrue(events.isEmpty(), "no audit event is appended"));
         }
 
         @Test
@@ -824,18 +866,23 @@ class EnrolmentsTest {
             var reason = new EnrolmentFileCheck(USER).violation(store.file(PROJECT)).orElseThrow();
             events.clear();
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT),
+                    "the rebaseline is refused");
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
-                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))),
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
+                            "the refusal outcome is enrolment insecure"),
+                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)),
+                            "the sidecar is unchanged"),
                     () -> assertTrue(refusal.getMessage().contains(reason), refusal.getMessage()),
-                    () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, reason)), events),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, reason)), events,
+                            "one insecure event names the reason"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INSECURE.resolveIdentifierString()),
-                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT))),
+                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT)), "no audit intent is left"),
                     () -> assertTrue(events.stream()
-                            .noneMatch(event -> AuditEvent.ENROLMENT_REBASELINED.equals(event.event()))));
+                                    .noneMatch(event -> AuditEvent.ENROLMENT_REBASELINED.equals(event.event())),
+                            "no rebaselined event is audited"));
         }
 
         @Test
@@ -846,12 +893,15 @@ class EnrolmentsTest {
             var failure = auditFailure();
             var failing = enrolmentsWith(key, failingWith(failure));
 
-            var refusal = assertThrows(StoreRefusal.class, () -> failing.rebaseline(PROJECT));
+            var refusal = assertThrows(StoreRefusal.class, () -> failing.rebaseline(PROJECT),
+                    "a failing sink keeps the refusal");
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
-                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())),
-                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
+                            "the refusal outcome is enrolment insecure"),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed()),
+                            "the sink failure is carried by the refusal"),
+                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT)), "no audit intent is left"));
         }
 
         @Test
@@ -864,16 +914,19 @@ class EnrolmentsTest {
             Files.createSymbolicLink(store.file(PROJECT), real);
             events.clear();
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT),
+                    "the rebaseline is refused");
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
+                            "the refusal outcome is enrolment insecure"),
                     () -> assertTrue(refusal.getMessage().contains(EnrolmentFileCheck.SYMBOLIC_LINK),
                             refusal.getMessage()),
-                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))),
-                    () -> assertArrayEquals(content, Files.readAllBytes(real)),
+                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)),
+                            "the sidecar is unchanged"),
+                    () -> assertArrayEquals(content, Files.readAllBytes(real), "the link target is untouched"),
                     () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, EnrolmentFileCheck.SYMBOLIC_LINK)),
-                            events),
+                            events, "one insecure event for the link"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INSECURE.resolveIdentifierString()));
         }
@@ -885,11 +938,13 @@ class EnrolmentsTest {
             var sidecar = Files.readAllBytes(store.sidecar(PROJECT));
             Files.writeString(store.file(PROJECT), "{\"format_version\":1}");
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT),
+                    "the rebaseline is refused");
 
             assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))));
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is unreadable"),
+                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)),
+                            "the sidecar is unchanged"));
         }
     }
 
@@ -967,26 +1022,27 @@ class EnrolmentsTest {
             var replayed = owing.replayOwedAudit();
 
             assertAll(
-                    () -> assertEquals(1, replayed),
-                    () -> assertEquals(List.of(owedRecord), events),
-                    () -> assertFalse(owes(PROJECT)),
+                    () -> assertEquals(1, replayed, "one owed record is replayed"),
+                    () -> assertEquals(List.of(owedRecord), events, "the owed record is audited"),
+                    () -> assertFalse(owes(PROJECT), "the intent is gone after replay"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.ENROLMENT_AUDIT_REPLAYED.resolveIdentifierString()));
 
             var again = owing.replayOwedAudit();
 
             assertAll(
-                    () -> assertEquals(0, again),
-                    () -> assertEquals(List.of(owedRecord), events));
+                    () -> assertEquals(0, again, "a second replay replays nothing"),
+                    () -> assertEquals(List.of(owedRecord), events, "the replayed record stays single"));
         }
 
         private void assertOwedOnce(String event) {
             var owed = owed(PROJECT);
             assertAll(
-                    () -> assertTrue(owes(PROJECT)),
-                    () -> assertEquals(List.of(succeeded(event, PROJECT)), withoutTransactionIds(owed)),
+                    () -> assertTrue(owes(PROJECT), "the record is still owed"),
+                    () -> assertEquals(List.of(succeeded(event, PROJECT)), withoutTransactionIds(owed),
+                            "one owed record is stored"),
                     () -> assertValidTransactionIds(owed),
-                    () -> assertTrue(events.isEmpty()),
+                    () -> assertTrue(events.isEmpty(), "no audit event is appended"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             CoreLogMessages.WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -1029,11 +1085,12 @@ class EnrolmentsTest {
 
             private void assertNormalPath(String event) {
                 assertAll(
-                        () -> assertEquals(List.of(succeeded(event, PROJECT)), withoutTransactionIds(events)),
+                        () -> assertEquals(List.of(succeeded(event, PROJECT)), withoutTransactionIds(events),
+                                "one event is appended with an id"),
                         () -> assertValidTransactionIds(events),
-                        () -> assertFalse(owes(PROJECT)),
-                        () -> assertEquals(0, owing.replayOwedAudit()),
-                        () -> assertEquals(1, events.size()),
+                        () -> assertFalse(owes(PROJECT), "the intent is gone after replay"),
+                        () -> assertEquals(0, owing.replayOwedAudit(), "nothing remains to be replayed"),
+                        () -> assertEquals(1, events.size(), "exactly one event is appended"),
                         () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
                                 INFO.ENROLMENT_AUDIT_REPLAYED.resolveIdentifierString()));
             }
@@ -1051,7 +1108,7 @@ class EnrolmentsTest {
                 var written = owing.enrol(enrolment(false, null), false);
 
                 assertAll(
-                        () -> assertEquals(written, verify()),
+                        () -> assertEquals(written, verify(), "the written enrolment verifies"),
                         () -> assertOwedOnce(AuditEvent.ENROLMENT_WRITTEN));
                 assertReplayedOnce(owed(PROJECT).getFirst());
             }
@@ -1069,10 +1126,11 @@ class EnrolmentsTest {
                 var removed = owing.unenrol(PROJECT);
 
                 assertAll(
-                        () -> assertTrue(removed),
-                        () -> assertFalse(Files.exists(store.file(PROJECT))),
-                        () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                        () -> assertArrayEquals(before, Files.readAllBytes(storeFile)),
+                        () -> assertTrue(removed, "the unenrol reports a removal"),
+                        () -> assertFalse(Files.exists(store.file(PROJECT)), "the enrolment file is removed"),
+                        () -> assertFalse(Files.exists(store.sidecar(PROJECT)), "the sidecar file is not left behind"),
+                        () -> assertArrayEquals(before, Files.readAllBytes(storeFile),
+                                "the project store is unchanged"),
                         () -> assertOwedOnce(AuditEvent.ENROLMENT_REMOVED));
                 assertReplayedOnce(owed(PROJECT).getFirst());
             }
@@ -1088,7 +1146,7 @@ class EnrolmentsTest {
                 owing.rebaseline(PROJECT);
 
                 assertAll(
-                        () -> assertTrue(verify().pilot()),
+                        () -> assertTrue(verify().pilot(), "the rebaselined file is pilot"),
                         () -> assertOwedOnce(AuditEvent.ENROLMENT_REBASELINED));
                 assertReplayedOnce(owed(PROJECT).getFirst());
             }
@@ -1115,13 +1173,14 @@ class EnrolmentsTest {
             private AuditEvent assertOwedNotConfirmed(String event) {
                 var owed = owed(PROJECT);
                 assertAll(
-                        () -> assertEquals(1, owed.size()),
-                        () -> assertEquals(event, owed.getFirst().event()),
-                        () -> assertEquals(AuditEvent.OUTCOME_FAILED, owed.getFirst().outcome()),
+                        () -> assertEquals(1, owed.size(), "the intent holds one record"),
+                        () -> assertEquals(event, owed.getFirst().event(), "the owed record is that event"),
+                        () -> assertEquals(AuditEvent.OUTCOME_FAILED, owed.getFirst().outcome(),
+                                "the owed outcome is failed"),
                         () -> assertEquals(AuditEvent.REASON_NOT_CONFIRMED,
-                                owed.getFirst().details().get(AuditEvent.DETAIL_REASON)),
+                                owed.getFirst().details().get(AuditEvent.DETAIL_REASON), "the reason is unconfirmed"),
                         () -> assertValidTransactionIds(owed),
-                        () -> assertTrue(events.isEmpty()));
+                        () -> assertTrue(events.isEmpty(), "no audit event is appended"));
                 return owed.getFirst();
             }
 
@@ -1130,9 +1189,9 @@ class EnrolmentsTest {
                 var replayed = owing.replayOwedAudit();
 
                 assertAll(
-                        () -> assertEquals(1, replayed),
-                        () -> assertEquals(List.of(unconfirmed), events),
-                        () -> assertFalse(owes(PROJECT)),
+                        () -> assertEquals(1, replayed, "one owed record is replayed"),
+                        () -> assertEquals(List.of(unconfirmed), events, "the unconfirmed record is handed over"),
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                                 WARN.ENROLMENT_WRITE_NOT_CONFIRMED.resolveIdentifierString()));
             }
@@ -1143,7 +1202,8 @@ class EnrolmentsTest {
                 blockSidecar();
                 var enrolment = enrolment(false, null);
 
-                assertThrows(UncheckedIOException.class, () -> owing.enrol(enrolment, false));
+                assertThrows(UncheckedIOException.class, () -> owing.enrol(enrolment, false),
+                        "the blocked sidecar fails the write");
 
                 assertReplayedNotConfirmed(assertOwedNotConfirmed(AuditEvent.ENROLMENT_WRITTEN));
             }
@@ -1155,7 +1215,8 @@ class EnrolmentsTest {
                 events.clear();
                 blockSidecar();
 
-                assertThrows(UncheckedIOException.class, () -> owing.unenrol(PROJECT));
+                assertThrows(UncheckedIOException.class, () -> owing.unenrol(PROJECT),
+                        "the blocked sidecar fails the unenrol");
 
                 assertReplayedNotConfirmed(assertOwedNotConfirmed(AuditEvent.ENROLMENT_REMOVED));
             }
@@ -1165,20 +1226,24 @@ class EnrolmentsTest {
             void nextWriteFlushesFirst() throws Exception {
                 blockSidecar();
                 var enrolment = enrolment(false, null);
-                assertThrows(UncheckedIOException.class, () -> owing.enrol(enrolment, false));
+                assertThrows(UncheckedIOException.class, () -> owing.enrol(enrolment, false),
+                        "the blocked sidecar fails the write");
                 var unconfirmed = assertOwedNotConfirmed(AuditEvent.ENROLMENT_WRITTEN);
                 unblockSidecar();
 
                 var written = owing.enrol(enrolment, false);
 
                 assertAll(
-                        () -> assertEquals(written, verify()),
-                        () -> assertEquals(2, events.size()),
-                        () -> assertEquals(unconfirmed, events.getFirst()),
-                        () -> assertEquals(AuditEvent.OUTCOME_SUCCEEDED, events.getLast().outcome()),
-                        () -> assertEquals(AuditEvent.ENROLMENT_WRITTEN, events.getLast().event()),
-                        () -> assertEquals(2, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count()),
-                        () -> assertFalse(owes(PROJECT)),
+                        () -> assertEquals(written, verify(), "the written enrolment verifies"),
+                        () -> assertEquals(2, events.size(), "two events are appended"),
+                        () -> assertEquals(unconfirmed, events.getFirst(), "the unconfirmed record comes first"),
+                        () -> assertEquals(AuditEvent.OUTCOME_SUCCEEDED, events.getLast().outcome(),
+                                "the last outcome is succeeded"),
+                        () -> assertEquals(AuditEvent.ENROLMENT_WRITTEN, events.getLast().event(),
+                                "the last event is enrolment written"),
+                        () -> assertEquals(2, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count(),
+                                "each event carries its own id"),
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                                 WARN.ENROLMENT_WRITE_NOT_CONFIRMED.resolveIdentifierString()));
             }
@@ -1194,23 +1259,24 @@ class EnrolmentsTest {
                 audit.mode = SinkMode.STOPPING;
                 var enrolment = enrolment(false, null);
 
-                assertThrows(ProcessStopped.class, () -> owing.enrol(enrolment, false));
+                assertThrows(ProcessStopped.class, () -> owing.enrol(enrolment, false),
+                        "a stop at the append throws");
 
                 var owed = owed(PROJECT);
                 assertAll(
-                        () -> assertEquals(PROJECT, verify().projectId()),
+                        () -> assertEquals(PROJECT, verify().projectId(), "the enrolment still verifies"),
                         () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, PROJECT)),
-                                withoutTransactionIds(owed)),
-                        () -> assertTrue(events.isEmpty()));
+                                withoutTransactionIds(owed), "one written record is owed"),
+                        () -> assertTrue(events.isEmpty(), "no audit event is appended"));
 
                 var restarted = new Enrolments(new EnrolmentStore(base), key, new EnrolmentFileCheck(USER),
                         new FileLockManager(sink), projectId -> List.of(), sink);
                 var replayed = restarted.replayOwedAudit();
 
                 assertAll(
-                        () -> assertEquals(1, replayed),
-                        () -> assertEquals(owed, events),
-                        () -> assertFalse(owes(PROJECT)));
+                        () -> assertEquals(1, replayed, "one owed record is replayed"),
+                        () -> assertEquals(owed, events, "the owed record is handed over"),
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"));
             }
 
             @Test
@@ -1220,18 +1286,21 @@ class EnrolmentsTest {
                 audit.mode = SinkMode.ACCEPTING_THEN_STOPPING;
                 var enrolment = enrolment(false, null);
 
-                assertThrows(ProcessStopped.class, () -> owing.enrol(enrolment, false));
-                assertTrue(owes(PROJECT));
+                assertThrows(ProcessStopped.class, () -> owing.enrol(enrolment, false),
+                        "a stop at the append throws");
+                assertTrue(owes(PROJECT), "the intent is still owed");
                 audit.mode = SinkMode.WORKING;
 
                 var replayed = owing.replayOwedAudit();
 
                 assertAll(
-                        () -> assertEquals(1, replayed),
-                        () -> assertEquals(2, events.size()),
-                        () -> assertEquals(events.getFirst(), events.getLast()),
-                        () -> assertEquals(1, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count()),
-                        () -> assertFalse(owes(PROJECT)));
+                        () -> assertEquals(1, replayed, "one owed record is replayed"),
+                        () -> assertEquals(2, events.size(), "two events are appended"),
+                        () -> assertEquals(events.getFirst(), events.getLast(),
+                                "the replayed record is appended twice"),
+                        () -> assertEquals(1, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count(),
+                                "both appends share one transaction id"),
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"));
             }
         }
 
@@ -1250,12 +1319,13 @@ class EnrolmentsTest {
 
                 assertAll(
                         () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, PROJECT),
-                                succeeded(AuditEvent.ENROLMENT_REBASELINED, PROJECT)), withoutTransactionIds(events)),
+                                        succeeded(AuditEvent.ENROLMENT_REBASELINED, PROJECT)), withoutTransactionIds(events),
+                                "both owed records are handed over"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                                 INFO.ENROLMENT_AUDIT_REPLAYED.resolveIdentifierString()),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                                 REPLAYED.formatted(AuditEvent.ENROLMENT_WRITTEN)),
-                        () -> assertFalse(owes(PROJECT)));
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"));
             }
 
             @Test
@@ -1270,10 +1340,10 @@ class EnrolmentsTest {
                 var removed = owing.unenrol(PROJECT);
 
                 assertAll(
-                        () -> assertFalse(removed),
+                        () -> assertFalse(removed, "the second unenrol removes nothing"),
                         () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT)),
-                                withoutTransactionIds(events)),
-                        () -> assertFalse(owes(PROJECT)));
+                                withoutTransactionIds(events), "the owed removal is handed over"),
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"));
             }
         }
 
@@ -1289,11 +1359,12 @@ class EnrolmentsTest {
                         audit);
                 var other = enrolment(ALPHA, false, null);
 
-                assertThrows(StoreRefusal.class, () -> keyring.enrol(other, false));
+                assertThrows(StoreRefusal.class, () -> keyring.enrol(other, false),
+                        "a switched key source refuses the enrol");
 
                 assertAll(
-                        () -> assertFalse(owes(ALPHA)),
-                        () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+                        () -> assertFalse(owes(ALPHA), "nothing is owed for alpha"),
+                        () -> assertTrue(store.auditOwingProjectIds().isEmpty(), "no project owes an audit record"));
             }
 
             @Test
@@ -1303,11 +1374,12 @@ class EnrolmentsTest {
                 Files.writeString(key.keyFile(), "not base64!");
                 var other = enrolment(ALPHA, false, null);
 
-                assertThrows(SecretStoreException.class, () -> owing.enrol(other, false));
+                assertThrows(SecretStoreException.class, () -> owing.enrol(other, false),
+                        "an unreadable key refuses the enrol");
 
                 assertAll(
-                        () -> assertFalse(owes(ALPHA)),
-                        () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+                        () -> assertFalse(owes(ALPHA), "nothing is owed for alpha"),
+                        () -> assertTrue(store.auditOwingProjectIds().isEmpty(), "no project owes an audit record"));
             }
 
             @Test
@@ -1317,11 +1389,13 @@ class EnrolmentsTest {
                 events.clear();
                 liveWork.put(PROJECT, List.of(new Item(Kind.PLAN, livePlan)));
 
-                assertThrows(ScopeActiveException.class, () -> owing.unenrol(PROJECT));
+                assertThrows(ScopeActiveException.class, () -> owing.unenrol(PROJECT),
+                        "live work refuses the unenrol");
 
                 assertAll(
-                        () -> assertFalse(owes(PROJECT)),
-                        () -> assertEquals(List.of(AuditEvent.unenrolRefused(PROJECT)), events));
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"),
+                        () -> assertEquals(List.of(AuditEvent.unenrolRefused(PROJECT)), events,
+                                "one refused event is audited"));
             }
 
             @ParameterizedTest
@@ -1338,12 +1412,14 @@ class EnrolmentsTest {
                 }
                 events.clear();
 
-                assertThrows(StoreRefusal.class, () -> owing.rebaseline(PROJECT));
+                assertThrows(StoreRefusal.class, () -> owing.rebaseline(PROJECT),
+                        "a refused rebaseline owes nothing");
 
                 assertAll(
-                        () -> assertFalse(owes(PROJECT)),
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"),
                         () -> assertTrue(events.stream()
-                                .noneMatch(event -> AuditEvent.ENROLMENT_REBASELINED.equals(event.event()))));
+                                        .noneMatch(event -> AuditEvent.ENROLMENT_REBASELINED.equals(event.event())),
+                                "no rebaselined event is audited"));
             }
         }
 
@@ -1360,12 +1436,14 @@ class EnrolmentsTest {
             var replayed = owing.replayOwedAudit();
 
             assertAll(
-                    () -> assertArrayEquals(zetaIntent, zetaAfter),
-                    () -> assertEquals(2, replayed),
+                    () -> assertArrayEquals(zetaIntent, zetaAfter, "the zeta intent is unchanged"),
+                    () -> assertEquals(2, replayed, "two owed records are replayed"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ALPHA),
-                            succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)), withoutTransactionIds(events)),
-                    () -> assertEquals(2, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count()),
-                    () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+                                    succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)), withoutTransactionIds(events),
+                            "both projects are handed over"),
+                    () -> assertEquals(2, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count(),
+                            "each project keeps its own id"),
+                    () -> assertTrue(store.auditOwingProjectIds().isEmpty(), "no project owes an audit record"));
         }
 
         @Test
@@ -1379,17 +1457,21 @@ class EnrolmentsTest {
             var newer = Files.writeString(store.auditIntent(GAMMA), NEWER_FORMAT);
             audit.mode = SinkMode.WORKING;
 
-            var refusal = assertThrows(StoreRefusal.class, owing::replayOwedAudit);
+            var refusal = assertThrows(StoreRefusal.class, owing::replayOwedAudit,
+                    "the unreadable intent refuses the replay");
 
             assertAll(
-                    () -> assertEquals(unreadable, refusal.file()),
-                    () -> assertEquals(1, refusal.getSuppressed().length),
-                    () -> assertEquals(newer, ((StoreRefusal) refusal.getSuppressed()[0]).file()),
+                    () -> assertEquals(unreadable, refusal.file(), "the refusal names the unreadable intent"),
+                    () -> assertEquals(1, refusal.getSuppressed().length, "one failure is suppressed"),
+                    () -> assertEquals(newer, ((StoreRefusal) refusal.getSuppressed()[0]).file(),
+                            "the newer intent is suppressed"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ALPHA),
-                            succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)), withoutTransactionIds(events)),
-                    () -> assertEquals(NOT_JSON, Files.readString(unreadable)),
-                    () -> assertEquals(NEWER_FORMAT, Files.readString(newer)),
-                    () -> assertEquals(List.of(BETA, GAMMA), List.copyOf(store.auditOwingProjectIds())));
+                                    succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)), withoutTransactionIds(events),
+                            "both readable projects are handed over"),
+                    () -> assertEquals(NOT_JSON, Files.readString(unreadable), "the unreadable intent is kept"),
+                    () -> assertEquals(NEWER_FORMAT, Files.readString(newer), "the newer intent is kept"),
+                    () -> assertEquals(List.of(BETA, GAMMA), List.copyOf(store.auditOwingProjectIds()),
+                            "both intents are still owed"));
         }
 
         @Test
@@ -1400,15 +1482,17 @@ class EnrolmentsTest {
             var unreadable = Files.writeString(store.auditIntent(BETA), NOT_JSON);
             audit.mode = SinkMode.WORKING;
 
-            var refusal = assertThrows(StoreRefusal.class, owing::replayOwedAudit);
+            var refusal = assertThrows(StoreRefusal.class, owing::replayOwedAudit,
+                    "the unreadable intent refuses the replay");
 
             assertAll(
-                    () -> assertEquals(unreadable, refusal.file()),
-                    () -> assertEquals(0, refusal.getSuppressed().length),
+                    () -> assertEquals(unreadable, refusal.file(), "the refusal names the unreadable intent"),
+                    () -> assertEquals(0, refusal.getSuppressed().length, "the refusal has no suppressed failure"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)),
-                            withoutTransactionIds(events)),
-                    () -> assertEquals(NOT_JSON, Files.readString(unreadable)),
-                    () -> assertEquals(List.of(BETA), List.copyOf(store.auditOwingProjectIds())));
+                            withoutTransactionIds(events), "the one readable record is handed over"),
+                    () -> assertEquals(NOT_JSON, Files.readString(unreadable), "the unreadable intent is kept"),
+                    () -> assertEquals(List.of(BETA), List.copyOf(store.auditOwingProjectIds()),
+                            "the intent is still owed"));
         }
 
         /** Owes one record for each project: the enrol of each meets a refusing sink. */
@@ -1431,14 +1515,16 @@ class EnrolmentsTest {
             oweRecords(ZETA);
             var directory = directoryIntent(ALPHA);
 
-            var failure = assertThrows(UncheckedIOException.class, owing::replayOwedAudit);
+            var failure = assertThrows(UncheckedIOException.class, owing::replayOwedAudit,
+                    "the io failure is reported after the replay");
 
             assertAll(
-                    () -> assertEquals(0, failure.getSuppressed().length),
+                    () -> assertEquals(0, failure.getSuppressed().length, "the io failure suppresses nothing"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)),
-                            withoutTransactionIds(events)),
-                    () -> assertTrue(Files.isDirectory(directory)),
-                    () -> assertEquals(List.of(ALPHA), List.copyOf(store.auditOwingProjectIds())));
+                            withoutTransactionIds(events), "the zeta record is replayed before the failure"),
+                    () -> assertTrue(Files.isDirectory(directory), "the intent directory is kept"),
+                    () -> assertEquals(List.of(ALPHA), List.copyOf(store.auditOwingProjectIds()),
+                            "only alpha is still owed"));
         }
 
         @Test
@@ -1448,16 +1534,18 @@ class EnrolmentsTest {
             var unreadable = Files.writeString(store.auditIntent(BETA), NOT_JSON);
             var directory = directoryIntent(GAMMA);
 
-            var refusal = assertThrows(StoreRefusal.class, owing::replayOwedAudit);
+            var refusal = assertThrows(StoreRefusal.class, owing::replayOwedAudit,
+                    "the unreadable intent refuses the replay");
 
             assertAll(
-                    () -> assertEquals(unreadable, refusal.file()),
-                    () -> assertEquals(1, refusal.getSuppressed().length),
-                    () -> assertInstanceOf(UncheckedIOException.class, refusal.getSuppressed()[0]),
+                    () -> assertEquals(unreadable, refusal.file(), "the refusal names the unreadable intent"),
+                    () -> assertEquals(1, refusal.getSuppressed().length, "one failure is suppressed"),
+                    () -> assertInstanceOf(UncheckedIOException.class, refusal.getSuppressed()[0],
+                            "the io failure is suppressed"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)),
-                            withoutTransactionIds(events)),
-                    () -> assertEquals(NOT_JSON, Files.readString(unreadable)),
-                    () -> assertTrue(Files.isDirectory(directory)));
+                            withoutTransactionIds(events), "the zeta record is still handed over"),
+                    () -> assertEquals(NOT_JSON, Files.readString(unreadable), "the unreadable intent is kept"),
+                    () -> assertTrue(Files.isDirectory(directory), "the intent directory is kept"));
         }
 
         @Test
@@ -1467,14 +1555,17 @@ class EnrolmentsTest {
             directoryIntent(ALPHA);
             var unreadable = Files.writeString(store.auditIntent(BETA), NOT_JSON);
 
-            var failure = assertThrows(UncheckedIOException.class, owing::replayOwedAudit);
+            var failure = assertThrows(UncheckedIOException.class, owing::replayOwedAudit,
+                    "the io failure surfaces only after the replay");
 
             assertAll(
-                    () -> assertEquals(1, failure.getSuppressed().length),
+                    () -> assertEquals(1, failure.getSuppressed().length, "the io failure suppresses the refusal"),
                     () -> assertEquals(unreadable,
-                            assertInstanceOf(StoreRefusal.class, failure.getSuppressed()[0]).file()),
+                            assertInstanceOf(StoreRefusal.class, failure.getSuppressed()[0],
+                                    "the suppressed refusal is a store refusal").file(),
+                            "the suppressed refusal names the intent"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)),
-                            withoutTransactionIds(events)));
+                            withoutTransactionIds(events), "the zeta record precedes the failure"));
         }
 
         @Test
@@ -1483,11 +1574,12 @@ class EnrolmentsTest {
             oweRecords(ZETA, ALPHA);
             audit.mode = SinkMode.STOPPING;
 
-            assertThrows(ProcessStopped.class, owing::replayOwedAudit);
+            assertThrows(ProcessStopped.class, owing::replayOwedAudit, "a stop halts the replay at once");
 
             assertAll(
-                    () -> assertEquals(List.of(ALPHA, ZETA), List.copyOf(store.auditOwingProjectIds())),
-                    () -> assertTrue(events.isEmpty()));
+                    () -> assertEquals(List.of(ALPHA, ZETA), List.copyOf(store.auditOwingProjectIds()),
+                            "both intents are still owed"),
+                    () -> assertTrue(events.isEmpty(), "no audit event is appended"));
         }
 
         @Test
@@ -1503,12 +1595,13 @@ class EnrolmentsTest {
             var written = owing.enrol(enrolment(ALPHA, false, null), false);
 
             assertAll(
-                    () -> assertEquals(ALPHA, written.projectId()),
-                    () -> assertTrue(Files.exists(key.keyFile())),
-                    () -> assertEquals(List.of(ALPHA), List.copyOf(store.projectIds())),
-                    () -> assertEquals(List.of(PROJECT), List.copyOf(store.auditOwingProjectIds())),
+                    () -> assertEquals(ALPHA, written.projectId(), "the new enrolment names alpha"),
+                    () -> assertTrue(Files.exists(key.keyFile()), "the integrity key file exists"),
+                    () -> assertEquals(List.of(ALPHA), List.copyOf(store.projectIds()), "only alpha is enrolled"),
+                    () -> assertEquals(List.of(PROJECT), List.copyOf(store.auditOwingProjectIds()),
+                            "the project is still owed"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ALPHA)),
-                            withoutTransactionIds(events)));
+                            withoutTransactionIds(events), "one written event is audited"));
         }
 
         /**
@@ -1562,18 +1655,19 @@ class EnrolmentsTest {
                 var again = owing.replayOwedAuditOfUnenrolledProjects();
 
                 assertAll(
-                        () -> assertEquals(1, replayed),
-                        () -> assertEquals(List.of(unconfirmed), events),
-                        () -> assertEquals(AuditEvent.OUTCOME_FAILED, events.getFirst().outcome()),
+                        () -> assertEquals(1, replayed, "one owed record is replayed"),
+                        () -> assertEquals(List.of(unconfirmed), events, "the unconfirmed record is handed over"),
+                        () -> assertEquals(AuditEvent.OUTCOME_FAILED, events.getFirst().outcome(),
+                                "the handed over outcome is failed"),
                         () -> assertEquals(AuditEvent.REASON_NOT_CONFIRMED,
-                                events.getFirst().details().get(AuditEvent.DETAIL_REASON)),
+                                events.getFirst().details().get(AuditEvent.DETAIL_REASON), "the reason is unconfirmed"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                                 WARN.ENROLMENT_WRITE_NOT_CONFIRMED.resolveIdentifierString()),
-                        () -> assertFalse(sidecarLeft),
-                        () -> assertFalse(owes(PROJECT)),
-                        () -> assertTrue(store.projectIds().isEmpty()),
-                        () -> assertTrue(store.auditOwingProjectIds().isEmpty()),
-                        () -> assertEquals(0, again));
+                        () -> assertFalse(sidecarLeft, "the orphan sidecar is removed"),
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"),
+                        () -> assertTrue(store.projectIds().isEmpty(), "no enrolment file is listed"),
+                        () -> assertTrue(store.auditOwingProjectIds().isEmpty(), "no project owes an audit record"),
+                        () -> assertEquals(0, again, "a second background pass replays nothing"));
             }
 
             @Test
@@ -1584,10 +1678,10 @@ class EnrolmentsTest {
                 var replayed = owing.replayOwedAudit();
 
                 assertAll(
-                        () -> assertEquals(1, replayed),
-                        () -> assertEquals(List.of(unconfirmed), events),
-                        () -> assertTrue(Files.exists(store.sidecar(PROJECT))),
-                        () -> assertFalse(owes(PROJECT)));
+                        () -> assertEquals(1, replayed, "one owed record is replayed"),
+                        () -> assertEquals(List.of(unconfirmed), events, "the unconfirmed record is handed over"),
+                        () -> assertTrue(Files.exists(store.sidecar(PROJECT)), "the sidecar file is kept"),
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"));
             }
 
             @Test
@@ -1603,10 +1697,12 @@ class EnrolmentsTest {
                 var replayed = owing.replayOwedAuditOfUnenrolledProjects();
 
                 assertAll(
-                        () -> assertEquals(0, replayed),
-                        () -> assertTrue(events.isEmpty()),
-                        () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))),
-                        () -> assertArrayEquals(intent, Files.readAllBytes(store.auditIntent(PROJECT))));
+                        () -> assertEquals(0, replayed, "the sweep replays nothing"),
+                        () -> assertTrue(events.isEmpty(), "no audit event is appended"),
+                        () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT)),
+                                "the project file is unchanged"),
+                        () -> assertArrayEquals(intent, Files.readAllBytes(store.auditIntent(PROJECT)),
+                                "the intent file is unchanged"));
             }
 
             @Test
@@ -1622,16 +1718,17 @@ class EnrolmentsTest {
                 events.clear();
 
                 var failure = assertThrows(UncheckedIOException.class,
-                        owing::replayOwedAuditOfUnenrolledProjects);
+                        owing::replayOwedAuditOfUnenrolledProjects, "the blocker fails its project");
 
                 assertAll(
                         () -> assertTrue(failure.getMessage().contains("'" + ALPHA + "'"), failure::getMessage),
-                        () -> assertEquals(0, failure.getSuppressed().length),
+                        () -> assertEquals(0, failure.getSuppressed().length, "the failure suppresses nothing"),
                         () -> assertEquals(List.of(ALPHA, BETA, ZETA),
-                                events.stream().map(InterruptedUnenrol::projectOf).toList()),
-                        () -> assertTrue(Files.isDirectory(blocker)),
-                        () -> assertFalse(Files.exists(store.sidecar(ZETA))),
-                        () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+                                events.stream().map(InterruptedUnenrol::projectOf).toList(),
+                                "the projects are settled in order"),
+                        () -> assertTrue(Files.isDirectory(blocker), "the blocker stays a directory"),
+                        () -> assertFalse(Files.exists(store.sidecar(ZETA)), "the zeta sidecar is removed"),
+                        () -> assertTrue(store.auditOwingProjectIds().isEmpty(), "no project owes an audit record"));
             }
 
             @Test
@@ -1645,15 +1742,16 @@ class EnrolmentsTest {
                 var written = owing.enrol(enrolment(false, null), false);
 
                 assertAll(
-                        () -> assertTrue(removed),
-                        () -> assertFalse(sidecarLeft),
-                        () -> assertEquals(2, handedOver.size()),
-                        () -> assertEquals(unconfirmed, handedOver.getFirst()),
+                        () -> assertTrue(removed, "the unenrol reports a removal"),
+                        () -> assertFalse(sidecarLeft, "the orphan sidecar is removed"),
+                        () -> assertEquals(2, handedOver.size(), "two records are handed over"),
+                        () -> assertEquals(unconfirmed, handedOver.getFirst(), "the unconfirmed record comes first"),
                         () -> assertEquals(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT),
-                                withoutTransactionIds(handedOver).getLast()),
-                        () -> assertNotEquals(transactionIdOf(unconfirmed), transactionIdOf(handedOver.getLast())),
-                        () -> assertEquals(written, verify()),
-                        () -> assertFalse(owes(PROJECT)));
+                                withoutTransactionIds(handedOver).getLast(), "the last record is the removal"),
+                        () -> assertNotEquals(transactionIdOf(unconfirmed), transactionIdOf(handedOver.getLast()),
+                                "both records have different ids"),
+                        () -> assertEquals(written, verify(), "the written enrolment verifies"),
+                        () -> assertFalse(owes(PROJECT), "the intent file is gone"));
             }
         }
     }
@@ -1706,15 +1804,16 @@ class EnrolmentsTest {
             var enrolment = writingTo(link.resolve(MISSING));
             var reason = reasonOf(enrolment);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(enrolment, false));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(enrolment, false),
+                    "a violating enrolment is refused");
 
             assertRefusedInvalid(refusal, reason);
             assertAll(
-                    () -> assertFalse(reason.isEmpty()),
-                    () -> assertFalse(Files.exists(store.file(PROJECT))),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertFalse(Files.exists(key.keyFile())),
-                    () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+                    () -> assertFalse(reason.isEmpty(), "the policy reports a reason"),
+                    () -> assertFalse(Files.exists(store.file(PROJECT)), "no enrolment file is written"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)), "the sidecar file is not left behind"),
+                    () -> assertFalse(Files.exists(key.keyFile()), "no key file is created"),
+                    () -> assertTrue(store.auditOwingProjectIds().isEmpty(), "no project owes an audit record"));
         }
 
         @Test
@@ -1725,10 +1824,11 @@ class EnrolmentsTest {
             var written = enrolments.enrol(enrolment, false);
 
             assertAll(
-                    () -> assertEquals(written, verify()),
-                    () -> assertEquals(enrolment.writePaths(), written.writePaths()),
+                    () -> assertEquals(written, verify(), "the written enrolment verifies"),
+                    () -> assertEquals(enrolment.writePaths(), written.writePaths(), "the write paths are stored"),
                     () -> assertTrue(events.stream().noneMatch(
-                            event -> AuditEvent.ENROLMENT_INVALID.equals(event.event()))));
+                                    event -> AuditEvent.ENROLMENT_INVALID.equals(event.event())),
+                            "no invalid event is audited"));
         }
 
         private String reasonOf(ProjectEnrolment enrolment) {
@@ -1737,13 +1837,15 @@ class EnrolmentsTest {
 
         private void assertRefusedInvalid(StoreRefusal refusal, String reason) {
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
-                    () -> assertEquals(store.file(PROJECT), refusal.file()),
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome(),
+                            "the refusal outcome is enrolment invalid"),
+                    () -> assertEquals(store.file(PROJECT), refusal.file(), "the refusal names the enrolment file"),
                     () -> assertTrue(refusal.getMessage().contains(reason), refusal.getMessage()),
-                    () -> assertEquals(List.of(AuditEvent.enrolmentInvalid(PROJECT, reason)), events),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentInvalid(PROJECT, reason)), events,
+                            "one invalid event names the reason"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INVALID.resolveIdentifierString()),
-                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT)), "no audit intent is left"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -1753,15 +1855,16 @@ class EnrolmentsTest {
             var enrolment = violating(family);
             var reason = reasonOf(enrolment);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(enrolment, false));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(enrolment, false),
+                    "a violating enrolment is refused");
 
             assertRefusedInvalid(refusal, reason);
             assertAll(
-                    () -> assertFalse(reason.isEmpty()),
-                    () -> assertFalse(Files.exists(store.file(PROJECT))),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertFalse(Files.exists(key.keyFile())),
-                    () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+                    () -> assertFalse(reason.isEmpty(), "the policy reports a reason"),
+                    () -> assertFalse(Files.exists(store.file(PROJECT)), "no enrolment file is written"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)), "the sidecar file is not left behind"),
+                    () -> assertFalse(Files.exists(key.keyFile()), "no key file is created"),
+                    () -> assertTrue(store.auditOwingProjectIds().isEmpty(), "no project owes an audit record"));
         }
 
         @Test
@@ -1770,11 +1873,12 @@ class EnrolmentsTest {
             var written = enrolments.enrol(enrolment(false, null), false);
 
             assertAll(
-                    () -> assertEquals(written, verify()),
+                    () -> assertEquals(written, verify(), "the written enrolment verifies"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
                             WARN.ENROLMENT_INVALID.resolveIdentifierString()),
                     () -> assertTrue(events.stream().noneMatch(
-                            event -> AuditEvent.ENROLMENT_INVALID.equals(event.event()))));
+                                    event -> AuditEvent.ENROLMENT_INVALID.equals(event.event())),
+                            "no invalid event is audited"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -1789,10 +1893,11 @@ class EnrolmentsTest {
             var reason = reasonOf(edited);
             events.clear();
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT),
+                    "the rebaseline is refused");
 
             assertRefusedInvalid(refusal, reason);
-            assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)));
+            assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)), "the sidecar is unchanged");
         }
 
         @Test
@@ -1802,12 +1907,15 @@ class EnrolmentsTest {
             var failing = enrolmentsWith(key, failingWith(failure));
             var enrolment = violating(ENVIRONMENT);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> failing.enrol(enrolment, false));
+            var refusal = assertThrows(StoreRefusal.class, () -> failing.enrol(enrolment, false),
+                    "a failing sink does not lift the refusal");
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
-                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())),
-                    () -> assertFalse(Files.exists(store.file(PROJECT))));
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome(),
+                            "the refusal outcome is enrolment invalid"),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed()),
+                            "the sink failure is carried by the refusal"),
+                    () -> assertFalse(Files.exists(store.file(PROJECT)), "no enrolment file is written"));
         }
     }
 
@@ -1824,12 +1932,13 @@ class EnrolmentsTest {
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Enrolments.Rebaseline(null, null, digest, none)),
+                        () -> new Enrolments.Rebaseline(null, null, digest, none), "a null file is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Enrolments.Rebaseline(file, null, null, none)),
+                        () -> new Enrolments.Rebaseline(file, null, null, none), "a null digest is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Enrolments.Rebaseline(file, null, digest, null)),
-                () -> assertTrue(reported.isEmpty()),
-                () -> assertThrows(UnsupportedOperationException.class, reported::clear));
+                        () -> new Enrolments.Rebaseline(file, null, digest, null), "a null settled list is refused"),
+                () -> assertTrue(reported.isEmpty(), "the outcome keeps its own copy"),
+                () -> assertThrows(UnsupportedOperationException.class, reported::clear,
+                        "the settled list is unmodifiable"));
     }
 }

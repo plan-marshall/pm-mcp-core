@@ -69,15 +69,19 @@ class CredentialStoreCheckTest {
         var result = check.check(store);
 
         assertAll(
-                () -> assertTrue(result.passed()),
+                () -> assertTrue(result.passed(), "a passing store passes the check"),
                 () -> assertEquals(List.of(Step.WRITE, Step.READ_BACK, Step.DELETE),
-                        result.lines().stream().map(CheckLine::step).toList()),
-                () -> assertTrue(result.lines().stream().allMatch(line -> line.outcome() == Outcome.OK)),
-                () -> assertEquals("credential_store_check.read_back.ok", result.lines().get(1).messageKey()),
+                        result.lines().stream().map(CheckLine::step).toList(),
+                        "the check reports write, read back and delete"),
+                () -> assertTrue(result.lines().stream().allMatch(line -> line.outcome() == Outcome.OK),
+                        "every check line reports an ok outcome"),
+                () -> assertEquals("credential_store_check.read_back.ok", result.lines().get(1).messageKey(),
+                        "the read back line carries its ok key"),
                 () -> assertEquals(List.of(SecretStore.SECRET_SERVICE, CredentialStoreCheck.ACCOUNT),
-                        result.lines().getFirst().arguments()),
-                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls),
-                () -> assertTrue(store.secrets.isEmpty()));
+                        result.lines().getFirst().arguments(), "the first line names the service and account"),
+                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls,
+                        "the check calls get, put, get and delete"),
+                () -> assertTrue(store.secrets.isEmpty(), "the passing check leaves no test entry"));
     }
 
     @Test
@@ -89,14 +93,17 @@ class CredentialStoreCheckTest {
 
         var line = result.lines().getFirst();
         assertAll(
-                () -> assertFalse(result.passed()),
-                () -> assertEquals(1, result.lines().size()),
-                () -> assertEquals(Outcome.FAILED, line.outcome()),
-                () -> assertEquals("failed", line.outcome().code()),
-                () -> assertEquals("credential_store_check.write.failed", line.messageKey()),
-                () -> assertEquals("credential_store_locked: put refused", line.answer()),
-                () -> assertEquals(List.of("get", "put", "delete"), store.calls),
-                () -> assertTrue(store.secrets.isEmpty()));
+                () -> assertFalse(result.passed(), "a failed write fails the check"),
+                () -> assertEquals(1, result.lines().size(), "the failed write ends the check at one line"),
+                () -> assertEquals(Outcome.FAILED, line.outcome(), "the write line reports a failed outcome"),
+                () -> assertEquals("failed", line.outcome().code(), "the failed outcome carries its code"),
+                () -> assertEquals("credential_store_check.write.failed", line.messageKey(),
+                        "the write line carries its failed key"),
+                () -> assertEquals("credential_store_locked: put refused", line.answer(),
+                        "the write line keeps the store's answer"),
+                () -> assertEquals(List.of("get", "put", "delete"), store.calls,
+                        "the failed write still deletes the entry"),
+                () -> assertTrue(store.secrets.isEmpty(), "the failed write leaves no test entry"));
     }
 
     @Test
@@ -107,13 +114,16 @@ class CredentialStoreCheckTest {
         var result = check.check(store);
 
         assertAll(
-                () -> assertFalse(result.passed()),
+                () -> assertFalse(result.passed(), "a differing read back fails the check"),
                 () -> assertEquals(List.of(Outcome.OK, Outcome.FAILED),
-                        result.lines().stream().map(CheckLine::outcome).toList()),
-                () -> assertEquals("credential_store_check.read_back.differs", result.lines().get(1).messageKey()),
+                        result.lines().stream().map(CheckLine::outcome).toList(),
+                        "the first line passes and the second fails"),
+                () -> assertEquals("credential_store_check.read_back.differs", result.lines().get(1).messageKey(),
+                        "the read back line carries its differs key"),
                 () -> assertNull(result.lines().get(1).answer(), "a differing read back carries no answer"),
-                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls),
-                () -> assertTrue(store.secrets.isEmpty()));
+                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls,
+                        "the differing read back deletes the test entry"),
+                () -> assertTrue(store.secrets.isEmpty(), "the differing read back leaves no entry"));
     }
 
     @Test
@@ -124,8 +134,9 @@ class CredentialStoreCheckTest {
         var result = check.check(store);
 
         assertAll(
-                () -> assertEquals("credential_store_check.read_back.missing", result.lines().get(1).messageKey()),
-                () -> assertTrue(store.secrets.isEmpty()));
+                () -> assertEquals("credential_store_check.read_back.missing", result.lines().get(1).messageKey(),
+                        "a missing read back reports its key"),
+                () -> assertTrue(store.secrets.isEmpty(), "a missing read back leaves no test entry"));
     }
 
     @Test
@@ -137,10 +148,13 @@ class CredentialStoreCheckTest {
         var result = check.check(store);
 
         assertAll(
-                () -> assertEquals("credential_store_check.read_back.failed", result.lines().get(1).messageKey()),
-                () -> assertEquals("credential_store_locked: get refused", result.lines().get(1).answer()),
-                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls),
-                () -> assertTrue(store.secrets.isEmpty()));
+                () -> assertEquals("credential_store_check.read_back.failed", result.lines().get(1).messageKey(),
+                        "a refused read back reports its key"),
+                () -> assertEquals("credential_store_locked: get refused", result.lines().get(1).answer(),
+                        "the read back line keeps the store's answer"),
+                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls,
+                        "a refused read back still deletes the entry"),
+                () -> assertTrue(store.secrets.isEmpty(), "a refused read back leaves no test entry"));
     }
 
     @Test
@@ -156,7 +170,8 @@ class CredentialStoreCheckTest {
                 () -> assertEquals(1, result.lines().size(), "a failed read ends the check"),
                 () -> assertEquals(Step.WRITE, line.step(), "the write step cannot run without the read"),
                 () -> assertEquals(Outcome.FAILED, line.outcome(), "the read's failure fails the write step"),
-                () -> assertEquals("credential_store_check.write.failed", line.messageKey()),
+                () -> assertEquals("credential_store_check.write.failed", line.messageKey(),
+                        "a failed read reports the write key"),
                 () -> assertEquals(List.of("get"), store.calls, "nothing is written after a failed read"));
     }
 
@@ -174,7 +189,8 @@ class CredentialStoreCheckTest {
                 () -> assertEquals(1, result.lines().size(), "the occupied account ends the check"),
                 () -> assertEquals(Step.WRITE, line.step(), "the occupied account fails the write step"),
                 () -> assertEquals(Outcome.FAILED, line.outcome(), "the write step fails"),
-                () -> assertEquals("credential_store_check.write.occupied", line.messageKey()),
+                () -> assertEquals("credential_store_check.write.occupied", line.messageKey(),
+                        "an occupied account reports its write key"),
                 () -> assertEquals(List.of("get"), store.calls,
                         "nothing is written or deleted on an occupied account"),
                 () -> assertEquals(existing, store.secrets.get(CredentialStoreCheck.ACCOUNT),
@@ -191,13 +207,16 @@ class CredentialStoreCheckTest {
 
         var line = result.lines().get(2);
         assertAll(
-                () -> assertFalse(result.passed()),
-                () -> assertEquals(Step.DELETE, line.step()),
-                () -> assertEquals(Outcome.FAILED, line.outcome()),
-                () -> assertEquals("credential_store_check.delete.failed", line.messageKey()),
-                () -> assertEquals("credential_store_locked: delete refused", line.answer()),
-                () -> assertEquals(List.of("get", "put", "get", "delete", "delete"), store.calls),
-                () -> assertTrue(store.secrets.isEmpty()));
+                () -> assertFalse(result.passed(), "a failed delete fails the check"),
+                () -> assertEquals(Step.DELETE, line.step(), "the failing line is the delete step"),
+                () -> assertEquals(Outcome.FAILED, line.outcome(), "the delete line reports a failed outcome"),
+                () -> assertEquals("credential_store_check.delete.failed", line.messageKey(),
+                        "the delete line carries its failed key"),
+                () -> assertEquals("credential_store_locked: delete refused", line.answer(),
+                        "the delete line keeps the store's answer"),
+                () -> assertEquals(List.of("get", "put", "get", "delete", "delete"), store.calls,
+                        "the failed delete tries the delete twice"),
+                () -> assertTrue(store.secrets.isEmpty(), "the failed delete leaves no test entry"));
     }
 
     @Test
@@ -207,7 +226,8 @@ class CredentialStoreCheckTest {
 
         var result = check.check(store);
 
-        assertEquals("credential_store_check.delete.missing", result.lines().get(2).messageKey());
+        assertEquals("credential_store_check.delete.missing", result.lines().get(2).messageKey(),
+                "a delete that finds nothing reports missing");
     }
 
     @Test
@@ -217,7 +237,8 @@ class CredentialStoreCheckTest {
         var result = check.check(store);
 
         var written = store.written.getFirst();
-        assertTrue(result.lines().stream().noneMatch(line -> line.toString().contains(written)));
+        assertTrue(result.lines().stream().noneMatch(line -> line.toString().contains(written)),
+                "no check line contains the test value");
     }
 
     @Test
@@ -241,12 +262,13 @@ class CredentialStoreCheckTest {
 
         var line = result.lines().getFirst();
         assertAll(
-                () -> assertFalse(result.passed()),
-                () -> assertEquals(1, result.lines().size()),
-                () -> assertEquals("credential_store_check.write.unavailable", line.messageKey()),
+                () -> assertFalse(result.passed(), "an unavailable store fails the check"),
+                () -> assertEquals(1, result.lines().size(), "an unavailable store ends the check at one line"),
+                () -> assertEquals("credential_store_check.write.unavailable", line.messageKey(),
+                        "an unavailable store reports the write key"),
                 () -> assertTrue(line.answer().startsWith("credential_store_unavailable: "),
                         line.answer()),
-                () -> assertTrue(store.calls.isEmpty()));
+                () -> assertTrue(store.calls.isEmpty(), "no store call happens on an unavailable store"));
     }
 
     @Test
@@ -266,7 +288,7 @@ class CredentialStoreCheckTest {
                     }
                 });
 
-        assertTrue(check.check(choice).passed());
+        assertTrue(check.check(choice).passed(), "an available choice passes the check");
     }
 
     /** A store whose answers are scripted per test. */
@@ -348,6 +370,7 @@ class CredentialStoreCheckTest {
     @Test
     @DisplayName("the test entry is the fixed global account of PM-MCP")
     void account() {
-        assertEquals("credential-store-check", TEST_ENTRY.account());
+        assertEquals("credential-store-check", TEST_ENTRY.account(),
+                "the test entry is the fixed check account");
     }
 }

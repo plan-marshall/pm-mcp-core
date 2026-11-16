@@ -214,7 +214,7 @@ class HuggingFaceSourceRepositoryTest {
                 () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
                 () -> assertEquals(0, fetch.content().length, "prepare delivers no content"),
                 () -> assertEquals(0, server.getRequestCount(), "prepare sends no request"),
-                () -> assertEquals(0, entries(cacheRoot), "nothing is created"));
+                () -> assertEquals(0, entries(cacheRoot), "prepare creates no entry in the cache root"));
     }
 
     private static long entries(Path root) throws IOException {
@@ -373,7 +373,7 @@ class HuggingFaceSourceRepositoryTest {
 
             assertAll("the body over the cap",
                     () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                    () -> assertEquals(0, fetch.content().length, "no content is held"),
+                    () -> assertEquals(0, fetch.content().length, "a body over the cap holds no content"),
                     () -> assertTrue(fetch.detail().contains("larger than the maximum of " + cap + " bytes"),
                             fetch::detail));
             assertUnavailableLogged();
@@ -432,7 +432,8 @@ class HuggingFaceSourceRepositoryTest {
             assertAll("the refused cleartext repository",
                     () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                     () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
-                    () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
+                    () -> assertEquals(0, server.getRequestCount(),
+                            "the refused cleartext repository sends nothing"));
             assertUnavailableLogged();
         }
 
@@ -446,7 +447,8 @@ class HuggingFaceSourceRepositoryTest {
             assertAll("the refused user information",
                     () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                     () -> assertFalse(fetch.detail().contains("pa55word"), fetch::detail),
-                    () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
+                    () -> assertEquals(0, server.getRequestCount(),
+                            "the refused user information sends nothing"));
             assertUnavailableLogged();
         }
 
@@ -460,7 +462,8 @@ class HuggingFaceSourceRepositoryTest {
             assertAll("the refused URL",
                     () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                     () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
-                    () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
+                    () -> assertEquals(0, server.getRequestCount(),
+                            "the refused URL without scheme sends nothing"));
             assertUnavailableLogged();
             LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, "<a URL without scheme or host>");
         }
@@ -473,7 +476,8 @@ class HuggingFaceSourceRepositoryTest {
             assertAll("the refused foreign repository",
                     () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                     () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
-                    () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
+                    () -> assertEquals(0, server.getRequestCount(),
+                            "the refused foreign repository sends nothing"));
             assertUnavailableLogged();
         }
     }

@@ -55,7 +55,7 @@ class DecoyServersTest {
             var response = get(decoys.mcp().uri().resolve("mcp"));
 
             assertAll(
-                    () -> assertEquals(200, response.statusCode(), "the decoy answers"),
+                    () -> assertEquals(200, response.statusCode(), "the decoy answers with ok"),
                     () -> assertTrue(decoys.mcp().touched(), "the MCP decoy records the request"),
                     () -> assertEquals(List.of("GET /mcp"), decoys.mcp().hits(), "the path is recorded"),
                     () -> assertFalse(decoys.endpoint().touched(), "the endpoint decoy is untouched"));
@@ -84,8 +84,8 @@ class DecoyServersTest {
             assertAll(
                     () -> assertFalse(decoys.mcp().touched(), "the MCP decoy saw nothing"),
                     () -> assertFalse(decoys.endpoint().touched(), "the endpoint decoy saw nothing"),
-                    () -> assertTrue(decoys.mcp().hits().isEmpty(), "no hit is recorded"),
-                    () -> assertTrue(decoys.endpoint().hits().isEmpty(), "no hit is recorded"));
+                    () -> assertTrue(decoys.mcp().hits().isEmpty(), "no hit is recorded on the MCP decoy"),
+                    () -> assertTrue(decoys.endpoint().hits().isEmpty(), "no hit is recorded on the endpoint decoy"));
         }
     }
 
@@ -111,7 +111,7 @@ class DecoyServersTest {
             var response = get(decoys.endpoint().uri().resolve("models"));
 
             assertAll(
-                    () -> assertEquals(200, response.statusCode(), "the decoy answers"),
+                    () -> assertEquals(200, response.statusCode(), "the decoy answers with ok"),
                     () -> assertTrue(decoys.endpoint().touched(), "the endpoint decoy records the request"),
                     () -> assertEquals(List.of("GET /models"), decoys.endpoint().hits(), "the path is recorded"),
                     () -> assertFalse(decoys.mcp().touched(), "the MCP decoy is untouched"));
