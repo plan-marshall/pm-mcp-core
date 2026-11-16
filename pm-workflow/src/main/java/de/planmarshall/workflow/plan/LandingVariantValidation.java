@@ -115,7 +115,7 @@ public class LandingVariantValidation {
             if (project.pullRequestProvider() == null) {
                 return Verdict.refused("landing.pull-request needs the project's provider lookup, which failed");
             }
-            if (!project.pullRequestProvider()) {
+            if (Boolean.FALSE.equals(project.pullRequestProvider())) {
                 return Verdict.refused("landing.pull-request needs a provider of the project that opens a pull request");
             }
         }
@@ -123,7 +123,7 @@ public class LandingVariantValidation {
             if (project.baseBranchProtected() == null) {
                 return Verdict.refused("landing.main needs the base branch's protection, whose lookup failed");
             }
-            if (project.baseBranchProtected()) {
+            if (Boolean.TRUE.equals(project.baseBranchProtected())) {
                 return Verdict.refused("landing.main cannot land on the base branch the provider reports as protected");
             }
         }

@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -129,7 +130,7 @@ class MachineSettingsStatesTest {
 
     @Test
     @DisplayName("a withdrawal removes the remembered consent, is audited, and its action asks again")
-    void withdrawal() throws Exception {
+    void withdrawal() {
         consentStore.grant(Consent.builder()
                 .kind(ConsentKind.SCAN_HARNESSES)
                 .scripts(List.of())
@@ -153,7 +154,7 @@ class MachineSettingsStatesTest {
 
     @Test
     @DisplayName("a withdrawal that finds no remembered consent changes nothing")
-    void withdrawalWithoutEntry() throws Exception {
+    void withdrawalWithoutEntry() {
         var transition = settings.removeConsent(ConsentKind.SCAN_HARNESSES, null, 0L);
 
         assertAll(
@@ -402,7 +403,7 @@ class MachineSettingsStatesTest {
                         "The rotated provider is recorded available"),
                 () -> assertFalse(read.providers().providers().get(Provider.SONAR).available(),
                         "A provider of another key keeps its last result"),
-                () -> assertFalse(read.providers().providers().get(Provider.SONAR).verification() != null,
+                () -> assertNull(read.providers().providers().get(Provider.SONAR).verification(),
                         "The other provider's verification stays unrecorded"));
         verify(probe, tools);
     }

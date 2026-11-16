@@ -36,6 +36,15 @@ import org.jspecify.annotations.Nullable;
 @Builder
 public record PlanDefaults(String landing, String method, String asking, @Nullable String posture) {
 
+    /** The schema key of the landing default. */
+    private static final String KEY_LANDING = "landing";
+    /** The schema key of the method default. */
+    private static final String KEY_METHOD = "method";
+    /** The schema key of the asking default. */
+    private static final String KEY_ASKING = "asking";
+    /** The schema key of the posture. */
+    private static final String KEY_POSTURE = "posture";
+
     /** The schema's variants of {@code plan_defaults.landing}. */
     public static final List<String> LANDING_VARIANTS = List.of("landing.pull-request", "landing.main",
             "landing.files");
@@ -51,7 +60,7 @@ public record PlanDefaults(String landing, String method, String asking, @Nullab
     public static final List<String> POSTURES = List.of("minimal", "standard", "full");
 
     /** The schema's keys of {@code plan_defaults}, the closed member list. */
-    public static final List<String> KEYS = List.of("landing", "method", "asking", "posture");
+    public static final List<String> KEYS = List.of(KEY_LANDING, KEY_METHOD, KEY_ASKING, KEY_POSTURE);
 
     /**
      * Refuses a value outside its axis's closed list; a missing landing, method or asking is refused, and a posture may
@@ -64,11 +73,11 @@ public record PlanDefaults(String landing, String method, String asking, @Nullab
         Objects.requireNonNull(landing, "landing");
         Objects.requireNonNull(method, "method");
         Objects.requireNonNull(asking, "asking");
-        requireVariant("landing", landing, LANDING_VARIANTS);
-        requireVariant("method", method, METHOD_VARIANTS);
-        requireVariant("asking", asking, ASKING_VARIANTS);
+        requireVariant(KEY_LANDING, landing, LANDING_VARIANTS);
+        requireVariant(KEY_METHOD, method, METHOD_VARIANTS);
+        requireVariant(KEY_ASKING, asking, ASKING_VARIANTS);
         if (posture != null) {
-            requireVariant("posture", posture, POSTURES);
+            requireVariant(KEY_POSTURE, posture, POSTURES);
         }
     }
 

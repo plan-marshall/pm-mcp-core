@@ -111,8 +111,10 @@ class OnboardingContractReplayTest {
     @Test
     @DisplayName("a change naming an aspect the result does not carry is refused")
     void changeWithoutItem() {
+        var empty = AutoOnboardingResult.empty();
+
         var refused = assertThrows(IllegalArgumentException.class,
-                () -> OnboardingRouter.change(AutoOnboardingResult.empty(), OnboardingAspect.PROVIDERS),
+                () -> OnboardingRouter.change(empty, OnboardingAspect.PROVIDERS),
                 "A change needs an item to change");
 
         assertTrue(refused.getMessage().contains("providers"), "The refusal names the aspect");

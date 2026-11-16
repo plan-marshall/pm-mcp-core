@@ -35,6 +35,12 @@ import org.jspecify.annotations.Nullable;
 @UtilityClass
 public class OnboardingRouter {
 
+    /** The wire name of the automatic run's result, shared by the target and the opening state. */
+    private static final String RESULT = "result";
+
+    /** The wire name of the settings, shared by the target and the opening state. */
+    private static final String SETTINGS = "settings";
+
     /** The states the router answers with: an aspect call, or one of the three states a run ends in. */
     public enum Target {
         /** Call the aspect the route names. */
@@ -42,9 +48,9 @@ public class OnboardingRouter {
         /** {@code onboard.completed}: the guided first run reached its last aspect. */
         COMPLETED("completed"),
         /** {@code onboard.auto-result}: the automatic run reached its last aspect. */
-        RESULT("result"),
+        RESULT(OnboardingRouter.RESULT),
         /** {@code settings.choose}: a later run returned. */
-        SETTINGS("settings");
+        SETTINGS(OnboardingRouter.SETTINGS);
 
         private final String wireName;
 
@@ -63,9 +69,9 @@ public class OnboardingRouter {
     /** Where a later run was opened from, which decides where its return leads. */
     public enum OpenedFrom {
         /** {@code settings.choose} ({@code reconfigure:<aspect>}); the return leads there. */
-        SETTINGS("settings"),
+        SETTINGS(OnboardingRouter.SETTINGS),
         /** {@code auto.result} ({@code change:<aspect>}); the return leads back to the result. */
-        RESULT("result");
+        RESULT(OnboardingRouter.RESULT);
 
         private final String wireName;
 

@@ -39,7 +39,7 @@ import org.jspecify.annotations.Nullable;
 public final class PlanAxisLevels {
 
     /** The raw key of the posture, which is no axis but resolves by the same levels. */
-    public static final String POSTURE = "posture";
+    public static final String POSTURE_KEY = "posture";
 
     /** The levels from the nearest, in the order the binding reads them. */
     private static final List<PlanFacts.Level> LEVELS = List.of(PlanFacts.Level.PLAN,
@@ -79,7 +79,7 @@ public final class PlanAxisLevels {
                     .put(level, value)));
         }
         var frozen = new EnumMap<PlanFacts.Axis, Map<PlanFacts.Level, String>>(PlanFacts.Axis.class);
-        axes.forEach((axis, levels) -> frozen.put(axis, Collections.unmodifiableMap(levels)));
+        axes.forEach((axis, byLevel) -> frozen.put(axis, Collections.unmodifiableMap(byLevel)));
         return Collections.unmodifiableMap(frozen);
     }
 
@@ -88,7 +88,7 @@ public final class PlanAxisLevels {
      */
     public Optional<Posture> posture() {
         for (var level : LEVELS) {
-            var recorded = levelValues(level).get(POSTURE);
+            var recorded = levelValues(level).get(POSTURE_KEY);
             if (recorded != null) {
                 return Optional.of(Posture.fromWireName(recorded)
                         .orElseThrow(() -> new IllegalStateException("an unvalidated posture: " + recorded)));
@@ -119,51 +119,6 @@ public final class PlanAxisLevels {
     }
 
     /**
-     * Reads one level's raw values, refusing a key or a value the plan behaviour axes do not admit.
-     *
-     * @param level  the level, never the shipped one
-     * @param values the raw values; {@code null} for a level that records none
-     * @return the validated values by key, in the order of the document
-     */
-    private static Map<String, String> validate(PlanFacts.Level level, @Nullable Map<String, String> values) {
-        if (values == null) {
-            return Map.of();
-        }
-        var validated = new LinkedHashMap<String, String>();
-        values.forEach((key, value) -> {
-            Objects.requireNonNull(value, () -> "the '%s' value of '%s'".formatted(key, level.wireName()));
-            if (POSTURE.equals(key)) {
-                if (Posture.fromWireName(value).isEmpty()) {
-                    throw new IllegalArgumentException("'%s' is no posture, recorded at the level '%s'"
-                            .formatted(value, level.wireName()));
-                }
-            } else {
-                var axis = axisOf(key, level);
-                if (!axis.variants().contains(value)) {
-                    throw new IllegalArgumentException(("'%s' is no value of the axis '%s', one of %s, recorded at the"
-                            + " level '%s'").formatted(value, key, axis.variants(), level.wireName()));
-                }
-                if (!key.equals(axis.wireName())) {
-                    throw new IllegalArgumentException("'%s' is no key of the axis '%s', recorded at the level '%s'"
-                            .formatted(key, axis.wireName(), level.wireName()));
-                }
-            }
-            validated.put(key, value);
-        });
-        return Collections.unmodifiableMap(validated);
-    }
-
-    private static PlanFacts.Axis axisOf(String key, PlanFacts.Level level) {
-        for (var axis : PlanFacts.Axis.values()) {
-            if (axis.wireName().equals(key)) {
-                return axis;
-            }
-        }
-        throw new IllegalArgumentException(("'%s' is neither a plan behaviour axis nor the posture, recorded at the"
-                + " level '%s'").formatted(key, level.wireName()));
-    }
-
-    /**
      * Builds {@link PlanAxisLevels}; a level that is not set records nothing.
      *
      * @since 0.1
@@ -190,6 +145,49 @@ public final class PlanAxisLevels {
                 levels.put(level, validate(level, values));
             }
             return this;
+        }
+
+        /**
+         * @param level  the level, never the shipped one
+         * @param values the raw values; {@code null} for a level that records none
+         * @return the validated values by key, in the order of the document
+         */
+        private static Map<String, String> validate(PlanFacts.Level level, @Nullable Map<String, String> values) {
+            if (values == null) {
+                return Map.of();
+            }
+            var validated = new LinkedHashMap<String, String>();
+            values.forEach((key, value) -> {
+                Objects.requireNonNull(value, () -> "the '%s' value of '%s'".formatted(key, level.wireName()));
+                if (POSTURE_KEY.equals(key)) {
+                    if (Posture.fromWireName(value).isEmpty()) {
+                        throw new IllegalArgumentException("'%s' is no posture, recorded at the level '%s'"
+                                .formatted(value, level.wireName()));
+                    }
+                } else {
+                    var axis = axisOf(key, level);
+                    if (!axis.variants().contains(value)) {
+                        throw new IllegalArgumentException(("'%s' is no value of the axis '%s', one of %s, recorded at"
+                                + " the level '%s'").formatted(value, key, axis.variants(), level.wireName()));
+                    }
+                    if (!key.equals(axis.wireName())) {
+                        throw new IllegalArgumentException("'%s' is no key of the axis '%s', recorded at the level '%s'"
+                                .formatted(key, axis.wireName(), level.wireName()));
+                    }
+                }
+                validated.put(key, value);
+            });
+            return Collections.unmodifiableMap(validated);
+        }
+
+        private static PlanFacts.Axis axisOf(String key, PlanFacts.Level level) {
+            for (var axis : PlanFacts.Axis.values()) {
+                if (axis.wireName().equals(key)) {
+                    return axis;
+                }
+            }
+            throw new IllegalArgumentException(("'%s' is neither a plan behaviour axis nor the posture, recorded at the"
+                    + " level '%s'").formatted(key, level.wireName()));
         }
 
         /**

@@ -313,7 +313,7 @@ public final class MachineSettingsStates {
         Objects.requireNonNull(secret, "secret");
         try {
             secrets.put(account, secret);
-        } catch (SecretStoreException e) {
+        } catch (SecretStoreException _) {
             return Transition.refused(State.STORE_CREDENTIAL, CREDENTIAL_STORE_UNAVAILABLE,
                     "the credential store '%s' refused the write".formatted(secrets.name()));
         }

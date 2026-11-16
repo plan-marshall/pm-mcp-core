@@ -102,27 +102,29 @@ class PlanAxisLevelsTest {
     @Test
     @DisplayName("a key or a value the axes do not admit is refused with its level")
     void refusals() {
-        var unknownKey = assertThrows(IllegalArgumentException.class,
-                () -> PlanAxisLevels.of(PlanFacts.Level.PROJECT, values("landing_axis", "landing.main")),
-                "An unknown key is refused");
-        var unknownVariant = assertThrows(IllegalArgumentException.class,
-                () -> PlanAxisLevels.of(PlanFacts.Level.MACHINE, values("landing", "landing.squash")),
-                "An unknown variant is refused");
-        var unknownPosture = assertThrows(IllegalArgumentException.class,
-                () -> PlanAxisLevels.of(PlanFacts.Level.PLAN, values("posture", "relaxed")),
-                "An unknown posture is refused");
-        var shipped = assertThrows(IllegalArgumentException.class,
-                () -> PlanAxisLevels.of(PlanFacts.Level.SHIPPED, values("landing", "landing.main")),
+        var unknownKey = values("landing_axis", "landing.main");
+        var unknownVariant = values("landing", "landing.squash");
+        var unknownPosture = values("posture", "relaxed");
+        var shipped = values("landing", "landing.main");
+
+        var keyRefusal = assertThrows(IllegalArgumentException.class,
+                () -> PlanAxisLevels.of(PlanFacts.Level.PROJECT, unknownKey), "An unknown key is refused");
+        var variantRefusal = assertThrows(IllegalArgumentException.class,
+                () -> PlanAxisLevels.of(PlanFacts.Level.MACHINE, unknownVariant), "An unknown variant is refused");
+        var postureRefusal = assertThrows(IllegalArgumentException.class,
+                () -> PlanAxisLevels.of(PlanFacts.Level.PLAN, unknownPosture), "An unknown posture is refused");
+        var shippedRefusal = assertThrows(IllegalArgumentException.class,
+                () -> PlanAxisLevels.of(PlanFacts.Level.SHIPPED, shipped),
                 "The shipped level is no recorded level");
 
         assertAll(
-                () -> assertTrue(unknownKey.getMessage().contains("project"),
+                () -> assertTrue(keyRefusal.getMessage().contains("project"),
                         "The refusal names the level of the unknown key"),
-                () -> assertTrue(unknownVariant.getMessage().contains("landing.squash"),
+                () -> assertTrue(variantRefusal.getMessage().contains("landing.squash"),
                         "The refusal names the refused variant"),
-                () -> assertTrue(unknownPosture.getMessage().contains("relaxed"),
+                () -> assertTrue(postureRefusal.getMessage().contains("relaxed"),
                         "The refusal names the refused posture"),
-                () -> assertTrue(shipped.getMessage().contains("shipped"),
+                () -> assertTrue(shippedRefusal.getMessage().contains("shipped"),
                         "The refusal names the shipped level"));
     }
 

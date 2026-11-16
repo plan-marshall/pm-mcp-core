@@ -87,6 +87,17 @@ public class LandingStepComposition {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(landing, "landing");
         Objects.requireNonNull(variants, "variants");
+        var byId = variantsById(landing, variants);
+        var states = mergedStates(phase, requireBound(byId, landing), landing);
+        return Merged.builder()
+                .phase(withStates(phase, states))
+                .pruned(prunedStates(phase, byId, landing))
+                .build();
+    }
+
+    /** @return the variants by id, refusing another axis's tree and a tree supplied twice */
+    private static LinkedHashMap<String, WorkflowDefinition> variantsById(PlanFacts.BoundVariant landing,
+            List<WorkflowDefinition> variants) {
         if (landing.axis() != PlanFacts.Axis.LANDING) {
             throw new IllegalArgumentException("the axis '%s' is not the landing axis"
                     .formatted(landing.axis().wireName()));
@@ -97,27 +108,35 @@ public class LandingStepComposition {
                 throw new IllegalArgumentException("'%s' is no landing variant".formatted(variant.id()));
             }
             if (byId.put(variant.id(), variant) != null) {
-                throw new IllegalArgumentException("the landing variant '%s' is supplied twice".formatted(variant.id()));
+                throw new IllegalArgumentException("the landing variant '%s' is supplied twice"
+                        .formatted(variant.id()));
             }
         }
+        return byId;
+    }
+
+    private static WorkflowDefinition requireBound(LinkedHashMap<String, WorkflowDefinition> byId,
+            PlanFacts.BoundVariant landing) {
         var bound = byId.get(landing.variant());
         if (bound == null) {
             throw new IllegalArgumentException("the request supplies no tree of the landing variant '%s'"
                     .formatted(landing.variant()));
         }
-        var states = new LinkedHashMap<>(phase.states());
-        var declared = new HashSet<String>();
-        byId.values().forEach(variant -> variant.states().keySet().forEach(id -> {
-            if (!declared.add(id)) {
-                throw new IllegalArgumentException("the state '%s' is declared by more than one landing variant"
-                        .formatted(id));
-            }
-        }));
+        return bound;
+    }
+
+    /**
+     * @return the phase's states with the bound variant's step states, refusing a state two owners declare and a bound
+     *         variant without a step state
+     */
+    private static LinkedHashMap<String, StateNode> mergedStates(WorkflowDefinition phase, WorkflowDefinition bound,
+            PlanFacts.BoundVariant landing) {
         var boundSteps = bound.states().entrySet().stream().filter(entry -> isStepState(entry.getKey())).toList();
         if (boundSteps.isEmpty()) {
             throw new IllegalArgumentException("the landing variant '%s' declares no step state of the finalize phase"
                     .formatted(landing.variant()));
         }
+        var states = new LinkedHashMap<>(phase.states());
         boundSteps.forEach(entry -> {
             if (states.containsKey(entry.getKey())) {
                 throw new IllegalArgumentException("the state '%s' is declared twice in the finalize phase"
@@ -125,27 +144,40 @@ public class LandingStepComposition {
             }
             states.put(entry.getKey(), entry.getValue());
         });
+        return states;
+    }
+
+    /** @return every step state of the variants not bound, each a {@code plan_default} prune of the binding level */
+    private static List<PrunedElement> prunedStates(WorkflowDefinition phase,
+            LinkedHashMap<String, WorkflowDefinition> byId, PlanFacts.BoundVariant landing) {
+        var declaring = new HashSet<String>();
+        byId.values().forEach(variant -> variant.states().keySet().forEach(id -> {
+            if (!declaring.add(id)) {
+                throw new IllegalArgumentException("the state '%s' is declared by more than one landing variant"
+                        .formatted(id));
+            }
+        }));
         var pruned = new ArrayList<PrunedElement>();
         byId.forEach((id, variant) -> {
             if (!id.equals(landing.variant())) {
                 variant.states().keySet().stream().filter(LandingStepComposition::isStepState)
-                        .forEach(state -> {
-                            if (phase.states().containsKey(state)) {
-                                throw new IllegalArgumentException(("the state '%s' is declared twice in the finalize"
-                                        + " phase").formatted(state));
-                            }
-                            pruned.add(PrunedElement.builder()
-                                    .element(PrunedElement.Kind.STATE)
-                                    .id(state)
-                                    .reason(PruneReason.PLAN_DEFAULT)
-                                    .sourceFact(landing.sourceFact())
-                                    .build());
-                        });
+                        .forEach(state -> pruned.add(prunedElement(phase, landing, state)));
             }
         });
-        return Merged.builder()
-                .phase(withStates(phase, states))
-                .pruned(pruned)
+        return pruned;
+    }
+
+    private static PrunedElement prunedElement(WorkflowDefinition phase, PlanFacts.BoundVariant landing,
+            String state) {
+        if (phase.states().containsKey(state)) {
+            throw new IllegalArgumentException("the state '%s' is declared twice in the finalize phase"
+                    .formatted(state));
+        }
+        return PrunedElement.builder()
+                .element(PrunedElement.Kind.STATE)
+                .id(state)
+                .reason(PruneReason.PLAN_DEFAULT)
+                .sourceFact(landing.sourceFact())
                 .build();
     }
 
