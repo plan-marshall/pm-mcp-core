@@ -293,8 +293,10 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      */
     private static List<Path> gitMetadataInside(Path projectRoot, List<Path> writeSet) {
         var root = projectRoot.toAbsolutePath().normalize();
+        var normalizedWriteSet = writeSet.stream().map(path -> path.toAbsolutePath().normalize()).toList();
         return GitMetadataPaths.of(root).paths().stream()
-                .filter(path -> path.startsWith(root) || writeSet.stream().anyMatch(path::startsWith)).toList();
+                .filter(path -> path.startsWith(root)
+                        || normalizedWriteSet.stream().anyMatch(path::startsWith)).toList();
     }
 
     /**

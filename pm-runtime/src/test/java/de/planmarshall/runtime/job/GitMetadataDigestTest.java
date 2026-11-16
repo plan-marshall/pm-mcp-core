@@ -333,6 +333,48 @@ class GitMetadataDigestTest {
     }
 
     @Test
+    @DisplayName("Should fail closed when the include traversal exceeds its budget")
+    void shouldFailClosedBeyondTheTraversalBudget() throws Exception {
+        var root = repository();
+        var config = new StringBuilder();
+        for (var index = 0; index < 1100; index++) {
+            var name = "fan-" + index + ".cfg";
+            Files.writeString(root.resolve(".git").resolve(name), "[core]\n\tfsmonitor = " + name() + "\n");
+            config.append("[include]\n\tpath = ").append(name).append('\n');
+        }
+        Files.writeString(root.resolve(".git/config"), config.toString());
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE), "a fan-out beyond the budget is fail closed");
+    }
+
+    @Test
+    @DisplayName("Should join a continued include line before scanning it")
+    void shouldJoinAContinuedIncludeLine() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = extra\\\n.cfg\n");
+        Files.writeString(root.resolve(".git/extra.cfg"), "[core]\n\tfsmonitor = " + name() + "\n");
+        var before = GitMetadataDigest.of(root);
+        Files.writeString(root.resolve(".git/extra.cfg"), "[core]\n\tfsmonitor = attacker\n");
+
+        var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
+
+        assertEquals(Set.of(".git/extra.cfg"), changed, "the continued include target is digested");
+    }
+
+    @Test
+    @DisplayName("Should fail closed on an invalid include path")
+    void shouldFailClosedOnAnInvalidIncludePath() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = a\u0000b.cfg\n");
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE), "an invalid include path is fail closed");
+    }
+
+    @Test
     @DisplayName("Should digest nothing for a project without git")
     void shouldDigestNothingWithoutGit() throws Exception {
         var root = Files.createDirectories(base.resolve(name()));

@@ -273,14 +273,16 @@ class JobConfinementComposerTest {
             Files.writeString(outsideLink, "gitdir: " + admin + "\n");
             Files.writeString(admin.resolve("gitdir"), outsideLink + "\n");
             var localComposer = new JobConfinementComposer(base, base.resolve("tmp"), base.resolve("dev"), bus);
+            var unnormalizedHarnessPath = base.resolve("unused").resolve("..");
 
-            var confinement = localComposer.forJob(enrolment(null, Map.of()), job, List.of(), false);
+            var confinement = localComposer.forJob(enrolment(null, Map.of()), job,
+                    List.of(unnormalizedHarnessPath), false);
 
             assertAll("Only the metadata inside the write set is read-only",
                     () -> assertTrue(confinement.readOnlyPaths().contains(project.resolve(".git")),
                             "the git directory of the root is read-only"),
-                    () -> assertFalse(confinement.readOnlyPaths().contains(outsideLink),
-                            "a link file outside the write set is not read-only"));
+                    () -> assertTrue(confinement.readOnlyPaths().contains(outsideLink),
+                            "a link file under a non-normalized entry is read-only"));
         }
 
         /** @return the {@code .git} link file of a linked worktree of the project */
