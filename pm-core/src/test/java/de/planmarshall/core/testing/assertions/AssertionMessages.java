@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
@@ -101,6 +102,10 @@ public class AssertionMessages {
     /** A name declared with a throwable type in the scanned source: an argument that is a cause, not a message. */
     private static final Pattern THROWABLE_DECLARATION = Pattern.compile(
             "\\b((?:[A-Z][\\w$.]*)?(?:Exception|Throwable|Error))\\s+([a-zA-Z_$][\\w$]*)");
+
+    /** A constructed throwable, the other shape of the cause {@code fail(cause)} carries instead of a message. */
+    private static final Pattern CONSTRUCTED_THROWABLE = Pattern.compile(
+            "new\\s+(?:[a-zA-Z_$][\\w$]*\\.)*[A-Z][\\w$]*(?:Exception|Throwable|Error)\\s*\\(");
 
     /**
      * @param sourceRoot the module's {@code src/test/java} directory
@@ -202,10 +207,8 @@ public class AssertionMessages {
             }
             var spans = argumentSpans(view, open);
             var line = lineAt(view, start);
-            var violation = violationOf(name, spans, view, source);
-            if (violation != null) {
-                violations.add(path + ":" + line + " " + name + ": " + violation);
-            }
+            violationOf(name, spans, view, source)
+                    .ifPresent(violation -> violations.add(path + ":" + line + " " + name + ": " + violation));
         }
         return violations;
     }
@@ -224,30 +227,30 @@ public class AssertionMessages {
      * @param spans the top-level argument spans of the call
      * @param view the blanked source the spans index into
      * @param source the unblanked source text the spans index into
-     * @return the violation the call carries, or {@code null} when it carries a message the rule accepts
+     * @return the violation the call carries, or an empty result when it carries a message the rule accepts
      */
-    private static String violationOf(String name, List<int[]> spans, String view, String source) {
+    private static Optional<String> violationOf(String name, List<int[]> spans, String view, String source) {
         if (MESSAGE_FIRST_ASSERTIONS.contains(name)) {
             if (spans.isEmpty() || carriesNoCode(spans.getFirst(), view, source)) {
-                return "no message";
+                return Optional.of("no message");
             }
             var first = argument(spans.getFirst(), view, source);
-            if ((SIMPLE_NAME.matcher(first).matches() && declaredThrowables(source).contains(first))
-                    || first.startsWith("new ")) {
-                return "no message (a cause is not a message)";
+            if ((SIMPLE_NAME.matcher(first).matches() && declaredThrowables(view).contains(first))
+                    || CONSTRUCTED_THROWABLE.matcher(first).find()) {
+                return Optional.of("no message (a cause is not a message)");
             }
             return measure(spans.getFirst(), view, source);
         }
         var minimum = ONE_ARGUMENT_ASSERTIONS.contains(name) ? 1 : 2;
         if (spans.size() <= minimum) {
-            return "no message";
+            return Optional.of("no message");
         }
         var messageSpan = spans.getLast();
         if (carriesNoCode(messageSpan, view, source)) {
-            return "no message";
+            return Optional.of("no message");
         }
         if (isTolerance(name, spans, view, source)) {
-            return "no message (a tolerance is not a message)";
+            return Optional.of("no message (a tolerance is not a message)");
         }
         return measure(messageSpan, view, source);
     }
@@ -261,20 +264,20 @@ public class AssertionMessages {
                 && !source.substring(span[0], span[1]).contains("\"");
     }
 
-    /** @return the violation of a literal message's length, or {@code null} for an accepted message */
-    private static String measure(int[] span, String view, String source) {
+    /** @return the violation of a literal message's length, or an empty result for an accepted message */
+    private static Optional<String> measure(int[] span, String view, String source) {
         var message = argument(span, view, source);
         if (!LITERAL.matcher(message).matches()) {
-            return null;
+            return Optional.empty();
         }
         var length = message.length() - 2;
         if (length < MIN_MESSAGE_LENGTH) {
-            return "message shorter than " + MIN_MESSAGE_LENGTH + " characters (" + length + ")";
+            return Optional.of("message shorter than " + MIN_MESSAGE_LENGTH + " characters (" + length + ")");
         }
         if (length > MAX_MESSAGE_LENGTH) {
-            return "message longer than " + MAX_MESSAGE_LENGTH + " characters (" + length + ")";
+            return Optional.of("message longer than " + MAX_MESSAGE_LENGTH + " characters (" + length + ")");
         }
-        return null;
+        return Optional.empty();
     }
 
     /**
@@ -314,9 +317,10 @@ public class AssertionMessages {
                 || DYNAMIC_MESSAGE.matcher(message).matches()) {
             return false;
         }
-        var floating = declaredFloatingPoints(source);
+        var floating = declaredFloatingPoints(view);
         return isFloatingOperand(argument(spans.get(0), view, view), floating)
-                || isFloatingOperand(argument(spans.get(1), view, view), floating);
+                || isFloatingOperand(argument(spans.get(1), view, view), floating)
+                || floating.contains(message.strip());
     }
 
     /** @return whether an operand of the blanked view carries a floating-point literal or names a floating-point value */
@@ -325,9 +329,9 @@ public class AssertionMessages {
     }
 
     /** @return the names the scanned source declares with a floating-point type */
-    private static Set<String> declaredFloatingPoints(String source) {
+    private static Set<String> declaredFloatingPoints(String view) {
         var names = new HashSet<String>();
-        var matcher = FLOATING_DECLARATION.matcher(source);
+        var matcher = FLOATING_DECLARATION.matcher(view);
         while (matcher.find()) {
             names.add(matcher.group(1));
         }
@@ -335,9 +339,9 @@ public class AssertionMessages {
     }
 
     /** @return the names the scanned source declares with a throwable type */
-    private static Set<String> declaredThrowables(String source) {
+    private static Set<String> declaredThrowables(String view) {
         var names = new HashSet<String>();
-        var matcher = THROWABLE_DECLARATION.matcher(source);
+        var matcher = THROWABLE_DECLARATION.matcher(view);
         while (matcher.find()) {
             names.add(matcher.group(2));
         }
@@ -410,7 +414,21 @@ public class AssertionMessages {
             return false;
         }
         var close = matchingAngle(view, index);
-        return close > 0 && everyElementStartsAType(view, index + 1, close);
+        return close > 0 && everyElementStartsAType(view, index + 1, close)
+                && followedLikeAType(view, close);
+    }
+
+    /**
+     * @return whether what follows the closing {@code >} reads like a type rather than as the right operand of a
+     *         comparison: a digit or an operator after it is an expression, so the angle was a comparison
+     */
+    private static boolean followedLikeAType(String view, int close) {
+        var next = nextNonWhitespace(view, close + 1);
+        if (next >= view.length()) {
+            return true;
+        }
+        var current = view.charAt(next);
+        return !Character.isDigit(current) && "+-*/%<>=!&|^~".indexOf(current) < 0;
     }
 
     /** @return the index of the {@code >} that closes the {@code <} at {@code open}, or {@code -1} when none closes */

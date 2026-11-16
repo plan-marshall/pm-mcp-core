@@ -23,6 +23,8 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The controls of {@link AssertionMessages}: every shape the scan accepts and every shape it refuses, each beside the
@@ -86,14 +88,19 @@ class AssertionMessagesTest {
                 "assertArrayEquals(new double[]{1.0}, value, DELTA);");
         assertReported(temp.resolve("tolerance-identifier"), "assertEquals: no message",
                 "assertEquals(1.0, value, DELTA);");
-        for (var tolerance : List.of("1e-6", "1_000.0", "0x1.0p-6")) {
-            assertReported(temp.resolve("tolerance-" + tolerance), "assertEquals: no message",
-                    "assertEquals(1.0, value, " + tolerance + ");");
-        }
         assertReported(temp.resolve("tolerance-declared"), "assertEquals: no message",
                 "double expectedD = 0.0; double epsilon = 0.001; assertEquals(expectedD, actual, epsilon);");
         assertReported(temp.resolve("tolerance-scaled"), "assertEquals: no message",
                 "double expectedD = 0.0; assertEquals(expectedD, actual, 2 * EPS);");
+        assertReported(temp.resolve("tolerance-declared-third"), "assertEquals: no message",
+                "double epsilon = 0.001; assertEquals(readExpected(), readActual(), epsilon);");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1e-6", "1_000.0", "0x1.0p-6"})
+    @DisplayName("a tolerance literal is not a message")
+    void aToleranceLiteralIsNotAMessage(String tolerance, @TempDir Path temp) throws Exception {
+        assertReported(temp, "assertEquals: no message", "assertEquals(1.0, value, " + tolerance + ");");
     }
 
     /** A comma in a type argument, a lower-case qualified type, a multi-line call and a qualified call are measured. */
@@ -159,6 +166,8 @@ class AssertionMessagesTest {
         assertNotReported(temp.resolve("qualified-comparisons"),
                 "assertEquals(actual.min < expected.max, actual.max > expected.min, "
                         + "\"the two ranges overlap at a bound\");");
+        assertNotReported(temp.resolve("upper-case-both-comparisons"),
+                "assertEquals(actual < MAX, EXPECTED > 0, \"the comparison results must agree\");");
         assertNotReported(temp.resolve("quoted-number"),
                 "assertEquals(List.of(\"1.0\"), actual, MESSAGE);");
         assertNotReported(temp.resolve("spaced-type-argument"),
@@ -199,6 +208,8 @@ class AssertionMessagesTest {
                         + "\" /* the reviewer's note */);");
         assertNotReported(temp.resolve("fail-supplier-name"),
                 "Supplier<String> failure = () -> \"the store refused\"; fail(failure);");
+        assertNotReported(temp.resolve("fail-computed"),
+                "fail(new StringBuilder(\"operation failed: \").append(detail).toString());");
         assertNotReported(temp.resolve("item-name"),
                 "assertEquals(ITEM_2D, actual, MESSAGE);");
         assertNotReported(temp.resolve("computed-message"),
