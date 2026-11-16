@@ -11,7 +11,6 @@ package de.planmarshall.runtime.config;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -98,20 +97,6 @@ public record PlanDefaults(String landing, String method, String asking, @Nullab
         return new PlanDefaults(landing == null ? shipped.landing() : landing,
                 method == null ? shipped.method() : method,
                 asking == null ? shipped.asking() : asking, posture);
-    }
-
-    /**
-     * @param key   a key of {@code plan_defaults}
-     * @return the variants the key admits; empty for a key the schema does not declare
-     */
-    public static Optional<List<String>> variantsOf(String key) {
-        return switch (key) {
-            case "landing" -> Optional.of(LANDING_VARIANTS);
-            case "method" -> Optional.of(METHOD_VARIANTS);
-            case "asking" -> Optional.of(ASKING_VARIANTS);
-            case "posture" -> Optional.of(POSTURES);
-            default -> Optional.empty();
-        };
     }
 
     private static void requireVariant(String key, String value, List<String> admitted) {
