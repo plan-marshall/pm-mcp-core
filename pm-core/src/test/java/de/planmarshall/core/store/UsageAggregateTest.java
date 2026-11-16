@@ -37,7 +37,7 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
 import de.planmarshall.core.store.UsageAggregate.ModelHarness;
 
 /**
- * The aggregate of the metrics rows (PM-WF-14, PM-WORK-3, Store Schemas § Metrics Store, Aggregates): the total with its
+ * The aggregate of the metrics rows (PM-WF-14, PM-WORK-3, Store Schemas § Metrics Store): the total with its
  * split and the coverage a view shows, derived on read from the rows and never persisted. The usage figures, the ids
  * within their grammar ({@code qt-} and {@code l-} with 16 hex digits), the role, model, harness and instant are
  * generated; the expected figures are computed from them: the total is the five token components, the input side the
