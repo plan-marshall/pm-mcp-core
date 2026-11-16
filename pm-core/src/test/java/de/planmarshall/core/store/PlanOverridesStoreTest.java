@@ -46,8 +46,8 @@ import de.planmarshall.core.store.PlanOverrides.UpdatedBy;
  * Overrides): the document is absent until the first value, a write raises the revision, and a second write against the
  * revision the first one consumed is refused with the current document, so the first change wins.
  * <p>
- * The member names and the channel values are the specified document format. The project and plan ids, the role, model
- * and base-branch values are generated.
+ * The member names and the channel values are the specified document format. The project and plan ids and the write
+ * instant are generated; the role, model and axis values are the literals the document's grammar admits.
  */
 @EnableGeneratorController
 @DisplayName("Plan overrides store")
@@ -63,12 +63,14 @@ class PlanOverridesStoreTest {
     private PlanOverridesStore store;
     private RecordingLockManager locks;
     private AuditSink audit;
+    private String project;
+    private String plan;
 
     @BeforeEach
     void createScope() throws IOException {
-        scope = JournalScope.plan(base,
-                "project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT),
-                "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
+        project = "project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        plan = "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        scope = JournalScope.plan(base, project, plan);
         Files.createDirectories(scope.journalFile().getParent());
         store = new PlanOverridesStore(scope);
         locks = new RecordingLockManager();
@@ -117,10 +119,13 @@ class PlanOverridesStoreTest {
         var written = write(values(), PlanOverrides.NO_DOCUMENT);
 
         var read = store.read();
+        var expected = LockKey.projectStore(base, project).resolve("plans").resolve(plan)
+                .resolve(PlanOverridesStore.FILE_NAME);
 
         assertAll(
                 () -> assertEquals(1L, written.revision(), "The first write raises the revision to 1"),
                 () -> assertEquals(written, read, "The document reads as it was written"),
+                () -> assertTrue(Files.exists(expected), "The document lands in the plan's own directory"),
                 () -> assertEquals("claude", read.roles().get("implementer").harness(),
                         "The role's harness must round-trip"),
                 () -> assertEquals("landing.main", read.axes().get(Axis.LANDING),

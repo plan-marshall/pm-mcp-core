@@ -64,7 +64,7 @@ The placement of the 27 files, which this decision rests on:
 |10 |`lesson-front-matter.schema.json` |`LessonCodec` |`pm-core` `de/planmarshall/core/store/`
 |14 |`plan-instance-header.schema.json` |`PlanInstanceHeader` / `HeaderJson` |`pm-workflow` `de/planmarshall/workflow/plan/`
 |14 |`composition-record.schema.json` |`CompositionRecord` |`pm-workflow` `de/planmarshall/workflow/plan/`
-|14 |`plan-overrides.schema.json` |none (plan store) |`pm-core` `de/planmarshall/core/store/`
+|14 |`plan-overrides.schema.json` |`PlanOverridesCodec` |`pm-core` `de/planmarshall/core/store/`
 |14 |`waiver-request.schema.json` |`WorkflowStatusCodec` (`waiver_requests[]`) |`pm-core` `de/planmarshall/core/store/`
 |14 |`policy-counter.schema.json` |none (member `policy_counters` of `status`) |`pm-core` `de/planmarshall/core/store/`
 |14 |`gap-record.schema.json` |none (member `gaps[]` of `status`) |`pm-core` `de/planmarshall/core/store/`

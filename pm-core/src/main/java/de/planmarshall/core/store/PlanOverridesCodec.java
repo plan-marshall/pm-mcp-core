@@ -291,10 +291,6 @@ public class PlanOverridesCodec {
         return revision;
     }
 
-    private static Map<String, Role> roleMap(JsonParser parser) throws IOException {
-        return Map.of();
-    }
-
     private static Role role(JsonParser parser, String name) throws IOException {
         requireRoleName(name);
         requireObject(parser, name);
@@ -425,7 +421,7 @@ public class PlanOverridesCodec {
 
     static String requireRole(String name) {
         if (!RoleName.matches(name)) {
-            throw new IllegalArgumentException("Not a short name: " + name);
+            throw new IllegalArgumentException("Not an identifier of the document: " + name);
         }
         return name;
     }

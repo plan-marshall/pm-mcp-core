@@ -26,7 +26,7 @@ exactly the revision protocol the provider defaults already carry.
   `ProviderDefaults`.
 * `MachineConfigurationCodec` reads and replaces `sources.documents_mode` and `cleanup` in place, as it does `providers`,
   and writes the required members at their schema defaults when it creates a document. A member the document does not
-  hold is appended in the schema's order.
+  hold is appended after the members it holds.
 * `MachineConfigurationStore` gains `writeDocumentsMode(mode, revision)` and `writeCleanupDurations(durations, revision)`
   beside `writeProviders`. All three share one transaction: read the document again under `locks/machine-config.lock`,
   refuse a revision the document moved past with `SettingsConflict` and the current value of the member, else replace that
@@ -47,11 +47,11 @@ exactly the revision protocol the provider defaults already carry.
 
 == Consequences
 
-* A write of one member keeps `credentials`, `providers`, the languages and `project_defaults` untouched; the store's test
-  asserts the operator's `credentials` and `harnesses` survive both new writers.
+* A write of one member keeps `credentials`, `providers` (or the settings when a provider write runs), the languages and
+  `project_defaults` untouched; the store's tests assert the operator's `credentials` survives both new writers.
 * A second change against the revision the first one consumed is refused with `conflict` (409) and the current value —
   the first change wins, nothing merged (state-catalogue/14, two changes against one revision).
-* An incomplete `cleanup` member, legal per the schema, reads as no complete durations while its members are written back
+* An incomplete `cleanup` member, legal per the schema, reads at the schema defaults while its members are written back
   unchanged; a later complete write replaces it.
 
 == Source

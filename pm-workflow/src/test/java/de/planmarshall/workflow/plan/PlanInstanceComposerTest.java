@@ -1174,7 +1174,8 @@ class PlanInstanceComposerTest {
                     new LandingVariantValidation.Project(false, false)));
 
             assertAll(
-                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
+                            "The landing refusal is the invariant refusal"),
                     () -> assertTrue(refused.violations().stream()
                                     .anyMatch(violation -> violation.startsWith("landing: the variant "
                                             + "'landing.pull-request' does not fit the project:")),

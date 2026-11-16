@@ -148,7 +148,10 @@ A plan's own values are its *overrides*, kept in the plan store `overrides.json`
 4. *Qualification*: An override to a role configuration without a current qualification record is shown as unqualified when it is set, and its tasks take the qualification fallback of `PM-WORK-6` until the project grades it (link:../model-work/01-roles-and-configuration.adoc#conservative-fallback[Model Work Specification, Conservative Fallback]).
 5. *Never a decider*: An override changes how the plan runs, never what a decision decided; it is no answer to a question and never passes a gate.
 
-The document is read and written by `PlanOverridesCodec` and `PlanOverridesStore` of `pm-core` `core.store` (link:../../../pm-core/doc/developer/core-store.adoc#_the_plan_overrides[`core.store` Developer Guide]) under the plan's transaction and revision rule; the landing variant's own check where a project is known is `LandingVariantValidation` in the composition (link:../../../pm-workflow/doc/developer/workflow-plan.adoc#_the_landing_variant_of_the_project[`workflow.plan` Developer Guide]).
+The document's storage and the landing variant's check are documented in the
+link:../../../pm-core/doc/developer/core-store.adoc#_the_plan_overrides[`core.store`] and
+link:../../../pm-workflow/doc/developer/workflow-plan.adoc#_the_landing_variant_of_the_project[`workflow.plan`] developer
+guides.
 
 === Display
 

@@ -48,7 +48,7 @@ coordinated by `locks/machine-config.lock`.
 * `CleanupDuration` is whole days (at least 7, so no window of the system view loses data) or `never`;
   `CleanupDurations` is the six values the cleanup reads — the five item kinds and the reminder's days — and
   `CleanupDurations.defaults()` is what the schema applies while the member is absent (30 days, a 3-day reminder).
-  A member that does not name all six is legal per the schema but reads as no complete durations; the codec writes its
+  A member that does not name all six is legal per the schema but reads at the schema defaults; the codec writes its
   members back unchanged, so an incomplete member the operator wrote is never lost by a write of another setting.
 
 A provider is recorded available only after its verification passed
@@ -68,8 +68,8 @@ written at another path under the lock's name.
   `providers` alone, writes the next revision and keeps every other member — `credentials`, the concurrency limits, the
   languages, `project_defaults` — copied through untouched.
 * `writeDocumentsMode(mode, revision)` and `writeCleanupDurations(durations, revision)` write their one member the same
-  way: the other members of the operator's document, and the other member of `sources`, survive; a member the document
-  did not hold yet is appended in the schema's order.
+  way: the other members of the operator's document survive; a member the document did not hold yet is appended after the
+  members it holds.
 * A change against an older revision is refused with `core.config.SettingsConflict`: the code `conflict`, the status
   `409`, the current revision and the current value of the member the change names (the defaults, the mode, or the
   durations), so the first change wins and nothing is merged.

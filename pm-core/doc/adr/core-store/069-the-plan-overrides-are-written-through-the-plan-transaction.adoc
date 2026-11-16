@@ -42,8 +42,10 @@ offers `replace` but no read.
 2. *Reading the document before opening the transaction.* _Not taken_: the revision would then be checked against a state
    the transaction does not hold, which is the check-then-act the revision rule exists to prevent.
 3. *Modelling `overrides.json` as free-form JSON in `PlanFacts`.* _Not taken_: the facts already carry the document's text
-   and digest; the values the operator sets are validated where they are written, so a typed document is needed at the
-   write, not only at the composition.
+   and digest; the operator-act layer validates the subject of a value (harness enrolment, the model catalogue, the
+   provider, the landing variant) before the store writes it, and the store itself checks the schema's grammars and the
+   revision rule, so a typed document is needed at the write, not only at the composition. The store does not repeat the
+   subject validation: it cannot, because that needs the enrolment, catalogue and provider stores.
 
 == Consequences
 

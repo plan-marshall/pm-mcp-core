@@ -71,7 +71,6 @@ class UnreadSchemaFilesTest {
             "de/planmarshall/core/store/failure-envelope.schema.json",
             "de/planmarshall/core/store/gap-record.schema.json",
             "de/planmarshall/core/store/owed-item.schema.json",
-            "de/planmarshall/core/store/plan-overrides.schema.json",
             "de/planmarshall/core/store/policy-counter.schema.json",
             "de/planmarshall/core/store/references.schema.json");
 

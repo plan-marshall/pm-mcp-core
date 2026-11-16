@@ -171,17 +171,57 @@ class MachineSettingsWritersTest {
     }
 
     @Test
+    @DisplayName("a write of one member keeps the other member of the document and sources")
+    void otherMemberSurvives() throws Exception {
+        Files.writeString(file, """
+                {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
+                 "sources":{"documents_mode":"move"}}""".formatted(revision, maxBuildSlots, lspIdleTimeout), UTF_8);
+
+        store.writeCleanupDurations(durations(), revision);
+        var read = store.read();
+
+        assertAll(
+                () -> assertEquals(DocumentsMode.MOVE, read.documentsMode(),
+                        "The documents mode survives a cleanup write"),
+                () -> assertEquals(durations(), read.cleanup(), "The cleanup durations are written"));
+    }
+
+    @Test
+    @DisplayName("an incomplete cleanup member is written back unchanged by another write")
+    void incompleteCleanupSurvives() throws Exception {
+        Files.writeString(file, """
+                {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
+                 "cleanup":{"plans_after_days":%d}}""".formatted(revision, maxBuildSlots, lspIdleTimeout,
+                plansAfterDays), UTF_8);
+
+        store.writeDocumentsMode(DocumentsMode.COPY, revision);
+
+        assertAll(
+                () -> assertEquals(DocumentsMode.COPY, store.read().documentsMode(),
+                        "The write records its own documents mode"),
+                () -> assertTrue(Files.readString(file, UTF_8).contains("\"plans_after_days\":" + plansAfterDays),
+                        "The incomplete cleanup member survives unchanged"),
+                () -> assertEquals(CleanupDurations.defaults(), store.read().cleanup(),
+                        "An incomplete cleanup member reads as the schema defaults"));
+    }
+
+    @Test
     @DisplayName("the codec refuses a duration below the schema minimum and an unknown mode")
     void refusesInvalidValues() {
         var belowMinimum = CleanupDuration.MIN_DAYS - 1;
-        var written = document().replace("\"credentials\"", "\"sources\":{\"documents_mode\":\"keep\"},"
+        var unknownMode = document().replace("\"credentials\"", "\"sources\":{\"documents_mode\":\"keep\"},"
                 + "\"credentials\"").getBytes(UTF_8);
+        var tooShort = document().replace("\"credentials\"", "\"cleanup\":{\"plans_after_days\":"
+                + belowMinimum + "},\"credentials\"").getBytes(UTF_8);
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> CleanupDuration.ofDays(belowMinimum), "A duration below seven days is refused"),
                 () -> assertThrows(StoreRefusal.class,
-                        () -> MachineConfigurationCodec.read(file, written),
-                        "An unknown documents mode is refused"));
+                        () -> MachineConfigurationCodec.read(file, unknownMode),
+                        "An unknown documents mode is refused"),
+                () -> assertThrows(StoreRefusal.class,
+                        () -> MachineConfigurationCodec.read(file, tooShort),
+                        "A duration below the schema minimum is refused"));
     }
 }

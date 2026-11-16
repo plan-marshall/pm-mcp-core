@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
@@ -109,6 +110,7 @@ public class MachineConfigurationCodec {
      * @param revision      the {@code revision} of the document
      * @since 0.1
      */
+    @Builder
     public record Document(ProviderDefaults providers, @Nullable DocumentsMode documentsMode,
     @Nullable CleanupDurations cleanup, long revision) {
     }
@@ -390,7 +392,7 @@ public class MachineConfigurationCodec {
             }
         }
 
-        /** Writes the members a write replaces that the document did not hold yet, in the schema's member order. */
+        /** Writes the members a write replaces that the document did not hold yet, after the members it holds. */
         private void writeMissing(JsonGenerator generator, HashSet<String> seen) throws IOException {
             if (replacement != null && !seen.contains(FIELD_PROVIDERS)) {
                 writeProviders(generator, replacement);

@@ -53,6 +53,6 @@ public record CleanupDuration(@Nullable Integer days) {
         return NEVER;
     }
 
-    /** The duration that never cleans up; kept as one value so that a read and a write compare. */
+    /** The duration that never cleans up. */
     private static final CleanupDuration NEVER = new CleanupDuration(null);
 }

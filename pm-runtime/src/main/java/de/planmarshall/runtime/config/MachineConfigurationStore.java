@@ -13,6 +13,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Function;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.SettingsConflict;
@@ -25,16 +26,18 @@ import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StoreSnapshot;
 
 /**
- * The writer and reader of the machine's provider defaults, {@code providers} of {@code machine-config.json} (Store
- * Schemas § Machine Configuration Store, § Machine Provider Defaults). The provider step of the machine's onboarding and
- * its later runs write them here, under {@code locks/machine-config.lock}.
+ * The writer and reader of the machine's settings of {@code machine-config.json} that this package owns (Store Schemas §
+ * Machine Configuration Store): the provider defaults ({@code providers}), how a start takes its documents
+ * ({@code sources.documents_mode}) and the durations of the one cleanup ({@code cleanup}). The provider step of the
+ * machine's onboarding and its later runs write the defaults, the machine's settings write the other two, all under
+ * {@code locks/machine-config.lock}.
  * <p>
- * A write is one short transaction on the lock: it reads the document again, checks the caller's revision, replaces
- * {@code providers} alone — every other member of the operator's document survives, among them
- * {@code credentials.store}, which only the credential-store aspect and the store move write — writes the document's
- * next {@code revision} and writes it back. A change against an older revision is refused with a
- * {@link SettingsConflict} carrying the revision and the defaults the document holds, so nothing is merged and nothing is
- * overwritten unseen. A document that does not exist yet is created with its required members at their schema defaults.
+ * A write is one short transaction on the lock: it reads the document again, checks the caller's revision, replaces that
+ * one member — every other member of the operator's document survives, among them {@code credentials.store}, which only
+ * the credential-store aspect and the store move write — writes the document's next {@code revision} and writes it back. A
+ * change against an older revision is refused with a {@link SettingsConflict} carrying the revision and the current value
+ * of that member, so nothing is merged and nothing is overwritten unseen. A document that does not exist yet is created
+ * with its required members at their schema defaults.
  *
  * @since 0.1
  */
@@ -60,6 +63,7 @@ public final class MachineConfigurationStore {
      * @param revision      the {@code revision} of the document; {@value #NO_DOCUMENT} when it does not exist
      * @since 0.1
      */
+    @Builder
     public record Snapshot(ProviderDefaults providers, DocumentsMode documentsMode, CleanupDurations cleanup,
     long revision) {
     }

@@ -161,10 +161,8 @@ States of `onboarding.pmwf`, reached from `onboard.completed` once the onboardin
 |xref:19-onboarding-aspects-models-providers.adoc#state-catalogue-providers[Providers]
 |===
 
-The two writers that record a value here — the documents mode and the cleanup durations — are
-`MachineConfigurationStore.writeDocumentsMode` and `writeCleanupDurations`, each replacing its own member against the
-revision it was made against and keeping every other member of the operator's document
-(link:../../../pm-runtime/doc/developer/runtime-config.adoc[`runtime.config` Developer Guide]).
+The two writers that record a value here are documented in the
+link:../../../pm-runtime/doc/developer/runtime-config.adoc[`runtime.config` Developer Guide].
 
 [#state-catalogue-onboarding-aspects]
 == The Onboarding's Aspects

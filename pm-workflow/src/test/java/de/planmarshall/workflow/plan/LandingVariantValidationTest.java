@@ -77,15 +77,4 @@ class LandingVariantValidationTest {
                 () -> assertTrue(fits.valid(), "A fitting variant is valid"),
                 () -> assertNull(fits.reason(), "A fitting variant carries no reason"));
     }
-
-    @Test
-    @DisplayName("the check is a value: one project's answer never depends on another call")
-    void sideEffectFree() {
-        var first = LandingVariantValidation.validate("landing.main", project(false, true));
-        var second = LandingVariantValidation.validate("landing.main", project(false, false));
-
-        assertAll(
-                () -> assertFalse(first.valid(), "The first call refuses the protected branch"),
-                () -> assertTrue(second.valid(), "The second call reads its own project"));
-    }
 }

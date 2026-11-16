@@ -40,8 +40,9 @@ import de.planmarshall.core.store.PlanOverrides.UpdatedBy;
  * member round-trips, a document that names an undeclared member or a value the schema does not admit is refused, and
  * the written document is the closed document of the schema.
  * <p>
- * The member names and the axis, posture, integration and channel values are the specified document format. The role,
- * model, effort, base-branch, provider and device values are generated within the schema's grammars.
+ * The member names and the axis, posture, integration and channel values are the specified document format. The
+ * role, model, effort and provider values are the literals the document's closed grammar admits; the base-branch name
+ * and the write instant are generated.
  */
 @EnableGeneratorController
 @DisplayName("Plan overrides codec")

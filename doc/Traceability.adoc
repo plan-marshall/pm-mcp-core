@@ -763,8 +763,8 @@ resident unit's graph check over a unit with no terminal that rests in `onboard.
 status's `onboard_run` and `onboard_steps`; and the setup gate that refuses a start `machine_not_onboarded` while the
 first run is incomplete, an act that needs a missing step `onboarding_incomplete` with status 409, names the step and
 both clients, and admits the onboarding itself and the operator's verbs in every state. The machine's settings' writers for
-the documents mode and the cleanup durations are here; the onboarding unit's own sub-workflows and the operator's settings
-states are other work packages'): link:../pm-core/src/main/java/de/planmarshall/core/store/JournalScope.java[JournalScope],
+the documents mode and the cleanup durations are here; the onboarding unit's own sub-workflows and the settings states
+themselves are this plan's remaining work and are not traced here): link:../pm-core/src/main/java/de/planmarshall/core/store/JournalScope.java[JournalScope],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JournalScopeType.java[JournalScopeType],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusStore.java[WorkflowStatusStore],

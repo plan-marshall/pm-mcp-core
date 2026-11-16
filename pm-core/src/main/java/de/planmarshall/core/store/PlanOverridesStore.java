@@ -85,7 +85,7 @@ public final class PlanOverridesStore {
      * @throws SettingsConflict         if the document holds another revision than {@code revision}
      * @throws StoreRefusal             if the document is unreadable or in another format version
      * @throws UncheckedIOException     if the document cannot be read
-     * @throws IllegalArgumentException if the written document names the absent revision
+     * @throws IllegalArgumentException if the transaction is not the plan's, or a value is not one the schema admits
      */
     public PlanOverrides write(ScopeTransaction transaction, PlanOverrides values, long revision, UpdatedBy updatedBy,
             Instant updatedAt) {
@@ -93,6 +93,10 @@ public final class PlanOverridesStore {
         Objects.requireNonNull(values, "values");
         Objects.requireNonNull(updatedBy, "updatedBy");
         Objects.requireNonNull(updatedAt, "updatedAt");
+        if (!transaction.scope().equals(scope)) {
+            throw new IllegalArgumentException("The plan overrides are written by the plan's own transaction: "
+                    + scope.scopeId());
+        }
         var current = read();
         if (current.revision() != revision) {
             throw new SettingsConflict(file(), revision, current.revision(), current);
