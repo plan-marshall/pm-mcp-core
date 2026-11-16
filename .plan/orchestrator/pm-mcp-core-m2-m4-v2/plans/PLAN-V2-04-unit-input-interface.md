@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-01
 origin: PLAN-159 of the epic pm-mcp-core-m2-m4
-lane: plan-marshall
+lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (lane `plan-marshall` from 2026-11-12 under the operator's standing emit format of 2026-11-05: a large plan, five deliverables over the workflow DSL, its validator and its specification, is emitted for the plan lifecycle; residue and small plans stay on the runbook lane).
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off (lane `runbook` again from 2026-11-16: the operator's standing emit format of 2026-11-13 emits every plan through the runbook lane; the row had been `plan-marshall` since 2026-11-12 as a large plan of five deliverables, and was emitted and started on the runbook lane on 2026-11-16 before the conversion was recorded, which this edit corrects).
 > Lives at `plans/PLAN-V2-04-unit-input-interface.md` and is queued as one row file, `queue/PLAN-V2-04.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -162,14 +162,14 @@ No work package file of `doc/plans/` covers this plan (the neighbours are `phase
 
 ## Landing
 
-This plan runs under the plan lifecycle (`/plan-marshall`; lane changed from `runbook` to `plan-marshall` on 2026-11-12 under the operator's standing emit format, because it is a large plan and not a residue or a small one). Its `request.md` `source_id` points at this spec, so `orchestrator inbox detect` classifies it as orchestrated and its phase 6 files one `landing` message in the epic inbox with the `landing-facts` block of `standards/landing-payload-spec.md`; the orchestrator reconciles the row from it and from the pull request. The plan writes nothing else under `.plan/orchestrator/`. The merge of its pull request is part of that process (`CLAUDE.md` § Git Workflow, 2026-11-12): the lifecycle merges through the merge queue when the review gate is met and does not ask the operator again. Both review bots refuse a pull request over 100 files or 150 000 diff characters (PLAN-V2-129 was split for it): keep the change reviewable, and split it by deliverable if the diff grows past that.
+This plan runs under the runbook lane (`/plan-marshall-runbook-lane`; the lane was `plan-marshall` from 2026-11-12 to 2026-11-16 and is `runbook` again under the operator's standing emit format of 2026-11-13; the operator started it on the runbook lane on 2026-11-16). The lane files one `landing` message in the epic inbox with the `landing-facts` block of `standards/landing-payload-spec.md` (sender `rb-v2-04-unit-input-interface`); the orchestrator reconciles the row from it and from the pull request. The plan writes nothing else under `.plan/orchestrator/`. The merge of its pull request is part of that process (`CLAUDE.md` § Git Workflow, 2026-11-12): the lane merges through the merge queue when the review gate is met and does not ask the operator again. Both review bots refuse a pull request over 100 files or 150 000 diff characters (PLAN-V2-129 was split for it): keep the change reviewable, and split it by deliverable if the diff grows past that.
 
 State at the emit (2026-11-12, `origin/main` `1283710f`+): the spec was written on 2026-10-29 and its line numbers are stale (the landing note under Dependencies says so for the composer); PLAN-V2-57 and 58 changed `CompiledInvariants`, `PlanInvariants`, `UnitGraph` and `WorkflowEngine` since, and PLAN-V2-114 (staged) edits the same verify package later. The premises were re-read at the emit: `ParamDecl` (`pm-workflow/.../ast/ParamDecl.java`), `WorkflowDefinition.params` (`:60`), `WorkflowParser.parseParams` (`:311`), `WorkflowValidator` (`:1502`, `:1641`) and `RemediationInvariants.checkParam` (`:194`) exist; `InputDecl` and `ConfigKeyRegistry` do not. **Emit held (2026-11-12): the gate reads 15 shared paths with the running PLAN-V2-140 and raises the overlap prompt.** The 15 are existing test classes of `pm-workflow` that this plan edits (`AstNodeModelTest`, `AstWithoutLocations`, `UnitFrontmatterReaderTest`, `WorkflowPrinterTest`, `WorkflowParserTest`, `WorkflowValidatorTest`, `CompiledInvariantsTest`, `TestPrimitives`, `ModelFixtures` and others), and PLAN-V2-140's own outline (its TASK-008, "rework the test layering, base classes and fixtures of every module") re-layers exactly such classes and fixtures, so a collision is likely and not an artefact of a directory declaration. Emit this plan after PLAN-V2-140 lands (or on the operator's explicit decision to run both). Re-read every line number at the head before scoping (the Verify-first clause of Claim Labels).
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-04-unit-input-interface.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-04-unit-input-interface.md
 ```
 
 ## Write-Boundary

@@ -98,9 +98,9 @@ class HarnessesSidecarCheckTest {
 
     private static void assertFailed(Result result, Outcome outcome, Path concerned, String reason) {
         assertAll(
-                () -> assertFalse(result.passed()),
-                () -> assertEquals(outcome, result.outcome()),
-                () -> assertEquals(concerned, result.file()),
+                () -> assertFalse(result.passed(), "the check reports a failure"),
+                () -> assertEquals(outcome, result.outcome(), "the outcome is the expected one"),
+                () -> assertEquals(concerned, result.file(), "the failure names the expected file"),
                 () -> assertTrue(result.reason().contains(reason), result.reason()));
     }
 
@@ -112,10 +112,10 @@ class HarnessesSidecarCheckTest {
         var result = verify(key);
 
         assertAll(
-                () -> assertTrue(result.passed()),
-                () -> assertEquals(Outcome.VERIFIED, result.outcome()),
-                () -> assertNull(result.file()),
-                () -> assertNull(result.reason()));
+                () -> assertTrue(result.passed(), "the check passes under its key"),
+                () -> assertEquals(Outcome.VERIFIED, result.outcome(), "the outcome is the verified one"),
+                () -> assertNull(result.file(), "a pass names no file"),
+                () -> assertNull(result.reason(), "a pass carries no reason"));
     }
 
     @Test
@@ -132,9 +132,9 @@ class HarnessesSidecarCheckTest {
         var result = verify(key);
 
         assertAll(
-                () -> assertTrue(result.passed()),
-                () -> assertEquals(Outcome.NOTHING_TO_VERIFY, result.outcome()),
-                () -> assertNull(result.file()));
+                () -> assertTrue(result.passed(), "a nothing-to-verify run passes"),
+                () -> assertEquals(Outcome.NOTHING_TO_VERIFY, result.outcome(), "the outcome is nothing to verify"),
+                () -> assertNull(result.file(), "nothing to verify names no file"));
     }
 
     @Test
@@ -145,7 +145,7 @@ class HarnessesSidecarCheckTest {
         try (var transaction = locks.openTransaction()) {
             check.verify(transaction, key);
 
-            assertTrue(transaction.holds(LockKey.harnesses(base)));
+            assertTrue(transaction.holds(LockKey.harnesses(base)), "the harnesses lock is held");
         }
     }
 
@@ -234,10 +234,13 @@ class HarnessesSidecarCheckTest {
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Result(Outcome.TAMPERED, none, noReason)),
+                        () -> new Result(Outcome.TAMPERED, none, noReason),
+                        "a tampered result needs a reason"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Result(Outcome.VERIFIED, some, reason)),
+                        () -> new Result(Outcome.VERIFIED, some, reason),
+                        "a verified result carries no file or reason"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Result(Outcome.INSECURE, some, noReason)));
+                        () -> new Result(Outcome.INSECURE, some, noReason),
+                        "an insecure result needs a reason"));
     }
 }

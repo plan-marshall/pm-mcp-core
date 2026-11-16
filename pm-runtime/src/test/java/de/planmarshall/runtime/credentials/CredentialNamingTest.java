@@ -51,22 +51,27 @@ class CredentialNamingTest {
         @Test
         @DisplayName("global and project accounts")
         void accounts() {
-            assertEquals("github", CredentialAccount.global("github").account());
-            assertEquals(validName + "/" + keyName, CredentialAccount.project(validName, keyName).account());
+            assertEquals("github", CredentialAccount.global("github").account(),
+                    "global account keeps the given account name");
+            assertEquals(validName + "/" + keyName, CredentialAccount.project(validName, keyName).account(),
+                    "project account joins project id and key name");
         }
 
         @ParameterizedTest(name = "''{0}''")
         @ValueSource(strings = {"", ".", "..", "a/b", "a b", "ä", "x\u0000", "../etc"})
         @DisplayName("refuses names outside [a-zA-Z0-9._-]")
         void refuses(String name) {
-            assertThrows(InvalidCredentialNameException.class, () -> CredentialAccount.global(name));
-            assertThrows(InvalidCredentialNameException.class, () -> CredentialAccount.project(name, "github"));
+            assertThrows(InvalidCredentialNameException.class, () -> CredentialAccount.global(name),
+                    "global account refuses names outside the allowed set");
+            assertThrows(InvalidCredentialNameException.class, () -> CredentialAccount.project(name, "github"),
+                    "project account refuses names outside the allowed set");
         }
 
         @Test
         @DisplayName("refuses a missing key")
         void nullKey() {
-            assertThrows(InvalidCredentialNameException.class, () -> CredentialAccount.global(null));
+            assertThrows(InvalidCredentialNameException.class, () -> CredentialAccount.global(null),
+                    "account refuses a null account name");
         }
     }
 
@@ -83,15 +88,18 @@ class CredentialNamingTest {
             var base = Files.createDirectories(home.resolve(".plan-marshall-mcp"));
             var link = Files.createSymbolicLink(home.resolve("link"), base);
 
-            assertEquals("de.planmarshall.mcp", ServiceName.of(base, home));
-            assertEquals("de.planmarshall.mcp", ServiceName.of(link, home));
+            assertEquals("de.planmarshall.mcp", ServiceName.of(base, home),
+                    "default base yields the fixed service name");
+            assertEquals("de.planmarshall.mcp", ServiceName.of(link, home),
+                    "symbolic link to the base yields the same name");
         }
 
         @Test
         @DisplayName("is qualified by the first 16 hex characters of the SHA-256 of the canonical base")
         void otherBase() {
             assertEquals("de.planmarshall.mcp/3e816ceebf0393f4",
-                    ServiceName.of(Path.of("/nonexistent/x/../pm-base"), home));
+                    ServiceName.of(Path.of("/nonexistent/x/../pm-base"), home),
+                    "other base is qualified by its SHA-256 prefix");
         }
     }
 }

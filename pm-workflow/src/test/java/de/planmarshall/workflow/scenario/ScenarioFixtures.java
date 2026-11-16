@@ -25,13 +25,22 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 
 
 import org.easymock.Capture;
 import org.easymock.CaptureType;
 
+import de.planmarshall.core.queue.FencedGenerations;
+import de.planmarshall.core.queue.QueueStore;
+import de.planmarshall.core.queue.QueueTaskRecord;
+import de.planmarshall.core.role.RoleClass;
+import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.FreeParam;
@@ -45,8 +54,6 @@ import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
 import de.planmarshall.core.spi.QuestionRecordReader;
 import de.planmarshall.core.spi.QueueTaskCreator;
-import de.planmarshall.core.spi.QueueTaskCreator.CreateRequest;
-import de.planmarshall.core.spi.QueueTaskCreator.Created;
 import de.planmarshall.core.spi.WorkflowClock;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
 import de.planmarshall.core.store.JournalScope;
@@ -54,12 +61,17 @@ import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.core.store.WorkflowStatus;
+import de.planmarshall.workflow.ast.StateBehavior;
+import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.consult.ConsultationService;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.engine.EngineEvent;
 import de.planmarshall.workflow.engine.WorkflowEngine;
+import de.planmarshall.workflow.task.SkillDelivery;
+import de.planmarshall.workflow.task.TaskProtocol;
 import de.planmarshall.workflow.verify.EntityKind;
 import de.planmarshall.workflow.verify.EntityKindRegistry;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
@@ -69,13 +81,13 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
 
 /**
  * The fixtures of the replay harness {@code pm-scenario} (PM-TEST-4), written for the scenario tests and copied from
- * no unit of the product: a fixture plan unit as DSL text, the primitives it names, a manual clock, deterministic
- * doubles of the engine ports, and the assembly of a {@link WorkflowEngine} with the store of a scope in a directory
- * the test gives.
+ * no unit of the product: fixture plan units as DSL text, the primitives they name, a manual clock, deterministic
+ * doubles of the engine ports, the queue and the task protocol of a replay, and the assembly of a {@link WorkflowEngine}
+ * with the store of a scope in a directory the test gives.
  * <p>
  * Everything a replay writes is fixed by the script: the clock starts at {@link #T0} and moves by {@link #STEP} per
- * step, job ids and queue task ids come from a counter, and every primitive returns one fixed outcome. Two replays of
- * one script with fresh fixtures therefore write the same bytes. One instance serves one replay.
+ * step, job ids, queue task ids and generation ids come from counters, and every primitive returns one fixed outcome.
+ * Two replays of one script with fresh fixtures therefore write the same bytes. One instance serves one replay.
  */
 // Every datum in this class is a contract: the fixture DSL documents and the replay's fixed identity.
 final class ScenarioFixtures {
@@ -91,6 +103,12 @@ final class ScenarioFixtures {
 
     /** The entity kind of the fixture unit's task state: no entity unit, return evaluation {@code scenario.evaluate}. */
     static final String CHANGE_KIND = "change";
+
+    /** The configuration digest a protocol worker's generation and its role both carry: one fixed configuration. */
+    static final String DIGEST = "a".repeat(64);
+
+    /** The re-offer budget of the state a protocol worker's task belongs to. */
+    static final int RE_OFFER_BUDGET = 3;
 
     /**
      * The fixture plan unit: an {@code auto} state, a job state, a task state of the role {@code reviewer}, a question
@@ -149,17 +167,78 @@ final class ScenarioFixtures {
 
     /** The clock of the engine and of the transactions. */
     final ManualClock clock = new ManualClock(T0);
+
     /** The job requests the job port is handed, in order. */
     final Capture<StartRequest> jobRequests = newCapture(CaptureType.ALL);
-
-    /** The queue task requests the task port is handed, in order. */
-    final Capture<CreateRequest> taskRequests = newCapture(CaptureType.ALL);
 
     /** The job port of the engine. */
     final JobStarter jobStarter = jobStarter();
 
-    /** The queue task port of the engine. */
-    final QueueTaskCreator taskCreator = taskCreator();
+    /** The lock manager of the replay's queue and fence store: no lock of the operating system. */
+    final Locks locks = new Locks();
+
+    /** The queue of the replay, {@code projects/scenario-project/queue/} below the replay's directory. */
+    final QueueStore queue;
+
+    /** The fence store of the replay's queue: the generations the harness fenced. */
+    final FencedGenerations fences;
+
+    /** The consultation service over the replay's queue. */
+    final ConsultationService consultations;
+
+    /** The queue task port of the engine: it writes a real record into {@link #queue}. */
+    final QueueTasks queueTasks;
+
+    /** The question port of the engine. */
+    final ScriptedQuestionRecordReader questionReader = new ScriptedQuestionRecordReader();
+
+    /** The free-parameter primitive of the operator unit, which records the notes its links submitted. */
+    final Note note = new Note();
+
+    private final TaskProtocol protocol;
+    private List<String> consultRoles = List.of();
+    private int generations;
+
+    /**
+     * @param base the directory the stores of the replay live in
+     */
+    ScenarioFixtures(Path base) {
+        var directory = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
+        queue = QueueStore.ofProject(directory, PROJECT, locks);
+        fences = new FencedGenerations(queue.directory(), queue.lockKey(), locks);
+        consultations = new ConsultationService(queue);
+        queueTasks = new QueueTasks(queue, clock, this::roleClass);
+        protocol = TaskProtocol.builder(queue, locks)
+                .fences(fences)
+                .pause(planId -> false)
+                .jobState(generationId -> false)
+                .skills(new SkillDelivery())
+                .build();
+    }
+
+    /** @return the task protocol of the replay, over the replay's queue and fence store */
+    TaskProtocol protocol() {
+        return protocol;
+    }
+
+    /** @return the next generation of the replay, {@code l-} and 16 hex digits, from a counter */
+    String generation() {
+        generations++;
+        return "l-%016x".formatted(generations);
+    }
+
+    /** @return the roles the unit of the replay declares with {@code consult role} */
+    List<String> consultRoles() {
+        return consultRoles;
+    }
+
+    /**
+     * @param role a role a scenario consults
+     * @return the class the replay gives the role: the consulted role reads, every other role writes
+     */
+    RoleClass roleClass(String role) {
+        return consultRoles.contains(role) ? RoleClass.READ_ONLY : RoleClass.WRITER;
+    }
 
     private JobStarter jobStarter() {
         JobStarter starter = createMock(JobStarter.class);
@@ -169,20 +248,6 @@ final class ScenarioFixtures {
         replay(starter);
         return starter;
     }
-
-    private QueueTaskCreator taskCreator() {
-        QueueTaskCreator creator = createMock(QueueTaskCreator.class);
-        expect(creator.create(capture(taskRequests)))
-                .andAnswer(() -> new Created("qt-%016x".formatted(taskRequests.getValues().size()))).anyTimes();
-        replay(creator);
-        return creator;
-    }
-
-    /** The question port of the engine. */
-    final ScriptedQuestionRecordReader questionReader = new ScriptedQuestionRecordReader();
-
-    /** The free-parameter primitive of the operator unit, which records the notes its links submitted. */
-    final Note note = new Note();
 
     /**
      * Parses a unit; it must follow the grammar.
@@ -244,6 +309,41 @@ final class ScenarioFixtures {
     }
 
     /**
+     * The fixture consult unit: a plan whose only state is a task state of the role {@code author} that declares the
+     * consultation of the role {@code reviewer}, with the two terminals.
+     */
+    static final String CONSULT_UNIT = """
+            ---
+            name: scenario.ask
+            description: A unit written for the tests of pm-workflow.
+            type: workflow
+            icon: workflow.default
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow scenario.ask version 1 format 1
+            scope plan
+            start execute.review
+
+            state execute.review
+                job llm change role author
+                consult role reviewer
+                    approved -> completed
+                    rejected -> handed_back
+                    lost -> handed_back
+
+            state completed terminal merged success
+
+            state handed_back terminal handed_back failure
+            """;
+
+    /** @return the fixture consult unit {@link #CONSULT_UNIT} */
+    static WorkflowDefinition consultUnit() {
+        return parse("scenario-ask.pmwf", CONSULT_UNIT);
+    }
+
+    /**
      * The fixture return evaluation of a task: {@code submitted} evaluates to the success outcome {@code approved},
      * {@code infeasible} to {@code rejected}, and {@code lost} to {@code lost}. A task that asked is not evaluated:
      * the question of an asking task state arrives with the task protocol.
@@ -287,11 +387,26 @@ final class ScenarioFixtures {
      * @return the engine
      */
     WorkflowEngine engine(WorkflowDefinition unit) {
+        consultRoles = consultRoles(unit);
         var registry = registry();
         var validator = new WorkflowValidator(registry, List.of(), entityKinds(), QuestionClassRegistry.defaults(),
                 SchemaRegistry.defaults(), WorkflowCatalog.of());
-        var ports = new WorkflowEngine.Ports(jobStarter, taskCreator, questionReader, clock);
+        var ports = new WorkflowEngine.Ports(jobStarter, queueTasks, questionReader, clock);
         return new WorkflowEngine(unit, WorkflowCatalog.of(), validator, registry, new ScenarioParameterBinder(), ports);
+    }
+
+    /**
+     * @param unit a unit of a replay
+     * @return the roles its task states declare with {@code consult role}, in source order and without duplicates
+     */
+    private static List<String> consultRoles(WorkflowDefinition unit) {
+        return unit.states().values().stream()
+                .map(StateNode::behavior)
+                .filter(behavior -> behavior instanceof StateBehavior.ModelJob)
+                .map(behavior -> (StateBehavior.ModelJob) behavior)
+                .flatMap(job -> job.consultRoles().stream())
+                .distinct()
+                .toList();
     }
 
     /** The binder of the fixture primitives: no parameters, but an operator link's {@code note} for {@code scenario.note}. */
@@ -338,6 +453,22 @@ final class ScenarioFixtures {
             throw new UncheckedIOException(e);
         }
         return scope;
+    }
+
+    /**
+     * @param type    the scope type a scenario starts
+     * @param scopeId the scope id, {@code null} for the workspace and the machine
+     * @return the scope a queue task of that scope carries
+     * @throws IllegalArgumentException if the type is the lesson store
+     */
+    static QueueTaskRecord.Scope taskScope(JournalScopeType type, String scopeId) {
+        return switch (type) {
+            case PLAN -> new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, scopeId);
+            case EPIC -> new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.EPIC, scopeId);
+            case WORKSPACE -> new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.WORKSPACE, null);
+            case MACHINE -> new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.MACHINE, null);
+            case LESSONS -> throw new IllegalArgumentException("a scenario does not start the lesson store");
+        };
     }
 
     /**
@@ -533,6 +664,76 @@ final class ScenarioFixtures {
         }
     }
 
+    /**
+     * The queue task port of a replay: it writes the real record of the task the engine creates into the replay's queue
+     * and hands out {@code qt-} and 16 hex digits from a counter, so two replays write the same bytes. The record's class
+     * is the class the replay gives the requested role.
+     */
+    static final class QueueTasks implements QueueTaskCreator {
+
+        private final QueueStore queue;
+        private final WorkflowClock clock;
+        private final Function<String, RoleClass> roleClasses;
+        private final List<CreateRequest> requests = new ArrayList<>();
+        private QueueTaskRecord.Scope scope = new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "scenario");
+
+        QueueTasks(QueueStore queue, WorkflowClock clock, Function<String, RoleClass> roleClasses) {
+            this.queue = Objects.requireNonNull(queue, "queue");
+            this.clock = Objects.requireNonNull(clock, "clock");
+            this.roleClasses = Objects.requireNonNull(roleClasses, "roleClasses");
+        }
+
+        /**
+         * @param value the scope the replay started; the records of its tasks carry it
+         */
+        void scope(QueueTaskRecord.Scope value) {
+            scope = Objects.requireNonNull(value, "scope");
+        }
+
+        /** @return the requests the engine sent, in order */
+        List<CreateRequest> requests() {
+            return List.copyOf(requests);
+        }
+
+        @Override
+        public Created create(CreateRequest request) {
+            Objects.requireNonNull(request, "request");
+            var queueTaskId = "qt-%016x".formatted(requests.size() + 1);
+            requests.add(request);
+            queue.create(QueueTaskRecord.builder()
+                    .queueTaskId(queueTaskId)
+                    .kind(QueueTaskRecord.Kind.WORK)
+                    .role(request.role())
+                    .taskClass(taskClass(request.role()))
+                    .scope(scope)
+                    .entity(request.entityKey())
+                    .stateId(request.stateId())
+                    .formDowngraded(false)
+                    .status(QueueTaskRecord.Status.QUEUED)
+                    .continuation(null)
+                    .lease(null)
+                    .attempts(List.of())
+                    .signals(List.of())
+                    .consultations(List.of())
+                    .consultationOf(null)
+                    .outcome(null)
+                    .reason(null)
+                    .questionId(null)
+                    .createdAt(clock.now())
+                    .closedAt(null)
+                    .build());
+            return new Created(queueTaskId);
+        }
+
+        private QueueTaskRecord.TaskClass taskClass(String role) {
+            return switch (roleClasses.apply(role)) {
+                case WRITER -> QueueTaskRecord.TaskClass.WRITER;
+                case READ_ONLY -> QueueTaskRecord.TaskClass.READ_ONLY;
+                case ZERO_TOOL -> QueueTaskRecord.TaskClass.ZERO_TOOL;
+            };
+        }
+    }
+
     /** A question reader that reports the resolution the replay set for a question, and every other one open. */
     static final class ScriptedQuestionRecordReader implements QuestionRecordReader {
 
@@ -550,6 +751,36 @@ final class ScenarioFixtures {
         public QuestionRead read(ReadRequest request) {
             var outcome = resolutions.get(request.questionId());
             return outcome == null ? new QuestionRead.Open() : new QuestionRead.Resolved(outcome);
+        }
+    }
+
+    /**
+     * A lock manager for the replay's queue and fence store: it takes no lock of the operating system and answers
+     * {@link LockTransaction#holds(LockKey)} for the keys a transaction acquired until it closes.
+     */
+    static final class Locks implements LockManager {
+
+        @Override
+        public LockTransaction openTransaction() {
+            return new LockTransaction() {
+
+                private final Set<LockKey> own = new HashSet<>();
+
+                @Override
+                public void acquire(LockKey key) {
+                    own.add(key);
+                }
+
+                @Override
+                public boolean holds(LockKey key) {
+                    return own.contains(key);
+                }
+
+                @Override
+                public void close() {
+                    own.clear();
+                }
+            };
         }
     }
 

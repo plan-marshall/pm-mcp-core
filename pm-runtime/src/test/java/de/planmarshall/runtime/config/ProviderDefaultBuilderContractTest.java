@@ -46,7 +46,7 @@ class ProviderDefaultBuilderContractTest {
                 () -> {
                     var fromConstructor = assertThrows(IllegalArgumentException.class,
                             () -> new ProviderDefault(true, ProviderVariant.NATIVE, null, null),
-                            "the constructor refuses an available default without a result");
+                            "the constructor refuses an available default with no result");
                     var incomplete = ProviderDefault.builder().available(true).variant(ProviderVariant.NATIVE);
                     var fromBuilder = assertThrows(IllegalArgumentException.class, incomplete::build,
                             "the builder refuses it alike");

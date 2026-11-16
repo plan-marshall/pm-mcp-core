@@ -59,7 +59,7 @@ class DbusConnectionTest {
     @Test
     @DisplayName("the bus object path is the bus name as a path")
     void busPathIsTheBusNameAsAPath() {
-        assertEquals("/org/freedesktop/DBus", DbusConnection.BUS_PATH);
+        assertEquals("/org/freedesktop/DBus", DbusConnection.BUS_PATH, "bus object path is the bus name as a path");
     }
 
     @Nested
@@ -70,9 +70,10 @@ class DbusConnectionTest {
         @DisplayName("authenticates with the hex-encoded uid and receives the unique name")
         void hello() throws Exception {
             try (var bus = bus(_ -> null); var connection = DbusConnection.open(temp.resolve("bus"), UID, TIMEOUT)) {
-                assertEquals(":1.7", connection.uniqueName());
-                assertEquals(List.of("AUTH EXTERNAL 353031", "BEGIN"), bus.authLines());
-                assertEquals("Hello", bus.calls().getFirst().member());
+                assertEquals(":1.7", connection.uniqueName(), "bus assigns the unique name :1.7");
+                assertEquals(List.of("AUTH EXTERNAL 353031", "BEGIN"), bus.authLines(),
+                        "SASL lines carry hex uid and BEGIN");
+                assertEquals("Hello", bus.calls().getFirst().member(), "Hello is the first call on the bus");
             }
         }
 
@@ -81,8 +82,10 @@ class DbusConnectionTest {
         void rejected() throws Exception {
             try (var _ = bus(_ -> null)) {
                 var socket = temp.resolve("bus");
-                var e = assertThrows(DbusException.class, () -> DbusConnection.open(socket, 0, TIMEOUT));
-                assertEquals("org.freedesktop.DBus.Error.AuthFailed", e.errorName());
+                var e = assertThrows(DbusException.class, () -> DbusConnection.open(socket, 0, TIMEOUT),
+                        "open fails when the bus refuses identity");
+                assertEquals("org.freedesktop.DBus.Error.AuthFailed", e.errorName(),
+                        "refusal reports AuthFailed error name");
             }
         }
 
@@ -91,8 +94,9 @@ class DbusConnectionTest {
         void noBus() {
             var socket = temp.resolve("missing");
 
-            var e = assertThrows(DbusException.class, () -> DbusConnection.open(socket, UID, TIMEOUT));
-            assertEquals(DbusException.LOCAL, e.errorName());
+            var e = assertThrows(DbusException.class, () -> DbusConnection.open(socket, UID, TIMEOUT),
+                    "open fails without a reachable bus socket");
+            assertEquals(DbusException.LOCAL, e.errorName(), "missing socket yields the local error");
         }
     }
 
@@ -107,7 +111,7 @@ class DbusConnectionTest {
             try (var _ = bus(echo); var connection = DbusConnection.open(temp.resolve("bus"), UID, TIMEOUT)) {
                 var body = connection.call("org.example", "/o", "org.example.I", "Ping", "s", List.of(callArgument));
 
-                assertEquals(List.of("Ping", 42L), body);
+                assertEquals(List.of("Ping", 42L), body, "reply body carries method name and int");
             }
         }
 
@@ -117,10 +121,12 @@ class DbusConnectionTest {
             FakeBus.Handler refuse = _ -> new FakeBus.ErrorReply("org.freedesktop.DBus.Error.ServiceUnknown", "gone");
             try (var _ = bus(refuse); var connection = DbusConnection.open(temp.resolve("bus"), UID, TIMEOUT)) {
                 var e = assertThrows(DbusException.class,
-                        () -> connection.call("org.example", "/o", "org.example.I", "Ping", "", List.of()));
+                        () -> connection.call("org.example", "/o", "org.example.I", "Ping", "", List.of()),
+                        "error reply is thrown as DbusException");
 
-                assertEquals("org.freedesktop.DBus.Error.ServiceUnknown", e.errorName());
-                assertTrue(e.getMessage().contains("gone"));
+                assertEquals("org.freedesktop.DBus.Error.ServiceUnknown", e.errorName(),
+                        "error name is preserved on the exception");
+                assertTrue(e.getMessage().contains("gone"), "error message text is kept in the exception");
             }
         }
 
@@ -131,10 +137,12 @@ class DbusConnectionTest {
                  var connection = DbusConnection.open(temp.resolve("bus"), UID, Duration.ofMillis(300))) {
                 long start = System.nanoTime();
                 var e = assertThrows(DbusException.class,
-                        () -> connection.call("org.example", "/o", "org.example.I", "Ping", "", List.of()));
+                        () -> connection.call("org.example", "/o", "org.example.I", "Ping", "", List.of()),
+                        "call gives up after the short timeout");
 
                 assertTrue(e.getMessage().contains("no answer"), e.getMessage());
-                assertTrue(Duration.ofNanos(System.nanoTime() - start).toMillis() < 3000);
+                assertTrue(Duration.ofNanos(System.nanoTime() - start).toMillis() < 3000,
+                        "timeout returns well before the three second mark");
             }
         }
     }
@@ -153,15 +161,18 @@ class DbusConnectionTest {
         void address(String address, String expected) {
             var socket = DbusConnection.sessionBusSocket(Map.of("DBUS_SESSION_BUS_ADDRESS", address));
 
-            assertEquals(expected.isEmpty() ? Optional.empty() : Optional.of(Path.of(expected)), socket);
+            assertEquals(expected.isEmpty() ? Optional.empty() : Optional.of(Path.of(expected)), socket,
+                    "first unix path address is selected");
         }
 
         @Test
         @DisplayName("falls back to $XDG_RUNTIME_DIR/bus without an address")
         void runtimeDir() {
             assertEquals(Optional.of(Path.of("/run/user/7/bus")),
-                    DbusConnection.sessionBusSocket(Map.of("XDG_RUNTIME_DIR", "/run/user/7")));
-            assertEquals(Optional.empty(), DbusConnection.sessionBusSocket(new HashMap<>()));
+                    DbusConnection.sessionBusSocket(Map.of("XDG_RUNTIME_DIR", "/run/user/7")),
+                    "XDG_RUNTIME_DIR supplies the fallback bus path");
+            assertEquals(Optional.empty(), DbusConnection.sessionBusSocket(new HashMap<>()),
+                    "no address and no runtime dir yields empty");
         }
     }
 }

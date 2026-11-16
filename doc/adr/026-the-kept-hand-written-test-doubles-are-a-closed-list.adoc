@@ -139,6 +139,24 @@ A read-only landing analysis of PLAN-V2-136 of 2026-11-14 found the residue this
 * *Calls that must happen:* where a converted mock's call is not proved by an assertion on a recorded list, the test
   pins it or the mock is documented as a nice stub; `AuditLogTest.failingPredecessor` throws on every predecessor read.
 
+=== The 2026-11-16 amendment
+
+A pull request of PLAN-V2-33 (`scenario-task-protocol`) adds two declarations of `pm-workflow` to the scan's
+population, both under the reasons this ADR already states. The scan failure names the file to compare, and the
+baseline line alone is not the permission: the reason below is, as the Consequences require.
+
+* `pm-workflow` `scenario.ScenarioFixtures.Locks` and its anonymous `LockTransaction` — S2, the semantics of F3: an
+  in-memory `LockManager` whose `holds` follows the `acquire` and `close` of each open transaction. It is a fifth
+  declaration of the accepted kind, because no artifact publishes a shared fixture (ADR link:012-generator-artifacts.adoc[012]).
+* `pm-workflow` `scenario.ScenarioFixtures.QueueTasks` — S2, the shape of F1: the replay's queue-task port answers each
+  `create` from the counter of the requests it has already served and writes the real record into the replay's queue,
+  so a mock would have to restate that state in `andAnswer`.
+
+Neither is convertible without losing the property the fixture is for: the lock manager's answers follow its own
+transaction history, and the queue-task port's id and its record are one state. The sentence of the 2026-11-14
+amendment — "a new double adds a line and fails the build" — is read that way: the new declaration is visible as a scan
+failure until its baseline line and its reason here exist; a baseline line without a reason is not a keep.
+
 == Alternatives Considered
 
 * *Keep the open vocabulary with a stated reason per class.* Not taken: that is PLAN-V2-106's rule, and the analysis

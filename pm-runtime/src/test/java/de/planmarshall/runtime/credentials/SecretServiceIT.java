@@ -106,13 +106,15 @@ class SecretServiceIT {
         store.put(global, secondSecret);
         store.put(project, projectSecret);
 
-        assertEquals(Optional.of(firstSecret), read);
-        assertEquals(Optional.of(secondSecret), store.get(global));
-        assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"));
-        assertEquals(Optional.of(secondSecret), store.resolve(otherProject, "github"));
-        assertTrue(store.delete(project));
-        assertTrue(store.delete(global));
-        assertFalse(store.delete(global));
+        assertEquals(Optional.of(firstSecret), read, "read returns the first stored secret");
+        assertEquals(Optional.of(secondSecret), store.get(global), "second write replaces the stored global secret");
+        assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"),
+                "resolve returns the project secret");
+        assertEquals(Optional.of(secondSecret), store.resolve(otherProject, "github"),
+                "global secret resolves for another project");
+        assertTrue(store.delete(project), "delete removes the project entry");
+        assertTrue(store.delete(global), "delete removes the global entry");
+        assertFalse(store.delete(global), "repeated delete of a missing entry is false");
 
         var values = new LinkedHashMap<String, Object>();
         values.put("put_us", putMicros);
@@ -127,13 +129,15 @@ class SecretServiceIT {
         var other = new SecretServiceStore(DbusConnection.sessionBusSocket(System.getenv()).orElseThrow(),
                 Posix.getuid(), service + "-other", SecretServiceStore.BUS_TIMEOUT);
         var foreign = CredentialAccount.global("foreign");
-        assertEquals(List.of(), store.entries());
+        assertEquals(List.of(), store.entries(), "a fresh service has no entries");
         store.put(project, projectSecret);
         store.put(global, globalSecret);
         other.put(foreign, Generators.letterStrings(1, 20).next());
         try {
-            assertEquals(List.of(global, project), store.entries());
-            assertEquals(List.of(foreign), other.entries());
+            assertEquals(List.of(global, project), store.entries(),
+                    "entries lists the global and project accounts");
+            assertEquals(List.of(foreign), other.entries(),
+                    "other service lists only the foreign account");
         } finally {
             other.delete(foreign);
         }

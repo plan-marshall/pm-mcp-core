@@ -14,21 +14,29 @@ import java.io.Serial;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
+import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatusStore;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.consult.ConsultationOutcome;
+import de.planmarshall.workflow.consult.ConsultationRequest;
+import de.planmarshall.workflow.consult.SubmitValidation;
 import de.planmarshall.workflow.engine.EngineEvent;
 import de.planmarshall.workflow.engine.EngineStep;
 import de.planmarshall.workflow.engine.WorkflowEngine;
+import de.planmarshall.workflow.task.CallResult;
+import de.planmarshall.workflow.task.WaitAnswer;
 
 /**
  * The runner of the replay harness {@code pm-scenario} (PM-TEST-4): it replays a {@link ScenarioScript} in process
@@ -41,31 +49,41 @@ import de.planmarshall.workflow.engine.WorkflowEngine;
  * <li>{@code complete_job} delivers {@link EngineEvent.JobSettled}, {@code answer_question} the answer's
  * {@link EngineEvent.QuestionResolved}, and {@code operator_do} the {@link EngineEvent.OperatorAct} of an operator
  * link of an operator wait;</li>
+ * <li>{@code worker_wait} starts the generation of a protocol worker and delivers its wait to the real
+ * {@link de.planmarshall.workflow.task.TaskProtocol}, {@code worker_do} its acknowledgement, submit, infeasible
+ * report or consultation, and {@code assert_worker_state} and {@code assert_refused} the state of its task and the
+ * refusal of its last call;</li>
  * <li>{@code assert_state} compares the state of the stored status, {@code assert_outcome} the outcome the run ended
  * with, and {@code assert_task_outcome} the outcome of the last task the worker of a role settled.</li>
  * </ul>
- * A task state the scope rests in is settled by the {@link ScriptedFixtureWorker} of its role before the next step
- * that is not an {@code assert_state}, so a script can assert the task state first and then what the task ended with.
- * Every new status is written through a {@link de.planmarshall.core.store.ScopeTransaction} to the store, and the
- * runner keeps the bytes of {@code mcp/status.json} after every step ({@link #snapshots()}), also when the replay
- * fails, so two replays can be compared step by step.
+ * A task state the scope rests in and whose role has no protocol worker is settled by the
+ * {@link ScriptedFixtureWorker} of its role before the next step that is not an {@code assert_state},
+ * {@code assert_worker_state} or {@code assert_refused}, so a script can assert the task state first and then what the
+ * task ended with. A protocol worker's task is settled by the protocol, never by
+ * the harness. Every new status is written through a {@link de.planmarshall.core.store.ScopeTransaction} to the store,
+ * the queue of the replay keeps its own records, and the runner keeps the bytes of the status store and of the queue
+ * after every step ({@link #snapshots()}), also when the replay fails, so two replays can be compared step by step.
  * <p>
  * Every deviation is a {@link ScenarioFailure} naming the step's line: a wrong expectation (with the expected and the
- * actual value), an event the resting state does not wait for, a task without a declared worker outcome, and a declared
- * outcome no task took. Nothing is skipped silently. One runner replays one script once.
+ * actual value), an event the resting state does not wait for, a task without a declared worker outcome, a declared
+ * outcome no task took, and a call of the task protocol the script expected accepted. Nothing is skipped silently. One
+ * runner replays one script once.
  */
 // Every datum in this class is a contract: the failure-message templates the tests assert exactly.
 final class ScenarioReplayRunner {
 
-    private final ScenarioFixtures fixtures = new ScenarioFixtures();
+    private final ScenarioFixtures fixtures;
     private final WorkflowEngine engine;
     private final Path directory;
     private final List<Snapshot> snapshots = new ArrayList<>();
     private final Map<String, ScriptedFixtureWorker> workers = new LinkedHashMap<>();
+    private final Map<String, ScriptedProtocolWorker> protocolWorkers = new LinkedHashMap<>();
     private JournalScope scope;
     private WorkflowStatusStore store;
     private WorkflowStatus status;
     private EngineStep.Ended ended;
+    private ScriptedProtocolWorker currentWorker;
+    private CallResult lastWorkerCall;
     private boolean replayed;
 
     /**
@@ -73,32 +91,56 @@ final class ScenarioReplayRunner {
      * @param directory the empty directory the stores of the replay live in
      */
     ScenarioReplayRunner(WorkflowDefinition unit, Path directory) {
-        this.engine = fixtures.engine(Objects.requireNonNull(unit, "unit"));
         this.directory = Objects.requireNonNull(directory, "directory");
+        this.fixtures = new ScenarioFixtures(directory);
+        this.engine = fixtures.engine(Objects.requireNonNull(unit, "unit"));
     }
 
     /**
-     * The stored status after one step.
+     * The stores of the replay after one step.
      *
      * @param line   the line of the step
      * @param status the bytes of the status store after the step; empty before the scope was started
+     * @param queue  the bytes of the queue files after the step, by file name; empty before the first record
      */
-    record Snapshot(int line, byte[] status) {
+    record Snapshot(int line, byte[] status, Map<String, byte[]> queue) {
+
+        /** @throws NullPointerException if a component is {@code null} */
+        Snapshot {
+            Objects.requireNonNull(status, "status");
+            queue = Map.copyOf(queue);
+        }
 
         @Override
         public boolean equals(Object other) {
-            return other instanceof Snapshot(int otherLine, byte[] otherStatus) && line == otherLine
-                    && Arrays.equals(status, otherStatus);
+            return other instanceof Snapshot snapshot && line == snapshot.line
+                    && Arrays.equals(status, snapshot.status) && equalQueue(queue, snapshot.queue);
+        }
+
+        private static boolean equalQueue(Map<String, byte[]> left, Map<String, byte[]> right) {
+            if (!left.keySet().equals(right.keySet())) {
+                return false;
+            }
+            for (var name : left.keySet()) {
+                if (!Arrays.equals(left.get(name), right.get(name))) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         @Override
         public int hashCode() {
-            return line * 31 + Arrays.hashCode(status);
+            var hash = line * 31 + Arrays.hashCode(status);
+            for (var name : new TreeMap<>(queue).keySet()) {
+                hash = hash * 31 + name.hashCode() * 31 + Arrays.hashCode(queue.get(name));
+            }
+            return hash;
         }
 
         @Override
         public String toString() {
-            return "Snapshot[line=%d, %d bytes]".formatted(line, status.length);
+            return "Snapshot[line=%d, %d bytes, %d queue files]".formatted(line, status.length, queue.size());
         }
     }
 
@@ -136,11 +178,21 @@ final class ScenarioReplayRunner {
         replayed = true;
         script.workers().forEach(worker -> workers.put(worker.role(), new ScriptedFixtureWorker(worker)));
         for (var directive : script.directives()) {
-            if (!(directive instanceof ScenarioDirective.AssertState)) {
+            if (directive instanceof ScenarioDirective.WorkerWait wait && !protocolWorkers.containsKey(wait.role())) {
+                protocolWorkers.put(wait.role(),
+                        new ScriptedProtocolWorker(wait.role(), fixtures.generation(), fixtures.protocol()));
+            }
+        }
+        var directives = script.directives();
+        for (var index = 0; index < directives.size(); index++) {
+            var directive = directives.get(index);
+            if (settles(directive)) {
                 settleRestingTasks(directive.line());
             }
-            execute(directive);
-            snapshots.add(new Snapshot(directive.line(), storedBytes()));
+            var expectsRefusal = index + 1 < directives.size()
+                    && directives.get(index + 1) instanceof ScenarioDirective.AssertRefused;
+            execute(directive, expectsRefusal);
+            snapshots.add(new Snapshot(directive.line(), storedBytes(), queueFiles()));
         }
         for (var declaration : script.workers()) {
             var left = workers.get(declaration.role()).remaining();
@@ -151,7 +203,7 @@ final class ScenarioReplayRunner {
         }
     }
 
-    /** @return the stored status after every step replayed so far, in order */
+    /** @return the stored status and queue bytes after every step replayed so far, in order */
     List<Snapshot> snapshots() {
         return List.copyOf(snapshots);
     }
@@ -161,7 +213,14 @@ final class ScenarioReplayRunner {
         return fixtures;
     }
 
-    private void execute(ScenarioDirective directive) {
+    /** @return whether the step settles the resting task before it runs */
+    private static boolean settles(ScenarioDirective directive) {
+        return !(directive instanceof ScenarioDirective.AssertState
+                || directive instanceof ScenarioDirective.AssertWorkerState
+                || directive instanceof ScenarioDirective.AssertRefused);
+    }
+
+    private void execute(ScenarioDirective directive, boolean expectsRefusal) {
         switch (directive) {
             case ScenarioDirective.Start start -> start(start);
             case ScenarioDirective.CompleteJob job -> advance(job.line(),
@@ -180,6 +239,10 @@ final class ScenarioReplayRunner {
             case ScenarioDirective.AssertOutcome assertion -> assertOutcome(assertion);
             case ScenarioDirective.AssertTaskOutcome assertion -> assertTaskOutcome(assertion);
             case ScenarioDirective.OperatorDo act -> operatorAct(act);
+            case ScenarioDirective.WorkerWait wait -> wait(wait);
+            case ScenarioDirective.WorkerDo call -> workerDo(call, expectsRefusal);
+            case ScenarioDirective.AssertWorkerState assertion -> assertWorkerState(assertion);
+            case ScenarioDirective.AssertRefused assertion -> assertRefused(assertion);
         }
     }
 
@@ -196,12 +259,37 @@ final class ScenarioReplayRunner {
     }
 
     private void assertTaskOutcome(ScenarioDirective.AssertTaskOutcome assertion) {
+        if (protocolWorkers.containsKey(assertion.role())) {
+            assertTaskOutcomeFromQueue(assertion);
+            return;
+        }
         var worker = workers.get(assertion.role());
         var actual = worker == null ? null : worker.lastOutcome().orElse(null);
         if (actual == null) {
             var message = "assert_task_outcome expected '%s' for role %s but no task of the role was settled";
             throw new ScenarioFailure(assertion.line(), message.formatted(assertion.outcome(), assertion.role()));
         }
+        if (!assertion.outcome().equals(actual)) {
+            var message = "assert_task_outcome expected '%s' for role %s but its last task ended '%s'";
+            throw new ScenarioFailure(assertion.line(), message.formatted(assertion.outcome(), assertion.role(),
+                    actual));
+        }
+    }
+
+    /** Reads the closed outcome of a protocol worker's task from its queue record. */
+    private void assertTaskOutcomeFromQueue(ScenarioDirective.AssertTaskOutcome assertion) {
+        var taskId = protocolWorkers.get(assertion.role()).queueTaskId().orElse(null);
+        if (taskId == null) {
+            var message = "assert_task_outcome expected '%s' for role %s but the worker of the role holds no task";
+            throw new ScenarioFailure(assertion.line(), message.formatted(assertion.outcome(), assertion.role()));
+        }
+        var task = queueTask(assertion.line(), taskId);
+        if (!task.isClosed()) {
+            var message = "assert_task_outcome expected '%s' for role %s but its task %s is open '%s'";
+            throw new ScenarioFailure(assertion.line(), message.formatted(assertion.outcome(), assertion.role(),
+                    taskId, task.status().wireName()));
+        }
+        var actual = task.outcome() == null ? null : task.outcome().wireName();
         if (!assertion.outcome().equals(actual)) {
             var message = "assert_task_outcome expected '%s' for role %s but its last task ended '%s'";
             throw new ScenarioFailure(assertion.line(), message.formatted(assertion.outcome(), assertion.role(),
@@ -220,6 +308,241 @@ final class ScenarioReplayRunner {
         advance(act.line(), new EngineEvent.OperatorAct(status.state(), act.link(), act.parameters()));
     }
 
+    /** Starts the generation of a protocol worker: its wait is the shipped protocol's, and an offer is required. */
+    private void wait(ScenarioDirective.WorkerWait step) {
+        var worker = protocolWorkers.get(step.role());
+        currentWorker = worker;
+        fixtures.clock.tick();
+        var answer = worker.wait(fixtures.clock.now());
+        if (answer instanceof WaitAnswer.Offered) {
+            return;
+        }
+        var message = "worker_wait of role %s expected an offer but the protocol answered %s";
+        throw new ScenarioFailure(step.line(), message.formatted(step.role(), describe(answer)));
+    }
+
+    private static String describe(WaitAnswer answer) {
+        return switch (answer) {
+            case WaitAnswer.WaitAgain again -> "'%s', an empty window".formatted(again.reason().wireName());
+            case WaitAnswer.End end -> "the end of the worker '%s'".formatted(end.reason().wireName());
+            case WaitAnswer.Answered(_, _) -> "the answer of a held task, which this harness does not deliver";
+            case WaitAnswer.Offered(_) -> "an offer";
+        };
+    }
+
+    /**
+     * Runs a protocol worker's call. A refusal the script does not assert is a failure at the step's line: a step the
+     * script expects accepted. A call that closes the task settles the task state of the engine.
+     */
+    private void workerDo(ScenarioDirective.WorkerDo call, boolean expectsRefusal) {
+        var worker = target(call);
+        fixtures.clock.tick();
+        var at = fixtures.clock.now();
+        CallResult result;
+        switch (call.call().action()) {
+            case ScenarioDirective.Action.Ack() -> {
+                requireTask(call.line(), worker);
+                result = worker.acknowledge(at);
+            }
+            case ScenarioDirective.Action.Infeasible() -> {
+                requireTask(call.line(), worker);
+                result = worker.infeasible(at);
+            }
+            case ScenarioDirective.Action.Submit submit when "answer".equals(submit.kind()) -> {
+                answerConsultation(call, worker, at);
+                lastWorkerCall = null;
+                return;
+            }
+            case ScenarioDirective.Action.Submit submit -> result = submit(call, submit, worker, at);
+            case ScenarioDirective.Action.Consult consult -> {
+                openConsultation(call, consult, worker, at);
+                lastWorkerCall = null;
+                return;
+            }
+        }
+        lastWorkerCall = result;
+        if (result instanceof CallResult.Accepted accepted && accepted.task().isClosed()) {
+            settle(call.line(), accepted.task());
+        }
+        if (result instanceof CallResult.Refused refused && !expectsRefusal) {
+            var message = "the call was refused '%s'";
+            throw new ScenarioFailure(call.line(), message.formatted(refused.refusal().wireName()));
+        }
+    }
+
+    /**
+     * @param call a worker's call
+     * @return the worker the call targets: the named role's, or the script's most recent wait's
+     */
+    private ScriptedProtocolWorker target(ScenarioDirective.WorkerDo call) {
+        var role = call.call().role();
+        if (role == null) {
+            if (currentWorker == null) {
+                throw new ScenarioFailure(call.line(), "worker_do names no role, and no worker_wait precedes it");
+            }
+            return currentWorker;
+        }
+        var worker = protocolWorkers.get(role);
+        if (worker == null) {
+            throw new ScenarioFailure(call.line(), "the script declares no worker_wait of role " + role);
+        }
+        return worker;
+    }
+
+    /**
+     * Submits the protocol worker's task: the shipped consultation service validates the consultation references the
+     * call names, and the protocol closes the task once.
+     */
+    private CallResult submit(ScenarioDirective.WorkerDo call, ScenarioDirective.Action.Submit submit,
+            ScriptedProtocolWorker worker, Instant at) {
+        var taskId = requireTask(call.line(), worker);
+        var task = queueTask(call.line(), taskId);
+        if (!submit.kind().equals(task.entity())) {
+            var message = "worker_do submit:%s names a kind, but the task %s works the entity %s";
+            throw new ScenarioFailure(call.line(), message.formatted(submit.kind(), taskId, task.entity()));
+        }
+        var validation = fixtures.consultations.validateSubmit(taskId,
+                consultationIds(call.call().arguments()));
+        if (validation instanceof SubmitValidation.Refused refused) {
+            throw new ScenarioFailure(call.line(), "the submit was refused: " + refused.detail());
+        }
+        return worker.submit(at);
+    }
+
+    /** Opens a consultation of another role through the shipped consultation service. */
+    private void openConsultation(ScenarioDirective.WorkerDo call, ScenarioDirective.Action.Consult consult,
+            ScriptedProtocolWorker worker, Instant at) {
+        var taskId = requireTask(call.line(), worker);
+        var request = ConsultationRequest.builder()
+                .askingTaskId(taskId)
+                .generationId(worker.generation())
+                .role(consult.role())
+                .roleClass(fixtures.roleClass(consult.role()))
+                .formDowngraded(false)
+                .declaredRoles(fixtures.consultRoles())
+                .question(call.call().arguments().get("question"))
+                .at(at)
+                .build();
+        switch (fixtures.consultations.open(request)) {
+            case ConsultationOutcome.Opened(_, _) -> {
+                // the consultation task is queued for the consulted role
+            }
+            case ConsultationOutcome.Refused refused -> throw new ScenarioFailure(call.line(),
+                    "the consultation was refused '%s': %s".formatted(refused.refusal().wireName(), refused.detail()));
+            case ConsultationOutcome.Answered(_, _) -> throw new ScenarioFailure(call.line(),
+                    "opening a consultation does not answer it");
+        }
+    }
+
+    /** Answers the consultation the protocol worker holds, through the shipped consultation service. */
+    private void answerConsultation(ScenarioDirective.WorkerDo call, ScriptedProtocolWorker worker, Instant at) {
+        var taskId = requireTask(call.line(), worker);
+        switch (fixtures.consultations.answer(taskId, worker.generation(), call.call().arguments().get("answer"), at)) {
+            case ConsultationOutcome.Answered(_, _) -> {
+                // the answer is delivered to the asker's next wait
+            }
+            case ConsultationOutcome.Refused refused -> throw new ScenarioFailure(call.line(),
+                    "the answer was refused '%s': %s".formatted(refused.refusal().wireName(), refused.detail()));
+            case ConsultationOutcome.Opened(_, _) -> throw new ScenarioFailure(call.line(),
+                    "answering a consultation does not open one");
+        }
+    }
+
+    private static String requireTask(int line, ScriptedProtocolWorker worker) {
+        return worker.queueTaskId().orElseThrow(() -> new ScenarioFailure(line,
+                "the worker of role %s holds no leased task: no worker_wait of the role was offered one"
+                        .formatted(worker.role())));
+    }
+
+    /** @return the consultation references the call's argument names; empty when it names none */
+    private static List<String> consultationIds(Map<String, String> arguments) {
+        var ids = arguments.get("consultation_ids");
+        if (ids == null || ids.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(ids.split(",")).map(String::strip).filter(id -> !id.isEmpty()).toList();
+    }
+
+    /** Settles the task state of the engine with the task the protocol just closed. */
+    private void settle(int line, QueueTaskRecord task) {
+        var entities = status.activeTasks().entrySet().stream()
+                .filter(entry -> entry.getValue().queueTaskId().equals(task.queueTaskId()))
+                .map(Map.Entry::getKey)
+                .toList();
+        if (entities.size() != 1) {
+            var message = "the closed task %s is no active task of the state '%s'";
+            throw new ScenarioFailure(line, message.formatted(task.queueTaskId(), status.state()));
+        }
+        if (task.outcome() == null) {
+            throw new ScenarioFailure(line, "the task %s closed without an outcome".formatted(task.queueTaskId()));
+        }
+        var taskOutcome = task.outcome().wireName();
+        String evaluated;
+        try {
+            evaluated = ScenarioFixtures.evaluate(taskOutcome);
+        } catch (IllegalArgumentException e) {
+            throw new ScenarioFailure(line, "the worker of role %s: %s".formatted(task.role(), e.getMessage()));
+        }
+        advanceAt(line, new EngineEvent.TasksSettled(Map.of(entities.getFirst(), taskOutcome), evaluated));
+    }
+
+    /** Asserts the state of a protocol worker's task, read from its queue record. */
+    private void assertWorkerState(ScenarioDirective.AssertWorkerState assertion) {
+        var worker = protocolWorkers.get(assertion.role());
+        var taskId = worker == null ? null : worker.queueTaskId().orElse(null);
+        if (taskId == null) {
+            var message = "assert_worker_state expected '%s' for role %s but the worker of the role holds no task";
+            throw new ScenarioFailure(assertion.line(), message.formatted(assertion.state(), assertion.role()));
+        }
+        var actual = workerState(queueTask(assertion.line(), taskId));
+        if (!assertion.state().equals(actual)) {
+            var message = "assert_worker_state expected '%s' for role %s but its task %s is '%s'";
+            throw new ScenarioFailure(assertion.line(),
+                    message.formatted(assertion.state(), assertion.role(), taskId, actual));
+        }
+    }
+
+    /** The state of the task of a protocol worker, derived from its queue record and the replay's fence store. */
+    private String workerState(QueueTaskRecord task) {
+        if (task.isClosed()) {
+            return "closed";
+        }
+        return switch (task.status()) {
+            case OFFERED -> "offered";
+            case EXECUTING -> "acknowledged";
+            case QUEUED -> fenced(task) ? "fenced" : "queued";
+            default -> task.status().wireName();
+        };
+    }
+
+    /**
+     * @param task a queued task
+     * @return whether the replay fenced the generation its last attempt belonged to, which released the lease
+     */
+    private boolean fenced(QueueTaskRecord task) {
+        var attempts = task.attempts();
+        return !attempts.isEmpty() && fixtures.fences.isFenced(attempts.getLast().generationId());
+    }
+
+    /** Asserts that the last {@code worker_do} was refused with the reason the step names. */
+    private void assertRefused(ScenarioDirective.AssertRefused assertion) {
+        if (lastWorkerCall == null) {
+            var message = "assert_refused expected '%s' but the last worker_do made no call of the task protocol";
+            throw new ScenarioFailure(assertion.line(), message.formatted(assertion.reason()));
+        }
+        if (lastWorkerCall instanceof CallResult.Accepted) {
+            var message = "assert_refused expected '%s' but the last worker_do was accepted";
+            throw new ScenarioFailure(assertion.line(), message.formatted(assertion.reason()));
+        }
+        var refused = (CallResult.Refused) lastWorkerCall;
+        if (!assertion.reason().equals(refused.refusal().wireName())) {
+            var message = "assert_refused expected '%s' but the call was refused '%s'";
+            throw new ScenarioFailure(assertion.line(),
+                    message.formatted(assertion.reason(), refused.refusal().wireName()));
+        }
+        lastWorkerCall = null;
+    }
+
     private void start(ScenarioDirective.Start start) {
         if (status != null) {
             throw new ScenarioFailure(start.line(), "the scope was started already");
@@ -231,6 +554,7 @@ final class ScenarioReplayRunner {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        fixtures.queueTasks.scope(ScenarioFixtures.taskScope(start.scope(), start.scopeId()));
         fixtures.clock.tick();
         EngineStep step;
         try {
@@ -259,6 +583,10 @@ final class ScenarioReplayRunner {
         }
         var entry = status.activeTasks().entrySet().iterator().next();
         var task = entry.getValue();
+        if (protocolWorkers.containsKey(task.role())) {
+            // a protocol worker's task is settled by its worker_wait and worker_do, never by the harness
+            return;
+        }
         var worker = workers.get(task.role());
         if (worker == null) {
             var message = "the task %s of role %s is queued in '%s', but the script declares no worker of the role";
@@ -274,10 +602,14 @@ final class ScenarioReplayRunner {
     }
 
     private void advance(int line, EngineEvent event) {
+        fixtures.clock.tick();
+        advanceAt(line, event);
+    }
+
+    private void advanceAt(int line, EngineEvent event) {
         if (status == null) {
             throw new ScenarioFailure(line, "the scope has not been started");
         }
-        fixtures.clock.tick();
         var transaction = fixtures.transaction(scope);
         EngineStep step;
         try {
@@ -303,6 +635,11 @@ final class ScenarioReplayRunner {
         return store.read().orElseThrow(() -> new ScenarioFailure(line, "the status store is empty"));
     }
 
+    private QueueTaskRecord queueTask(int line, String queueTaskId) {
+        return fixtures.queue.read(queueTaskId).orElseThrow(() -> new ScenarioFailure(line,
+                "the queue holds no task '%s'".formatted(queueTaskId)));
+    }
+
     private byte[] storedBytes() {
         if (store == null || !Files.exists(store.store())) {
             return new byte[0];
@@ -312,5 +649,26 @@ final class ScenarioReplayRunner {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /** @return the bytes of the queue files after the step, by file name; empty before the first record */
+    private Map<String, byte[]> queueFiles() {
+        var queueDirectory = fixtures.queue.directory();
+        if (!Files.isDirectory(queueDirectory)) {
+            return Map.of();
+        }
+        var files = new TreeMap<String, byte[]>();
+        try (var entries = Files.list(queueDirectory)) {
+            entries.filter(Files::isRegularFile).sorted().forEach(path -> {
+                try {
+                    files.put(path.getFileName().toString(), Files.readAllBytes(path));
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return files;
     }
 }

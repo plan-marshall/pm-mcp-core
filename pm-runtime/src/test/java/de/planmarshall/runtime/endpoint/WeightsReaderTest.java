@@ -67,9 +67,10 @@ class WeightsReaderTest {
                 null, null)), "mid", listing);
 
         assertAll(
-                () -> assertTrue(reading.isRead()),
-                () -> assertEquals("mid", reading.model()),
-                () -> assertEquals(weightsId, reading.weightsId()));
+                () -> assertTrue(reading.isRead(), "the listing pointer is read"),
+                () -> assertEquals("mid", reading.model(), "the reading names the model"),
+                () -> assertEquals(weightsId, reading.weightsId(),
+                        "the reading carries the listed identity"));
     }
 
     @Test
@@ -79,9 +80,12 @@ class WeightsReaderTest {
         var probe = new EndpointProfile.WeightsProbe("models_listing", "/digest", null, null);
 
         assertAll(
-                () -> assertFalse(reader.read(profile(probe), "absent", listing()).isRead()),
-                () -> assertFalse(reader.read(profile(probe), "big", listing()).isRead()),
-                () -> assertFalse(reader.read(profile(probe), "mid", null).isRead()));
+                () -> assertFalse(reader.read(profile(probe), "absent", listing()).isRead(),
+                        "an absent model leaves the reading unread"),
+                () -> assertFalse(reader.read(profile(probe), "big", listing()).isRead(),
+                        "an entry without the pointer is unread"),
+                () -> assertFalse(reader.read(profile(probe), "mid", null).isRead(),
+                        "a missing listing leaves the reading unread"));
     }
 
     @Test
@@ -90,7 +94,7 @@ class WeightsReaderTest {
         var reading = new WeightsReader().read(profile(new EndpointProfile.WeightsProbe("models_listing",
                 "/absent", null, null)), "mid", listing());
 
-        assertFalse(reading.isRead());
+        assertFalse(reading.isRead(), "an unresolved pointer leaves it unread");
     }
 
     @Test
@@ -99,8 +103,9 @@ class WeightsReaderTest {
         var reading = new WeightsReader().read(profile(null), "mid", listing());
 
         assertAll(
-                () -> assertFalse(reading.isRead()),
-                () -> assertTrue(reading.detail().contains("no weights probe")));
+                () -> assertFalse(reading.isRead(), "a profile without a probe reads nothing"),
+                () -> assertTrue(reading.detail().contains("no weights probe"),
+                        "the detail says no weights probe is set"));
     }
 
     @Test
@@ -114,7 +119,8 @@ class WeightsReaderTest {
 
         assertAll(
                 () -> assertTrue(reading.isRead(), reading.detail()),
-                () -> assertEquals(weightsId, reading.weightsId()));
+                () -> assertEquals(weightsId, reading.weightsId(),
+                        "the argv probe reports the identity"));
     }
 
     @Test
@@ -125,18 +131,23 @@ class WeightsReaderTest {
 
         assertAll(
                 () -> assertFalse(reader.read(profile(new EndpointProfile.WeightsProbe("argv", null,
-                        List.of("/bin/false"), "([a-z]+)")), "mid", null).isRead()),
+                                List.of("/bin/false"), "([a-z]+)")), "mid", null).isRead(),
+                        "a failing probe leaves the reading unread"),
                 () -> assertFalse(reader.read(profile(new EndpointProfile.WeightsProbe("argv", null,
-                        List.of("/bin/echo", "nothing here"), "weights:([a-z0-9]+)")), "mid", null).isRead()));
+                                List.of("/bin/echo", "nothing here"), "weights:([a-z0-9]+)")), "mid", null).isRead(),
+                        "a probe without a match leaves it unread"));
     }
 
     @Test
     @DisplayName("the pattern's first group is the identity, and a pattern that captures nothing takes the match")
     void patternGroups() {
         assertAll(
-                () -> assertEquals("abc", WeightsReader.match("weights: abc", "weights: ([a-z]+)").orElseThrow()),
-                () -> assertEquals("abc", WeightsReader.match("abc def", "[a-z]+").orElseThrow()),
-                () -> assertTrue(WeightsReader.match("nothing", "weights: ([a-z]+)").isEmpty()),
-                () -> assertTrue(WeightsReader.match("abc", null).isEmpty()));
+                () -> assertEquals("abc", WeightsReader.match("weights: abc", "weights: ([a-z]+)").orElseThrow(),
+                        "the pattern's first group is the identity"),
+                () -> assertEquals("abc", WeightsReader.match("abc def", "[a-z]+").orElseThrow(),
+                        "a pattern without a group takes the match"),
+                () -> assertTrue(WeightsReader.match("nothing", "weights: ([a-z]+)").isEmpty(),
+                        "a non-matching text yields nothing"),
+                () -> assertTrue(WeightsReader.match("abc", null).isEmpty(), "a null pattern yields nothing"));
     }
 }

@@ -26,9 +26,10 @@ import de.planmarshall.workflow.engine.EngineEvent;
  * without a live model. The settlement is the {@link EngineEvent.TasksSettled} of the task state, with the outcome the
  * fixture return evaluation ({@link ScenarioFixtures#evaluate(String)}) gives the task.
  * <p>
- * The worker settles the task directly: it follows no links, holds no lease and has no generation; those arrive with
- * the task protocol. A task the worker has no declared outcome left for is a scenario failure naming the role, and so
- * is a declared outcome no task took ({@link #remaining()}).
+ * The worker settles the task directly: it follows no links, holds no lease and has no generation. A script that
+ * declares its role with {@code worker_wait} uses the protocol worker instead ({@link ScriptedProtocolWorker}), which
+ * waits, acknowledges and submits through the shipped task protocol. A task the worker has no declared outcome left
+ * for is a scenario failure naming the role, and so is a declared outcome no task took ({@link #remaining()}).
  */
 // Every datum in this class is a contract: the failure-message templates the tests assert exactly.
 final class ScriptedFixtureWorker {

@@ -135,7 +135,8 @@ class HarnessStartSpacingTest {
 
         assertAll(
                 () -> assertEquals(1, events.size(), "the collision is one counted start failure"),
-                () -> assertEquals(AuditEvent.WORKER_START_FAILED, events.getFirst().event()),
+                () -> assertEquals(AuditEvent.WORKER_START_FAILED, events.getFirst().event(),
+                        "the counted failure is the start failure"),
                 () -> assertFalse(guard.holds(role, client), "one collision does not hold the guard"));
     }
 

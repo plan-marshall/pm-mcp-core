@@ -112,10 +112,10 @@ class ActivityRecorderTest {
         var written = recorder(journal, 1).append(task, generation, toolCall(tool, target));
 
         assertAll(
-                () -> assertEquals(1, written.seq()),
-                () -> assertEquals(1, written.attempt()),
-                () -> assertEquals(target, written.tool().target()),
-                () -> assertEquals(1, journal.entries(task).size()));
+                () -> assertEquals(1, written.seq(), "the entry carries the journal sequence"),
+                () -> assertEquals(1, written.attempt(), "the entry carries the task attempt"),
+                () -> assertEquals(target, written.tool().target(), "the entry keeps the tool target path"),
+                () -> assertEquals(1, journal.entries(task).size(), "the journal holds exactly one entry"));
     }
 
     @Test
@@ -149,7 +149,7 @@ class ActivityRecorderTest {
 
         var entry = toolCall(tool, target);
         assertThrows(IllegalStateException.class,
-                () -> recorder.append(task, generation, entry));
+                () -> recorder.append(task, generation, entry), "an unreadable task refuses the append");
         assertTrue(journal.entries(task).isEmpty(), "an unreadable task writes no entry");
         assertTrue(signals.isEmpty(), "an unreadable task raises no signal");
     }

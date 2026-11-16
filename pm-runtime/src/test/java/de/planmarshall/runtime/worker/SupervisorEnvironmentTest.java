@@ -71,9 +71,10 @@ class SupervisorEnvironmentTest {
                 WorkerState.EndReason.EXITED, false);
 
         assertAll(
-                () -> assertEquals(WorkerState.State.ENDED, ended.state()),
-                () -> assertEquals(ENDED_AT, ended.stateAt()),
-                () -> assertEquals(WorkerState.EndReason.EXITED, ended.endReason()),
+                () -> assertEquals(WorkerState.State.ENDED, ended.state(), "the terminal state is the ended state"),
+                () -> assertEquals(ENDED_AT, ended.stateAt(), "the state carries its end instant"),
+                () -> assertEquals(WorkerState.EndReason.EXITED, ended.endReason(),
+                        "the end reason is the exit reason"),
                 () -> assertFalse(ended.startFailure(), "an exit after the first call is no start failure"),
                 () -> assertNull(ended.task(), "the terminal state holds no task"));
     }
@@ -87,7 +88,8 @@ class SupervisorEnvironmentTest {
                 WorkerState.EndReason.START_FAILURE, true);
 
         assertAll(
-                () -> assertEquals(WorkerState.EndReason.START_FAILURE, failed.endReason()),
+                () -> assertEquals(WorkerState.EndReason.START_FAILURE, failed.endReason(),
+                        "the start failure is the end reason"),
                 () -> assertTrue(failed.startFailure(), "the flag and the end reason agree"));
     }
 

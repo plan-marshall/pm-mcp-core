@@ -10,10 +10,13 @@
 package de.planmarshall.workflow.scenario;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,14 +32,21 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.JournalScopeType;
+import de.planmarshall.workflow.scenario.ScenarioDirective.Action;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AnswerQuestion;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertOutcome;
+import de.planmarshall.workflow.scenario.ScenarioDirective.AssertRefused;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertState;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertTaskOutcome;
+import de.planmarshall.workflow.scenario.ScenarioDirective.AssertWorkerState;
+import de.planmarshall.workflow.scenario.ScenarioDirective.Call;
 import de.planmarshall.workflow.scenario.ScenarioDirective.CompleteJob;
 import de.planmarshall.workflow.scenario.ScenarioDirective.OperatorDo;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Start;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Worker;
+import de.planmarshall.workflow.scenario.ScenarioDirective.WorkerDo;
+import de.planmarshall.workflow.scenario.ScenarioDirective.WorkerWait;
+import de.planmarshall.workflow.task.TaskRefusal;
 
 /**
  * The scenario script of {@code pm-scenario} (PM-TEST-4): the supported directives are read with their arguments and
@@ -89,6 +99,18 @@ class ScenarioScriptTest {
                 Arguments.of("operator_do proceed", "missing argument"),
                 Arguments.of("operator_do proceed terminal", "'terminal' is no operator channel"),
                 Arguments.of("operator_do proceed web {\"note\":{\"x\":1}}", "is no scalar"),
+                Arguments.of("worker_wait", "missing argument"),
+                Arguments.of("worker_wait reviewer extra", "surplus argument 'extra'"),
+                Arguments.of("worker_do", "missing argument"),
+                Arguments.of("worker_do reviewer", "'reviewer' is no worker action"),
+                Arguments.of("worker_do reviewer ack extra", "surplus argument 'extra'"),
+                Arguments.of("worker_do reviewer dance", "'dance' is no worker action"),
+                Arguments.of("worker_do reviewer submit:answer {}", "missing argument: submit:answer"),
+                Arguments.of("worker_do reviewer consult:architect", "missing argument: consult:architect"),
+                Arguments.of("assert_worker_state reviewer", "missing argument"),
+                Arguments.of("assert_worker_state reviewer open", "'open' is no state of a worker's task"),
+                Arguments.of("assert_refused", "missing argument"),
+                Arguments.of("assert_refused vanished", "'vanished' is no refusal of a task"),
                 Arguments.of("{\"outcome\":\"succeeded\"}", "a line starts with a directive"),
                 Arguments.of("scenario other", "a script names one scenario"),
                 Arguments.of("finish_plan", "'finish_plan' is no directive"));
@@ -193,6 +215,147 @@ class ScenarioScriptTest {
     }
 
     @Nested
+    @DisplayName("Protocol worker directives")
+    class ProtocolWorkerDirectives {
+
+        @Test
+        @DisplayName("Should read worker_wait and worker_do as the protocol worker's wait and calls")
+        void shouldReadTheProtocolWorkerDirectives() {
+            var script = assertDoesNotThrow(() -> ScenarioScript.read("""
+                    scenario protocol
+                    worker_wait reviewer
+                    worker_do ack {}
+                    worker_do reviewer ack {}
+                    worker_do reviewer submit:change {"consultation_ids":"qt-0000000000000002,qt-0000000000000003"}
+                    worker_do reviewer infeasible
+                    worker_do reviewer consult:architect {"question":"is it safe?"}
+                    """));
+
+            assertAll(
+                    () -> assertEquals(List.of(
+                                    new WorkerWait(2, "reviewer"),
+                                    new WorkerDo(3, new Call(null, new Action.Ack(), Map.of())),
+                                    new WorkerDo(4, new Call("reviewer", new Action.Ack(), Map.of())),
+                                    new WorkerDo(5, new Call("reviewer", new Action.Submit("change"),
+                                            Map.of("consultation_ids", "qt-0000000000000002,qt-0000000000000003"))),
+                                    new WorkerDo(6, new Call("reviewer", new Action.Infeasible(), Map.of())),
+                                    new WorkerDo(7, new Call("reviewer", new Action.Consult("architect"),
+                                            Map.of("question", "is it safe?")))), script.directives(),
+                            "both worker_do forms read their lines"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_wait"),
+                            "worker_wait is no longer refused"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_do"),
+                            "worker_do is no longer refused"));
+        }
+
+        @Test
+        @DisplayName("Should read assert_worker_state and assert_refused as the supervision assertions")
+        void shouldReadTheSupervisionAssertions() {
+            var script = assertDoesNotThrow(() -> ScenarioScript.read("""
+                    scenario supervision
+                    worker_wait reviewer
+                    worker_do ack {}
+                    assert_worker_state reviewer acknowledged
+                    worker_do reviewer submit:change {}
+                    worker_do reviewer ack {}
+                    assert_refused stale_entity
+                    """));
+
+            assertAll(
+                    () -> assertEquals(List.of(
+                                    new WorkerWait(2, "reviewer"),
+                                    new WorkerDo(3, new Call(null, new Action.Ack(), Map.of())),
+                                    new AssertWorkerState(4, "reviewer", "acknowledged"),
+                                    new WorkerDo(5, new Call("reviewer", new Action.Submit("change"), Map.of())),
+                                    new WorkerDo(6, new Call("reviewer", new Action.Ack(), Map.of())),
+                                    new AssertRefused(7, "stale_entity")), script.directives(),
+                            "the assertions read with their lines"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_worker_state"),
+                            "assert_worker_state is no longer refused"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_refused"),
+                            "assert_refused is no longer refused"));
+        }
+
+        @Test
+        @DisplayName("Should accept every refusal of TaskRefusal and no other reason")
+        void shouldAcceptTheRefusalSetOfTheProtocol() {
+            var reasons = Arrays.stream(TaskRefusal.values()).map(TaskRefusal::wireName).toList();
+
+            assertAll(
+                    () -> assertEquals(ScenarioDirective.REFUSALS, reasons,
+                            "the refusal set is derived from the enum"),
+                    () -> reasons.forEach(reason -> assertDoesNotThrow(() -> new AssertRefused(1, reason))),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new AssertRefused(1, "vanished"),
+                            "a word outside the enum is refused"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a protocol call or assertion the script never waits for, when it is read")
+        void shouldRefuseAProtocolStepWithoutItsWait() {
+            var call = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario no-wait
+                    worker_do reviewer ack {}
+                    """));
+            var roleless = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario no-wait-roleless
+                    worker_do ack {}
+                    """));
+            var late = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario wait-later
+                    worker_do reviewer ack {}
+                    worker_wait reviewer
+                    """));
+            var state = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario no-wait-state
+                    assert_worker_state reviewer offered
+                    """));
+            var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario no-call
+                    worker_wait reviewer
+                    assert_refused stale_entity
+                    """));
+            var serviceCall = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario answer-then-refused
+                    worker_wait reviewer
+                    worker_do reviewer submit:answer {"answer":"yes"}
+                    assert_refused stale_entity
+                    """));
+            var both = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario both-forms
+                    worker reviewer submitted
+                    worker_wait reviewer
+                    """));
+            var apart = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario refusal-then-assertion
+                    worker_wait reviewer
+                    worker_do reviewer submit:change {}
+                    assert_state execute.review
+                    assert_refused link_not_available
+                    """));
+
+            assertAll(
+                    () -> assertEquals("line 2: worker_do names the role reviewer, which the script never declares with "
+                            + "worker_wait before it", call.getMessage(), "the call names its role too early"),
+                    () -> assertEquals("line 2: worker_do names no role, and no worker_wait precedes it",
+                            roleless.getMessage(), "the role-less call needs a wait before it"),
+                    () -> assertEquals("line 2: worker_do names the role reviewer, which the script never declares with "
+                            + "worker_wait before it", late.getMessage(), "a later wait does not count"),
+                    () -> assertEquals("line 2: assert_worker_state names the role reviewer, which the script never "
+                            + "declares with worker_wait before it", state.getMessage(),
+                            "the assertion needs a wait before it"),
+                    () -> assertEquals("line 3: assert_refused must directly follow the worker_do whose refusal it "
+                            + "asserts", refused.getMessage(), "an assertion needs a call before it"),
+                    () -> assertEquals("line 4: assert_refused asserts the last worker_do's refusal, but that call "
+                            + "makes no call of the task protocol", serviceCall.getMessage(),
+                            "an answer is no protocol call"),
+                    () -> assertEquals("line 5: assert_refused must directly follow the worker_do whose refusal it "
+                            + "asserts", apart.getMessage(), "an intervening assertion breaks adjacency"),
+                    () -> assertEquals("line 3: the worker of role reviewer is declared with worker and waits with "
+                            + "worker_wait; a role uses one form", both.getMessage(), "a role uses one form"));
+        }
+    }
+
+    @Nested
     @DisplayName("Refused directives")
     class Refused {
 
@@ -218,8 +381,11 @@ class ScenarioScriptTest {
                     () -> assertTrue(ScenarioScript.REFUSED.values().stream().noneMatch(String::isBlank),
                             ScenarioScript.REFUSED.toString()),
                     () -> assertEquals("supervision-scenarios", ScenarioScript.REFUSED.get("kill_worker")),
-                    () -> assertEquals("task-queue-and-protocol", ScenarioScript.REFUSED.get("worker_wait")),
-                    () -> assertEquals("plan-instance", ScenarioScript.REFUSED.get("assert_instance_version")));
+                    () -> assertEquals("plan-instance", ScenarioScript.REFUSED.get("assert_instance_version")),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_wait")),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_do")),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_worker_state")),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_refused")));
         }
 
         @ParameterizedTest(name = "{0}")
