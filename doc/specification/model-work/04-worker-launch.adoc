@@ -110,9 +110,10 @@ spawn, with fate `refused` and a reason, when the harness is not enrolled (`harn
 without the update evidence of its profile (`harness_update_unverified`), its version lies outside the supported range
 (`harness_version_unsupported`), the harness enrolment store `harnesses.json` fails its HMAC check (`harness_tampered`,
 audit `security` record `enrolment_tampered`), the verified bytes of `harnesses.json` do not read as the store
-(`harness_store_unreadable`, an entry whose required member `events`, `usage_report` with its `figures` or `weights` is
-absent, `null` or not an object), the prompt cannot be composed (`prompt_composition_failed`, <<job-prompt>>), or a
-verify-not-resolve check fails. Each refusal names the act that resolves it.
+(`harness_store_unreadable`: an entry whose required member `events` or `usage_report` with its `figures` is absent,
+`null` or not an object, or whose present `weights` is not an object), the prompt cannot be composed
+(`prompt_composition_failed`, <<job-prompt>>), or a verify-not-resolve check fails. Each refusal names the act that
+resolves it.
 
 [#model-and-effort]
 === Model & Effort
@@ -147,11 +148,7 @@ The tool set of a worker is exactly its role artifact's `tools`: the `PM-MCP` to
 * *`read_only`*: `pm_wait`, `pm_state`, `pm_do`, `pm_skill`, `pm_skill_file`, and `pm_lsp` limited to its read operations: `rename` is refused with `invalid_arguments`. `pm_build` is not in the set.
 * *`zero_tool`*: none.
 
-A chat's worker runs with the `read_only` set whatever the class of the role its chat routes to
-(link:../state-catalogue.adoc#chat-context[State Catalogue, What a Chat Knows]). Where the platform confines no job
-(`confinement: unavailable`), the read-only contract rests on the tool set and the daemon's per-request binding
-(<<job-token>>) alone: a configuration whose harness's `read_only` entry is `tool_set: advisory` does not qualify for a
-chat there, and _chat_ is offered disabled with that reason while no other does.
+A chat's worker runs with the `read_only` set whatever the class of the role its chat routes to: of the role's `tools` it gets those the `read_only` class allows, the PM-MCP tools every `read_only` role names among them (link:../state-catalogue.adoc#chat-context[State Catalogue, What a Chat Knows]). The read-only contract does not rest on the harness's tool list: its confinement grants it no write in the project (link:../job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime Specification, Linux Filesystem Confinement]). Where the platform confines no job (`confinement: unavailable`), the contract rests on the tool set and the daemon's per-request binding (<<job-token>>) alone: a configuration whose harness's `read_only` entry is `tool_set: advisory` does not qualify for a chat there, and _chat_ is offered disabled with that reason while no other does.
 
 `pm_wait` is the worker's only wait tool (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools Specification, Core Workflow Tools]; semantics xref:02-task-protocol.adoc[Task Protocol]); `pm_state` and `pm_do` reach only the worker's own task entities (<<job-token>>). The harness tools of `writer` and `read_only` include the harness's MCP resource-reading tools (`headless.resource_tools`; an empty list means the harness offers none and its workers read no resources). Never in a tool set: the harness's sub-agent tool (`Agent`, `task`, `spawn_agent`), a tool that asks the user, the web tools, and every operator action or scope-creating link. The set is rendered into `{{tools}}`, and the daemon enforces it again on the job-bound connection: the harness allowlist is defence in depth, the containment is the daemon's per-request binding.
 

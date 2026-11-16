@@ -330,11 +330,12 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/CompositionRefu
 
 Implementation (the `worker-launch` part of bullets 3, 4 and 5's service side, `runtime.launch`): the launch of a worker
 of an enrolled harness from the role's effective configuration and the harness's harness profile — the model tier rendered,
-the effort narrowed, the working directory fixed, the class's tool set and per-call MCP configuration composed
-(`HeadlessBlock`), the launch prompt with its shared prefix and the writing skill derived from the link schemas, the
-job token minted and only its digest recorded (`JobTokenStore`), the harness enrolment store with its HMAC sidecar and
-its launch-time verification and self-update, the model slots admitted in FIFO order with at most one `writer` worker of
-a plan (`ModelSlotScheduler`), and the launch started or refused through the job runner
+the effort narrowed, the working directory fixed, the launch contract projected out of the profile's `headless` block
+(`HeadlessBlock`) and the class's tool set and per-call MCP configuration composed (`LaunchComposer`), the launch
+prompt with its shared prefix and the writing skill derived from the link schemas, the job token minted and only its
+digest recorded (`LaunchComposer`; resolved and revoked by `JobTokenStore`), the harness enrolment store with its HMAC
+sidecar and its launch-time verification and self-update, the model slots admitted in FIFO order with at most one
+`writer` worker of a plan (`ModelSlotScheduler`), and the launch started or refused through the job runner
 (link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). Not implemented and owned
 elsewhere: the relay's per-request binding, the supervisor's start and supervision, output and usage reading,
 and warm offers (link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide] § Owed).

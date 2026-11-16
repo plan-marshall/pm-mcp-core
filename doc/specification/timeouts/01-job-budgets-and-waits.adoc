@@ -197,7 +197,7 @@ _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH
 |Compiled default `240` per harness profile.
 |`connection.bounded_wait_seconds` of the harness profile; operator override in `machine-config.json` (`harness_profiles.<harness_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas, Machine Configuration Store])
 |`15`..`3600`; for a harness whose `connection.progress_resets_timeout` is false, profile validation also rejects a value above `connection.idle_timeout_seconds − 30`
-|`pm_wait` of a worker, a consultation's answer included; a `pm_build` call and its `job_id` continuation
+|`pm_wait` of a worker, a consultation's answer included; a `pm_build` call and its `job_id` continuation, unless the call qualifies for a progress wait (<<progress-wait>>)
 |`pm_wait` answers `wait_again` (or `end`, link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools, `pm_wait`]); `pm_build` returns the running result with its `job_id` continuation; never an MCP transport timeout.
 |link:../job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime, Bounded Long-Poll]; link:../model-work/02-task-protocol.adoc[Model Work, Task Protocol]; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc#_pm_build_enrolled_build_execution[MCP Tools, `pm_build`]
 
@@ -205,7 +205,7 @@ _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH
 |`1800`
 |`progress_wait_max_seconds` in `machine-config.json`
 |`60`..`7200`
-|a `pm_build` call and its `job_id` continuation; a `pm_wait` keeps the bounded wait window
+|a `pm_build` call and its `job_id` continuation where it qualifies, i.e. the harness profile declares `progress_resets_timeout: true` and the request carries a `progressToken`; a `pm_wait` keeps the bounded wait window
 |As bounded wait.
 |link:../job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime, Bounded Long-Poll]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/04-sessions-and-workers.adoc#_connection_scoped_rendering[Runtime Model, Connection-Scoped Rendering]
 
