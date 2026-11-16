@@ -140,7 +140,8 @@ class WorkerActivityPumpTest {
         assertAll(
                 () -> assertEquals(2, first, "first pass appends the two mapped lines"),
                 () -> assertEquals(1, second, "second pass appends only the file line"),
-                () -> assertEquals(4, journal.entries(task).size(), "journal holds one entry per mapped line"),
+                () -> assertEquals(4, journal.entries(task).size(),
+                        "the journal holds the mapped entries and the end"),
                 () -> assertEquals(1, unmapped, "one line matches no event mapping"),
                 () -> assertEquals(1, end.unmappedLines(), "the attempt end reports the same unmatched count"),
                 () -> assertEquals(ActivityEntry.Kind.ATTEMPT_END, end.kind(),

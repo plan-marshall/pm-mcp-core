@@ -1538,8 +1538,9 @@ class CredentialStoreChoiceTest {
                             "the suppressed error is a store exception"),
                     () -> assertTrue(choice.recorded().isEmpty(), "the failed removal records no store"),
                     () -> assertArrayEquals(created.getEncoded(), keyIn(fileStoreName()).read().orElseThrow()
-                            .getEncoded(), "the copy stays in the file store"),
-                    () -> assertTrue(keyIn(secretService).read().isPresent(), "the OS store keeps the found key"));
+                            .getEncoded(), "the original key stays in the file store"),
+                    () -> assertTrue(keyIn(secretService).read().isPresent(),
+                            "the OS store still holds the copied key"));
         }
 
         @Test

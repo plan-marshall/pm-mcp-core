@@ -460,7 +460,7 @@ class EnrolmentCheckTest {
 
         assertAll(
                 () -> assertEquals(Outcome.ABSENT, refusal.outcome(), "an unknown project is absent, not tampered"),
-                () -> assertTrue(events.isEmpty(), "a passing check records no audit event"));
+                () -> assertTrue(events.isEmpty(), "an absent project records no audit event"));
     }
 
     @Test

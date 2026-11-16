@@ -155,7 +155,7 @@ class OffTrackDetectorTest {
 
         assertAll(
                 () -> assertEquals(2.4, holding.getFirst().measurement(),
-                        "sixty tokens over fifty measures 2.4"),
+                        "the attempt's tokens over the prediction measure 2.4"),
                 () -> assertEquals(RoleArtifact.OffTrackAction.RESTART, holding.getFirst().action(),
                         "over size action is restart"),
                 () -> assertTrue(under.isEmpty(), "a higher prediction clears the signal"));

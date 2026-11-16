@@ -368,7 +368,7 @@ class EnrolmentsTest {
                     () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
                     () -> assertEquals(above,
                             written.projectScripts().get("parse-log").argumentSchema().maxLength().longValue(),
-                            "a non string schema admits the ceiling"));
+                            "a non string schema admits above the ceiling"));
         }
     }
 
@@ -1516,12 +1516,12 @@ class EnrolmentsTest {
             var directory = directoryIntent(ALPHA);
 
             var failure = assertThrows(UncheckedIOException.class, owing::replayOwedAudit,
-                    "the io failure stops the replay");
+                    "the io failure is reported after the replay");
 
             assertAll(
                     () -> assertEquals(0, failure.getSuppressed().length, "the io failure suppresses nothing"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)),
-                            withoutTransactionIds(events), "the zeta record is handed over"),
+                            withoutTransactionIds(events), "the zeta record is replayed before the failure"),
                     () -> assertTrue(Files.isDirectory(directory), "the intent directory is kept"),
                     () -> assertEquals(List.of(ALPHA), List.copyOf(store.auditOwingProjectIds()),
                             "only alpha is still owed"));
@@ -1556,7 +1556,7 @@ class EnrolmentsTest {
             var unreadable = Files.writeString(store.auditIntent(BETA), NOT_JSON);
 
             var failure = assertThrows(UncheckedIOException.class, owing::replayOwedAudit,
-                    "the io failure stops the replay");
+                    "the io failure surfaces only after the replay");
 
             assertAll(
                     () -> assertEquals(1, failure.getSuppressed().length, "the io failure suppresses the refusal"),
