@@ -2526,6 +2526,8 @@ harness worker, the worker launch, the `worker-task` unit of the assembly and th
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecordCodec.java[QueueTaskRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueStore.java[QueueStore],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/FencedGenerations.java[FencedGenerations],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java[WorkerState],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerLifecycle.java[WorkerLifecycle],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityEntry.java[ActivityEntry],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java[TaskProtocol],
@@ -2558,6 +2560,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTe
 
 Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide],
 link:../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide],
+link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervisor Developer Guide],
 link:../pm-workflow/doc/developer/workflow-question.adoc[Question Continuation Developer Guide],
 link:../pm-workflow/doc/developer/workflow-hypermedia.adoc[Hypermedia Values Developer Guide],
 link:../pm-workflow/doc/adr/workflow-task/005-the-answer-is-delivered-in-memory-and-reopens-the-task.adoc[ADR workflow-task/005],
