@@ -79,9 +79,9 @@ The replay runs the real queue and the real task protocol.
   consultation's queue task id from `QueueTaskId.random()`, so a consultation scenario is not byte-identical across
   replays. The harness reports that as a lead instead of asserting identity, and a later change gives the service a
   counter or a seam.
-* The worker faults and the runtime restart (PLAN-V2-49) build on this protocol worker: they apply
-  `TaskProtocol.report` and `TaskProtocol.fence` to the generation this decision starts, and `assert_refused` already
-  accepts the fence's refusal.
+* The worker faults and the runtime restart build on this protocol worker: they apply `TaskProtocol.report` and
+  `TaskProtocol.fence` to the generation this decision starts
+  (link:010-worker-faults-apply-the-supervisors-facts.adoc[ADR 010]), and `assert_refused` accepts the fence's refusal.
 * The direct worker of ADR 001 stays for the scripts that use it; no existing scenario changes.
 
 == Source

@@ -33,10 +33,10 @@ All types are package-private test code.
 from the text of a script and refuses every line the harness does not run; `REFUSED` maps each refused directive of
 the specification to the work package that brings it.
 `ScenarioDirective`:: The sealed step of a script, each with its line: `Start`, `AssertState`, `AssertOutcome`,
-`CompleteJob`, `AnswerQuestion`, `AssertTaskOutcome`, `OperatorDo`, `WorkerWait`, `WorkerDo`, `AssertWorkerState` and
-`AssertRefused`. `Worker` is the declaration of the direct worker of one role; it is no step. Job ids, question ids,
-fates, task outcomes, the worker states and the refusals are checked against the shapes and closed sets the engine and
-the task protocol state.
+`CompleteJob`, `AnswerQuestion`, `AssertTaskOutcome`, `OperatorDo`, `WorkerWait`, `WorkerDo`, `KillWorker`, `EndTurn`,
+`KillRelay`, `StallWorker`, `RestartRuntime`, `AssertWorkerState` and `AssertRefused`. `Worker` is the declaration of
+the direct worker of one role; it is no step. Job ids, question ids, fates, task outcomes, the worker states and the
+refusals are checked against the shapes and closed sets the engine and the task protocol state.
 `ScenarioReplayRunner`:: Replays one script once against the real engine and keeps the bytes of the status store and
 of the queue after every step (`snapshots()`); a deviation is a `ScenarioFailure` (an `AssertionError`) that names the
 step's line.
@@ -44,7 +44,9 @@ step's line.
 outcome the script declares and yields the `EngineEvent.TasksSettled` of the task state.
 `ScriptedProtocolWorker`:: The protocol worker of one role: its generation, and the task the real `TaskProtocol`
 leased to it. It waits, acknowledges, submits and reports infeasible through the protocol; the harness never settles
-its task (link:../adr/workflow-scenario/009-task-protocol-under-the-replay.adoc[ADR 009]).
+its task (link:../adr/workflow-scenario/009-task-protocol-under-the-replay.adoc[ADR 009]). A worker the harness loses
+is replaced: the role's next `worker_wait` starts the successor generation, and the lost generation's late call is
+refused `generation_fenced`.
 `ScenarioFixtures`:: The fixture plan units `PLAN_UNIT`, `OPERATOR_UNIT` and `CONSULT_UNIT`, their primitives, a
 manual clock, deterministic doubles of the engine ports, the replay's queue with its lock manager, its task protocol
 and its consultation service, and the assembly of the engine and of the journal scope in the replay's directory.
@@ -163,18 +165,42 @@ store holds the generation the task's last attempt belonged to).
 |Asserts that the last `worker_do` was refused with the wire reason, one of `TaskRefusal` (`job_ended`,
 `generation_fenced`, `stale_entity`, `job_scope_mismatch`, `link_not_available`, `invalid_link_args`,
 `skills_not_loaded`). A `worker_do` the script does not assert is expected accepted, and a refusal fails at its line.
+
+|`kill_worker <role>`
+|The role's protocol worker is lost: the attempt ends with the fact its open attempt's deadline reports
+(`worker_lost`) at that deadline — the acknowledgement deadline of an unacknowledged offer, otherwise the silence
+limit — and the generation is fenced there
+(link:../adr/workflow-scenario/010-worker-faults-apply-the-supervisors-facts.adoc[ADR 010]).
+
+|`end_turn <role>`
+|The role's worker ends its turn without a submit, which is the exit the supervisor observes after the worker's first
+call: the attempt ends `exited_without_submit` at the step's instant and the generation is fenced.
+
+|`kill_relay <role>`
+|The relay of the role's acknowledged worker is killed under the wait it holds: a held wait suppresses the silence, so
+the loss (`worker_lost`) falls one silence limit after the relay's death, and the generation is fenced there.
+
+|`stall_worker <role> <seconds>`
+|The role's worker makes no call for the given time. Shorter than the limit that governs its open attempt
+(`ackDeadlineSeconds` for an unacknowledged offer, otherwise `silenceLimitSeconds()` of
+`de.planmarshall.core.profile.WorkerParameters`) it changes nothing and the worker is not replaced; at or beyond the
+limit the attempt ends `worker_lost` at the limit, never before, and the generation is fenced there.
+
+|`restart_runtime`
+|Rebuilds the engine, the task protocol and the stores' objects over the same directory of the replay: the status is
+re-read from its bytes and each protocol worker is rebuilt over its own generation with the task its lease still
+names. A lease, a fence and a queue record survive; nothing in memory does.
 |===
 
 Every other directive the specification names is refused by name when the script is read, with its line and the work
-package that brings it: the link and entry-session directives, the worker faults and the runtime restart, the
-unqualified role, the plan instance version and the operator verbs
-(link:../adr/workflow-scenario/004-supported-directives-only-others-refused-by-name.adoc[ADR 004]). The list and the
-packages are `ScenarioScript.REFUSED`, kept by hand, and `ScenarioScriptTest` runs every entry of it; nothing compares
-it with the specification, so a change to the specification's directives changes `REFUSED` with it. A word
-that is no directive at all is refused as unknown, and so is a missing or surplus argument, a malformed id, an unknown
-fate, task outcome, worker state or refusal, a call or an assertion of a role the script never declares with
-`worker_wait` before it, an `assert_refused` that does not directly follow a `worker_do` of the task protocol, a
-second `scenario` line and a script without steps.
+package that brings it: the link and entry-session directives, the unqualified role, the plan instance version and the
+operator verbs (link:../adr/workflow-scenario/004-supported-directives-only-others-refused-by-name.adoc[ADR 004]). The
+list and the packages are `ScenarioScript.REFUSED`, kept by hand, and `ScenarioScriptTest` runs every entry of it;
+nothing compares it with the specification, so a change to the specification's directives changes `REFUSED` with it. A
+word that is no directive at all is refused as unknown, and so is a missing or surplus argument, a malformed id, an
+unknown fate, task outcome, worker state or refusal, a call, a fault or an assertion of a role the script never
+declares with `worker_wait` before it, an `assert_refused` that does not directly follow a `worker_do` of the task
+protocol, a second `scenario` line and a script without steps.
 Every refusal is an `IllegalArgumentException` whose message starts with `line <n>:`.
 
 == Runner
@@ -195,6 +221,13 @@ a fixture unit that breaks a verifier rule never runs. `run(script)` replays the
   leased to it, and its calls close the task; a call the protocol accepts that closes the task settles the task state of
   the engine with the fixture return evaluation, and a `worker_do` whose next step is no `assert_refused` must be
   accepted;
+* a fault (`kill_worker`, `end_turn`, `kill_relay`, `stall_worker`) applies the fact the supervisor reports for it to
+  the role's open attempt, at the instant that fact is detected, and fences the generation there: the attempt ends
+  `worker_lost` or `exited_without_submit`, the task is queued again within its re-offer budget (or closed `lost` with
+  `attempts_spent` when the budget is spent), and the role's next `worker_wait` starts the successor generation
+  (link:../adr/workflow-scenario/010-worker-faults-apply-the-supervisors-facts.adoc[ADR 010]);
+* `restart_runtime` rebuilds the engine, the task protocol and the stores' objects over the same directory, re-reads
+  the status from its bytes and rebuilds each protocol worker over its generation and the lease the queue still names;
 * the assertions read the stored status, the queue record of a protocol worker's task, the `Ended` step of the engine
   and the direct worker's record, and change nothing.
 
@@ -247,6 +280,12 @@ does not evaluate (`asked`)
 
 |An `assert_worker_state` on another state
 |`ScenarioFailure` at the assertion's line, with the expected state and the state the queue record shows.
+
+|A fault of a role whose worker holds no leased task, or a `kill_relay`/`end_turn` whose task is not acknowledged
+|`ScenarioFailure` at the fault's line, naming the role and the state of its task.
+
+|A `restart_runtime` of a scope that was not started or that already ended
+|`ScenarioFailure` at the restart's line.
 
 |The unit violates a verifier rule
 |The engine's `UnverifiedUnitException` from the runner's constructor.
@@ -306,6 +345,9 @@ it:
 * the same script with a protocol worker (`worker_wait`, `worker_do`) yields byte-identical status and queue bytes,
   because the task's record carries the generation id, the attempt and the instants of the manual clock, never an
   instant or an id of the machine;
+* every fault scenario of `WorkerFaultScenarios` — the six of the fault matrix, the budget exhaustion and the two
+  runtime-crash scenarios — yields byte-identical status and queue bytes in two replays from empty stores, so a fault's
+  deadline, its fence and the restart's rebuilt objects are all reproducible from the script;
 * the same script against a unit with one changed transition (`answered -> handed_back` instead of
   `answered -> completed`) writes the same bytes as the unchanged unit up to the step that takes the changed
   transition, writes different bytes at that step, and fails at the script's next `assert_state`, which names its line.
@@ -327,6 +369,11 @@ _Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
 . Use the job ids the job port hands out in order (`b-0000000000000001` for the first job state entered without a
   job-starting outcome), the queue task ids the fixture creator hands out (`qt-0000000000000001`, …) and any question
   id of the form `Q-NNN`.
+. A fault follows the call whose attempt it ends: `kill_worker` after the offer or after the acknowledgement,
+  `end_turn`, `kill_relay` and `stall_worker` after the acknowledgement. Assert the state before the fault (the worker
+  still holds its task) and after it (`fenced`), assert the replaced generation's late call with `worker_do` +
+  `assert_refused generation_fenced`, then `worker_wait` starts the successor and submits the task once
+  (link:../adr/workflow-scenario/010-worker-faults-apply-the-supervisors-facts.adoc[ADR 010]).
 . Replay it with `new ScenarioReplayRunner(ScenarioFixtures.planUnit(), directory).run(ScenarioScript.read(text))`, the
   directory a `@TempDir` of its own.
 . A protocol worker's script waits before it acts, acknowledges before it submits, and asserts a refusal with
@@ -353,10 +400,13 @@ the bytes kept after every step; an operator act taking its link and its free pa
 acknowledging, submitting, reporting infeasible and reading its closed outcome from the queue record, with the
 role-less `worker_do` the specification writes; a refused call asserted and a wrong refusal or state failing at its
 line; a wait answered with no offer failing; the consultation re-offering the asker's task at its next wait, with the
-submit that omits its reference refused and the one that names it accepted
-|`ScenarioDeterminismTest` |Two replays with identical status and queue bytes after every step, for the direct worker
-and for a protocol worker; a changed transition failing at the assertion after the step that takes it, with the same
-bytes before it
+submit that omits its reference refused and the one that names it accepted; the six fault scenarios of
+`WorkerFaultScenarios` with their properties (one submit, the loss at its deadline and not before, the lease released
+at the fence, `generation_fenced` for a late call, a live worker not replaced before its deadline), the budget
+exhaustion closing the task `lost`, the two runtime-crash scenarios and the protocol half of a pause at once
+|`ScenarioDeterminismTest` |Two replays with identical status and queue bytes after every step, for the direct worker,
+for a protocol worker and for every fault scenario of `WorkerFaultScenarios`; a changed transition failing at the
+assertion after the step that takes it, with the same bytes before it
 |===
 
 == Developer Pitfalls
@@ -380,12 +430,9 @@ _Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
 
 == What Follows
 
-The harness runs what the engine supports today. These parts of the specification follow with later packages:
+The harness runs what the engine and the task protocol support today. These parts of the specification follow with
+later packages:
 
-* the worker faults and the runtime restart (`kill_worker`, `stall_worker`, `end_turn`, `kill_relay`,
-  `restart_runtime`) and the fault matrix of the specification's regression scenario 12, with
-  `supervision-scenarios`; they build on the protocol worker of ADR 009, which already records the lease and the
-  attempts, and will record the fence (the operator act of that package is here, ADR 008);
 * the link directives (`assert_links`, `assert_skill`, `assert_rejected`, `do`), the unqualified role and the plan
   instance version;
 * the hermetic git repository, with the first package that has a git step;
@@ -414,3 +461,6 @@ this package: they live in `pm-conformance` of `plan-marshall-mcp` (link:../adr/
 * link:../adr/workflow-scenario/009-task-protocol-under-the-replay.adoc[ADR 009]: the replay runs the real queue and
   task protocol; `worker_wait` and `worker_do` are the protocol worker's form, `worker` the direct one's, and a role
   uses one of them.
+* link:../adr/workflow-scenario/010-worker-faults-apply-the-supervisors-facts.adoc[ADR 010]: a worker fault applies
+  the fact the supervisor reports for it at the deadline the compiled worker values give that fact; `restart_runtime`
+  rebuilds the engine, the protocol and the stores over the same directory.

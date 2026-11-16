@@ -12,13 +12,18 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 
 The specification sections named are the single statement of what each task builds.
 
-. *Scenarios of the worker faults*: a worker killed between offer and acknowledgement and between acknowledgement and submit, stalled shorter and longer than its silence limit, ending its turn without a submit, and its relay killed under a held wait, each with the task submitted exactly once by the replacing worker, the lost worker detected at its deadline, its lease released at the fence, every late call of the replaced generation refused `generation_fenced`, and a runtime crash with a leased task: link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]; link:../specification/model-work/03-supervision-and-recycling.adoc[Model Work § Supervision & Recycling]. PLAN-V2-49 (`scenario-worker-faults`) builds them on the protocol worker of PLAN-V2-33 (`scenario-task-protocol`). The recycling of a warm worker and the start-failure guard are proven in `pm-runtime` (`WorkerRecyclingTest`, `SupervisorScenarioTest`) and no plan of this repository owes them here.
-. *Scenarios of a worker off track*, one per signal and per action, from a scripted output stream: link:../specification/model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work § A Worker Off Track].
-. *Scenarios of a pause at once with a leased task and of a missing answer acknowledgement*: link:../specification/model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work § Continuing after a Question].
-. *Operator-act directives* the replay harness lacks, as the trace matrix names them: § Deterministic Scenario Replay Harness.
-. *The runs and baselines of the behavioural conformance harness*, its scenario records and its rule selection: link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#behavioural-conformance-harness[Workflow DSL § Behavioural Conformance Harness].
+The deterministic half of this package is delivered by the `pm-scenario` harness of `pm-workflow`
+(link:../../pm-workflow/doc/developer/workflow-scenario.adoc[Workflow Scenario Developer Guide]): the fault matrix of
+regression scenario 12 and the runtime restart replay in process, without a live model or a real process. Two
+deliverables stay owed, and both are work of `pm-conformance` in `plan-marshall-mcp`, never of this repository
+(link:../../pm-workflow/doc/adr/workflow-scenario/007-conformance-harness-in-pm-conformance.adoc[ADR 007]):
 
-Left out: the activity and the signals themselves (link:worker-activity.adoc[`worker-activity`]); the continuation (link:question-continuation.adoc[`question-continuation`]); the same faults against real processes (`plan-marshall-mcp` / `worker-integration-tests`). Dropped: the comparison footprint, a method of the link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#comparison-footprint[Evaluation Reference] that defines nothing, with its navigation figures (link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/later-improvements.adoc#L-40[L-40]).
+. *D6, the runs and baselines of the behavioural conformance harness*, its scenario records and its rule selection:
+   link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#behavioural-conformance-harness[Workflow
+   DSL § Behavioural Conformance Harness].
+. *D7, the comparison footprint* the harness reports its runs with: the same section, and
+   link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#comparison-footprint[Evaluation
+   Reference] for its definition.
 
 == Trace
 
@@ -30,5 +35,7 @@ The starting set of the trace matrix of the project skill `traced-implementation
 
 == Done When
 
-* Watch: none anchored to these sections yet; the trace matrix names any it finds.
-* Tests: one scenario per fault of the fault matrix and per off-track signal and action, each replayed twice to the same stores without a session; the conformance harness's control pair, combined-pressure scenario and read-matches record on a fixture scenario; a `violated` or `indeterminate` verdict left to a recorded operator decision.
+* D6 and D7 are delivered in `pm-conformance` of `plan-marshall-mcp` on top of the shipped `pm-scenario` harness: the
+  conformance run's scenario records, its control pair, combined-pressure scenario and read-matches record on a
+  fixture scenario, and its comparison report; a `violated` or `indeterminate` verdict is left to a recorded operator
+  decision.
