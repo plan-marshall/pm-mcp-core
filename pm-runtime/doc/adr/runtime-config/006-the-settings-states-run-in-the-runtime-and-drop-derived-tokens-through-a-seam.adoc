@@ -1,0 +1,67 @@
+= ADR 006: The Settings States Run in the Runtime and Drop Derived Tokens Through a Seam
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-16
+
+== Context
+
+State Catalogue § The Machine's Settings names six states this repository could not run: `settings.choose` (the facts and
+links), `settings.withdraw` and `settings.remove-consent`, `settings.credential` and `settings.store-credential`, and
+`settings.verify-providers`. The stores they need exist: `MachineConfigurationStore`, `ConsentStore` (whose `withdraw` is
+already audited), and the recorded `SecretStore`; `ProviderVerification` already answers a provider's check lines.
+
+`settings.store-credential` says the write "drops every token derived from the old secret". The only derived-token cache of
+this repository today is the GitHub App installation-token cache of `pm-provider-github`, a module the runtime does not
+depend on; a held plan goes on once its hold's retry observes the new secret, which is the job subsystem's behaviour.
+
+== Decision
+
+* `MachineSettingsStates` is the engine half of those states, beside `CredentialStoreAspect`'s shape: one method per state
+  that answers a `Transition` (the next state, and a reason where it refuses).
+* `facts()` reads the recorded values, the remembered consents and the provider defaults, and builds the links the state
+  offers (`reconfigure:<aspect>`, `withdraw:<kind>`, `documents_mode`, `cleanup_durations`, `credential:<key>`,
+  `verify_providers`, `done`).
+* `removeConsent` delegates to `ConsentStore.withdraw`, so the audit record and the revision rule are the store's; it
+  answers `not_remembered` when the scope remembered nothing, and the action asks again afterwards because the store no
+  longer remembers it.
+* `storeCredential` writes the secret into the recorded store and then drops every derived token of its key through
+  `DerivedTokenCache`, a seam the assembly registers per cache. A store that refuses the write throws before any drop:
+  nothing is dropped for a secret that was not stored.
+* `verifyProviders` runs the provider verification over every recorded provider, records each result against the change's
+  revision, and leaves a declined consent's providers as they were. The consent each verification answers with is the
+  caller's to record: the two stores have their own revisions, and one method may not silently advance both.
+* The settings' own audit record (channel and paired device) is the local API's, which serves the operator; this class
+  writes only what the consent store audits.
+* The hold that goes on after a rotation is the job subsystem's; this class guarantees only that no consumer keeps a token
+  of the replaced secret.
+
+== Alternatives Considered
+
+1. *A cache interface per provider module, implemented by `pm-provider-github`.* _Not taken here_: it would make the
+   runtime depend on a provider module (or the provider on the runtime) for a seam the assembly can satisfy; the interface
+   names no provider.
+2. *Recording the provider results and the consent in one transaction.* _Not taken_: they are two documents under two locks;
+   a single call that writes both would have to invent a combined failure mode, and the catalogue has the consent recorded
+   by the consent state of the aspect.
+3. *A settings state machine in `pm-workflow`.* _Not taken_: the states act on the machine's stores; the units that emit
+   them are the assembly's, and the engine half belongs where the stores are.
+
+== Consequences
+
+* Each state is provable over fixtures here (`MachineSettingsStatesTest`), including the audit of a withdrawal, the
+  conflict of a second removal against one revision, the drop of every registered cache, and a re-check refused against a
+  consumed revision.
+* A new derived-token cache registers a `DerivedTokenCache` with the assembly; nothing else changes.
+
+== Source
+
+* Plan PLAN-V2-153, deliverable 3 (D8)
+* link:../../../../doc/specification/state-catalogue/14-machine-onboarding.adoc#state-catalogue-settings[State Catalogue §
+  The Machine's Settings]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineSettingsStates.java`

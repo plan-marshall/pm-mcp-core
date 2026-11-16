@@ -209,6 +209,85 @@ class MachineSettingsWritersTest {
     }
 
     @Test
+    @DisplayName("the plan defaults are written and the other members survive")
+    void planDefaultsMember() throws Exception {
+        Files.writeString(file, document(), UTF_8);
+
+        store.writePlanDefaults(planDefaults(), revision);
+        var read = store.read();
+
+        assertAll(
+                () -> assertEquals(planDefaults(), read.planDefaults(), "The written plan defaults are read back"),
+                () -> assertEquals(revision + 1, read.revision(), "A write increments the document revision"),
+                () -> assertTrue(Files.readString(file, UTF_8).contains("\"posture\":\"full\""),
+                        "The recorded posture is written"),
+                () -> assertTrue(Files.readString(file, UTF_8).contains("\"credentials\":{\"store\":\"os\"}"),
+                        "The operator's credential store survives the write"));
+    }
+
+    @Test
+    @DisplayName("of two plan-default changes against one revision the second is refused")
+    void planDefaultsFirstChangeWins() throws Exception {
+        Files.writeString(file, document(), UTF_8);
+        var accepted = planDefaults();
+        var refused = PlanDefaults.builder().landing("landing.files").method("method.tests-after")
+                .asking("ask.questions-only").build();
+
+        store.writePlanDefaults(accepted, revision);
+        var conflict = assertThrows(SettingsConflict.class,
+                () -> store.writePlanDefaults(refused, revision),
+                "A change against the consumed revision is refused");
+
+        assertAll(
+                () -> assertEquals(SettingsConflict.ERROR_CODE, conflict.code(), "The refusal carries the conflict code"),
+                () -> assertEquals(SettingsConflict.HTTP_STATUS, conflict.status(), "The refusal carries status 409"),
+                () -> assertEquals(accepted, conflict.currentValue(), "The refusal names the current defaults"),
+                () -> assertEquals(accepted, store.read().planDefaults(),
+                        "The refused change must not overwrite the first one"),
+                () -> assertEquals(revision + 1, store.read().revision(), "Only one write advances the revision"));
+    }
+
+    @Test
+    @DisplayName("an incomplete plan-defaults member keeps its explicit value and defaults the rest")
+    void incompletePlanDefaultsSurvive() throws Exception {
+        Files.writeString(file, """
+                {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
+                 "plan_defaults":{"posture":"full"}}""".formatted(revision, maxBuildSlots, lspIdleTimeout), UTF_8);
+
+        store.writeDocumentsMode(DocumentsMode.COPY, revision);
+        var read = store.read();
+
+        assertAll(
+                () -> assertEquals("full", read.planDefaults().posture(),
+                        "The explicit posture is read, never defaulted away"),
+                () -> assertEquals(PlanDefaults.shipped().landing(), read.planDefaults().landing(),
+                        "An absent landing reads at the schema default"),
+                () -> assertEquals(PlanDefaults.shipped().asking(), read.planDefaults().asking(),
+                        "An absent asking reads at the schema default"),
+                () -> assertTrue(Files.readString(file, UTF_8).contains("\"plan_defaults\":{\"posture\":\"full\"}"),
+                        "The incomplete member survives another setting's write"));
+    }
+
+    @Test
+    @DisplayName("the codec refuses a plan default that is no variant of its axis")
+    void refusesUnknownPlanDefault() {
+        var unknown = document().replace("\"credentials\"", "\"plan_defaults\":{\"landing\":\"landing.squash\"},"
+                + "\"credentials\"").getBytes(UTF_8);
+
+        assertThrows(StoreRefusal.class, () -> MachineConfigurationCodec.read(file, unknown),
+                "An unknown landing variant is refused");
+    }
+
+    private PlanDefaults planDefaults() {
+        return PlanDefaults.builder()
+                .landing("landing.main")
+                .method("method.test-first")
+                .asking("ask.key-points")
+                .posture("full")
+                .build();
+    }
+
+    @Test
     @DisplayName("the codec refuses a duration below the schema minimum and an unknown mode")
     void refusesInvalidValues() {
         var belowMinimum = CleanupDuration.MIN_DAYS - 1;

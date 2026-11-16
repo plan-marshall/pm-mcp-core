@@ -59,7 +59,7 @@ class MachineConfigurationStoreTest {
     private final int maxBuildSlots = Generators.integers(1, 16).next();
     private final int lspIdleTimeout = Generators.integers(60, 86_400).next();
     private final String harness = freeText();
-    private final String landing = freeText();
+    private final String landing = "landing.main";
     private final String githubKey = credentialKey();
     private final Instant verifiedAt = Instant.ofEpochSecond(
             Generators.longs(1_600_000_000L, 1_900_000_000L).next());

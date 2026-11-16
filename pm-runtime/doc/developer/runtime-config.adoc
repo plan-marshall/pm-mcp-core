@@ -91,12 +91,69 @@ transport, which opens no pull request), `landing.main` and `landing.files` need
 The check reads the machine's provider defaults only; it never reads a repository, and whether a base branch is
 protected, or a landing variant fits a project, is the project's own check where the project is known.
 
+[#_the_machine_s_plan_defaults]
+== The Machine's Plan Defaults
+
+`PlanDefaults` is the typed value of `plan_defaults`: the machine's variant of each plan behaviour axis (`landing`,
+`method`, `asking`) and its optional posture. Each value is checked against the schema's closed list, and
+`MachineConfigurationSchemaParityTest` reads those lists out of `machine-config.schema.json`, so the two cannot drift.
+`MachineConfigurationStore.writePlanDefaults(defaults, revision)` records the member under the machine configuration lock
+and the revision rule the other writers follow: the first change wins, and a change against an older revision is refused
+with `conflict` and the current defaults.
+
+A member the document does not set reads at the schema default; a *partial* member — only `posture`, for example — keeps
+the one value it sets, reads the rest at their defaults, and survives another setting's write unchanged. The
+`posture` is optional in the schema and has no default: while no level sets it, a plan asks it in `init.options`.
+
+The composition's reader is `PlanAxisLevels` of `workflow.plan`: it maps the raw members of this document, the project's
+values and the plan's overrides onto the axes, refuses a key or a value the axes do not admit with the level named, and
+resolves the posture by the same levels
+(link:../../../pm-workflow/doc/developer/workflow-plan.adoc#_the_plan_behaviour_axes[`workflow.plan` § The Plan Behaviour
+Axes]). The store never imports the workflow module: the values travel as plain strings.
+
+== The Machine's Settings States
+
+`MachineSettingsStates` is the engine half of the settings states of the machine's onboarding (State Catalogue § The
+Machine's Settings), in the shape of `CredentialStoreAspect`: one method per state, each answering a `Transition` with the
+next state and, where it refuses, the reason.
+
+[cols="2,4"]
+|===
+|State |What the method does
+
+|`settings.choose`
+|`facts()` reads the recorded documents mode, cleanup durations and plan defaults, the provider defaults with their last
+verification and the remembered consents, and builds the links the state offers (`reconfigure:<aspect>`,
+`withdraw:<kind>`, `documents_mode`, `cleanup_durations`, `credential:<key>`, `verify_providers`, `done`).
+
+|`settings.withdraw`, `settings.remove-consent`
+|`withdrawOffer` answers the remembered consent of a scope; `removeConsent` removes it through `ConsentStore.withdraw`, so
+the removal is audited and its revision is the store's. The action asks again afterwards because the store no longer
+remembers it; nothing recorded with the consent changes.
+
+|`settings.credential`, `settings.store-credential`
+|`storeCredential` writes the secret into the recorded store and then drops every token derived from the old one through
+the registered `DerivedTokenCache` seams. A store that refuses the write throws before any drop, and the state is refused
+with `credential_store_unavailable`.
+
+|`settings.verify-providers`
+|`verifyProviders` runs `ProviderVerification` over every recorded provider and writes the results against the change's
+revision. A declined consent records nothing and leaves the providers as they were; the consent each verification answers
+with is the caller's to record.
+|===
+
+The settings' own audit record — the channel and the paired device of a change — is the local API's, which serves the
+operator: this package writes only what the consent store audits. The hold of a plan that goes on after a rotation is the
+job subsystem's; what this package guarantees is that no consumer keeps a token of the replaced secret
+(link:../adr/runtime-config/006-the-settings-states-run-in-the-runtime-and-drop-derived-tokens-through-a-seam.adoc[ADR
+runtime-config/006]).
+
 == Pitfalls
 
 1. **The document has several writers.** The provider step writes `providers`; the credential-store aspect writes
-   `credentials.store`; the machine's settings write `sources.documents_mode` and `cleanup`. No writer may rewrite the
-   whole document from its own model: a writer that did would delete the others' members. Copying every member through is
-   what keeps them apart, and each writer's test asserts the others' members survive.
+   `credentials.store`; the machine's settings write `sources.documents_mode`, `cleanup` and `plan_defaults`. No writer may
+   rewrite the whole document from its own model: a writer that did would delete the others' members. Copying every member
+   through is what keeps them apart, and each writer's test asserts the others' members survive.
 2. **The revision is the caller's.** A write that names the revision it read refuses a concurrent change instead of
    overwriting it; a caller that writes `revision + 1` it computed itself defeats that.
 3. **A provider without a credential key is not a provider with no credential.** `providers` records where the credential
