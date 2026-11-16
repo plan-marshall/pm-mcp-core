@@ -19,12 +19,14 @@ import com.networknt.schema.InputFormat;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
+import com.networknt.schema.ValidationMessage;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -110,7 +112,7 @@ class QualificationSchemaParityTest {
 
     private static Set<String> violations(JsonSchema validator, byte[] document) {
         return validator.validate(new String(document, UTF_8), InputFormat.JSON).stream()
-                .map(violation -> violation.getMessage()).collect(Collectors.toUnmodifiableSet());
+                .map(ValidationMessage::getMessage).collect(Collectors.toUnmodifiableSet());
     }
 
     private static void assertValid(JsonSchema validator, byte[] document) {
@@ -119,17 +121,34 @@ class QualificationSchemaParityTest {
 
     /**
      * @param document a written qualification record
-     * @return the same document with the pinned {@code thin} mark supplied on every topic result, as the schema defines it
+     * @return the same document with the pinned {@code thin} mark supplied where it is absent, as the schema defines it
      */
-    @SuppressWarnings("unchecked")
     private static byte[] withTopicMark(byte[] document) {
-        var parsed = SchemaParity.object(SchemaParity.document(document));
-        SchemaResource.object(parsed.get(FORMS)).values().forEach(form ->
-                SchemaResource.object(SchemaResource.object(form).get(TOPICS)).values().forEach(topic -> {
-                    var values = (Map<String, Object>) SchemaResource.object(topic);
-                    values.put(THIN, ((Number) values.get(ITEMS)).intValue() < THIN_LIMIT);
-                }));
+        var parsed = mutableObject(SchemaParity.document(document));
+        var forms = mutableObject(parsed.get(FORMS));
+        forms.replaceAll((name, form) -> {
+            var values = mutableObject(form);
+            var topics = mutableObject(values.get(TOPICS));
+            topics.replaceAll((topic, result) -> {
+                var topicValues = mutableObject(result);
+                topicValues.putIfAbsent(THIN, ((Number) topicValues.get(ITEMS)).intValue() < THIN_LIMIT);
+                return topicValues;
+            });
+            values.put(TOPICS, topics);
+            return values;
+        });
+        parsed.put(FORMS, forms);
         return SchemaParity.text(parsed).getBytes(UTF_8);
+    }
+
+    /**
+     * @param value a parsed JSON object
+     * @return a mutable copy of it, so a member can be supplied without casting
+     */
+    private static Map<String, Object> mutableObject(Object value) {
+        var copy = new LinkedHashMap<String, Object>();
+        SchemaResource.object(value).forEach((name, member) -> copy.put(String.valueOf(name), member));
+        return copy;
     }
 
     /**
@@ -146,7 +165,8 @@ class QualificationSchemaParityTest {
     class Qualification {
 
         private static QualificationRecord sample() {
-            return QualificationFixtures.qualification(Map.of(Topic.OWN, BigDecimal.valueOf(90)));
+            var agreement = BigDecimal.valueOf(Generators.integers(0, 100).next());
+            return QualificationFixtures.qualification(Map.of(Topic.OWN, agreement));
         }
 
         @Test
@@ -216,6 +236,8 @@ class QualificationSchemaParityTest {
             assertAll(
                     () -> assertEquals(1, ((Number) member(schema(QUALIFICATION), "format_version").get("const"))
                             .intValue(), "the format version constant is one"),
+                    () -> assertFalse(violations(validator, written).isEmpty(),
+                            "the written record misses the pinned mark"),
                     () -> assertTrue(violations(validator, written).stream()
                                     .allMatch(message -> message.contains("'" + THIN + "'")),
                             "only the pinned topic mark is absent"),
@@ -243,12 +265,17 @@ class QualificationSchemaParityTest {
     class JudgeCheckRecord {
 
         private static JudgeCheck.Record sample() {
+            var score = BigDecimal.valueOf(Generators.integers(0, 100).next(), 2);
             return new JudgeCheck.Record(QualificationFixtures.DIGEST, QualificationFixtures.HARNESS,
                     QualificationFixtures.MODEL, QualificationFixtures.CORPUS_REVISION,
-                    BigDecimal.valueOf(90), BigDecimal.valueOf(80), BigDecimal.valueOf(50), 0,
+                    BigDecimal.valueOf(Generators.integers(0, 100).next()),
+                    BigDecimal.valueOf(Generators.integers(0, 100).next()),
+                    BigDecimal.valueOf(Generators.integers(0, 100).next()), 0,
                     Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()),
-                    List.of(new JudgeCheck.ItemScore("item-1", Label.RIGHT, Grade.scored(BigDecimal.ONE),
-                            Grade.scored(BigDecimal.ZERO), TokenTotal.measured(10), 5L)));
+                    List.of(new JudgeCheck.ItemScore("i" + Generators.letterStrings(3, 8).next(), Label.RIGHT,
+                            Grade.scored(score), Grade.scored(score),
+                            TokenTotal.measured(Generators.integers(1, 1_000).next()),
+                            Generators.longs(0, 1_000).next())));
         }
 
         @Test
