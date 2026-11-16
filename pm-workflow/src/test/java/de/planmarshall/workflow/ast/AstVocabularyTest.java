@@ -35,11 +35,13 @@ class AstVocabularyTest {
         var column = Generators.integers(1, 80).next();
         var location = new SourceLocation(resource, line, column);
 
-        assertEquals(resource, location.resourceName());
-        assertEquals(line, location.line());
-        assertEquals(column, location.column());
-        assertEquals(new SourceLocation(resource, line, column), location);
-        assertNotEquals(new SourceLocation(resource, line, column + 1), location);
+        assertEquals(resource, location.resourceName(), "the location keeps the resource name");
+        assertEquals(line, location.line(), "the location keeps the line");
+        assertEquals(column, location.column(), "the location keeps the column");
+        assertEquals(new SourceLocation(resource, line, column), location,
+                "two equal locations are equal");
+        assertNotEquals(new SourceLocation(resource, line, column + 1), location,
+                "a moved column makes the location differ");
     }
 
     @Test
@@ -47,7 +49,8 @@ class AstVocabularyTest {
     void scopes() {
         var names = Arrays.stream(WorkflowScope.values()).map(Enum::name).toList();
 
-        assertEquals(List.of("PLAN", "EPIC", "WORKSPACE", "MACHINE", "ENTITY", "SUBWORKFLOW"), names);
+        assertEquals(List.of("PLAN", "EPIC", "WORKSPACE", "MACHINE", "ENTITY", "SUBWORKFLOW"), names,
+                "the scopes are the six of the language");
     }
 
     @Test
@@ -55,8 +58,11 @@ class AstVocabularyTest {
     void unitTypes() {
         var wireNames = Arrays.stream(UnitType.values()).map(UnitType::wireName).toList();
 
-        assertEquals(List.of("workflow", "recipe", "subworkflow", "system", "task", "instance"), wireNames);
-        assertEquals(Optional.of(UnitType.TASK), UnitType.fromWireName("task"));
-        assertEquals(Optional.empty(), UnitType.fromWireName("TASK"));
+        assertEquals(List.of("workflow", "recipe", "subworkflow", "system", "task", "instance"), wireNames,
+                "the unit types keep their wire names");
+        assertEquals(Optional.of(UnitType.TASK), UnitType.fromWireName("task"),
+                "a lower-case wire name resolves");
+        assertEquals(Optional.empty(), UnitType.fromWireName("TASK"),
+                "an upper-case wire name does not resolve");
     }
 }

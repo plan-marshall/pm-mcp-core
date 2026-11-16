@@ -145,8 +145,9 @@ class WorkflowParserRefusalTest {
         @DisplayName("finds one fixture per refusal class: 14 of the body, 19 of the frontmatter, 2 of the entries")
         void fixturesPresent() {
             assertAll(
-                    () -> assertEquals(35, malformedFixtures().size()),
-                    () -> assertEquals(21, frontmatterAndEntryFixtures().size()));
+                    () -> assertEquals(35, malformedFixtures().size(), "the malformed fixtures are 35"),
+                    () -> assertEquals(21, frontmatterAndEntryFixtures().size(),
+                            "the frontmatter and entry fixtures are 21"));
         }
 
         static Set<RefusalRule> statedRules() {
@@ -181,12 +182,13 @@ class WorkflowParserRefusalTest {
             assertAll(
                     () -> assertEquals(RefusalRule.valueOf(expectation.group(1)), diagnostic.rule(),
                             diagnostic::message),
-                    () -> assertEquals(resource, diagnostic.resourceName()),
+                    () -> assertEquals(resource, diagnostic.resourceName(),
+                            "the diagnostic names the refused fixture"),
                     () -> assertEquals(Integer.parseInt(expectation.group(2)), diagnostic.line(), diagnostic::message),
                     () -> assertEquals(Optional.ofNullable(expectation.group(3)).map(Integer::parseInt)
                             .orElse(diagnostic.column()), diagnostic.column(), diagnostic::message),
-                    () -> assertTrue(diagnostic.column() >= 1),
-                    () -> assertFalse(diagnostic.message().isBlank()));
+                    () -> assertTrue(diagnostic.column() >= 1, "the column starts at one"),
+                    () -> assertFalse(diagnostic.message().isBlank(), "the refusal carries a message"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -319,9 +321,12 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuseProject("zero.pmwf", projectUnit(HEADER + " derived_from 0"));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule()),
-                    () -> assertEquals(FRONTMATTER_LINES + 1, diagnostic.line()),
-                    () -> assertEquals("expected a positive integer but found '0'", diagnostic.message()));
+                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule(),
+                            "the zero derives reports a structure refusal"),
+                    () -> assertEquals(FRONTMATTER_LINES + 1, diagnostic.line(),
+                            "the refusal names the derived_from line"),
+                    () -> assertEquals("expected a positive integer but found '0'", diagnostic.message(),
+                            "the refusal names the zero"));
         }
 
         @Test
@@ -330,10 +335,12 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("default.pmwf", unit(HEADER + " derived_from 2"));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule()),
-                    () -> assertEquals(FRONTMATTER_LINES + 1, diagnostic.line()),
+                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule(),
+                            "a derived_from on a default unit is refused"),
+                    () -> assertEquals(FRONTMATTER_LINES + 1, diagnostic.line(),
+                            "the refusal names the derived_from line"),
                     () -> assertEquals("'derived_from' is admitted only in a project unit, but 'demo' is parsed as "
-                            + "a default unit", diagnostic.message()));
+                            + "a default unit", diagnostic.message(), "the refusal names the unit origin"));
         }
 
         static Stream<Arguments> declarationRefusals() {

@@ -74,8 +74,9 @@ class AstNodeModelTest {
             var copied = enumOf.values();
 
             assertAll(
-                    () -> assertEquals(List.of(first, second), copied),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> copied.add(extra)));
+                    () -> assertEquals(List.of(first, second), copied, "the record copies the list it was given"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> copied.add(extra),
+                            "the copied list refuses a change"));
         }
 
         @Test
@@ -115,18 +116,18 @@ class AstNodeModelTest {
                     new ParamType.Int(null, null), false, LOCATION));
 
             assertAll(
-                    () -> assertEquals(List.of(value), enumList.values()),
-                    () -> assertEquals(List.of(value), quorum.roles()),
-                    () -> assertEquals(List.of(value), guard.dependsOnConfig()),
-                    () -> assertEquals(List.of(), interactive.links()),
-                    () -> assertEquals(1, auto.transitions().size()),
-                    () -> assertEquals(1, job.transitions().size()),
-                    () -> assertEquals(List.of(value), modelJob.consultRoles()),
-                    () -> assertEquals(1, modelJob.transitions().size()),
-                    () -> assertEquals(1, question.transitions().size()),
-                    () -> assertEquals(1, outcome.completions().size()),
-                    () -> assertEquals(List.of(), link.freeParams()),
-                    () -> assertEquals(1, link.transitions().size()));
+                    () -> assertEquals(List.of(value), enumList.values(), "the enum list keeps the copied value"),
+                    () -> assertEquals(List.of(value), quorum.roles(), "the quorum copies its roles"),
+                    () -> assertEquals(List.of(value), guard.dependsOnConfig(), "the guard copies its config inputs"),
+                    () -> assertEquals(List.of(), interactive.links(), "the interactive state has no links"),
+                    () -> assertEquals(1, auto.transitions().size(), "the auto step keeps one transition"),
+                    () -> assertEquals(1, job.transitions().size(), "the job step keeps one transition"),
+                    () -> assertEquals(List.of(value), modelJob.consultRoles(), "the model job copies its roles"),
+                    () -> assertEquals(1, modelJob.transitions().size(), "the model job keeps one transition"),
+                    () -> assertEquals(1, question.transitions().size(), "the question wait keeps a transition"),
+                    () -> assertEquals(1, outcome.completions().size(), "the outcome copies one completion"),
+                    () -> assertEquals(List.of(), link.freeParams(), "the link copies no free parameters"),
+                    () -> assertEquals(1, link.transitions().size(), "the link keeps one transition"));
         }
 
         @Test
@@ -149,9 +150,10 @@ class AstNodeModelTest {
             var copiedTemplates = header.inputs().templates();
 
             assertAll(
-                    () -> assertEquals(List.of(unit), copiedTemplates),
-                    () -> assertEquals(List.of(), header.inputs().subUnits()),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> copiedTemplates.add(unit)));
+                    () -> assertEquals(List.of(unit), copiedTemplates, "the header copies the given templates"),
+                    () -> assertEquals(List.of(), header.inputs().subUnits(), "the header copies no sub-units"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> copiedTemplates.add(unit),
+                            "the copied templates refuse a change"));
         }
 
         @Test
@@ -173,11 +175,14 @@ class AstNodeModelTest {
             var copiedMigrations = definition.migrations();
 
             assertAll(
-                    () -> assertEquals(List.of(), definition.params()),
-                    () -> assertEquals(List.of(), copiedMigrations),
-                    () -> assertEquals(List.of(stateId), List.copyOf(copiedStates.keySet())),
-                    () -> assertThrows(UnsupportedOperationException.class, copiedStates::clear),
-                    () -> assertThrows(UnsupportedOperationException.class, copiedMigrations::clear));
+                    () -> assertEquals(List.of(), definition.params(), "the definition copies no parameters"),
+                    () -> assertEquals(List.of(), copiedMigrations, "the definition copies no migration"),
+                    () -> assertEquals(List.of(stateId), List.copyOf(copiedStates.keySet()),
+                            "the copied states keep only the declared one"),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedStates::clear,
+                            "the copied states refuse a change"),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedMigrations::clear,
+                            "the copied migrations refuse a change"));
         }
 
         @Test
@@ -197,10 +202,13 @@ class AstNodeModelTest {
             var copiedExits = frontmatter.exits();
 
             assertAll(
-                    () -> assertEquals(List.of(review, repair), copiedEntries),
-                    () -> assertEquals(List.of(done), copiedExits),
-                    () -> assertThrows(UnsupportedOperationException.class, copiedEntries::clear),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> copiedExits.add(done)));
+                    () -> assertEquals(List.of(review, repair), copiedEntries,
+                            "the frontmatter copies the given entries"),
+                    () -> assertEquals(List.of(done), copiedExits, "the frontmatter copies the given exits"),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedEntries::clear,
+                            "the copied entries refuse a change"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> copiedExits.add(done),
+                            "the copied exits refuse a change"));
         }
 
         @Test
@@ -223,9 +231,11 @@ class AstNodeModelTest {
             var copied = definition.entryBindings();
 
             assertAll(
-                    () -> assertEquals(List.of(second, first), List.copyOf(copied.keySet())),
+                    () -> assertEquals(List.of(second, first), List.copyOf(copied.keySet()),
+                            "the entry bindings keep the declaration order"),
                     () -> assertNull(definition.startState(), "a unit with entries declares no start state"),
-                    () -> assertThrows(UnsupportedOperationException.class, copied::clear));
+                    () -> assertThrows(UnsupportedOperationException.class, copied::clear,
+                            "the copied bindings refuse a change"));
         }
     }
 
@@ -242,7 +252,8 @@ class AstNodeModelTest {
 
             var definition = definition(List.of(), List.of(), states);
 
-            assertEquals(List.of(stateId), definition.startingStates());
+            assertEquals(List.of(stateId), definition.startingStates(),
+                    "a start state is the only starting state");
         }
 
         @Test
@@ -260,7 +271,8 @@ class AstNodeModelTest {
 
             var definition = definition(bindings, states);
 
-            assertEquals(List.of(repairState, reviewState), definition.startingStates());
+            assertEquals(List.of(repairState, reviewState), definition.startingStates(),
+                    "every entry-bound state starts once, in order");
         }
     }
 
@@ -287,7 +299,8 @@ class AstNodeModelTest {
             var other = Generators.letterStrings(1, 8).next();
             var values = List.of(duplicate, other, duplicate);
 
-            var thrown = assertThrows(IllegalArgumentException.class, () -> new CallValue.EnumList(values));
+            var thrown = assertThrows(IllegalArgumentException.class, () -> new CallValue.EnumList(values),
+                    "a duplicate call value is refused");
 
             assertTrue(thrown.getMessage().contains("'" + duplicate + "'"), thrown.getMessage());
         }
@@ -299,7 +312,8 @@ class AstNodeModelTest {
             var other = Generators.letterStrings(1, 8).next();
             var values = List.of(duplicate, other, duplicate);
 
-            var thrown = assertThrows(IllegalArgumentException.class, () -> new ParamType.EnumOf(values));
+            var thrown = assertThrows(IllegalArgumentException.class, () -> new ParamType.EnumOf(values),
+                    "a duplicate enum value is refused");
 
             assertTrue(thrown.getMessage().contains("'" + duplicate + "'"), thrown.getMessage());
         }
@@ -320,12 +334,12 @@ class AstNodeModelTest {
             var freeInt = new ParamType.Int(NONE, NONE);
 
             assertAll(
-                    () -> assertEquals(LOW, boundedText.minLength()),
-                    () -> assertEquals(HIGH, boundedText.maxLength()),
+                    () -> assertEquals(LOW, boundedText.minLength(), "the bounded text keeps the low bound"),
+                    () -> assertEquals(HIGH, boundedText.maxLength(), "the bounded text keeps the high bound"),
                     () -> assertNull(freeText.minLength(), "a free text keeps no least length"),
                     () -> assertNull(freeText.maxLength(), "a free text keeps no greatest length"),
-                    () -> assertEquals(LOW, boundedInt.min()),
-                    () -> assertEquals(HIGH, boundedInt.max()),
+                    () -> assertEquals(LOW, boundedInt.min(), "the bounded int keeps the low bound"),
+                    () -> assertEquals(HIGH, boundedInt.max(), "the bounded int keeps the high bound"),
                     () -> assertNull(freeInt.min(), "a free int keeps no least value"),
                     () -> assertNull(freeInt.max(), "a free int keeps no greatest value"));
         }
@@ -431,7 +445,8 @@ class AstNodeModelTest {
 
             var definition = definition(List.of(), List.of(), states);
 
-            assertEquals(ids, List.copyOf(definition.states().keySet()));
+            assertEquals(ids, List.copyOf(definition.states().keySet()),
+                    "the states keep the declaration order");
         }
 
         @Test
@@ -454,10 +469,13 @@ class AstNodeModelTest {
             var boundArgs = frame.boundArgs();
 
             assertAll(
-                    () -> assertEquals(entry, frame.entry()),
-                    () -> assertEquals(List.of(z, a, m), List.copyOf(call.paramBindings().keySet())),
-                    () -> assertEquals(List.of(z, a, m), List.copyOf(boundArgs.keySet())),
-                    () -> assertThrows(UnsupportedOperationException.class, boundArgs::clear));
+                    () -> assertEquals(entry, frame.entry(), "the frame keeps its entry value"),
+                    () -> assertEquals(List.of(z, a, m), List.copyOf(call.paramBindings().keySet()),
+                            "the call keeps the binding order"),
+                    () -> assertEquals(List.of(z, a, m), List.copyOf(boundArgs.keySet()),
+                            "the frame keeps the binding order"),
+                    () -> assertThrows(UnsupportedOperationException.class, boundArgs::clear,
+                            "the bound arguments refuse a change"));
         }
     }
 
@@ -483,7 +501,8 @@ class AstNodeModelTest {
             var kinds = behaviors.stream().map(AstNodeModelTest::kind).toList();
 
             // the labels are this switch's own vocabulary, not product data
-            assertEquals(List.of("links", "auto", "job", "llm", "call", "question", "terminal"), kinds);
+            assertEquals(List.of("links", "auto", "job", "llm", "call", "question", "terminal"), kinds,
+                    "every state behaviour is covered once");
         }
 
         @Test
@@ -496,7 +515,7 @@ class AstNodeModelTest {
 
             assertEquals("((in_worktree and not has_open_findings) or (all_tasks_completed and predicate:" + predicate
                     + "))",
-                    render(expr));
+                    render(expr), "the guard expression renders its operands");
         }
 
         @Test
@@ -512,7 +531,8 @@ class AstNodeModelTest {
 
             var names = types.stream().map(AstNodeModelTest::name).toList();
 
-            assertEquals(List.of("text", "int", "enum", "schema[" + schemaName + "]", "list<enum>"), names);
+            assertEquals(List.of("text", "int", "enum", "schema[" + schemaName + "]", "list<enum>"), names,
+                    "every parameter type is covered once");
         }
 
         @Test
@@ -527,7 +547,8 @@ class AstNodeModelTest {
 
             var rendered = values.stream().map(AstNodeModelTest::render).toList();
 
-            assertEquals(List.of(value, Integer.toString(number), "[" + first + ", " + second + "]"), rendered);
+            assertEquals(List.of(value, Integer.toString(number), "[" + first + ", " + second + "]"), rendered,
+                    "every call value is covered once");
         }
 
         @Test
@@ -543,9 +564,11 @@ class AstNodeModelTest {
 
             assertAll(
                     () -> assertEquals(
-                            List.of("ask", "quorum(" + firstRole + ", " + secondRole + ", " + score + ")"), rendered),
+                            List.of("ask", "quorum(" + firstRole + ", " + secondRole + ", " + score + ")"), rendered,
+                            "every decision declaration is covered once"),
                     () -> assertEquals(List.of(LOCATION, LOCATION),
-                            declarations.stream().map(DecisionDeclaration::location).toList()));
+                            declarations.stream().map(DecisionDeclaration::location).toList(),
+                            "each declaration carries its location"));
         }
 
         @Test
@@ -555,8 +578,9 @@ class AstNodeModelTest {
             var declaration = new ValueDeclaration(new CallValue.IntValue(value), LOCATION);
 
             assertAll(
-                    () -> assertEquals(new CallValue.IntValue(value), declaration.value()),
-                    () -> assertEquals(LOCATION, declaration.location()));
+                    () -> assertEquals(new CallValue.IntValue(value), declaration.value(),
+                            "the declaration carries its value"),
+                    () -> assertEquals(LOCATION, declaration.location(), "the declaration carries its location"));
         }
 
         @Test
@@ -568,7 +592,8 @@ class AstNodeModelTest {
 
             var rendered = results.stream().map(AstNodeModelTest::render).toList();
 
-            assertEquals(List.of("held", "not_held", "could_not_evaluate(" + reason + ")"), rendered);
+            assertEquals(List.of("held", "not_held", "could_not_evaluate(" + reason + ")"), rendered,
+                    "every guard result is covered once");
         }
 
         @Test
@@ -581,7 +606,7 @@ class AstNodeModelTest {
                 case LinkAction.ExecutePrimitive execute -> execute.primitiveId();
             };
 
-            assertEquals(primitiveId, primitive);
+            assertEquals(primitiveId, primitive, "the primitive action carries its id");
         }
     }
 
@@ -594,7 +619,7 @@ class AstNodeModelTest {
         void unitOrigins() {
             var names = Arrays.stream(UnitOrigin.values()).map(Enum::name).toList();
 
-            assertEquals(List.of("DEFAULT", "PROJECT"), names);
+            assertEquals(List.of("DEFAULT", "PROJECT"), names, "the unit origins are default and project");
         }
 
         @Test
@@ -602,7 +627,8 @@ class AstNodeModelTest {
         void stepCompletionStatuses() {
             var names = Arrays.stream(StepCompletionStatus.values()).map(Enum::name).toList();
 
-            assertEquals(List.of("DONE", "SKIPPED", "FAILED", "WAIVED"), names);
+            assertEquals(List.of("DONE", "SKIPPED", "FAILED", "WAIVED"), names,
+                    "the completion statuses are the four states");
         }
 
         @Test
@@ -612,8 +638,9 @@ class AstNodeModelTest {
             var outcome = new TerminalOutcome(outcomeId, OutcomeClass.STEPPED_OUT);
 
             assertAll(
-                    () -> assertEquals(outcomeId, outcome.id()),
-                    () -> assertEquals(OutcomeClass.STEPPED_OUT, outcome.outcomeClass()));
+                    () -> assertEquals(outcomeId, outcome.id(), "the terminal outcome keeps the id"),
+                    () -> assertEquals(OutcomeClass.STEPPED_OUT, outcome.outcomeClass(),
+                            "the terminal outcome keeps its class"));
         }
     }
 
