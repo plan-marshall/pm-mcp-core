@@ -480,16 +480,16 @@ class ScenarioReplayRunnerTest {
             runner.run(ScenarioScript.read(SCRIPT));
 
             var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN, PLAN_ID));
-            var record = runner.fixtures().queue.read("qt-0000000000000001").orElseThrow();
+            var task = runner.fixtures().queue.read("qt-0000000000000001").orElseThrow();
             assertAll(
                     () -> assertEquals("completed", stored.read().orElseThrow().state()),
-                    () -> assertEquals(1, record.attempts().size()),
-                    () -> assertEquals(Status.CLOSED, record.status(), "the task record is closed"),
-                    () -> assertEquals(Outcome.SUBMITTED, record.outcome(), "the closed outcome is submitted"),
-                    () -> assertEquals(AttemptEnd.CLOSED, record.currentAttempt().orElseThrow().end(),
+                    () -> assertEquals(1, task.attempts().size()),
+                    () -> assertEquals(Status.CLOSED, task.status(), "the task record is closed"),
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the closed outcome is submitted"),
+                    () -> assertEquals(AttemptEnd.CLOSED, task.currentAttempt().orElseThrow().end(),
                             "the attempt ended closed"),
                     () -> assertEquals("l-0000000000000001",
-                            record.currentAttempt().orElseThrow().generationId(),
+                            task.currentAttempt().orElseThrow().generationId(),
                             "the task was leased to the worker's generation"));
         }
 

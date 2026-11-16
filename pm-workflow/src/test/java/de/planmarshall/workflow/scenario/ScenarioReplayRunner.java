@@ -322,8 +322,8 @@ final class ScenarioReplayRunner {
         return switch (answer) {
             case WaitAnswer.WaitAgain again -> "'%s', an empty window".formatted(again.reason().wireName());
             case WaitAnswer.End end -> "the end of the worker '%s'".formatted(end.reason().wireName());
-            case WaitAnswer.Answered ignored -> "the answer of a held task, which this harness does not hold";
-            case WaitAnswer.Offered ignored -> "an offer";
+            case WaitAnswer.Answered(_, _) -> "the answer of a held task, which this harness does not hold";
+            case WaitAnswer.Offered(_) -> "an offer";
         };
     }
 
@@ -340,11 +340,11 @@ final class ScenarioReplayRunner {
         var at = fixtures.clock.now();
         CallResult result;
         switch (call.action()) {
-            case ScenarioDirective.Action.Ack ignored -> {
+            case ScenarioDirective.Action.Ack() -> {
                 requireTask(call.line(), worker);
                 result = worker.acknowledge(at);
             }
-            case ScenarioDirective.Action.Infeasible ignored -> {
+            case ScenarioDirective.Action.Infeasible() -> {
                 requireTask(call.line(), worker);
                 result = worker.infeasible(at);
             }
@@ -405,12 +405,12 @@ final class ScenarioReplayRunner {
                 .at(at)
                 .build();
         switch (fixtures.consultations.open(request)) {
-            case ConsultationOutcome.Opened ignored -> {
+            case ConsultationOutcome.Opened(_, _) -> {
                 // the consultation task is queued for the consulted role
             }
             case ConsultationOutcome.Refused refused -> throw new ScenarioFailure(call.line(),
                     "the consultation was refused '%s': %s".formatted(refused.refusal().wireName(), refused.detail()));
-            case ConsultationOutcome.Answered ignored -> throw new ScenarioFailure(call.line(),
+            case ConsultationOutcome.Answered(_, _) -> throw new ScenarioFailure(call.line(),
                     "opening a consultation does not answer it");
         }
     }
@@ -419,12 +419,12 @@ final class ScenarioReplayRunner {
     private void answerConsultation(ScenarioDirective.WorkerDo call, ScriptedProtocolWorker worker, Instant at) {
         var taskId = requireTask(call.line(), worker);
         switch (fixtures.consultations.answer(taskId, worker.generation(), call.arguments().get("answer"), at)) {
-            case ConsultationOutcome.Answered ignored -> {
+            case ConsultationOutcome.Answered(_, _) -> {
                 // the answer is delivered to the asker's next wait
             }
             case ConsultationOutcome.Refused refused -> throw new ScenarioFailure(call.line(),
                     "the answer was refused '%s': %s".formatted(refused.refusal().wireName(), refused.detail()));
-            case ConsultationOutcome.Opened ignored -> throw new ScenarioFailure(call.line(),
+            case ConsultationOutcome.Opened(_, _) -> throw new ScenarioFailure(call.line(),
                     "answering a consultation does not open one");
         }
     }
