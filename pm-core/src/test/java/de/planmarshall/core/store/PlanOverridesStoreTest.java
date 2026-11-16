@@ -185,7 +185,8 @@ class PlanOverridesStoreTest {
                             CLOCK.instant()),
                     "The plan overrides are written by the plan's own transaction");
         }
-        assertTrue(Files.notExists(expected()), "A foreign transaction writes nothing");
+        assertTrue(Files.notExists(epic.pathBase().resolve("overrides.json")),
+                "A foreign transaction writes nothing into its own scope");
     }
 
     /** @return the document's path, built from the store layout rather than from the object under test */
