@@ -26,6 +26,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import de.planmarshall.core.config.LimitProperties;
+import de.planmarshall.workflow.ast.CallValue;
+import de.planmarshall.workflow.ast.InputDecl;
+import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
@@ -49,8 +52,13 @@ import org.jspecify.annotations.Nullable;
  * format character (Cf, such as a bidi override or a zero-width space), a line separator (Zl), a paragraph separator
  * (Zp), an unknown key, a key of its own missing ({@code name}, {@code description}, {@code type}, {@code icon},
  * {@code modification_date}, {@code version}, {@code author}) or repeated (those and {@code signature}), a value that
- * is neither plain nor double-quoted, and an {@code entry_description} or {@code exit_description} that does not stand
- * directly below its {@code entry} or {@code exit} line, or is the second description of one element.
+ * is neither plain nor double-quoted, an {@code entry_description} or {@code exit_description} that does not stand
+ * directly below its {@code entry} or {@code exit} line, or is the second description of one element, a {@code
+ * reads_config} or {@code reads_fact} value outside its grammar or twice, more than 32 such values, an {@code input}
+ * whose name is no {@code param_name}, is a reserved keyword or is declared twice, more than 16 inputs, an {@code
+ * input_type} that does not stand directly below its {@code input} or is missing or repeats, an {@code input_default}
+ * or {@code input_fallback} out of its order, beside the optional form or outside the input's type, and an {@code
+ * input_description} out of its order or beyond its bounds.
  * <p>
  * The reader reads the frontmatter from the head of the source alone and never the body. A frontmatter holds at most
  * the value of {@link #MAX_FRONTMATTER_LINES} lines, its two delimiters included; the text a refusal echoes from the
@@ -98,10 +106,26 @@ public final class UnitFrontmatterReader {
     private static final String KEY_ENTRY_DESCRIPTION = "entry_description";
     private static final String KEY_EXIT = "exit";
     private static final String KEY_EXIT_DESCRIPTION = "exit_description";
+    private static final String KEY_READS_CONFIG = "reads_config";
+    private static final String KEY_READS_FACT = "reads_fact";
+    private static final String KEY_INPUT = "input";
+    private static final String KEY_INPUT_TYPE = "input_type";
+    private static final String KEY_INPUT_DEFAULT = "input_default";
+    private static final String KEY_INPUT_FALLBACK = "input_fallback";
+    private static final String KEY_INPUT_DESCRIPTION = "input_description";
     private static final String KEY_MODIFICATION_DATE = "modification_date";
     private static final String KEY_VERSION = "version";
     private static final String KEY_AUTHOR = "author";
     private static final String KEY_SIGNATURE = "signature";
+
+    /** The most inputs one frontmatter declares. */
+    static final int MAX_INPUTS = 16;
+
+    /** The most values one {@code reads_config} or {@code reads_fact} key carries. */
+    static final int MAX_READS = 32;
+
+    /** The longest {@code input_description}. */
+    static final int MAX_INPUT_DESCRIPTION = 500;
 
     /** The keys that occur exactly once, in the order of the field table. */
     private static final List<String> REQUIRED_KEYS = List.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON,
@@ -111,15 +135,35 @@ public final class UnitFrontmatterReader {
     private static final Set<String> SINGLE_KEYS = Set.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON,
             KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE);
 
+    /** The keys that are one field of the input they stand below. */
+    private static final Set<String> INPUT_KEYS = Set.of(KEY_INPUT_TYPE, KEY_INPUT_DEFAULT, KEY_INPUT_FALLBACK,
+            KEY_INPUT_DESCRIPTION);
+
     private static final Set<String> KEYS = Set.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON, KEY_ENTRY,
-            KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR,
-            KEY_SIGNATURE);
+            KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_READS_CONFIG, KEY_READS_FACT, KEY_INPUT,
+            KEY_INPUT_TYPE, KEY_INPUT_DEFAULT, KEY_INPUT_FALLBACK, KEY_INPUT_DESCRIPTION, KEY_MODIFICATION_DATE,
+            KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE);
 
     /** The outcome id of the implicit control exit, which no frontmatter declares. */
     private static final String STEPPED_OUT = "stepped_out";
 
     /** The DSL identifier of the Identifier Registry, with its bound of 32 characters. */
     private static final Pattern IDENTIFIER = Pattern.compile("[a-z][a-z0-9_-]{0,31}");
+
+    /** The free parameter name of the Identifier Registry, which admits no hyphen, with its bound of 32 characters. */
+    private static final Pattern PARAM_NAME = Pattern.compile("[a-z][a-z0-9_]{0,31}");
+
+    /** An enum value of the DSL, which admits upper case and the hyphen. */
+    private static final Pattern ENUM_VALUE = Pattern.compile("[A-Za-z][A-Za-z0-9_-]*");
+
+    /** The low bound of an int range: zero or a positive integer without a leading zero. */
+    private static final Pattern RANGE_LOW = Pattern.compile("0|[1-9][0-9]*");
+
+    /** The high bound of an int range: a positive integer without a leading zero. */
+    private static final Pattern RANGE_HIGH = Pattern.compile("[1-9][0-9]*");
+
+    /** A non-negative integer default. */
+    private static final Pattern INTEGER = Pattern.compile("0|[1-9][0-9]*");
 
     /** The icon id: lowercase, at most 64 characters, and never a path. */
     private static final Pattern ICON_ID = Pattern.compile("[a-z][a-z0-9._-]{0,63}");
@@ -187,11 +231,16 @@ public final class UnitFrontmatterReader {
         private final Map<String, String> singles = new HashMap<>();
         private final List<Element> entries = new ArrayList<>();
         private final List<Element> exits = new ArrayList<>();
+        private final List<String> readsConfig = new ArrayList<>();
+        private final List<String> readsFact = new ArrayList<>();
+        private final List<Input> inputs = new ArrayList<>();
         private final Set<String> entryNames = new HashSet<>();
         private final Set<String> exitNames = new HashSet<>();
+        private final Set<String> inputNames = new HashSet<>();
         private @Nullable UnitType type;
         private @Nullable LocalDate modificationDate;
         private @Nullable String previousKey;
+        private @Nullable Input input;
 
         private Fields(String resourceName) {
             this.resourceName = resourceName;
@@ -270,13 +319,24 @@ public final class UnitFrontmatterReader {
                 throw new Refusal(number, colon + 2, "the key '%s' is not followed by ': '".formatted(echo(key)));
             } else {
                 column = colon + 3;
-                value = value(rest.substring(1), number, column);
+                value = KEY_INPUT_DEFAULT.equals(key) && "[]".equals(rest.substring(1)) ? "[]"
+                        : value(rest.substring(1), number, column);
             }
             field(key, value, number, column);
             previousKey = key;
         }
 
         private void field(String key, String value, int number, int column) {
+            if (KEY_INPUT.equals(key)) {
+                closeInput(number, 1);
+                openInput(value, number, column);
+                return;
+            }
+            if (INPUT_KEYS.contains(key)) {
+                inputField(key, value, number, column);
+                return;
+            }
+            closeInput(number, 1);
             if (SINGLE_KEYS.contains(key) && singles.containsKey(key)) {
                 throw new Refusal(number, 1, "the key '%s' is repeated in the frontmatter".formatted(echo(key)));
             }
@@ -296,6 +356,10 @@ public final class UnitFrontmatterReader {
                 }
                 case KEY_ENTRY_DESCRIPTION -> describe(KEY_ENTRY, entries, value, number, column);
                 case KEY_EXIT_DESCRIPTION -> describe(KEY_EXIT, exits, value, number, column);
+                case KEY_READS_CONFIG -> readsConfig.add(read(KEY_READS_CONFIG, readsConfig, configKey(value, number,
+                        column), number, column));
+                case KEY_READS_FACT -> readsFact.add(read(KEY_READS_FACT, readsFact, factKind(value, number, column),
+                        number, column));
                 case KEY_MODIFICATION_DATE -> modificationDate = date(value, number, column);
                 case KEY_VERSION -> checkVersion(value, number, column);
                 case KEY_AUTHOR -> checkLength(key, value, 1, 100, number, column);
@@ -306,6 +370,235 @@ public final class UnitFrontmatterReader {
             if (SINGLE_KEYS.contains(key)) {
                 singles.put(key, value);
             }
+        }
+
+        /** Opens the declaration of one input: its name, the first of its lines. */
+        private void openInput(String value, int number, int column) {
+            if (inputs.size() >= MAX_INPUTS) {
+                throw new Refusal(number, column,
+                        "the frontmatter declares more than %d inputs".formatted(MAX_INPUTS));
+            }
+            if (!PARAM_NAME.matcher(value).matches()) {
+                throw new Refusal(number, column,
+                        "the input '%s' is no name of lowercase letters, digits and underscores, at most 32"
+                                .formatted(echo(value)));
+            }
+            if (WorkflowParser.RESERVED_KEYWORDS.contains(value)) {
+                throw new Refusal(number, column, "the input '%s' is a reserved keyword".formatted(echo(value)));
+            }
+            if (!inputNames.add(value)) {
+                throw new Refusal(number, column, "the input '%s' is declared twice".formatted(echo(value)));
+            }
+            input = new Input(value, new SourceLocation(resourceName, number, column));
+        }
+
+        /** Applies one sub-key of the input its {@code input} line opened, refusing an order the grammar closes. */
+        private void inputField(String key, String value, int number, int column) {
+            var open = requireInput(key, number, column);
+            switch (key) {
+                case KEY_INPUT_TYPE -> {
+                    if (!KEY_INPUT.equals(previousKey)) {
+                        throw new Refusal(number, 1,
+                                "the input_type does not stand directly below its 'input' line");
+                    }
+                    if (open.type != null) {
+                        throw new Refusal(number, 1, "a second input_type of the input '%s'".formatted(open.name));
+                    }
+                    open.optional = value.endsWith("?");
+                    open.type = inputType(value, number, column);
+                }
+                case KEY_INPUT_DEFAULT -> {
+                    if (!KEY_INPUT_TYPE.equals(previousKey)) {
+                        throw outOfOrder(key, KEY_INPUT_TYPE, number);
+                    }
+                    if (open.defaultValue != null) {
+                        throw new Refusal(number, 1, "a second input_default of the input '%s'".formatted(open.name));
+                    }
+                    refuseBesideOptional(open, key, number, column);
+                    open.defaultValue = inputDefault(open, value, number, column);
+                }
+                case KEY_INPUT_FALLBACK -> {
+                    if (!KEY_INPUT_TYPE.equals(previousKey) && !KEY_INPUT_DEFAULT.equals(previousKey)) {
+                        throw outOfOrder(key, KEY_INPUT_TYPE, number);
+                    }
+                    if (open.fallback != null) {
+                        throw new Refusal(number, 1, "a second input_fallback of the input '%s'".formatted(open.name));
+                    }
+                    refuseBesideOptional(open, key, number, column);
+                    open.fallback = configKey(value, number, column);
+                }
+                default -> {
+                    if (!KEY_INPUT_TYPE.equals(previousKey) && !KEY_INPUT_DEFAULT.equals(previousKey)
+                            && !KEY_INPUT_FALLBACK.equals(previousKey)) {
+                        throw outOfOrder(key, KEY_INPUT_TYPE, number);
+                    }
+                    if (open.description != null) {
+                        throw new Refusal(number, 1, "a second input_description of the input '%s'".formatted(open.name));
+                    }
+                    checkLength(key, value, 1, MAX_INPUT_DESCRIPTION, number, column);
+                    open.description = value;
+                }
+            }
+        }
+
+        private Input requireInput(String key, int number, int column) {
+            if (input == null) {
+                throw new Refusal(number, 1, "the %s does not stand below an 'input' line".formatted(key));
+            }
+            return input;
+        }
+
+        private static Refusal outOfOrder(String key, String expected, int number) {
+            return new Refusal(number, 1,
+                    "the %s stands out of the order of its input; it follows '%s'".formatted(key, expected));
+        }
+
+        private static void refuseBesideOptional(Input input, String key, int number, int column) {
+            if (input.optional) {
+                throw new Refusal(number, column,
+                        "the input '%s' is optional and declares a %s; two ways to say the same".formatted(input.name,
+                                key));
+            }
+        }
+
+        /** Ends the declaration of the input its {@code input} line opened, requiring the type it must carry. */
+        private void closeInput(int number, int column) {
+            if (input == null) {
+                return;
+            }
+            if (input.type == null) {
+                throw new Refusal(number, column,
+                        "the input '%s' lacks its input_type".formatted(input.name));
+            }
+            inputs.add(input);
+            input = null;
+        }
+
+        /** Adds a repeatable read value, refusing a value the list already holds and one past the bound. */
+        private static String read(String key, List<String> values, String value, int number, int column) {
+            if (values.size() >= MAX_READS) {
+                throw new Refusal(number, column,
+                        "the frontmatter declares more than %d %s values".formatted(MAX_READS, key));
+            }
+            if (values.contains(value)) {
+                throw new Refusal(number, column, "the %s value '%s' is declared twice".formatted(key, echo(value)));
+            }
+            return value;
+        }
+
+        /** Checks a {@code config_key}: one or more identifier segments, each of at most 32 characters, joined by dots. */
+        private static String configKey(String value, int number, int column) {
+            var segments = value.split("\\.", -1);
+            for (var segment : segments) {
+                if (!IDENTIFIER.matcher(segment).matches()) {
+                    throw new Refusal(number, column,
+                            "the configuration key '%s' is no dotted key of identifier segments".formatted(echo(value)));
+                }
+            }
+            return value;
+        }
+
+        private static String factKind(String value, int number, int column) {
+            if (!IDENTIFIER.matcher(value).matches()) {
+                throw new Refusal(number, column,
+                        "the fact kind '%s' is no identifier of at most 32 characters".formatted(echo(value)));
+            }
+            return value;
+        }
+
+        /**
+         * Reads an {@code input_type}: {@code enum[...]}, {@code int} with its optional range, {@code list<enum[...]>}
+         * and the trailing {@code ?} of the optional form.
+         */
+        private static InputType inputType(String value, int number, int column) {
+            var text = value.endsWith("?") ? value.substring(0, value.length() - 1) : value;
+            if (text.startsWith("enum[") && text.endsWith("]")) {
+                return new InputType.Enumeration(enumValues(
+                        text.substring("enum[".length(), text.length() - 1), number, column));
+            }
+            if ("int".equals(text)) {
+                return new InputType.IntRange(null, null);
+            }
+            if (text.startsWith("int[") && text.endsWith("]")) {
+                return intRange(text.substring("int[".length(), text.length() - 1), number, column);
+            }
+            if (text.startsWith("list<enum[") && text.endsWith("]>")) {
+                return new InputType.EnumList(enumValues(
+                        text.substring("list<enum[".length(), text.length() - 2), number, column));
+            }
+            throw new Refusal(number, column,
+                    "the input_type '%s' is none of enum[...], int with its optional range and list<enum[...]>"
+                            .formatted(echo(value)));
+        }
+
+        private static List<String> enumValues(String text, int number, int column) {
+            var values = new ArrayList<String>();
+            for (var value : text.split("\\|", -1)) {
+                if (!ENUM_VALUE.matcher(value).matches()) {
+                    throw new Refusal(number, column,
+                            "the enum value '%s' is no value of upper or lower case letters, digits, '-' and '_'"
+                                    .formatted(echo(value)));
+                }
+                if (values.contains(value)) {
+                    throw new Refusal(number, column, "the enum value '%s' occurs twice".formatted(echo(value)));
+                }
+                values.add(value);
+            }
+            if (values.isEmpty()) {
+                throw new Refusal(number, column, "the input_type declares no enum value");
+            }
+            return values;
+        }
+
+        private static InputType.IntRange intRange(String text, int number, int column) {
+            var separator = text.indexOf("..");
+            if (separator < 0) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no 'int[<low>..<high>]'".formatted(echo(text)));
+            }
+            var low = text.substring(0, separator);
+            var high = text.substring(separator + 2);
+            if (!RANGE_LOW.matcher(low).matches() || !RANGE_HIGH.matcher(high).matches()) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no 'int[<low>..<high>]'".formatted(echo(text)));
+            }
+            try {
+                return new InputType.IntRange(Integer.parseInt(low), Integer.parseInt(high));
+            } catch (NumberFormatException _) {
+                throw new Refusal(number, column, "the input_type range '%s' is out of range".formatted(echo(text)));
+            }
+        }
+
+        /** Reads an {@code input_default} and refuses one outside the input's type. */
+        private static CallValue inputDefault(Input input, String value, int number, int column) {
+            CallValue parsed;
+            if ("[]".equals(value)) {
+                parsed = new CallValue.EnumList(List.of());
+            } else if (INTEGER.matcher(value).matches()) {
+                parsed = new CallValue.IntValue(Integer.parseInt(value));
+            } else if (ENUM_VALUE.matcher(value).matches()) {
+                parsed = new CallValue.EnumValue(value);
+            } else {
+                throw new Refusal(number, column,
+                        "the input_default '%s' is no enum value, no integer and no '[]'".formatted(echo(value)));
+            }
+            if (!fits(input.type, parsed)) {
+                throw new Refusal(number, column, "the input_default '%s' is outside the type %s of the input '%s'"
+                        .formatted(echo(value), input.type.sourceText(), input.name));
+            }
+            return parsed;
+        }
+
+        /** @return whether a literal value is compatible with the input type */
+        private static boolean fits(InputType type, CallValue value) {
+            return switch (type) {
+                case InputType.Enumeration(var values) -> value instanceof CallValue.EnumValue(var single)
+                        && values.contains(single);
+                case InputType.IntRange(var min, var max) -> value instanceof CallValue.IntValue(var integer)
+                        && (min == null || integer >= min) && (max == null || integer <= max);
+                case InputType.EnumList(var values) -> value instanceof CallValue.EnumList(var list)
+                        && values.containsAll(list);
+            };
         }
 
         private Element element(String kind, String name, Set<String> names, int number, int column) {
@@ -361,6 +654,7 @@ public final class UnitFrontmatterReader {
         }
 
         private UnitFrontmatter complete(int closingLine) {
+            closeInput(closingLine, 1);
             for (var key : REQUIRED_KEYS) {
                 if (!singles.containsKey(key)) {
                     throw new Refusal(closingLine, 1, "the frontmatter lacks the key '%s'".formatted(key));
@@ -368,7 +662,8 @@ public final class UnitFrontmatterReader {
             }
             return new UnitFrontmatter(singles.get(KEY_NAME), singles.get(KEY_DESCRIPTION), type,
                     singles.get(KEY_ICON), entries.stream().map(Element::toInterfaceElement).toList(),
-                    exits.stream().map(Element::toInterfaceElement).toList(),
+                    exits.stream().map(Element::toInterfaceElement).toList(), readsConfig, readsFact,
+                    inputs.stream().map(Input::toInputDecl).toList(),
                     Objects.requireNonNull(modificationDate, "modificationDate"),
                     singles.get(KEY_VERSION), singles.get(KEY_AUTHOR),
                     singles.get(KEY_SIGNATURE), new SourceLocation(resourceName, 1, 1));
@@ -522,9 +817,37 @@ public final class UnitFrontmatterReader {
                 && INDICATORS.indexOf(value.charAt(0)) < 0 && !value.contains(": ") && !value.contains(" #");
     }
 
+    /** An input while its frontmatter is read; its sub-keys follow it in the order the grammar closes. */
+    private static final class Input {
+
+        private final String name;
+        private final SourceLocation location;
+        private @Nullable InputType type;
+        private boolean optional;
+        private @Nullable CallValue defaultValue;
+        private @Nullable String fallback;
+        private @Nullable String description;
+
+        private Input(String name, SourceLocation location) {
+            this.name = name;
+            this.location = location;
+        }
+
+        private InputDecl toInputDecl() {
+            return InputDecl.builder()
+                    .name(name)
+                    .type(Objects.requireNonNull(type, "type"))
+                    .optional(optional)
+                    .defaultValue(defaultValue)
+                    .fallback(fallback)
+                    .description(description)
+                    .location(location)
+                    .build();
+        }
+    }
+
     /** An entry or exit while its frontmatter is read; its description may follow on the next line. */
     private static final class Element {
-
         private final String name;
         private @Nullable String description;
 

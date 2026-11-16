@@ -243,14 +243,23 @@ class WorkflowPrinterTest {
     @Test
     @DisplayName("prints the reads and the inputs of the frontmatter in their order")
     void printsTheReadsAndInputs() {
-        var printed = WorkflowPrinter.print(parse("demo.inputs.pmwf", WITH_INPUTS));
+        var definition = parse("demo.inputs.pmwf", WITH_INPUTS);
+        var printed = WorkflowPrinter.print(definition);
+        var reparsed = parse("demo.inputs.pmwf", printed);
 
         assertAll(
                 () -> assertTrue(printed.contains("reads_config: project.review.currency"), printed),
                 () -> assertTrue(printed.contains("reads_fact: push_remote"), printed),
                 () -> assertTrue(printed.contains("input: push_mode"), printed),
                 () -> assertTrue(printed.contains("input_type: enum[push|no_push]"), printed),
-                () -> assertTrue(printed.contains("input_default: 2"), printed));
+                () -> assertTrue(printed.contains("input_description: Whether the branch is pushed."), printed),
+                () -> assertTrue(printed.contains("input_default: 2"), printed),
+                () -> assertTrue(printed.indexOf("reads_config:") < printed.indexOf("reads_fact:"), printed),
+                () -> assertTrue(printed.indexOf("reads_fact:") < printed.indexOf("input: push_mode"), printed),
+                () -> assertTrue(printed.indexOf("input_default: 2") < printed.indexOf("modification_date:"),
+                        printed),
+                () -> assertEquals(strip(definition), strip(reparsed), "the printed source must read back"),
+                () -> assertEquals(printed, WorkflowPrinter.print(reparsed), "the printer must be canonical"));
     }
 
     private static WorkflowDefinition parse(String resource, String source) {

@@ -125,7 +125,7 @@ public final class WorkflowParser {
     private static final String PARAMETER_DECLARED_TWICE = "the parameter '%s' is declared twice";
     private static final String EXPECTATION_PARAMETER_NAME = "a parameter name";
 
-    private static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
+    static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
             KEYWORD_SCOPE, "param", KEYWORD_RESULT, KEYWORD_DECLARE, KEYWORD_START, "migrate", KEYWORD_STATE, "terminal",
             "skill", "facts", "auto", "job", KEYWORD_COMPOSITE_JOB, "call", KEYWORD_QUESTION,
             KEYWORD_LINK, KEYWORD_GUARD, "depends_on_config", "do", "llm", "role", KEYWORD_EACH, KEYWORD_CONSULT,
