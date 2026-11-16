@@ -74,16 +74,18 @@ an `INVALID` token that the parser refuses where it occurs.
 === The Parser
 
 `WorkflowParser` is a recursive descent over the grammar: the unit header, the optional `instance` line, the `scope`
-clause with the `param` and `result` declarations of a sub-workflow, the `declare` and `decide` lines, `start`,
+clause with the `result` declaration of a sub-workflow (its inputs are the frontmatter's `input` lines; a body `param`
+is refused), the `declare` and `decide` lines, `start`,
 `migrate`, and every state form with its links, guards, transitions, result guards and step completions. A `link`
 without a form takes `LinkRelation.defaultForm()`. Guards bind `not` before `and` before `or`; a guard nested deeper
 than 32 parentheses (`WorkflowParser.MAX_GUARD_DEPTH`) is refused, which bounds the recursion.
 
 The first refusal wins. Its `RefusalRule` is one of the members listed under <<_main_types>>; `STRUCTURE` covers a source
 that does not follow the grammar. `MISSING_SCOPE` refuses a unit without a `scope` clause. `DUPLICATE_ID` refuses an
-identifier declared twice in the file: a state, a `declare` name, a decision kind, a parameter (a sub-workflow
-parameter, a call argument and a link parameter alike), an entry bound twice, and a value repeated in a list value or
-an `enum[...]` type.
+identifier declared twice in the file: a state, a `declare` name, a decision kind, a call argument and a link parameter,
+an entry bound twice, and a value repeated in a list value or in a link parameter's `enum[...]` type. A repeated
+frontmatter value, a repeated input name and a repeated `enum[...]` value of an `input_type` are the frontmatter reader's
+refusal (`FRONTMATTER`, at the line and column), not the parser's.
 
 A reserved keyword (`WorkflowParser.RESERVED_KEYWORDS`) is refused only where the grammar names a name: as an outcome
 name, a parameter name, an entity kind, a role name, or a segment of a state, primitive or configuration key
@@ -127,10 +129,10 @@ other schema checks (constants, enumerations, patterns, members it does not allo
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 The frontmatter is the first part of every `.pmwf` file: what the unit is for a person, its type, the stable icon that
-stands for it, its interface (the entries through which control arrives and the exits through which it leaves), and
-where it comes from. It is read without the body, so a list of units, a catalogue of building blocks or a process view
-shows a unit's name, description, type, icon and interface from it alone, and a `call` is checked against the interface
-of its callee.
+stands for it, its interface (the entries through which control arrives, the exits through which it leaves, the inputs a
+call declares and what the unit reads), and where it comes from. It is read without the body, so a list of units, a
+catalogue of building blocks or a process view shows a unit's name, description, type, icon and interface from it alone,
+and a `call` is checked against the interface of its callee.
 
 [source,yaml]
 ----
@@ -143,6 +145,14 @@ entry: commit
 entry_description: The worktree holds the changes to commit, or is clean.
 exit: done
 exit_description: Commit and push are settled; the result record says what was committed, pushed, or landed.
+reads_config: project.review.currency
+reads_fact: push_remote
+input: push_mode
+input_type: enum[push|no_push]
+input_description: Whether the branch is pushed.
+input: attempts
+input_type: int[1..5]
+input_default: 2
 modification_date: 2026-10-14
 version: 1.0.0
 author: plan-marshall
@@ -183,17 +193,28 @@ anchor, alias or merge key is ever resolved
   double-quoted value is one line between `"` and `"` with the escapes `\"` and `\\` only. A value a plain scalar
   cannot carry is written double-quoted.
 * *Closed keys*: the keys are `name`, `description`, `type`, `icon`, `entry`, `entry_description`, `exit`,
-  `exit_description`, `modification_date`, `version`, `author` and `signature`; any other key is refused. `name`,
+  `exit_description`, `reads_config`, `reads_fact`, `input`, `input_type`, `input_default`, `input_fallback`,
+  `input_description`, `modification_date`, `version`, `author` and `signature`; any other key is refused. `name`,
   `description`, `type`, `icon`, `modification_date`, `version` and `author` occur exactly once, `signature` at most
   once.
-* *Repeated `entry` and `exit`*: a unit declares zero or more entries and zero or more exits, one name per line, the key
-  repeated per name, kept in order and never collapsed. This is the one point where the frontmatter is not a YAML
-  mapping.
+* *Repeated `entry`, `exit`, `reads_config`, `reads_fact` and `input`*: a unit declares zero or more entries, exits,
+  configuration keys, fact kinds and inputs, one value per line, the key repeated per value, kept in order and never
+  collapsed. This is the one point where the frontmatter is not a YAML mapping. A `reads_config` value is an effective
+  configuration key (the grammar `config_key`, one or more identifier segments joined by dots); a `reads_fact` value is a
+  fact kind (an identifier); an `input` value is a `param_name`. No key lists a value twice, and the caps are 32
+  `reads_config` values, 32 `reads_fact` values and 16 inputs.
 * *Descriptions*: an `entry_description` stands directly below its `entry` line and an `exit_description` directly below
   its `exit` line, at most one each. A description below another key, below another description or as the first line is
   refused.
-* *Order*: apart from the descriptions, the order of the lines is free. The printer writes the order of the field table
-  below.
+* *The input block*: an `input` line opens one input; `input_type` stands directly below it, exactly once, then
+  `input_default`, `input_fallback` and `input_description`, each at most once and in that order. A sub-key out of that
+  order, a second one of its kind and an input without its `input_type` are refused. The type is one of `enum[…]`,
+  `int` with its optional range and `list<enum[…]>`, with the trailing `?` of the optional form
+  (link:../adr/workflow-dsl/013-input-type-carries-the-optional-form.adoc[ADR 013]); a default or a fallback beside the
+  `?` is refused as two ways to say the same. `input_default: []` is the empty list of a `list<enum[…]>` input, the one
+  bracket form the reader admits at the start of a value.
+* *Order*: apart from the descriptions and the input sub-keys, the order of the lines is free. The printer writes the
+  order of the field table below.
 
 === Fields
 
@@ -239,6 +260,46 @@ implicit control exit of every sub-workflow).
 |`exit_description`
 |0..1 per exit
 |What the caller can rely on when the unit leaves through the exit on the line before, 1 to 500 characters.
+
+|`reads_config`
+|0..32
+|An effective configuration key the unit reads, in the grammar `config_key` (`project.review.currency`,
+`local-config.mode`): one or more identifier segments joined by dots, none a reserved keyword. The key must exist in the
+closed configuration the verifier is given, and it never carries the bare
+value `derived` or the `derived.` stem: a derived fact is read with `reads_fact`
+(link:../adr/workflow-verify/037-reads-config-never-names-a-fact.adoc[ADR 037]). Declared once.
+
+|`reads_fact`
+|0..32
+|A derived fact kind the unit reads, an identifier without the `derived.` stem. The kind must be one the verifier's
+`FactKindRegistry` holds. Declared once.
+
+|`input`
+|0..16
+|The name of one input, a `param_name` (lowercase letters, digits and underscore, at most 32 characters) that is never a
+reserved keyword and never a `reads_fact` kind of the same unit. Declared once. Its sub-keys follow, in order.
+
+|`input_type`
+|1 per input
+|The closed type of the input, directly below its `input` line: `enum[…]`, `int` with its optional `[<low>..<high>]`, or
+`list<enum[…]>`, with the trailing `?` of the optional form. The type is an `InputType`; the `?` is a component of the
+declaration (link:../adr/workflow-dsl/013-input-type-carries-the-optional-form.adoc[ADR 013]).
+
+|`input_default`
+|0..1 per input
+|The compiled default of the input: an enum value of its type, an integer within its range, or `[]` for a `list<enum[…]>`
+input. A value outside the type is refused. It stands below `input_type` and never beside the `?`.
+
+|`input_fallback`
+|0..1 per input
+|The configuration key that supplies the input when a call binds none: one the unit lists in `reads_config`, whose domain
+the verifier checks against the input type, and whose compiled default an input with neither a default nor the `?` needs
+(link:../adr/workflow-dsl/014-order-of-input-resolution.adoc[ADR 014]). It never stands beside the `?`.
+
+|`input_description`
+|0..1 per input
+|What an absent input means and what a caller may assume, 1 to 500 characters. Shown to the caller and not part of the
+`INV-GEN-1` contract.
 
 |`modification_date`
 |1
@@ -302,6 +363,24 @@ no identifier or is declared twice, the exit `stepped_out`, an invalid or future
 version grammar
 |the line, the column of the value
 
+|A `reads_config` value outside the `config_key` grammar or declared twice, a `reads_fact` value outside the identifier
+grammar or declared twice, more than 32 of either
+|the line, the column of the value
+
+|An `input` name outside the `param_name` grammar, a reserved keyword, an input declared twice, more than 16 inputs
+|the line, the column of the value
+
+|An `input_type` outside its three types, a repeated enum value, an empty enum, a range that is no `[<low>..<high>]`, an
+`input_type` that does not stand directly below its `input` or a second one
+|the line, the column of the value, or column 1 of its own line
+
+|An `input_default` or `input_fallback` out of its order, a second one, either beside the `?`, an `input_default` outside
+the type, an `input_description` out of its order, a second one or beyond 500 characters
+|the line, the column of the value, or column 1 of its own line
+
+|An input whose `input_type` is missing
+|the line of the next key, or the closing line, column 1
+
 |A missing single key
 |the closing line, column 1
 |===
@@ -312,6 +391,9 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 After its declarations, the header of the body carries either one `start <state_id>` line or one or more
 `entry <name> -> <state_id>` lines (the EBNF `start_decl | entry_decl , { entry_decl }`):
 
+* the body declares no `param`: the inputs of a sub-workflow are the `input` declarations of its frontmatter, in one
+  place with its entries and exits. A `param` line after the `scope` clause is refused as `STRUCTURE`, naming the
+  frontmatter keys that replace it (link:../adr/workflow-dsl/012-result-stays-in-the-body.adoc[ADR 012]);
 * a body with a `start` line and an `entry` line, in either order, is refused as `STRUCTURE` at the second of the two;
 * a body with neither is refused as `STRUCTURE` where the one or the other is expected;
 * an entry name bound twice is refused as `DUPLICATE_ID` at the second binding.
@@ -360,11 +442,14 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 
 `WorkflowPrinter` writes the frontmatter first, between its two `---` lines, in the order of the field table: `name`,
 `description`, `type`, `icon`, each `entry` followed by its `entry_description`, each `exit` followed by its
-`exit_description`, `modification_date`, `version`, `author` and `signature`. A value is written plain when a plain
-scalar can carry it and double-quoted otherwise (the rule is `UnitFrontmatterReader.isPlain`, the reader's own, so printer and reader cannot
-drift apart), with `\` written as `\\` and `"` as `\"`. Then come the unit header (with `derived_from <n>` when
-`derivedFrom()` holds a revision for the unit's own id), the `instance` line, the `scope` clause with the declarations
-of a sub-workflow, the `declare` and `decide` lines, the `start` line or the entry bindings in source order, the
+`exit_description`, each `reads_config` and `reads_fact` value, each `input` followed by its `input_type` and its
+`input_default`, `input_fallback` and `input_description`, `modification_date`, `version`, `author` and `signature`. A
+value is written plain when a plain scalar can carry it and double-quoted otherwise (the rule is
+`UnitFrontmatterReader.isPlain`, the reader's own, so printer and reader cannot
+drift apart), with `\` written as `\\` and `"` as `\"`; the empty list default is written `[]`. Then come the unit
+header (with `derived_from <n>` when
+`derivedFrom()` holds a revision for the unit's own id), the `instance` line, the `scope` clause with the `result`
+declaration of a sub-workflow, the `declare` and `decide` lines, the `start` line or the entry bindings in source order, the
 migrations, and the states in declaration order, each after a blank line, with their clauses indented by nesting; a
 `call` names the entry it names in the tree.
 

@@ -619,7 +619,7 @@ class AdditionalRulesTest {
     }
 
     @Test
-    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: parameter mismatches for enum, int and list")
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: input mismatches for enum, int and list")
     void subWorkflowParamMismatches() {
         var def = unit("plan", """
                 state verify.entry
@@ -629,17 +629,30 @@ class AdditionalRulesTest {
                 """ + PLAN_RETURN + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
-                "the value 'invalid_val' of parameter 'push' is not in the allowed enum values [enabled,"
+                "the value 'invalid_val' of input 'push' is not in the allowed enum values [enabled,"
                         + " disabled] of 'git.commit_and_push'",
-                "the integer value 99 of parameter 'attempts' is out of range [1..5] for 'git.commit_and_push'",
-                "the list value 'invalid_target' of parameter 'targets' is not in the allowed enum values"
+                "the integer value 99 of input 'attempts' is out of range [1..5] for 'git.commit_and_push'",
+                "the list value 'invalid_target' of input 'targets' is not in the allowed enum values"
                         + " [origin, mirror] of 'git.commit_and_push'",
-                "the parameter binding 'extra' names an undeclared parameter of 'git.commit_and_push'"),
+                "the input binding 'extra' names an undeclared input of 'git.commit_and_push'"),
                 found(def));
     }
 
     @Test
-    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: missing required params and exit outcomes")
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: an input with a default, a fallback or the optional form may be omitted")
+    void subWorkflowInputMayBeOmitted() {
+        var def = unit("plan", """
+                state verify.entry
+                    call git.commit_and_push(push = enabled, targets = [origin])
+                        done -> verify.done
+                        stepped_out -> plan.return
+                """ + PLAN_RETURN + DONE_TERMINAL);
+
+        assertEquals(List.of(), found(def), () -> "attempts carries a default");
+    }
+
+    @Test
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: missing required inputs and exit outcomes")
     void subWorkflowMissingParamsAndOutcomes() {
         var def = unit("plan", """
                 state verify.entry
@@ -652,9 +665,8 @@ class AdditionalRulesTest {
                         + " 'git.commit_and_push'",
                 "the call does not route the exit outcome 'done' of 'git.commit_and_push'",
                 "the call does not route the exit outcome 'stepped_out' of 'git.commit_and_push'",
-                "the call omits the required parameter 'push' of 'git.commit_and_push'",
-                "the call omits the required parameter 'attempts' of 'git.commit_and_push'",
-                "the call omits the required parameter 'targets' of 'git.commit_and_push'"),
+                "the call omits the required input 'push' of 'git.commit_and_push'",
+                "the call omits the required input 'targets' of 'git.commit_and_push'"),
                 found(def));
     }
 

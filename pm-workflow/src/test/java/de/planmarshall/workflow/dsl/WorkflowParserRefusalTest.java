@@ -142,11 +142,11 @@ class WorkflowParserRefusalTest {
         }
 
         @Test
-        @DisplayName("finds one fixture per refusal class: 14 of the body, 19 of the frontmatter, 2 of the entries")
+        @DisplayName("finds one fixture per refusal class: 13 of the body, 20 of the frontmatter, 2 of the entries")
         void fixturesPresent() {
             assertAll(
                     () -> assertEquals(35, malformedFixtures().size()),
-                    () -> assertEquals(21, frontmatterAndEntryFixtures().size()));
+                    () -> assertEquals(22, frontmatterAndEntryFixtures().size()));
         }
 
         static Set<RefusalRule> statedRules() {
@@ -314,6 +314,18 @@ class WorkflowParserRefusalTest {
         }
 
         @Test
+        @DisplayName("refuses a body param naming the frontmatter keys that replace it")
+        void bodyParamNamesTheFrontmatter() {
+            var diagnostic = refuse("inline.pmwf", withHeaderLines("subworkflow", "param mode : int"));
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule(), diagnostic::message),
+                    () -> assertEquals(FRONTMATTER_LINES + 3, diagnostic.line(), diagnostic::message),
+                    () -> assertTrue(diagnostic.message().contains("input"), diagnostic::message),
+                    () -> assertTrue(diagnostic.message().contains("frontmatter"), diagnostic::message));
+        }
+
+        @Test
         @DisplayName("refuses derived_from zero on a project unit with the zero check")
         void derivedFromZero() {
             var diagnostic = refuseProject("zero.pmwf", projectUnit(HEADER + " derived_from 0"));
@@ -338,32 +350,16 @@ class WorkflowParserRefusalTest {
 
         static Stream<Arguments> declarationRefusals() {
             return Stream.of(
-                    refusal("param name is reserved", RefusalRule.RESERVED_KEYWORD, 3,
-                            withHeaderLines("subworkflow", "param text : int")),
-                    refusal("param name with a hyphen", RefusalRule.STRUCTURE, 3,
-                            withHeaderLines("subworkflow", "param max-rounds : int")),
-                    refusal("param name is an enum value", RefusalRule.STRUCTURE, 3,
-                            withHeaderLines("subworkflow", "param Mode : int")),
-                    refusal("param without colon", RefusalRule.STRUCTURE, 3,
-                            withHeaderLines("subworkflow", "param mode int")),
-                    refusal("text param of a sub-workflow", RefusalRule.STRUCTURE, 3,
-                            withHeaderLines("subworkflow", "param mode : text")),
-                    refusal("list of int param of a sub-workflow", RefusalRule.STRUCTURE, 3,
-                            withHeaderLines("subworkflow", "param modes : list<int>")),
-                    refusal("list param not closed", RefusalRule.STRUCTURE, 3,
-                            withHeaderLines("subworkflow", "param modes : list<enum[a] extra")),
-                    refusal("enum param not closed", RefusalRule.STRUCTURE, 3,
-                            withHeaderLines("subworkflow", "param mode : enum[a|b")),
-                    refusal("empty enum param", RefusalRule.STRUCTURE, 3,
-                            withHeaderLines("subworkflow", "param mode : enum[]")),
+                    refusal("a body param in a sub-workflow", RefusalRule.STRUCTURE, 3,
+                            withHeaderLines("subworkflow", "param mode : int")),
+                    refusal("a body param outside a sub-workflow", RefusalRule.STRUCTURE, 3,
+                            withHeaderLines("plan", "param mode : int")),
                     refusal("result without schema", RefusalRule.STRUCTURE, 3,
                             withHeaderLines("subworkflow", "result text")),
                     refusal("result schema name is an enum value", RefusalRule.STRUCTURE, 3,
                             withHeaderLines("subworkflow", "result schema[Result]")),
                     refusal("token after the result", RefusalRule.STRUCTURE, 3,
                             withHeaderLines("subworkflow", "result schema[result-record] extra")),
-                    refusal("param outside a sub-workflow", RefusalRule.STRUCTURE, 3,
-                            withHeaderLines("plan", "param mode : int")),
                     refusal("declare name is reserved", RefusalRule.RESERVED_KEYWORD, 3,
                             withHeaderLines("plan", "declare text = 1")),
                     refusal("declare without equals sign", RefusalRule.STRUCTURE, 3,
@@ -675,14 +671,11 @@ class WorkflowParserRefusalTest {
         static Stream<Arguments> duplicateEnumValues() {
             var declare = "declare modes = [a, b, a]";
             var call = "call demo.sub(modes = [x, y, x])";
-            var enumType = "param mode : enum[a|b|a]";
             return Stream.of(
                     Arguments.of("declare line", withHeaderLines("plan", declare), FRONTMATTER_LINES + 3,
                             declare.lastIndexOf("a]") + 1, "a"),
                     Arguments.of("call binding", unitWithBody("plan", call, "done -> demo.begin"),
-                            FRONTMATTER_LINES + 5, call.lastIndexOf("x]") + 1, "x"),
-                    Arguments.of("enum type", withHeaderLines("subworkflow", enumType), FRONTMATTER_LINES + 3,
-                            enumType.lastIndexOf("a]") + 1, "a"));
+                            FRONTMATTER_LINES + 5, call.lastIndexOf("x]") + 1, "x"));
         }
 
         @ParameterizedTest(name = "{0}")

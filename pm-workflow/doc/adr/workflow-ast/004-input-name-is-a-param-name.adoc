@@ -1,0 +1,54 @@
+= ADR 004: An Input Name Is a `param_name` and the Optional Form a Component
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+A frontmatter input is addressed inside the unit as `input.<name>` and bound at a call site as
+`callee_input = value`, so its name has to be the parameter-name grammar the call arguments use. The three namespaces
+the plan keeps apart are the configuration keys (`project.…`, `workflow.…`, `local-config.…`), the derived facts
+(`reads_fact`) and the per-call input (`input.<name>`); the prefix separates the input from the other two textually.
+
+A name that repeats a fact kind the same unit reads would read as the fact, and the grammar has one identifier form that
+admits the hyphen while the parameter name does not.
+
+== Decision
+
+* An input name is a `param_name` of the Identifier Registry: lowercase letters, digits and underscore, at most 32
+  characters, and never a reserved keyword. The hyphen is not admitted, because the name appears verbatim as a key of
+  the `pm_do` `args` and in the hypermedia `free` column.
+* The name is unique in the frontmatter and is not a `reads_fact` kind of the same unit: the verifier refuses the
+  shadowing as `INPUT_DECLARATION`, naming the input.
+* The owner of an input is the unit whose frontmatter declares it; `input.<name>` is unit-local, and the fully
+  qualified form `<unit id>.input.<name>` is used for logs, provenance records and documentation, never for a registry.
+* `InputDecl` carries the optional form, the default, the fallback, the description and the location of the `input` line;
+  `InputType` carries the closed type. The description is shown to the caller and is not part of the contract
+  `INV-GEN-1` compares.
+
+== Alternatives Considered
+
+* *The general `identifier` grammar, which admits the hyphen.* Not taken: a `max-rounds` input cannot be bound by a
+  `param_name` call argument, so the declaration and the binding would disagree.
+* *A per-unit registry of input names.* Not taken: the prefix already separates the namespaces, and the unit's
+  frontmatter is the registry.
+* *Reserving the input names globally.* Not taken: inputs are unit-local, so the same name in two units is legal.
+
+== Consequences
+
+* `UnitFrontmatter` carries `readsConfig`, `readsFact` and `inputs`; the `InputDecl` record holds the declaration.
+* A dashed or upper-case input name, a reserved keyword and a repeated name are frontmatter refusals with the line and
+  column; a name that shadows a fact kind is `INPUT_DECLARATION`.
+* `INV-GEN-1` compares the name, type, optional form, default and fallback of every input in declaration order.
+
+== Source
+
+* link:../../../../doc/specification/identifiers/01-general-rules-and-registry.adoc#id-param-name[Identifiers Specification § Free parameter name]
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:../../developer/workflow-ast.adoc#_the_frontmatter[Workflow AST Developer Guide § The Frontmatter]

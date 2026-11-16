@@ -40,14 +40,19 @@ class UnitFrontmatterRecordsTest {
         var entries = List.of(new UnitFrontmatter.InterfaceElement(Generators.letterStrings(1, 20).next(),
                 Generators.letterStrings(1, 40).next()));
         var exits = List.of(new UnitFrontmatter.InterfaceElement(Generators.letterStrings(1, 20).next(), null));
+        var readsConfig = List.of(Generators.letterStrings(1, 20).next());
+        var readsFact = List.of(Generators.letterStrings(1, 20).next());
+        var inputs = List.of(new InputDecl(Generators.letterStrings(1, 20).next(),
+                new InputType.Enumeration(List.of(Generators.letterStrings(1, 20).next())), false,
+                new CallValue.IntValue(1), null, null, WorkflowGenerators.sourceLocations().next()));
         var modificationDate = LocalDate.ofEpochDay(Generators.longs(0, 20_000).next());
         var version = Generators.letterStrings(1, 20).next();
         var author = Generators.letterStrings(1, 20).next();
         var signature = Generators.letterStrings(1, 40).next();
         var location = WorkflowGenerators.sourceLocations().next();
 
-        var constructed = new UnitFrontmatter(name, description, type, icon, entries, exits, modificationDate,
-                version, author, signature, location);
+        var constructed = new UnitFrontmatter(name, description, type, icon, entries, exits, readsConfig, readsFact,
+                inputs, modificationDate, version, author, signature, location);
         var built = UnitFrontmatter.builder()
                 .name(name)
                 .description(description)
@@ -55,6 +60,9 @@ class UnitFrontmatterRecordsTest {
                 .icon(icon)
                 .entries(entries)
                 .exits(exits)
+                .readsConfig(readsConfig)
+                .readsFact(readsFact)
+                .inputs(inputs)
                 .modificationDate(modificationDate)
                 .version(version)
                 .author(author)
