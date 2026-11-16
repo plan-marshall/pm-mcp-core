@@ -35,6 +35,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.ClampedValue;
 import de.planmarshall.core.store.JobRecord.Confinement;
+import de.planmarshall.core.store.JobRecord.GitMetadata;
 import de.planmarshall.core.store.JobRecord.Execution;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.Scope;
@@ -79,7 +80,7 @@ class JobRecordCodecTest {
 
     /** The write-ahead record of a worker with its worker block. */
     static JobRecord workerAhead(JobId jobId, Scope scope, String worker) {
-        return base(jobId, scope).status(Status.RUNNING).worker(worker).build();
+        return base(jobId, scope).status(Status.RUNNING).worker(worker).gitMetadata(GitMetadata.UNENFORCED).build();
     }
 
     /** The write-ahead record of the job: running, neither PID nor process start. */
@@ -187,6 +188,26 @@ class JobRecordCodecTest {
                     () -> assertEquals(job, read, "the record is read back equal to the written one"),
                     () -> assertArrayEquals(document, JobRecordCodec.write(read),
                             "the rewritten record is the document byte for byte"));
+        }
+
+        @Test
+        @DisplayName("a worker's git_metadata round-trips for each value")
+        void workerGitMetadataRoundTrip() {
+            var worker = new JobId("l-00000000000000ff");
+            var scope = new Scope(Scope.Type.PROJECT, null);
+            var documents = Stream.of(GitMetadata.values()).map(value -> {
+                var job = workerAhead(worker, scope, "{}").withGitMetadata(value);
+                var document = JobRecordCodec.write(job);
+                assertEquals(job, JobRecordCodec.read(FILE, document), "the record is read back equal");
+                return new String(document, StandardCharsets.UTF_8);
+            }).toList();
+
+            assertAll("every git metadata value round-trips",
+                    () -> assertEquals(2, documents.size(), "both values are covered"),
+                    () -> assertTrue(documents.get(0).contains("\"git_metadata\":\"enforced\""),
+                            "the enforced value is written by its wire name"),
+                    () -> assertTrue(documents.get(1).contains("\"git_metadata\":\"unenforced\""),
+                            "the unenforced value is written by its wire name"));
         }
 
         @Test
@@ -354,6 +375,29 @@ class JobRecordCodecTest {
         }
 
         @Test
+        @DisplayName("a worker record without git_metadata is refused")
+        void workerWithoutGitMetadataRefused() {
+            var document = text(workerAhead(new JobId("l-00000000000000ff"),
+                    new Scope(Scope.Type.PROJECT, null), "{}"));
+            var without = replace(document, "\"git_metadata\":\"unenforced\",", "");
+
+            var refusal = refusalOf(without);
+
+            assertTrue(refusal.getMessage().contains("git_metadata"), refusal.getMessage());
+        }
+
+        @Test
+        @DisplayName("a non-worker record that carries git_metadata is refused")
+        void nonWorkerWithGitMetadataRefused() {
+            var document = text(queued(BUILD_ID, PLAN_SCOPE));
+            var with = replace(document, "\"git_metadata\":null", "\"git_metadata\":\"unenforced\"");
+
+            var refusal = refusalOf(with);
+
+            assertTrue(refusal.getMessage().contains("git_metadata"), refusal.getMessage());
+        }
+
+        @Test
         @DisplayName("a worker carries its block and a probe belongs to the machine or an entry")
         void kindRules() {
             var worker = new JobId("l-0000000000000001");
@@ -465,6 +509,27 @@ class JobRecordCodecTest {
             var value = new ClampedValue("build.timeout", raw, BigDecimal.ONE, ClampedValue.Source.MACHINE_CONFIG);
 
             assertEquals(raw, value.configured(), "the admitted configured value keeps the raw text");
+        }
+
+        @Test
+        @DisplayName("git_metadata is non-null exactly for a worker")
+        void gitMetadataKindRule() {
+            var worker = new JobId("l-0000000000000001");
+            var projectScope = new Scope(Scope.Type.PROJECT, null);
+
+            assertAll("the kind decides whether git_metadata is recorded",
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> base(worker, projectScope).status(Status.RUNNING).worker("{}").build(),
+                            "a worker without git_metadata cannot be built"),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> queued(BUILD_ID, PLAN_SCOPE).toBuilder().gitMetadata(GitMetadata.UNENFORCED).build(),
+                            "a build job with git_metadata cannot be built"),
+                    () -> assertDoesNotThrow(() -> base(BUILD_ID, PLAN_SCOPE).build(),
+                            "a build job without git_metadata is admitted"),
+                    () -> assertDoesNotThrow(
+                            () -> base(worker, projectScope).status(Status.RUNNING).worker("{}")
+                                    .gitMetadata(GitMetadata.ENFORCED).build(),
+                            "a worker with git_metadata is admitted"));
         }
 
         @Test
