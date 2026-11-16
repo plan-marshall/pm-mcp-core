@@ -14,8 +14,9 @@ The specification sections named are the single statement of what each task buil
 
 The deterministic half of this package is delivered by the `pm-scenario` harness of `pm-workflow`
 (link:../../pm-workflow/doc/developer/workflow-scenario.adoc[Workflow Scenario Developer Guide]): the fault matrix of
-regression scenario 12 and the runtime restart replay in process, without a live model or a real process. Two
-deliverables stay owed, and both are work of `pm-conformance` in `plan-marshall-mcp`, never of this repository
+regression scenario 12 and the runtime restart replay in process, without a live model or a real process. D5, the same
+faults against real processes, is `plan-marshall-mcp`'s (`worker-integration-tests`). Two deliverables stay owed, and
+both are work of `pm-conformance` in `plan-marshall-mcp`, never of this repository
 (link:../../pm-workflow/doc/adr/workflow-scenario/007-conformance-harness-in-pm-conformance.adoc[ADR 007]):
 
 . *D6, the runs and baselines of the behavioural conformance harness*, its scenario records and its rule selection:

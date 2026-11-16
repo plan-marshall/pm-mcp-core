@@ -229,11 +229,13 @@ final class ScenarioFixtures {
     private List<String> consultRoles = List.of();
     private int generations;
 
+    private final Path directory;
+
     /**
      * @param base the directory the stores of the replay live in
      */
     ScenarioFixtures(Path base) {
-        var directory = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
+        directory = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         queue = QueueStore.ofProject(directory, PROJECT, locks);
         buildRuntime();
     }
@@ -243,6 +245,7 @@ final class ScenarioFixtures {
      * nothing in memory survives. The manual clock and the id counters are the harness's, not the runtime's, and stay.
      */
     void restart() {
+        queue = QueueStore.ofProject(directory, PROJECT, locks);
         buildRuntime();
     }
 

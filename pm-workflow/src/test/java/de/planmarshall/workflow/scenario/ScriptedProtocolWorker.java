@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
+import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.workflow.task.CallResult;
 import de.planmarshall.workflow.task.TaskCall;
 import de.planmarshall.workflow.task.TaskProtocol;
@@ -93,13 +94,20 @@ final class ScriptedProtocolWorker {
     }
 
     /**
-     * Records the task a rebuilt instance holds after a runtime restart: the lease is durable, the in-memory handle is
-     * not.
+     * Records the task a rebuilt instance holds after a runtime restart: the queue record is durable, the in-memory
+     * handle is not, so the offer's instant and the worker's last call are read back from its attempt.
      *
-     * @param taskId the task the queue's lease names for this generation, or {@code null} for none
+     * @param task the task the queue's lease names for this generation
      */
-    void leasedTask(String taskId) {
-        queueTaskId = taskId;
+    void leased(QueueTaskRecord task) {
+        queueTaskId = task.queueTaskId();
+        var attempt = task.currentAttempt().orElse(null);
+        offeredAt = attempt == null ? null : attempt.offeredAt();
+        if (attempt != null && attempt.acknowledgedAt() != null) {
+            lastCallAt = attempt.acknowledgedAt();
+        } else {
+            lastCallAt = offeredAt;
+        }
     }
 
     /** @return the successor of this lost generation, over the same protocol, with the next generation of the counter */

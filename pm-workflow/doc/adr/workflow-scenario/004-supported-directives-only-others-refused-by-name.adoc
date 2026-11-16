@@ -23,7 +23,10 @@ instances, the supervisor, the runtime and the operator verbs.
 == Decision
 
 The harness runs the directives the engine supports today: `start`, `assert_state`, `assert_outcome`, `complete_job`,
-`answer_question` and `assert_task_outcome`. `ScenarioScript.read` refuses every other directive of
+`answer_question` and `assert_task_outcome`; the protocol worker's `worker_wait`, `worker_do`, `assert_worker_state`
+and `assert_refused` arrived with that protocol (link:009-task-protocol-under-the-replay.adoc[ADR 009]), and the worker
+faults and the runtime restart with their facts (link:010-worker-faults-apply-the-supervisors-facts.adoc[ADR 010]).
+`ScenarioScript.read` refuses every other directive of
 the specification by name when the script is read, with its line and the work package that brings it
 (`ScenarioScript.REFUSED`); a word that is no directive is refused as unknown.
 

@@ -58,6 +58,10 @@ import de.planmarshall.workflow.task.WaitAnswer;
  * {@link de.planmarshall.workflow.task.TaskProtocol}, {@code worker_do} its acknowledgement, submit, infeasible
  * report or consultation, and {@code assert_worker_state} and {@code assert_refused} the state of its task and the
  * refusal of its last call;</li>
+ * <li>{@code kill_worker}, {@code end_turn}, {@code kill_relay} and {@code stall_worker} apply the fact the supervisor
+ * reports for the loss of a protocol worker at the instant it is detected, and fence its generation, and
+ * {@code restart_runtime} rebuilds the engine, the task protocol and the stores' objects over the replay's directory;
+ * </li>
  * <li>{@code assert_state} compares the state of the stored status, {@code assert_outcome} the outcome the run ended
  * with, and {@code assert_task_outcome} the outcome of the last task the worker of a role settled.</li>
  * </ul>
@@ -612,12 +616,14 @@ final class ScenarioReplayRunner {
     /**
      * A worker that makes no call for the given time: shorter than the limit that governs its open attempt it changes
      * nothing and the worker is not replaced; at or beyond the limit the attempt ends with the loss at that limit.
+     * Stalls add up, as silence does: two stalls whose times sum past the limit have the worker lost.
      */
     private void stallWorker(ScenarioDirective.StallWorker fault) {
         var worker = workerOf(fault.line(), fault.role(), "stall_worker");
         var deadline = deadline(fault.line(), worker);
-        fixtures.clock.advance(Duration.ofSeconds(fault.seconds()));
-        if (fault.seconds() >= deadline.seconds()) {
+        var until = fixtures.clock.now().plusSeconds(fault.seconds());
+        fixtures.clock.advanceTo(until);
+        if (!until.isBefore(deadline.instant())) {
             lose(fault.line(), worker, AttemptEnd.WORKER_LOST, deadline.instant());
         }
     }
@@ -645,7 +651,12 @@ final class ScenarioReplayRunner {
         before.forEach((role, worker) -> {
             var restarted = new ScriptedProtocolWorker(role, worker.generation(), fixtures.protocol());
             restarted.replaced(worker.replaced());
-            restarted.leasedTask(worker.replaced() ? null : leasedTaskOf(worker.generation()));
+            if (!worker.replaced()) {
+                var leased = leasedTaskOf(worker.generation());
+                if (leased != null) {
+                    restarted.leased(leased);
+                }
+            }
             protocolWorkers.put(role, restarted);
         });
         currentWorker = currentWorker == null ? null : protocolWorkers.get(currentWorker.role());
@@ -653,10 +664,9 @@ final class ScenarioReplayRunner {
     }
 
     /** @return the task the queue's lease names for the generation; {@code null} when it holds none */
-    private String leasedTaskOf(String generation) {
+    private QueueTaskRecord leasedTaskOf(String generation) {
         return fixtures.queue.records().stream()
                 .filter(task -> task.lease() != null && task.lease().generationId().equals(generation))
-                .map(QueueTaskRecord::queueTaskId)
                 .findFirst()
                 .orElse(null);
     }

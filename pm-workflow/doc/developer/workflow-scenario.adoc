@@ -181,9 +181,9 @@ call: the attempt ends `exited_without_submit` at the step's instant and the gen
 the loss (`worker_lost`) falls one silence limit after the relay's death, and the generation is fenced there.
 
 |`stall_worker <role> <seconds>`
-|The role's worker makes no call for the given time. Shorter than the limit that governs its open attempt
-(`ackDeadlineSeconds` for an unacknowledged offer, otherwise `silenceLimitSeconds()` of
-`de.planmarshall.core.profile.WorkerParameters`) it changes nothing and the worker is not replaced; at or beyond the
+|The role's worker makes no call for the given time, counted from its last call, so stalls add up. Shorter than the
+limit that governs its open attempt (`ackDeadlineSeconds` for an unacknowledged offer, otherwise `silenceLimitSeconds()`
+of `de.planmarshall.core.profile.WorkerParameters`) it changes nothing and the worker is not replaced; at or beyond the
 limit the attempt ends `worker_lost` at the limit, never before, and the generation is fenced there.
 
 |`restart_runtime`
@@ -281,7 +281,7 @@ does not evaluate (`asked`)
 |An `assert_worker_state` on another state
 |`ScenarioFailure` at the assertion's line, with the expected state and the state the queue record shows.
 
-|A fault of a role whose worker holds no leased task, or a `kill_relay`/`end_turn` whose task is not acknowledged
+|A `kill_relay` or `end_turn` whose task the worker has not acknowledged
 |`ScenarioFailure` at the fault's line, naming the role and the state of its task.
 
 |A `restart_runtime` of a scope that was not started or that already ended

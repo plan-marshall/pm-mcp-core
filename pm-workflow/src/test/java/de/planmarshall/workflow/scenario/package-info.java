@@ -21,10 +21,10 @@
  * the unqualified role, the instance version and the operator verbs) is refused by name with its line and the work
  * package that brings it; a word that is no directive at all is refused as unknown.
  * <p>
- * A fault applies the fact the supervisor reports for it at the deadline the harness's compiled worker values give
- * that fact, and fences the lost generation; the runtime restart rebuilds the engine, the task protocol and the
- * stores' objects over the same directory of the replay
- * (link:../adr/workflow-scenario/010-worker-faults-apply-the-supervisors-facts.adoc[ADR 010]).
+ * A fault applies the fact the supervisor reports for it at the deadline the fixture worker values give that fact (the
+ * exit is observed at once), and fences the lost generation; the runtime restart rebuilds the engine, the task
+ * protocol and the stores' objects over the same directory of the replay (ADR 010,
+ * `pm-workflow/doc/adr/workflow-scenario/010-worker-faults-apply-the-supervisors-facts.adoc`).
  * <p>
  * The {@link de.planmarshall.workflow.scenario.ScenarioReplayRunner} replays a script against the real
  * {@link de.planmarshall.workflow.engine.WorkflowEngine} over the fixtures of

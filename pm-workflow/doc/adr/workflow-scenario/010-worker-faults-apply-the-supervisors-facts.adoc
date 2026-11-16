@@ -62,12 +62,17 @@ Each fault word is one fact of the supervisor, applied by the harness at the ins
 
 The limit a stall is compared with is the limit of the attempt the worker holds: `ackDeadlineSeconds` while its offer is
 unacknowledged, `silenceLimitSeconds()` (the bounded wait plus the silence grace) once it is acknowledged. Both are read
-from `de.planmarshall.core.profile.WorkerParameters`; the harness re-implements neither the detector nor its timers.
+from `de.planmarshall.core.profile.WorkerParameters`; the harness re-implements neither the detector nor its timers. The
+silence is measured from the worker's last call, not from the step, so two stalls whose times add up past the limit
+lose the worker exactly as one does.
 
-* **The order is the supervisor's.** A fault reports the fact first and fences the generation after it. `report` ends
+* **The order is the protocol's.** A fault reports the fact first and fences the generation after it. `report` ends
   the attempt, spends one re-offer where the end counts (`worker_lost` and `exited_without_submit` do, `restart` does
   not) and releases the lease; `fence` persists the fence and, since the lease is released already, only writes it.
-  A fence applied first would end the attempt `restart` and spend none, which is the pause's fact, not a loss's.
+  A fence applied first would end the attempt `restart` and spend none, which is the pause's fact, not a loss's. The
+  supervisor of this repository fences through `WorkerEnding.exited` and names each loss's attempt end in
+  `LossReason.attemptEnd()`, which has no caller here: the report that writes it with the loss reaches the protocol
+  outside `pm-workflow`, and is reported as a lead rather than copied.
 * **The replacement is the fencing's.** The replaced generation's late call is refused `generation_fenced`, which is
   the refusal the fence exists for, and the role's next `worker_wait` starts the successor generation, which takes the
   task from the released queue. A task whose re-offers are spent closes `lost` with `attempts_spent`, and the task
@@ -77,9 +82,9 @@ from `de.planmarshall.core.profile.WorkerParameters`; the harness re-implements 
   bytes, and each protocol worker is rebuilt over its own generation with the task its lease still names. The harness's
   manual clock and its id counters are the script's, not the runtime's, and stay. A start-failure guard is not part of
   the rebuild: the harness has no process to fail to start (`pm-runtime` proves that guard, `SupervisorScenarioTest`).
-* **The scenario's instants are the manual clock's.** A fault that ends an attempt advances the clock to the instant
-  it applies the fact at, so a script's stored bytes and a task's `endedAt` both name the deadline rather than the
-  moment the test happened to run.
+* **The scenario's instants are the manual clock's.** A fault that ends an attempt advances the clock to at least the
+  instant it applies the fact at, so a script's stored bytes and a task's `endedAt` both name the deadline rather than
+  the moment the test happened to run.
 
 == Alternatives Considered
 
@@ -104,16 +109,17 @@ from `de.planmarshall.core.profile.WorkerParameters`; the harness re-implements 
 * The six scenarios of regression scenario 12 and the runtime-crash scenarios replay without a live model, and every
   property they name — one submit, detection at the deadline, the lease released, `generation_fenced` for a late call,
   no replacement of a live worker, an exhausted budget closing the task — is a record of the real queue.
-* `assert_worker_state` reaches all five states it derives: `offered`, `acknowledged`, `closed`, `fenced` (a released
-  task whose last attempt's generation is fenced) and `queued` (a release the fence did not cause). `assert_refused`
-  reaches `generation_fenced`.
+* `assert_worker_state` reaches `offered`, `acknowledged`, `closed` and `fenced` (a released task whose last
+  attempt's generation is fenced) through a directive. `queued` — a release the fence did not cause — is reached by the
+  pause's protocol half only, since no directive releases a task without fencing it, and is asserted through the
+  runner's own derivation.
 * A fault names a role the script declared with `worker_wait` before it, and the harness refuses the script when it is
   read otherwise, as it does for every other protocol directive.
 * The harness cannot produce a loss the supervisor would detect without a process: its facts are the protocol's.
 
 == Source
 
-* Work package `doc/plans/supervision-scenarios.adoc`, D1 (the `pm-scenario` half), D2 and D4
+* Work package `doc/plans/supervision-scenarios.adoc`, the `pm-scenario` half of D1, D2, and the scenarios of D3 and D4
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
 * link:../../../../doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]
 * link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#detection[Model Work § Supervision & Recycling, Detection]

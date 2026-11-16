@@ -30,7 +30,13 @@ final class WorkerFaultScenarios {
      * The time the acknowledged worker of {@link #KILL_RELAY} holds its wait before its relay is killed: shorter than
      * the silence limit, so an unsuppressed silence would not have fired yet.
      */
-    static final int HELD_WAIT_SECONDS = SILENCE_LIMIT / 6;
+    static final int HELD_WAIT_SECONDS = Math.max(1, SILENCE_LIMIT / 6);
+
+    /** The first stall of {@link #STALL_CUMULATIVE}, in seconds: shorter than the silence limit on its own. */
+    static final int CUMULATIVE_FIRST_SECONDS = SILENCE_LIMIT * 2 / 3;
+
+    /** The second stall of {@link #STALL_CUMULATIVE}, in seconds: with the first it passes the silence limit. */
+    static final int CUMULATIVE_SECOND_SECONDS = SILENCE_LIMIT / 2;
 
     /**
      * A worker lost between its offer and its acknowledgement: the acknowledgement deadline detects it, the replacing
@@ -103,6 +109,7 @@ final class WorkerFaultScenarios {
             complete_job b-0000000000000001 {"outcome":"succeeded"}
             worker_wait reviewer
             worker_do reviewer ack {}
+            assert_worker_state reviewer acknowledged
             stall_worker reviewer %d
             assert_worker_state reviewer fenced
             worker_do reviewer ack {}
@@ -115,6 +122,29 @@ final class WorkerFaultScenarios {
             """.formatted(SILENCE_LIMIT);
 
     /**
+     * A worker whose stalls add up past the silence limit: neither stall alone reaches it, and the silence the two make
+     * together ends the attempt at the limit, never at the end of the second stall.
+     */
+    static final String STALL_CUMULATIVE = """
+            scenario stall-cumulative
+            start plan scenario-plan
+            complete_job b-0000000000000001 {"outcome":"succeeded"}
+            worker_wait reviewer
+            worker_do reviewer ack {}
+            stall_worker reviewer %d
+            assert_worker_state reviewer acknowledged
+            stall_worker reviewer %d
+            assert_worker_state reviewer fenced
+            worker_do reviewer submit:change {}
+            assert_refused generation_fenced
+            worker_wait reviewer
+            worker_do reviewer ack {}
+            worker_do reviewer submit:change {}
+            assert_task_outcome reviewer submitted
+            assert_state execute.ask
+            """.formatted(CUMULATIVE_FIRST_SECONDS, CUMULATIVE_SECOND_SECONDS);
+
+    /**
      * A worker that ends its turn without a submit: the supervisor observes the exit after the first call, and the
      * replacing generation takes the released task.
      */
@@ -124,6 +154,7 @@ final class WorkerFaultScenarios {
             complete_job b-0000000000000001 {"outcome":"succeeded"}
             worker_wait reviewer
             worker_do reviewer ack {}
+            assert_worker_state reviewer acknowledged
             end_turn reviewer
             assert_worker_state reviewer fenced
             worker_do reviewer submit:change {}
@@ -145,6 +176,7 @@ final class WorkerFaultScenarios {
             complete_job b-0000000000000001 {"outcome":"succeeded"}
             worker_wait reviewer
             worker_do reviewer ack {}
+            assert_worker_state reviewer acknowledged
             stall_worker reviewer %d
             kill_relay reviewer
             assert_worker_state reviewer fenced

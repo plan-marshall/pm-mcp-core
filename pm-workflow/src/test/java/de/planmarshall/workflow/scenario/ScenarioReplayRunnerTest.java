@@ -617,6 +617,10 @@ class ScenarioReplayRunnerTest {
     @DisplayName("Worker faults")
     class WorkerFaults {
 
+        /**
+         * The queue task id of the fixture unit's one task state: a wire value of the replay, read from the fixture
+         * creator's counter, which is the contract of every assertion on the record.
+         */
         private static final String TASK_ID = "qt-0000000000000001";
 
         private ScenarioReplayRunner replayed(String text) {
@@ -736,10 +740,7 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals(lost.acknowledgedAt().plusSeconds(WorkerFaultScenarios.HELD_WAIT_SECONDS
                                     + ScenarioFixtures.STEP.getSeconds()
                                     + ScenarioFixtures.SILENCE_LIMIT_SECONDS),
-                            lost.endedAt(), "the silence counts from the relay's death, at the limit, never before"),
-                    () -> assertTrue(lost.endedAt().isAfter(lost.acknowledgedAt()
-                                    .plusSeconds(ScenarioFixtures.SILENCE_LIMIT_SECONDS)),
-                            "a held wait suppresses the silence until the relay dies"),
+                            lost.endedAt(), "the silence counts from the relay's death, at the limit"),
                     () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"));
         }
 
@@ -753,7 +754,7 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals(Outcome.LOST, task.outcome(), "the task closed lost"),
                     () -> assertEquals(LostReason.ATTEMPTS_SPENT, task.reason(), "the re-offers are spent"),
                     () -> assertEquals(ScenarioFixtures.RE_OFFER_BUDGET + 1, attempts(task).size(),
-                            "every lost attempt was offered again until the budget was spent"),
+                            "every lost attempt was offered again"),
                     () -> assertEquals(ScenarioFixtures.RE_OFFER_BUDGET + 1, task.spentReOffers(),
                             "every loss spent one re-offer"),
                     () -> assertEquals(0, closedAttempts(task), "no attempt closed the task"));
@@ -799,7 +800,7 @@ class ScenarioReplayRunnerTest {
                                     .map(Attempt::generationId).distinct().count(),
                             "the same generation kept the lease"),
                     () -> assertEquals(AttemptEnd.WAITED_AGAIN, attempts(task).getFirst().end(),
-                            "the restarted generation's wait ended the attempt waited_again"),
+                            "the restarted wait ended the attempt waited_again"),
                     () -> assertTrue(runner.fixtures().fences.fenced().isEmpty(),
                             "an orderly restart writes no fence"));
         }
@@ -815,11 +816,13 @@ class ScenarioReplayRunnerTest {
                     runner.fixtures().clock.now().plus(ScenarioFixtures.STEP));
 
             assertAll(
-                    () -> assertEquals(Status.OFFERED, task.status(), "the held task is offered to its generation"),
-                    () -> assertEquals("l-0000000000000001", task.lease() == null ? null : task.lease().generationId(),
+                    () -> assertEquals(Status.OFFERED, task(runner).status(),
+                            "the held task is offered to its generation"),
+                    () -> assertEquals("l-0000000000000001",
+                            task(runner).lease() == null ? null : task(runner).lease().generationId(),
                             "the lease survived the restart"),
                     () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), other,
-                            "a second generation is answered no_task while the lease is held"));
+                            "a second generation is answered no_task"));
         }
 
         @Test
@@ -838,6 +841,85 @@ class ScenarioReplayRunnerTest {
                     () -> assertTrue(runner.fixtures().fences.isFenced(lost.generationId()),
                             "the fence survived the restart"),
                     () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"));
+        }
+
+        @Test
+        @DisplayName("Should lose a worker whose stalls add up past its silence limit, at the limit")
+        void shouldLoseAWorkerWhoseStallsAddUp() {
+            var runner = replayed(WorkerFaultScenarios.STALL_CUMULATIVE);
+            var task = task(runner);
+            var lost = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the replacing worker submitted once"),
+                    () -> assertEquals(2, attempts(task).size(), "the task was offered to two generations"),
+                    () -> assertEquals(AttemptEnd.WORKER_LOST, lost.end(), "the silent worker was lost"),
+                    () -> assertEquals(lost.acknowledgedAt().plusSeconds(ScenarioFixtures.SILENCE_LIMIT_SECONDS),
+                            lost.endedAt(), "the silence of both stalls ends at the limit"),
+                    () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"));
+        }
+
+        @Test
+        @DisplayName("Should lose a worker after a restart that follows its acknowledgement")
+        void shouldLoseAWorkerAfterARestart() {
+            var runner = runner();
+            runner.run(ScenarioScript.read("""
+                    scenario restart-then-lost
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    worker_wait reviewer
+                    worker_do reviewer ack {}
+                    restart_runtime
+                    kill_worker reviewer
+                    assert_worker_state reviewer fenced
+                    """));
+            var task = task(runner);
+            var lost = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(AttemptEnd.WORKER_LOST, lost.end(), "the restarted worker was lost"),
+                    () -> assertEquals(lost.acknowledgedAt().plusSeconds(ScenarioFixtures.SILENCE_LIMIT_SECONDS),
+                            lost.endedAt(), "the restart kept the instant of the last call"),
+                    () -> assertEquals(Status.QUEUED, task.status(), "the task waits for a successor"),
+                    () -> assertNull(task.lease(), "the lease was released at the fence"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a relay killed on a task the worker has not acknowledged")
+        void shouldRefuseARelayKilledOnAnOffer() {
+            var runner = runner();
+            var script = ScenarioScript.read("""
+                    scenario relay-before-ack
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    worker_wait reviewer
+                    kill_relay reviewer
+                    """);
+
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+
+            assertAll(
+                    () -> assertEquals(5, failure.line(), "the failure names the fault's line"),
+                    () -> assertEquals("line 5: kill_relay acts on a task the worker of role reviewer has "
+                            + "acknowledged, but its task qt-0000000000000001 is 'offered'", failure.getMessage(),
+                            "the refusal names the role and the state"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a runtime restart of a scope that was never started")
+        void shouldRefuseARestartBeforeTheStart() {
+            var runner = runner();
+            var script = ScenarioScript.read("""
+                    scenario restart-before-start
+                    restart_runtime
+                    """);
+
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+
+            assertAll(
+                    () -> assertEquals(2, failure.line(), "the failure names the restart's line"),
+                    () -> assertEquals("line 2: the scope has not been started", failure.getMessage(),
+                            "the refusal names the missing start"));
         }
 
         @Test

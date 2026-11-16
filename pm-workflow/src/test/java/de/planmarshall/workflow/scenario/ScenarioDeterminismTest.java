@@ -164,10 +164,13 @@ class ScenarioDeterminismTest {
                 Arguments.of("kill-after-ack", WorkerFaultScenarios.KILL_AFTER_ACK),
                 Arguments.of("stall-short", WorkerFaultScenarios.STALL_SHORT),
                 Arguments.of("stall-long", WorkerFaultScenarios.STALL_LONG),
+                Arguments.of("stall-cumulative", WorkerFaultScenarios.STALL_CUMULATIVE),
                 Arguments.of("end-turn", WorkerFaultScenarios.END_TURN),
                 Arguments.of("kill-relay", WorkerFaultScenarios.KILL_RELAY),
                 Arguments.of("budget-exhausted", WorkerFaultScenarios.BUDGET_EXHAUSTED),
                 Arguments.of("restart-with-a-lease", WorkerFaultScenarios.RESTART_WITH_A_LEASE),
+                Arguments.of("restart-held-by-one-generation",
+                        WorkerFaultScenarios.RESTART_HELD_BY_ONE_GENERATION),
                 Arguments.of("restart-after-a-loss", WorkerFaultScenarios.RESTART_AFTER_A_LOSS));
     }
 
