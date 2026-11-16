@@ -14,9 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +71,7 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  */
 @EnabledOnOs(OS.LINUX)
 @EnableGeneratorController
+@EnableTestLogger
 @DisplayName("git_metadata of a job record")
 class GitMetadataJobTest {
 
@@ -87,6 +93,8 @@ class GitMetadataJobTest {
     private Path script;
     private JobTokenStore tokens;
     private SubprocessJobRunner runner;
+    private GitMetadataGuard guard;
+    private final List<GitMetadataChangeSink.Change> changes = new CopyOnWriteArrayList<>();
     private String generation;
     private String token;
     private String role;
@@ -105,12 +113,14 @@ class GitMetadataJobTest {
         Files.setPosixFilePermissions(script, PosixFilePermissions.fromString("rwx------"));
         home = FakePmExec.install(fixture.base.resolve("home"), FakePmExec.Mode.REPORT);
         tokens = new JobTokenStore();
+        guard = new GitMetadataGuard();
         runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(fixture.locks)
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                 .termination(new TerminationProtocol(ProcessGroupSignals.system())).environment(new WorkerEnvironment())
                 .probeEnvironment((candidate, jobId) -> ENVIRONMENT)
                 .parser((kind, output) -> new JobEvidence.ParseResult(true, 0, false, null))
-                .primitives(request -> Optional.empty()).jobTokens(tokens).build();
+                .primitives(request -> Optional.empty()).jobTokens(tokens).audit(fixture.sink)
+                .gitMetadataGuard(guard).gitMetadataSink(changes::add).build();
     }
 
     @AfterEach
@@ -173,6 +183,88 @@ class GitMetadataJobTest {
         assertAll("a non-worker records no git metadata",
                 () -> assertEquals(JobId.Kind.GIT, jobId.kind(), "the job is a git job"),
                 () -> assertNull(settled.gitMetadata(), "the report's member is not recorded"));
+    }
+
+    @Test
+    @DisplayName("a worker that changed the git metadata refuses the next git job until it is rebaselined")
+    void workerChangeRefusesTheNextGitJob() throws IOException {
+        var config = fixture.root.resolve(".git/config");
+        Files.writeString(config, "[core]\n\trepositoryformatversion = 0\n");
+        writeGitTool();
+        fixture.enrol();
+        Files.writeString(script, "#!/bin/sh\necho '[core] fsmonitor = attacker' >> " + config + "\nexit 0\n");
+        Files.setPosixFilePermissions(script, PosixFilePermissions.fromString("rwx------"));
+
+        var worker = settleWorker();
+
+        var changeEvent = fixture.events.stream()
+                .filter(event -> SubprocessJobRunner.GIT_METADATA_CHANGED.equals(event.event())).findFirst()
+                .orElseThrow(() -> new AssertionError("no git metadata audit record"));
+        assertAll("The worker's change is seen",
+                () -> assertEquals(GitMetadata.UNENFORCED, worker.gitMetadata(), "the honest value is recorded"),
+                () -> assertEquals(1, changes.size(), "the sink is called once"),
+                () -> assertEquals(GitMetadataChangeSink.Point.WORKER_END, changes.getFirst().point(),
+                        "the point is the worker's end"),
+                () -> assertTrue(changes.getFirst().parts().contains(".git/config"),
+                        "the changed part is named"),
+                () -> assertEquals(fixture.root.toString(), changeEvent.details().get(SubprocessJobRunner.DETAIL_PROJECT),
+                        "the audit record names the project"),
+                () -> assertEquals(GitMetadataChangeSink.Point.WORKER_END.wireName(),
+                        changeEvent.details().get(SubprocessJobRunner.DETAIL_POINT),
+                        "the audit record names the point"),
+                () -> assertEquals(worker.jobId().value(),
+                        changeEvent.details().get(SubprocessJobRunner.DETAIL_JOB_ID),
+                        "the audit record names the job"),
+                () -> assertTrue(((java.util.Collection<?>) changeEvent.details()
+                                .get(SubprocessJobRunner.DETAIL_PARTS)).contains(".git/config"),
+                        "the audit record names the parts"),
+                () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                        WARN.GIT_METADATA_CHANGED.resolveIdentifierString()),
+                () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                        GitMetadataChangeSink.Point.WORKER_END.wireName()));
+
+        var refused = runner.start(gitJob());
+
+        var refusedId = assertInstanceOf(JobRunner.StartResult.Refused.class, refused,
+                "the git job is refused").reason();
+        assertEquals(SubprocessJobRunner.GIT_METADATA_CHANGED, refusedId, "the refusal names the change");
+
+        guard.rebaseline(fixture.root);
+        var started = assertInstanceOf(JobRunner.StartResult.Started.class, runner.start(gitJob()),
+                "after rebaseline the git job runs again");
+        runner.awaitSettled(started.jobId(), SETTLE_TIMEOUT).orElseThrow();
+    }
+
+    @Test
+    @DisplayName("a worker that changed only tracked source leaves the digest unchanged")
+    void trackedSourceChangeDoesNotRefuse() throws IOException {
+        var tracked = fixture.root.resolve("README.md");
+        Files.writeString(tracked, Generators.letterStrings(1, 32).next());
+        writeGitTool();
+        fixture.enrol();
+        Files.writeString(script, "#!/bin/sh\necho changed >> " + tracked + "\nexit 0\n");
+        Files.setPosixFilePermissions(script, PosixFilePermissions.fromString("rwx------"));
+
+        var worker = settleWorker();
+        var started = assertInstanceOf(JobRunner.StartResult.Started.class, runner.start(gitJob()),
+                "a tracked source change leaves the git job running");
+
+        assertAll("The matched control",
+                () -> assertTrue(worker.status().isSettled(), "the worker settled"),
+                () -> assertTrue(changes.isEmpty(), "the sink is not called for a tracked change"),
+                () -> assertTrue(runner.awaitSettled(started.jobId(), SETTLE_TIMEOUT).isPresent(),
+                        "the git job settles"));
+    }
+
+    /** Overwrites the fixture's git tool with an enrolled script that succeeds. */
+    private void writeGitTool() throws IOException {
+        Files.writeString(fixture.tools.get(HostToolName.GIT), "#!/bin/sh\nexit 0\n");
+    }
+
+    private JobRunner.StartRequest<JobRequest> gitJob() {
+        var request = fixture.request(fixture.root.toString(),
+                new JobRequest.HostToolCall(HostToolName.GIT, List.of("status")));
+        return new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, 30, FLOOR, request, null);
     }
 
     private JobRecord settleWorker() {

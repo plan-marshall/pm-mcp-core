@@ -1,0 +1,99 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.runtime.job;
+
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * The baseline of a project's git metadata and its comparison (PM-WATCH-JOB-48): {@code record} takes the digest at a
+ * worker's spawn, {@code verify} compares the metadata at the two points the specification names, and
+ * {@code rebaseline} is the operator's act that ends a hold. The guard never changes a file and never repairs the git
+ * metadata.
+ * <p>
+ * The baseline is kept in memory per project. A runtime restart loses it, and the recovery ends a running worker at
+ * restart, so the next worker's spawn records a fresh one; the operator's {@code rebaseline} is the act that clears a
+ * false difference after a legitimate build job changed the metadata.
+ * <p>
+ * A project without git has no baseline and never compares.
+ *
+ * @since 0.1
+ */
+public final class GitMetadataGuard {
+
+    private final Map<Path, SortedMap<String, String>> baselines = new ConcurrentHashMap<>();
+
+    /**
+     * Takes the baseline of a project.
+     *
+     * @param projectRoot the canonical enrolled project root
+     */
+    public void record(Path projectRoot) {
+        baselines.put(key(projectRoot), GitMetadataDigest.of(projectRoot));
+    }
+
+    /**
+     * Compares the project's git metadata with the baseline.
+     *
+     * @param projectRoot the canonical enrolled project root
+     * @return {@link Unchanged} for a project without a baseline or with an unchanged metadata tree, otherwise
+     *         {@link Changed} with the parts that differ
+     */
+    public Verdict verify(Path projectRoot) {
+        var baseline = baselines.get(key(projectRoot));
+        if (baseline == null) {
+            return new Unchanged();
+        }
+        var parts = GitMetadataDigest.differences(baseline, GitMetadataDigest.of(projectRoot));
+        return parts.isEmpty() ? new Unchanged() : new Changed(parts);
+    }
+
+    /**
+     * Moves the baseline to the metadata as it is now: the operator's act that ends a hold.
+     *
+     * @param projectRoot the canonical enrolled project root
+     */
+    public void rebaseline(Path projectRoot) {
+        record(projectRoot);
+    }
+
+    private static Path key(Path projectRoot) {
+        return Objects.requireNonNull(projectRoot, "projectRoot").toAbsolutePath().normalize();
+    }
+
+    /** What a comparison found. */
+    public sealed interface Verdict permits Unchanged, Changed {
+    }
+
+    /** The git metadata is unchanged, or the project holds no baseline to compare with. */
+    public record Unchanged() implements Verdict {
+    }
+
+    /**
+     * The git metadata differs.
+     *
+     * @param parts the names of the parts that differ, sorted; never their contents
+     * @since 0.1
+     */
+    public record Changed(SortedSet<String> parts) implements Verdict {
+
+        /** @throws NullPointerException if the parts are {@code null} */
+        public Changed {
+            Objects.requireNonNull(parts, "parts");
+            parts = Collections.unmodifiableSortedSet(new TreeSet<>(parts));
+        }
+    }
+}

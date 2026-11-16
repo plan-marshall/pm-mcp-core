@@ -182,6 +182,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** The security audit record of a descendant that outlived the sweep of a job's process tree. */
     public static final String JOB_DESCENDANT_SURVIVED = "job_descendant_survived";
 
+    /** The refusal of a {@code git} job of a project whose git metadata differs from its baseline. */
+    public static final String GIT_METADATA_CHANGED = "git_metadata_changed";
+
     /** The detail of that record that names the descendant's executable. */
     public static final String DETAIL_EXECUTABLE = "executable";
 
@@ -190,6 +193,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /** The detail of that record that names the job. */
     public static final String DETAIL_JOB_ID = "job_id";
+
+    /** The detail of the git metadata audit record that names the project. */
+    public static final String DETAIL_PROJECT = "project";
+
+    /** The detail of the git metadata audit record that names the point of the comparison. */
+    public static final String DETAIL_POINT = "point";
+
+    /** The detail of the git metadata audit record that names the parts that differ. */
+    public static final String DETAIL_PARTS = "parts";
 
     /** The audit sink of a runner whose caller names none: the sweep still runs, its survivors are not recorded. */
     private static final AuditSink NO_AUDIT = _ -> {
@@ -300,6 +312,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final Supervision supervision;
     private final AuditSink audit;
     private final @Nullable JobTokenStore jobTokens;
+    private final GitMetadataGuard gitMetadataGuard;
+    private final GitMetadataChangeSink gitMetadataSink;
 
     /**
      * The store of every job this runner started and whose settlement has not recorded its fate yet. A job whose fate
@@ -349,6 +363,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *                         {@value #SETTLED_RECORD_CACHE}
      * @param settlementSteps  the steps that replace the named seams of {@link JobSettlement}; empty or {@code null}
      *                         for the settlement of this runtime as it is
+     * @param gitMetadataGuard the baseline of the git metadata of a project; {@code null} for a guard of this runner
+     * @param gitMetadataSink  where a difference of the git metadata is reported; {@code null} for no report
      * @throws NullPointerException if an argument other than the clock, the supervision, the audit sink, the job-token
      *                              store, the settled-record window and the settlement steps is {@code null}
      */
@@ -361,7 +377,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             @Nullable Environment environment, @Nullable ProbeEnvironment probeEnvironment, OutputParser parser,
             PrimitiveJobs primitives, @Nullable InstantSource clock, @Nullable Supervision supervision,
             @Nullable AuditSink audit, @Nullable JobTokenStore jobTokens, @Nullable Integer settledRecordsKept,
-            @Nullable Map<SettlementStep.Name, SettlementStep> settlementSteps) {
+            @Nullable Map<SettlementStep.Name, SettlementStep> settlementSteps,
+            @Nullable GitMetadataGuard gitMetadataGuard, @Nullable GitMetadataChangeSink gitMetadataSink) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
@@ -380,6 +397,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.supervision = supervision == null ? Supervision.VIRTUAL_THREADS : supervision;
         this.audit = audit == null ? NO_AUDIT : audit;
         this.jobTokens = jobTokens;
+        this.gitMetadataGuard = gitMetadataGuard == null ? new GitMetadataGuard() : gitMetadataGuard;
+        this.gitMetadataSink = gitMetadataSink == null ? GitMetadataChangeSink.NONE : gitMetadataSink;
         this.settledRecordsKept = settledRecordsKept == null ? SETTLED_RECORD_CACHE : settledRecordsKept;
         if (this.settledRecordsKept < 1) {
             throw new IllegalArgumentException("The settled-record cache keeps at least one record: "
@@ -530,7 +549,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
         return switch (verification) {
             case JobVerification.Refused(var refusal) -> refuse(request, budget, store, refusal.reason().code());
-            case JobVerification.Verified(var job) -> launch(request, budget, store, job);
+            case JobVerification.Verified(var job) -> {
+                var projectRoot = projectRoot(job.enrolment());
+                if (request.kind() == JobId.Kind.GIT) {
+                    if (gitMetadataGuard.verify(projectRoot) instanceof GitMetadataGuard.Changed(var parts)) {
+                        yield refuseGitMetadata(request, budget, store, projectRoot, parts);
+                    }
+                }
+                yield launch(request, budget, store, job);
+            }
         };
     }
 
@@ -562,7 +589,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 first = admit(transaction, store, newRecord(jobId, request.scope(), budget, argvDigest(launch.argv()),
                         clock.instant()).worker(CanonicalJson.write(launch.workerBlock())));
             }
-            job = register(first, store, budget, Set.of());
+            job = register(first, store, budget, Set.of(), projectRoot(request.enrolment()));
         } finally {
             admission.unlock();
         }
@@ -623,6 +650,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private JobRecordStore workerStore(JobRecord.Scope scope, ProjectEnrolment enrolment) {
         return scope.type() == JobRecord.Scope.Type.MACHINE ? JobRecordStore.ofMachine(base)
                 : JobRecordStore.ofProject(base, enrolment.projectId());
+    }
+
+    /** @return the canonical project root of an enrolment */
+    private static Path projectRoot(ProjectEnrolment enrolment) {
+        return Path.of(enrolment.projectRoot()).toAbsolutePath().normalize();
     }
 
     /**
@@ -686,7 +718,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                     first = admit(transaction, store, draft);
                 }
             }
-            job = register(first, store, budget, candidate.successExitCodes());
+            job = register(first, store, budget, candidate.successExitCodes(), null);
         } finally {
             admission.unlock();
         }
@@ -741,11 +773,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @return the running job; empty for a job that was refused or recorded {@code queued}
      */
     private Optional<RunningJob> register(JobRecord first, JobRecordStore store, JobBudget budget,
-            Set<Integer> successExitCodes) {
+            Set<Integer> successExitCodes, @Nullable Path projectRoot) {
         if (first.status() != Status.RUNNING) {
             return Optional.empty();
         }
-        var job = new RunningJob(first, store, budget, successExitCodes);
+        var job = new RunningJob(first, store, budget, successExitCodes, projectRoot);
         running.put(first.jobId(), job);
         return Optional.of(job);
     }
@@ -934,6 +966,28 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
+     * Settles a {@code git} job refused because the project's git metadata differs from its baseline: the one write of
+     * its record, the security audit record, the WARN and the sink.
+     */
+    private JobRunner.StartResult refuseGitMetadata(JobRunner.StartRequest<JobRequest> request, JobBudget budget,
+            JobRecordStore store, Path projectRoot, Set<String> parts) {
+        var outcome = OutcomeDerivation.derive(new RefusedBeforeSpawn(GIT_METADATA_CHANGED));
+        var now = clock.instant();
+        JobRecord settled;
+        try (var transaction = lockManager.openTransaction()) {
+            var jobId = store.allocate(transaction, request.kind(), request.scope());
+            settled = newRecord(jobId, request.scope(), budget, null, now).status(Status.REFUSED)
+                    .fate(outcome.fate()).outcomeRow(outcome.row()).refusalReason(GIT_METADATA_CHANGED).endedAt(now)
+                    .build();
+            store.writeFate(transaction, settled);
+        }
+        remember(settled);
+        LOGGER.info(INFO.JOB_SETTLED, settled.jobId(), settled.fate().wireName(), settled.outcomeRow());
+        reportChange(projectRoot, GitMetadataChangeSink.Point.GIT_JOB, settled.jobId(), parts);
+        return new JobRunner.StartResult.Refused(GIT_METADATA_CHANGED);
+    }
+
+    /**
      * Writes the write-ahead record, launches the job and, when its launch report arrives in time, writes its
      * post-spawn record.
      */
@@ -948,7 +1002,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 first = admit(transaction, store, newRecord(jobId, request.scope(), budget,
                         argvDigest(verified.argv()), clock.instant()));
             }
-            job = register(first, store, budget, Set.of());
+            job = register(first, store, budget, Set.of(), projectRoot(verified.enrolment()));
         } finally {
             admission.unlock();
         }
@@ -984,6 +1038,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var jobId = job.latest.jobId();
         var log = new JobLog(job.store.logPath(jobId));
         var spawnedAt = clock.instant();
+        if (job.latest.kind() == JobId.Kind.LLM && job.projectRoot != null) {
+            gitMetadataGuard.record(job.projectRoot);
+        }
         Launched launched;
         var started = false;
         var explained = false;
@@ -1590,6 +1647,56 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             if (jobTokens != null && settled.kind() == JobId.Kind.LLM) {
                 jobTokens.revoke(settled.jobId().value());
             }
+            verifyWorkerEnd(job, settled);
+        }
+    }
+
+    /**
+     * Compares the git metadata of the worker's project with the baseline its spawn recorded, after the worker's fate
+     * is recorded, so the fate is never held back by the comparison.
+     */
+    private void verifyWorkerEnd(RunningJob job, JobRecord settled) {
+        var root = job.projectRoot;
+        if (root == null) {
+            return;
+        }
+        if (gitMetadataGuard.verify(root) instanceof GitMetadataGuard.Changed(var parts)) {
+            reportChange(root, GitMetadataChangeSink.Point.WORKER_END, settled.jobId(), parts);
+        }
+    }
+
+    /**
+     * Reports a difference of a project's git metadata: the security audit record, the WARN and the sink. A failure of
+     * the audit record or the sink is logged and never stops the settlement or the refusal.
+     *
+     * @param projectRoot the project whose metadata differed
+     * @param point       where the comparison found it
+     * @param jobId       the job that ended, or the {@code git} job that was refused
+     * @param parts       the names of the parts that differ, never their contents
+     */
+    // java:S1181 does not apply: the audit sink and the change sink are the caller's, and a fault of either must not
+    // abort the settlement; the failure is logged.
+    @SuppressWarnings("java:S1181")
+    void reportChange(Path projectRoot, GitMetadataChangeSink.Point point, JobId jobId, Set<String> parts) {
+        var details = new HashMap<String, Object>();
+        details.put(DETAIL_PROJECT, projectRoot.toString());
+        details.put(DETAIL_POINT, point.wireName());
+        details.put(DETAIL_JOB_ID, jobId.value());
+        details.put(DETAIL_PARTS, List.copyOf(parts));
+        try {
+            audit.append(AuditEvent.builder().event(GIT_METADATA_CHANGED).category(AuditEvent.CATEGORY_SECURITY)
+                    .outcome(AuditEvent.OUTCOME_FAILED).details(details).build());
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
+        } catch (RuntimeException | Error e) {
+            LOGGER.warn(e, WARN.GIT_METADATA_CHANGE_NOT_REPORTED, projectRoot, e.getMessage());
+        }
+        LOGGER.warn(WARN.GIT_METADATA_CHANGED, projectRoot, point.wireName(), parts.size());
+        try {
+            gitMetadataSink.changed(GitMetadataChangeSink.Change.builder().projectRoot(projectRoot).point(point)
+                    .jobId(jobId).parts(parts).build());
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
+        } catch (RuntimeException | Error e) {
+            LOGGER.warn(e, WARN.GIT_METADATA_CHANGE_NOT_REPORTED, projectRoot, e.getMessage());
         }
     }
 
@@ -1718,6 +1825,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         private final JobRecordStore store;
         private final JobBudget budget;
         private final Set<Integer> successExitCodes;
+
+        /** The project whose git metadata this job may change; {@code null} for a probe. */
+        private final @Nullable Path projectRoot;
         private final CompletableFuture<Termination> cause = new CompletableFuture<>();
         private final CompletableFuture<JobRecord> settled = new CompletableFuture<>();
         // java:S3077 does not apply to either volatile field: each is a reference that is replaced as a whole and never
@@ -1757,11 +1867,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
          * @param successExitCodes the exit codes a probe declares as its success; empty for every other job
          */
         RunningJob(@Nullable JobRecord latest, JobRecordStore store, JobBudget budget,
-                Set<Integer> successExitCodes) {
+                Set<Integer> successExitCodes, @Nullable Path projectRoot) {
             this.latest = latest;
             this.store = store;
             this.budget = budget;
             this.successExitCodes = successExitCodes;
+            this.projectRoot = projectRoot;
         }
 
         void launched(Process launched) {

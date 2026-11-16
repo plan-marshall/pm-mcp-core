@@ -1548,7 +1548,7 @@ class SubprocessJobRunnerTest {
                     .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
             var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
-                    Set.of());
+                    Set.of(), null);
 
             int pid = Generators.integers(2, 4_000_000).next();
             var executable = "/" + Generators.letterStrings(3, 12).next();
@@ -1594,7 +1594,7 @@ class SubprocessJobRunnerTest {
                     .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
             var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
-                    Set.of());
+                    Set.of(), null);
             int pid = Generators.integers(2, 4_000_000).next();
 
             runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(pid, null),
@@ -1641,7 +1641,7 @@ class SubprocessJobRunnerTest {
                     .confinement(JobRecord.Confinement.UNAVAILABLE).createdAt(Instant.now())
                     .clampedValues(List.of()).build();
             var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
-                    Set.of());
+                    Set.of(), null);
             job.tracks(tracker);
 
             var survivors = job.sweepTree();
@@ -1807,7 +1807,8 @@ class SubprocessJobRunnerTest {
     class CancelDoorSeam {
 
         private SubprocessJobRunner.RunningJob job() {
-            return new SubprocessJobRunner.RunningJob(null, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of());
+            return new SubprocessJobRunner.RunningJob(null, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
+                    null);
         }
 
         @Test
@@ -1891,7 +1892,8 @@ class SubprocessJobRunnerTest {
         Path temp;
 
         private SubprocessJobRunner.RunningJob job() {
-            return new SubprocessJobRunner.RunningJob(null, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of());
+            return new SubprocessJobRunner.RunningJob(null, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
+                    null);
         }
 
         @Test
