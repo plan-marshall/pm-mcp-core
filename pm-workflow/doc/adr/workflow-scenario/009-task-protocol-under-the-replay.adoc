@@ -45,18 +45,19 @@ The replay runs the real queue and the real task protocol.
   `worker_wait` — the form the specification's example writes; a script that holds two protocol workers names the
   role, which the consultation scenario needs.
 * **`worker_do` follows the link the entity offers.** `ack` acknowledges the offer, `infeasible` closes the work task
-  with that outcome, and `consult:<role>` follows the consultation link through `ConsultationService.open`.
-  `submit:<kind>` names the kind of the link: for a work task it must be the entity kind of the leased task and the
-  submit passes `ConsultationService.validateSubmit` with the `consultation_ids` the call names before the protocol
-  closes it; for a consultation task the kind is `answer` and the call is `ConsultationService.answer`. A refused call
-  fails the step at its line unless the next step is `assert_refused`.
+  with that outcome, and `consult:<role>` follows the consultation link through `ConsultationService.open` with the
+  unit's own `consult role` clauses as the declared roles. `submit:<kind>` names the kind of the link: for a work task
+  it must be the entity kind of the leased task and the submit passes `ConsultationService.validateSubmit` with the
+  `consultation_ids` the call names before the protocol closes it; for a consultation task the kind is `answer` and the
+  call is `ConsultationService.answer`. A refused call fails the step at its line unless the next step is
+  `assert_refused`.
 * **The assertions read the record.** `assert_worker_state <role> <state>` derives the state of the worker's task from
   its queue record: `offered` (status `offered`), `acknowledged` (status `executing`, which the acknowledgement always
   precedes), `closed`, `queued` (status `queued`, released by anything but the fence) and `fenced` (status `queued` and
   the replay's fence store holds the generation of its last attempt). `assert_task_outcome` reads the closed outcome
   from the record, not from the worker's memory. `assert_refused <reason>` accepts exactly the wire names of
-  `TaskRefusal`, derived from the enum at run time; a script whose last `worker_do` made no call of the task protocol,
-  or that made none before the assertion, is refused when it is read.
+  `TaskRefusal`, derived from the enum at run time, and is refused when it is read unless the directive directly before
+  it is a `worker_do` that calls the task protocol — the runner lets a refusal pass only when the next step asserts it.
 
 == Alternatives Considered
 

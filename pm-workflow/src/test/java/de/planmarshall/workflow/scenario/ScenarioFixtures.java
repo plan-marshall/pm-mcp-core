@@ -61,6 +61,8 @@ import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.core.store.WorkflowStatus;
+import de.planmarshall.workflow.ast.StateBehavior;
+import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.consult.ConsultationService;
@@ -107,9 +109,6 @@ final class ScenarioFixtures {
 
     /** The re-offer budget of the state a protocol worker's task belongs to. */
     static final int RE_OFFER_BUDGET = 3;
-
-    /** The roles the fixture consult unit declares with {@code consult role}. */
-    static final List<String> CONSULT_ROLES = List.of("reviewer");
 
     /**
      * The fixture plan unit: an {@code auto} state, a job state, a task state of the role {@code reviewer}, a question
@@ -197,6 +196,7 @@ final class ScenarioFixtures {
     final Note note = new Note();
 
     private final TaskProtocol protocol;
+    private List<String> consultRoles = List.of();
     private int generations;
 
     /**
@@ -227,17 +227,17 @@ final class ScenarioFixtures {
         return "l-%016x".formatted(generations);
     }
 
-    /** @return the roles the fixture consult unit declares with {@code consult role} */
+    /** @return the roles the unit of the replay declares with {@code consult role} */
     List<String> consultRoles() {
-        return CONSULT_ROLES;
+        return consultRoles;
     }
 
     /**
      * @param role a role a scenario consults
-     * @return the class the replay gives the role: the consulted fixture role reads, every other role writes
+     * @return the class the replay gives the role: the consulted role reads, every other role writes
      */
     RoleClass roleClass(String role) {
-        return CONSULT_ROLES.contains(role) ? RoleClass.READ_ONLY : RoleClass.WRITER;
+        return consultRoles.contains(role) ? RoleClass.READ_ONLY : RoleClass.WRITER;
     }
 
     private JobStarter jobStarter() {
@@ -387,11 +387,26 @@ final class ScenarioFixtures {
      * @return the engine
      */
     WorkflowEngine engine(WorkflowDefinition unit) {
+        consultRoles = consultRoles(unit);
         var registry = registry();
         var validator = new WorkflowValidator(registry, List.of(), entityKinds(), QuestionClassRegistry.defaults(),
                 SchemaRegistry.defaults(), WorkflowCatalog.of());
         var ports = new WorkflowEngine.Ports(jobStarter, queueTasks, questionReader, clock);
         return new WorkflowEngine(unit, WorkflowCatalog.of(), validator, registry, new ScenarioParameterBinder(), ports);
+    }
+
+    /**
+     * @param unit a unit of a replay
+     * @return the roles its task states declare with {@code consult role}, in source order and without duplicates
+     */
+    private static List<String> consultRoles(WorkflowDefinition unit) {
+        return unit.states().values().stream()
+                .map(StateNode::behavior)
+                .filter(behavior -> behavior instanceof StateBehavior.ModelJob)
+                .map(behavior -> (StateBehavior.ModelJob) behavior)
+                .flatMap(job -> job.consultRoles().stream())
+                .distinct()
+                .toList();
     }
 
     /** The binder of the fixture primitives: no parameters, but an operator link's {@code note} for {@code scenario.note}. */

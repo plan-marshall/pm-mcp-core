@@ -482,8 +482,9 @@ class ScenarioReplayRunnerTest {
             var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN, PLAN_ID));
             var task = runner.fixtures().queue.read("qt-0000000000000001").orElseThrow();
             assertAll(
-                    () -> assertEquals("completed", stored.read().orElseThrow().state()),
-                    () -> assertEquals(1, task.attempts().size()),
+                    () -> assertEquals("completed", stored.read().orElseThrow().state(),
+                            "the approved branch completed"),
+                    () -> assertEquals(1, task.attempts().size(), "the task was leased once"),
                     () -> assertEquals(Status.CLOSED, task.status(), "the task record is closed"),
                     () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the closed outcome is submitted"),
                     () -> assertEquals(AttemptEnd.CLOSED, task.currentAttempt().orElseThrow().end(),
@@ -505,8 +506,9 @@ class ScenarioReplayRunnerTest {
                     """);
 
             assertAll(
-                    () -> assertEquals(5, failure.line()),
-                    () -> assertEquals("line 5: the call was refused 'link_not_available'", failure.getMessage()));
+                    () -> assertEquals(5, failure.line(), "the failure names the submit's line"),
+                    () -> assertEquals("line 5: the call was refused 'link_not_available'", failure.getMessage(),
+                            "the refusal names the wire reason"));
         }
 
         @Test
@@ -534,9 +536,9 @@ class ScenarioReplayRunnerTest {
                     """);
 
             assertAll(
-                    () -> assertEquals(7, failure.line()),
+                    () -> assertEquals(7, failure.line(), "the failure names the assertion's line"),
                     () -> assertEquals("line 7: assert_refused expected 'stale_entity' but the call was refused "
-                            + "'link_not_available'", failure.getMessage()));
+                            + "'link_not_available'", failure.getMessage(), "the refusal names both reasons"));
         }
 
         @Test
@@ -551,9 +553,10 @@ class ScenarioReplayRunnerTest {
                     """);
 
             assertAll(
-                    () -> assertEquals(5, failure.line()),
+                    () -> assertEquals(5, failure.line(), "the failure names the assertion's line"),
                     () -> assertEquals("line 5: assert_worker_state expected 'acknowledged' for role reviewer but its "
-                            + "task qt-0000000000000001 is 'offered'", failure.getMessage()));
+                            + "task qt-0000000000000001 is 'offered'", failure.getMessage(),
+                            "the message names both states"));
         }
 
         @Test
@@ -570,9 +573,10 @@ class ScenarioReplayRunnerTest {
                     """);
 
             assertAll(
-                    () -> assertEquals(7, failure.line()),
+                    () -> assertEquals(7, failure.line(), "the failure names the wait's line"),
                     () -> assertEquals("line 7: worker_wait of role reviewer expected an offer but the protocol "
-                            + "answered 'no_task', an empty window", failure.getMessage()));
+                            + "answered 'no_task', an empty window", failure.getMessage(),
+                            "the answer names the reason"));
         }
 
         @Test
@@ -646,10 +650,10 @@ class ScenarioReplayRunnerTest {
             var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
 
             assertAll(
-                    () -> assertEquals(11, failure.line()),
+                    () -> assertEquals(11, failure.line(), "the failure names the submit's line"),
                     () -> assertTrue(failure.getMessage().startsWith(
                                     "line 11: the submit was refused: the submit omits the delivered consultation_id "),
-                            failure.getMessage()));
+                            "the refusal names the missing reference: " + failure.getMessage()));
         }
 
         @Test

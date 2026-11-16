@@ -173,7 +173,8 @@ packages are `ScenarioScript.REFUSED`, kept by hand, and `ScenarioScriptTest` ru
 it with the specification, so a change to the specification's directives changes `REFUSED` with it. A word
 that is no directive at all is refused as unknown, and so is a missing or surplus argument, a malformed id, an unknown
 fate, task outcome, worker state or refusal, a call or an assertion of a role the script never declares with
-`worker_wait`, an `assert_refused` with no `worker_do` before it, a second `scenario` line and a script without steps.
+`worker_wait` before it, an `assert_refused` that does not directly follow a `worker_do` of the task protocol, a
+second `scenario` line and a script without steps.
 Every refusal is an `IllegalArgumentException` whose message starts with `line <n>:`.
 
 == Runner

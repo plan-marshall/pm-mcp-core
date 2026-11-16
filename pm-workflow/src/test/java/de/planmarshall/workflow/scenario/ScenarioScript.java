@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -39,9 +40,9 @@ import de.planmarshall.core.store.JournalScopeType;
  *
  * <pre>
  * scenario review-and-ask
- * worker_wait reviewer                          # the protocol worker of the role reviewer
  * start plan plan-a
  * complete_job b-0000000000000001 {"outcome":"succeeded"}
+ * worker_wait reviewer                          # the protocol worker of the role reviewer waits for its task
  * worker_do ack {}                              # the worker of the most recent wait acknowledges the offer
  * worker_do reviewer submit:change {}           # the same call, naming its role
  * assert_task_outcome reviewer submitted
@@ -135,45 +136,49 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
      */
     private static void requireProtocolWorkerDeclarations(List<ScenarioDirective> directives) {
         var waited = new HashSet<String>();
-        ScenarioDirective.WorkerDo precedingCall = null;
+        ScenarioDirective previous = null;
         for (var directive : directives) {
             switch (directive) {
                 case ScenarioDirective.WorkerWait wait -> waited.add(wait.role());
-                case ScenarioDirective.WorkerDo call -> {
-                    var role = call.call().role();
-                    if (role == null && waited.isEmpty()) {
-                        throw new IllegalArgumentException(
-                                "line %d: worker_do names no role, and no worker_wait precedes it"
-                                        .formatted(call.line()));
-                    }
-                    if (role != null && !waited.contains(role)) {
-                        throw new IllegalArgumentException(
-                                "line %d: worker_do names the role %s, which the script never declares with worker_wait before it"
-                                        .formatted(call.line(), role));
-                    }
-                    precedingCall = call;
-                }
+                case ScenarioDirective.WorkerDo call -> requireCallTarget(call, waited);
                 case ScenarioDirective.AssertWorkerState assertion when !waited.contains(assertion.role()) ->
                     throw new IllegalArgumentException(
                             "line %d: assert_worker_state names the role %s, which the script never declares with worker_wait before it"
                                     .formatted(assertion.line(), assertion.role()));
-                case ScenarioDirective.AssertRefused assertion -> requireProtocolCall(assertion, precedingCall);
+                case ScenarioDirective.AssertRefused assertion -> requireProtocolCall(assertion, previous);
                 default -> {
                     // every other directive names no protocol worker
                 }
             }
+            previous = directive;
         }
     }
 
-    /** {@code assert_refused} asserts the last {@code worker_do}'s refusal: that call must be one of the protocol's. */
-    private static void requireProtocolCall(ScenarioDirective.AssertRefused assertion,
-            ScenarioDirective.WorkerDo precedingCall) {
-        if (precedingCall == null) {
+    /** A call's role must have waited before it; a call with no role must follow any wait. */
+    private static void requireCallTarget(ScenarioDirective.WorkerDo call, Set<String> waited) {
+        var role = call.call().role();
+        if (role == null && waited.isEmpty()) {
             throw new IllegalArgumentException(
-                    "line %d: assert_refused asserts the last worker_do, but no worker_do precedes it"
+                    "line %d: worker_do names no role, and no worker_wait precedes it".formatted(call.line()));
+        }
+        if (role != null && !waited.contains(role)) {
+            throw new IllegalArgumentException(
+                    "line %d: worker_do names the role %s, which the script never declares with worker_wait before it"
+                            .formatted(call.line(), role));
+        }
+    }
+
+    /**
+     * {@code assert_refused} asserts the refusal of the {@code worker_do} directly before it, which must be one of the
+     * protocol's: the runner lets a refusal pass only when the next step asserts it.
+     */
+    private static void requireProtocolCall(ScenarioDirective.AssertRefused assertion, ScenarioDirective previous) {
+        if (!(previous instanceof ScenarioDirective.WorkerDo call)) {
+            throw new IllegalArgumentException(
+                    "line %d: assert_refused must directly follow the worker_do whose refusal it asserts"
                             .formatted(assertion.line()));
         }
-        if (!isProtocolCall(precedingCall)) {
+        if (!isProtocolCall(call)) {
             throw new IllegalArgumentException(
                     "line %d: assert_refused asserts the last worker_do's refusal, but that call makes no call of the task protocol"
                             .formatted(assertion.line()));
@@ -327,31 +332,22 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
         if (line.args().isEmpty()) {
             throw line.refused("missing argument: " + form);
         }
-        var arguments = line.jsonMembers();
-        if (line.args().size() == 1 && isActionWord(line.args().getFirst())) {
-            var word = line.args().getFirst();
-            return line.build(() -> new ScenarioDirective.WorkerDo(line.number(),
-                    new ScenarioDirective.Call(null, action(word, arguments), arguments)));
-        }
-        if (line.args().size() < 2) {
-            throw line.refused("missing argument: " + form);
-        }
         if (line.args().size() > 2) {
             throw line.refused("surplus argument '%s': %s".formatted(line.args().get(2), form));
+        }
+        var arguments = line.jsonMembers();
+        if (line.args().size() == 1) {
+            var word = line.args().getFirst();
+            return line.build(() -> new ScenarioDirective.WorkerDo(line.number(),
+                    new ScenarioDirective.Call(null, action(word), arguments)));
         }
         var role = line.args().getFirst();
         var word = line.args().get(1);
         return line.build(() -> new ScenarioDirective.WorkerDo(line.number(),
-                new ScenarioDirective.Call(role, action(word, arguments), arguments)));
+                new ScenarioDirective.Call(role, action(word), arguments)));
     }
 
-    /** @return whether the word names a call a worker makes; a call of one token is the role-less form */
-    private static boolean isActionWord(String word) {
-        return "ack".equals(word) || "infeasible".equals(word) || word.startsWith("submit:")
-                || word.startsWith("consult:");
-    }
-
-    private static ScenarioDirective.Action action(String word, Map<String, String> arguments) {
+    private static ScenarioDirective.Action action(String word) {
         if ("ack".equals(word)) {
             return new ScenarioDirective.Action.Ack();
         }

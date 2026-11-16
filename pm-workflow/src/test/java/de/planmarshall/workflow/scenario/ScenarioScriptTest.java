@@ -101,7 +101,8 @@ class ScenarioScriptTest {
                 Arguments.of("operator_do proceed web {\"note\":{\"x\":1}}", "is no scalar"),
                 Arguments.of("worker_wait", "missing argument"),
                 Arguments.of("worker_wait reviewer extra", "surplus argument 'extra'"),
-                Arguments.of("worker_do reviewer", "missing argument"),
+                Arguments.of("worker_do", "missing argument"),
+                Arguments.of("worker_do reviewer", "'reviewer' is no worker action"),
                 Arguments.of("worker_do reviewer ack extra", "surplus argument 'extra'"),
                 Arguments.of("worker_do reviewer dance", "'dance' is no worker action"),
                 Arguments.of("worker_do reviewer submit:answer {}", "missing argument: submit:answer"),
@@ -232,16 +233,19 @@ class ScenarioScriptTest {
 
             assertAll(
                     () -> assertEquals(List.of(
-                            new WorkerWait(2, "reviewer"),
-                            new WorkerDo(3, new Call(null, new Action.Ack(), Map.of())),
-                            new WorkerDo(4, new Call("reviewer", new Action.Ack(), Map.of())),
-                            new WorkerDo(5, new Call("reviewer", new Action.Submit("change"),
-                                    Map.of("consultation_ids", "qt-0000000000000002,qt-0000000000000003"))),
-                            new WorkerDo(6, new Call("reviewer", new Action.Infeasible(), Map.of())),
-                            new WorkerDo(7, new Call("reviewer", new Action.Consult("architect"),
-                                    Map.of("question", "is it safe?")))), script.directives()),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_wait")),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_do")));
+                                    new WorkerWait(2, "reviewer"),
+                                    new WorkerDo(3, new Call(null, new Action.Ack(), Map.of())),
+                                    new WorkerDo(4, new Call("reviewer", new Action.Ack(), Map.of())),
+                                    new WorkerDo(5, new Call("reviewer", new Action.Submit("change"),
+                                            Map.of("consultation_ids", "qt-0000000000000002,qt-0000000000000003"))),
+                                    new WorkerDo(6, new Call("reviewer", new Action.Infeasible(), Map.of())),
+                                    new WorkerDo(7, new Call("reviewer", new Action.Consult("architect"),
+                                            Map.of("question", "is it safe?")))), script.directives(),
+                            "both worker_do forms read their lines"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_wait"),
+                            "worker_wait is no longer refused"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_do"),
+                            "worker_do is no longer refused"));
         }
 
         @Test
@@ -259,14 +263,17 @@ class ScenarioScriptTest {
 
             assertAll(
                     () -> assertEquals(List.of(
-                            new WorkerWait(2, "reviewer"),
-                            new WorkerDo(3, new Call(null, new Action.Ack(), Map.of())),
-                            new AssertWorkerState(4, "reviewer", "acknowledged"),
-                            new WorkerDo(5, new Call("reviewer", new Action.Submit("change"), Map.of())),
-                            new WorkerDo(6, new Call("reviewer", new Action.Ack(), Map.of())),
-                            new AssertRefused(7, "stale_entity")), script.directives()),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_worker_state")),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_refused")));
+                                    new WorkerWait(2, "reviewer"),
+                                    new WorkerDo(3, new Call(null, new Action.Ack(), Map.of())),
+                                    new AssertWorkerState(4, "reviewer", "acknowledged"),
+                                    new WorkerDo(5, new Call("reviewer", new Action.Submit("change"), Map.of())),
+                                    new WorkerDo(6, new Call("reviewer", new Action.Ack(), Map.of())),
+                                    new AssertRefused(7, "stale_entity")), script.directives(),
+                            "the assertions read with their lines"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_worker_state"),
+                            "assert_worker_state is no longer refused"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_refused"),
+                            "assert_refused is no longer refused"));
         }
 
         @Test
@@ -275,9 +282,11 @@ class ScenarioScriptTest {
             var reasons = Arrays.stream(TaskRefusal.values()).map(TaskRefusal::wireName).toList();
 
             assertAll(
-                    () -> assertEquals(ScenarioDirective.REFUSALS, reasons),
+                    () -> assertEquals(ScenarioDirective.REFUSALS, reasons,
+                            "the refusal set is derived from the enum"),
                     () -> reasons.forEach(reason -> assertDoesNotThrow(() -> new AssertRefused(1, reason))),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new AssertRefused(1, "vanished")));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new AssertRefused(1, "vanished"),
+                            "a word outside the enum is refused"));
         }
 
         @Test
@@ -316,22 +325,33 @@ class ScenarioScriptTest {
                     worker reviewer submitted
                     worker_wait reviewer
                     """));
+            var apart = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario refusal-then-assertion
+                    worker_wait reviewer
+                    worker_do reviewer submit:change {}
+                    assert_state execute.review
+                    assert_refused link_not_available
+                    """));
 
             assertAll(
                     () -> assertEquals("line 2: worker_do names the role reviewer, which the script never declares with "
-                            + "worker_wait before it", call.getMessage()),
+                            + "worker_wait before it", call.getMessage(), "the call names its role too early"),
                     () -> assertEquals("line 2: worker_do names no role, and no worker_wait precedes it",
-                            roleless.getMessage()),
+                            roleless.getMessage(), "the role-less call needs a wait before it"),
                     () -> assertEquals("line 2: worker_do names the role reviewer, which the script never declares with "
-                            + "worker_wait before it", late.getMessage()),
+                            + "worker_wait before it", late.getMessage(), "a later wait does not count"),
                     () -> assertEquals("line 2: assert_worker_state names the role reviewer, which the script never "
-                            + "declares with worker_wait before it", state.getMessage()),
-                    () -> assertEquals("line 3: assert_refused asserts the last worker_do, but no worker_do precedes it",
-                            refused.getMessage()),
+                            + "declares with worker_wait before it", state.getMessage(),
+                            "the assertion needs a wait before it"),
+                    () -> assertEquals("line 3: assert_refused must directly follow the worker_do whose refusal it "
+                            + "asserts", refused.getMessage(), "an assertion needs a call before it"),
                     () -> assertEquals("line 4: assert_refused asserts the last worker_do's refusal, but that call "
-                            + "makes no call of the task protocol", serviceCall.getMessage()),
+                            + "makes no call of the task protocol", serviceCall.getMessage(),
+                            "an answer is no protocol call"),
+                    () -> assertEquals("line 5: assert_refused must directly follow the worker_do whose refusal it "
+                            + "asserts", apart.getMessage(), "an intervening assertion breaks adjacency"),
                     () -> assertEquals("line 3: the worker of role reviewer is declared with worker and waits with "
-                            + "worker_wait; a role uses one form", both.getMessage()));
+                            + "worker_wait; a role uses one form", both.getMessage(), "a role uses one form"));
         }
     }
 
