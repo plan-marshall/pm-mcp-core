@@ -1,0 +1,88 @@
+= ADR 009: The Task Protocol Under the Replay
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-16
+
+== Context
+
+The scenario harness `pm-scenario` served every task with the direct scripted worker of ADR 001: it took the queue task
+the engine created and settled it with the outcome the script declared, without a link, a lease or a generation. The
+task protocol has shipped (`TaskProtocol`, `QueueStore`, `ConsultationService`), and the specification's
+`worker_wait <role>` and `worker_do` directives describe a worker that holds `pm_wait` on its own generation and calls
+the links of its leased task entity (Workflow DSL § Deterministic Scenario Replay Harness). The harness refused both
+words by name, with the work package that has now shipped.
+
+A replay writes its stores into a temporary directory without git (ADR 003), and two replays of one script must write
+byte-identical stores (ADR 002): every instant comes from the manual clock, and every id from a counter, never from
+the machine.
+
+== Decision
+
+The replay runs the real queue and the real task protocol.
+
+* **The queue under the replay.** `ScenarioFixtures` opens the replay's queue with
+  `QueueStore.ofProject(directory, "scenario-project", locks)` below the directory the test gives, with `Locks` as the
+  queue's lock manager (a transaction double that takes no lock of the operating system). The engine's queue-task port
+  is `QueueTasks`: it writes the real `QueueTaskRecord` of each task the engine creates — kind `work`, class `writer`,
+  the scope the replay started, the entity and state of the request, and the clock's instant — and hands out
+  `qt-` and 16 hex digits from a counter. `TaskProtocol` is built once per replay over that queue, with the queue's own
+  fence store and the pause, job-state and skill-delivery fixtures, and `ConsultationService` runs over the same queue.
+* **Who decides an id.** Job ids come from the job-port counter (`b-…`), queue task ids from the queue-task-port
+  counter (`qt-…`), and generation ids from the fixtures' counter (`l-…`). A protocol worker's generation is decided
+  when the script first waits for its role — the roles in the order of their first `worker_wait` — so the same script
+  always starts the same generations. The configuration digest is the replay's one fixed digest, for the generation and
+  for its role.
+* **How the two worker forms are told apart.** `worker <role> <task outcome>…` declares the direct worker of ADR 001;
+  `worker_wait <role>` declares the protocol worker. One role uses one form, never both, and a script that declares
+  both is refused when it is read. A role a script never declares is refused when a call or an assertion names it.
+* **`worker_do` follows the link the entity offers.** `ack` acknowledges the offer, `infeasible` closes the work task
+  with that outcome, and `consult:<role>` follows the consultation link through `ConsultationService.open`.
+  `submit:<kind>` names the kind of the link: for a work task it must be the entity kind of the leased task and the
+  submit passes `ConsultationService.validateSubmit` with the `consultation_ids` the call names before the protocol
+  closes it; for a consultation task the kind is `answer` and the call is `ConsultationService.answer`. A refused call
+  fails the step at its line unless the next step is `assert_refused`.
+* **The assertions read the record.** `assert_worker_state <role> <state>` derives the state of the worker's task from
+  its queue record: `offered` (status `offered`), `acknowledged` (status `executing` with an acknowledged lease),
+  `closed`, `queued` (status `queued`, released by anything but a fence) and `fenced` (status `queued` after the
+  attempt the fence ends with `restart`). `assert_task_outcome` reads the closed outcome from the record, not from the
+  worker's memory. `assert_refused <reason>` accepts exactly the wire names of `TaskRefusal`, derived from the enum at
+  run time; a script that never made a `worker_do` before it is refused when it is read.
+
+== Alternatives Considered
+
+1. *A queue double that answers from memory.* _Rejected_: the protocol's writes, the lease, the attempts and the fence
+   document would not be exercised, and the determinism proof would compare a map instead of the stored bytes.
+2. *Reuse `TaskFixtures` and `TestLocks` of `workflow.task`.* _Rejected_: both are package-private, and ADR 006 gives
+   the scenario package its own fixtures.
+3. *A directive of its own for a consultation.* _Rejected_: the specification's `worker_do` issues a call on the leased
+   entity, and `consult:<role>` and `submit:answer` are the links that entity offers; a new directive would add syntax
+   the specification does not name.
+4. *Let the harness settle a protocol worker's task as the direct worker does.* _Rejected_: it would bypass the
+   protocol the package is about, and the task would never carry a lease, an attempt or a closed outcome.
+
+== Consequences
+
+* A scenario can replay the offer, the acknowledgement, the submit, the infeasible report, the consultation and the
+  closed outcome of a real queue task, and the queue's bytes are part of the determinism proof.
+* `TaskProtocol`'s own id sources stay outside the harness's reach: `ConsultationService.freeId()` draws the
+  consultation's queue task id from `QueueTaskId.random()`, so a consultation scenario is not byte-identical across
+  replays. The harness reports that as a lead instead of asserting identity, and a later change gives the service a
+  counter or a seam.
+* The worker faults and the runtime restart (PLAN-V2-49) build on this protocol worker: they apply
+  `TaskProtocol.report` and `TaskProtocol.fence` to the generation this decision starts, and `assert_refused` already
+  accepts the fence's refusal.
+* The direct worker of ADR 001 stays for the scripts that use it; no existing scenario changes.
+
+== Source
+
+* Work package `doc/plans/supervision-scenarios.adoc`, D1 (the `pm-scenario` half)
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
+* link:../../../../doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]
+* link:../../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas § Task Queue]
+* link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc[Model Work § Supervision & Recycling]

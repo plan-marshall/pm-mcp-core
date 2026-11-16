@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted
+Accepted, superseded in part by ADR 009: the direct form stays for the scripts that use it, and a role declared with
+`worker_wait` takes the protocol worker instead.
 
 == Date
 

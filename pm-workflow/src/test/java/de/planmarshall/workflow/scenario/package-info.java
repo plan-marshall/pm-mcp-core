@@ -13,19 +13,23 @@
  * <p>
  * A {@link de.planmarshall.workflow.scenario.ScenarioScript} is read from the text of a script in the test: a line
  * {@code scenario <name>}, the declaration of the scripted worker of each role, and one directive per line. The
- * harness runs the directives the engine supports today: {@code start}, {@code complete_job},
- * {@code answer_question}, {@code assert_state}, {@code assert_outcome} and
- * {@code assert_task_outcome}. Every other directive the specification names (the link and worker directives, the
- * worker faults, the runtime restart, the operator verbs) is refused by name with its line and the work package that
- * brings it; a word that is no directive at all is refused as unknown.
+ * harness runs the directives the engine and the task protocol support today: {@code start}, {@code complete_job},
+ * {@code answer_question}, {@code assert_state}, {@code assert_outcome}, {@code assert_task_outcome},
+ * {@code operator_do}, {@code worker_wait}, {@code worker_do}, {@code assert_worker_state} and
+ * {@code assert_refused}. Every other directive the specification names (the link directives, the worker faults, the
+ * runtime restart, the unqualified role, the instance version and the operator verbs) is refused by name with its line
+ * and the work package that brings it; a word that is no directive at all is refused as unknown.
  * <p>
  * The {@link de.planmarshall.workflow.scenario.ScenarioReplayRunner} replays a script against the real
  * {@link de.planmarshall.workflow.engine.WorkflowEngine} over the fixtures of
- * {@link de.planmarshall.workflow.scenario.ScenarioFixtures}, with the status store of the scope in a temporary
- * directory and without git; a task state is settled by the
- * {@link de.planmarshall.workflow.scenario.ScriptedFixtureWorker} of its role, which settles the queued task directly
- * with the outcome the script declares. The runner keeps the stored status bytes after every step; the determinism
- * proof replays a script twice from empty stores and compares them step by step.
+ * {@link de.planmarshall.workflow.scenario.ScenarioFixtures}, with the status store of the scope and the queue of the
+ * replay in a temporary directory and without git. A task state is settled in one of two ways: the direct
+ * {@link de.planmarshall.workflow.scenario.ScriptedFixtureWorker} of its role settles the queued task with the outcome
+ * the script declares, or the {@link de.planmarshall.workflow.scenario.ScriptedProtocolWorker} of its role holds a
+ * generation, waits at the real {@link de.planmarshall.workflow.task.TaskProtocol}, and acknowledges, submits or
+ * reports infeasible through it; a role uses one of the two forms, never both. The runner keeps the bytes of the
+ * status store and of the queue after every step; the determinism proof replays a script twice from empty stores and
+ * compares them step by step.
  * <p>
  * Specification:
  * <ul>
