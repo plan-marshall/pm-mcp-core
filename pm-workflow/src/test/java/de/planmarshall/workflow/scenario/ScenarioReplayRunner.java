@@ -450,6 +450,7 @@ final class ScenarioReplayRunner {
     private void openConsultation(ScenarioDirective.WorkerDo call, ScenarioDirective.Action.Consult consult,
             ScriptedProtocolWorker worker, Instant at) {
         var taskId = requireTask(call.line(), worker);
+        worker.consulted(at);
         var request = ConsultationRequest.builder()
                 .askingTaskId(taskId)
                 .generationId(worker.generation())
@@ -474,6 +475,7 @@ final class ScenarioReplayRunner {
     /** Answers the consultation the protocol worker holds, through the shipped consultation service. */
     private void answerConsultation(ScenarioDirective.WorkerDo call, ScriptedProtocolWorker worker, Instant at) {
         var taskId = requireTask(call.line(), worker);
+        worker.consulted(at);
         switch (fixtures.consultations.answer(taskId, worker.generation(), call.call().arguments().get("answer"), at)) {
             case ConsultationOutcome.Answered(_, _) -> {
                 // the answer is delivered to the asker's next wait
@@ -652,7 +654,7 @@ final class ScenarioReplayRunner {
         before.forEach((role, worker) -> {
             var restarted = new ScriptedProtocolWorker(role, worker.generation(), fixtures.protocol());
             restarted.replaced(worker.replaced());
-            var held = taskOfGeneration(worker.generation());
+            var held = worker.queueTaskId().flatMap(id -> fixtures.queue.read(id)).orElse(null);
             if (held != null) {
                 restarted.leased(held);
             }
@@ -663,22 +665,6 @@ final class ScenarioReplayRunner {
     }
 
     /**
-     * @param generation a generation
-     * @return the task the queue's lease names for the generation, or the task whose last attempt belonged to it, so a
-     *         replaced generation keeps the handle its late call names; {@code null} when no record names it
-     */
-    private QueueTaskRecord taskOfGeneration(String generation) {
-        var records = fixtures.queue.records();
-        return records.stream()
-                .filter(task -> task.lease() != null && task.lease().generationId().equals(generation))
-                .findFirst()
-                .or(() -> records.stream().filter(task -> task.attempts().stream()
-                        .anyMatch(attempt -> attempt.generationId().equals(generation)))
-                        .findFirst())
-                .orElse(null);
-    }
-
-    /**
      * Ends the open attempt of a role's protocol worker with the fact of its loss, at the instant the loss is
      * detected, and fences the generation there: the task is queued again within its re-offer budget, or closed
      * {@code lost} with {@code attempts_spent} when the budget is spent.
@@ -686,6 +672,11 @@ final class ScenarioReplayRunner {
     private void lose(int line, ScriptedProtocolWorker worker, AttemptEnd end, Instant at) {
         var role = worker.role();
         var taskId = requireTask(line, worker);
+        var target = queueTask(line, taskId);
+        if (target.kind() == QueueTaskRecord.Kind.CONSULTATION) {
+            var message = "a fault acts on a work task, but the task %s of role %s is a consultation";
+            throw new ScenarioFailure(line, message.formatted(taskId, role));
+        }
         fixtures.clock.advanceTo(at);
         var reported = fixtures.protocol().report(new TaskCall(taskId, worker.generation()), end,
                 ScenarioFixtures.RE_OFFER_BUDGET, at);

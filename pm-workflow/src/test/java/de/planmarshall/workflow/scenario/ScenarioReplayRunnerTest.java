@@ -952,6 +952,50 @@ class ScenarioReplayRunnerTest {
         }
 
         @Test
+        @DisplayName("Should refuse a fault on a consultation task, naming the role and the kind")
+        void shouldRefuseAFaultOnAConsultationTask() {
+            var runner = new ScenarioReplayRunner(ScenarioFixtures.consultUnit(), directory);
+            var script = ScenarioScript.read("""
+                    scenario fault-on-a-consultation
+                    start plan scenario-ask
+                    worker_wait author
+                    worker_do author ack {}
+                    worker_do author consult:reviewer {"question":"is the change safe?"}
+                    worker_wait reviewer
+                    kill_worker reviewer
+                    """);
+
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+
+            assertAll(
+                    () -> assertEquals(7, failure.line(), "the failure names the fault's line"),
+                    () -> assertTrue(failure.getMessage().contains("is a consultation"), failure.getMessage()),
+                    () -> assertTrue(failure.getMessage().contains("role reviewer"), failure.getMessage()));
+        }
+
+        @Test
+        @DisplayName("Should measure the silence of a consulting worker from its consultation")
+        void shouldCountAConsultationAsACall() {
+            var runner = new ScenarioReplayRunner(ScenarioFixtures.consultUnit(), directory);
+            runner.run(ScenarioScript.read("""
+                    scenario loss-after-a-consultation
+                    start plan scenario-ask
+                    worker_wait author
+                    worker_do author ack {}
+                    worker_do author consult:reviewer {"question":"is the change safe?"}
+                    kill_worker author
+                    assert_worker_state author fenced
+                    """));
+            var lost = runner.fixtures().queue.records().stream()
+                    .filter(task -> task.kind() == QueueTaskRecord.Kind.WORK)
+                    .findFirst().orElseThrow().attempts().getFirst();
+
+            assertEquals(lost.acknowledgedAt().plusSeconds(ScenarioFixtures.STEP.getSeconds()
+                            + ScenarioFixtures.SILENCE_LIMIT_SECONDS),
+                    lost.endedAt(), "the consultation is the worker's last call");
+        }
+
+        @Test
         @DisplayName("Should free a leased task on a pause at once without spending a re-offer")
         void shouldFreeTheLeaseOnAPauseAtOnce() {
             var runner = runner();

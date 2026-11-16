@@ -80,9 +80,10 @@ lose the worker exactly as one does.
   state routes that to the unit's own outcome.
 * **`restart_runtime` rebuilds what memory held.** The engine, the task protocol, the queue's object, its fence store,
   the consultation service and the status store are rebuilt over the same directory; the status is re-read from its
-  bytes, and each protocol worker is rebuilt over its own generation with the task its lease still names. The harness's
-  manual clock and its id counters are the script's, not the runtime's, and stay. A start-failure guard is not part of
-  the rebuild: the harness has no process to fail to start (`pm-runtime` proves that guard, `SupervisorScenarioTest`).
+  bytes, and each protocol worker is rebuilt over its own generation with the task handle it held, read back from the
+  queue record. The harness's manual clock and its id counters are the script's, not the runtime's, and stay. A
+  start-failure guard is not part of the rebuild: the harness has no process to fail to start (`pm-runtime` proves that
+  guard, `SupervisorScenarioTest`).
 * **The scenario's instants are the manual clock's.** A fault that ends an attempt advances the clock to at least the
   instant it applies the fact at, so a script's stored bytes and a task's `endedAt` both name the deadline rather than
   the moment the test happened to run.

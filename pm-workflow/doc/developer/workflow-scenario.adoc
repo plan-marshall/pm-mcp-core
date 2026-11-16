@@ -189,8 +189,8 @@ never before, and the generation is fenced there.
 
 |`restart_runtime`
 |Rebuilds the engine, the task protocol and the stores' objects over the same directory of the replay: the status is
-re-read from its bytes and each protocol worker is rebuilt over its own generation with the task its lease still
-names. A lease, a fence and a queue record survive; nothing in memory does.
+re-read from its bytes and each protocol worker is rebuilt over its own generation with the task handle it held. A
+lease, a fence and a queue record survive; nothing in memory does.
 |===
 
 Every other directive the specification names is refused by name when the script is read, with its line and the work
@@ -284,6 +284,9 @@ does not evaluate (`asked`)
 
 |A `kill_relay` or `end_turn` whose task the worker has not acknowledged
 |`ScenarioFailure` at the fault's line, naming the role and the state of its task.
+
+|A fault on a consultation task
+|`ScenarioFailure` at the fault's line, naming the role and the task's kind: the faults act on the work tasks of the engine, and the harness has no path that delivers a lost consultation.
 
 |A `kill_worker` or `stall_worker` on a task the protocol no longer leases to the worker's generation
 |`ScenarioFailure` at the fault's line, naming the role and the refusal the protocol answered (`stale_entity`,

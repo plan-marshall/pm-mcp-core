@@ -160,6 +160,16 @@ final class ScriptedProtocolWorker {
         return protocol.infeasible(call(), at);
     }
 
+    /**
+     * Records a consultation the worker opened or answered: a consultation is one of the worker's calls, so the silence
+     * limit counts from it.
+     *
+     * @param at the instant of the consultation
+     */
+    void consulted(Instant at) {
+        called(at);
+    }
+
     private void called(Instant at) {
         lastCallAt = at;
     }
