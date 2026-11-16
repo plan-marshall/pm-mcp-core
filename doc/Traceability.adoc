@@ -4,7 +4,7 @@
 :toc-title: Table of Contents
 :nofooter:
 
-What each requirement of the link:../../plan-marshall-documentation/doc/Requirements.adoc[Requirements Document] that the modules of this repository implement is implemented by, verified by and documented in. A work package adds the lines of the requirements it implements here, in its own pull request: `Implementation:` links the production classes, `Verified by:` the automated tests, and `Documentation:` the developer documentation of the module (`{module}/doc/developer/`) and, where it exists, the concept and user documentation of `plan-marshall-documentation`. The links into this repository are relative; a requirement keeps its link to the specification it is specified in, and the implemented sections of that specification are deleted (link:Specification.adoc[Specification]).
+What each requirement of the link:../../plan-marshall-documentation/doc/Requirements.adoc[Requirements Document] that the modules of this repository implement is implemented by, verified by and documented in. A work package adds the lines of the requirements it implements here, in its own pull request: `Implementation:` links the production classes, `Verified by:` the automated tests, and `Documentation:` the developer documentation of the module (`{module}/doc/developer/`) and, where it exists, the concept and user documentation of `plan-marshall-documentation`. The links into this repository are relative; a requirement keeps its link to the specification it is specified in, and the implemented sections of that specification are condensed to the statement of what the requirement asks, with the link to the developer documentation (link:Specification.adoc[Specification]; ADR link:adr/027-condense-and-point-the-implemented-specification-parts.adoc[027]).
 
 A requirement implemented in another repository is traced there, or, for code without documents of its own, in the requirement itself.
 
@@ -330,12 +330,14 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/CompositionRefu
 
 Implementation (the `worker-launch` part of bullets 3, 4 and 5's service side, `runtime.launch`): the launch of a worker
 of an enrolled harness from the role's effective configuration and the harness's harness profile — the model tier rendered,
-the effort narrowed, the working directory fixed, the tool set and the per-call MCP configuration composed, the launch
+the effort narrowed, the working directory fixed, the launch contract projected out of the profile's `headless` block
+(`HeadlessBlock`) and the class's tool set and per-call MCP configuration composed (`LaunchComposer`), the launch
 prompt with its shared prefix and the writing skill derived from the link schemas, the job token minted and only its
-digest recorded, the harness enrolment store with its HMAC sidecar and its launch-time verification and self-update, and
-the launch started or refused through the job runner
+digest recorded (`LaunchComposer`; resolved and revoked by `JobTokenStore`), the harness enrolment store with its HMAC
+sidecar and its launch-time verification and self-update, the model slots admitted in FIFO order with at most one
+`writer` worker of a plan (`ModelSlotScheduler`), and the launch started or refused through the job runner
 (link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). Not implemented and owned
-elsewhere: the relay's per-request binding, the supervisor's start and supervision, output and usage reading, model slots,
+elsewhere: the relay's per-request binding, the supervisor's start and supervision, output and usage reading,
 and warm offers (link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide] § Owed).
 
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest],
@@ -345,6 +347,9 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/PromptComposerTe
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/FreeTextDerivationTest.java[FreeTextDerivationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessVerifierTest.java[HarnessVerifierTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java[HarnessEnrolmentStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HeadlessBlockTest.java[HeadlessBlockTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/JobTokenStoreTest.java[JobTokenStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/ModelSlotSchedulerTest.java[ModelSlotSchedulerTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/WorkerJobTest.java[WorkerJobTest]
 
 Documentation: link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide],
@@ -2521,6 +2526,8 @@ harness worker, the worker launch, the `worker-task` unit of the assembly and th
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecordCodec.java[QueueTaskRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueStore.java[QueueStore],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/FencedGenerations.java[FencedGenerations],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java[WorkerState],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerLifecycle.java[WorkerLifecycle],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityEntry.java[ActivityEntry],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java[TaskProtocol],
@@ -2553,6 +2560,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTe
 
 Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide],
 link:../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide],
+link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervisor Developer Guide],
 link:../pm-workflow/doc/developer/workflow-question.adoc[Question Continuation Developer Guide],
 link:../pm-workflow/doc/developer/workflow-hypermedia.adoc[Hypermedia Values Developer Guide],
 link:../pm-workflow/doc/adr/workflow-task/005-the-answer-is-delivered-in-memory-and-reopens-the-task.adoc[ADR workflow-task/005],
