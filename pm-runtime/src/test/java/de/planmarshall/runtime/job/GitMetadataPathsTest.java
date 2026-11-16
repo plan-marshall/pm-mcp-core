@@ -19,6 +19,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -48,7 +49,7 @@ class GitMetadataPathsTest {
 
         @Test
         @DisplayName("Should find the git directory of a plain repository")
-        void shouldFindGitDirectoryOfPlainRepository() throws IOException {
+        void shouldFindGitDirectoryOfPlainRepository() throws Exception {
             var root = plainRepository(base.resolve(name()));
 
             var result = GitMetadataPaths.of(root);
@@ -62,7 +63,7 @@ class GitMetadataPathsTest {
 
         @Test
         @DisplayName("Should find the common directory of a root that is a linked worktree")
-        void shouldFindCommonDirectoryOfLinkedWorktreeRoot() throws IOException {
+        void shouldFindCommonDirectoryOfLinkedWorktreeRoot() throws Exception {
             var main = plainRepository(base.resolve(name()));
             var worktreeRoot = main.resolveSibling(name());
             linkedWorktree(main, worktreeRoot, name());
@@ -78,7 +79,7 @@ class GitMetadataPathsTest {
 
         @Test
         @DisplayName("Should find linked worktrees inside and outside the root in one sorted set")
-        void shouldFindLinkedWorktreesInsideAndOutsideRoot() throws IOException {
+        void shouldFindLinkedWorktreesInsideAndOutsideRoot() throws Exception {
             var main = plainRepository(base.resolve(name()));
             var inside = linkedWorktree(main, main.resolve(name()),
                     name());
@@ -89,7 +90,7 @@ class GitMetadataPathsTest {
 
             var expected = List.of(inside.resolve(".git"), outside.resolve(".git")).stream()
                     .map(path -> path.toAbsolutePath().normalize())
-                    .sorted(java.util.Comparator.comparing(Path::toString)).toList();
+                    .sorted(Comparator.comparing(Path::toString)).toList();
             assertAll("Two linked worktrees",
                     () -> assertEquals(main.resolve(".git"), result.gitDirectory(), "Git directory is main .git"),
                     () -> assertEquals(expected, result.linkFiles(), "Both link files are returned sorted"),
@@ -104,7 +105,7 @@ class GitMetadataPathsTest {
 
         @Test
         @DisplayName("Should skip a stale worktree record and name its reason")
-        void shouldSkipStaleWorktreeRecord() throws IOException {
+        void shouldSkipStaleWorktreeRecord() throws Exception {
             var main = plainRepository(base.resolve(name()));
             var name = name();
             var record = Files.createDirectories(main.resolve(".git/worktrees").resolve(name))
@@ -118,13 +119,13 @@ class GitMetadataPathsTest {
                     () -> assertEquals(main.resolve(".git"), result.gitDirectory(), "Git directory is still found"),
                     () -> assertTrue(result.linkFiles().isEmpty(), "Stale record yields no link file"),
                     () -> assertEquals(List.of(new GitMetadataPaths.Skipped(target,
-                            GitMetadataPaths.TARGET_MISSING)), result.skipped(),
+                                    GitMetadataPaths.TARGET_MISSING)), result.skipped(),
                             "Stale record is skipped with its reason"));
         }
 
         @Test
         @DisplayName("Should return an empty result for a project without git")
-        void shouldReturnEmptyResultWithoutGit() throws IOException {
+        void shouldReturnEmptyResultWithoutGit() throws Exception {
             var root = Files.createDirectories(base.resolve(name()));
 
             var result = GitMetadataPaths.of(root);
@@ -132,13 +133,13 @@ class GitMetadataPathsTest {
             assertAll("No git",
                     () -> assertNull(result.gitDirectory(), "No git directory is returned"),
                     () -> assertTrue(result.linkFiles().isEmpty(), "No link file is returned"),
-                    () -> assertTrue(result.skipped().isEmpty(), "Nothing is skipped"),
-                    () -> assertTrue(result.refused().isEmpty(), "Nothing is refused"));
+                    () -> assertTrue(result.skipped().isEmpty(), "no worktree record is skipped here"),
+                    () -> assertTrue(result.refused().isEmpty(), "no path is refused in this tree"));
         }
 
         @Test
         @DisplayName("Should refuse a symbolic link as .git and find the control without it")
-        void shouldRefuseSymlinkAsGitDirectory() throws IOException {
+        void shouldRefuseSymlinkAsGitDirectory() throws Exception {
             var root = Files.createDirectories(base.resolve(name()));
             var target = Files.createDirectories(base.resolve(name()));
             Files.createSymbolicLink(root.resolve(".git"), target);
@@ -151,7 +152,7 @@ class GitMetadataPathsTest {
                     () -> assertTrue(refused.linkFiles().isEmpty(), "A refused path yields no link file"),
                     () -> assertNull(refused.gitDirectory(), "A refused .git yields no directory"),
                     () -> assertEquals(List.of(new GitMetadataPaths.Refused(root.resolve(".git"),
-                            GitMetadataPaths.PATH_TRAVERSAL_REJECTED)), refused.refused(),
+                                    GitMetadataPaths.PATH_TRAVERSAL_REJECTED)), refused.refused(),
                             "Symlinked .git is refused"),
                     () -> assertEquals(root.resolve(".git"), control.gitDirectory(),
                             "Control without the link finds the directory"));

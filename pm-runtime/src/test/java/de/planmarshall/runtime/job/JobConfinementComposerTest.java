@@ -226,7 +226,7 @@ class JobConfinementComposerTest {
 
         @Test
         @DisplayName("a worker names the git directory and every link file as read-only")
-        void workerNamesGitMetadata() throws IOException {
+        void workerNamesGitMetadata() throws Exception {
             var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var linkFile = gitProject();
 
@@ -241,12 +241,12 @@ class JobConfinementComposerTest {
 
         @Test
         @DisplayName("the other five kinds name no read-only path")
-        void otherKindsNameNone() throws IOException {
+        void otherKindsNameNone() throws Exception {
             gitProject();
             var enrolment = enrolment(null, Map.of());
 
             assertAll(Stream.of(JobId.Kind.BUILD, JobId.Kind.PROJECT_SCRIPT, JobId.Kind.GIT, JobId.Kind.CI,
-                            JobId.Kind.PROBE)
+                    JobId.Kind.PROBE)
                     .map(kind -> () -> assertTrue(composer()
                                     .forJob(enrolment, new JobId(jobIds(kind).next()), List.of(), false)
                                     .readOnlyPaths().isEmpty(),

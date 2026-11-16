@@ -43,7 +43,7 @@ import lombok.Builder;
  */
 @Builder
 public record JobConfinement(List<Path> writePaths, List<Path> readPaths, List<Path> readOnlyPaths,
-        List<Path> deniedPaths) {
+List<Path> deniedPaths) {
 
     /** The option adding a path to the write set, as {@code pm-exec} parses it. */
     public static final String WRITE = "--write";

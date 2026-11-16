@@ -251,7 +251,7 @@ public final class GitMetadataPaths {
      * @since 0.1
      */
     public record Result(@Nullable Path gitDirectory, List<Path> linkFiles, List<Skipped> skipped,
-            List<Refused> refused) {
+    List<Refused> refused) {
 
         /** @throws NullPointerException if a list is {@code null} */
         public Result {

@@ -78,7 +78,7 @@ public final class ProtectedPaths {
         var normalized = normalize(repositoryRelativePath);
         return matches(normalized)
                 && Objects.requireNonNull(declaredFiles, "declaredFiles").stream().filter(Objects::nonNull)
-                        .map(ProtectedPaths::normalize).noneMatch(normalized::equals);
+                .map(ProtectedPaths::normalize).noneMatch(normalized::equals);
     }
 
     private static boolean matches(String normalizedPath) {

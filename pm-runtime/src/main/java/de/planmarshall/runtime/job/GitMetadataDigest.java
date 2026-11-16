@@ -15,12 +15,15 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -167,7 +170,7 @@ public final class GitMetadataDigest {
         for (var line : lines) {
             var section = SECTION.matcher(line);
             if (section.matches()) {
-                var name = section.group(1).trim().toLowerCase(java.util.Locale.ROOT);
+                var name = section.group(1).trim().toLowerCase(Locale.ROOT);
                 inIncludeSection = INCLUDE.equals(name) || name.startsWith(INCLUDE_IF);
                 continue;
             }
@@ -178,7 +181,7 @@ public final class GitMetadataDigest {
             if (separator < 0) {
                 continue;
             }
-            var key = line.substring(0, separator).trim().toLowerCase(java.util.Locale.ROOT);
+            var key = line.substring(0, separator).trim().toLowerCase(Locale.ROOT);
             if (!PATH.equals(key)) {
                 continue;
             }
@@ -197,7 +200,7 @@ public final class GitMetadataDigest {
         List<Path> files;
         try (var children = Files.list(directory)) {
             files = children.filter(child -> Files.isRegularFile(child, LinkOption.NOFOLLOW_LINKS))
-                    .sorted(java.util.Comparator.comparing(Path::toString)).toList();
+                    .sorted(Comparator.comparing(Path::toString)).toList();
         } catch (IOException _) {
             failures.add(name(root, directory));
             return;
@@ -227,7 +230,7 @@ public final class GitMetadataDigest {
     private static String mode(Path file, Set<String> failures, Path root) {
         try {
             Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(file, LinkOption.NOFOLLOW_LINKS);
-            return java.nio.file.attribute.PosixFilePermissions.toString(permissions);
+            return PosixFilePermissions.toString(permissions);
         } catch (IOException _) {
             failures.add(name(root, file));
             return UNREADABLE;

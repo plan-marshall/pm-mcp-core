@@ -39,7 +39,7 @@ class GitMetadataGuardTest {
 
     @Test
     @DisplayName("Should answer unchanged for a tree it recorded and one that did not change")
-    void shouldAnswerUnchangedForAnUnchangedTree() throws IOException {
+    void shouldAnswerUnchangedForAnUnchangedTree() throws Exception {
         var root = repository();
         var guard = new GitMetadataGuard();
 
@@ -51,7 +51,7 @@ class GitMetadataGuardTest {
 
     @Test
     @DisplayName("Should answer changed with the parts that differ")
-    void shouldAnswerChangedWithTheParts() throws IOException {
+    void shouldAnswerChangedWithTheParts() throws Exception {
         var root = repository();
         var guard = new GitMetadataGuard();
         guard.record(root);
@@ -65,7 +65,7 @@ class GitMetadataGuardTest {
 
     @Test
     @DisplayName("Should keep the baseline after a comparison and move it only on rebaseline")
-    void shouldMoveTheBaselineOnlyOnRebaseline() throws IOException {
+    void shouldMoveTheBaselineOnlyOnRebaseline() throws Exception {
         var root = repository();
         var guard = new GitMetadataGuard();
         guard.record(root);
@@ -87,7 +87,7 @@ class GitMetadataGuardTest {
 
     @Test
     @DisplayName("Should never compare a project without git")
-    void shouldNeverCompareAProjectWithoutGit() throws IOException {
+    void shouldNeverCompareAProjectWithoutGit() throws Exception {
         var root = Files.createDirectories(base.resolve(name()));
         var guard = new GitMetadataGuard();
 
@@ -99,7 +99,7 @@ class GitMetadataGuardTest {
 
     @Test
     @DisplayName("Should answer unchanged for a project it never recorded")
-    void shouldAnswerUnchangedWithoutBaseline() throws IOException {
+    void shouldAnswerUnchangedWithoutBaseline() throws Exception {
         var root = repository();
 
         var verdict = new GitMetadataGuard().verify(root);

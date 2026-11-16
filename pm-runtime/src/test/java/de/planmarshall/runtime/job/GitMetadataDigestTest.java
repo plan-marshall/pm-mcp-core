@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -43,7 +43,7 @@ class GitMetadataDigestTest {
 
     @Test
     @DisplayName("Should digest an unchanged tree equally")
-    void shouldDigestUnchangedTreeEqually() throws IOException {
+    void shouldDigestUnchangedTreeEqually() throws Exception {
         var root = repository();
 
         var first = GitMetadataDigest.of(root);
@@ -58,19 +58,19 @@ class GitMetadataDigestTest {
 
     @Test
     @DisplayName("Should differ when a config key changes")
-    void shouldDifferOnConfigKey() throws IOException {
+    void shouldDifferOnConfigKey() throws Exception {
         var root = repository();
         var before = GitMetadataDigest.of(root);
         Files.writeString(root.resolve(".git/config"), "[core]\n\tfsmonitor = attacker\n");
 
         var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
 
-        assertEquals(java.util.Set.of(".git/config"), changed, "the changed config is named");
+        assertEquals(Set.of(".git/config"), changed, "the changed config is named");
     }
 
     @Test
     @DisplayName("Should differ when an included file changes")
-    void shouldDifferOnIncludedFile() throws IOException {
+    void shouldDifferOnIncludedFile() throws Exception {
         var root = repository();
         Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = extra.cfg\n");
         Files.writeString(root.resolve(".git/extra.cfg"), "[core]\n\thooksPath = " + name() + "\n");
@@ -79,12 +79,12 @@ class GitMetadataDigestTest {
 
         var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
 
-        assertEquals(java.util.Set.of(".git/extra.cfg"), changed, "the included file is digested and named");
+        assertEquals(Set.of(".git/extra.cfg"), changed, "the included file is digested and named");
     }
 
     @Test
     @DisplayName("Should differ when a hook file is added or its mode changes")
-    void shouldDifferOnHooks() throws IOException {
+    void shouldDifferOnHooks() throws Exception {
         var root = repository();
         var hook = root.resolve(".git/hooks/pre-commit");
         Files.writeString(hook, "#!/bin/sh\nexit 0\n");
@@ -98,14 +98,14 @@ class GitMetadataDigestTest {
         var afterAdd = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
 
         assertAll("Hooks",
-                () -> assertEquals(java.util.Set.of(".git/hooks/pre-commit"), modeChanged,
+                () -> assertEquals(Set.of(".git/hooks/pre-commit"), modeChanged,
                         "a changed mode is named"),
                 () -> assertTrue(afterAdd.contains(".git/hooks/post-checkout"), "an added hook is named"));
     }
 
     @Test
     @DisplayName("Should differ when a link file or a gitdir record is rewritten")
-    void shouldDifferOnWorktreeFiles() throws IOException {
+    void shouldDifferOnWorktreeFiles() throws Exception {
         var root = repository();
         var worktree = root.resolve("wt");
         var admin = linkedWorktree(root, worktree);
@@ -119,34 +119,34 @@ class GitMetadataDigestTest {
         var recordChanged = GitMetadataDigest.differences(beforeRecord, GitMetadataDigest.of(root));
 
         assertAll("Worktree files",
-                () -> assertEquals(java.util.Set.of("wt/.git"), linkChanged, "the link file is digested"),
+                () -> assertEquals(Set.of("wt/.git"), linkChanged, "the link file is digested"),
                 () -> assertTrue(recordChanged.stream().anyMatch(part -> part.endsWith("gitdir")),
                         "the administration record is digested"));
     }
 
     @Test
     @DisplayName("Should not differ when HEAD, the index, a ref or tracked source changes")
-    void shouldIgnoreLegitimateChanges() throws IOException {
+    void shouldIgnoreLegitimateChanges() throws Exception {
         var root = repository();
         Files.writeString(root.resolve(".git/HEAD"), "ref: refs/heads/" + name() + "\n");
-        Files.write(root.resolve(".git/index"), new byte[] {1, 2, 3});
+        Files.write(root.resolve(".git/index"), new byte[]{1, 2, 3});
         Files.createDirectories(root.resolve(".git/refs/heads"));
         Files.writeString(root.resolve(".git/refs/heads/main"), name() + "\n");
         Files.writeString(root.resolve("README.md"), name());
         var before = GitMetadataDigest.of(root);
         Files.writeString(root.resolve(".git/HEAD"), "ref: refs/heads/" + name() + "\n");
-        Files.write(root.resolve(".git/index"), new byte[] {4, 5, 6});
+        Files.write(root.resolve(".git/index"), new byte[]{4, 5, 6});
         Files.writeString(root.resolve(".git/refs/heads/main"), name() + "\n");
         Files.writeString(root.resolve("README.md"), name());
 
         var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
 
-        assertEquals(java.util.Set.of(), changed, "the legitimate changes stay outside the digest");
+        assertEquals(Set.of(), changed, "the legitimate changes stay outside the digest");
     }
 
     @Test
     @DisplayName("Should answer unreadable for an include cycle")
-    void shouldAnswerUnreadableForCycle() throws IOException {
+    void shouldAnswerUnreadableForCycle() throws Exception {
         var root = repository();
         Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = a.cfg\n");
         Files.writeString(root.resolve(".git/a.cfg"), "[include]\n\tpath = b.cfg\n");
@@ -159,7 +159,7 @@ class GitMetadataDigestTest {
 
     @Test
     @DisplayName("Should answer unreadable for an include that cannot be read")
-    void shouldAnswerUnreadableForUnreadableInclude() throws IOException {
+    void shouldAnswerUnreadableForUnreadableInclude() throws Exception {
         var root = repository();
         Files.createDirectories(root.resolve(".git/not-a-file"));
         Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = not-a-file\n");
@@ -171,7 +171,7 @@ class GitMetadataDigestTest {
 
     @Test
     @DisplayName("Should answer unreadable when the include depth is exceeded")
-    void shouldAnswerUnreadableBeyondTheBound() throws IOException {
+    void shouldAnswerUnreadableBeyondTheBound() throws Exception {
         var root = repository();
         Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = include-0.cfg\n");
         for (var depth = 0; depth <= GitMetadataDigest.MAX_INCLUDE_DEPTH; depth++) {
@@ -186,7 +186,7 @@ class GitMetadataDigestTest {
 
     @Test
     @DisplayName("Should digest nothing for a project without git")
-    void shouldDigestNothingWithoutGit() throws IOException {
+    void shouldDigestNothingWithoutGit() throws Exception {
         var root = Files.createDirectories(base.resolve(name()));
 
         var parts = GitMetadataDigest.of(root);

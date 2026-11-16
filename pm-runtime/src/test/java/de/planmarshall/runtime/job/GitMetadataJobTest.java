@@ -9,12 +9,16 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -27,12 +31,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,8 +45,6 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import de.planmarshall.core.profile.JsonDocument;
-import de.planmarshall.core.role.EffortValue;
-import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.service.JobRunner;
@@ -52,7 +54,6 @@ import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.GitMetadata;
 import de.planmarshall.core.store.JobRecord.Scope;
-import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
 import de.planmarshall.runtime.launch.JobTokenStore;
 import de.planmarshall.runtime.launch.LaunchPrompt;
@@ -116,7 +117,7 @@ class GitMetadataJobTest {
         guard = new GitMetadataGuard();
         runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(fixture.locks)
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
-                .termination(new TerminationProtocol(ProcessGroupSignals.system())).environment(new WorkerEnvironment())
+                .termination(new TerminationProtocol(ProcessGroupSignals.system())).environment(environment())
                 .probeEnvironment((candidate, jobId) -> ENVIRONMENT)
                 .parser((kind, output) -> new JobEvidence.ParseResult(true, 0, false, null))
                 .primitives(request -> Optional.empty()).jobTokens(tokens).audit(fixture.sink)
@@ -134,7 +135,7 @@ class GitMetadataJobTest {
 
     @Test
     @DisplayName("a worker whose launcher reports enforced records enforced")
-    void workerEnforced() throws IOException {
+    void workerEnforced() throws Exception {
         FakePmExec.install(home, FakePmExec.Mode.REPORT_GIT_METADATA);
 
         var settled = settleWorker();
@@ -157,7 +158,7 @@ class GitMetadataJobTest {
 
     @Test
     @DisplayName("a worker whose launcher writes no report records unenforced")
-    void workerWithoutReport() throws IOException {
+    void workerWithoutReport() throws Exception {
         FakePmExec.install(home, FakePmExec.Mode.NO_REPORT);
 
         var settled = settleWorker();
@@ -167,7 +168,7 @@ class GitMetadataJobTest {
 
     @Test
     @DisplayName("a git job records no git_metadata though its report carries it")
-    void gitJobRecordsNone() throws IOException {
+    void gitJobRecordsNone() throws Exception {
         Files.writeString(fixture.tools.get(HostToolName.GIT), "#!/bin/sh\nexit 0\n");
         fixture.enrol();
         FakePmExec.install(home, FakePmExec.Mode.REPORT_GIT_METADATA);
@@ -187,7 +188,7 @@ class GitMetadataJobTest {
 
     @Test
     @DisplayName("a worker that changed the git metadata refuses the next git job until it is rebaselined")
-    void workerChangeRefusesTheNextGitJob() throws IOException {
+    void workerChangeRefusesTheNextGitJob() throws Exception {
         var config = fixture.root.resolve(".git/config");
         Files.writeString(config, "[core]\n\trepositoryformatversion = 0\n");
         writeGitTool();
@@ -215,8 +216,8 @@ class GitMetadataJobTest {
                 () -> assertEquals(worker.jobId().value(),
                         changeEvent.details().get(SubprocessJobRunner.DETAIL_JOB_ID),
                         "the audit record names the job"),
-                () -> assertTrue(((java.util.Collection<?>) changeEvent.details()
-                                .get(SubprocessJobRunner.DETAIL_PARTS)).contains(".git/config"),
+                () -> assertTrue(((Collection<?>) changeEvent.details()
+                        .get(SubprocessJobRunner.DETAIL_PARTS)).contains(".git/config"),
                         "the audit record names the parts"),
                 () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.GIT_METADATA_CHANGED.resolveIdentifierString()),
@@ -237,7 +238,7 @@ class GitMetadataJobTest {
 
     @Test
     @DisplayName("a worker that changed only tracked source leaves the digest unchanged")
-    void trackedSourceChangeDoesNotRefuse() throws IOException {
+    void trackedSourceChangeDoesNotRefuse() throws Exception {
         var tracked = fixture.root.resolve("README.md");
         Files.writeString(tracked, Generators.letterStrings(1, 32).next());
         writeGitTool();
@@ -250,10 +251,10 @@ class GitMetadataJobTest {
                 "a tracked source change leaves the git job running");
 
         assertAll("The matched control",
-                () -> assertTrue(worker.status().isSettled(), "the worker settled"),
+                () -> assertTrue(worker.status().isSettled(), "the worker settled by itself"),
                 () -> assertTrue(changes.isEmpty(), "the sink is not called for a tracked change"),
                 () -> assertTrue(runner.awaitSettled(started.jobId(), SETTLE_TIMEOUT).isPresent(),
-                        "the git job settles"));
+                        "the git job settles after the control"));
     }
 
     /** Overwrites the fixture's git tool with an enrolled script that succeeds. */
@@ -297,19 +298,13 @@ class GitMetadataJobTest {
                 + Generators.integers(0, 99).next();
     }
 
-    /** The environment of the test worker: the allowlist of the fixture. */
-    private static final class WorkerEnvironment implements SubprocessJobRunner.Environment {
-
-        @Override
-        public Map<String, String> of(VerifiedJob job, JobId jobId) {
-            return ENVIRONMENT;
-        }
-
-        @Override
-        public Map<String, String> ofWorker(ProjectEnrolment enrolment, JobId jobId,
-                Map<String, String> harnessSwitches, @Nullable String jobToken, @Nullable String workerDataVariable,
-                @Nullable String egressProxy) {
-            return ENVIRONMENT;
-        }
+    /** The environment of the test worker: the allowlist of the fixture, as an EasyMock double. */
+    private static SubprocessJobRunner.Environment environment() {
+        SubprocessJobRunner.Environment environment = createMock(SubprocessJobRunner.Environment.class);
+        expect(environment.of(anyObject(), anyObject())).andReturn(ENVIRONMENT).anyTimes();
+        expect(environment.ofWorker(anyObject(), anyObject(), anyObject(), anyObject(), anyObject(), anyObject()))
+                .andReturn(ENVIRONMENT).anyTimes();
+        replay(environment);
+        return environment;
     }
 }
