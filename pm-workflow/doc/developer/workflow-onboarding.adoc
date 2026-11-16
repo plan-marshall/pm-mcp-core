@@ -1,0 +1,78 @@
+= Workflow Onboarding (`workflow.onboarding`)
+:nofooter:
+
+[cols="1,3"]
+|===
+|Module |`pm-workflow`
+|Specification |link:{spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-onboarding[State Catalogue § Machine
+Onboarding], link:{spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-settings[§ The Machine's Settings],
+`plan-marshall-documentation` CLI & Security § Automatic Onboarding
+|Decisions |link:../adr/workflow-onboarding/001-the-auto-run-vocabulary-and-the-router.adoc[ADR workflow-onboarding/001]
+|===
+
+== Purpose
+
+The engine half of the machine's automatic onboarding and of its aspects: the vocabulary of what the run decided, and the
+routing of `onboard.next` between the aspects, the automatic run's result and the machine's settings. The units
+(`onboarding.pmwf`, the aspect sub-workflows, `auto.consent`, `auto.result`) are resources of `plan-marshall-mcp`; this
+package is what those units run where the run is deterministic, and it is provable over fixtures without a workflow.
+
+== Types
+
+[cols="2,4"]
+|===
+|Type |What it is
+
+|`OnboardingAspect`
+|The closed list of the aspects in the fixed order of the guided and the automatic run: `language`, `harnesses`, `models`,
+`role-assignment`, `credential-store`, `providers`, `plan-defaults`; `next()` walks it.
+
+|`OnboardRun`
+|How an aspect is called: `first_run`, `auto`, `reconfigure`.
+
+|`ProposalReason`
+|Why the automatic run decided a value: `system`, `only_supported`, `all_supported`, `all_found`, `default`, `available`,
+`tool_logged_in`, `asked`; each carries its `onboard.auto.reason.<reason>` message key.
+
+|`OnboardingProposal`
+|One item of the result: the aspect, the key, the value, the reason and the check line that confirmed it. `asked()` is the
+one reason that marks an item the run could not decide.
+
+|`AutoOnboardingResult`
+|The items of one run: `decided()`, `undecided()`, `of(aspect)` and `value(aspect, key)`.
+
+|`OnboardingRouter`
+|The routing of `onboard.next` as a value: `returned(run, aspect, openedFrom)` and `change(result, aspect)`, each answering
+a `Route` (an aspect call, or `completed`, `result` or `settings`).
+|===
+
+== Routing
+
+The first run and the automatic run take the aspects in `OnboardingAspect`'s order. After the last aspect the first run
+opens `onboard.completed` and the automatic run opens `onboard.auto-result`. A `change` on the result calls that one aspect
+with `onboard_run: reconfigure` and its current values as the proposal; because the run value alone cannot say where a
+later run returns, `returned(..., OpenedFrom.RESULT)` leads back to the result and `OpenedFrom.SETTINGS` back to
+`settings.choose`. A change naming an aspect the result carries no item of is refused: there is nothing to change.
+
+== Failure Modes
+
+* A `change` for an aspect the result does not carry throws `IllegalArgumentException` naming the aspect.
+* A `reconfigure` return without its origin, and a `first_run` or `auto` return with one, are refused: the run and its
+  origin must agree.
+* A `Route` of another target that names an aspect or a run is refused by its constructor, so a route either calls an
+  aspect or names a state.
+
+== Testing
+
+`OnboardingResultTest` holds the aspect order, the closed reason list with its message keys, and the decided/undecided
+split; `OnboardingContractReplayTest` replays the `onboarding-contract` scenarios over the router, including the whole
+automatic run in order and the change-on-result return.
+
+== Specification Tracing
+
+* `plan-marshall-documentation` CLI & Security § Automatic Onboarding (the item schema of `auto.result`, the closed reason
+  list)
+* link:{spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-onboarding[State Catalogue § Machine Onboarding]
+  (`onboard.next`, `onboard.auto-result`, the aspect order)
+* link:{spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-settings[State Catalogue § The Machine's
+  Settings] (`settings.choose`, the return of a later run)
