@@ -195,7 +195,7 @@ class InstallationTokensTest {
 
         Result<InstallationTokens.InstallationToken> result = tokens.token(installation, repository, PERMISSIONS);
 
-        assertTrue(result.isOk(), "the mint succeeds");
+        assertTrue(result.isOk(), "the installation mint succeeds");
         var request = requests.getFirst();
         String authorization = header(request, "Authorization");
         assertTrue(authorization.startsWith("Bearer "), "the JWT is sent as a bearer token");
@@ -249,7 +249,7 @@ class InstallationTokensTest {
                 () -> assertEquals(one, first, "the first token is minted"),
                 () -> assertEquals(one, reused, "the token is reused before the margin"),
                 () -> assertEquals(two, renewed, "a new token is minted at the margin"),
-                () -> assertEquals(2, requests.size(), "two mints are sent"),
+                () -> assertEquals(2, requests.size(), "two mint requests are sent"),
                 () -> assertNotEquals(header(requests.get(0), "Authorization"),
                         header(requests.get(1), "Authorization"), "a JWT is never reused"));
     }
