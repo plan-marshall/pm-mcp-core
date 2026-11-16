@@ -10,12 +10,14 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 import de.planmarshall.core.spi.OutcomeClass;
+import de.planmarshall.workflow.ast.InputDecl;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
@@ -34,8 +36,8 @@ import org.jspecify.annotations.Nullable;
  * part of the plan unit, which is {@link InvariantId#INV_FIN_3}; the unit's scope and start state equal those of the
  * default unit, and so do its type (a composed plan instance against the workflow or recipe it is composed from
  * excepted, never a project replacement), its
- * entries, its exits and its entry bindings (each difference names the differing element) and its terminal states,
- * each with its outcome and class. That no transition targets
+ * entries, its exits, its inputs and its entry bindings (each difference names the differing element) and its terminal
+ * states, each with its outcome and class. That no transition targets
  * {@code plan.aborted} is Rule 3's part of the verifier's result.</li>
  * <li>{@link InvariantId#INV_GEN_2}, tree part: a terminal with the outcome {@code waived} exists only in a remediation
  * unit, and a state that routes the outcome {@code waived} or {@code all_waived} of its own primitive runs a primitive
@@ -119,9 +121,9 @@ final class GeneralInvariants {
     }
 
     /**
-     * INV-GEN-1, the interface: the type, the entries, the exits and the entry bindings of the unit equal those of the
-     * default unit it replaces; each difference is reported once and names the differing element. The descriptions of
-     * the entries and exits are not compared.
+     * INV-GEN-1, the interface: the type, the entries, the exits, the inputs and the entry bindings of the unit equal
+     * those of the default unit it replaces; each difference is reported once and names the differing element. The
+     * descriptions of the entries, the exits and the inputs are not compared.
      */
     private static void compareInterface(Context context, WorkflowDefinition unit, WorkflowDefinition reference) {
         var id = InvariantId.INV_GEN_1;
@@ -149,6 +151,47 @@ final class GeneralInvariants {
             context.reportUnit(id, "the entry bindings %s differ from the entry bindings %s of the default unit"
                     .formatted(bindings, referenceBindings));
         }
+        compareInputs(context, unit, reference);
+    }
+
+    /**
+     * INV-GEN-1, the inputs of the interface: the name, the type, the optional form, the default and the fallback of
+     * every input, in declaration order. A copy that loosens a type or drops an input is refused, and the refusal names
+     * the input. The description is not compared: it is shown to the caller, not a part of the contract.
+     */
+    private static void compareInputs(Context context, WorkflowDefinition unit, WorkflowDefinition reference) {
+        var id = InvariantId.INV_GEN_1;
+        var inputs = unit.frontmatter().inputs();
+        var referenceInputs = reference.frontmatter().inputs();
+        var referenceByName = new LinkedHashMap<String, InputDecl>();
+        referenceInputs.forEach(input -> referenceByName.put(input.name(), input));
+        var names = new LinkedHashSet<String>();
+        inputs.forEach(input -> names.add(input.name()));
+        referenceByName.keySet().stream().filter(name -> !names.contains(name))
+                .forEach(name -> context.reportUnit(id, "the input '%s' of the default unit is missing".formatted(name)));
+        for (var input : inputs) {
+            var template = referenceByName.get(input.name());
+            if (template == null) {
+                context.reportUnit(id, "the input '%s' is not part of the interface of the default unit"
+                        .formatted(input.name()));
+            } else if (!sameInterface(input, template)) {
+                context.reportUnit(id, "the input '%s' differs from the input of the default unit"
+                        .formatted(input.name()));
+            }
+        }
+        var kept = inputs.stream().map(InputDecl::name).filter(referenceByName::containsKey).toList();
+        var expectedOrder = referenceInputs.stream().map(InputDecl::name).filter(kept::contains).toList();
+        if (!kept.equals(expectedOrder)) {
+            context.reportUnit(id, "the inputs %s are declared in another order than the inputs %s of the default unit"
+                    .formatted(kept, expectedOrder));
+        }
+    }
+
+    /** @return whether two inputs declare the same contract: name aside, the type, the optional form, default and fallback */
+    private static boolean sameInterface(InputDecl input, InputDecl reference) {
+        return input.type().equals(reference.type()) && input.optional() == reference.optional()
+                && Objects.equals(input.defaultValue(), reference.defaultValue())
+                && Objects.equals(input.fallback(), reference.fallback());
     }
 
     /**

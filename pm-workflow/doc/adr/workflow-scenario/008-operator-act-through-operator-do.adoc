@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted
+Accepted, superseded in part by ADR 009: `worker_wait` and `worker_do` run the protocol worker, and no longer name
+`task-queue-and-protocol` in `REFUSED`.
 
 == Date
 

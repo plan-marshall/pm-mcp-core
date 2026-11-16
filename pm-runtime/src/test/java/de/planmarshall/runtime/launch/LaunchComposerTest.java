@@ -310,7 +310,8 @@ class LaunchComposerTest {
         var request = requestWithBlock(block, LaunchFixtures.writer(skills));
 
         var failure = assertThrows(LaunchComposer.CompositionException.class,
-                () -> new LaunchComposer().compose(request));
+                () -> new LaunchComposer().compose(request),
+                "a metacharacter in a slot refuses the composition");
 
         assertAll(
                 () -> assertEquals(LaunchRefusal.ARGUMENT_REJECTED, failure.refusal(),
@@ -326,7 +327,8 @@ class LaunchComposerTest {
         var block = HeadlessBlock.of(LaunchFixtures.profile(LaunchFixtures.documentWithMetacharacterInArgv()));
         var request = requestWithBlock(block, LaunchFixtures.writer(skills));
 
-        assertThrows(LaunchComposer.CompositionException.class, () -> new LaunchComposer().compose(request));
+        assertThrows(LaunchComposer.CompositionException.class, () -> new LaunchComposer().compose(request),
+                "the refusal ends the composition before the launch");
 
         try (var files = Files.list(request.jobPrivateDirectory())) {
             assertEquals(List.of("prompt.md", "result-schema.json"), files.map(file -> file.getFileName().toString())

@@ -1,0 +1,56 @@
+= ADR 035: The Input Registries Are Arguments of the Verifier
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+A unit that reads a configuration key or a derived fact needs a check that the key exists and the kind is known. The
+closed configuration schema and the fact-kind enumeration live outside `pm-workflow`: `pm-core` package `core.config`
+holds `package-info.java` only, and no class names the fact kinds at HEAD.
+
+ADR `workflow-verify/015` already records the rule that the baseline and the registry are arguments of the verifier, not
+code of the repository it checks.
+
+== Decision
+
+* `ConfigKeyRegistry` (the effective keys, each with its value domain and whether it has a compiled default) and
+  `FactKindRegistry` (the closed fact kinds) are value objects of `workflow.verify`.
+* They are arguments of `WorkflowValidator`'s constructor: the new constructor takes both, and the existing ones default
+  to the empty registries. A unit that declares no `reads_*` passes with the empty registries; a unit that declares one
+  fails closed, because no key and no kind exists in them.
+* `VerificationContext` carries both and hands them to the verifier it builds. `PlanInstanceComposer` passes
+  `context.configKeys()` and `context.factKinds()` to the validator it builds for a composed version.
+* The production wiring of the registries from the closed configuration schema and the fact-kind enumeration is the
+  assembly's (PLAN-V2-10); until it lands, the production verifier has the empty registries and refuses a unit that
+  declares a read.
+* `ConfigKeyRegistry.assignable(InputType, InputType)` is the one definition of "the domain fits the type": every value
+  the domain admits is a value the input type admits.
+
+== Alternatives Considered
+
+* *A closed-configuration class in `pm-workflow`.* Not taken: it would duplicate the schema of another module and break
+  the module boundary.
+* *A static enumeration of fact kinds in the verifier.* Not taken: PLAN-V2-02 builds `DerivedFactKinds` elsewhere, and a
+  second list would drift.
+* *Optional registries with a permissive default.* Not taken: a verifier without a registry cannot answer the check, so
+  the fail-closed default is the only honest one.
+
+== Consequences
+
+* A test that plants a check supplies a fixture registry; the fixture harness's default validator cannot make a unit
+  with `reads_*` pass, so the checks are pinned by `UnitInterfaceChecksTest` with a registry of its own.
+* Adding a key or a kind is a change of the assembly's registry, never of `pm-workflow`.
+
+== Source
+
+* link:../../adr/workflow-verify/015-baseline-and-registry-are-arguments.adoc[ADR 015: Baseline and Registry Are Arguments]
+* link:../../../../doc/specification/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas Specification § Project Configuration Store]
+* link:../../../../doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc[Store Schemas Specification § Derived Facts Store]
+* link:../../developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules]

@@ -21,7 +21,9 @@ import org.junit.jupiter.api.Test;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.verify.ConfigKeyRegistry;
 import de.planmarshall.workflow.verify.EntityKindRegistry;
+import de.planmarshall.workflow.verify.FactKindRegistry;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
 
@@ -39,13 +41,18 @@ class VerificationContextRecordsTest {
         var entityKinds = EntityKindRegistry.defaults();
         var questionClasses = QuestionClassRegistry.defaults();
         var schemas = SchemaRegistry.defaults();
+        var configKeys = ConfigKeyRegistry.empty();
+        var factKinds = FactKindRegistry.empty();
         var compiledUnits = List.<WorkflowDefinition>of();
-        var constructed = new VerificationContext(registry, entityKinds, questionClasses, schemas, compiledUnits);
+        var constructed = new VerificationContext(registry, entityKinds, questionClasses, schemas, configKeys,
+                factKinds, compiledUnits);
         var built = VerificationContext.builder()
                 .registry(registry)
                 .entityKinds(entityKinds)
                 .questionClasses(questionClasses)
                 .schemas(schemas)
+                .configKeys(configKeys)
+                .factKinds(factKinds)
                 .compiledUnits(compiledUnits)
                 .build();
 

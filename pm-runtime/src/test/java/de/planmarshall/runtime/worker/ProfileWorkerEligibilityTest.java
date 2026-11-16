@@ -90,7 +90,8 @@ class ProfileWorkerEligibilityTest {
 
         var verdict = ProfileWorkerEligibility.of(profile, new RuntimePlatform("darwin", "aarch64")).verdict();
 
-        var refusal = assertInstanceOf(EligibilityVerdict.Refused.class, verdict).refusal();
+        var refusal = assertInstanceOf(EligibilityVerdict.Refused.class, verdict,
+                "an off-platform verdict is a refusal").refusal();
         assertAll(
                 () -> assertEquals(EligibilityRefusal.Reason.OTHER_PLATFORM, refusal.reason(),
                         "the platform decides before the failing stage"),
@@ -165,7 +166,8 @@ class ProfileWorkerEligibilityTest {
         var refusal = refusalOf(profile);
 
         assertAll(
-                () -> assertEquals(EligibilityRefusal.Reason.RECORD_ABSENT, refusal.reason()),
+                () -> assertEquals(EligibilityRefusal.Reason.RECORD_ABSENT, refusal.reason(),
+                        "an absent record is the reason"),
                 () -> assertNull(refusal.stage(), "no stage decided an absent record"));
     }
 
@@ -177,7 +179,8 @@ class ProfileWorkerEligibilityTest {
         var refusal = refusalOf(profile);
 
         assertAll(
-                () -> assertEquals(EligibilityRefusal.Reason.CLAIM_STAGE_ABSENT, refusal.reason()),
+                () -> assertEquals(EligibilityRefusal.Reason.CLAIM_STAGE_ABSENT,
+                        refusal.reason(), "the unmeasured claim stage is the reason"),
                 () -> assertEquals("egress", refusal.stage(), "the claim rests on the absent egress stage"));
     }
 
@@ -190,7 +193,8 @@ class ProfileWorkerEligibilityTest {
         var refusal = refusalOf(profile);
 
         assertAll(
-                () -> assertEquals(EligibilityRefusal.Reason.STAGE_FAILED, refusal.reason()),
+                () -> assertEquals(EligibilityRefusal.Reason.STAGE_FAILED,
+                        refusal.reason(), "the failing stage refuses the profile"),
                 () -> assertEquals("identity", refusal.stage(), "the incidental failure is the reason"));
     }
 
@@ -205,15 +209,15 @@ class ProfileWorkerEligibilityTest {
                 profile(true, false, fixture("verification-record-faults-failed.json")), THIS_PLATFORM);
 
         assertAll(
-                () -> assertTrue(eligible.admits("implementer", CLIENT)),
-                () -> assertFalse(refused.admits("implementer", CLIENT)),
+                () -> assertTrue(eligible.admits("implementer", CLIENT), "an eligible verdict admits the start"),
+                () -> assertFalse(refused.admits("implementer", CLIENT), "a refused verdict blocks the start"),
                 () -> assertEquals(CLIENT, eligible.profile().clientId(), "the gate keeps the profile it guards"));
     }
 
     private static EligibilityRefusal refusalOf(LoadedProfile profile) {
         var verdict = ProfileWorkerEligibility.of(profile, THIS_PLATFORM).verdict();
 
-        return assertInstanceOf(EligibilityVerdict.Refused.class, verdict).refusal();
+        return assertInstanceOf(EligibilityVerdict.Refused.class, verdict, "the verdict is a refusal").refusal();
     }
 
     private static LoadedProfile profile(boolean eligible, boolean zeroTool, VerificationRecord verificationRecord) {

@@ -131,15 +131,17 @@ class EnrolmentSidecarsTest {
 
     private static void assertFailure(Optional<Failure> failure, Path file, String reason) {
         assertAll(
-                () -> assertTrue(failure.isPresent()),
-                () -> assertEquals(file, failure.orElseThrow().file()),
+                () -> assertTrue(failure.isPresent(),
+                        "the verification reports a failure"),
+                () -> assertEquals(file, failure.orElseThrow().file(),
+                        "the failure names the offending file"),
                 () -> assertTrue(failure.orElseThrow().reason().contains(reason), failure.orElseThrow().reason()));
     }
 
     @Test
     @DisplayName("all three kinds pass under the key they were signed with")
     void passUnderTheirKey() {
-        assertTrue(verify(key).isEmpty());
+        assertTrue(verify(key).isEmpty(), "all three kinds pass under their key");
     }
 
     @Test
@@ -151,13 +153,19 @@ class EnrolmentSidecarsTest {
             var failure = sidecars.verify(transaction, key);
 
             assertAll(
-                    () -> assertTrue(failure.isEmpty()),
-                    () -> assertTrue(transaction.holds(LockKey.enrolment(base, "alpha-project"))),
-                    () -> assertTrue(transaction.holds(LockKey.enrolment(base, "beta-project"))),
-                    () -> assertTrue(transaction.holds(LockKey.harnesses(base))),
-                    () -> assertTrue(transaction.holds(LockKey.auditLog(base))),
+                    () -> assertTrue(failure.isEmpty(),
+                            "the verification reports no failure"),
+                    () -> assertTrue(transaction.holds(LockKey.enrolment(base, "alpha-project")),
+                            "the alpha enrolment lock is held"),
+                    () -> assertTrue(transaction.holds(LockKey.enrolment(base, "beta-project")),
+                            "the beta enrolment lock is held"),
+                    () -> assertTrue(transaction.holds(LockKey.harnesses(base)),
+                            "the harnesses lock is held"),
+                    () -> assertTrue(transaction.holds(LockKey.auditLog(base)),
+                            "the audit log lock is held"),
                     () -> assertTrue(events.stream().noneMatch(
-                            event -> AuditEvent.LOCK_ORDER_VIOLATION.equals(event.event()))));
+                                    event -> AuditEvent.LOCK_ORDER_VIOLATION.equals(event.event())),
+                            "no lock order violation is reported"));
         }
     }
 
@@ -172,7 +180,7 @@ class EnrolmentSidecarsTest {
         Files.delete(harnessesSidecar());
         Files.delete(AuditHead.headFile(base));
 
-        assertTrue(verify(newKey()).isEmpty());
+        assertTrue(verify(newKey()).isEmpty(), "nothing signed leaves nothing to fail");
     }
 
     @Test

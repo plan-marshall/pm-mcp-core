@@ -2,10 +2,10 @@
   "id": "PLAN-V2-105",
   "slug": "assertion-messages-runtime-b",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-105-assertion-messages-runtime-b",
+  "pr": "#451, #455",
+  "landing": "landings/PLAN-V2-105.md",
   "seq": -1
 }

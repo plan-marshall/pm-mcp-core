@@ -45,6 +45,8 @@ import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.DecisionDeclaration;
 import de.planmarshall.workflow.ast.GuardExpr;
 import de.planmarshall.workflow.ast.GuardSpec;
+import de.planmarshall.workflow.ast.InputDecl;
+import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.InstanceInputs;
 import de.planmarshall.workflow.ast.LinkAction;
@@ -52,7 +54,6 @@ import de.planmarshall.workflow.ast.LinkForm;
 import de.planmarshall.workflow.ast.LinkRelation;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
-import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
 import de.planmarshall.workflow.ast.ResultGuard;
@@ -249,6 +250,10 @@ class WorkflowParserTest {
         return new ParamSpec(name, type, optional, NOWHERE);
     }
 
+    private static InputDecl input(String name, InputType type) {
+        return InputDecl.builder().name(name).type(type).location(NOWHERE).build();
+    }
+
     private static GuardSpec guard(GuardExpr expr, String... configKeys) {
         return new GuardSpec(expr, List.of(configKeys));
     }
@@ -318,7 +323,7 @@ class WorkflowParserTest {
             var expected = new WorkflowDefinition(
                     frontmatter("Parser plan unit", "A plan unit written for the parser tests.", UnitType.WORKFLOW,
                             "unit.plan"),
-                    "plan", 3, WorkflowScope.PLAN, List.of(), null, null, declarations,
+                    "plan", 3, WorkflowScope.PLAN, null, null, declarations,
                     Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), "init.begin", Map.of(),
                     List.of(new StateMigration("init.old", "init.begin", NOWHERE),
                             new StateMigration("review.legacy", "review.check", NOWHERE)),
@@ -346,14 +351,16 @@ class WorkflowParserTest {
         @Test
         @DisplayName("sub-workflow: param types, result schema, phase inherit, task states and consult roles")
         void subWorkflowUnit() {
-            var frontmatter = frontmatter("Commit and push", "A sub-workflow written for the parser tests.",
+            var inputs = List.of(
+                    input("push", new InputType.Enumeration(List.of("enabled", "disabled"))),
+                    input("attempts", new InputType.IntRange(1, 5)),
+                    input("depth", new InputType.IntRange(null, null)),
+                    input("targets", new InputType.EnumList(List.of("origin", "Mirror"))));
+            var frontmatter = new UnitFrontmatter("Commit and push", "A sub-workflow written for the parser tests.",
                     UnitType.SUBWORKFLOW, "git.commit", List.of(element("stage", "The change is ready to be staged.")),
-                    List.of(element("done", "The change is committed and pushed."), element("skipped")));
+                    List.of(element("done", "The change is committed and pushed."), element("skipped")), List.of(),
+                    List.of(), inputs, FIXTURE_DATE, "0.1.0", "plan-marshall", null, NOWHERE);
             var expected = new WorkflowDefinition(frontmatter, "git.commit_and_push", 1, WorkflowScope.SUBWORKFLOW,
-                    List.of(new ParamDecl("push", enumOf("enabled", "disabled"), NOWHERE),
-                            new ParamDecl("attempts", intRange(1, 5), NOWHERE),
-                            new ParamDecl("depth", new ParamType.Int(UNBOUNDED, UNBOUNDED), NOWHERE),
-                            new ParamDecl("targets", new ParamType.ListOf(enumOf("origin", "Mirror")), NOWHERE)),
                     "commit-result", null, Map.of(), Map.of(), 1,
                     UnitOrigin.DEFAULT, Map.of(), null,
                     Map.of("stage", new WorkflowDefinition.EntryBinding("git.stage", NOWHERE)), List.of(),
@@ -421,7 +428,7 @@ class WorkflowParserTest {
             var expected = new WorkflowDefinition(frontmatter("Parser session unit",
                     "A session-driven workspace unit written for the parser tests.", UnitType.SYSTEM, "unit.start"),
                     "setup.session",
-                    2, WorkflowScope.WORKSPACE, List.of(), null, null, Map.of(), Map.of(),
+                    2, WorkflowScope.WORKSPACE, null, null, Map.of(), Map.of(),
                     1, UnitOrigin.DEFAULT, Map.of(), "setup.choose", Map.of(), List.of(),
                     states(state("setup.choose", "setup", choose),
                             state("setup.wait", "setup", new StateBehavior.QuestionWait("clarification",
@@ -448,7 +455,7 @@ class WorkflowParserTest {
             var expected = new WorkflowDefinition(frontmatter("Parser adjudication unit",
                     "An adjudication unit written for the parser tests.", UnitType.SYSTEM, "flow.adjudicate"),
                     "adjudicate.decisions", 1,
-                    WorkflowScope.ENTITY, List.of(), null, null, declarations, decisions,
+                    WorkflowScope.ENTITY, null, null, declarations, decisions,
                     1, UnitOrigin.DEFAULT, Map.of(), "adjudicate.vote", Map.of(), List.of(),
                     states(state("adjudicate.vote", "inherit", new StateBehavior.ModelJob("decision",
                             null, null, "adjudicate.list-roles",
@@ -475,7 +482,7 @@ class WorkflowParserTest {
             var expected = new WorkflowDefinition(frontmatter("Parser plan instance",
                     "A plan instance written for the parser tests.", UnitType.INSTANCE, "unit.plan"), "plan", 4,
                     WorkflowScope.PLAN,
-                    List.of(), null,
+                    null,
                     new InstanceHeader("demo-plan", 4, "plan", inputs, INSTANCE_JSON), Map.of(),
                     Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), "plan.run", Map.of(), List.of(),
                     states(state("plan.run", "execute",
@@ -504,7 +511,7 @@ class WorkflowParserTest {
             entryBindings.put("repair", new WorkflowDefinition.EntryBinding("review.fix", NOWHERE));
             entryBindings.put("recheck", new WorkflowDefinition.EntryBinding("review.check", NOWHERE));
             var expected = new WorkflowDefinition(frontmatter, "review.repair", 1, WorkflowScope.SUBWORKFLOW,
-                    List.of(), null, null, Map.of(), Map.of(), 1,
+                    null, null, Map.of(), Map.of(), 1,
                     UnitOrigin.DEFAULT, Map.of(), null, entryBindings, List.of(),
                     states(state("review.check", "inherit", new StateBehavior.ModelJob("change",
                             "reviewer", null, null,
@@ -662,15 +669,15 @@ class WorkflowParserTest {
         }
 
         @Test
-        @DisplayName("records the location of a sub-workflow parameter, a link and the name of a link parameter")
+        @DisplayName("records the location of a sub-workflow input, a link and the name of a link parameter")
         void declarationLocations() {
-            var param = DslFixtures.parseValid(SUBWORKFLOW_UNIT).params().getFirst();
+            var input = DslFixtures.parseValid(SUBWORKFLOW_UNIT).frontmatter().inputs().getFirst();
             var choose = (StateBehavior.InteractiveLinks) DslFixtures.parseValid(SESSION_UNIT).states()
                     .get("setup.choose").behavior();
             var detour = choose.links().get(1);
 
             assertAll(
-                    () -> assertEquals(new SourceLocation(SUBWORKFLOW_UNIT, 19, 1), param.location()),
+                    () -> assertEquals(new SourceLocation(SUBWORKFLOW_UNIT, 11, 8), input.location()),
                     () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 5), detour.location()),
                     () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 40), detour.freeParams().get(0).location()),
                     () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 52),

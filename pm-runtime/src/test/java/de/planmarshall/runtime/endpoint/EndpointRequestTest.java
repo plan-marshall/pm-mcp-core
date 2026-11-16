@@ -67,18 +67,18 @@ class EndpointRequestTest {
                 .findFirst().orElseThrow().member("content").orElseThrow().text().orElseThrow();
 
         assertAll(
-                () -> assertTrue(composed.isComposed()),
-                () -> assertNull(composed.refusal()),
-                () -> assertTrue(body.contains("\"stream\":false")),
-                () -> assertTrue(body.contains("\"role\":\"system\"")),
-                () -> assertTrue(body.contains("\"role\":\"user\"")),
+                () -> assertTrue(composed.isComposed(), "the request is composed"),
+                () -> assertNull(composed.refusal(), "a composed request has no refusal"),
+                () -> assertTrue(body.contains("\"stream\":false"), "streaming is explicitly off"),
+                () -> assertTrue(body.contains("\"role\":\"system\""), "the first message is the system message"),
+                () -> assertTrue(body.contains("\"role\":\"user\""), "the task is sent as the user message"),
                 () -> assertEquals(prompt, systemContent, "the system message carries the launch prompt"),
-                () -> assertTrue(body.contains("\"model\":\"mid\"")),
-                () -> assertTrue(body.contains("\"max_tokens\":1024")),
-                () -> assertTrue(body.contains("\"temperature\":0")),
-                () -> assertFalse(body.contains("\"tools\"")),
-                () -> assertFalse(body.contains("\"tool_choice\"")),
-                () -> assertFalse(body.contains("\"response_format\"")));
+                () -> assertTrue(body.contains("\"model\":\"mid\""), "the model tier is sent"),
+                () -> assertTrue(body.contains("\"max_tokens\":1024"), "the default max tokens are sent"),
+                () -> assertTrue(body.contains("\"temperature\":0"), "the default temperature is sent"),
+                () -> assertFalse(body.contains("\"tools\""), "no tools member is sent"),
+                () -> assertFalse(body.contains("\"tool_choice\""), "no tool choice is sent"),
+                () -> assertFalse(body.contains("\"response_format\""), "no response format is sent"));
     }
 
     @Test
@@ -88,9 +88,9 @@ class EndpointRequestTest {
                 .request().body();
 
         assertAll(
-                () -> assertTrue(body.contains("\"response_format\"")),
-                () -> assertTrue(body.contains("\"json_schema\"")),
-                () -> assertTrue(body.contains("\"strict\":true")));
+                () -> assertTrue(body.contains("\"response_format\""), "the response format is sent"),
+                () -> assertTrue(body.contains("\"json_schema\""), "the response format names json_schema"),
+                () -> assertTrue(body.contains("\"strict\":true"), "the schema is sent strict"));
     }
 
     @Test
@@ -104,7 +104,8 @@ class EndpointRequestTest {
 
         var body = EndpointRequest.compose(profile, "mid", prompt, task, schema()).request().body();
 
-        assertFalse(body.contains("\"response_format\""));
+        assertFalse(body.contains("\"response_format\""),
+                "a profile without a schema sends no response format");
     }
 
     @Test
@@ -116,9 +117,11 @@ class EndpointRequestTest {
         var composed = EndpointRequest.compose(EndpointFixtures.profile(), "mid", longPrompt, task, null);
 
         assertAll(
-                () -> assertFalse(composed.isComposed()),
-                () -> assertEquals(EndpointRequest.Refusal.PROMPT_EXCEEDS_BUDGET, composed.refusal()),
-                () -> assertTrue(composed.detail().contains("context budget")));
+                () -> assertFalse(composed.isComposed(), "an oversized prompt refuses the composition"),
+                () -> assertEquals(EndpointRequest.Refusal.PROMPT_EXCEEDS_BUDGET, composed.refusal(),
+                        "the refusal is a prompt budget overflow"),
+                () -> assertTrue(composed.detail().contains("context budget"),
+                        "the detail names the context budget"));
     }
 
     @Test
@@ -130,8 +133,9 @@ class EndpointRequestTest {
         var composed = EndpointRequest.compose(EndpointFixtures.profile(), "mid", prompt, longTask, null);
 
         assertAll(
-                () -> assertFalse(composed.isComposed()),
-                () -> assertEquals(EndpointRequest.Refusal.TASK_EXCEEDS_BUDGET, composed.refusal()));
+                () -> assertFalse(composed.isComposed(), "an oversized task refuses the composition"),
+                () -> assertEquals(EndpointRequest.Refusal.TASK_EXCEEDS_BUDGET, composed.refusal(),
+                        "the refusal is a task budget overflow"));
     }
 
     @Test
@@ -141,18 +145,18 @@ class EndpointRequestTest {
                 .request().bodyWithTools(EndpointVerification.PROBE_TOOL);
 
         assertAll(
-                () -> assertTrue(body.contains("\"tools\"")),
-                () -> assertTrue(body.contains("probe_tool")),
-                () -> assertFalse(body.contains("\"tool_choice\"")));
+                () -> assertTrue(body.contains("\"tools\""), "the probe declares a tools member"),
+                () -> assertTrue(body.contains("probe_tool"), "the probe declares its own tool"),
+                () -> assertFalse(body.contains("\"tool_choice\""), "the probe sends no tool choice"));
     }
 
     @Test
     @DisplayName("the estimate rounds up at four characters per token")
     void estimateRoundsUp() {
         assertAll(
-                () -> assertEquals(0, EndpointRequest.estimate(null)),
-                () -> assertEquals(0, EndpointRequest.estimate("")),
-                () -> assertEquals(1, EndpointRequest.estimate("abc")),
-                () -> assertEquals(2, EndpointRequest.estimate("abcde")));
+                () -> assertEquals(0, EndpointRequest.estimate(null), "a null text estimates no tokens"),
+                () -> assertEquals(0, EndpointRequest.estimate(""), "an empty text estimates no tokens"),
+                () -> assertEquals(1, EndpointRequest.estimate("abc"), "three characters estimate one token"),
+                () -> assertEquals(2, EndpointRequest.estimate("abcde"), "five characters estimate two tokens"));
     }
 }

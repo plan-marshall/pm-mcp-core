@@ -15,8 +15,9 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The type of a parameter: of a free parameter of a link, of a sub-workflow parameter, or of the result of a
- * sub-workflow (PM-IMPL-5).
+ * The type of a parameter: of a free parameter of a link, of a scalar of a link parameter list, or of the result of a
+ * sub-workflow (PM-IMPL-5). A frontmatter input carries its own {@link InputType}, the three closed forms a call site
+ * binds.
  *
  * @since 0.1
  */

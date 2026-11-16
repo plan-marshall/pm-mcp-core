@@ -84,8 +84,10 @@ class EnrolmentFileCheckTest {
         mode(permissions);
 
         assertAll(
-                () -> assertDoesNotThrow(() -> check.check(file)),
-                () -> assertTrue(check.violation(file).isEmpty()));
+                () -> assertDoesNotThrow(() -> check.check(file),
+                        "an owner-only file passes the check"),
+                () -> assertTrue(check.violation(file).isEmpty(),
+                        "an owner-only file has no violation"));
     }
 
     @ParameterizedTest(name = "mode {0} ({1}) is refused")
@@ -94,11 +96,14 @@ class EnrolmentFileCheckTest {
     void broaderMode(String permissions, String octal) throws Exception {
         mode(permissions);
 
-        var refusal = assertThrows(StoreRefusal.class, () -> check.check(file));
+        var refusal = assertThrows(StoreRefusal.class, () -> check.check(file),
+                "a broader mode is refused as insecure");
 
         assertAll(
-                () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
-                () -> assertEquals(file, refusal.file()),
+                () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
+                        "the outcome is enrolment_insecure"),
+                () -> assertEquals(file, refusal.file(),
+                        "the refusal names the offending file"),
                 () -> assertTrue(refusal.getMessage().contains("mode %s broader than 0600".formatted(octal)),
                         refusal.getMessage()));
     }
@@ -109,12 +114,16 @@ class EnrolmentFileCheckTest {
         mode(OWNER_ONLY);
         var link = Files.createSymbolicLink(directory.resolve("link.json"), file);
 
-        var refusal = assertThrows(StoreRefusal.class, () -> check.check(link));
+        var refusal = assertThrows(StoreRefusal.class, () -> check.check(link),
+                "a symbolic link is refused");
 
         assertAll(
-                () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
-                () -> assertEquals(link, refusal.file()),
-                () -> assertTrue(refusal.getMessage().contains(EnrolmentFileCheck.SYMBOLIC_LINK)));
+                () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
+                        "the outcome is enrolment_insecure"),
+                () -> assertEquals(link, refusal.file(),
+                        "the refusal names the symbolic link"),
+                () -> assertTrue(refusal.getMessage().contains(EnrolmentFileCheck.SYMBOLIC_LINK),
+                        "the reason is the symbolic link"));
     }
 
     @Test
@@ -123,10 +132,12 @@ class EnrolmentFileCheckTest {
         mode(OWNER_ONLY);
         var foreignCheck = new EnrolmentFileCheck("someone-else");
 
-        var refusal = assertThrows(StoreRefusal.class, () -> foreignCheck.check(file));
+        var refusal = assertThrows(StoreRefusal.class, () -> foreignCheck.check(file),
+                "a foreign owner is refused");
 
         assertAll(
-                () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
+                () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
+                        "the outcome is enrolment_insecure"),
                 () -> assertTrue(refusal.getMessage().contains("foreign owner " + USER), refusal.getMessage()));
     }
 
@@ -135,13 +146,15 @@ class EnrolmentFileCheckTest {
     void missingFile() {
         var missing = directory.resolve(ABSENT);
 
-        assertThrows(UncheckedIOException.class, () -> check.check(missing));
+        assertThrows(UncheckedIOException.class, () -> check.check(missing),
+                "a missing file cannot be checked");
     }
 
     @Test
     @DisplayName("a check without the expected user is refused")
     void missingUser() {
-        assertThrows(NullPointerException.class, () -> new EnrolmentFileCheck(null));
+        assertThrows(NullPointerException.class, () -> new EnrolmentFileCheck(null),
+                "a missing user is refused");
     }
 
     /**
@@ -167,9 +180,10 @@ class EnrolmentFileCheckTest {
             var snapshot = check.snapshot(file);
 
             assertAll(
-                    () -> assertTrue(snapshot.violation().isEmpty()),
-                    () -> assertArrayEquals(BYTES, snapshot.content().orElseThrow()),
-                    () -> assertFalse(snapshot.isAbsent()));
+                    () -> assertTrue(snapshot.violation().isEmpty(), "the snapshot reports no violation"),
+                    () -> assertArrayEquals(BYTES, snapshot.content().orElseThrow(),
+                            "the snapshot carries the file bytes"),
+                    () -> assertFalse(snapshot.isAbsent(), "the snapshot is not an absent one"));
         }
 
         @Test
@@ -180,10 +194,11 @@ class EnrolmentFileCheckTest {
             var snapshot = check.snapshot(missing);
 
             assertAll(
-                    () -> assertTrue(snapshot.violation().isEmpty()),
-                    () -> assertTrue(snapshot.content().isEmpty()),
-                    () -> assertTrue(snapshot.isAbsent()),
-                    () -> assertThrows(UncheckedIOException.class, () -> check.check(missing)));
+                    () -> assertTrue(snapshot.violation().isEmpty(), "an absent file has no violation"),
+                    () -> assertTrue(snapshot.content().isEmpty(), "an absent file has no content"),
+                    () -> assertTrue(snapshot.isAbsent(), "an absent file is an absent snapshot"),
+                    () -> assertThrows(UncheckedIOException.class, () -> check.check(missing),
+                            "checking an absent file is an I/O failure"));
         }
 
         @ParameterizedTest(name = "a link whose target exists: {0}")
@@ -197,9 +212,10 @@ class EnrolmentFileCheckTest {
             var snapshot = check.snapshot(link);
 
             assertAll(
-                    () -> assertEquals(EnrolmentFileCheck.SYMBOLIC_LINK, snapshot.violation().orElseThrow()),
-                    () -> assertTrue(snapshot.content().isEmpty()),
-                    () -> assertFalse(snapshot.isAbsent()));
+                    () -> assertEquals(EnrolmentFileCheck.SYMBOLIC_LINK, snapshot.violation().orElseThrow(),
+                            "the link is the reported violation"),
+                    () -> assertTrue(snapshot.content().isEmpty(), "a refused link yields no content"),
+                    () -> assertFalse(snapshot.isAbsent(), "a refused link is not an absent one"));
         }
 
         @ParameterizedTest(name = "mode {0}, expected owner {1}")
@@ -214,8 +230,9 @@ class EnrolmentFileCheckTest {
             var snapshot = ownerCheck.snapshot(file);
 
             assertAll(
-                    () -> assertEquals(expected, snapshot.violation().orElseThrow()),
-                    () -> assertTrue(snapshot.content().isEmpty()));
+                    () -> assertEquals(expected, snapshot.violation().orElseThrow(),
+                            "the violation is the expected reason"),
+                    () -> assertTrue(snapshot.content().isEmpty(), "a refused file yields no content"));
         }
 
         @Test
@@ -224,7 +241,8 @@ class EnrolmentFileCheckTest {
             Assumptions.assumeFalse("root".equals(USER), "root reads a file of mode 0000");
             mode("---------");
 
-            var failure = assertThrows(UncheckedIOException.class, () -> check.snapshot(file));
+            var failure = assertThrows(UncheckedIOException.class, () -> check.snapshot(file),
+                    "an unreadable file is an I/O failure");
 
             assertTrue(failure.getMessage().contains(file.toString()), failure.getMessage());
         }
@@ -238,8 +256,9 @@ class EnrolmentFileCheckTest {
             var snapshot = check.snapshot(file, () -> replace(other));
 
             assertAll(
-                    () -> assertEquals(EnrolmentFileCheck.CHANGED_WHILE_READ, snapshot.violation().orElseThrow()),
-                    () -> assertTrue(snapshot.content().isEmpty()));
+                    () -> assertEquals(EnrolmentFileCheck.CHANGED_WHILE_READ, snapshot.violation().orElseThrow(),
+                            "a replaced file is refused as changed"),
+                    () -> assertTrue(snapshot.content().isEmpty(), "a replaced file yields no content"));
         }
 
         @Test
@@ -252,8 +271,8 @@ class EnrolmentFileCheckTest {
             var snapshot = check.snapshot(file, () -> replace(link));
 
             assertAll(
-                    () -> assertTrue(snapshot.violation().isPresent()),
-                    () -> assertTrue(snapshot.content().isEmpty()));
+                    () -> assertTrue(snapshot.violation().isPresent(), "a swapped link is a violation"),
+                    () -> assertTrue(snapshot.content().isEmpty(), "a swapped link yields no content"));
         }
 
         @Test
@@ -264,8 +283,9 @@ class EnrolmentFileCheckTest {
             var snapshot = check.snapshot(file, () -> loosen(file));
 
             assertAll(
-                    () -> assertEquals("mode 0666 broader than 0600", snapshot.violation().orElseThrow()),
-                    () -> assertTrue(snapshot.content().isEmpty()));
+                    () -> assertEquals("mode 0666 broader than 0600", snapshot.violation().orElseThrow(),
+                            "a loosened mode is named as found"),
+                    () -> assertTrue(snapshot.content().isEmpty(), "a loosened mode yields no content"));
         }
 
         @Test
@@ -276,8 +296,9 @@ class EnrolmentFileCheckTest {
             var snapshot = check.snapshot(file, NOTHING);
 
             assertAll(
-                    () -> assertTrue(snapshot.violation().isEmpty()),
-                    () -> assertArrayEquals(BYTES, snapshot.content().orElseThrow()));
+                    () -> assertTrue(snapshot.violation().isEmpty(), "the unchanged file has no violation"),
+                    () -> assertArrayEquals(BYTES, snapshot.content().orElseThrow(),
+                            "the unchanged file is read in full"));
         }
 
         @Test
@@ -293,8 +314,8 @@ class EnrolmentFileCheckTest {
             check.snapshot(file, counting);
 
             assertAll(
-                    () -> assertEquals(1, afterRead),
-                    () -> assertEquals(1, runs.get()));
+                    () -> assertEquals(1, afterRead, "the seam runs once for a present file"),
+                    () -> assertEquals(1, runs.get(), "the seam runs once in total"));
         }
 
         private Path writeOwnerOnly(String name, String content) throws IOException {

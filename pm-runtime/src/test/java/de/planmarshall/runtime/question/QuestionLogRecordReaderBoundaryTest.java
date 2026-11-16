@@ -91,8 +91,10 @@ class QuestionLogRecordReaderBoundaryTest {
                     closing("Q-999999", QuestionEvent.CANCELLED));
 
             assertAll(
-                    () -> assertEquals(new Resolved("answered"), reader.read(request("Q-001"))),
-                    () -> assertEquals(new Resolved("cancelled"), reader.read(request("Q-999999"))));
+                    () -> assertEquals(new Resolved("answered"), reader.read(request("Q-001")),
+                            "a three-digit question id is read as answered"),
+                    () -> assertEquals(new Resolved("cancelled"), reader.read(request("Q-999999")),
+                            "a six-digit question id is read as cancelled"));
         }
     }
 
@@ -104,7 +106,8 @@ class QuestionLogRecordReaderBoundaryTest {
         @DisplayName("reads Unreadable for two characters, the shortest id the grammar refuses")
         void refusesTheLowerBoundary() {
             assertEquals(new Unreadable("the scope is not an identifier: ab"),
-                    reader.read(new ReadRequest("ab", "Q-001")));
+                    reader.read(new ReadRequest("ab", "Q-001")),
+                    "a two-character scope id is not an identifier");
         }
 
         @Test
@@ -114,9 +117,11 @@ class QuestionLogRecordReaderBoundaryTest {
 
             assertAll(
                     () -> assertEquals(new Unreadable("no question log for the scope"),
-                            reader.read(new ReadRequest("abc", "Q-001"))),
+                            reader.read(new ReadRequest("abc", "Q-001")),
+                            "the shortest valid scope id has no store"),
                     () -> assertEquals(new Unreadable("no question log for the scope"),
-                            reader.read(new ReadRequest(longest, "Q-001"))));
+                            reader.read(new ReadRequest(longest, "Q-001")),
+                            "the longest valid scope id has no store"));
         }
     }
 
@@ -130,7 +135,8 @@ class QuestionLogRecordReaderBoundaryTest {
         void readsOneRecord(EndOfLine endOfLine) {
             QuestionFixtures.append(locks, plan, endOfLine, asked("Q-001"));
 
-            assertEquals(new Open(), reader.read(request("Q-001")));
+            assertEquals(new Open(), reader.read(request("Q-001")),
+                    "a log of one asked record reads open");
         }
 
         @ParameterizedTest
@@ -142,7 +148,8 @@ class QuestionLogRecordReaderBoundaryTest {
                     QuestionFixtures.append(locks, plan, endOfLine, revision("Q-001", revision)));
             QuestionFixtures.append(locks, plan, endOfLine, closing("Q-001", QuestionEvent.ANSWERED, 199));
 
-            assertEquals(new Resolved("answered"), reader.read(request("Q-001")));
+            assertEquals(new Resolved("answered"), reader.read(request("Q-001")),
+                    "a log of two hundred records reads resolved");
         }
 
         private QuestionRecord revision(String questionId, int revision) {
@@ -162,7 +169,8 @@ class QuestionLogRecordReaderBoundaryTest {
             QuestionFixtures.append(locks, plan, endOfLine, asked("Q-001"),
                     revised("Q-001", 2), delivered("Q-001", 2));
 
-            assertEquals(new Open(), reader.read(request("Q-001")));
+            assertEquals(new Open(), reader.read(request("Q-001")),
+                    "a revision and delivery without closing reads open");
         }
 
         @ParameterizedTest
@@ -173,7 +181,8 @@ class QuestionLogRecordReaderBoundaryTest {
                     revised("Q-001", 2), delivered("Q-001", 2),
                     closing("Q-001", QuestionEvent.ANSWERED, 2));
 
-            assertEquals(new Resolved("answered"), reader.read(request("Q-001")));
+            assertEquals(new Resolved("answered"), reader.read(request("Q-001")),
+                    "the intermediate lines and the closing line read resolved");
         }
 
         private QuestionRecord revised(String questionId, int revision) {
@@ -197,8 +206,10 @@ class QuestionLogRecordReaderBoundaryTest {
             var read = reader.read(request("Q-001"));
 
             assertNotEquals(new Open(), read, "a refused closing line may have closed the question");
-            var unreadable = assertInstanceOf(Unreadable.class, read);
-            assertEquals("the question log holds a refused line 2", unreadable.reason());
+            var unreadable = assertInstanceOf(Unreadable.class, read,
+                    "a refused closing line is an unreadable value");
+            assertEquals("the question log holds a refused line 2", unreadable.reason(),
+                    "the refused closing line is numbered as line two");
         }
 
         @ParameterizedTest
@@ -209,8 +220,10 @@ class QuestionLogRecordReaderBoundaryTest {
 
             var read = reader.read(request("Q-001"));
 
-            var unreadable = assertInstanceOf(Unreadable.class, read);
-            assertEquals("the question log holds a refused line 1", unreadable.reason());
+            var unreadable = assertInstanceOf(Unreadable.class, read,
+                    "a refused first line is an unreadable value");
+            assertEquals("the question log holds a refused line 1", unreadable.reason(),
+                    "a log of only a refused line reads unreadable");
         }
     }
 }

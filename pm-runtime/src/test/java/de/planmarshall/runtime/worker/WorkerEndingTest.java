@@ -93,7 +93,7 @@ class WorkerEndingTest {
             default -> WorkerLifecycle.ENDED;
         }, terminal.lifecycle(), "a failed start reaches its own terminal state");
         assertEquals(cause.terminalState(), write.state(), "the terminal worker state");
-        assertEquals(cause.endReason(), write.endReason(), "the end reason");
+        assertEquals(cause.endReason(), write.endReason(), "the written end reason names the cause");
         assertEquals(cause == EndCause.START_FAILURE, write.startFailure(), "only a start failure is flagged");
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                 INFO.WORKER_GENERATION_ENDED.resolveIdentifierString());
@@ -114,7 +114,8 @@ class WorkerEndingTest {
         assertTrue(fixture.order.contains("fence"), fixture.order::toString);
         assertTrue(fixture.order.contains("release"), fixture.order::toString);
         assertTrue(fixture.order.contains("write"), fixture.order::toString);
-        assertEquals(List.of("fence", "release", "write"), fixture.order);
+        assertEquals(List.of("fence", "release", "write"), fixture.order,
+                "the end steps run in fence, release, write order");
         assertEquals(List.of(false), fixture.revokedAtFence, "the fence precedes the token revocation");
         assertTrue(fixture.jobTokens.revoked(generation.generationId()), "the token is revoked");
         assertTrue(fixture.writes.getFirst().slotReleased(), "the slot is released before the write");
@@ -198,7 +199,7 @@ class WorkerEndingTest {
         ending.end(generation, EndCause.TASK_DONE);
         ending.exited(generation);
 
-        assertEquals(1, successors.get());
+        assertEquals(1, successors.get(), "a task-done end starts one successor");
     }
 
     @Test
@@ -211,14 +212,15 @@ class WorkerEndingTest {
         ending.end(generation, EndCause.TASK_DONE);
         ending.exited(generation);
 
-        assertEquals(0, successors.get());
+        assertEquals(0, successors.get(), "no successor starts without queued work");
     }
 
     private WorkerGeneration startedFresh() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var supervisor = new WorkerSupervisor(environment);
         return assertInstanceOf(StartOutcome.Started.class,
-                supervisor.start(List.of(fixture.freshRequest(role))).getFirst()).generation();
+                supervisor.start(List.of(fixture.freshRequest(role))).getFirst(),
+                "the ending test starts a fresh worker").generation();
     }
 
     private WorkerEnding ending(boolean workQueued, Runnable successor) {

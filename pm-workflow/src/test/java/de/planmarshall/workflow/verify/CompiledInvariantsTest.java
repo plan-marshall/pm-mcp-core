@@ -44,7 +44,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.workflow.ast.ParamDecl;
+import de.planmarshall.workflow.ast.InputDecl;
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
@@ -175,7 +175,7 @@ class CompiledInvariantsTest {
         @DisplayName("are the parameters of the remediation contract but its actions, the set INV-REM-5 caps")
         void contractParameters() {
             var unit = InvariantFixtures.defaultUnits().get("remediation.qgate-findings");
-            var declared = unit.params().stream().map(ParamDecl::name)
+            var declared = unit.frontmatter().inputs().stream().map(InputDecl::name)
                     .filter(name -> !RemediationInvariants.ACTIONS.equals(name)).collect(Collectors.toSet());
 
             assertAll(
@@ -410,7 +410,13 @@ class CompiledInvariantsTest {
                                     + " default unit"),
                     Arguments.of(InvariantFixtures.INTERFACE_BINDING,
                             "the entry bindings {main=replan.apply} differ from the entry bindings"
-                                    + " {main=replan.assess} of the default unit"));
+                                    + " {main=replan.assess} of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_INPUT_WIDENED,
+                            "the input 'push_mode' differs from the input of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_INPUT_RANGE,
+                            "the input 'retry_budget' differs from the input of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_INPUT_MISSING,
+                            "the input 'push_mode' of the default unit is missing"));
         }
 
         private static List<InvariantViolation> generalOne(WorkflowDefinition unit) {
@@ -421,8 +427,8 @@ class CompiledInvariantsTest {
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("differences")
-        @DisplayName("a project unit differing from its default unit in its type, an entry, an exit or an entry"
-                + " binding fails INV-GEN-1 at its header, naming the differing element")
+        @DisplayName("a project unit differing from its default unit in its type, an entry, an exit, an entry binding"
+                + " or an input fails INV-GEN-1 at its header, naming the differing element")
         void refusesDifference(Mutation mutation, String message) {
             var unit = InvariantFixtures.mutatedUnit(mutation);
 
@@ -431,8 +437,8 @@ class CompiledInvariantsTest {
             var matching = found.stream().filter(violation -> message.equals(violation.message())).toList();
             assertAll(
                     () -> assertEquals(1, matching.size(), found::toString),
-                    () -> assertEquals(new InvariantLocation(InvariantId.INV_GEN_1, REPLAN_FILE,
-                                    InvariantFixtures.lineOf(mutation.applied(), "workflow replan")),
+                    () -> assertEquals(new InvariantLocation(InvariantId.INV_GEN_1, mutation.file(),
+                                    InvariantFixtures.lineOf(mutation.applied(), "workflow " + unit.id())),
                             InvariantLocation.of(matching.getFirst())));
         }
 
@@ -554,13 +560,14 @@ class CompiledInvariantsTest {
                     type: subworkflow
                     icon: workflow.default
                     exit: resolved
+                    input: waiver_wait_seconds
+                    input_type: int[0..86400]
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
                     ---
                     workflow remediation.spend version 1 format 1
                     scope subworkflow
-                    param waiver_wait_seconds : int[0..86400]
                     start remediation-spend.resolved
 
                     state remediation-spend.resolved terminal resolved success
@@ -574,9 +581,9 @@ class CompiledInvariantsTest {
             var found = invariants.check(unit, InvariantFixtures.validator().verify(unit), List.of(), UNKNOWN_LANE);
 
             assertAll(
-                    () -> assertEquals(Set.of("the unit does not declare the parameter 'retry_budget'",
-                                    "the unit does not declare the parameter 'fix_budget'",
-                                    "the unit does not declare the parameter 'actions'"),
+                    () -> assertEquals(Set.of("the unit does not declare the input 'retry_budget'",
+                                    "the unit does not declare the input 'fix_budget'",
+                                    "the unit does not declare the input 'actions'"),
                             found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_1)
                                     .map(InvariantViolation::message).collect(Collectors.toSet())),
                     () -> assertFalse(found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_7)
@@ -755,7 +762,8 @@ class CompiledInvariantsTest {
                         "        push_state_unknown -> git.verify\n\nstate git.lease-push",
                         "push_state_unknown -> git.verify"),
                 change(InvariantId.INV_REM_1, "the fix budget exceeds its hard cap", REMEDIATION_FILE,
-                        "param fix_budget : int[0..5]", "param fix_budget : int[0..9]", "param fix_budget"),
+                        "input: fix_budget\ninput_type: int[0..5]",
+                        "input: fix_budget\ninput_type: int[0..9]", "input: fix_budget"),
                 change(InvariantId.INV_REM_2, "the lost decision task routes past the conservative remedy",
                         REMEDIATION_FILE,
                         "infeasible -> remediation-qgate.conservative\n        lost -> remediation-qgate.conservative",

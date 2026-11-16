@@ -14,15 +14,15 @@
  * <ul>
  * <li><b>Definition</b>: {@link de.planmarshall.workflow.ast.WorkflowDefinition} is one complete definition unit, with
  * its scope ({@link de.planmarshall.workflow.ast.WorkflowScope}), origin
- * ({@link de.planmarshall.workflow.ast.UnitOrigin}), sub-workflow parameters
- * ({@link de.planmarshall.workflow.ast.ParamDecl}), {@code declare} and {@code decide} lines
+ * ({@link de.planmarshall.workflow.ast.UnitOrigin}), {@code declare} and {@code decide} lines
  * ({@link de.planmarshall.workflow.ast.DecisionDeclaration}), its optional start state or its entry bindings
  * ({@link de.planmarshall.workflow.ast.WorkflowDefinition.EntryBinding}) and state migrations
  * ({@link de.planmarshall.workflow.ast.StateMigration}).</li>
  * <li><b>Frontmatter</b>: {@link de.planmarshall.workflow.ast.UnitFrontmatter}, what the unit is for a person, its
- * unit type ({@link de.planmarshall.workflow.ast.UnitType}), the stable icon id that stands for it, and its interface,
- * the entries and exits ({@link de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement}) in declaration
- * order.</li>
+ * unit type ({@link de.planmarshall.workflow.ast.UnitType}), the stable icon id that stands for it, and its interface:
+ * the entries and exits ({@link de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement}), the configuration keys
+ * and fact kinds it reads, and its inputs ({@link de.planmarshall.workflow.ast.InputDecl},
+ * {@link de.planmarshall.workflow.ast.InputType}), in declaration order.</li>
  * <li><b>States and behaviours</b>: {@link de.planmarshall.workflow.ast.StateNode} with its terminal outcome
  * ({@link de.planmarshall.workflow.ast.TerminalOutcome}) and its closed behaviour
  * ({@link de.planmarshall.workflow.ast.StateBehavior}): links, {@code auto}, {@code job}, {@code job llm},
@@ -49,13 +49,13 @@
  * ({@link de.planmarshall.workflow.ast.WorkflowDefinition}), an entry binding
  * ({@link de.planmarshall.workflow.ast.WorkflowDefinition.EntryBinding}), a state
  * ({@link de.planmarshall.workflow.ast.StateNode}), a state migration
- * ({@link de.planmarshall.workflow.ast.StateMigration}), a sub-workflow parameter
- * ({@link de.planmarshall.workflow.ast.ParamDecl}), a link ({@link de.planmarshall.workflow.ast.LinkSpec}), a link
+ * ({@link de.planmarshall.workflow.ast.StateMigration}), an input
+ * ({@link de.planmarshall.workflow.ast.InputDecl}), a link ({@link de.planmarshall.workflow.ast.LinkSpec}), a link
  * parameter ({@link de.planmarshall.workflow.ast.ParamSpec}), an outcome transition
  * ({@link de.planmarshall.workflow.ast.OutcomeTransition}) and a step completion
  * ({@link de.planmarshall.workflow.ast.StepCompletion}). Every other node carries none: the entries and exits of the
  * frontmatter, the behaviours of a state, the terminal outcome, the guard and its expression, the result guard, the
- * link action, the parameter types, the call values and decision declarations held by the {@code declare} and
+ * link action, the parameter and input types, the call values and decision declarations held by the {@code declare} and
  * {@code decide} maps of a definition, and the instance header.
  */
 @NullMarked

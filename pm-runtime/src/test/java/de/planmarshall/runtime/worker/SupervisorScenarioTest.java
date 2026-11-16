@@ -104,8 +104,9 @@ class SupervisorScenarioTest {
         assertAll(
                 () -> assertEquals(0, before, "nothing fires a millisecond before the deadline"),
                 () -> assertEquals(1, at, "the signal fires at the deadline"),
-                () -> assertEquals(LossReason.ACK_MISSED, fixture.signals.getFirst().reason()),
-                () -> assertEquals(task, fixture.signals.getFirst().leasedTask()),
+                () -> assertEquals(LossReason.ACK_MISSED, fixture.signals.getFirst().reason(),
+                        "the missing acknowledgement is the loss reason"),
+                () -> assertEquals(task, fixture.signals.getFirst().leasedTask(), "the loss names the leased task"),
                 () -> assertEquals(1, after, "a settled detection fires no second signal"));
     }
 
@@ -128,7 +129,8 @@ class SupervisorScenarioTest {
         assertAll(
                 () -> assertEquals(0, before, "nothing fires a millisecond before the deadline"),
                 () -> assertEquals(1, at, "the signal fires at the deadline"),
-                () -> assertEquals(LossReason.SILENCE, fixture.signals.getFirst().reason()),
+                () -> assertEquals(LossReason.SILENCE, fixture.signals.getFirst().reason(),
+                        "the silence deadline fires the silence loss"),
                 () -> assertEquals(1, after, "a settled detection fires no second signal"));
     }
 
@@ -181,7 +183,8 @@ class SupervisorScenarioTest {
             var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
 
             var started = assertInstanceOf(StartOutcome.Started.class,
-                    supervisor.start(List.of(fixture.freshRequest(role))).getFirst());
+                    supervisor.start(List.of(fixture.freshRequest(role))).getFirst(),
+                    "the supervisor starts the resumed generation");
             var resumed = harness.awaitLine(AWAIT);
 
             assertAll(
@@ -190,7 +193,7 @@ class SupervisorScenarioTest {
                     () -> assertEquals(started.generation().generationId(),
                             fixture.starts.getFirst().launch().generationId(),
                             "the recorded start belongs to the generation"),
-                    () -> assertEquals(0, fixture.signals.size(), "no loss fired"));
+                    () -> assertEquals(0, fixture.signals.size(), "no loss signal fires for the resumed worker"));
         }
     }
 
@@ -228,7 +231,8 @@ class SupervisorScenarioTest {
         var supervisor = new WorkerSupervisor(environment);
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
         var generation = assertInstanceOf(StartOutcome.Started.class,
-                supervisor.start(List.of(fixture.warmRequest(role, base.resolve(worktreeName)))).getFirst()).generation();
+                supervisor.start(List.of(fixture.warmRequest(role, base.resolve(worktreeName)))).getFirst(),
+                "the supervisor starts the warm worker").generation();
         var ending = new WorkerEnding(environment, () -> false, () -> {
         });
         var recycling = new WorkerRecycling(environment, ending, supervisor::generations,
@@ -267,7 +271,8 @@ class SupervisorScenarioTest {
         var supervisor = new WorkerSupervisor(environment);
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var generation = assertInstanceOf(StartOutcome.Started.class,
-                supervisor.start(List.of(fixture.freshRequest(role))).getFirst()).generation();
+                supervisor.start(List.of(fixture.freshRequest(role))).getFirst(),
+                "the supervisor starts the fresh worker").generation();
         var ending = new WorkerEnding(environment, () -> false, () -> {
         });
 
@@ -292,7 +297,8 @@ class SupervisorScenarioTest {
         var supervisor = new WorkerSupervisor(environment);
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var generation = assertInstanceOf(StartOutcome.Started.class,
-                supervisor.start(List.of(fixture.freshRequest(role))).getFirst()).generation();
+                supervisor.start(List.of(fixture.freshRequest(role))).getFirst(),
+                "the supervisor starts a fresh generation").generation();
         var leased = generation.withLeasedTask(task);
         var ending = new WorkerEnding(environment, () -> false, () -> {
         });
@@ -311,7 +317,7 @@ class SupervisorScenarioTest {
                 () -> assertEquals(1, fixture.writes.size(), "the terminal state is written once"),
                 () -> assertEquals(WorkerState.EndReason.WITHDRAWN,
                         fixture.writes.getFirst().endReason(), "the record names the withdrawal"),
-                () -> assertTrue(terminal.terminal(), "the generation ends"));
+                () -> assertTrue(terminal.terminal(), "the generation reaches its terminal state"));
     }
 
     @Test
@@ -350,7 +356,7 @@ class SupervisorScenarioTest {
                 () -> assertEquals(task, fixture.signals.getFirst().leasedTask(),
                         "the loss names the task the worker holds"),
                 () -> assertTrue(acknowledging.due(deadline.plusSeconds(1)).isEmpty(),
-                        "a worker that acknowledges the answer has no acknowledgement loss"));
+                        "an acknowledged answer raises no acknowledgement loss"));
     }
 
     @Test
@@ -367,7 +373,8 @@ class SupervisorScenarioTest {
         var recycling = new WorkerRecycling(environment, ending, supervisor::generations,
                 name -> Optional.of(role.artifact().recycling()), parameters);
         var started = assertInstanceOf(StartOutcome.Started.class,
-                supervisor.start(List.of(fixture.warmRequest(role, base.resolve(worktreeName)))).getFirst()).generation();
+                supervisor.start(List.of(fixture.warmRequest(role, base.resolve(worktreeName)))).getFirst(),
+                "the supervisor starts the warm generation").generation();
         var consulting = started.withLeasedTask(task);
         var idle = started.withLeasedTask(null).withIdleWakeups(parameters.idleWakeups() - 1);
 
@@ -381,7 +388,8 @@ class SupervisorScenarioTest {
                         "the idle wake-up bound counts the answer"),
                 () -> assertEquals(RecycleCause.IDLE, recycled.recycleCause(),
                         "the idle warm worker recycles"),
-                () -> assertEquals(Optional.of(EndCause.RECYCLE), ending.requestedCause(idle.generationId())));
+                () -> assertEquals(Optional.of(EndCause.RECYCLE), ending.requestedCause(idle.generationId()),
+                        "the idle recycle runs through the one end path"));
     }
 
     @Test
@@ -393,7 +401,7 @@ class SupervisorScenarioTest {
         var executable = realExecutable();
         try (var harness = FixtureHarness.start(base, List.of("--output", "ready", "--child",
                      executable.toString(), "--hold"))) {
-            assertEquals("ready", harness.awaitLine(AWAIT));
+            assertEquals("ready", harness.awaitLine(AWAIT), "the fixture harness's scripted stream starts");
             var childPid = Long.parseLong(harness.awaitLine(AWAIT).substring(FixtureHarness.CHILD_MARKER.length()));
             var ending = new WorkerEnding(environment, () -> false, () -> {
             });
@@ -405,7 +413,7 @@ class SupervisorScenarioTest {
 
             assertAll(
                     () -> assertEquals(executable, matched.orElseThrow().path(),
-                            "the first process of the tree that runs the enrolled file matches"),
+                            "the tree's enrolled process matches the executable"),
                     () -> assertEquals(1, fixture.startedAgents.size(), "exactly one agent-started signal is raised"),
                     () -> assertEquals(executable.toString(),
                             fixture.startedAgents.getFirst().executable(),
@@ -428,7 +436,7 @@ class SupervisorScenarioTest {
         var executable = realExecutable();
         try (var harness = FixtureHarness.start(base, List.of("--output", "ready", "--child",
                      executable.toString(), "--hold"))) {
-            assertEquals("ready", harness.awaitLine(AWAIT));
+            assertEquals("ready", harness.awaitLine(AWAIT), "the impostor harness's scripted stream starts");
             var childPid = Long.parseLong(harness.awaitLine(AWAIT).substring(FixtureHarness.CHILD_MARKER.length()));
             var ending = new WorkerEnding(environment, () -> false, () -> {
             });
@@ -451,7 +459,8 @@ class SupervisorScenarioTest {
         var supervisor = new WorkerSupervisor(environment);
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         return assertInstanceOf(StartOutcome.Started.class,
-                supervisor.start(List.of(fixture.freshRequest(role))).getFirst()).generation();
+                supervisor.start(List.of(fixture.freshRequest(role))).getFirst(),
+                "the supervisor starts the generated worker").generation();
     }
 
     /** @return an executable the installation carries, the file an enrolment names in the scenario */

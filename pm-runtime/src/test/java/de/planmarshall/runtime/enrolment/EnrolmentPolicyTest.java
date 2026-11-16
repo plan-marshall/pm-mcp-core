@@ -84,7 +84,8 @@ class EnrolmentPolicyTest {
     @Test
     @DisplayName("a compliant enrolment has no violation")
     void compliant() {
-        assertTrue(violations(enrolment(Build.defaults(), Map.of(), List.of(), Map.of())).isEmpty());
+        assertTrue(violations(enrolment(Build.defaults(), Map.of(), List.of(), Map.of())).isEmpty(),
+                "a compliant enrolment has no violation");
     }
 
     /** The three places of an argument vector, each with the name a reason gives it. */
@@ -171,9 +172,12 @@ class EnrolmentPolicyTest {
         void admitted(Place place) {
             assertAll(
                     () -> assertEquals(List.of(),
-                            violations(place.with(vector(literal("mvn"), group(PL, MODULE), literal("verify"))))),
-                    () -> assertEquals(List.of(), violations(place.with(vector(literal("a{b"), literal("{}"))))),
-                    () -> assertEquals(List.of(), violations(place.with(vector(literal("x}"), group("{", MODULE))))));
+                            violations(place.with(vector(literal("mvn"), group(PL, MODULE), literal("verify")))),
+                            "a module group inside the vector is admitted"),
+                    () -> assertEquals(List.of(), violations(place.with(vector(literal("a{b"), literal("{}")))),
+                            "a lone brace and an empty pair are admitted"),
+                    () -> assertEquals(List.of(), violations(place.with(vector(literal("x}"), group("{", MODULE)))),
+                            "a closing brace and a module group are admitted"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -222,7 +226,8 @@ class EnrolmentPolicyTest {
         @ValueSource(strings = {"cache/m2", "../base", "/tmp/a\u0000b"})
         @DisplayName("a relative or unparseable path is not judged")
         void notJudged(String writePath) {
-            assertEquals(List.of(), violations(writing(writePath)));
+            assertEquals(List.of(), violations(writing(writePath)),
+                    "a relative or unparseable path is not judged");
         }
 
         @Test
@@ -238,7 +243,8 @@ class EnrolmentPolicyTest {
             assertAll(
                     () -> assertEquals(1, refused.size(), refused::toString),
                     () -> assertTrue(refused.getFirst().contains(intoBase.toString()), refused::toString),
-                    () -> assertEquals(List.of(), violations(writing(toSibling.toString()))));
+                    () -> assertEquals(List.of(), violations(writing(toSibling.toString())),
+                            "a link to a sibling is admitted"));
         }
 
         /**
@@ -314,7 +320,7 @@ class EnrolmentPolicyTest {
                 "DOCKER_HOST"})
         @DisplayName("any other name is admitted")
         void admitted(String name) {
-            assertEquals(List.of(), withName(name));
+            assertEquals(List.of(), withName(name), "any other name is admitted");
         }
     }
 
@@ -336,7 +342,7 @@ class EnrolmentPolicyTest {
                 () -> assertTrue(found.get(3).startsWith("write_paths"), found::toString),
                 () -> assertTrue(found.get(4).contains("A_SECRET"), found::toString),
                 () -> assertTrue(found.get(5).contains("Z_TOKEN"), found::toString),
-                () -> assertEquals(found, violations(enrolment)));
+                () -> assertEquals(found, violations(enrolment), "the reasons are stable across runs"));
     }
 
     @Test

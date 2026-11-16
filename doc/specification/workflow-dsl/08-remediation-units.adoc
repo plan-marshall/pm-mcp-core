@@ -139,15 +139,18 @@ exit: exhausted
 exit_description: The budgets are spent without a passing run.
 exit: fix_requested
 exit_description: The failure needs a fix the caller allocates.
+input: retry_budget
+input_type: int[0..5]
+input: fix_budget
+input_type: int[0..5]
+input: actions
+input_type: list<enum[retry|fix|loop_back]>
 modification_date: 2026-10-14
 version: 1.0.0
 author: plan-marshall
 ---
 workflow remediation.ci-failure version 1 format 1
 scope subworkflow
-param retry_budget: int[0..5]
-param fix_budget: int[0..5]
-param actions: list<enum[retry|fix|loop_back]>
 entry remediate -> remediation-ci.gather
 
 state remediation-ci.gather

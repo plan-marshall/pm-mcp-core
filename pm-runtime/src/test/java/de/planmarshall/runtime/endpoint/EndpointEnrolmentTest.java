@@ -87,16 +87,23 @@ class EndpointEnrolmentTest {
         var refreshed = enrolment().refresh(EndpointFixtures.profile(), recorded(Map.of("mid", oldWeights)), listing());
 
         assertAll(
-                () -> assertEquals(List.of("mid"), refreshed.changedModels()),
-                () -> assertTrue(refreshed.written()),
-                () -> assertEquals(1, written.size()),
-                () -> assertEquals(newWeights, written.getFirst().weights().get("mid").weightsId()),
-                () -> assertEquals(NOW, written.getFirst().weights().get("mid").readAt()),
-                () -> assertEquals(1, audited.size()),
-                () -> assertEquals(AuditEvent.HARNESS_UPDATED, audited.getFirst().event()),
-                () -> assertEquals("mid", audited.getFirst().details().get(AuditEvent.DETAIL_MODEL)),
-                () -> assertEquals(oldWeights, audited.getFirst().details().get(AuditEvent.DETAIL_OLD_WEIGHTS_ID)),
-                () -> assertEquals(newWeights, audited.getFirst().details().get(AuditEvent.DETAIL_NEW_WEIGHTS_ID)));
+                () -> assertEquals(List.of("mid"), refreshed.changedModels(),
+                        "the changed model is reported"),
+                () -> assertTrue(refreshed.written(), "the enrolment is written again"),
+                () -> assertEquals(1, written.size(), "exactly one enrolment is written"),
+                () -> assertEquals(newWeights, written.getFirst().weights().get("mid").weightsId(),
+                        "the write carries the new weights identity"),
+                () -> assertEquals(NOW, written.getFirst().weights().get("mid").readAt(),
+                        "the write records the read time"),
+                () -> assertEquals(1, audited.size(), "exactly one audit event is recorded"),
+                () -> assertEquals(AuditEvent.HARNESS_UPDATED, audited.getFirst().event(),
+                        "the audit event is harness_updated"),
+                () -> assertEquals("mid", audited.getFirst().details().get(AuditEvent.DETAIL_MODEL),
+                        "the audit names the model"),
+                () -> assertEquals(oldWeights, audited.getFirst().details().get(AuditEvent.DETAIL_OLD_WEIGHTS_ID),
+                        "the audit carries the old weights identity"),
+                () -> assertEquals(newWeights, audited.getFirst().details().get(AuditEvent.DETAIL_NEW_WEIGHTS_ID),
+                        "the audit carries the new weights identity"));
     }
 
     @Test
@@ -105,10 +112,10 @@ class EndpointEnrolmentTest {
         var refreshed = enrolment().refresh(EndpointFixtures.profile(), recorded(Map.of("mid", newWeights)), listing());
 
         assertAll(
-                () -> assertTrue(refreshed.changedModels().isEmpty()),
-                () -> assertFalse(refreshed.written()),
-                () -> assertTrue(written.isEmpty()),
-                () -> assertTrue(audited.isEmpty()));
+                () -> assertTrue(refreshed.changedModels().isEmpty(), "an unchanged identity reports no change"),
+                () -> assertFalse(refreshed.written(), "an unchanged identity writes nothing"),
+                () -> assertTrue(written.isEmpty(), "no enrolment is written"),
+                () -> assertTrue(audited.isEmpty(), "no audit event is recorded"));
     }
 
     @Test
@@ -117,10 +124,11 @@ class EndpointEnrolmentTest {
         var refreshed = enrolment().refresh(EndpointFixtures.profile(), recorded(Map.of()), listing());
 
         assertAll(
-                () -> assertTrue(refreshed.changedModels().isEmpty()),
-                () -> assertTrue(refreshed.written()),
-                () -> assertEquals(newWeights, written.getFirst().weights().get("mid").weightsId()),
-                () -> assertTrue(audited.isEmpty()));
+                () -> assertTrue(refreshed.changedModels().isEmpty(), "a first read reports no change"),
+                () -> assertTrue(refreshed.written(), "the first read writes the enrolment"),
+                () -> assertEquals(newWeights, written.getFirst().weights().get("mid").weightsId(),
+                        "the first read records the weights identity"),
+                () -> assertTrue(audited.isEmpty(), "a first read audits nothing"));
     }
 
     @Test
@@ -130,8 +138,9 @@ class EndpointEnrolmentTest {
                 JsonDocument.parse("[]".getBytes(StandardCharsets.UTF_8), "models"));
 
         assertAll(
-                () -> assertFalse(refreshed.written()),
-                () -> assertEquals(oldWeights, refreshed.weights().get("mid").weightsId()));
+                () -> assertFalse(refreshed.written(), "an unread identity writes nothing"),
+                () -> assertEquals(oldWeights, refreshed.weights().get("mid").weightsId(),
+                        "the recorded identity is kept"));
     }
 
     @Test
@@ -144,7 +153,8 @@ class EndpointEnrolmentTest {
         var refreshed = enrolment().refresh(withoutProbe, recorded(Map.of("mid", oldWeights)), listing());
 
         assertAll(
-                () -> assertFalse(refreshed.written()),
-                () -> assertTrue(refreshed.detail().contains("no weights probe")));
+                () -> assertFalse(refreshed.written(), "a profile without a probe writes nothing"),
+                () -> assertTrue(refreshed.detail().contains("no weights probe"),
+                        "the detail says no weights probe is set"));
     }
 }

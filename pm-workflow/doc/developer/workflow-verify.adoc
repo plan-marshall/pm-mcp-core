@@ -57,10 +57,41 @@ Violations are ordered by the declaration order of their state, released state n
 * `ENTITY_KIND_BINDING`: the entity kind of a `job llm` state is registered; its return-evaluation primitive is registered; its entity unit, when it has one, is registered in the `WorkflowCatalog`; the primitive of an `each` clause and of a `role each` clause is registered; `role each` occurs only in the unit `adjudicate.decisions`; `ask` is refused on a `role each` state and on a kind without an entity unit.
 * `ROLE_NAME_GRAMMAR`: the role of a `job llm` state and every `consult role` match `^[a-z][a-z0-9-]{1,31}$` and are no reserved keyword.
 * `SCHEMA_BINDING`: the result schema of a unit and every `schema[...]` of a parameter name a registered schema.
+* `CONFIG_KEY_BINDING`, `FACT_KIND_BINDING`, `INPUT_DECLARATION`: the static reads and the input declaration (<<the-static-reads>>).
 * `QUESTION_CLASS_BINDING`: every question clause names a registered question class. The grammar closes the class vocabulary and the defaults register every class, so only a narrower registry can plant the defect.
 * `JOB_STARTING_OUTCOME`: a job-starting outcome of an enqueuing primitive targets a `job` or `composite_job` state, and no other outcome does. A primitive that declares `enqueuesJob()` without a job-starting outcome is refused by the verifier and, earlier, by `PrimitiveRegistry` at registration.
 
 Seam (link:../adr/workflow-verify/010-primitive-spi-each-seam.adoc[ADR 010]): that an `each` primitive is read-only and returns a list, and that a `role each` primitive returns role names, is not checked; the primitive SPI cannot express either.
+
+[#the-static-reads]
+==== The Static Reads and the Input Declaration
+
+_Specification: link:../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter], link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 1)_
+
+`WorkflowValidator` holds a `ConfigKeyRegistry` and a `FactKindRegistry` as constructor arguments, so the closed
+configuration and the fact kinds stay outside `pm-workflow`
+(link:../adr/workflow-verify/035-input-registries-are-arguments.adoc[ADR 035]). The existing constructors default both
+to the empty registries: a unit that declares no read passes, and a unit that declares one fails closed, because no key
+and no kind exists in an empty registry.
+
+* `CONFIG_KEY_BINDING`: every `reads_config` key exists in the `ConfigKeyRegistry`, and none carries the bare value
+  `derived` or the `derived.` stem, which belongs to `reads_fact`
+  (link:../adr/workflow-verify/037-reads-config-never-names-a-fact.adoc[ADR 037]).
+* `FACT_KIND_BINDING`: every `reads_fact` is a kind of the `FactKindRegistry`.
+* `INPUT_DECLARATION`: an input's `input_fallback` is a key the unit lists in `reads_config`; the
+  key's domain is assignable to the input type (`ConfigKeyRegistry.assignable`: every value the domain admits is a value
+  the type admits); an input with neither a default nor the `?` needs a compiled default on its fallback key, so the
+  fallback never leaves it without a value; an input name is no `reads_fact` kind of the same unit
+  (link:../adr/workflow-verify/036-input-bindings-under-rule-1.adoc[ADR 036]).
+
+A value declared twice — a `reads_config` key, a `reads_fact` kind, an input name or an enum value of an `input_type` —
+is the frontmatter reader's refusal (`FRONTMATTER`, at the line and column), so it has one owner and the verifier does
+not repeat it (R15 item 1).
+
+The checks run on every unit load (`ProjectUnitLoader`, `DefaultUnitLoader` through `VerificationContext`) and at build
+time, and `PlanInstanceComposer` passes the two registries of its context to the validator of a composed version.
+`UnitInterfaceChecksTest` pins one passing and one refusing case per check with a fixture registry; the fixture harness of
+`WorkflowValidatorTest` carries the empty registries and cannot make a unit with a read pass.
 
 === Rule 2: Outcome Coverage
 
@@ -110,7 +141,7 @@ Seams (link:../adr/workflow-verify/001-static-verifier-remaining-rules.adoc[ADR 
 * the called unit is registered in the `WorkflowCatalog` and has the scope `subworkflow`;
 * the exit contract of a callee is the exits its frontmatter declares plus `stepped_out`, which every sub-workflow returns implicitly (link:../adr/workflow-verify/009-rule-6-implicit-stepped-out.adoc[ADR 009]), not derived from the callee's terminals, which interface rule 2 ties to the declared exits; a call routes each exit outcome once and no other outcome;
 * a result guard sits only on the `done` of a call: a result guard on the transition of any state that is no call, its declared links included, and on a call outcome other than `done` is refused, and so is a result guard on a call whose callee declares no `result` schema, once per call (link:../adr/workflow-verify/023-rule-6-result-guards-on-a-schema-callee-done.adoc[ADR 023]); a guarded `done` is admitted only as the complementary pair `guard result.<f>` / `guard not result.<f>`;
-* the parameter bindings name declared parameters only, bind every declared parameter, and fit its type (enum value, integer range, non-empty list of enum values);
+* the input bindings name declared inputs only, bind every required input exactly once, may omit an input that carries a default, a fallback or the optional form, and fit its type (enum value, integer range, non-empty list of enum values);
 * a resting link state of a sub-workflow declares a skill;
 * only a terminal of class `STEPPED_OUT` declares the outcome `stepped_out`;
 * the `stepped_out` route of a call never targets a terminal of class `SUCCESS`; in a plan unit it targets `plan.return` or `finalize.hand-back`, in an epic, workspace or entity unit a resting state, in a sub-workflow a terminal of class `STEPPED_OUT` or `FAILURE` or a link state, and inside a remediation unit also the unit's budget re-check, the state whose id ends in `.budget-check` and which is `auto remediation.check-budgets`; every other target is refused (link:../adr/workflow-verify/024-remediation-budget-check-state.adoc[ADR 024]).
@@ -295,18 +326,20 @@ No configuration switches a check off, and no check stops at the first violation
 
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
-The interface is part of what a unit promises its callers, so a project's unit keeps the interface of the default unit it replaces, and a call site never meets an entry or an exit it does not know.
+The interface is part of what a unit promises its callers, so a project's unit keeps the interface of the default unit it replaces, and a call site never meets an entry, an exit or an input it does not know.
 Beside the Rule 1-12 violations, the scope, the start state and the terminal states of the unit itself (never of its
-expansion), `GeneralInvariants` compares four elements of the unit with those of its default unit, and reports each
+expansion), `GeneralInvariants` compares five elements of the unit with those of its default unit, and reports each
 difference once as `INV-GEN-1`, naming the differing element
 (link:../adr/workflow-verify/027-inv-gen-1-compares-type-and-interface.adoc[ADR 027]):
 
 * the type of the frontmatter;
 * the names of the entries, in declaration order;
 * the names of the exits, in declaration order;
-* the entry bindings, each entry with the state it binds, compared as a map, so the order of the binding lines does not matter.
+* the entry bindings, each entry with the state it binds, compared as a map, so the order of the binding lines does not matter;
+* the inputs, each with its name, type, optional form, default and fallback, in declaration order: a copy that loosens a
+  type, drops an input or reorders them is refused, naming the input.
 
-The descriptions of the entries and exits are not compared.
+The descriptions of the entries, the exits and the inputs are not compared.
 The start state is compared too; a unit that binds entries instead reads as having none.
 A plan instance version declares the type `instance` and is checked against the template it is composed from: its type passes the comparison when the default unit is of the type `workflow` or `recipe`, because that difference is the composition's, not a replacement's (link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]).
 The exception holds for the composition only.

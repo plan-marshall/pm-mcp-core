@@ -120,21 +120,26 @@ class CredentialStoreAspectTest {
         var detection = aspect.detect();
 
         assertAll(
-                () -> assertEquals(List.of(Store.OS, Store.FILE), detection.offered()),
-                () -> assertFalse(detection.moveInterrupted()),
+                () -> assertEquals(List.of(Store.OS, Store.FILE), detection.offered(),
+                        "detect offers the OS store and the file store"),
+                () -> assertFalse(detection.moveInterrupted(), "no earlier move is reported as interrupted"),
                 () -> assertEquals(List.of(Store.FILE),
                         new CredentialStoreAspect(base, choice(false), locks, events::add, USER,
-                                Clock.systemUTC(), new SecureRandom()).detect().offered()));
+                                Clock.systemUTC(), new SecureRandom()).detect().offered(),
+                        "an OS-less machine offers only the file store"));
     }
 
     @Test
     @DisplayName("choose sends an OS store through the consent state and the file store straight to its check")
     void choose() {
         assertAll(
-                () -> assertEquals(State.CONSENT, aspect.choose(Store.OS).next()),
-                () -> assertEquals(State.CHECK, aspect.choose(Store.FILE).next()),
+                () -> assertEquals(State.CONSENT, aspect.choose(Store.OS).next(),
+                        "choosing the OS store reaches the consent state"),
+                () -> assertEquals(State.CHECK, aspect.choose(Store.FILE).next(),
+                        "choosing the file store reaches its check state"),
                 () -> assertEquals(State.UNAVAILABLE, new CredentialStoreAspect(base, choice(false), locks, events::add,
-                        USER, Clock.systemUTC(), new SecureRandom()).choose(Store.OS).next()));
+                                USER, Clock.systemUTC(), new SecureRandom()).choose(Store.OS).next(),
+                        "choosing an OS store on an OS-less machine is unavailable"));
     }
 
     @Test
@@ -143,10 +148,11 @@ class CredentialStoreAspectTest {
         var transition = aspect.consent(gate(), ConsentGate.Answer.NO, Consent.Channel.CLI, null);
 
         assertAll(
-                () -> assertEquals(State.CONSENT, transition.next()),
-                () -> assertTrue(transition.lines().isEmpty()),
-                () -> assertFalse(Files.exists(base.resolve("machine-config.json"))),
-                () -> assertEquals(Optional.empty(), choice.recorded()));
+                () -> assertEquals(State.CONSENT, transition.next(), "a no answer stays in the consent state"),
+                () -> assertTrue(transition.lines().isEmpty(), "a no answer prints no lines"),
+                () -> assertFalse(Files.exists(base.resolve("machine-config.json")),
+                        "a no answer writes no machine configuration"),
+                () -> assertEquals(Optional.empty(), choice.recorded(), "a no answer records no store choice"));
     }
 
     @Test
@@ -183,14 +189,15 @@ class CredentialStoreAspectTest {
         var recorded = aspect.recordStore(Store.FILE);
 
         assertAll(
-                () -> assertEquals(State.RECORD, checked.next()),
-                () -> assertEquals(3, checked.lines().size()),
+                () -> assertEquals(State.RECORD, checked.next(), "a passed file store check reaches record"),
+                () -> assertEquals(3, checked.lines().size(), "the file store check reports three lines"),
                 () -> assertTrue(checked.lines().stream().allMatch(line -> line.outcome()
-                        == CredentialStoreCheck.Outcome.OK)),
+                        == CredentialStoreCheck.Outcome.OK), "the file store check reports only passed lines"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.CREDENTIAL_STORE_CHECK_PASSED.resolveIdentifierString()),
-                () -> assertEquals(State.DONE, recorded.next()),
-                () -> assertEquals(Optional.of(Store.FILE), choice.recorded()));
+                () -> assertEquals(State.DONE, recorded.next(), "recording the file store reaches done"),
+                () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
+                        "the recorded choice is the file store"));
     }
 
     @Test
@@ -201,10 +208,11 @@ class CredentialStoreAspectTest {
         var transition = aspect.check(Store.OS);
 
         assertAll(
-                () -> assertEquals(State.UNAVAILABLE, transition.next()),
+                () -> assertEquals(State.UNAVAILABLE, transition.next(),
+                        "a failed check reaches the unavailable state"),
                 () -> assertTrue(transition.reason().startsWith("credential_store_check.write."),
                         "a failed check carries the check's own reason"),
-                () -> assertFalse(transition.usable()));
+                () -> assertFalse(transition.usable(), "a failed check leaves the store unusable"));
     }
 
     @Test
@@ -217,9 +225,11 @@ class CredentialStoreAspectTest {
         var confirmed = aspect.confirmMove();
 
         assertAll(
-                () -> assertEquals(State.CONFIRM_MOVE, checked.next()),
-                () -> assertEquals(State.MOVE, confirmed.next()),
-                () -> assertEquals(1, confirmed.moveEntries().orElseThrow()));
+                () -> assertEquals(State.CONFIRM_MOVE, checked.next(),
+                        "a passed check with another store reaches confirm-move"),
+                () -> assertEquals(State.MOVE, confirmed.next(), "confirming the move reaches the move state"),
+                () -> assertEquals(1, confirmed.moveEntries().orElseThrow(),
+                        "the move reports one entry to move"));
     }
 
     @Test
@@ -232,12 +242,14 @@ class CredentialStoreAspectTest {
         var transition = aspect.move(Store.OS);
 
         assertAll(
-                () -> assertEquals(State.UNAVAILABLE, transition.next()),
+                () -> assertEquals(State.UNAVAILABLE, transition.next(),
+                        "a failed move reaches the unavailable state"),
                 () -> assertEquals(CredentialStoreAspect.CREDENTIAL_STORE_FAILED, transition.reason(),
                         "a failed move reports credential_store_failed"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.CREDENTIAL_STORE_ASPECT_MOVE_FAILED.resolveIdentifierString()),
-                () -> assertEquals(Optional.of(Store.FILE), choice.recorded()));
+                () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
+                        "a failed move keeps the file store recorded"));
     }
 
     @Test
@@ -248,7 +260,8 @@ class CredentialStoreAspectTest {
         var transition = aspect.check(Store.FILE);
 
         assertAll(
-                () -> assertEquals(State.UNAVAILABLE, transition.next()),
+                () -> assertEquals(State.UNAVAILABLE, transition.next(),
+                        "a malformed configuration reaches the unavailable state"),
                 () -> assertEquals(CredentialStoreAspect.CREDENTIAL_STORE_FAILED, transition.reason(),
                         "an unreadable document reports credential_store_failed"));
     }
@@ -261,7 +274,8 @@ class CredentialStoreAspectTest {
         var transition = aspect.check(Store.FILE);
 
         assertAll(
-                () -> assertEquals(State.UNAVAILABLE, transition.next()),
+                () -> assertEquals(State.UNAVAILABLE, transition.next(),
+                        "an unreadable configuration reaches the unavailable state"),
                 () -> assertEquals(CredentialStoreAspect.CREDENTIAL_STORE_FAILED, transition.reason(),
                         "an unreadable document reports credential_store_failed"));
     }
@@ -274,9 +288,10 @@ class CredentialStoreAspectTest {
         var transition = aspect.move(Store.OS);
 
         assertAll(
-                () -> assertEquals(State.RECORD, transition.next()),
-                () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
-                () -> assertEquals(State.DONE, aspect.recordStore(Store.OS).next()));
+                () -> assertEquals(State.RECORD, transition.next(), "a move into an empty target reaches record"),
+                () -> assertEquals(Optional.of(Store.OS), choice.recorded(), "the move records the OS store"),
+                () -> assertEquals(State.DONE, aspect.recordStore(Store.OS).next(),
+                        "recording the OS store reaches done"));
     }
 
     @Test
@@ -298,9 +313,11 @@ class CredentialStoreAspectTest {
         var transition = aspect.recordStore(Store.FILE);
 
         assertAll(
-                () -> assertEquals(State.DONE, transition.next()),
-                () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
-                () -> assertEquals(revision, machineConfigurationRevision()));
+                () -> assertEquals(State.DONE, transition.next(), "recording the file store again reaches done"),
+                () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
+                        "the recorded choice remains the file store"),
+                () -> assertEquals(revision, machineConfigurationRevision(),
+                        "recording again leaves the configuration revision unchanged"));
     }
 
     private long machineConfigurationRevision() {
@@ -317,7 +334,7 @@ class CredentialStoreAspectTest {
                 () -> assertTrue(transition.usable(), "an available store is usable"),
                 () -> assertNull(transition.reason(), "an available store carries no reason"),
                 () -> assertNull(transition.detail(), "an available store carries no detail"),
-                () -> assertNull(transition.toRecord()));
+                () -> assertNull(transition.toRecord(), "an available store records no consent"));
     }
 
     /** A secret store in memory, which a test can make fail. */

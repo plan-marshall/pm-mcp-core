@@ -21,8 +21,8 @@
  * <li><b>Parser</b>: {@link de.planmarshall.workflow.dsl.WorkflowParser} is a recursive-descent parser over the
  * grammar of the language. It reads in this order: the frontmatter first, through the frontmatter reader, then the
  * body from the line after the closing {@code ---}. It reads the instance header of a plan instance with jackson-core
- * and builds the tree, in which the frontmatter, the definition, an entry binding, a state, a state migration, a
- * sub-workflow parameter, a link, a link parameter, an outcome transition and a step completion carry the source
+ * and builds the tree, in which the frontmatter, the definition, an entry binding, a state, a state migration, an
+ * input, a link, a link parameter, an outcome transition and a step completion carry the source
  * location they were read at and every other node carries none.</li>
  * <li><b>Result</b>: {@link de.planmarshall.workflow.dsl.ParseResult} is sealed: the tree
  * ({@link de.planmarshall.workflow.dsl.ParseResult.Parsed}) or the first refusal

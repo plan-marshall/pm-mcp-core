@@ -306,7 +306,6 @@ public final class PlanInstanceComposer {
                 .id(definition.id())
                 .version(version)
                 .scope(definition.scope())
-                .params(definition.params())
                 .resultSchema(definition.resultSchema())
                 .instance(null)
                 .declarations(definition.declarations())
@@ -414,7 +413,6 @@ public final class PlanInstanceComposer {
                 .id(PLAN_UNIT)
                 .version(header.version())
                 .scope(template.scope())
-                .params(template.params())
                 .resultSchema(template.resultSchema())
                 .instance(instance)
                 .declarations(template.declarations())
@@ -439,6 +437,9 @@ public final class PlanInstanceComposer {
                 .icon(template.icon())
                 .entries(template.entries())
                 .exits(template.exits())
+                .readsConfig(template.readsConfig())
+                .readsFact(template.readsFact())
+                .inputs(template.inputs())
                 .modificationDate(template.modificationDate())
                 .version(template.version())
                 .author(template.author())
@@ -469,7 +470,8 @@ public final class PlanInstanceComposer {
         var catalog = new ArrayList<>(context.compiledUnits());
         request.subUnits().forEach(subUnit -> catalog.add(subUnit.definition()));
         var validator = new WorkflowValidator(context.registry(), List.of(), context.entityKinds(),
-                context.questionClasses(), context.schemas(), new WorkflowCatalog(catalog));
+                context.questionClasses(), context.schemas(), new WorkflowCatalog(catalog), context.configKeys(),
+                context.factKinds());
         var result = validator.verify(unit, settled);
         result.violations().forEach(violation -> found.add("Rule %d (%s) in '%s': %s".formatted(
                 violation.rule().specificationRule(), violation.rule(), violation.stateId(), violation.message())));

@@ -245,15 +245,19 @@ final class TestPrimitives {
                 icon: workflow.default
                 entry: main
                 exit: done
+                input: push
+                input_type: enum[enabled|disabled]
+                input: attempts
+                input_type: int[1..5]
+                input_default: 2
+                input: targets
+                input_type: list<enum[origin|mirror]>
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
                 ---
                 workflow git.commit_and_push version 1 format 1
                 scope subworkflow
-                param push : enum[enabled|disabled]
-                param attempts : int[1..5]
-                param targets : list<enum[origin|mirror]>
                 result schema[commit-result]
                 entry main -> git.push
 
