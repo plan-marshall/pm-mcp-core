@@ -33,6 +33,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The digest of a project's git metadata (PM-WATCH-JOB-48): the bytes of the git directory's config and of every file it
@@ -61,7 +62,6 @@ public final class GitMetadataDigest {
     /** How deep an include chain is followed, the bound git itself applies to a running process. */
     static final int MAX_INCLUDE_DEPTH = 10;
 
-    private static final String GIT = ".git";
     private static final String GITDIR_PREFIX = "gitdir:";
     private static final String CONFIG = "config";
     private static final String CONFIG_WORKTREE = "config.worktree";
@@ -72,7 +72,7 @@ public final class GitMetadataDigest {
     private static final String EQUALS = "=";
 
     /** The administration files of a linked worktree that are digested when they exist. */
-    private static final List<String> ADMINISTRATION_FILES = List.of("gitdir", "commondir", "config.worktree");
+    private static final List<String> ADMINISTRATION_FILES = List.of("gitdir", "commondir", CONFIG_WORKTREE);
 
     /** A section header of a git config file. */
     private static final Pattern SECTION = Pattern.compile("^\\s*\\[([^\\]]+)]\\s*$");
@@ -192,27 +192,19 @@ public final class GitMetadataDigest {
             if (section.matches()) {
                 var name = section.group(1).trim().toLowerCase(Locale.ROOT);
                 inIncludeSection = INCLUDE.equals(name) || name.startsWith(INCLUDE_IF);
-                continue;
+            } else if (inIncludeSection) {
+                var separator = line.indexOf(EQUALS);
+                if (separator >= 0) {
+                    var key = line.substring(0, separator).trim().toLowerCase(Locale.ROOT);
+                    var value = PATH.equals(key) ? value(line.substring(separator + 1)) : "";
+                    if (!value.isEmpty()) {
+                        if (value.startsWith("%(")) {
+                            return new IncludeScan(List.of(), true);
+                        }
+                        includes.add(resolve(file.getParent(), expandHome(value)));
+                    }
+                }
             }
-            if (!inIncludeSection) {
-                continue;
-            }
-            var separator = line.indexOf(EQUALS);
-            if (separator < 0) {
-                continue;
-            }
-            var key = line.substring(0, separator).trim().toLowerCase(Locale.ROOT);
-            if (!PATH.equals(key)) {
-                continue;
-            }
-            var value = value(line.substring(separator + 1));
-            if (value.isEmpty()) {
-                continue;
-            }
-            if (value.startsWith("%(")) {
-                return new IncludeScan(List.of(), true);
-            }
-            includes.add(resolve(file.getParent(), expandHome(value)));
         }
         return new IncludeScan(List.copyOf(includes), false);
     }
@@ -224,25 +216,26 @@ public final class GitMetadataDigest {
     private static String value(String raw) {
         var value = new StringBuilder();
         var quoted = false;
-        for (var index = 0; index < raw.length(); index++) {
+        var index = 0;
+        while (index < raw.length()) {
             var character = raw.charAt(index);
-            if (quoted && character == '\\' && index + 1 < raw.length()) {
-                var escaped = raw.charAt(++index);
-                value.append(switch (escaped) {
+            var escaped = quoted && character == '\\' && index + 1 < raw.length();
+            if (escaped) {
+                index++;
+                var escapedCharacter = raw.charAt(index);
+                value.append(switch (escapedCharacter) {
                     case 'n' -> '\n';
                     case 't' -> '\t';
-                    default -> escaped;
+                    default -> escapedCharacter;
                 });
-                continue;
-            }
-            if (character == '"') {
+            } else if (character == '"') {
                 quoted = !quoted;
-                continue;
-            }
-            if (!quoted && (character == '#' || character == ';')) {
+            } else if (quoted || (character != '#' && character != ';')) {
+                value.append(character);
+            } else {
                 break;
             }
-            value.append(character);
+            index++;
         }
         return value.toString().strip();
     }
@@ -300,7 +293,7 @@ public final class GitMetadataDigest {
         }
     }
 
-    private static String digest(Path file) {
+    private static @Nullable String digest(Path file) {
         try {
             return sha256(Files.readAllBytes(file));
         } catch (IOException _) {
@@ -308,7 +301,7 @@ public final class GitMetadataDigest {
         }
     }
 
-    private static Path administration(Path linkFile) {
+    private static @Nullable Path administration(Path linkFile) {
         try {
             var content = Files.readString(linkFile).strip();
             if (!content.startsWith(GITDIR_PREFIX)) {

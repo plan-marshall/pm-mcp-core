@@ -12,7 +12,6 @@ package de.planmarshall.runtime.job;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -159,19 +158,19 @@ public final class GitMetadataPaths {
             skipped.add(new Skipped(registry, UNREADABLE_POINTER));
             return;
         }
-        for (var record : records) {
-            var target = pointer(record, "");
+        for (var gitdirFile : records) {
+            var target = pointer(gitdirFile, "");
             if (target == null) {
-                skipped.add(new Skipped(record, UNREADABLE_POINTER));
+                skipped.add(new Skipped(gitdirFile, UNREADABLE_POINTER));
                 continue;
             }
-            var linkFile = resolve(record.getParent(), target);
+            var linkFile = resolve(gitdirFile.getParent(), target);
             if (!Files.exists(linkFile, LinkOption.NOFOLLOW_LINKS)) {
                 skipped.add(new Skipped(linkFile, TARGET_MISSING));
             } else if (Files.isSymbolicLink(linkFile)) {
                 refused.add(new Refused(linkFile, PATH_TRAVERSAL_REJECTED));
-            } else if (!namesBack(linkFile, record.getParent())) {
-                skipped.add(new Skipped(record, NOT_NAMED_BACK));
+            } else if (!namesBack(linkFile, gitdirFile.getParent())) {
+                skipped.add(new Skipped(gitdirFile, NOT_NAMED_BACK));
             } else {
                 linkFiles.add(linkFile);
             }
@@ -217,8 +216,6 @@ public final class GitMetadataPaths {
     private static @Nullable BasicFileAttributes attributes(Path path) {
         try {
             return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-        } catch (NoSuchFileException _) {
-            return null;
         } catch (IOException _) {
             return null;
         }

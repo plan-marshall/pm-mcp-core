@@ -551,10 +551,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             case JobVerification.Refused(var refusal) -> refuse(request, budget, store, refusal.reason().code());
             case JobVerification.Verified(var job) -> {
                 var projectRoot = projectRoot(job.enrolment());
-                if (request.kind() == JobId.Kind.GIT) {
-                    if (gitMetadataGuard.verify(projectRoot) instanceof GitMetadataGuard.Changed(var parts)) {
-                        yield settleRefused(request, budget, store, GIT_METADATA_CHANGED, projectRoot, parts);
-                    }
+                if (request.kind() == JobId.Kind.GIT
+                        && gitMetadataGuard.verify(projectRoot) instanceof GitMetadataGuard.Changed(var parts)) {
+                    yield settleRefused(request, budget, store, GIT_METADATA_CHANGED, projectRoot, parts);
                 }
                 yield launch(request, budget, store, job);
             }
@@ -1092,12 +1091,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /** The record that replaces the write-ahead record once the launch report is read. */
     private static JobRecord postSpawnRecord(JobRecord writeAhead, LaunchReport report, Instant spawnedAt) {
-        var record = writeAhead.toBuilder().pid(report.pid()).processStartedAt(report.processStartedAt())
+        var builder = writeAhead.toBuilder().pid(report.pid()).processStartedAt(report.processStartedAt())
                 .spawnedAt(spawnedAt).confinement(report.confinement()).landlockAbi(report.landlockAbi());
         if (writeAhead.kind() == JobId.Kind.LLM) {
-            record.gitMetadata(report.gitMetadata() != null ? report.gitMetadata() : GitMetadata.UNENFORCED);
+            builder.gitMetadata(report.gitMetadata() != null ? report.gitMetadata() : GitMetadata.UNENFORCED);
         }
-        return record.build();
+        return builder.build();
     }
 
     /**

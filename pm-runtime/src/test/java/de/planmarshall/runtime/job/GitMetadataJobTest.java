@@ -220,9 +220,9 @@ class GitMetadataJobTest {
                 "worker:" + role, budgetSeconds, new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null),
                 workerBlock(), LaunchRefusal.HARNESS_NOT_ENROLLED, Generators.letterStrings(8, 64).next()));
 
-        var record = runner.recordOf(jobId).orElseThrow();
+        var stored = runner.recordOf(jobId).orElseThrow();
 
-        assertEquals(GitMetadata.UNENFORCED, record.gitMetadata(), "the refused record states unenforced");
+        assertEquals(GitMetadata.UNENFORCED, stored.gitMetadata(), "the refused record states unenforced");
     }
 
     @Test
@@ -288,7 +288,7 @@ class GitMetadataJobTest {
                 "the git job is refused").reason();
         assertEquals(SubprocessJobRunner.GIT_METADATA_CHANGED, refusedId, "the refusal names the change");
         var refusedRecord = JobRecordStore.ofProject(fixture.base, fixture.project).records().stream()
-                .filter(record -> record.kind() == JobId.Kind.GIT)
+                .filter(stored -> stored.kind() == JobId.Kind.GIT)
                 .max(Comparator.comparing(JobRecord::createdAt)).orElseThrow();
         assertAll("The refused git job is recorded",
                 () -> assertEquals(Status.REFUSED, refusedRecord.status(), "the record is refused"),

@@ -108,10 +108,10 @@ class GitMetadataPathsTest {
         void shouldSkipStaleWorktreeRecord() throws Exception {
             var main = plainRepository(base.resolve(name()));
             var name = name();
-            var record = Files.createDirectories(main.resolve(".git/worktrees").resolve(name))
+            var gitdirFile = Files.createDirectories(main.resolve(".git/worktrees").resolve(name))
                     .resolve("gitdir");
             var target = base.resolve("gone").resolve(".git");
-            Files.writeString(record, target + "\n");
+            Files.writeString(gitdirFile, target + "\n");
 
             var result = GitMetadataPaths.of(main);
 

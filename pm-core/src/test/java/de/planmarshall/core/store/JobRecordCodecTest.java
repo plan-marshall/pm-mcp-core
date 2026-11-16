@@ -516,19 +516,21 @@ class JobRecordCodecTest {
         void gitMetadataKindRule() {
             var worker = new JobId("l-0000000000000001");
             var projectScope = new Scope(Scope.Type.PROJECT, null);
+            var workerWithoutMetadata = base(worker, projectScope).status(Status.RUNNING).worker("{}");
+            var buildWithMetadata = queued(BUILD_ID, PLAN_SCOPE).toBuilder()
+                    .gitMetadata(GitMetadata.UNENFORCED);
+            var workerWithMetadata = base(worker, projectScope).status(Status.RUNNING).worker("{}")
+                    .gitMetadata(GitMetadata.ENFORCED);
+            var buildWithoutMetadata = base(BUILD_ID, PLAN_SCOPE);
 
             assertAll("the kind decides whether git_metadata is recorded",
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> base(worker, projectScope).status(Status.RUNNING).worker("{}").build(),
+                    () -> assertThrows(IllegalArgumentException.class, workerWithoutMetadata::build,
                             "a worker without git_metadata cannot be built"),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> queued(BUILD_ID, PLAN_SCOPE).toBuilder().gitMetadata(GitMetadata.UNENFORCED).build(),
+                    () -> assertThrows(IllegalArgumentException.class, buildWithMetadata::build,
                             "a build job with git_metadata cannot be built"),
-                    () -> assertDoesNotThrow(() -> base(BUILD_ID, PLAN_SCOPE).build(),
+                    () -> assertDoesNotThrow(buildWithoutMetadata::build,
                             "a build job without git_metadata is admitted"),
-                    () -> assertDoesNotThrow(
-                            () -> base(worker, projectScope).status(Status.RUNNING).worker("{}")
-                                    .gitMetadata(GitMetadata.ENFORCED).build(),
+                    () -> assertDoesNotThrow(workerWithMetadata::build,
                             "a worker with git_metadata is admitted"));
         }
 

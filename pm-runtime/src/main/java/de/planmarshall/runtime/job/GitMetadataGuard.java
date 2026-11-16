@@ -54,6 +54,9 @@ public final class GitMetadataGuard {
      *
      * @param projectRoot the canonical enrolled project root
      */
+    // java:S6213 does not apply: the specification names the method 'record' for the baseline it takes at a worker's
+    // spawn, so the name is part of the plan's contract.
+    @SuppressWarnings("java:S6213")
     public void record(Path projectRoot) {
         var key = key(projectRoot);
         var digest = GitMetadataDigest.of(projectRoot);
