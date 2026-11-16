@@ -52,7 +52,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The recursive-descent parser of the workflow language (PM-IMPL-5, PM-WF-16): it reads one unit into the immutable
  * tree of {@link de.planmarshall.workflow.ast}. The definition, a {@code declare} line, a {@code decide} line, a state,
- * a state migration, a sub-workflow parameter, a link, a link parameter, an outcome transition and a step completion
+ * a state migration, a link, a link parameter, an outcome transition and a step completion
  * carry the {@link SourceLocation} they were read at; every other node carries none.
  * <p>
  * It reads the frontmatter first, through {@link UnitFrontmatterReader} (a missing or refused frontmatter is a

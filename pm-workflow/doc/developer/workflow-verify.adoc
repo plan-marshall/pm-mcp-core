@@ -74,15 +74,19 @@ configuration and the fact kinds stay outside `pm-workflow`
 to the empty registries: a unit that declares no read passes, and a unit that declares one fails closed, because no key
 and no kind exists in an empty registry.
 
-* `CONFIG_KEY_BINDING`: every `reads_config` key exists in the `ConfigKeyRegistry`, and none carries the `derived.`
-  stem, which belongs to `reads_fact` (link:../adr/workflow-verify/037-reads-config-never-names-a-fact.adoc[ADR 037]).
-  No key is declared twice.
-* `FACT_KIND_BINDING`: every `reads_fact` is a kind of the `FactKindRegistry`, none twice.
-* `INPUT_DECLARATION`: an input is declared once; its `input_fallback` is a key the unit lists in `reads_config`; the
+* `CONFIG_KEY_BINDING`: every `reads_config` key exists in the `ConfigKeyRegistry`, and none carries the bare value
+  `derived` or the `derived.` stem, which belongs to `reads_fact`
+  (link:../adr/workflow-verify/037-reads-config-never-names-a-fact.adoc[ADR 037]).
+* `FACT_KIND_BINDING`: every `reads_fact` is a kind of the `FactKindRegistry`.
+* `INPUT_DECLARATION`: an input's `input_fallback` is a key the unit lists in `reads_config`; the
   key's domain is assignable to the input type (`ConfigKeyRegistry.assignable`: every value the domain admits is a value
-  the type admits); a required input's fallback key has a compiled default, so the fallback never leaves it without a
-  value; an input name is no `reads_fact` kind of the same unit
+  the type admits); an input with neither a default nor the `?` needs a compiled default on its fallback key, so the
+  fallback never leaves it without a value; an input name is no `reads_fact` kind of the same unit
   (link:../adr/workflow-verify/036-input-bindings-under-rule-1.adoc[ADR 036]).
+
+A value declared twice — a `reads_config` key, a `reads_fact` kind, an input name or an enum value of an `input_type` —
+is the frontmatter reader's refusal (`FRONTMATTER`, at the line and column), so it has one owner and the verifier does
+not repeat it (R15 item 1).
 
 The checks run on every unit load (`ProjectUnitLoader`, `DefaultUnitLoader` through `VerificationContext`) and at build
 time, and `PlanInstanceComposer` passes the two registries of its context to the validator of a composed version.

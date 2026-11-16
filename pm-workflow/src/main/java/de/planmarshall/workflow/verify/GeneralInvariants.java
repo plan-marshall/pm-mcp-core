@@ -121,9 +121,9 @@ final class GeneralInvariants {
     }
 
     /**
-     * INV-GEN-1, the interface: the type, the entries, the exits and the entry bindings of the unit equal those of the
-     * default unit it replaces; each difference is reported once and names the differing element. The descriptions of
-     * the entries and exits are not compared.
+     * INV-GEN-1, the interface: the type, the entries, the exits, the inputs and the entry bindings of the unit equal
+     * those of the default unit it replaces; each difference is reported once and names the differing element. The
+     * descriptions of the entries, the exits and the inputs are not compared.
      */
     private static void compareInterface(Context context, WorkflowDefinition unit, WorkflowDefinition reference) {
         var id = InvariantId.INV_GEN_1;

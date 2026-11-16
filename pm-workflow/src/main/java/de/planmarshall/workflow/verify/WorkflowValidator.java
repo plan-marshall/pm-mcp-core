@@ -345,25 +345,18 @@ public final class WorkflowValidator {
     /**
      * Rule 1, the static reads: every {@code reads_config} key names a key of the closed configuration and no
      * {@code derived.} fact, every {@code reads_fact} names a known kind, and every input names none of the fact kinds
-     * the unit reads, is declared once, and takes its fallback from a key the unit reads whose domain is assignable to
-     * the input type. The registries are arguments of the verifier; the empty ones refuse every key and kind, so a unit
-     * that declares a read fails closed.
+     * the unit reads and takes its fallback from a key the unit reads whose domain is assignable to the input type. The
+     * registries are arguments of the verifier; the empty ones refuse every key and kind, so a unit that declares a read
+     * fails closed. A value declared twice is the reader's refusal, which reports the line and the column; this check
+     * does not repeat it (one owner per refusal).
      */
     private void checkDeclaredReads(WorkflowDefinition definition, List<Violation> violations) {
         var frontmatter = definition.frontmatter();
         var stateId = unitStateId(definition);
         var location = frontmatter.location();
         var readFacts = frontmatter.readsFact();
-        var declaredKeys = new HashSet<String>();
         for (var key : frontmatter.readsConfig()) {
-            if (!declaredKeys.add(key)) {
-                violations.add(Violation.builder()
-                        .rule(VerificationRule.CONFIG_KEY_BINDING)
-                        .stateId(stateId)
-                        .location(location)
-                        .message("the reads_config key '%s' is declared twice".formatted(key))
-                        .build());
-            } else if ("derived".equals(key) || key.startsWith("derived.")) {
+            if ("derived".equals(key) || key.startsWith("derived.")) {
                 violations.add(Violation.builder()
                         .rule(VerificationRule.CONFIG_KEY_BINDING)
                         .stateId(stateId)
@@ -380,16 +373,8 @@ public final class WorkflowValidator {
                         .build());
             }
         }
-        var declaredFacts = new HashSet<String>();
         for (var kind : readFacts) {
-            if (!declaredFacts.add(kind)) {
-                violations.add(Violation.builder()
-                        .rule(VerificationRule.FACT_KIND_BINDING)
-                        .stateId(stateId)
-                        .location(location)
-                        .message("the reads_fact kind '%s' is declared twice".formatted(kind))
-                        .build());
-            } else if (!factKinds.contains(kind)) {
+            if (!factKinds.contains(kind)) {
                 violations.add(Violation.builder()
                         .rule(VerificationRule.FACT_KIND_BINDING)
                         .stateId(stateId)
@@ -398,17 +383,8 @@ public final class WorkflowValidator {
                         .build());
             }
         }
-        var declaredInputs = new HashSet<String>();
         for (var input : frontmatter.inputs()) {
-            if (!declaredInputs.add(input.name())) {
-                violations.add(Violation.builder()
-                        .rule(VerificationRule.INPUT_DECLARATION)
-                        .stateId(stateId)
-                        .location(input.location())
-                        .message("the input '%s' is declared twice".formatted(input.name()))
-                        .build());
-            }
-            if (declaredFacts.contains(input.name())) {
+            if (readFacts.contains(input.name())) {
                 violations.add(Violation.builder()
                         .rule(VerificationRule.INPUT_DECLARATION)
                         .stateId(stateId)
@@ -459,8 +435,8 @@ public final class WorkflowValidator {
                     .rule(VerificationRule.INPUT_DECLARATION)
                     .stateId(stateId)
                     .location(input.location())
-                    .message("the required input '%s' falls back to the configuration key '%s', which has no compiled"
-                            .formatted(input.name(), fallback) + " default")
+                    .message("the input '%s' falls back to the configuration key '%s', which has no compiled default"
+                            .formatted(input.name(), fallback) + " and no input_default")
                     .build());
         }
     }

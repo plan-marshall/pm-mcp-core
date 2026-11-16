@@ -287,7 +287,10 @@ class WorkflowValidatorTest {
             new Check("Rule 12: an escalate link is request_waiver",
                     VerificationRule.LINK_COMPATIBILITY, "link-escalate-id.pmwf"));
 
-    /** The checks a fixture cannot plant: the language or the primitive registry refuses the input first. */
+    /**
+     * The checks no fixture of this harness can plant: the language, the primitive registry or the harness's empty read
+     * registries refuse the unit first. Each entry names what pins it instead.
+     */
     private static final List<Unpinned> UNPLANTABLE = List.of(
             new Unpinned("Rule 1: every question clause names a registered question class",
                     VerificationRule.QUESTION_CLASS_BINDING,

@@ -82,9 +82,10 @@ than 32 parentheses (`WorkflowParser.MAX_GUARD_DEPTH`) is refused, which bounds 
 
 The first refusal wins. Its `RefusalRule` is one of the members listed under <<_main_types>>; `STRUCTURE` covers a source
 that does not follow the grammar. `MISSING_SCOPE` refuses a unit without a `scope` clause. `DUPLICATE_ID` refuses an
-identifier declared twice in the file: a state, a `declare` name, a decision kind, a parameter (a sub-workflow
-parameter, a call argument and a link parameter alike), an entry bound twice, and a value repeated in a list value or
-an `enum[...]` type.
+identifier declared twice in the file: a state, a `declare` name, a decision kind, a call argument and a link parameter,
+an entry bound twice, and a value repeated in a list value or in a link parameter's `enum[...]` type. A repeated
+frontmatter value, a repeated input name and a repeated `enum[...]` value of an `input_type` are the frontmatter reader's
+refusal (`FRONTMATTER`, at the line and column), not the parser's.
 
 A reserved keyword (`WorkflowParser.RESERVED_KEYWORDS`) is refused only where the grammar names a name: as an outcome
 name, a parameter name, an entity kind, a role name, or a segment of a state, primitive or configuration key
@@ -263,8 +264,8 @@ implicit control exit of every sub-workflow).
 |`reads_config`
 |0..32
 |An effective configuration key the unit reads, in the grammar `config_key` (`project.review.currency`,
-`workflow.mode`). The key must exist in the closed configuration the verifier is given, and it never carries the
-`derived.` stem: a derived fact is read with `reads_fact`
+`workflow.mode`). The key must exist in the closed configuration the verifier is given, and it never carries the bare
+value `derived` or the `derived.` stem: a derived fact is read with `reads_fact`
 (link:../adr/workflow-verify/037-reads-config-never-names-a-fact.adoc[ADR 037]). Declared once.
 
 |`reads_fact`
@@ -291,7 +292,7 @@ input. A value outside the type is refused. It stands below `input_type` and nev
 |`input_fallback`
 |0..1 per input
 |The configuration key that supplies the input when a call binds none: one the unit lists in `reads_config`, whose domain
-the verifier checks against the input type, and whose compiled default a required input needs
+the verifier checks against the input type, and whose compiled default an input with neither a default nor the `?` needs
 (link:../adr/workflow-dsl/014-order-of-input-resolution.adoc[ADR 014]). It never stands beside the `?`.
 
 |`input_description`

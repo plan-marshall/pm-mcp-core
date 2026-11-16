@@ -705,6 +705,8 @@ class UnitFrontmatterReaderTest {
                             List.of("input: a", "input_type: enum[]"), 11, 13),
                     Arguments.of("a range with its high bound zero",
                             List.of("input: a", "input_type: int[1..0]"), 11, 13),
+                    Arguments.of("a range with its low bound above its high bound",
+                            List.of("input: a", "input_type: int[9..1]"), 11, 13),
                     Arguments.of("a range without its digits",
                             List.of("input: a", "input_type: int[..]"), 11, 13),
                     Arguments.of("a list of a type other than enum",
@@ -789,6 +791,17 @@ class UnitFrontmatterReaderTest {
                     () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(), diagnostic::message),
                     () -> assertTrue(diagnostic.message().contains(Integer.toString(UnitFrontmatterReader.MAX_READS)),
                             diagnostic::message));
+        }
+
+        @Test
+        @DisplayName("pins the caps to the numbers the specification states")
+        void pinsTheSpecificationNumbers() {
+            assertAll(
+                    () -> assertEquals(16, UnitFrontmatterReader.MAX_INPUTS, "the input cap is the specification's 16"),
+                    () -> assertEquals(32, UnitFrontmatterReader.MAX_READS,
+                            "the reads cap of each key is the specification's 32"),
+                    () -> assertEquals(500, UnitFrontmatterReader.MAX_INPUT_DESCRIPTION,
+                            "the input description cap is the specification's 500"));
         }
 
         @Test

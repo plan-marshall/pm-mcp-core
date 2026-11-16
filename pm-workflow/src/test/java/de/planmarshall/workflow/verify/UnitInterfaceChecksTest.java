@@ -15,10 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -31,18 +29,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.core.spi.OutcomeClass;
-import de.planmarshall.workflow.ast.InputDecl;
 import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.SourceLocation;
-import de.planmarshall.workflow.ast.StateBehavior;
-import de.planmarshall.workflow.ast.StateNode;
-import de.planmarshall.workflow.ast.TerminalOutcome;
-import de.planmarshall.workflow.ast.UnitFrontmatter;
-import de.planmarshall.workflow.ast.UnitOrigin;
-import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
-import de.planmarshall.workflow.ast.WorkflowScope;
 
 /**
  * The static reads of a unit (PM-WF-16, Rule 1): every {@code reads_config} key exists in the closed configuration and
@@ -190,48 +179,6 @@ class UnitInterfaceChecksTest {
                 () -> assertTrue(found.getFirst().message().contains(message), found.getFirst()::message));
     }
 
-    @Test
-    @DisplayName("refuses a repeated read in a frontmatter built outside the reader")
-    void refusesARepeatedRead() {
-        var definition = unitWith(List.of("project.review.currency", "project.review.currency"),
-                List.of("push_remote", "push_remote"), List.of());
-
-        var found = VALIDATOR.verify(definition).violations();
-
-        assertAll(
-                () -> assertEquals(List.of("CONFIG_KEY_BINDING", "FACT_KIND_BINDING"), rules(definition),
-                        found::toString),
-                () -> assertTrue(found.getFirst().message().contains("declared twice"), found.getFirst()::message),
-                () -> assertTrue(found.get(1).message().contains("declared twice"), found.get(1)::message));
-    }
-
-    @Test
-    @DisplayName("refuses an input declared twice in a frontmatter built outside the reader")
-    void refusesARepeatedInput() {
-        var pushMode = new InputDecl("push_mode", new InputType.Enumeration(List.of("push")), false, null, null,
-                null, LOCATION);
-        var definition = unitWith(List.of(), List.of(), List.of(pushMode, pushMode));
-
-        var found = VALIDATOR.verify(definition).violations();
-
-        assertAll(
-                () -> assertEquals(List.of("INPUT_DECLARATION"), rules(definition), found::toString),
-                () -> assertTrue(found.getFirst().message().contains("declared twice"), found.getFirst()::message));
-    }
-
-    /** Builds a minimal plan unit whose frontmatter carries the given reads and inputs, without the reader. */
-    private static WorkflowDefinition unitWith(List<String> readsConfig, List<String> readsFact,
-            List<InputDecl> inputs) {
-        var frontmatter = new UnitFrontmatter("verify.declared-reads", "A unit written for the verifier tests.",
-                UnitType.WORKFLOW, "workflow.default", List.of(), List.of(), readsConfig, readsFact, inputs,
-                LocalDate.of(2026, 1, 15), "0.1.0", "plan-marshall", null, LOCATION);
-        var state = new StateNode("verify.entry", new TerminalOutcome("done", OutcomeClass.SUCCESS), null, null,
-                new StateBehavior.TerminalState(), LOCATION);
-        return new WorkflowDefinition(frontmatter, "verify.declared-reads", 1, WorkflowScope.PLAN, null, null,
-                Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), "verify.entry", Map.of(), List.of(),
-                Map.of("verify.entry", state), LOCATION);
-    }
-
     @Nested
     @DisplayName("Configuration key registry")
     class ConfigurationKeys {
@@ -241,10 +188,12 @@ class UnitInterfaceChecksTest {
         void findsRegisteredKeys() {
             assertAll(
                     () -> assertEquals(Optional.of("project.review.currency"),
-                            CONFIG.find("project.review.currency").map(ConfigKeyRegistry.ConfigKey::key)),
-                    () -> assertTrue(CONFIG.contains("workflow.mode")),
-                    () -> assertFalse(CONFIG.contains("workflow.unknown")),
-                    () -> assertEquals(Optional.empty(), CONFIG.empty().find("project.review.currency")));
+                            CONFIG.find("project.review.currency").map(ConfigKeyRegistry.ConfigKey::key),
+                            "a registered key is found by its effective form"),
+                    () -> assertTrue(CONFIG.contains("workflow.mode"), "a registered key is contained"),
+                    () -> assertFalse(CONFIG.contains("workflow.unknown"), "an unknown key is not contained"),
+                    () -> assertEquals(Optional.empty(), CONFIG.empty().find("project.review.currency"),
+                            "the empty registry finds nothing"));
         }
 
         @Test
@@ -262,32 +211,33 @@ class UnitInterfaceChecksTest {
         void assignsDomains() {
             assertAll(
                     () -> assertTrue(ConfigKeyRegistry.assignable(new InputType.Enumeration(List.of("a", "b", "c")),
-                            new InputType.Enumeration(List.of("a", "b")))),
+                            new InputType.Enumeration(List.of("a", "b"))), "a wider enum admits the domain"),
                     () -> assertFalse(ConfigKeyRegistry.assignable(new InputType.Enumeration(List.of("a")),
-                            new InputType.Enumeration(List.of("a", "b")))),
+                            new InputType.Enumeration(List.of("a", "b"))), "a narrower enum refuses the domain"),
                     () -> assertTrue(ConfigKeyRegistry.assignable(new InputType.IntRange(0, 9),
-                            new InputType.IntRange(2, 5))),
+                            new InputType.IntRange(2, 5)), "a wider range admits the domain"),
                     () -> assertFalse(ConfigKeyRegistry.assignable(new InputType.IntRange(0, 9),
-                            new InputType.IntRange(null, null))),
+                            new InputType.IntRange(null, null)), "an unbounded domain overflows the range"),
                     () -> assertTrue(ConfigKeyRegistry.assignable(new InputType.IntRange(null, null),
-                            new InputType.IntRange(2, 5))),
+                            new InputType.IntRange(2, 5)), "an unbounded range admits a bounded domain"),
                     () -> assertFalse(ConfigKeyRegistry.assignable(new InputType.IntRange(0, 9),
-                            new InputType.IntRange(-1, 5))),
+                            new InputType.IntRange(-1, 5)), "a domain below the low bound is refused"),
                     () -> assertTrue(ConfigKeyRegistry.assignable(new InputType.EnumList(List.of("a", "b")),
-                            new InputType.EnumList(List.of("a")))),
+                            new InputType.EnumList(List.of("a"))), "a wider list admits the domain"),
                     () -> assertFalse(ConfigKeyRegistry.assignable(new InputType.EnumList(List.of("a")),
-                            new InputType.Enumeration(List.of("a")))));
+                            new InputType.Enumeration(List.of("a"))), "a scalar domain is no list domain"));
         }
 
         @Test
         @DisplayName("refuses a fact kind registered twice and copies the set")
         void factKinds() {
             assertAll(
-                    () -> assertTrue(FACTS.contains("push_remote")),
-                    () -> assertFalse(FACTS.contains("unknown")),
-                    () -> assertFalse(FactKindRegistry.empty().contains("push_remote")),
+                    () -> assertTrue(FACTS.contains("push_remote"), "a registered kind is found"),
+                    () -> assertFalse(FACTS.contains("unknown"), "an unknown kind is not found"),
+                    () -> assertFalse(FactKindRegistry.empty().contains("push_remote"), "the empty set holds none"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> FactKindRegistry.of(List.of("push_remote", "push_remote"))));
+                            () -> FactKindRegistry.of(List.of("push_remote", "push_remote")),
+                            "a kind registered twice must be refused"));
         }
     }
 }

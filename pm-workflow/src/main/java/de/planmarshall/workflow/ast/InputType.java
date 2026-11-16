@@ -87,7 +87,8 @@ public sealed interface InputType
     }
 
     /**
-     * {@code list<enum[...]>}: a non-empty list of distinct members of a closed set of values.
+     * {@code list<enum[...]>}: a list of distinct members of a closed set of values. The type admits the empty list as a
+     * value, so a declaration's {@code input_default} may be {@code []}; a call site binds a non-empty list.
      *
      * @param values the admitted element values in declaration order, none of them twice
      */

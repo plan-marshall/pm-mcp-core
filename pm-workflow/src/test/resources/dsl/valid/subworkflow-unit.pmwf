@@ -21,7 +21,7 @@ version: 0.1.0
 author: plan-marshall
 ---
 # A sub-workflow written for the parser tests, not taken from any default unit.
-# It covers the param and result declarations, an entry binding, phase inherit and the task states.
+# It covers the input and result declarations, an entry binding, phase inherit and the task states.
 workflow git.commit_and_push version 1 format 1
 scope subworkflow
 result schema[commit-result]

@@ -23,8 +23,9 @@ call site does not bind has to be resolved in a stated order, so that two readin
 * The refusal is static for a literal call site (Rule 6, `SUBWORKFLOW_CALL_CONTRACT`) and happens at the call when the
   value is not a literal.
 * `input_fallback` names a configuration key the unit also lists in `reads_config` — one place that says what the unit
-  reads — and the key's domain is assignable to the input type. A required input (no `?`, no default) additionally
-  needs a compiled default on that key, so the fallback never leaves the input without a value (`INPUT_DECLARATION`).
+  reads — and the key's domain is assignable to the input type. An input with neither a default nor the `?`, for which
+  the fallback is its only source, additionally needs a compiled default on that key, so the fallback never leaves the
+  input without a value (`INPUT_DECLARATION`).
 * A call binds explicitly, `callee_input = caller_value`; the runtime copies the bound value once into the frame.
 
 == Alternatives Considered

@@ -228,6 +228,14 @@ class WorkflowPrinterTest {
             input: attempts
             input_type: int[1..5]
             input_default: 2
+            input: retries
+            input_type: int[0..5]
+            input_fallback: project.review.retries
+            input: skip
+            input_type: int[1..3]?
+            input: targets
+            input_type: list<enum[a|b]>
+            input_default: []
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall
@@ -257,6 +265,9 @@ class WorkflowPrinterTest {
                 () -> assertTrue(printed.contains("input_type: enum[push|no_push]"), printed),
                 () -> assertTrue(printed.contains("input_description: Whether the branch is pushed."), printed),
                 () -> assertTrue(printed.contains("input_default: 2"), printed),
+                () -> assertTrue(printed.contains("input_fallback: project.review.retries"), printed),
+                () -> assertTrue(printed.contains("input_type: int[1..3]?"), printed),
+                () -> assertTrue(printed.contains("input_default: []"), printed),
                 () -> assertTrue(printed.indexOf("reads_config:") < printed.indexOf("reads_fact:"), printed),
                 () -> assertTrue(printed.indexOf("reads_fact:") < printed.indexOf("input: push_mode"), printed),
                 () -> assertTrue(printed.indexOf("input_default: 2") < printed.indexOf("modification_date:"),

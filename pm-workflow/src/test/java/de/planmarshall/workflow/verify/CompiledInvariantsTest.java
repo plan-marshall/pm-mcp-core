@@ -579,9 +579,9 @@ class CompiledInvariantsTest {
             var found = invariants.check(unit, InvariantFixtures.validator().verify(unit), List.of(), UNKNOWN_LANE);
 
             assertAll(
-                    () -> assertEquals(Set.of("the unit does not declare the parameter 'retry_budget'",
-                                    "the unit does not declare the parameter 'fix_budget'",
-                                    "the unit does not declare the parameter 'actions'"),
+                    () -> assertEquals(Set.of("the unit does not declare the input 'retry_budget'",
+                                    "the unit does not declare the input 'fix_budget'",
+                                    "the unit does not declare the input 'actions'"),
                             found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_1)
                                     .map(InvariantViolation::message).collect(Collectors.toSet())),
                     () -> assertFalse(found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_7)

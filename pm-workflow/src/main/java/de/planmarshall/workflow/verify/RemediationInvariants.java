@@ -39,7 +39,7 @@ import lombok.experimental.UtilityClass;
  * <li>{@link InvariantId#INV_REM_1}: the unit declares {@code retry_budget} and {@code fix_budget} as
  * {@code int[0..5]}, {@code waiver_wait_seconds} as {@code int[0..86400]} and {@code actions} as a
  * {@code list<enum[...]>} of the default unit's actions, a subset of {@code retry}, {@code fix} and {@code loop_back},
- * and no other parameter; its terminals are among
+ * and no other input; its terminals are among
  * {@code resolved} ({@code success}), {@code waived} ({@code success}, only for a class with a {@code met}-waivable
  * gate), {@code exhausted} ({@code failure}) and {@code fix_requested} ({@code unsettled}), each reachable.</li>
  * <li>{@link InvariantId#INV_REM_2}: {@code budget-check} is the only state that enters {@code decide};
@@ -81,16 +81,16 @@ final class RemediationInvariants {
     static final Set<String> WAIVABLE_UNITS = Set.of("remediation.ci-failure", "remediation.review-findings",
             "remediation.analysis", "remediation.qgate-findings");
 
-    /** The parameter of the retry budget. */
+    /** The input of the retry budget. */
     static final String RETRY_BUDGET = "retry_budget";
 
-    /** The parameter of the fix budget. */
+    /** The input of the fix budget. */
     static final String FIX_BUDGET = "fix_budget";
 
-    /** The parameter of the waiver wait. */
+    /** The input of the waiver wait. */
     static final String WAIVER_WAIT = "waiver_wait_seconds";
 
-    /** The parameter of the bound actions. */
+    /** The input of the bound actions. */
     static final String ACTIONS = "actions";
 
     /** The hard cap of the retry and the fix budget. */
@@ -100,8 +100,8 @@ final class RemediationInvariants {
     static final int WAIVER_WAIT_CAP = 86400;
 
     /**
-     * The budget parameters of the remediation schema with their hard caps; the one definition of the budget
-     * parameters, which {@link CompiledInvariants#remediationBudgetParameters()} publishes.
+     * The budget inputs of the remediation schema with their hard caps; the one definition of the budget
+     * inputs, which {@link CompiledInvariants#remediationBudgetParameters()} publishes.
      */
     static final Map<String, Integer> BUDGET_CAPS = Map.of(RETRY_BUDGET, BUDGET_CAP, FIX_BUDGET, BUDGET_CAP,
             WAIVER_WAIT, WAIVER_WAIT_CAP);
@@ -176,7 +176,7 @@ final class RemediationInvariants {
     }
 
     /**
-     * @return the parameters of the contract but {@code actions}, by name, with their declared types
+     * @return the inputs of the contract but {@code actions}, by name, with their declared types
      */
     private static Map<String, InputType> expectedParams() {
         var expected = new LinkedHashMap<String, InputType>();
@@ -187,7 +187,7 @@ final class RemediationInvariants {
     }
 
     /**
-     * Checks one declared parameter against the contract: {@code actions} against the action set, every other one
+     * Checks one declared input against the contract: {@code actions} against the action set, every other one
      * against its expected type.
      */
     private static void checkParam(Context context, Map<String, InputType> expected, InputDecl param) {
@@ -216,9 +216,9 @@ final class RemediationInvariants {
         var declared = new LinkedHashSet<String>();
         unit.frontmatter().inputs().forEach(input -> declared.add(input.name()));
         expectedNames.stream().filter(name -> !declared.contains(name)).forEach(name -> context.reportUnit(id,
-                "the unit does not declare the parameter '%s'".formatted(name)));
+                "the unit does not declare the input '%s'".formatted(name)));
         if (!declared.contains(ACTIONS)) {
-            context.reportUnit(id, "the unit does not declare the parameter '%s'".formatted(ACTIONS));
+            context.reportUnit(id, "the unit does not declare the input '%s'".formatted(ACTIONS));
         }
     }
 
@@ -247,7 +247,7 @@ final class RemediationInvariants {
         var id = InvariantId.INV_REM_1;
         var actions = actionsOf(type);
         if (actions.isEmpty() || !ACTION_SET.containsAll(actions.get())) {
-            context.report(id, context.unit().id(), location, "the parameter '%s' is not a list of the actions %s"
+            context.report(id, context.unit().id(), location, "the input '%s' is not a list of the actions %s"
                     .formatted(ACTIONS, Context.sorted(ACTION_SET)));
             return;
         }

@@ -392,17 +392,17 @@ public final class UnitFrontmatterReader {
             input = new Input(value, new SourceLocation(resourceName, number, column));
         }
 
-        /** Applies one sub-key of the input its {@code input} line opened, refusing an order the grammar closes. */
+        /**
+         * Applies one sub-key of the input its {@code input} line opened, refusing an order the grammar closes. Each key
+         * follows the one before it, so a repeated sub-key stands out of that order and is refused there
+         * ({@link #outOfOrder}); this is the one owner of the order, the sub-keys have no second reading.
+         */
         private void inputField(String key, String value, int number, int column) {
             var open = requireInput(key, number, column);
             switch (key) {
                 case KEY_INPUT_TYPE -> {
                     if (!KEY_INPUT.equals(previousKey)) {
-                        throw new Refusal(number, 1,
-                                "the input_type does not stand directly below its 'input' line");
-                    }
-                    if (open.type != null) {
-                        throw new Refusal(number, 1, "a second input_type of the input '%s'".formatted(open.name));
+                        throw outOfOrder(key, KEY_INPUT, number);
                     }
                     open.optional = value.endsWith("?");
                     open.type = inputType(value, number, column);
@@ -411,18 +411,12 @@ public final class UnitFrontmatterReader {
                     if (!KEY_INPUT_TYPE.equals(previousKey)) {
                         throw outOfOrder(key, KEY_INPUT_TYPE, number);
                     }
-                    if (open.defaultValue != null) {
-                        throw new Refusal(number, 1, "a second input_default of the input '%s'".formatted(open.name));
-                    }
                     refuseBesideOptional(open, key, number, column);
                     open.defaultValue = inputDefault(open, value, number, column);
                 }
                 case KEY_INPUT_FALLBACK -> {
                     if (!KEY_INPUT_TYPE.equals(previousKey) && !KEY_INPUT_DEFAULT.equals(previousKey)) {
                         throw outOfOrder(key, KEY_INPUT_TYPE, number);
-                    }
-                    if (open.fallback != null) {
-                        throw new Refusal(number, 1, "a second input_fallback of the input '%s'".formatted(open.name));
                     }
                     refuseBesideOptional(open, key, number, column);
                     open.fallback = configKey(value, number, column);
@@ -431,9 +425,6 @@ public final class UnitFrontmatterReader {
                     if (!KEY_INPUT_TYPE.equals(previousKey) && !KEY_INPUT_DEFAULT.equals(previousKey)
                             && !KEY_INPUT_FALLBACK.equals(previousKey)) {
                         throw outOfOrder(key, KEY_INPUT_TYPE, number);
-                    }
-                    if (open.description != null) {
-                        throw new Refusal(number, 1, "a second input_description of the input '%s'".formatted(open.name));
                     }
                     checkLength(key, value, 1, MAX_INPUT_DESCRIPTION, number, column);
                     open.description = value;
@@ -544,9 +535,6 @@ public final class UnitFrontmatterReader {
                 }
                 values.add(value);
             }
-            if (values.isEmpty()) {
-                throw new Refusal(number, column, "the input_type declares no enum value");
-            }
             return values;
         }
 
@@ -563,7 +551,12 @@ public final class UnitFrontmatterReader {
                         "the input_type range '%s' is no 'int[<low>..<high>]'".formatted(echo(text)));
             }
             try {
-                return new InputType.IntRange(Integer.parseInt(low), Integer.parseInt(high));
+                var range = new InputType.IntRange(Integer.parseInt(low), Integer.parseInt(high));
+                if (range.min() != null && range.min() > range.max()) {
+                    throw new Refusal(number, column,
+                            "the input_type range '%s' has its low bound above its high bound".formatted(echo(text)));
+                }
+                return range;
             } catch (NumberFormatException _) {
                 throw new Refusal(number, column, "the input_type range '%s' is out of range".formatted(echo(text)));
             }

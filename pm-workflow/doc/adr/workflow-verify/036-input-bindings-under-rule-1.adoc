@@ -24,9 +24,10 @@ family as `SCHEMA_BINDING` and `ENTITY_KIND_BINDING`: a name in the unit checked
   `INPUT_DECLARATION`.
 * `CONFIG_KEY_BINDING`: every `reads_config` key exists in `ConfigKeyRegistry` and names no `derived.` fact.
 * `FACT_KIND_BINDING`: every `reads_fact` names a kind of `FactKindRegistry`.
-* `INPUT_DECLARATION`: every input is declared once; its `input_fallback` is a key the unit lists in `reads_config`; the
-  key's domain is assignable to the input type; a required input's fallback key has a compiled default; an input name is
-  not a `reads_fact` kind of the same unit.
+* `INPUT_DECLARATION`: every input's `input_fallback` is a key the unit lists in `reads_config`; the
+  key's domain is assignable to the input type; an input with neither a default nor the `?` has a compiled default on
+  its fallback key; an input name is not a `reads_fact` kind of the same unit. A value declared twice is the frontmatter
+  reader's refusal, so this check does not repeat it.
 * Rule 6 (`SUBWORKFLOW_CALL_CONTRACT`) keeps the call-site checks: a required input bound exactly once, an input with a
   default, a fallback or the `?` omitted, no binding of an undeclared input, and every bound value compatible with the
   type.

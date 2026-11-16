@@ -166,7 +166,8 @@ three closed forms:
 * `InputType.Enumeration(List<String> values)` — `enum[…]`;
 * `InputType.IntRange(@Nullable Integer min, @Nullable Integer max)` — `int` with its optional range, both bounds or
   none;
-* `InputType.EnumList(List<String> values)` — `list<enum[…]>`, a non-empty list of distinct members.
+* `InputType.EnumList(List<String> values)` — `list<enum[…]>`, a list of distinct members; the empty list is admitted as
+  an `input_default`, and a call site binds a non-empty one.
 
 `InputType.sourceText()` is the source form the printer writes, so the type has one spelling in the tree and in the
 source. The optional form is a component of the declaration, not a fourth type
@@ -248,7 +249,8 @@ through it enters.
 `StateBehavior.SubWorkflowCall` is the `call <unit> [entry <name>] (…)` clause of a state. Its components are
 `subWorkflowId`, `entry` (`@Nullable String`, the entry the call names; `null` when the call omits it, which the verifier
 admits only for a callee with exactly one entry), `paramBindings` and `transitions`. The parameters belong to the
-callee, not to an entry: a call binds every declared parameter whichever entry it uses.
+callee, not to an entry: a call binds every required input whichever entry it uses (an input with a default, a fallback
+or the optional form may be omitted, link:workflow-verify.adoc#_rule_6_the_sub_workflow_call_contract[Workflow Verification § Rule 6]).
 
 `ast.CallFrame` is one frame of a scope's call stack: `callerWorkflowId`, `callerStateId`, `subWorkflowId`, `entry`,
 `boundArgs` and `pushedAt`. Its `entry` is the entry the frame was entered through: the entry the call names, or the

@@ -20,8 +20,8 @@ the two namespaces - configuration and facts - blur, which is what the plan's th
 
 == Decision
 
-* A `reads_config` key with the stem `derived.` is refused as `CONFIG_KEY_BINDING`, naming the key and pointing at
-  `reads_fact`; the fact kind is declared without the stem.
+* A `reads_config` key with the bare value `derived` or the stem `derived.` is refused as `CONFIG_KEY_BINDING`, naming
+  the key and pointing at `reads_fact`; the fact kind is declared without the stem.
 * `reads_fact` names the kind alone; the domain of a fact is not a configuration key and has no fallback.
 * `depends_on_config` keeps accepting `derived.<kind>`: the guard clause is a configuration read of the guard, not an
   input declaration of the unit.
