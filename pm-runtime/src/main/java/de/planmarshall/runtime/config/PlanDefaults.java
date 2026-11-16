@@ -70,9 +70,9 @@ public record PlanDefaults(String landing, String method, String asking, @Nullab
      * @throws IllegalArgumentException if a value is not one the schema admits
      */
     public PlanDefaults {
-        Objects.requireNonNull(landing, "landing");
-        Objects.requireNonNull(method, "method");
-        Objects.requireNonNull(asking, "asking");
+        Objects.requireNonNull(landing, KEY_LANDING);
+        Objects.requireNonNull(method, KEY_METHOD);
+        Objects.requireNonNull(asking, KEY_ASKING);
         requireVariant(KEY_LANDING, landing, LANDING_VARIANTS);
         requireVariant(KEY_METHOD, method, METHOD_VARIANTS);
         requireVariant(KEY_ASKING, asking, ASKING_VARIANTS);

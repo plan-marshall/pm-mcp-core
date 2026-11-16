@@ -41,10 +41,13 @@ public class OnboardingRouter {
     /** The wire name of the settings, shared by the target and the opening state. */
     private static final String SETTINGS = "settings";
 
+    /** The wire name of an aspect call, shared by the target and the change check. */
+    private static final String ASPECT = "aspect";
+
     /** The states the router answers with: an aspect call, or one of the three states a run ends in. */
     public enum Target {
         /** Call the aspect the route names. */
-        ASPECT("aspect"),
+        ASPECT(OnboardingRouter.ASPECT),
         /** {@code onboard.completed}: the guided first run reached its last aspect. */
         COMPLETED("completed"),
         /** {@code onboard.auto-result}: the automatic run reached its last aspect. */
@@ -138,7 +141,7 @@ public class OnboardingRouter {
      */
     public static Route change(AutoOnboardingResult result, OnboardingAspect aspect) {
         Objects.requireNonNull(result, "result");
-        Objects.requireNonNull(aspect, "aspect");
+        Objects.requireNonNull(aspect, ASPECT);
         if (result.of(aspect).isEmpty()) {
             throw new IllegalArgumentException(
                     "the automatic run's result carries no item of the aspect '%s'".formatted(aspect.wireName()));

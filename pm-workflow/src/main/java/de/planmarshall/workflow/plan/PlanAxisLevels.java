@@ -45,10 +45,10 @@ public final class PlanAxisLevels {
     private static final List<PlanFacts.Level> LEVELS = List.of(PlanFacts.Level.PLAN,
             PlanFacts.Level.PROJECT, PlanFacts.Level.MACHINE);
 
-    private final Map<PlanFacts.Level, Map<String, String>> levels;
+    private final Map<PlanFacts.Level, Map<String, String>> recorded;
 
-    private PlanAxisLevels(Map<PlanFacts.Level, Map<String, String>> levels) {
-        this.levels = levels;
+    private PlanAxisLevels(Map<PlanFacts.Level, Map<String, String>> recorded) {
+        this.recorded = recorded;
     }
 
     /**
@@ -115,7 +115,7 @@ public final class PlanAxisLevels {
      * @return the raw values that level records, by key; never {@code null}
      */
     private Map<String, String> levelValues(PlanFacts.Level level) {
-        return levels.getOrDefault(level, Map.of());
+        return recorded.getOrDefault(level, Map.of());
     }
 
     /**
