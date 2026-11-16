@@ -90,6 +90,12 @@ public class MachineConfigurationCodec {
     /** The lowest {@code lsp_idle_timeout_seconds} the schema admits. */
     static final int MIN_LSP_IDLE_TIMEOUT_SECONDS = 60;
 
+    /** The parameter name of a document's file, in a refusal. */
+    private static final String ARG_FILE = "file";
+
+    /** The parameter name of a document's bytes, in a refusal. */
+    private static final String ARG_DOCUMENT = "document";
+
     /** The form of a refusal that names the member and the reason. */
     private static final String DETAIL_FORMAT = "%s: %s";
 
@@ -122,8 +128,8 @@ public class MachineConfigurationCodec {
      * @throws StoreRefusal if the document declares another format version or is unreadable
      */
     public static Document read(Path file, byte[] document) {
-        Objects.requireNonNull(file, "file");
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(file, ARG_FILE);
+        Objects.requireNonNull(document, ARG_DOCUMENT);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
         var pass = new Pass(file, Replacement.NONE);
         pass.run(document);
@@ -141,8 +147,8 @@ public class MachineConfigurationCodec {
      * @throws StoreRefusal if the document declares another format version or is unreadable
      */
     public static byte[] write(Path file, byte[] document, ProviderDefaults providers, long revision) {
-        Objects.requireNonNull(file, "file");
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(file, ARG_FILE);
+        Objects.requireNonNull(document, ARG_DOCUMENT);
         Objects.requireNonNull(providers, FIELD_PROVIDERS);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
         var pass = new Pass(file, new Replacement(providers, null, null, revision));
@@ -162,8 +168,8 @@ public class MachineConfigurationCodec {
      * @throws StoreRefusal if the document declares another format version or is unreadable
      */
     public static byte[] writeDocumentsMode(Path file, byte[] document, DocumentsMode mode, long revision) {
-        Objects.requireNonNull(file, "file");
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(file, ARG_FILE);
+        Objects.requireNonNull(document, ARG_DOCUMENT);
         Objects.requireNonNull(mode, FIELD_DOCUMENTS_MODE);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
         var pass = new Pass(file, new Replacement(null, mode, null, revision));
@@ -182,8 +188,8 @@ public class MachineConfigurationCodec {
      * @throws StoreRefusal if the document declares another format version or is unreadable
      */
     public static byte[] writeCleanup(Path file, byte[] document, CleanupDurations durations, long revision) {
-        Objects.requireNonNull(file, "file");
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(file, ARG_FILE);
+        Objects.requireNonNull(document, ARG_DOCUMENT);
         Objects.requireNonNull(durations, FIELD_CLEANUP);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
         var pass = new Pass(file, new Replacement(null, null, durations, revision));

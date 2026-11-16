@@ -138,15 +138,23 @@ class PlanOverridesStoreTest {
         var refused = values().toBuilder()
                 .axes(Map.of(Axis.LANDING, "landing.files"))
                 .build();
+        var stamp = new UpdatedBy(Channel.CLI, null);
+        var now = CLOCK.instant();
+        SettingsConflict conflict;
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(scope.lockKey());
+            var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
 
-        var conflict = assertThrows(SettingsConflict.class,
-                () -> write(refused, PlanOverrides.NO_DOCUMENT),
-                "A change against the consumed revision is refused");
+            conflict = assertThrows(SettingsConflict.class,
+                    () -> store.write(write, refused, PlanOverrides.NO_DOCUMENT, stamp, now),
+                    "A change against the consumed revision is refused");
+        }
 
+        var refusal = conflict;
         assertAll(
-                () -> assertEquals(SettingsConflict.ERROR_CODE, conflict.code(), "The refusal carries conflict"),
-                () -> assertEquals(accepted, conflict.currentValue(), "The refusal names the current document"),
-                () -> assertEquals(conflict.currentValue(), store.read(), "The refused write changes nothing"),
+                () -> assertEquals(SettingsConflict.ERROR_CODE, refusal.code(), "The refusal carries conflict"),
+                () -> assertEquals(accepted, refusal.currentValue(), "The refusal names the current document"),
+                () -> assertEquals(refusal.currentValue(), store.read(), "The refused write changes nothing"),
                 () -> assertEquals(1L, store.read().revision(), "Only one write advances the revision"));
     }
 
@@ -156,14 +164,15 @@ class PlanOverridesStoreTest {
         var invalid = values().toBuilder()
                 .providers(new Providers(List.of("x"), List.of()))
                 .build();
+        var stamp = new UpdatedBy(Channel.CLI, null);
+        var now = CLOCK.instant();
 
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
             var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
 
             assertThrows(IllegalArgumentException.class,
-                    () -> store.write(write, invalid, PlanOverrides.NO_DOCUMENT, new UpdatedBy(Channel.CLI, null),
-                            CLOCK.instant()),
+                    () -> store.write(write, invalid, PlanOverrides.NO_DOCUMENT, stamp, now),
                     "A provider name the schema refuses is refused");
         }
         assertTrue(Files.notExists(expected()), "A refused write leaves no document");
@@ -175,14 +184,16 @@ class PlanOverridesStoreTest {
         var epic = JournalScope.epic(base, project,
                 "epic-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         Files.createDirectories(epic.journalFile().getParent());
+        var stamp = new UpdatedBy(Channel.CLI, null);
+        var now = CLOCK.instant();
+        var proposed = values();
 
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(epic.lockKey());
             var write = ScopeTransaction.open(transaction, epic, audit, CLOCK);
 
             assertThrows(IllegalArgumentException.class,
-                    () -> store.write(write, values(), PlanOverrides.NO_DOCUMENT, new UpdatedBy(Channel.CLI, null),
-                            CLOCK.instant()),
+                    () -> store.write(write, proposed, PlanOverrides.NO_DOCUMENT, stamp, now),
                     "The plan overrides are written by the plan's own transaction");
         }
         assertTrue(Files.notExists(epic.pathBase().resolve("overrides.json")),

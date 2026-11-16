@@ -99,6 +99,9 @@ public class PlanOverridesCodec {
     /** The grammar of a paired device id, from the schema. */
     static final Pattern DEVICE_ID = Pattern.compile("dev-[0-9a-f]{12}");
 
+    /** The form of a refusal that names the member and the reason. */
+    private static final String DETAIL_FORMAT = "%s: %s";
+
     /**
      * @param file     the document's file, named by a refusal
      * @param document the document, UTF-8 encoded
@@ -311,7 +314,7 @@ public class PlanOverridesCodec {
         try {
             return new Role(harness, model, effort);
         } catch (IllegalArgumentException e) {
-            throw unreadable("%s: %s".formatted(name, e.getMessage()), e);
+            throw unreadable(DETAIL_FORMAT.formatted(name, e.getMessage()), e);
         }
     }
 
@@ -327,7 +330,7 @@ public class PlanOverridesCodec {
             try {
                 axes.put(axis, requireVariant(axis, value));
             } catch (IllegalArgumentException e) {
-                throw unreadable("%s: %s".formatted(field, e.getMessage()), e);
+                throw unreadable(DETAIL_FORMAT.formatted(field, e.getMessage()), e);
             }
         }
         return axes;
@@ -342,7 +345,7 @@ public class PlanOverridesCodec {
         try {
             return requireBaseBranch(string(parser, FIELD_BASE_BRANCH));
         } catch (IllegalArgumentException e) {
-            throw unreadable("%s: %s".formatted(FIELD_BASE_BRANCH, e.getMessage()), e);
+            throw unreadable(DETAIL_FORMAT.formatted(FIELD_BASE_BRANCH, e.getMessage()), e);
         }
     }
 

@@ -132,20 +132,19 @@ class PlanOverridesCodecTest {
     @DisplayName("a role that sets no value, a variant off its axis and an unknown member are refused")
     void refusals() {
         var text = new String(PlanOverridesCodec.write(overrides()), UTF_8);
+        var offAxis = overridesWithAxes(Map.of(Axis.LANDING, "method.test-first"));
+        var unknownMember = text.replace("\"revision\":3", "\"revision\":3,\"unknown\":true").getBytes(UTF_8);
+        var unknownAxis = text.replace("\"method\":", "\"unknown\":").getBytes(UTF_8);
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new Role(null, null, null), "A role override sets at least one value"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> PlanOverridesCodec.write(overridesWithAxes(Map.of(Axis.LANDING, "method.test-first"))),
-                        "A variant off its axis is refused"),
-                () -> assertThrows(StoreRefusal.class,
-                        () -> PlanOverridesCodec.read(file(),
-                                text.replace("\"revision\":3", "\"revision\":3,\"unknown\":true").getBytes(UTF_8)),
+                        () -> PlanOverridesCodec.write(offAxis), "A variant off its axis is refused"),                () -> assertThrows(StoreRefusal.class,
+                        () -> PlanOverridesCodec.read(file(), unknownMember),
                         "An undeclared member is refused"),
                 () -> assertThrows(StoreRefusal.class,
-                        () -> PlanOverridesCodec.read(file(),
-                                text.replace("\"method\":", "\"unknown\":").getBytes(UTF_8)),
+                        () -> PlanOverridesCodec.read(file(), unknownAxis),
                         "An axis the schema does not admit is refused"));
     }
 
@@ -153,12 +152,13 @@ class PlanOverridesCodecTest {
     @DisplayName("a written document is at revision 1 or more and carries its stamp")
     void stampRequired() {
         var unstamped = overrides().toBuilder().updatedAt(null).build();
+        var absentRevision = overrides().toBuilder().revision(0).build();
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> PlanOverridesCodec.write(unstamped),
                         "A document without a write instant is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> PlanOverridesCodec.write(overrides().toBuilder().revision(0).build()),
+                        () -> PlanOverridesCodec.write(absentRevision),
                         "A written document is at revision 1 or more"));
     }
 

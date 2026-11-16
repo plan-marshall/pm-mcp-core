@@ -63,7 +63,7 @@ public final class PlanOverridesStore {
         final byte[] document;
         try {
             document = Files.readAllBytes(file);
-        } catch (NoSuchFileException e) {
+        } catch (NoSuchFileException _) {
             return PlanOverrides.absent();
         } catch (IOException e) {
             throw new UncheckedIOException("The plan overrides cannot be read: " + file, e);
