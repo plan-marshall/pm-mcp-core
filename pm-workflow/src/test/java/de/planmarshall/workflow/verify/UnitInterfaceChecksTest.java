@@ -30,21 +30,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.InputType;
-import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
  * The static reads of a unit (PM-WF-16, Rule 1): every {@code reads_config} key exists in the closed configuration and
  * names no derived fact, every {@code reads_fact} is a known kind, and every input fallback is a listed key of an
- * assignable domain, with a compiled default where the input is required. The registries are arguments of the verifier,
- * so this class supplies a fixture registry of its own; the default validator carries the empty registries and refuses
- * every declared read (fail closed).
+ * assignable domain, with a compiled default where the input has neither a default nor the {@code ?}. The registries are
+ * arguments of the verifier, so this class supplies a fixture registry of its own; the default validator carries the
+ * empty registries and refuses every declared read (fail closed).
  */
 @EnableGeneratorController
 @DisplayName("The static reads of a unit")
 class UnitInterfaceChecksTest {
 
-    private static final SourceLocation LOCATION = new SourceLocation("declared-reads.pmwf", 1, 1);
 
     private static final ConfigKeyRegistry CONFIG = ConfigKeyRegistry.of(List.of(
             new ConfigKeyRegistry.ConfigKey("project.review.currency",

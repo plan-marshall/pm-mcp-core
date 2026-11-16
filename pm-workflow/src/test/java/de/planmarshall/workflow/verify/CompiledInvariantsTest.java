@@ -413,6 +413,8 @@ class CompiledInvariantsTest {
                                     + " {main=replan.assess} of the default unit"),
                     Arguments.of(InvariantFixtures.INTERFACE_INPUT_WIDENED,
                             "the input 'push_mode' differs from the input of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_INPUT_RANGE,
+                            "the input 'retry_budget' differs from the input of the default unit"),
                     Arguments.of(InvariantFixtures.INTERFACE_INPUT_MISSING,
                             "the input 'push_mode' of the default unit is missing"));
         }

@@ -397,8 +397,9 @@ public final class WorkflowValidator {
     }
 
     /**
-     * Rule 1, an input fallback: the key is one the unit reads, its domain is assignable to the input type, and a
-     * required input needs a key with a compiled default, so the fallback never leaves the input without a value.
+     * Rule 1, an input fallback: the key is one the unit reads, its domain is assignable to the input type, and an input
+     * with neither a default nor the optional form (so the fallback is its only source) needs a key with a compiled
+     * default, so the fallback never leaves the input without a value.
      */
     private void checkInputFallback(WorkflowDefinition definition, InputDecl input, String stateId,
             List<Violation> violations) {

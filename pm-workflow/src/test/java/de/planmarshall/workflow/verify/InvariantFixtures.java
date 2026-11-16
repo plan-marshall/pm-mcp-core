@@ -117,6 +117,10 @@ public final class InvariantFixtures {
     static final Mutation INTERFACE_INPUT_WIDENED = new Mutation("an input of a widened domain", GIT_FILE,
             "input_type: enum[push|no_push]", "input_type: enum[push|no_push|force]");
 
+    /** The project's remediation unit widens the range of a budget input its default unit declares. */
+    static final Mutation INTERFACE_INPUT_RANGE = new Mutation("an input of a widened range", REMEDIATION_FILE,
+            "input: retry_budget\ninput_type: int[0..5]", "input: retry_budget\ninput_type: int[0..9]");
+
     /** The project's commit unit drops an input its default unit declares. */
     static final Mutation INTERFACE_INPUT_MISSING = new Mutation("an input the default unit declares", GIT_FILE,
             "input: push_mode\ninput_type: enum[push|no_push]\n", "");
