@@ -652,11 +652,9 @@ final class ScenarioReplayRunner {
         before.forEach((role, worker) -> {
             var restarted = new ScriptedProtocolWorker(role, worker.generation(), fixtures.protocol());
             restarted.replaced(worker.replaced());
-            if (!worker.replaced()) {
-                var leased = leasedTaskOf(worker.generation());
-                if (leased != null) {
-                    restarted.leased(leased);
-                }
+            var held = taskOfGeneration(worker.generation());
+            if (held != null) {
+                restarted.leased(held);
             }
             protocolWorkers.put(role, restarted);
         });
@@ -664,11 +662,19 @@ final class ScenarioReplayRunner {
         lastWorkerCall = null;
     }
 
-    /** @return the task the queue's lease names for the generation; {@code null} when it holds none */
-    private QueueTaskRecord leasedTaskOf(String generation) {
-        return fixtures.queue.records().stream()
+    /**
+     * @param generation a generation
+     * @return the task the queue's lease names for the generation, or the task whose last attempt belonged to it, so a
+     *         replaced generation keeps the handle its late call names; {@code null} when no record names it
+     */
+    private QueueTaskRecord taskOfGeneration(String generation) {
+        var records = fixtures.queue.records();
+        return records.stream()
                 .filter(task -> task.lease() != null && task.lease().generationId().equals(generation))
                 .findFirst()
+                .or(() -> records.stream().filter(task -> task.attempts().stream()
+                                .anyMatch(attempt -> attempt.generationId().equals(generation)))
+                        .findFirst())
                 .orElse(null);
     }
 

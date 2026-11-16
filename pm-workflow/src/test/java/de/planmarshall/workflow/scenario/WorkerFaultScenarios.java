@@ -9,6 +9,10 @@
  */
 package de.planmarshall.workflow.scenario;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
  * The scripts of the supervision scenarios of {@code pm-scenario} (PM-TEST-4): the fault matrix of the specification's
  * regression scenario 12 and the runtime-crash scenarios of the work package {@code supervision-scenarios}.
@@ -282,6 +286,51 @@ final class WorkerFaultScenarios {
             kill_worker reviewer
             assert_worker_state reviewer fenced
             """;
+
+    /**
+     * A restart that follows a loss: the replaced generation keeps its task handle, so its late call is refused at the
+     * fence rather than failing in the harness, and the successor still takes the released task.
+     */
+    static final String RESTART_AFTER_A_LOSS_THEN_A_LATE_CALL = """
+            scenario restart-after-a-loss-then-a-late-call
+            start plan scenario-plan
+            complete_job b-0000000000000001 {"outcome":"succeeded"}
+            worker_wait reviewer
+            worker_do reviewer ack {}
+            kill_worker reviewer
+            restart_runtime
+            assert_worker_state reviewer fenced
+            worker_do reviewer submit:change {}
+            assert_refused generation_fenced
+            worker_wait reviewer
+            worker_do reviewer ack {}
+            worker_do reviewer submit:change {}
+            assert_task_outcome reviewer submitted
+            """;
+
+    /**
+     * Every script of this catalogue, by name, in the order the determinism proof replays them: the one registry the
+     * provider derives from, so a script added here is replayed twice without a second list to keep.
+     */
+    static final Map<String, String> ALL = all();
+
+    private static Map<String, String> all() {
+        var all = new LinkedHashMap<String, String>();
+        all.put("kill-before-ack", KILL_BEFORE_ACK);
+        all.put("kill-after-ack", KILL_AFTER_ACK);
+        all.put("stall-short", STALL_SHORT);
+        all.put("stall-long", STALL_LONG);
+        all.put("stall-cumulative", STALL_CUMULATIVE);
+        all.put("end-turn", END_TURN);
+        all.put("kill-relay", KILL_RELAY);
+        all.put("budget-exhausted", BUDGET_EXHAUSTED);
+        all.put("restart-with-a-lease", RESTART_WITH_A_LEASE);
+        all.put("restart-held-by-one-generation", RESTART_HELD_BY_ONE_GENERATION);
+        all.put("restart-after-a-loss", RESTART_AFTER_A_LOSS);
+        all.put("restart-then-lost", RESTART_THEN_LOST);
+        all.put("restart-after-a-loss-then-a-late-call", RESTART_AFTER_A_LOSS_THEN_A_LATE_CALL);
+        return Collections.unmodifiableMap(all);
+    }
 
     private WorkerFaultScenarios() {
     }

@@ -936,6 +936,22 @@ class ScenarioReplayRunnerTest {
         }
 
         @Test
+        @DisplayName("Should refuse a late call of a generation lost before a restart")
+        void shouldRefuseALateCallAfterARestart() {
+            var runner = replayed(WorkerFaultScenarios.RESTART_AFTER_A_LOSS_THEN_A_LATE_CALL);
+            var task = task(runner);
+            var lost = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the successor submitted the task once"),
+                    () -> assertEquals(2, attempts(task).size(), "the task was offered to two generations"),
+                    () -> assertEquals(AttemptEnd.WORKER_LOST, lost.end(), "the first worker was lost"),
+                    () -> assertTrue(runner.fixtures().fences.isFenced(lost.generationId()),
+                            "the fence survived the restart"),
+                    () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"));
+        }
+
+        @Test
         @DisplayName("Should free a leased task on a pause at once without spending a re-offer")
         void shouldFreeTheLeaseOnAPauseAtOnce() {
             var runner = runner();

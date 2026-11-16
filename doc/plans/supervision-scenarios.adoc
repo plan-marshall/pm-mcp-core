@@ -17,7 +17,8 @@ The deterministic half of this package is delivered by the `pm-scenario` harness
 regression scenario 12 and the runtime restart replay in process, without a live model or a real process. D5, the same
 faults against real processes, is `plan-marshall-mcp`'s (`worker-integration-tests`). Two deliverables stay owed, and
 both are work of `pm-conformance` in `plan-marshall-mcp`, never of this repository
-(link:../../pm-workflow/doc/adr/workflow-scenario/007-conformance-harness-in-pm-conformance.adoc[ADR 007]):
+(link:../../pm-workflow/doc/adr/workflow-scenario/007-conformance-harness-in-pm-conformance.adoc[ADR 007]); how that
+module consumes this repository's test-scope harness is its own decision:
 
 . *D6, the runs and baselines of the behavioural conformance harness*, its scenario records and its rule selection:
    link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#behavioural-conformance-harness[Workflow

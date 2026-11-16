@@ -30,10 +30,13 @@ The repository facts the decision rests on, read at the head of `main` before th
 == Decision
 
 D6 and D7 are not built in `pm-workflow`. They belong to `pm-conformance` in `plan-marshall-mcp`, and a plan there
-builds them on top of the shipped `pm-scenario` harness. This decision names the split in the pull request and reports
-it as a finding in the inbox message. D2, D3 and the operator act of D4 are delivered in this repository, and so is
-D1: the `pm-scenario` fault directives (`kill_worker`, `stall_worker`, `end_turn`, `kill_relay`, `restart_runtime`)
-apply the supervisor's reported facts to the protocol worker
+builds them on the deterministic harness this repository ships. How that plan consumes it — a published scenario API in
+the module's test artifact, a shared module, or an explicit copy — is that plan's decision: the scenario classes are
+test scope and package-private here, and their artifact publishes only the generators
+(`de/planmarshall/workflow/testing/generators/`). This decision names the split in the pull request and reports it as a
+finding in the inbox message. D2, D3 and the operator act of D4 are delivered in this repository, and so is D1: the
+`pm-scenario` fault directives (`kill_worker`, `stall_worker`, `end_turn`, `kill_relay`, `restart_runtime`) apply the
+supervisor's reported facts to the protocol worker
 (link:010-worker-faults-apply-the-supervisors-facts.adoc[ADR 010]). D5, the same faults against real processes, stays
 in `plan-marshall-mcp` (`worker-integration-tests`).
 
