@@ -374,6 +374,10 @@ The fixture launcher `FakePmExec` applies nothing; its mode `REPORT_GIT_METADATA
 so a test can prove the record copies a launcher's statement while the same launcher enforces none of it
 (link:../../src/test/java/de/planmarshall/runtime/job/GitMetadataJobTest.java[`GitMetadataJobTest`]).
 
+The check is a point-in-time comparison: a change a worker makes after `verify` and before the `git` process starts is
+outside it, and on a platform whose launcher applies no read-only set the comparison at the two points is the net. The
+launcher's enforcement, not the runtime's check, is what closes that window.
+
 
 [#_probe_jobs]
 == Probe Jobs

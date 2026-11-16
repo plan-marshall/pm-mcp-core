@@ -63,7 +63,9 @@ rebaselines — the sink is where the assembly reports that and the operator's a
 spawns is what makes two concurrent workers safe: a spawn does not re-bless what another worker wrote in between. A
 worktree created after the spawn is not in the read-only set, but its administration files are in the digest of the next
 comparison. The sink's wiring to the plan's hold, the native variant's call of `verify` and the operator's act are the
-assembly's and the engine's, not this package's.
+assembly's and the engine's, not this package's. A change a worker makes after the check and before the `git` process
+starts is outside the check; on a platform whose launcher applies nothing, detection at the two points is the net, and
+the launcher's enforcement is what closes the window.
 
 == Source
 

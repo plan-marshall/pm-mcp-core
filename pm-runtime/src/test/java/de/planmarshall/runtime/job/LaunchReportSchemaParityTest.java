@@ -11,7 +11,6 @@ package de.planmarshall.runtime.job;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -62,7 +61,8 @@ class LaunchReportSchemaParityTest {
                 () -> assertEquals(List.of("pid", "process_started_at", "confinement", "landlock_abi"),
                         names(SchemaResource.array(schema.get("required"))),
                         "the four members are required"),
-                () -> assertNotEquals(Boolean.TRUE, schema.get("additionalProperties"), "the schema stays closed"));
+                () -> assertEquals(Boolean.FALSE, schema.get("additionalProperties"),
+                        "the schema stays closed"));
     }
 
     @Test

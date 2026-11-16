@@ -62,6 +62,7 @@ import de.planmarshall.core.store.JobRecord.GitMetadata;
 import de.planmarshall.core.store.JobRecord.Status;
 import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.job.JobEvidence.Exited;
 import de.planmarshall.runtime.job.JobEvidence.LogState;
@@ -551,7 +552,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             case JobVerification.Refused(var refusal) -> refuse(request, budget, store, refusal.reason().code());
             case JobVerification.Verified(var job) -> {
                 var projectRoot = projectRoot(job.enrolment());
-                if (request.kind() == JobId.Kind.GIT
+                if (isGitTarget(request)
                         && gitMetadataGuard.verify(projectRoot) instanceof GitMetadataGuard.Changed(var parts)) {
                     yield settleRefused(request, budget, store, GIT_METADATA_CHANGED, projectRoot, parts);
                 }
@@ -654,6 +655,17 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** @return the canonical project root of an enrolment */
     private static Path projectRoot(ProjectEnrolment enrolment) {
         return Path.of(enrolment.projectRoot()).toAbsolutePath().normalize();
+    }
+
+    /**
+     * @param request a start request
+     * @return whether the request runs git, by its kind or by a host-tool target, so a kind and a target that disagree
+     *         cannot skip the metadata check
+     */
+    private static boolean isGitTarget(JobRunner.StartRequest<JobRequest> request) {
+        return request.kind() == JobId.Kind.GIT
+                || request.request().target() instanceof JobRequest.HostToolCall(var tool, _)
+                && tool == HostToolName.GIT;
     }
 
     /**

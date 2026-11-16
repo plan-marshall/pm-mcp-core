@@ -266,6 +266,73 @@ class GitMetadataDigestTest {
     }
 
     @Test
+    @DisplayName("Should fail closed on a symbolic link inside the hook directory")
+    void shouldFailClosedOnASymlinkedHook() throws Exception {
+        var root = repository();
+        Files.createSymbolicLink(root.resolve(".git/hooks/pre-commit"), root.resolve("README.md"));
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE), "a symlinked hook is fail closed");
+    }
+
+    @Test
+    @DisplayName("Should fail closed on a symbolic link as the hook directory")
+    void shouldFailClosedOnASymlinkedHookDirectory() throws Exception {
+        var root = repository();
+        Files.delete(root.resolve(".git/hooks"));
+        Files.createSymbolicLink(root.resolve(".git/hooks"), root.resolve(".git"));
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE), "a symlinked hook directory is fail closed");
+    }
+
+    @Test
+    @DisplayName("Should read a section header that carries its key on the same line")
+    void shouldReadSameLineInclude() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"), "[include] path = extra.cfg\n");
+        Files.writeString(root.resolve(".git/extra.cfg"), "[core]\n\tfsmonitor = " + name() + "\n");
+        var before = GitMetadataDigest.of(root);
+        Files.writeString(root.resolve(".git/extra.cfg"), "[core]\n\tfsmonitor = attacker\n");
+
+        var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
+
+        assertEquals(Set.of(".git/extra.cfg"), changed, "an include on the header line is digested");
+    }
+
+    @Test
+    @DisplayName("Should not treat two sibling includes of one file as a cycle")
+    void shouldNotTreatSiblingIncludesAsACycle() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"),
+                "[include]\n\tpath = shared.cfg\n[include]\n\tpath = shared.cfg\n");
+        Files.writeString(root.resolve(".git/shared.cfg"), "[core]\n\tfsmonitor = " + name() + "\n");
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertAll("Two sibling includes of one file",
+                () -> assertFalse(parts.containsKey(GitMetadataDigest.UNREADABLE),
+                        "a repeated include is not a cycle"),
+                () -> assertTrue(parts.containsKey(".git/shared.cfg"), "the shared file is digested"));
+    }
+
+    @Test
+    @DisplayName("Should digest the includes of the worktree config")
+    void shouldDigestWorktreeConfigIncludes() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config.worktree"), "[include]\n\tpath = extra.cfg\n");
+        Files.writeString(root.resolve(".git/extra.cfg"), "[core]\n\tfsmonitor = " + name() + "\n");
+        var before = GitMetadataDigest.of(root);
+        Files.writeString(root.resolve(".git/extra.cfg"), "[core]\n\tfsmonitor = attacker\n");
+
+        var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
+
+        assertEquals(Set.of(".git/extra.cfg"), changed, "the worktree config's includes are digested");
+    }
+
+    @Test
     @DisplayName("Should digest nothing for a project without git")
     void shouldDigestNothingWithoutGit() throws Exception {
         var root = Files.createDirectories(base.resolve(name()));

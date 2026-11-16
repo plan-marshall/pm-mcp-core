@@ -245,8 +245,7 @@ class JobConfinementComposerTest {
             gitProject();
             var enrolment = enrolment(null, Map.of());
 
-            assertAll(Stream.of(JobId.Kind.BUILD, JobId.Kind.PROJECT_SCRIPT, JobId.Kind.GIT, JobId.Kind.CI,
-                    JobId.Kind.PROBE)
+            assertAll(Stream.of(JobId.Kind.values()).filter(kind -> kind != JobId.Kind.LLM)
                     .map(kind -> () -> assertTrue(composer()
                                     .forJob(enrolment, new JobId(jobIds(kind).next()), List.of(), false)
                                     .readOnlyPaths().isEmpty(),
@@ -264,7 +263,7 @@ class JobConfinementComposerTest {
         }
 
         @Test
-        @DisplayName("a linked worktree outside the root is not named as a read-only path")
+        @DisplayName("a linked worktree outside the root and the write set is not named as a read-only path")
         void outsideWorktreeIsNotReadOnly() throws Exception {
             var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var admin = Files.createDirectories(project.resolve(".git/worktrees/outside"));
@@ -273,14 +272,15 @@ class JobConfinementComposerTest {
             var outsideLink = outside.resolve(".git");
             Files.writeString(outsideLink, "gitdir: " + admin + "\n");
             Files.writeString(admin.resolve("gitdir"), outsideLink + "\n");
+            var localComposer = new JobConfinementComposer(base, base.resolve("tmp"), base.resolve("dev"), bus);
 
-            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+            var confinement = localComposer.forJob(enrolment(null, Map.of()), job, List.of(), false);
 
-            assertAll("Only the metadata inside the root is read-only",
+            assertAll("Only the metadata inside the write set is read-only",
                     () -> assertTrue(confinement.readOnlyPaths().contains(project.resolve(".git")),
                             "the git directory of the root is read-only"),
                     () -> assertFalse(confinement.readOnlyPaths().contains(outsideLink),
-                            "a link file outside the root is not read-only"));
+                            "a link file outside the write set is not read-only"));
         }
 
         /** @return the {@code .git} link file of a linked worktree of the project */

@@ -74,8 +74,11 @@ public final class GitMetadataDigest {
     /** The administration files of a linked worktree that are digested when they exist. */
     private static final List<String> ADMINISTRATION_FILES = List.of("gitdir", "commondir", CONFIG_WORKTREE);
 
-    /** A section header of a git config file. */
-    private static final Pattern SECTION = Pattern.compile("^\\s*\\[([^\\]]+)]\\s*$");
+    /** Largest metadata input the digest reads; a larger file is fail-closed rather than read. */
+    private static final long MAX_INPUT_BYTES = 8L * 1024 * 1024;
+
+    /** A section header of a git config file, with an optional key or comment after the bracket. */
+    private static final Pattern SECTION = Pattern.compile("^\\s*\\[([^\\]]+)](.*)$");
 
     /**
      * Digests the git metadata of a project.
@@ -98,11 +101,11 @@ public final class GitMetadataDigest {
             return parts;
         }
         var config = gitDirectory.resolve(CONFIG);
+        var worktreeConfig = gitDirectory.resolve(CONFIG_WORKTREE);
         digestFile(root, config, parts, failures);
-        if (Files.exists(config, LinkOption.NOFOLLOW_LINKS)) {
-            includes(root, config, parts, failures, 0, new HashSet<>());
-        }
-        digestFile(root, gitDirectory.resolve(CONFIG_WORKTREE), parts, failures);
+        includes(root, config, parts, failures, 0, new HashSet<>());
+        digestFile(root, worktreeConfig, parts, failures);
+        includes(root, worktreeConfig, parts, failures, 0, new HashSet<>());
         hooks(root, gitDirectory.resolve(HOOKS), parts, failures);
         for (var linkFile : paths.linkFiles()) {
             digestFile(root, linkFile, parts, failures);
@@ -115,6 +118,9 @@ public final class GitMetadataDigest {
                 var candidate = administration.resolve(file);
                 if (Files.exists(candidate, LinkOption.NOFOLLOW_LINKS)) {
                     digestFile(root, candidate, parts, failures);
+                    if (CONFIG_WORKTREE.equals(file)) {
+                        includes(root, candidate, parts, failures, 0, new HashSet<>());
+                    }
                 }
             }
         }
@@ -155,6 +161,9 @@ public final class GitMetadataDigest {
             failures.add(name(root, file));
             return;
         }
+        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
         var canonical = file.toAbsolutePath().normalize();
         if (!visited.add(canonical)) {
             failures.add(name(root, canonical));
@@ -171,6 +180,7 @@ public final class GitMetadataDigest {
             digestFile(root, target, parts, failures);
             includes(root, target, parts, failures, depth + 1, visited);
         }
+        visited.remove(canonical);
     }
 
     /** The paths a git config file includes, and whether a value could not be resolved. */
@@ -181,6 +191,9 @@ public final class GitMetadataDigest {
     private static IncludeScan includePaths(Path file) {
         List<String> lines;
         try {
+            if (!Files.isRegularFile(file) || Files.size(file) > MAX_INPUT_BYTES) {
+                return new IncludeScan(List.of(), true);
+            }
             lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         } catch (IOException _) {
             return new IncludeScan(List.of(), true);
@@ -215,7 +228,12 @@ public final class GitMetadataDigest {
         var section = SECTION.matcher(line);
         if (section.matches()) {
             var name = section.group(1).trim().toLowerCase(Locale.ROOT);
-            return new ScanStep(INCLUDE.equals(name) || name.startsWith(INCLUDE_IF), null, false);
+            var inSection = INCLUDE.equals(name) || name.startsWith(INCLUDE_IF);
+            var remainder = section.group(2).strip();
+            if (remainder.isEmpty() || remainder.startsWith("#") || remainder.startsWith(";")) {
+                return new ScanStep(inSection, null, false);
+            }
+            return scan(remainder, inSection, directory);
         }
         if (!inIncludeSection) {
             return new ScanStep(false, null, false);
@@ -270,19 +288,23 @@ public final class GitMetadataDigest {
     }
 
     private static void hooks(Path root, Path directory, SortedMap<String, String> parts, Set<String> failures) {
+        if (Files.isSymbolicLink(directory)) {
+            failures.add(name(root, directory));
+            return;
+        }
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
             return;
         }
         List<Path> files;
         try (var children = Files.list(directory)) {
-            files = children.filter(child -> Files.isRegularFile(child, LinkOption.NOFOLLOW_LINKS))
+            files = children.filter(child -> !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS))
                     .sorted(Comparator.comparing(Path::toString)).toList();
         } catch (IOException _) {
             failures.add(name(root, directory));
             return;
         }
         for (var file : files) {
-            var digest = digest(file);
+            var digest = Files.isSymbolicLink(file) ? null : digest(file);
             if (digest == null) {
                 failures.add(name(root, file));
                 continue;
@@ -317,7 +339,13 @@ public final class GitMetadataDigest {
 
     private static @Nullable String digest(Path file) {
         try {
-            return sha256(Files.readAllBytes(file));
+            if (!Files.isRegularFile(file) || Files.size(file) > MAX_INPUT_BYTES) {
+                return null;
+            }
+            try (var input = Files.newInputStream(file)) {
+                var bytes = input.readNBytes((int) MAX_INPUT_BYTES + 1);
+                return bytes.length > MAX_INPUT_BYTES ? null : sha256(bytes);
+            }
         } catch (IOException _) {
             return null;
         }

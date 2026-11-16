@@ -56,12 +56,12 @@ public final class ProtectedPaths {
     public static List<String> of(List<String> repositoryRelativePaths, Collection<String> declaredFiles) {
         Objects.requireNonNull(repositoryRelativePaths, "repositoryRelativePaths");
         Objects.requireNonNull(declaredFiles, "declaredFiles");
-        var declared = declaredFiles.stream().filter(Objects::nonNull).map(ProtectedPaths::normalize)
+        var declared = declaredFiles.stream().filter(Objects::nonNull).map(ProtectedPaths::declarationKey)
                 .collect(Collectors.toUnmodifiableSet());
         var protectedPaths = new ArrayList<String>();
         for (var path : repositoryRelativePaths) {
             Objects.requireNonNull(path, "path");
-            if (!declared.contains(normalize(path)) && matches(normalize(path))) {
+            if (!declared.contains(declarationKey(path)) && matches(normalize(path))) {
                 protectedPaths.add(path);
             }
         }
@@ -93,5 +93,13 @@ public final class ProtectedPaths {
 
     private static String normalize(String path) {
         return Normalizer.normalize(path, Normalizer.Form.NFC);
+    }
+
+    /**
+     * @return the key a declaration and a candidate path are compared by: NFC normalised and lower-cased, so a
+     *         differently cased declaration lifts the path, as the matcher treats the two as one path
+     */
+    private static String declarationKey(String path) {
+        return normalize(path).toLowerCase(Locale.ROOT);
     }
 }
