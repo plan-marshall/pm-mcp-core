@@ -124,7 +124,8 @@ next state and, where it refuses, the reason.
 |`settings.choose`
 |`facts()` reads the recorded documents mode, cleanup durations and plan defaults, the provider defaults with their last
 verification and the remembered consents, and builds the links the state offers (`reconfigure:<aspect>`,
-`withdraw:<kind>`, `documents_mode`, `cleanup_durations`, `credential:<key>`, `verify_providers`, `done`).
+`withdraw:<kind>` — `withdraw:<kind>/<project>` for a project-scoped kind — `documents_mode`, `cleanup_durations`,
+`credential:<key>`, `verify_providers`, `done`).
 
 |`settings.withdraw`, `settings.remove-consent`
 |`withdrawOffer` answers the remembered consent of a scope; `removeConsent` removes it through `ConsentStore.withdraw`, so
@@ -137,7 +138,8 @@ the registered `DerivedTokenCache` seams. A store that refuses the write throws 
 with `credential_store_unavailable`.
 
 |`settings.verify-providers`
-|`verifyProviders` runs `ProviderVerification` over every recorded provider and writes the results against the change's
+|`verifyProviders` runs `ProviderVerification` over every recorded provider — the on-request form — and `verifyProvidersUsing`
+over the providers of one credential key, the form the rotation opens; both write the results against the change's
 revision. A declined consent records nothing and leaves the providers as they were; the consent each verification answers
 with is the caller's to record.
 |===

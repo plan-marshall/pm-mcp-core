@@ -185,6 +185,31 @@ class MachineSettingsStatesTest {
     }
 
     @Test
+    @DisplayName("a project-scoped consent offers its withdrawal with the project's id")
+    void factsProjectScopedWithdrawal() throws Exception {
+        document();
+        consentStore.grant(Consent.builder()
+                .kind(ConsentKind.INSPECT_CHECKOUT)
+                .projectId("project-one")
+                .scripts(List.of())
+                .grantedAt(NOW)
+                .channel(Consent.Channel.WEB)
+                .build(), 0L);
+
+        var facts = settings.facts();
+
+        assertAll(
+                () -> assertTrue(facts.links().contains("withdraw:inspect_checkout/project-one"),
+                        "The project-scoped withdrawal names its project"),
+                () -> assertEquals("project-one", facts.remembered().getFirst().projectId(),
+                        "The remembered consent names its project"),
+                () -> assertTrue(settings.withdrawOffer(ConsentKind.INSPECT_CHECKOUT, "project-one").isPresent(),
+                        "The consent is offered for its own project"),
+                () -> assertTrue(settings.withdrawOffer(ConsentKind.INSPECT_CHECKOUT, "project-two").isEmpty(),
+                        "Another project's scope remembers nothing"));
+    }
+
+    @Test
     @DisplayName("a stored credential is written and every derived token cache of its key is dropped")
     void storeCredential() {
         SecretStore secrets = createMock(SecretStore.class);
@@ -335,6 +360,50 @@ class MachineSettingsStatesTest {
                 () -> assertFalse(read.providers().providers().get(Provider.GITHUB).available(),
                         "The provider's recorded availability is unchanged"),
                 () -> assertEquals(revision, read.revision(), "Nothing is written, so no revision advances"));
+    }
+
+    @Test
+    @DisplayName("a re-check after a rotation verifies only the providers of that credential")
+    void verifyProvidersUsingCredential() throws Exception {
+        Files.writeString(base.resolve(MachineConfigurationStore.FILE_NAME), """
+                {"format_version":1,"revision":%d,"max_build_slots":2,"lsp_idle_timeout_seconds":900,
+                 "providers":{"github":{"available":false,"variant":"cli","credential_key":"github"},
+                              "sonar":{"available":false,"credential_key":"sonar"}}}""".formatted(revision),
+                StandardCharsets.UTF_8);
+        ProviderVerification.ProviderProbe probe = createMock(ProviderVerification.ProviderProbe.class);
+        ProviderVerification.ToolProbe tools = createMock(ProviderVerification.ToolProbe.class);
+        expect(probe.origin(Provider.GITHUB)).andReturn(ProviderVerification.Answer.ok("reachable"));
+        expect(probe.identity(Provider.GITHUB, CREDENTIAL_KEY))
+                .andReturn(ProviderVerification.Answer.ok("ci-whoami"));
+        expect(probe.permissions(Provider.GITHUB, CREDENTIAL_KEY))
+                .andReturn(ProviderVerification.Answer.ok("repo"));
+        expect(probe.expiry(Provider.GITHUB, CREDENTIAL_KEY))
+                .andReturn(ProviderVerification.Answer.ok("2027-01-01"));
+        expect(tools.version(Provider.GITHUB)).andReturn(ProviderVerification.Answer.ok("gh 2.0"));
+        expect(tools.loginIdentity(Provider.GITHUB))
+                .andReturn(ProviderVerification.Answer.ok("ci-whoami"));
+        replay(probe, tools);
+        SecretStore unusedSecrets = createMock(SecretStore.class);
+        var verifying = new MachineSettingsStates(configuration, consentStore, unusedSecrets, List.of(),
+                new ProviderVerification(probe, tools), CLOCK);
+        var gate = new ConsentGate(consentStore.read(), CLOCK);
+
+        var recheck = verifying.verifyProvidersUsing(CREDENTIAL_KEY, gate, ConsentGate.Answer.YES,
+                Consent.Channel.CLI, null, revision);
+        var read = configuration.read();
+
+        assertAll(
+                () -> assertEquals(1, recheck.verifications().size(),
+                        "Only the provider of the credential is checked"),
+                () -> assertEquals(Provider.GITHUB, recheck.verifications().getFirst().provider(),
+                        "The checked provider is the one of the key"),
+                () -> assertTrue(read.providers().providers().get(Provider.GITHUB).available(),
+                        "The rotated provider is recorded available"),
+                () -> assertFalse(read.providers().providers().get(Provider.SONAR).available(),
+                        "A provider of another key keeps its last result"),
+                () -> assertFalse(read.providers().providers().get(Provider.SONAR).verification() != null,
+                        "The other provider's verification stays unrecorded"));
+        verify(probe, tools);
     }
 
     @Test

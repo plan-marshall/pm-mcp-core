@@ -47,8 +47,8 @@ import de.planmarshall.core.store.StrictJson;
  * The document belongs to the operator and holds far more than the machine's provider defaults, so this codec never
  * rewrites the whole file from its own model: it reads {@code providers}, {@code sources.documents_mode},
  * {@code cleanup} and {@code plan_defaults} in place, and a write replaces that one member, keeps every other member —
- * {@code credentials}, the concurrency limits, the languages, the plan defaults — copied through untouched, and writes the
- * revision the caller names. The members the file requires and this codec does not own ({@code max_build_slots},
+ * {@code credentials}, the concurrency limits, the languages — copied through untouched, and writes the revision the
+ * caller names. The members the file requires and this codec does not own ({@code max_build_slots},
  * {@code lsp_idle_timeout_seconds}) are written at their schema defaults when the document is created.
  *
  * @since 0.1

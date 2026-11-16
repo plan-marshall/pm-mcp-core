@@ -224,12 +224,19 @@ class LandingStepCompositionTest {
                         List.of(landing("landing.main", "finalize.land-main"),
                                 landing("landing.main", "finalize.land-main"))),
                 "A variant supplied twice is refused");
+        var unboundCollision = assertThrows(IllegalArgumentException.class,
+                () -> LandingStepComposition.merge(phase(), bound("landing.main", PlanFacts.Level.PLAN),
+                        List.of(landing("landing.main", "finalize.land-main"),
+                                landing("landing.files", "finalize.merge-gate"))),
+                "An unbound variant's state the phase declares is refused too");
 
         assertAll(
                 () -> assertTrue(collision.getMessage().contains("finalize.land-main"),
                         "The refusal names the state declared twice"),
                 () -> assertTrue(twice.getMessage().contains("supplied twice"),
-                        "The refusal names the duplicated variant"));
+                        "The refusal names the duplicated variant"),
+                () -> assertTrue(unboundCollision.getMessage().contains("finalize.merge-gate"),
+                        "The refusal names the unbound state the phase declares"));
     }
 
     @Test

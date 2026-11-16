@@ -29,8 +29,9 @@ import de.planmarshall.core.store.StoreRefusal;
 
 /**
  * The machine's settings this store owns (Store Schemas § Machine Configuration Store, State Catalogue § The Machine's
- * Settings): how a start takes its documents ({@code sources.documents_mode}) and the durations of the one cleanup
- * ({@code cleanup}). Each write replaces its own member and keeps the operator's other members; a change against the
+ * Settings): how a start takes its documents ({@code sources.documents_mode}), the durations of the one cleanup
+ * ({@code cleanup}) and the machine's default of each plan behaviour axis ({@code plan_defaults}). Each write replaces its
+ * own member and keeps the operator's other members; a change against the
  * revision another change already advanced the document past is refused with {@code conflict} and the current value,
  * so the first change wins and the second is refused.
  * <p>

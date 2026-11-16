@@ -35,8 +35,9 @@ composition algorithm, not the units.
 * The phase's step list (`CompositionRequest.finalizeSteps`) is unchanged: the composition adds states at the phase's
   orders, and the instance's roster keeps naming them. A landing variant that needs its own roster entry is the
   assembly's; this class adds no step id.
-* The composer keeps its call-site composition; the merge is called where the finalize phase is composed, which is the
-  assembly's seam. `holdsLandingSteps(unit)` names the unit the states belong to.
+* The composer keeps its call-site composition; the merge is to be called where the finalize phase is composed, which is
+  the assembly's seam, and no caller of it exists in this repository yet. `holdsLandingSteps(unit)` names the unit the
+  states belong to.
 
 == Alternatives Considered
 

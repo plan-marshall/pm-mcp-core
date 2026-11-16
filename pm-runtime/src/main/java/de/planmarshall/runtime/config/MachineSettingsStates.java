@@ -16,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -46,7 +47,11 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * <b>A rotated secret drops its derived tokens.</b> {@code settings.store-credential} writes the new secret into the
  * recorded store and then drops every token the old secret derived, through the caches the assembly registers
  * ({@link DerivedTokenCache}): a plan held on a token of the old secret goes on once its hold's retry observes the new
- * one. Nothing is dropped when the store refuses the write.
+ * one. Nothing is dropped when the store refuses the write. The state's follow-up, {@code settings.verify-providers},
+ * has two forms here: {@link #verifyProvidersUsing(String, ConsentGate, ConsentGate.Answer, Consent.Channel, String,
+ * long)} after a rotation (the providers of that credential) and {@link #verifyProviders(ConsentGate, ConsentGate.Answer,
+ * Consent.Channel, String, long)} on the operator's request (every recorded provider). The operator-wait state
+ * {@code settings.credential} itself carries no engine half: choosing rotate or replace is the operator's act.
  *
  * @since 0.1
  */
@@ -88,8 +93,6 @@ public final class MachineSettingsStates {
         WITHDRAW("settings.withdraw"),
         /** {@code settings.remove-consent}: the removal from {@code consents.json}, audited. */
         REMOVE_CONSENT("settings.remove-consent"),
-        /** {@code settings.credential}: a new secret for an entry, or a new entry of another kind. */
-        CREDENTIAL("settings.credential"),
         /** {@code settings.store-credential}: the write into the recorded store and the drop of derived tokens. */
         STORE_CREDENTIAL("settings.store-credential"),
         /** {@code settings.verify-providers}: the providers checked again and recorded. */
@@ -334,10 +337,40 @@ public final class MachineSettingsStates {
      */
     public Recheck verifyProviders(ConsentGate gate, ConsentGate.Answer answer, Consent.Channel channel,
             @Nullable String deviceId, long revision) {
+        return reverify(default_ -> true, gate, answer, channel, deviceId, revision);
+    }
+
+    /**
+     * {@code settings.verify-providers} after a stored credential: checks only the providers that use the credential key,
+     * as the catalogue's post-rotation entry says, and records the results with the change's revision. A provider of
+     * another key keeps its last result, so a re-check of one credential never flips another provider's availability.
+     *
+     * @param credentialKey the credential key whose rotation opened the state
+     * @param gate          the gate read from the consent store before the question
+     * @param answer        the answer the operator gave
+     * @param channel       the channel it came through
+     * @param deviceId      the paired device, for an answer through the web app; {@code null} otherwise
+     * @param revision      the revision the operator read
+     * @return the next state and one verification per provider of the key
+     * @throws de.planmarshall.core.config.SettingsConflict if the document holds another revision than {@code revision}
+     */
+    public Recheck verifyProvidersUsing(String credentialKey, ConsentGate gate, ConsentGate.Answer answer,
+            Consent.Channel channel, @Nullable String deviceId, long revision) {
+        Objects.requireNonNull(credentialKey, "credentialKey");
+        return reverify(default_ -> credentialKey.equals(default_.credentialKey()), gate, answer, channel, deviceId,
+                revision);
+    }
+
+    private Recheck reverify(Predicate<ProviderDefault> selected, ConsentGate gate, ConsentGate.Answer answer,
+            Consent.Channel channel, @Nullable String deviceId, long revision) {
         var current = configuration.read();
         var results = new EnumMap<Provider, ProviderDefault>(Provider.class);
         var verifications = new ArrayList<ProviderVerification.Verification>();
         current.providers().providers().forEach((provider, default_) -> {
+            if (!selected.test(default_)) {
+                results.put(provider, default_);
+                return;
+            }
             var result = verification.verify(gate, answer, channel, deviceId, provider, default_);
             verifications.add(result);
             if (result.ran()) {

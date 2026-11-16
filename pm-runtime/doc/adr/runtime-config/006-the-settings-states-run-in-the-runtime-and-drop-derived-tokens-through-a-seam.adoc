@@ -23,10 +23,12 @@ depend on; a held plan goes on once its hold's retry observes the new secret, wh
 == Decision
 
 * `MachineSettingsStates` is the engine half of those states, beside `CredentialStoreAspect`'s shape: one method per state
-  that answers a `Transition` (the next state, and a reason where it refuses).
+  that has an engine half, each answering a `Transition` (the next state, and a reason where it refuses). The
+  operator-wait `settings.credential` has none: choosing rotate or replace is the operator's act, and
+  `settings.store-credential` is where the engine half starts.
 * `facts()` reads the recorded values, the remembered consents and the provider defaults, and builds the links the state
-  offers (`reconfigure:<aspect>`, `withdraw:<kind>`, `documents_mode`, `cleanup_durations`, `credential:<key>`,
-  `verify_providers`, `done`).
+  offers (`reconfigure:<aspect>`, `withdraw:<kind>` — `withdraw:<kind>/<project>` for a project-scoped kind —
+  `documents_mode`, `cleanup_durations`, `credential:<key>`, `verify_providers`, `done`).
 * `removeConsent` delegates to `ConsentStore.withdraw`, so the audit record and the revision rule are the store's; it
   answers `not_remembered` when the scope remembered nothing, and the action asks again afterwards because the store no
   longer remembers it.

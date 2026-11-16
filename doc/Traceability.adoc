@@ -556,7 +556,7 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/UsageAggregate.java[Usa
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanTokens.java[PlanTokens],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/epic/EpicTokens.java[EpicTokens]
 
-The consumer of `PlanTokens` and `EpicTokens` — the `tokens.changed` event and the tokens of a running plan and of an epic with the split and the coverage — and the decision-calibration record's token split are owed to `process-and-overview` and `decision-quorum-and-calibration`; the recorded harness runs, the repeated usage evaluation and the install-path handoff `UsageResult` to `UsageReport` are owed to `machine-onboarding-unit`.
+The consumer of `PlanTokens` and `EpicTokens` — the `tokens.changed` event and the tokens of a running plan and of an epic with the split and the coverage — and the decision-calibration record's token split are owed to `process-and-overview` and `decision-quorum-and-calibration`; the recorded harness runs, the repeated usage evaluation and the install-path handoff `UsageResult` to `UsageReport` are owed to `plan-marshall-mcp` (the onboarding's harness aspect).
 
 Verified by (the token split and the coverage aggregate):
 link:../pm-core/src/test/java/de/planmarshall/core/store/UsageAggregateTest.java[UsageAggregateTest],
@@ -1455,7 +1455,7 @@ Implementation (the language and verifier side of a consent state: a consent is 
 every other — its links `yes`, `yes_remember` and `no` are declared links of a resting link state and so are operator
 links only, never rendered in a model-facing representation (the local-API rendering is the clients' work); the
 verifier refuses a declared link clause in a unit a worker acts in, so no model reaches an operator act. The consent
-kinds, their store and the operator's acts are `machine-onboarding-unit`'s): link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateBehavior.java[StateBehavior],
+kinds and their store are here; the operator's acts are the onboarding's units, owed to `plan-marshall-mcp`): link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateBehavior.java[StateBehavior],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/VerificationRule.java[VerificationRule],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/RestingWait.java[RestingWait]
@@ -2507,7 +2507,7 @@ Harness, ADR core-profile/011). Not
 traced here: the launch's use of the escalation assignment (bullet 9, whose storage
 and validation are traced below), the shipped artifacts, tiers,
 qualification records and their calibration (bullets 7 and 8, which are the release assembly's and
-`machine-onboarding-unit`'s), the unit that applies the `roles.default` proposal (the proposal is traced below), the grading and
+`plan-marshall-mcp`'s), the unit that applies the `roles.default` proposal (the proposal is traced below), the grading and
 the record validity (PM-WORK-6), and the
 launch): link:../pm-core/src/main/java/de/planmarshall/core/role/RoleArtifact.java[RoleArtifact],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleArtifactValidator.java[RoleArtifactValidator],

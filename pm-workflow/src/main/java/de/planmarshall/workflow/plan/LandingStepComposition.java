@@ -128,12 +128,18 @@ public class LandingStepComposition {
         byId.forEach((id, variant) -> {
             if (!id.equals(landing.variant())) {
                 variant.states().keySet().stream().filter(LandingStepComposition::isStepState)
-                        .forEach(state -> pruned.add(PrunedElement.builder()
-                                .element(PrunedElement.Kind.STATE)
-                                .id(state)
-                                .reason(PruneReason.PLAN_DEFAULT)
-                                .sourceFact(landing.sourceFact())
-                                .build()));
+                        .forEach(state -> {
+                            if (phase.states().containsKey(state)) {
+                                throw new IllegalArgumentException(("the state '%s' is declared twice in the finalize"
+                                        + " phase").formatted(state));
+                            }
+                            pruned.add(PrunedElement.builder()
+                                    .element(PrunedElement.Kind.STATE)
+                                    .id(state)
+                                    .reason(PruneReason.PLAN_DEFAULT)
+                                    .sourceFact(landing.sourceFact())
+                                    .build());
+                        });
             }
         });
         return Merged.builder()
