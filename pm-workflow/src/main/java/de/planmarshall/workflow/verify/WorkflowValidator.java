@@ -1516,7 +1516,7 @@ public final class WorkflowValidator {
                     }
                 }
                 for (var input : declaredInputs.values()) {
-                    if (!call.paramBindings().containsKey(input.name())) {
+                    if (input.required() && !call.paramBindings().containsKey(input.name())) {
                         violations.add(Violation.builder()
                                 .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                                 .stateId(state.id())
