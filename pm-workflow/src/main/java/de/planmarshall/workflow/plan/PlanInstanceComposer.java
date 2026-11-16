@@ -470,7 +470,8 @@ public final class PlanInstanceComposer {
         var catalog = new ArrayList<>(context.compiledUnits());
         request.subUnits().forEach(subUnit -> catalog.add(subUnit.definition()));
         var validator = new WorkflowValidator(context.registry(), List.of(), context.entityKinds(),
-                context.questionClasses(), context.schemas(), new WorkflowCatalog(catalog));
+                context.questionClasses(), context.schemas(), new WorkflowCatalog(catalog), context.configKeys(),
+                context.factKinds());
         var result = validator.verify(unit, settled);
         result.violations().forEach(violation -> found.add("Rule %d (%s) in '%s': %s".formatted(
                 violation.rule().specificationRule(), violation.rule(), violation.stateId(), violation.message())));

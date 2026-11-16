@@ -29,6 +29,15 @@ public enum VerificationRule {
     SCHEMA_BINDING(1),
     /** Every question clause names a registered question class. */
     QUESTION_CLASS_BINDING(1),
+    /** Every {@code reads_config} key of the frontmatter names a key of the closed configuration, none of them twice. */
+    CONFIG_KEY_BINDING(1),
+    /** Every {@code reads_fact} of the frontmatter names a known fact kind, none of them twice. */
+    FACT_KIND_BINDING(1),
+    /**
+     * Every input of the frontmatter is declared once, an input fallback is a configuration key the unit also reads and
+     * its domain is assignable to the input type, and an input name is no fact kind the unit reads.
+     */
+    INPUT_DECLARATION(1),
     /** A primitive declaring {@code enqueuesJob()} declares job-starting outcomes and only they target job states. */
     JOB_STARTING_OUTCOME(1),
     /**
