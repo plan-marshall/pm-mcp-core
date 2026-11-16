@@ -28,9 +28,9 @@ import de.planmarshall.workflow.scenario.ScenarioReplayRunner.ScenarioFailure;
 import de.planmarshall.workflow.scenario.ScenarioReplayRunner.Snapshot;
 
 /**
- * The determinism of {@code pm-scenario} (PM-TEST-4): a script replayed twice from empty stores writes the same
- * {@code mcp/status.json} bytes after every step, and a unit with one changed transition writes the same bytes up to
- * the step that takes it and then fails at the script's next {@code assert_state}, which names its line.
+ * The determinism of {@code pm-scenario} (PM-TEST-4): a script replayed twice from empty stores writes the same bytes
+ * of {@code mcp/status.json} and of the queue after every step, and a unit with one changed transition writes the same
+ * bytes up to the step that takes it and then fails at the script's next {@code assert_state}, which names its line.
  */
 // Every datum in this class is a contract: the scenario script under test, its step lines and the fixture paths.
 @DisplayName("Scenario determinism")
@@ -104,7 +104,7 @@ class ScenarioDeterminismTest {
     }
 
     @Test
-    @DisplayName("Should write the same status bytes after every step in two replays from empty stores")
+    @DisplayName("Should write the same status and queue bytes after every step in two replays from empty stores")
     void shouldReplayToSameBytes() {
         var once = replay(ScenarioFixtures.PLAN_UNIT, first);
         var twice = replay(ScenarioFixtures.PLAN_UNIT, second);

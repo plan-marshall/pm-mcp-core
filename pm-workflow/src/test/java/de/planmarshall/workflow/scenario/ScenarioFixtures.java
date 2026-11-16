@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 
 import org.easymock.Capture;
@@ -180,6 +181,9 @@ final class ScenarioFixtures {
     /** The queue of the replay, {@code projects/scenario-project/queue/} below the replay's directory. */
     final QueueStore queue;
 
+    /** The fence store of the replay's queue: the generations the harness fenced. */
+    final FencedGenerations fences;
+
     /** The consultation service over the replay's queue. */
     final ConsultationService consultations;
 
@@ -201,10 +205,11 @@ final class ScenarioFixtures {
     ScenarioFixtures(Path base) {
         var directory = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         queue = QueueStore.ofProject(directory, PROJECT, locks);
+        fences = new FencedGenerations(queue.directory(), queue.lockKey(), locks);
         consultations = new ConsultationService(queue);
-        queueTasks = new QueueTasks(queue, clock);
+        queueTasks = new QueueTasks(queue, clock, this::roleClass);
         protocol = TaskProtocol.builder(queue, locks)
-                .fences(new FencedGenerations(queue.directory(), queue.lockKey(), locks))
+                .fences(fences)
                 .pause(planId -> false)
                 .jobState(generationId -> false)
                 .skills(new SkillDelivery())
@@ -646,18 +651,21 @@ final class ScenarioFixtures {
 
     /**
      * The queue task port of a replay: it writes the real record of the task the engine creates into the replay's queue
-     * and hands out {@code qt-} and 16 hex digits from a counter, so two replays write the same bytes.
+     * and hands out {@code qt-} and 16 hex digits from a counter, so two replays write the same bytes. The record's class
+     * is the class the replay gives the requested role.
      */
     static final class QueueTasks implements QueueTaskCreator {
 
         private final QueueStore queue;
         private final WorkflowClock clock;
+        private final Function<String, RoleClass> roleClasses;
         private final List<CreateRequest> requests = new ArrayList<>();
         private QueueTaskRecord.Scope scope = new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "scenario");
 
-        QueueTasks(QueueStore queue, WorkflowClock clock) {
+        QueueTasks(QueueStore queue, WorkflowClock clock, Function<String, RoleClass> roleClasses) {
             this.queue = Objects.requireNonNull(queue, "queue");
             this.clock = Objects.requireNonNull(clock, "clock");
+            this.roleClasses = Objects.requireNonNull(roleClasses, "roleClasses");
         }
 
         /**
@@ -681,7 +689,7 @@ final class ScenarioFixtures {
                     .queueTaskId(queueTaskId)
                     .kind(QueueTaskRecord.Kind.WORK)
                     .role(request.role())
-                    .taskClass(QueueTaskRecord.TaskClass.WRITER)
+                    .taskClass(taskClass(request.role()))
                     .scope(scope)
                     .entity(request.entityKey())
                     .stateId(request.stateId())
@@ -700,6 +708,14 @@ final class ScenarioFixtures {
                     .closedAt(null)
                     .build());
             return new Created(queueTaskId);
+        }
+
+        private QueueTaskRecord.TaskClass taskClass(String role) {
+            return switch (roleClasses.apply(role)) {
+                case WRITER -> QueueTaskRecord.TaskClass.WRITER;
+                case READ_ONLY -> QueueTaskRecord.TaskClass.READ_ONLY;
+                case ZERO_TOOL -> QueueTaskRecord.TaskClass.ZERO_TOOL;
+            };
         }
     }
 

@@ -39,6 +39,7 @@ import de.planmarshall.workflow.scenario.ScenarioDirective.AssertRefused;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertState;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertTaskOutcome;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertWorkerState;
+import de.planmarshall.workflow.scenario.ScenarioDirective.Call;
 import de.planmarshall.workflow.scenario.ScenarioDirective.CompleteJob;
 import de.planmarshall.workflow.scenario.ScenarioDirective.OperatorDo;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Start;
@@ -103,8 +104,8 @@ class ScenarioScriptTest {
                 Arguments.of("worker_do reviewer", "missing argument"),
                 Arguments.of("worker_do reviewer ack extra", "surplus argument 'extra'"),
                 Arguments.of("worker_do reviewer dance", "'dance' is no worker action"),
-                Arguments.of("worker_do reviewer submit:answer {}", "missing argument: worker_do submit:answer"),
-                Arguments.of("worker_do reviewer consult:architect", "missing argument: worker_do consult:architect"),
+                Arguments.of("worker_do reviewer submit:answer {}", "missing argument: submit:answer"),
+                Arguments.of("worker_do reviewer consult:architect", "missing argument: consult:architect"),
                 Arguments.of("assert_worker_state reviewer", "missing argument"),
                 Arguments.of("assert_worker_state reviewer open", "'open' is no state of a worker's task"),
                 Arguments.of("assert_refused", "missing argument"),
@@ -222,6 +223,7 @@ class ScenarioScriptTest {
             var script = assertDoesNotThrow(() -> ScenarioScript.read("""
                     scenario protocol
                     worker_wait reviewer
+                    worker_do ack {}
                     worker_do reviewer ack {}
                     worker_do reviewer submit:change {"consultation_ids":"qt-0000000000000002,qt-0000000000000003"}
                     worker_do reviewer infeasible
@@ -231,12 +233,13 @@ class ScenarioScriptTest {
             assertAll(
                     () -> assertEquals(List.of(
                             new WorkerWait(2, "reviewer"),
-                            new WorkerDo(3, "reviewer", new Action.Ack(), Map.of()),
-                            new WorkerDo(4, "reviewer", new Action.Submit("change"),
-                                    Map.of("consultation_ids", "qt-0000000000000002,qt-0000000000000003")),
-                            new WorkerDo(5, "reviewer", new Action.Infeasible(), Map.of()),
-                            new WorkerDo(6, "reviewer", new Action.Consult("architect"),
-                                    Map.of("question", "is it safe?"))), script.directives()),
+                            new WorkerDo(3, new Call(null, new Action.Ack(), Map.of())),
+                            new WorkerDo(4, new Call("reviewer", new Action.Ack(), Map.of())),
+                            new WorkerDo(5, new Call("reviewer", new Action.Submit("change"),
+                                    Map.of("consultation_ids", "qt-0000000000000002,qt-0000000000000003"))),
+                            new WorkerDo(6, new Call("reviewer", new Action.Infeasible(), Map.of())),
+                            new WorkerDo(7, new Call("reviewer", new Action.Consult("architect"),
+                                    Map.of("question", "is it safe?")))), script.directives()),
                     () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_wait")),
                     () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_do")));
         }
@@ -247,7 +250,7 @@ class ScenarioScriptTest {
             var script = assertDoesNotThrow(() -> ScenarioScript.read("""
                     scenario supervision
                     worker_wait reviewer
-                    worker_do reviewer ack {}
+                    worker_do ack {}
                     assert_worker_state reviewer acknowledged
                     worker_do reviewer submit:change {}
                     worker_do reviewer ack {}
@@ -257,10 +260,10 @@ class ScenarioScriptTest {
             assertAll(
                     () -> assertEquals(List.of(
                             new WorkerWait(2, "reviewer"),
-                            new WorkerDo(3, "reviewer", new Action.Ack(), Map.of()),
+                            new WorkerDo(3, new Call(null, new Action.Ack(), Map.of())),
                             new AssertWorkerState(4, "reviewer", "acknowledged"),
-                            new WorkerDo(5, "reviewer", new Action.Submit("change"), Map.of()),
-                            new WorkerDo(6, "reviewer", new Action.Ack(), Map.of()),
+                            new WorkerDo(5, new Call("reviewer", new Action.Submit("change"), Map.of())),
+                            new WorkerDo(6, new Call("reviewer", new Action.Ack(), Map.of())),
                             new AssertRefused(7, "stale_entity")), script.directives()),
                     () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_worker_state")),
                     () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_refused")));
@@ -284,6 +287,15 @@ class ScenarioScriptTest {
                     scenario no-wait
                     worker_do reviewer ack {}
                     """));
+            var roleless = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario no-wait-roleless
+                    worker_do ack {}
+                    """));
+            var late = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario wait-later
+                    worker_do reviewer ack {}
+                    worker_wait reviewer
+                    """));
             var state = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario no-wait-state
                     assert_worker_state reviewer offered
@@ -291,6 +303,12 @@ class ScenarioScriptTest {
             var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario no-call
                     worker_wait reviewer
+                    assert_refused stale_entity
+                    """));
+            var serviceCall = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario answer-then-refused
+                    worker_wait reviewer
+                    worker_do reviewer submit:answer {"answer":"yes"}
                     assert_refused stale_entity
                     """));
             var both = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
@@ -301,11 +319,17 @@ class ScenarioScriptTest {
 
             assertAll(
                     () -> assertEquals("line 2: worker_do names the role reviewer, which the script never declares with "
-                            + "worker_wait", call.getMessage()),
+                            + "worker_wait before it", call.getMessage()),
+                    () -> assertEquals("line 2: worker_do names no role, and no worker_wait precedes it",
+                            roleless.getMessage()),
+                    () -> assertEquals("line 2: worker_do names the role reviewer, which the script never declares with "
+                            + "worker_wait before it", late.getMessage()),
                     () -> assertEquals("line 2: assert_worker_state names the role reviewer, which the script never "
-                            + "declares with worker_wait", state.getMessage()),
+                            + "declares with worker_wait before it", state.getMessage()),
                     () -> assertEquals("line 3: assert_refused asserts the last worker_do, but no worker_do precedes it",
                             refused.getMessage()),
+                    () -> assertEquals("line 4: assert_refused asserts the last worker_do's refusal, but that call "
+                            + "makes no call of the task protocol", serviceCall.getMessage()),
                     () -> assertEquals("line 3: the worker of role reviewer is declared with worker and waits with "
                             + "worker_wait; a role uses one form", both.getMessage()));
         }

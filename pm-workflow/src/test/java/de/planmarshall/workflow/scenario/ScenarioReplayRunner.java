@@ -57,8 +57,9 @@ import de.planmarshall.workflow.task.WaitAnswer;
  * with, and {@code assert_task_outcome} the outcome of the last task the worker of a role settled.</li>
  * </ul>
  * A task state the scope rests in and whose role has no protocol worker is settled by the
- * {@link ScriptedFixtureWorker} of its role before the next step that is not an assertion, so a script can assert the
- * task state first and then what the task ended with. A protocol worker's task is settled by the protocol, never by
+ * {@link ScriptedFixtureWorker} of its role before the next step that is not an {@code assert_state},
+ * {@code assert_worker_state} or {@code assert_refused}, so a script can assert the task state first and then what the
+ * task ended with. A protocol worker's task is settled by the protocol, never by
  * the harness. Every new status is written through a {@link de.planmarshall.core.store.ScopeTransaction} to the store,
  * the queue of the replay keeps its own records, and the runner keeps the bytes of the status store and of the queue
  * after every step ({@link #snapshots()}), also when the replay fails, so two replays can be compared step by step.
@@ -81,6 +82,7 @@ final class ScenarioReplayRunner {
     private WorkflowStatusStore store;
     private WorkflowStatus status;
     private EngineStep.Ended ended;
+    private ScriptedProtocolWorker currentWorker;
     private CallResult lastWorkerCall;
     private boolean replayed;
 
@@ -309,6 +311,7 @@ final class ScenarioReplayRunner {
     /** Starts the generation of a protocol worker: its wait is the shipped protocol's, and an offer is required. */
     private void wait(ScenarioDirective.WorkerWait step) {
         var worker = protocolWorkers.get(step.role());
+        currentWorker = worker;
         fixtures.clock.tick();
         var answer = worker.wait(fixtures.clock.now());
         if (answer instanceof WaitAnswer.Offered) {
@@ -322,24 +325,21 @@ final class ScenarioReplayRunner {
         return switch (answer) {
             case WaitAnswer.WaitAgain again -> "'%s', an empty window".formatted(again.reason().wireName());
             case WaitAnswer.End end -> "the end of the worker '%s'".formatted(end.reason().wireName());
-            case WaitAnswer.Answered(_, _) -> "the answer of a held task, which this harness does not hold";
+            case WaitAnswer.Answered(_, _) -> "the answer of a held task, which this harness does not deliver";
             case WaitAnswer.Offered(_) -> "an offer";
         };
     }
 
     /**
      * Runs a protocol worker's call. A refusal the script does not assert is a failure at the step's line: a step the
-     * script expects accepted.
+     * script expects accepted. A call that closes the task settles the task state of the engine.
      */
     private void workerDo(ScenarioDirective.WorkerDo call, boolean expectsRefusal) {
-        var worker = protocolWorkers.get(call.role());
-        if (worker == null) {
-            throw new ScenarioFailure(call.line(), "the script declares no worker_wait of role " + call.role());
-        }
+        var worker = target(call);
         fixtures.clock.tick();
         var at = fixtures.clock.now();
         CallResult result;
-        switch (call.action()) {
+        switch (call.call().action()) {
             case ScenarioDirective.Action.Ack() -> {
                 requireTask(call.line(), worker);
                 result = worker.acknowledge(at);
@@ -361,6 +361,9 @@ final class ScenarioReplayRunner {
             }
         }
         lastWorkerCall = result;
+        if (result instanceof CallResult.Accepted accepted && accepted.task().isClosed()) {
+            settle(call.line(), accepted.task());
+        }
         if (result instanceof CallResult.Refused refused && !expectsRefusal) {
             var message = "the call was refused '%s'";
             throw new ScenarioFailure(call.line(), message.formatted(refused.refusal().wireName()));
@@ -368,8 +371,27 @@ final class ScenarioReplayRunner {
     }
 
     /**
+     * @param call a worker's call
+     * @return the worker the call targets: the named role's, or the script's most recent wait's
+     */
+    private ScriptedProtocolWorker target(ScenarioDirective.WorkerDo call) {
+        var role = call.call().role();
+        if (role == null) {
+            if (currentWorker == null) {
+                throw new ScenarioFailure(call.line(), "worker_do names no role, and no worker_wait precedes it");
+            }
+            return currentWorker;
+        }
+        var worker = protocolWorkers.get(role);
+        if (worker == null) {
+            throw new ScenarioFailure(call.line(), "the script declares no worker_wait of role " + role);
+        }
+        return worker;
+    }
+
+    /**
      * Submits the protocol worker's task: the shipped consultation service validates the consultation references the
-     * call names, and the protocol closes the task once. The closed task settles the task state of the engine.
+     * call names, and the protocol closes the task once.
      */
     private CallResult submit(ScenarioDirective.WorkerDo call, ScenarioDirective.Action.Submit submit,
             ScriptedProtocolWorker worker, Instant at) {
@@ -379,15 +401,12 @@ final class ScenarioReplayRunner {
             var message = "worker_do submit:%s names a kind, but the task %s works the entity %s";
             throw new ScenarioFailure(call.line(), message.formatted(submit.kind(), taskId, task.entity()));
         }
-        var validation = fixtures.consultations.validateSubmit(taskId, consultationIds(call.arguments()));
+        var validation = fixtures.consultations.validateSubmit(taskId,
+                consultationIds(call.call().arguments()));
         if (validation instanceof SubmitValidation.Refused refused) {
             throw new ScenarioFailure(call.line(), "the submit was refused: " + refused.detail());
         }
-        var result = worker.submit(at);
-        if (result instanceof CallResult.Accepted accepted && accepted.task().isClosed()) {
-            settle(call.line(), accepted.task());
-        }
-        return result;
+        return worker.submit(at);
     }
 
     /** Opens a consultation of another role through the shipped consultation service. */
@@ -401,7 +420,7 @@ final class ScenarioReplayRunner {
                 .roleClass(fixtures.roleClass(consult.role()))
                 .formDowngraded(false)
                 .declaredRoles(fixtures.consultRoles())
-                .question(call.arguments().get("question"))
+                .question(call.call().arguments().get("question"))
                 .at(at)
                 .build();
         switch (fixtures.consultations.open(request)) {
@@ -418,7 +437,7 @@ final class ScenarioReplayRunner {
     /** Answers the consultation the protocol worker holds, through the shipped consultation service. */
     private void answerConsultation(ScenarioDirective.WorkerDo call, ScriptedProtocolWorker worker, Instant at) {
         var taskId = requireTask(call.line(), worker);
-        switch (fixtures.consultations.answer(taskId, worker.generation(), call.arguments().get("answer"), at)) {
+        switch (fixtures.consultations.answer(taskId, worker.generation(), call.call().arguments().get("answer"), at)) {
             case ConsultationOutcome.Answered(_, _) -> {
                 // the answer is delivered to the asker's next wait
             }
@@ -483,15 +502,14 @@ final class ScenarioReplayRunner {
         }
     }
 
-    /** The state of the task of a protocol worker, derived from its queue record. */
-    private static String workerState(QueueTaskRecord task) {
+    /** The state of the task of a protocol worker, derived from its queue record and the replay's fence store. */
+    private String workerState(QueueTaskRecord task) {
         if (task.isClosed()) {
             return "closed";
         }
         return switch (task.status()) {
             case OFFERED -> "offered";
-            case EXECUTING -> task.lease() != null && task.lease().acknowledgedAt() != null
-                    ? "acknowledged" : "executing";
+            case EXECUTING -> "acknowledged";
             case QUEUED -> fenced(task) ? "fenced" : "queued";
             default -> task.status().wireName();
         };
@@ -499,12 +517,11 @@ final class ScenarioReplayRunner {
 
     /**
      * @param task a queued task
-     * @return whether a fence released it: the attempt it ends with is the fence's {@code restart}, which spends no
-     *         re-offer; every other release ends the attempt another way
+     * @return whether the replay fenced the generation its last attempt belonged to, which released the lease
      */
-    private static boolean fenced(QueueTaskRecord task) {
+    private boolean fenced(QueueTaskRecord task) {
         var attempts = task.attempts();
-        return !attempts.isEmpty() && attempts.getLast().end() == QueueTaskRecord.AttemptEnd.RESTART;
+        return !attempts.isEmpty() && fixtures.fences.isFenced(attempts.getLast().generationId());
     }
 
     /** Asserts that the last {@code worker_do} was refused with the reason the step names. */

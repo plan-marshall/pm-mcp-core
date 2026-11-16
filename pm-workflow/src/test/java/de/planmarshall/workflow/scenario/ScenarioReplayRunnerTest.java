@@ -442,7 +442,7 @@ class ScenarioReplayRunnerTest {
                 assert_state execute.review
                 worker_wait reviewer
                 assert_worker_state reviewer offered
-                worker_do reviewer ack {}
+                worker_do ack {}
                 assert_worker_state reviewer acknowledged
                 worker_do reviewer submit:change {}
                 assert_worker_state reviewer closed
@@ -574,6 +574,32 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals("line 7: worker_wait of role reviewer expected an offer but the protocol "
                             + "answered 'no_task', an empty window", failure.getMessage()));
         }
+
+        @Test
+        @DisplayName("Should close the task infeasible and route the rejected branch")
+        void shouldCloseTheTaskInfeasible() {
+            var runner = runner();
+
+            runner.run(ScenarioScript.read("""
+                    scenario infeasible
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    worker_wait reviewer
+                    worker_do ack {}
+                    worker_do reviewer infeasible
+                    assert_task_outcome reviewer infeasible
+                    assert_state handed_back
+                    assert_outcome handed_back
+                    """));
+
+            var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN, PLAN_ID));
+            assertAll(
+                    () -> assertEquals("handed_back", stored.read().orElseThrow().state(),
+                            "the rejected branch handed the plan back"),
+                    () -> assertEquals(Status.CLOSED,
+                            runner.fixtures().queue.read("qt-0000000000000001").orElseThrow().status(),
+                            "the task record is closed"));
+        }
     }
 
     @Nested
@@ -627,7 +653,7 @@ class ScenarioReplayRunnerTest {
         }
 
         @Test
-        @DisplayName("Should deliver the answer to the asker's next wait and accept the submit that names it")
+        @DisplayName("Should re-offer the task at the asker's next wait and accept the submit that names the reference")
         void shouldAcceptTheSubmitThatNamesTheReference() {
             var runner = consultRunner();
 
@@ -643,6 +669,11 @@ class ScenarioReplayRunnerTest {
                             "the consultation is answered"),
                     () -> assertEquals(QueueTaskRecord.DeliveredTo.WAIT, consultation.deliveredTo(),
                             "the answer is delivered to the asker's wait"),
+                    () -> assertEquals(Status.OFFERED, asker.status(),
+                            "the asker's next wait re-offers the task"),
+                    () -> assertEquals("l-0000000000000001",
+                            asker.lease() == null ? null : asker.lease().generationId(),
+                            "the task stays leased to the asking generation"),
                     () -> assertInstanceOf(SubmitValidation.Accepted.class,
                             service.validateSubmit(asker.queueTaskId(), List.of(consultation.consultationId())),
                             "the submit that names the reference is accepted"),

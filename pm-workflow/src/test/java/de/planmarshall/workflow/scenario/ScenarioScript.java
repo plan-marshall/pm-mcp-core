@@ -33,14 +33,17 @@ import de.planmarshall.core.store.JournalScopeType;
  * <p>
  * The text uses the line syntax of the harness: a first line {@code scenario <name>}, then one directive per line,
  * words separated by blanks, a {@code #} outside a quoted string starting a comment, and the JSON-shaped argument of
- * {@code complete_job}, {@code answer_question} and {@code operator_do} reduced to the members the directive uses
- * ({@code outcome}, {@code branch_key} and the free parameters of an operator link):
+ * {@code complete_job}, {@code answer_question}, {@code operator_do} and {@code worker_do} reduced to the members the
+ * directive uses ({@code outcome}, {@code branch_key}, {@code question}, {@code answer}, {@code consultation_ids} and
+ * the free parameters of an operator link):
  *
  * <pre>
  * scenario review-and-ask
- * worker reviewer submitted                      # the scripted worker of the role reviewer
+ * worker_wait reviewer                          # the protocol worker of the role reviewer
  * start plan plan-a
  * complete_job b-0000000000000001 {"outcome":"succeeded"}
+ * worker_do ack {}                              # the worker of the most recent wait acknowledges the offer
+ * worker_do reviewer submit:change {}           # the same call, naming its role
  * assert_task_outcome reviewer submitted
  * answer_question Q-001 web {"branch_key":"approve"}
  * assert_state completed
@@ -104,7 +107,6 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
         }
         requireOneFormPerRole(workers, directives);
         requireProtocolWorkerDeclarations(directives);
-        requireWorkerDoBeforeAssertRefused(directives);
     }
 
     /**
@@ -128,26 +130,34 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
     }
 
     /**
-     * A protocol worker's call and the assertion of its task need the role's {@code worker_wait}: a script that never
-     * waits for the role is refused when it is read, not run.
+     * A protocol worker's call and the assertion of its task need the role's {@code worker_wait} before them: a script
+     * that never waits for the role is refused when it is read, not run.
      */
     private static void requireProtocolWorkerDeclarations(List<ScenarioDirective> directives) {
         var waited = new HashSet<String>();
-        for (var directive : directives) {
-            if (directive instanceof ScenarioDirective.WorkerWait wait) {
-                waited.add(wait.role());
-            }
-        }
+        ScenarioDirective.WorkerDo precedingCall = null;
         for (var directive : directives) {
             switch (directive) {
-                case ScenarioDirective.WorkerDo call when !waited.contains(call.role()) ->
-                    throw new IllegalArgumentException(
-                            "line %d: worker_do names the role %s, which the script never declares with worker_wait"
-                                    .formatted(call.line(), call.role()));
+                case ScenarioDirective.WorkerWait wait -> waited.add(wait.role());
+                case ScenarioDirective.WorkerDo call -> {
+                    var role = call.call().role();
+                    if (role == null && waited.isEmpty()) {
+                        throw new IllegalArgumentException(
+                                "line %d: worker_do names no role, and no worker_wait precedes it"
+                                        .formatted(call.line()));
+                    }
+                    if (role != null && !waited.contains(role)) {
+                        throw new IllegalArgumentException(
+                                "line %d: worker_do names the role %s, which the script never declares with worker_wait before it"
+                                        .formatted(call.line(), role));
+                    }
+                    precedingCall = call;
+                }
                 case ScenarioDirective.AssertWorkerState assertion when !waited.contains(assertion.role()) ->
                     throw new IllegalArgumentException(
-                            "line %d: assert_worker_state names the role %s, which the script never declares with worker_wait"
+                            "line %d: assert_worker_state names the role %s, which the script never declares with worker_wait before it"
                                     .formatted(assertion.line(), assertion.role()));
+                case ScenarioDirective.AssertRefused assertion -> requireProtocolCall(assertion, precedingCall);
                 default -> {
                     // every other directive names no protocol worker
                 }
@@ -155,19 +165,29 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
         }
     }
 
-    /** {@code assert_refused} asserts the last {@code worker_do}: a script that never made the call is refused when read. */
-    private static void requireWorkerDoBeforeAssertRefused(List<ScenarioDirective> directives) {
-        var called = false;
-        for (var directive : directives) {
-            if (directive instanceof ScenarioDirective.AssertRefused assertion && !called) {
-                throw new IllegalArgumentException(
-                        "line %d: assert_refused asserts the last worker_do, but no worker_do precedes it"
-                                .formatted(assertion.line()));
-            }
-            if (directive instanceof ScenarioDirective.WorkerDo) {
-                called = true;
-            }
+    /** {@code assert_refused} asserts the last {@code worker_do}'s refusal: that call must be one of the protocol's. */
+    private static void requireProtocolCall(ScenarioDirective.AssertRefused assertion,
+            ScenarioDirective.WorkerDo precedingCall) {
+        if (precedingCall == null) {
+            throw new IllegalArgumentException(
+                    "line %d: assert_refused asserts the last worker_do, but no worker_do precedes it"
+                            .formatted(assertion.line()));
         }
+        if (!isProtocolCall(precedingCall)) {
+            throw new IllegalArgumentException(
+                    "line %d: assert_refused asserts the last worker_do's refusal, but that call makes no call of the task protocol"
+                            .formatted(assertion.line()));
+        }
+    }
+
+    /** @return whether the call goes to the task protocol (a consultation and an answer go to the service) */
+    private static boolean isProtocolCall(ScenarioDirective.WorkerDo call) {
+        return switch (call.call().action()) {
+            case ScenarioDirective.Action.Ack() -> true;
+            case ScenarioDirective.Action.Infeasible() -> true;
+            case ScenarioDirective.Action.Submit submit -> !"answer".equals(submit.kind());
+            case ScenarioDirective.Action.Consult(_) -> false;
+        };
     }
 
     /**
@@ -301,9 +321,18 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
         };
     }
 
-    /** The worker's call: its action, the JSON-shaped argument it may carry, and the two together. */
+    /** The worker's call: its target and action, and the JSON-shaped argument it may carry. */
     private static ScenarioDirective workerDo(Line line) {
-        var form = "worker_do <role> ack | submit:<kind> {…} | infeasible | consult:<role> {…}";
+        var form = "worker_do [<role>] ack | submit:<kind> {…} | infeasible | consult:<role> {…}";
+        if (line.args().isEmpty()) {
+            throw line.refused("missing argument: " + form);
+        }
+        var arguments = line.jsonMembers();
+        if (line.args().size() == 1 && isActionWord(line.args().getFirst())) {
+            var word = line.args().getFirst();
+            return line.build(() -> new ScenarioDirective.WorkerDo(line.number(),
+                    new ScenarioDirective.Call(null, action(word, arguments), arguments)));
+        }
         if (line.args().size() < 2) {
             throw line.refused("missing argument: " + form);
         }
@@ -312,8 +341,14 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
         }
         var role = line.args().getFirst();
         var word = line.args().get(1);
-        var arguments = line.jsonMembers();
-        return line.build(() -> new ScenarioDirective.WorkerDo(line.number(), role, action(word, arguments), arguments));
+        return line.build(() -> new ScenarioDirective.WorkerDo(line.number(),
+                new ScenarioDirective.Call(role, action(word, arguments), arguments)));
+    }
+
+    /** @return whether the word names a call a worker makes; a call of one token is the role-less form */
+    private static boolean isActionWord(String word) {
+        return "ack".equals(word) || "infeasible".equals(word) || word.startsWith("submit:")
+                || word.startsWith("consult:");
     }
 
     private static ScenarioDirective.Action action(String word, Map<String, String> arguments) {
@@ -324,20 +359,10 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
             return new ScenarioDirective.Action.Infeasible();
         }
         if (word.startsWith("submit:")) {
-            var kind = word.substring("submit:".length());
-            if ("answer".equals(kind) && !arguments.containsKey("answer")) {
-                throw new IllegalArgumentException(
-                        "missing argument: worker_do submit:answer takes {\"answer\":\"…\"}");
-            }
-            return new ScenarioDirective.Action.Submit(kind);
+            return new ScenarioDirective.Action.Submit(word.substring("submit:".length()));
         }
         if (word.startsWith("consult:")) {
-            var role = word.substring("consult:".length());
-            if (!arguments.containsKey("question")) {
-                throw new IllegalArgumentException(
-                        "missing argument: worker_do consult:%s takes {\"question\":\"…\"}".formatted(role));
-            }
-            return new ScenarioDirective.Action.Consult(role);
+            return new ScenarioDirective.Action.Consult(word.substring("consult:".length()));
         }
         throw new IllegalArgumentException(
                 "'%s' is no worker action: ack, submit:<kind>, infeasible or consult:<role>".formatted(word));

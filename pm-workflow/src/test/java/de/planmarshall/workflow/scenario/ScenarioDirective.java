@@ -19,12 +19,14 @@ import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.workflow.engine.EngineEvent;
 import de.planmarshall.workflow.task.TaskRefusal;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One step of a scenario script of the replay harness {@code pm-scenario} (PM-TEST-4): a simulated actor action or a
  * deterministic assertion, each with the line of the script it was read from. The directives are those the workflow
- * engine supports today; the values they carry are validated against the closed sets {@link EngineEvent} states, so a
- * script that names a fate or a task outcome the engine does not know is refused when it is read, not when it runs.
+ * engine and the task protocol support today; the values they carry are validated against the closed sets
+ * {@link EngineEvent} states, {@link TaskRefusal} and the states of a worker's task, so a script that names a fate, a
+ * task outcome or a refusal the engine does not know is refused when it is read, not when it runs.
  */
 // Every datum in this class is a contract: the wire shapes, closed sets and tokens of the scenario script.
 sealed interface ScenarioDirective {
@@ -234,23 +236,42 @@ sealed interface ScenarioDirective {
     }
 
     /**
-     * A call of the scripted protocol worker of one role on its leased task entity: the acknowledgement, the submit with
-     * its kind, the infeasible report, or the consultation of another role.
+     * A call of a scripted protocol worker on its leased task entity: the acknowledgement, the submit with its kind, the
+     * infeasible report, or the consultation of another role.
      *
-     * @param line      the line of the script
-     * @param role      the role of the calling worker
-     * @param action    the call
-     * @param arguments the scalar members of the JSON-shaped argument, empty for a call that takes none; copied
+     * @param line the line of the script
+     * @param call the call: its target worker and the action with the scalar members of its JSON-shaped argument
      */
-    record WorkerDo(int line, String role, Action action, Map<String, String> arguments) implements ScenarioDirective {
+    record WorkerDo(int line, Call call) implements ScenarioDirective {
 
         /**
-         * @throws IllegalArgumentException if the line is not positive, the role is no role name, the action is
-         *                                  {@code null} or an argument name is no token
+         * @throws IllegalArgumentException if the line is not positive or the call is {@code null}
          */
         public WorkerDo {
             requireLine(line);
-            requireRole(role);
+            Objects.requireNonNull(call, "call");
+        }
+    }
+
+    /**
+     * The call of a {@link WorkerDo}: its target and its action.
+     *
+     * @param role      the role of the calling worker, or {@code null} for the worker of the script's most recent
+     *                  {@link WorkerWait}, which is the form the specification's example writes
+     * @param action    the call
+     * @param arguments the scalar members of the JSON-shaped argument, empty for a call that takes none; copied
+     */
+    record Call(@Nullable String role, Action action, Map<String, String> arguments) {
+
+        /**
+         * @throws IllegalArgumentException if the role is neither {@code null} nor a role name, the action is
+         *                                  {@code null}, an argument name is no token, or a call that requires an
+         *                                  argument does not name it
+         */
+        public Call {
+            if (role != null) {
+                requireRole(role);
+            }
             Objects.requireNonNull(action, "action");
             Objects.requireNonNull(arguments, "arguments");
             arguments.forEach((name, value) -> {
@@ -258,6 +279,14 @@ sealed interface ScenarioDirective {
                 Objects.requireNonNull(value, name);
             });
             arguments = Map.copyOf(arguments);
+            if (action instanceof Action.Submit submit && "answer".equals(submit.kind())
+                    && !arguments.containsKey("answer")) {
+                throw new IllegalArgumentException("missing argument: submit:answer takes {\"answer\":\"…\"}");
+            }
+            if (action instanceof Action.Consult consult && !arguments.containsKey("question")) {
+                throw new IllegalArgumentException("missing argument: consult:%s takes {\"question\":\"…\"}"
+                        .formatted(consult.role()));
+            }
         }
     }
 

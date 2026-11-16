@@ -33,14 +33,17 @@ The replay runs the real queue and the real task protocol.
   the scope the replay started, the entity and state of the request, and the clock's instant — and hands out
   `qt-` and 16 hex digits from a counter. `TaskProtocol` is built once per replay over that queue, with the queue's own
   fence store and the pause, job-state and skill-delivery fixtures, and `ConsultationService` runs over the same queue.
-* **Who decides an id.** Job ids come from the job-port counter (`b-…`), queue task ids from the queue-task-port
-  counter (`qt-…`), and generation ids from the fixtures' counter (`l-…`). A protocol worker's generation is decided
-  when the script first waits for its role — the roles in the order of their first `worker_wait` — so the same script
-  always starts the same generations. The configuration digest is the replay's one fixed digest, for the generation and
-  for its role.
+* **Who decides an id.** Job ids come from the job-port counter (`b-…`), and the queue task ids of the engine's work
+  tasks from the queue-task-port counter (`qt-…`); generation ids come from the fixtures' counter (`l-…`). A protocol
+  worker's generation is decided when the script first waits for its role — the roles in the order of their first
+  `worker_wait` — so the same script always starts the same generations. The configuration digest is the replay's one
+  fixed digest, for the generation and for its role.
 * **How the two worker forms are told apart.** `worker <role> <task outcome>…` declares the direct worker of ADR 001;
   `worker_wait <role>` declares the protocol worker. One role uses one form, never both, and a script that declares
   both is refused when it is read. A role a script never declares is refused when a call or an assertion names it.
+  `worker_do` names the role of the calling worker, or no role at all for the worker of the script's most recent
+  `worker_wait` — the form the specification's example writes; a script that holds two protocol workers names the
+  role, which the consultation scenario needs.
 * **`worker_do` follows the link the entity offers.** `ack` acknowledges the offer, `infeasible` closes the work task
   with that outcome, and `consult:<role>` follows the consultation link through `ConsultationService.open`.
   `submit:<kind>` names the kind of the link: for a work task it must be the entity kind of the leased task and the
@@ -48,11 +51,12 @@ The replay runs the real queue and the real task protocol.
   closes it; for a consultation task the kind is `answer` and the call is `ConsultationService.answer`. A refused call
   fails the step at its line unless the next step is `assert_refused`.
 * **The assertions read the record.** `assert_worker_state <role> <state>` derives the state of the worker's task from
-  its queue record: `offered` (status `offered`), `acknowledged` (status `executing` with an acknowledged lease),
-  `closed`, `queued` (status `queued`, released by anything but a fence) and `fenced` (status `queued` after the
-  attempt the fence ends with `restart`). `assert_task_outcome` reads the closed outcome from the record, not from the
-  worker's memory. `assert_refused <reason>` accepts exactly the wire names of `TaskRefusal`, derived from the enum at
-  run time; a script that never made a `worker_do` before it is refused when it is read.
+  its queue record: `offered` (status `offered`), `acknowledged` (status `executing`, which the acknowledgement always
+  precedes), `closed`, `queued` (status `queued`, released by anything but the fence) and `fenced` (status `queued` and
+  the replay's fence store holds the generation of its last attempt). `assert_task_outcome` reads the closed outcome
+  from the record, not from the worker's memory. `assert_refused <reason>` accepts exactly the wire names of
+  `TaskRefusal`, derived from the enum at run time; a script whose last `worker_do` made no call of the task protocol,
+  or that made none before the assertion, is refused when it is read.
 
 == Alternatives Considered
 

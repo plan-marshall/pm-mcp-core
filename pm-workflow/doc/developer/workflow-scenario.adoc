@@ -133,28 +133,31 @@ only, as it is for `answer_question`; the engine refuses an act the resting stat
 and leased to the generation. A wait the protocol answers with no offer, or with the end of the worker, fails at the
 step's line.
 
-|`worker_do <role> ack`
-|Acknowledges the offer through the task protocol: the task is `executing` and the worker may submit.
+|`worker_do [<role>] ack`
+|Acknowledges the offer through the task protocol: the task is `executing` and the worker may submit. With no role the
+call targets the worker of the script's most recent `worker_wait`, which is the form the specification's example
+writes; a script that holds two protocol workers names the role.
 
-|`worker_do <role> submit:<kind> [{"consultation_ids":"<id>,<id>"}]`
+|`worker_do [<role>] submit:<kind> [{"consultation_ids":"<id>,<id>"}]`
 |Submits the work task: `<kind>` is the entity kind of the leased task, the shipped `ConsultationService.validateSubmit`
 checks the consultation references the submit lists, and the task protocol closes the task once. The closed outcome
 settles the task state of the engine.
 
-|`worker_do <role> infeasible`
+|`worker_do [<role>] infeasible`
 |Closes the work task with the outcome `infeasible` through the task protocol, and settles the task state.
 
-|`worker_do <role> consult:<role> {"question":"<text>"}`
+|`worker_do [<role>] consult:<role> {"question":"<text>"}`
 |Follows the `consult:<role>` link through the shipped `ConsultationService.open`: the task waits for the answer and a
 task of the consulted role is queued.
 
-|`worker_do <role> submit:answer {"answer":"<text>"}`
+|`worker_do [<role>] submit:answer {"answer":"<text>"}`
 |Answers the consultation the worker holds through the shipped `ConsultationService.answer`: the consultation closes
 and the answer is delivered to the asker's next `worker_wait`.
 
 |`assert_worker_state <role> <state>`
 |Compares the state of the role's protocol worker's task, read from its queue record: `offered`, `acknowledged`,
-`closed`, `queued` (a release that spends no fence) or `fenced` (a task requeued by a fence).
+`closed`, `queued` (a release whose attempt ended other than the fence's `restart`) or `fenced` (the replay's fence
+store holds the generation the task's last attempt belonged to).
 
 |`assert_refused <reason>`
 |Asserts that the last `worker_do` was refused with the wire reason, one of `TaskRefusal` (`job_ended`,
@@ -184,9 +187,9 @@ a fixture unit that breaks a verifier rule never runs. `run(script)` replays the
 * `complete_job` and `answer_question` call `advance(status, event, store, transaction)`; the new
   status is committed in one `ScopeTransaction` of the scope, opened at the clock's instant under a lock that holds
   every key, because the replay is the only writer;
-* before every step that is not an assertion, a task state the scope rests in and whose role has no protocol worker is
-  settled by the direct worker of the queued task's role, so a script can assert the task state first and then what the
-  task ended with;
+* before every step that is not an `assert_state`, `assert_worker_state` or `assert_refused`, a task state the scope
+  rests in and whose role has no protocol worker is settled by the direct worker of the queued task's role, so a script
+  can assert the task state first and then what the task ended with;
 * `worker_wait` and `worker_do` drive the real task protocol of the replay: the worker's generation waits, the task is
   leased to it, and its calls close the task; a call the protocol accepts that closes the task settles the task state of
   the engine with the fixture return evaluation, and a `worker_do` whose next step is no `assert_refused` must be
@@ -346,9 +349,10 @@ or assertion of a role the script never waits for refused when it is read; `asse
 with the expected and actual value; an unaccepted event failing, never skipped; the direct worker settling
 `submitted`, `infeasible` and `lost`; a missing worker, an `asked` task and a surplus outcome failing with the role;
 the bytes kept after every step; an operator act taking its link and its free parameters; a protocol worker waiting,
-acknowledging, submitting and reading its closed outcome from the queue record; a refused call asserted and a
-wrong refusal or state failing at its line; a wait answered with no offer failing; the consultation answered through
-the asker's next wait, with the submit that omits its reference refused and the one that names it accepted
+acknowledging, submitting, reporting infeasible and reading its closed outcome from the queue record, with the
+role-less `worker_do` the specification writes; a refused call asserted and a wrong refusal or state failing at its
+line; a wait answered with no offer failing; the consultation re-offering the asker's task at its next wait, with the
+submit that omits its reference refused and the one that names it accepted
 |`ScenarioDeterminismTest` |Two replays with identical status and queue bytes after every step, for the direct worker
 and for a protocol worker; a changed transition failing at the assertion after the step that takes it, with the same
 bytes before it
@@ -379,8 +383,8 @@ The harness runs what the engine supports today. These parts of the specificatio
 
 * the worker faults and the runtime restart (`kill_worker`, `stall_worker`, `end_turn`, `kill_relay`,
   `restart_runtime`) and the fault matrix of the specification's regression scenario 12, with
-  `supervision-scenarios`; they build on the protocol worker of ADR 009, which already records the lease, the attempts
-  and the fence (the operator act of that package is here, ADR 008);
+  `supervision-scenarios`; they build on the protocol worker of ADR 009, which already records the lease and the
+  attempts, and will record the fence (the operator act of that package is here, ADR 008);
 * the link directives (`assert_links`, `assert_skill`, `assert_rejected`, `do`), the unqualified role and the plan
   instance version;
 * the hermetic git repository, with the first package that has a git step;
