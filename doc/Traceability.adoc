@@ -1417,24 +1417,6 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerification.java[HarnessVerification],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java[LaunchRefusal]
 
-Implementation (the git metadata and the hook definitions, as far as the runtime and `core.store` carry them; the
-read-only mount, the macOS sandbox deny and the audit's sink wiring are outside this repository):
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataPaths.java[GitMetadataPaths],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java[JobConfinement],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinementComposer.java[JobConfinementComposer],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataDigest.java[GitMetadataDigest],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataGuard.java[GitMetadataGuard],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataChangeSink.java[GitMetadataChangeSink],
-link:../pm-core/src/main/java/de/planmarshall/core/store/ProtectedPaths.java[ProtectedPaths]
-
-Verified by (the git metadata and the hook definitions):
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataPathsTest.java[GitMetadataPathsTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobConfinementComposerTest.java[JobConfinementComposerTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataDigestTest.java[GitMetadataDigestTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataGuardTest.java[GitMetadataGuardTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataJobTest.java[GitMetadataJobTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/ProtectedPathsTest.java[ProtectedPathsTest]
-
 Implementation (the git metadata of a worker, as far as the runtime owns it; the read-only mount and the macOS sandbox deny are `pm-exec`'s and outside this repository): the paths of the git directory and of every worktree's `.git` link file as values, a small or unreadable pointer skipped with its reason and a symbolic link refused `path_traversal_rejected` (`GitMetadataPaths`); the worker's read-only set and the launcher option `--read-only` (`JobConfinement`, `JobConfinementComposer`); the optional `git_metadata` member of the launch report and the record's honest `unenforced` default (`LaunchReport`, `JobRecord.GitMetadata`); the digest of the configuration with its includes, the hooks with their mode and the worktree administration files, its in-memory baseline at a worker's spawn, its comparison after the worker's fate and before every `git` job, the refusal `git_metadata_changed`, the `security` audit record and the change sink (`GitMetadataDigest`, `GitMetadataGuard`, `GitMetadataChangeSink`, `SubprocessJobRunner`); and the protected-path matcher of the tracked hook definitions (`ProtectedPaths`, see the PM-WF-11 section):
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataPaths.java[GitMetadataPaths],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataDigest.java[GitMetadataDigest],

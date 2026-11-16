@@ -30,8 +30,10 @@ refs, logs, objects and the tracked source stay out, because a server `git` job 
 input that cannot be read, an include cycle and a bound exceeded are the fail-closed part `unreadable`. The include scan
 is hand-written; no dependency is added.
 
-`GitMetadataGuard` keeps one baseline per project in memory: `record` at a worker's spawn, `verify` after a worker's fate
-is recorded and in `start` before a `git` job's write-ahead record, and `rebaseline` as the operator's act. A difference
+`GitMetadataGuard` keeps one baseline per project in memory: `record` takes it at the first worker spawn of a project in
+the runtime and keeps it, `verify` compares it after a worker's fate is recorded and in `start` before a `git` job's
+write-ahead record, and `rebaseline` is the operator's act. A later worker's spawn does not move the baseline, so two
+concurrent workers cannot erase each other's change and a detection is not cleared by the next spawn. A difference
 writes the security audit record `git_metadata_changed`, a WARN record and one call of `GitMetadataChangeSink`; before a
 `git` job it also refuses the job with `git_metadata_changed`, so every `git` job of the project is refused while the
 baseline differs. The runtime never repairs a file.
@@ -53,11 +55,13 @@ directory such as `.husky/_` changes with every checkout and is covered by the p
 == Consequences
 
 A runtime restart loses the baseline; a change made by a worker that outlived a crash is not detected, which is accepted
-because the recovery ends such a worker. A legitimate `build` job that changes `.git/config` (a `prepare` script) makes
-the next `git` job fail until the operator rebaselines; the sink is where the assembly reports that and the operator's
-act ends it. A worktree created after the spawn is not in the read-only set, but its administration files are in the
-digest of the next comparison. The sink's wiring to the plan's hold, the native variant's call of `verify` and the
-operator's act are the assembly's and the engine's, not this package's.
+because the recovery ends such a worker. The baseline moves at the first spawn and on the operator's act only, so a
+legitimate `build` job that changes `.git/config` (a `prepare` script) makes the next `git` job fail until the operator
+rebaselines — the sink is where the assembly reports that and the operator's act ends it. Keeping the baseline across
+spawns is what makes two concurrent workers safe: a spawn does not re-bless what another worker wrote in between. A
+worktree created after the spawn is not in the read-only set, but its administration files are in the digest of the next
+comparison. The sink's wiring to the plan's hold, the native variant's call of `verify` and the operator's act are the
+assembly's and the engine's, not this package's.
 
 == Source
 

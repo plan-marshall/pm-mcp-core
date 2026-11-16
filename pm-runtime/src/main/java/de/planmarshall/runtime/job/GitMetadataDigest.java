@@ -64,6 +64,7 @@ public final class GitMetadataDigest {
     private static final String GIT = ".git";
     private static final String GITDIR_PREFIX = "gitdir:";
     private static final String CONFIG = "config";
+    private static final String CONFIG_WORKTREE = "config.worktree";
     private static final String HOOKS = "hooks";
     private static final String INCLUDE = "include";
     private static final String INCLUDE_IF = "includeif";
@@ -87,16 +88,21 @@ public final class GitMetadataDigest {
         var root = projectRoot.toAbsolutePath().normalize();
         var paths = GitMetadataPaths.of(root);
         var parts = new TreeMap<String, String>();
+        var failures = new TreeSet<String>();
+        for (var refusal : paths.refused()) {
+            failures.add(name(root, refusal.path()));
+        }
         var gitDirectory = paths.gitDirectory();
         if (gitDirectory == null) {
+            failClosed(parts, failures);
             return parts;
         }
-        var failures = new TreeSet<String>();
         var config = gitDirectory.resolve(CONFIG);
         digestFile(root, config, parts, failures);
         if (Files.exists(config, LinkOption.NOFOLLOW_LINKS)) {
             includes(root, config, parts, failures, 0, new HashSet<>());
         }
+        digestFile(root, gitDirectory.resolve(CONFIG_WORKTREE), parts, failures);
         hooks(root, gitDirectory.resolve(HOOKS), parts, failures);
         for (var linkFile : paths.linkFiles()) {
             digestFile(root, linkFile, parts, failures);
@@ -112,10 +118,15 @@ public final class GitMetadataDigest {
                 }
             }
         }
+        failClosed(parts, failures);
+        return parts;
+    }
+
+    /** Adds the fail-closed part when any input could not be read, so such a tree can never compare equal to a clean one. */
+    private static void failClosed(SortedMap<String, String> parts, Set<String> failures) {
         if (!failures.isEmpty()) {
             parts.put(UNREADABLE, sha256(String.join("\n", failures).getBytes(StandardCharsets.UTF_8)));
         }
-        return parts;
     }
 
     /**
@@ -149,21 +160,31 @@ public final class GitMetadataDigest {
             failures.add(name(root, canonical));
             return;
         }
-        for (var target : includePaths(file)) {
-            digestFile(root, target, parts, failures);
-            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-                includes(root, target, parts, failures, depth + 1, visited);
+        var scan = includePaths(file);
+        if (scan.unreadable()) {
+            failures.add(name(root, file));
+        }
+        for (var target : scan.paths()) {
+            if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                failures.add(name(root, target));
+                continue;
             }
+            digestFile(root, target, parts, failures);
+            includes(root, target, parts, failures, depth + 1, visited);
         }
     }
 
+    /** The paths a git config file includes, and whether a value could not be resolved. */
+    private record IncludeScan(List<Path> paths, boolean unreadable) {
+    }
+
     /** @return the paths a git config file includes, resolved against its directory */
-    private static List<Path> includePaths(Path file) {
+    private static IncludeScan includePaths(Path file) {
         List<String> lines;
         try {
             lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         } catch (IOException _) {
-            return List.of();
+            return new IncludeScan(List.of(), true);
         }
         var includes = new ArrayList<Path>();
         var inIncludeSection = false;
@@ -185,12 +206,39 @@ public final class GitMetadataDigest {
             if (!PATH.equals(key)) {
                 continue;
             }
-            var value = line.substring(separator + 1).trim().replace("\"", "");
-            if (!value.isEmpty()) {
-                includes.add(resolve(file.getParent(), value));
+            var value = unquote(comment(line.substring(separator + 1)));
+            if (value.isEmpty()) {
+                continue;
+            }
+            if (value.startsWith("%(")) {
+                return new IncludeScan(List.of(), true);
+            }
+            includes.add(resolve(file.getParent(), expandHome(value)));
+        }
+        return new IncludeScan(List.copyOf(includes), false);
+    }
+
+    /** @return the value without a trailing comment, trimmed */
+    private static String comment(String value) {
+        for (var index = 0; index < value.length(); index++) {
+            var character = value.charAt(index);
+            if ((character == '#' || character == ';')
+                    && (index == 0 || Character.isWhitespace(value.charAt(index - 1)))) {
+                return value.substring(0, index).strip();
             }
         }
-        return includes;
+        return value.strip();
+    }
+
+    private static String unquote(String value) {
+        return value.replace("\"", "").replace("'", "");
+    }
+
+    private static String expandHome(String value) {
+        if ("~".equals(value)) {
+            return System.getProperty("user.home");
+        }
+        return value.startsWith("~/") ? System.getProperty("user.home") + value.substring(1) : value;
     }
 
     private static void hooks(Path root, Path directory, SortedMap<String, String> parts, Set<String> failures) {

@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
+import java.util.TreeSet;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -105,6 +106,20 @@ class GitMetadataGuardTest {
         var verdict = new GitMetadataGuard().verify(root);
 
         assertEquals(new GitMetadataGuard.Unchanged(), verdict, "a project without a baseline never compares");
+    }
+
+    @Test
+    @DisplayName("Should answer changed for a tree it cannot read, even when the baseline is the same")
+    void shouldAnswerChangedForAnUnreadableTree() throws Exception {
+        var root = Files.createDirectories(base.resolve(name()));
+        Files.createSymbolicLink(root.resolve(".git"), Files.createDirectories(base.resolve(name())));
+        var guard = new GitMetadataGuard();
+
+        guard.record(root);
+        var verdict = guard.verify(root);
+
+        assertEquals(new GitMetadataGuard.Changed(new TreeSet<>(Set.of(GitMetadataDigest.UNREADABLE))), verdict,
+                "an unreadable tree is fail closed");
     }
 
     private Path repository() throws IOException {

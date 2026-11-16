@@ -138,6 +138,66 @@ class GitMetadataPathsTest {
         }
 
         @Test
+        @DisplayName("Should skip a record that names another administration directory")
+        void shouldSkipRecordThatNamesAnotherAdministration() throws Exception {
+            var main = plainRepository(base.resolve(name()));
+            var worktree = main.resolve(name());
+            var admin = Files.createDirectories(main.resolve(".git/worktrees").resolve(name()));
+            var otherAdmin = Files.createDirectories(base.resolve(name()));
+            Files.writeString(admin.resolve("commondir"), "../..\n");
+            Files.createDirectories(worktree);
+            Files.writeString(worktree.resolve(".git"), GITDIR_PREFIX + otherAdmin + "\n");
+            Files.writeString(admin.resolve("gitdir"), worktree.resolve(".git") + "\n");
+
+            var result = GitMetadataPaths.of(main);
+
+            assertAll("Record naming another administration",
+                    () -> assertTrue(result.linkFiles().isEmpty(), "the record yields no link file"),
+                    () -> assertEquals(List.of(new GitMetadataPaths.Skipped(admin.resolve("gitdir"),
+                                    GitMetadataPaths.NOT_NAMED_BACK)), result.skipped(),
+                            "the record names another administration"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a symbolic link as the git directory of a linked worktree")
+        void shouldRefuseSymlinkAsGitDirectoryOfWorktree() throws Exception {
+            var main = plainRepository(base.resolve(name()));
+            var admin = Files.createDirectories(main.resolve(".git/worktrees").resolve(name()));
+            Files.writeString(admin.resolve("commondir"), "../..\n");
+            var adminLink = main.resolve(".git/worktrees").resolve(name() + "-link");
+            Files.createSymbolicLink(adminLink, admin);
+            var worktree = Files.createDirectories(base.resolve(name()));
+            Files.writeString(worktree.resolve(".git"), GITDIR_PREFIX + adminLink + "\n");
+
+            var result = GitMetadataPaths.of(worktree);
+
+            assertAll("Symlinked administration directory",
+                    () -> assertNull(result.gitDirectory(), "a refused administration directory yields none"),
+                    () -> assertEquals(List.of(new GitMetadataPaths.Refused(adminLink,
+                                    GitMetadataPaths.PATH_TRAVERSAL_REJECTED)), result.refused(),
+                            "the symlinked administration directory is refused"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a symbolic link as a worktree's link file")
+        void shouldRefuseSymlinkAsLinkFile() throws Exception {
+            var main = plainRepository(base.resolve(name()));
+            var target = Files.createDirectories(base.resolve(name()));
+            var linkFile = target.resolve(".git");
+            Files.createSymbolicLink(linkFile, main.resolve(".git"));
+            var admin = Files.createDirectories(main.resolve(".git/worktrees").resolve(name()));
+            Files.writeString(admin.resolve("gitdir"), linkFile + "\n");
+
+            var result = GitMetadataPaths.of(main);
+
+            assertAll("Symlinked link file",
+                    () -> assertTrue(result.linkFiles().isEmpty(), "the refused link file is not returned"),
+                    () -> assertEquals(List.of(new GitMetadataPaths.Refused(linkFile,
+                                    GitMetadataPaths.PATH_TRAVERSAL_REJECTED)), result.refused(),
+                            "the symlinked link file is refused"));
+        }
+
+        @Test
         @DisplayName("Should refuse a symbolic link as .git and find the control without it")
         void shouldRefuseSymlinkAsGitDirectory() throws Exception {
             var root = Files.createDirectories(base.resolve(name()));

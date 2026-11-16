@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -37,12 +38,14 @@ public final class GitMetadataGuard {
     private final Map<Path, SortedMap<String, String>> baselines = new ConcurrentHashMap<>();
 
     /**
-     * Takes the baseline of a project.
+     * Takes the baseline of a project when it holds none. The first worker spawn of a project in this runtime takes it;
+     * a later spawn keeps it, so a change made between two spawns is not baselined away, and a detection is cleared only
+     * by the operator's {@link #rebaseline(Path)}.
      *
      * @param projectRoot the canonical enrolled project root
      */
     public void record(Path projectRoot) {
-        baselines.put(key(projectRoot), GitMetadataDigest.of(projectRoot));
+        baselines.computeIfAbsent(key(projectRoot), _ -> GitMetadataDigest.of(projectRoot));
     }
 
     /**
@@ -57,7 +60,11 @@ public final class GitMetadataGuard {
         if (baseline == null) {
             return new Unchanged();
         }
-        var parts = GitMetadataDigest.differences(baseline, GitMetadataDigest.of(projectRoot));
+        var current = GitMetadataDigest.of(projectRoot);
+        if (current.containsKey(GitMetadataDigest.UNREADABLE)) {
+            return new Changed(new TreeSet<>(Set.of(GitMetadataDigest.UNREADABLE)));
+        }
+        var parts = GitMetadataDigest.differences(baseline, current);
         return parts.isEmpty() ? new Unchanged() : new Changed(parts);
     }
 
@@ -67,7 +74,7 @@ public final class GitMetadataGuard {
      * @param projectRoot the canonical enrolled project root
      */
     public void rebaseline(Path projectRoot) {
-        record(projectRoot);
+        baselines.put(key(projectRoot), GitMetadataDigest.of(projectRoot));
     }
 
     private static Path key(Path projectRoot) {

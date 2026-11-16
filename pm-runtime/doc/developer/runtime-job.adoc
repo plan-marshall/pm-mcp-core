@@ -330,7 +330,8 @@ The jobs part of the recovery in this runtime skips every settled job, so it doe
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
 
 The runtime composes what a job may read, write and receive, and the launcher `pm-exec` applies it (link:../adr/runtime-job/014-confinement-and-environment-composed-outside-the-launcher.adoc[ADR 014]).
-The composition is deterministic and reads the project's verified enrolment; it never reads the runtime's own environment.
+The composition reads the project's verified enrolment and its git metadata and never the runtime's own environment; for
+a given tree it is deterministic.
 
 [horizontal]
 `JobConfinement`:: The write set, the extra read paths, the read-only paths inside the write set and the read-denied paths, rendered as the `--write`, `--read`, `--read-only` and `--deny-read` options of the launcher. The paths are absolute, normalized, sorted and free of duplicates, so a launch is reproducible. A `--read-only` path lies inside the write set and the launcher makes it unwritable for the job; it is how a worker's git metadata is hidden from it (`GitMetadataPaths`, <<git-metadata>>).
@@ -362,10 +363,7 @@ the tracked source stay out, because a server `git` job changes them legitimatel
 dependency is added; an existing input that cannot be read, an include cycle and a bound exceeded are the fail-closed part
 `unreadable`, so an unreadable tree is a difference and never a pass.
 
-`GitMetadataGuard` keeps the baseline per project in memory. `record` runs at a worker's spawn, `verify` at the two points
-the specification names — after a worker's fate is recorded, and in `start` before a `git` job's write-ahead record — and
-`rebaseline` is the operator's act that clears a false difference (for example after a legitimate build job changed the
-metadata). A difference at a worker's end writes a `security` audit record `git_metadata_changed` (the project, the point
+`GitMetadataGuard` keeps one baseline per project: `record` takes it at the first worker spawn of a project in the runtime and keeps it, `verify` compares it after a worker's fate is recorded and in `start` before a `git` job's write-ahead record, and `rebaseline` is the operator's act that clears a false difference (for example after a legitimate build job changed the metadata). A later worker's spawn does not move the baseline, so a change made between two spawns is not baselined away. A difference at a worker's end writes a `security` audit record `git_metadata_changed` (the project, the point
 `worker_end` or `git_job`, the job id and the parts, never their contents), a WARN record and one call of
 `GitMetadataChangeSink`, whose default records nothing. A difference before a `git` job refuses the job with
 `git_metadata_changed` and records it `refused`, so every `git` job of the project is refused while the baseline differs.

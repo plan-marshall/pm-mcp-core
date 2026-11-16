@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
@@ -250,6 +251,7 @@ public final class GitMetadataPaths {
      * @param refused      the paths refused because they are symbolic links
      * @since 0.1
      */
+    @Builder
     public record Result(@Nullable Path gitDirectory, List<Path> linkFiles, List<Skipped> skipped,
     List<Refused> refused) {
 

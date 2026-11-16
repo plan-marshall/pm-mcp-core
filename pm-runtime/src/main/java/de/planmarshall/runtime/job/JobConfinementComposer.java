@@ -41,10 +41,11 @@ import de.planmarshall.core.store.ProjectEnrolment;
  * container-engine opt-in, the container engine's sockets. The job-private directory of a worker or a probe and the
  * runtime socket of a worker are named as explicit read paths, because they lie inside the denied base directory.
  * <p>
- * A worker's confinement names the project's git directory and the {@code .git} link file of every linked worktree as
- * read-only paths ({@link GitMetadataPaths}), so a launcher that can apply the set leaves the git metadata unwritable
- * for the worker; every other kind keeps the set empty, because a {@code git} job and a build wrapper write the git
- * directory legitimately.
+ * A worker's confinement names the project's git directory and the {@code .git} link file of every linked worktree that
+ * lies inside the project root as read-only paths ({@link GitMetadataPaths}), so a launcher that can apply the set
+ * leaves the git metadata unwritable for the worker; every other kind keeps the set empty, because a {@code git} job and
+ * a build wrapper write the git directory legitimately. A linked worktree outside the root is not part of the write set
+ * and needs no read-only entry; the digest covers it.
  * <p>
  * The composer builds the values; the launcher {@code pm-exec} applies them. A platform without a ruleset records
  * {@code confinement: unavailable}, which this type neither claims nor suppresses.
@@ -184,7 +185,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
                 write.add(jobPrivate.resolve(DATA));
                 read.add(jobPrivate);
                 read.add(base.resolve(RUNTIME_SOCKET));
-                readOnly.addAll(GitMetadataPaths.of(projectRoot).paths());
+                readOnly.addAll(gitMetadataInside(projectRoot));
             }
             case PROBE -> {
                 write.addAll(harnessWritablePaths);
@@ -283,6 +284,16 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     /** @return the job-private directory of a job */
     public Path jobPrivate(JobId jobId) {
         return base.resolve(RUN_JOBS).resolve(jobId.value());
+    }
+
+    /**
+     * The git metadata paths of a project that lie inside its root, which is the only part of the write set the launcher
+     * must make read-only. A linked worktree outside the root is not writable for the job anyway; its link and
+     * administration files are covered by the digest.
+     */
+    private static List<Path> gitMetadataInside(Path projectRoot) {
+        var root = projectRoot.toAbsolutePath().normalize();
+        return GitMetadataPaths.of(root).paths().stream().filter(path -> path.startsWith(root)).toList();
     }
 
     /**

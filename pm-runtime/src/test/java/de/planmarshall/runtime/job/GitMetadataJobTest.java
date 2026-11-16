@@ -32,10 +32,12 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +47,9 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import de.planmarshall.core.profile.JsonDocument;
+import de.planmarshall.core.role.EffectiveRole;
+import de.planmarshall.core.role.EffortValue;
+import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.service.JobRunner;
@@ -54,9 +59,12 @@ import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.GitMetadata;
 import de.planmarshall.core.store.JobRecord.Scope;
+import de.planmarshall.core.store.JobRecord.Status;
+import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
 import de.planmarshall.runtime.launch.JobTokenStore;
 import de.planmarshall.runtime.launch.LaunchPrompt;
+import de.planmarshall.runtime.launch.LaunchRefusal;
 import de.planmarshall.runtime.launch.ResolvedSkill;
 import de.planmarshall.runtime.launch.WorkerLaunch;
 import de.planmarshall.runtime.security.JobTokens;
@@ -157,13 +165,64 @@ class GitMetadataJobTest {
     }
 
     @Test
+    @DisplayName("a failing audit sink is logged and the change is still reported")
+    void failingAuditIsLogged() throws Exception {
+        var config = fixture.root.resolve(".git/config");
+        Files.writeString(config, "[core]\n\trepositoryformatversion = 0\n");
+        writeGitTool();
+        fixture.enrol();
+        Files.writeString(script, "#!/bin/sh\necho '[core] fsmonitor = attacker' >> " + config + "\nexit 0\n");
+        Files.setPosixFilePermissions(script, PosixFilePermissions.fromString("rwx------"));
+        var failingAudit = SubprocessJobRunner.builder().base(fixture.base).lockManager(fixture.locks)
+                .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
+                .termination(new TerminationProtocol(ProcessGroupSignals.system())).environment(environment())
+                .probeEnvironment((candidate, jobId) -> ENVIRONMENT)
+                .parser((kind, output) -> new JobEvidence.ParseResult(true, 0, false, null))
+                .primitives(request -> Optional.empty()).jobTokens(tokens)
+                .audit(_ -> {
+                    throw new IllegalStateException("the audit sink refused the record");
+                })
+                .gitMetadataGuard(guard).gitMetadataSink(changes::add).build();
+
+        var result = failingAudit.startWorker(start());
+        var jobId = assertInstanceOf(JobRunner.StartResult.Started.class, result, "the worker should be started")
+                .jobId();
+        failingAudit.awaitSettled(jobId, SETTLE_TIMEOUT).orElseThrow();
+
+        assertAll("A failing audit sink is logged",
+                () -> assertEquals(1, changes.size(), "the sink is still called"),
+                () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                        WARN.GIT_METADATA_CHANGE_NOT_REPORTED.resolveIdentifierString()));
+    }
+
+    @Test
     @DisplayName("a worker whose launcher writes no report records unenforced")
     void workerWithoutReport() throws Exception {
         FakePmExec.install(home, FakePmExec.Mode.NO_REPORT);
 
-        var settled = settleWorker();
+        var result = runner.startWorker(start());
+        var jobId = assertInstanceOf(JobRunner.StartResult.Started.class, result, "the worker should be started")
+                .jobId();
+        var written = runner.recordOf(jobId).orElseThrow();
+        var settled = runner.awaitSettled(jobId, SETTLE_TIMEOUT).orElseThrow();
 
-        assertEquals(GitMetadata.UNENFORCED, settled.gitMetadata(), "a missing report leaves the honest value");
+        assertAll("A missing report leaves the honest value",
+                () -> assertEquals(GitMetadata.UNENFORCED, written.gitMetadata(),
+                        "the write-ahead record states unenforced"),
+                () -> assertEquals(GitMetadata.UNENFORCED, settled.gitMetadata(),
+                        "the fate record states unenforced"));
+    }
+
+    @Test
+    @DisplayName("a refused worker records unenforced, never enforced")
+    void refusedWorkerRecordsUnenforced() {
+        var jobId = runner.refuseWorker(new WorkerStart.Refusal(generation, role(), fixture.enrolment(), PROJECT,
+                "worker:" + role, budgetSeconds, new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null),
+                workerBlock(), LaunchRefusal.HARNESS_NOT_ENROLLED, Generators.letterStrings(8, 64).next()));
+
+        var record = runner.recordOf(jobId).orElseThrow();
+
+        assertEquals(GitMetadata.UNENFORCED, record.gitMetadata(), "the refused record states unenforced");
     }
 
     @Test
@@ -198,8 +257,7 @@ class GitMetadataJobTest {
 
         var worker = settleWorker();
 
-        var changeEvent = fixture.events.stream()
-                .filter(event -> SubprocessJobRunner.GIT_METADATA_CHANGED.equals(event.event())).findFirst()
+        var changeEvent = fixture.events.stream().filter(event -> SubprocessJobRunner.GIT_METADATA_CHANGED.equals(event.event())).findFirst()
                 .orElseThrow(() -> new AssertionError("no git metadata audit record"));
         assertAll("The worker's change is seen",
                 () -> assertEquals(GitMetadata.UNENFORCED, worker.gitMetadata(), "the honest value is recorded"),
@@ -229,6 +287,14 @@ class GitMetadataJobTest {
         var refusedId = assertInstanceOf(JobRunner.StartResult.Refused.class, refused,
                 "the git job is refused").reason();
         assertEquals(SubprocessJobRunner.GIT_METADATA_CHANGED, refusedId, "the refusal names the change");
+        var refusedRecord = JobRecordStore.ofProject(fixture.base, fixture.project).records().stream()
+                .filter(record -> record.kind() == JobId.Kind.GIT)
+                .max(Comparator.comparing(JobRecord::createdAt)).orElseThrow();
+        assertAll("The refused git job is recorded",
+                () -> assertEquals(Status.REFUSED, refusedRecord.status(), "the record is refused"),
+                () -> assertEquals(SubprocessJobRunner.GIT_METADATA_CHANGED, refusedRecord.refusalReason(),
+                        "the record names the refusal reason"),
+                () -> assertNull(refusedRecord.gitMetadata(), "a git job records no git metadata"));
 
         guard.rebaseline(fixture.root);
         var started = assertInstanceOf(JobRunner.StartResult.Started.class, runner.start(gitJob()),
@@ -290,6 +356,17 @@ class GitMetadataJobTest {
 
     private String workerBlock() {
         return "{\"role\":\"" + role + "\"}";
+    }
+
+    /** @return the effective role of the refused worker */
+    private EffectiveRole role() {
+        var artifact = new RoleArtifact(1, role, Generators.letterStrings(4, 32).next(), RoleClass.WRITER,
+                List.of("read_file"), "claude", "frontier", new EffortValue("high"), RoleForm.FRESH, 1,
+                List.of("skill://pm/role/" + role + "/SKILL.md"), null, 60, null, new RoleArtifact.Questions(0, 0),
+                Map.of());
+        return new EffectiveRole(artifact, "claude", "frontier", new EffortValue("high"), List.of(),
+                Generators.integers(0, 99).next() + "." + Generators.integers(0, 99).next(), null,
+                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, OptionalInt.of(3));
     }
 
     /** @return a generated version of the form major.minor.patch */

@@ -75,10 +75,7 @@ public final class ProtectedPaths {
      */
     public static boolean isProtected(String repositoryRelativePath, Collection<String> declaredFiles) {
         Objects.requireNonNull(repositoryRelativePath, "repositoryRelativePath");
-        var normalized = normalize(repositoryRelativePath);
-        return matches(normalized)
-                && Objects.requireNonNull(declaredFiles, "declaredFiles").stream().filter(Objects::nonNull)
-                .map(ProtectedPaths::normalize).noneMatch(normalized::equals);
+        return !of(List.of(repositoryRelativePath), declaredFiles).isEmpty();
     }
 
     private static boolean matches(String normalizedPath) {

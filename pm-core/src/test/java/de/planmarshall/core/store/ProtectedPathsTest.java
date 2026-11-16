@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.text.Normalizer;
@@ -64,6 +65,29 @@ class ProtectedPathsTest {
         var paths = List.of(decomposed);
 
         assertEquals(paths, ProtectedPaths.of(paths, Set.of()), "NFC normalization matches the decomposed name");
+    }
+
+    @Test
+    @DisplayName("a decomposed declared path lifts the composed path")
+    void decomposedDeclaredPathLiftsComposedPath() {
+        var composed = ".husky/" + Normalizer.normalize("é", Normalizer.Form.NFC) + "-hook";
+        var decomposed = Normalizer.normalize(composed, Normalizer.Form.NFD);
+
+        var protectedPaths = ProtectedPaths.of(List.of(composed), Set.of(decomposed));
+
+        assertTrue(protectedPaths.isEmpty(), "normalization lifts the declared path on both sides");
+    }
+
+    @Test
+    @DisplayName("the single-path decision agrees with the list decision")
+    void singlePathDecisionAgrees() {
+        assertAll("The single path decision",
+                () -> assertTrue(ProtectedPaths.isProtected(".husky/pre-commit", Set.of()),
+                        "a hook definition is protected"),
+                () -> assertFalse(ProtectedPaths.isProtected(".pre-commit-config.yaml.bak", Set.of()),
+                        "a near miss is not protected"),
+                () -> assertFalse(ProtectedPaths.isProtected(".husky/pre-commit", Set.of(".husky/pre-commit")),
+                        "a declared path is lifted"));
     }
 
     @Test

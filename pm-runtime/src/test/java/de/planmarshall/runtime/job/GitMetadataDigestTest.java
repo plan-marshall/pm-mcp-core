@@ -185,6 +185,41 @@ class GitMetadataDigestTest {
     }
 
     @Test
+    @DisplayName("Should differ when the worktree config of the plan's own worktree changes")
+    void shouldDifferOnConfigWorktree() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config.worktree"), "[core]\n\tfsmonitor = " + name() + "\n");
+        var before = GitMetadataDigest.of(root);
+        Files.writeString(root.resolve(".git/config.worktree"), "[core]\n\tfsmonitor = attacker\n");
+
+        var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
+
+        assertEquals(Set.of(".git/config.worktree"), changed, "the worktree config is digested");
+    }
+
+    @Test
+    @DisplayName("Should answer unreadable for a refused metadata tree")
+    void shouldAnswerUnreadableForRefusedTree() throws Exception {
+        var root = Files.createDirectories(base.resolve(name()));
+        Files.createSymbolicLink(root.resolve(".git"), Files.createDirectories(base.resolve(name())));
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE), "a refused tree is fail closed");
+    }
+
+    @Test
+    @DisplayName("Should answer unreadable for a missing include")
+    void shouldAnswerUnreadableForMissingInclude() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = " + name() + ".cfg\n");
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE), "a missing include is fail closed");
+    }
+
+    @Test
     @DisplayName("Should digest nothing for a project without git")
     void shouldDigestNothingWithoutGit() throws Exception {
         var root = Files.createDirectories(base.resolve(name()));

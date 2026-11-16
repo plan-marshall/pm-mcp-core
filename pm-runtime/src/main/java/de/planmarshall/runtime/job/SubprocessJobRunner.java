@@ -553,7 +553,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 var projectRoot = projectRoot(job.enrolment());
                 if (request.kind() == JobId.Kind.GIT) {
                     if (gitMetadataGuard.verify(projectRoot) instanceof GitMetadataGuard.Changed(var parts)) {
-                        yield refuseGitMetadata(request, budget, store, projectRoot, parts);
+                        yield settleRefused(request, budget, store, GIT_METADATA_CHANGED, projectRoot, parts);
                     }
                 }
                 yield launch(request, budget, store, job);
@@ -951,6 +951,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** Settles a refused job in the one write of its record. */
     private JobRunner.StartResult refuse(JobRunner.StartRequest<JobRequest> request, JobBudget budget,
             JobRecordStore store, String reason) {
+        return settleRefused(request, budget, store, reason, null, null);
+    }
+
+    /**
+     * Settles a refused job in the one write of its record and, when a git metadata change decided the refusal, reports
+     * it after the record is durable: the security audit record, the WARN and the sink.
+     */
+    private JobRunner.StartResult settleRefused(JobRunner.StartRequest<JobRequest> request, JobBudget budget,
+            JobRecordStore store, String reason, @Nullable Path projectRoot, @Nullable Set<String> parts) {
         var outcome = OutcomeDerivation.derive(new RefusedBeforeSpawn(reason));
         var now = clock.instant();
         JobRecord settled;
@@ -962,29 +971,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
         remember(settled);
         LOGGER.info(INFO.JOB_SETTLED, settled.jobId(), settled.fate().wireName(), settled.outcomeRow());
-        return new JobRunner.StartResult.Refused(reason);
-    }
-
-    /**
-     * Settles a {@code git} job refused because the project's git metadata differs from its baseline: the one write of
-     * its record, the security audit record, the WARN and the sink.
-     */
-    private JobRunner.StartResult refuseGitMetadata(JobRunner.StartRequest<JobRequest> request, JobBudget budget,
-            JobRecordStore store, Path projectRoot, Set<String> parts) {
-        var outcome = OutcomeDerivation.derive(new RefusedBeforeSpawn(GIT_METADATA_CHANGED));
-        var now = clock.instant();
-        JobRecord settled;
-        try (var transaction = lockManager.openTransaction()) {
-            var jobId = store.allocate(transaction, request.kind(), request.scope());
-            settled = newRecord(jobId, request.scope(), budget, null, now).status(Status.REFUSED)
-                    .fate(outcome.fate()).outcomeRow(outcome.row()).refusalReason(GIT_METADATA_CHANGED).endedAt(now)
-                    .build();
-            store.writeFate(transaction, settled);
+        if (projectRoot != null && parts != null) {
+            reportChange(projectRoot, GitMetadataChangeSink.Point.GIT_JOB, settled.jobId(), parts);
         }
-        remember(settled);
-        LOGGER.info(INFO.JOB_SETTLED, settled.jobId(), settled.fate().wireName(), settled.outcomeRow());
-        reportChange(projectRoot, GitMetadataChangeSink.Point.GIT_JOB, settled.jobId(), parts);
-        return new JobRunner.StartResult.Refused(GIT_METADATA_CHANGED);
+        return new JobRunner.StartResult.Refused(reason);
     }
 
     /**
@@ -1656,6 +1646,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * is recorded, so the fate is never held back by the comparison.
      */
     private void verifyWorkerEnd(RunningJob job, JobRecord settled) {
+        if (settled.kind() != JobId.Kind.LLM) {
+            return;
+        }
         var root = job.projectRoot;
         if (root == null) {
             return;

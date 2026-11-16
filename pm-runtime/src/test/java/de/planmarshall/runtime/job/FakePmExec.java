@@ -70,7 +70,7 @@ public final class FakePmExec {
 
     private static final String REPORT_GIT_METADATA_AND_EXEC = """
             exec @SETSID@ /bin/sh -c 'printf "{\\"pid\\":%s,\\"process_started_at\\":\\"%s\\",\\"confinement\\":\
-            \\"confined\\",\\"landlock_abi\\":3,\\"git_metadata\\":\\"enforced\\"}\\n" "@PID@" \
+            \\"unavailable\\",\\"landlock_abi\\":null,\\"git_metadata\\":\\"enforced\\"}\\n" "@PID@" \
             "$(@DATE@ -u +%Y-%m-%dT%H:%M:%SZ)" >&2; exec "$@"' pm-exec "$@"
             """;
 
