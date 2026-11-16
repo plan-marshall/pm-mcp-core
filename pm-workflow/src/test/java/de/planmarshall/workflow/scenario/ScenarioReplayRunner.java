@@ -14,7 +14,6 @@ import java.io.Serial;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -622,10 +621,12 @@ final class ScenarioReplayRunner {
         var worker = workerOf(fault.line(), fault.role(), "stall_worker");
         var deadline = deadline(fault.line(), worker);
         var until = fixtures.clock.now().plusSeconds(fault.seconds());
-        fixtures.clock.advanceTo(until);
-        if (!until.isBefore(deadline.instant())) {
-            lose(fault.line(), worker, AttemptEnd.WORKER_LOST, deadline.instant());
+        if (until.isBefore(deadline.instant())) {
+            fixtures.clock.advanceTo(until);
+            return;
         }
+        fixtures.clock.advanceTo(deadline.instant());
+        lose(fault.line(), worker, AttemptEnd.WORKER_LOST, deadline.instant());
     }
 
     /**

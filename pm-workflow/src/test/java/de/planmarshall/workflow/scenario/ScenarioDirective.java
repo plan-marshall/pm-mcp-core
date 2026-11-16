@@ -384,8 +384,9 @@ sealed interface ScenarioDirective {
     }
 
     /**
-     * A worker fault: the role's protocol worker makes no call for the given time, and is lost when that time reaches
-     * the limit its {@link de.planmarshall.core.profile.WorkerParameters} compile for it.
+     * A worker fault: the role's protocol worker makes no call for the given time, and the silence since its last call
+     * is compared with the limit its {@link de.planmarshall.core.profile.WorkerParameters} compile for it; the worker is
+     * lost once that silence reaches the limit.
      *
      * @param line    the line of the script
      * @param role    the role whose protocol worker stalls

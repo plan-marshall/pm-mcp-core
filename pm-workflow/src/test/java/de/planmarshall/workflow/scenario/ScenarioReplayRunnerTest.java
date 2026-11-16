@@ -653,7 +653,7 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals(2, attempts(task).size(), "the task was offered to two generations"),
                     () -> assertEquals(AttemptEnd.WORKER_LOST, lost.end(), "the offer's acknowledgement was missed"),
                     () -> assertEquals(lost.offeredAt().plusSeconds(ScenarioFixtures.ACK_DEADLINE_SECONDS),
-                            lost.endedAt(), "the loss is detected at the acknowledgement deadline, never before"),
+                            lost.endedAt(), "the loss is at the acknowledgement deadline, not before"),
                     () -> assertNotEquals(lost.generationId(), attempts(task).get(1).generationId(),
                             "the replacing worker is another generation"),
                     () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"),
@@ -809,7 +809,6 @@ class ScenarioReplayRunnerTest {
         @DisplayName("Should answer a second generation no_task while the lease of the restarted one is held")
         void shouldAnswerASecondGenerationNoTask() {
             var runner = replayed(WorkerFaultScenarios.RESTART_HELD_BY_ONE_GENERATION);
-            var task = task(runner);
             var successor = "l-%016x".formatted(2);
             var other = runner.fixtures().protocol().wait(new WaitRequest(successor, "reviewer",
                             ScenarioFixtures.DIGEST, ScenarioFixtures.DIGEST, ScenarioFixtures.RE_OFFER_BUDGET),
@@ -862,17 +861,7 @@ class ScenarioReplayRunnerTest {
         @Test
         @DisplayName("Should lose a worker after a restart that follows its acknowledgement")
         void shouldLoseAWorkerAfterARestart() {
-            var runner = runner();
-            runner.run(ScenarioScript.read("""
-                    scenario restart-then-lost
-                    start plan scenario-plan
-                    complete_job b-0000000000000001 {"outcome":"succeeded"}
-                    worker_wait reviewer
-                    worker_do reviewer ack {}
-                    restart_runtime
-                    kill_worker reviewer
-                    assert_worker_state reviewer fenced
-                    """));
+            var runner = replayed(WorkerFaultScenarios.RESTART_THEN_LOST);
             var task = task(runner);
             var lost = attempts(task).getFirst();
 
@@ -920,6 +909,30 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals(2, failure.line(), "the failure names the restart's line"),
                     () -> assertEquals("line 2: the scope has not been started", failure.getMessage(),
                             "the refusal names the missing start"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a runtime restart of a scope that already ended")
+        void shouldRefuseARestartAfterTheEnd() {
+            var runner = runner();
+            var script = ScenarioScript.read("""
+                    scenario restart-after-the-end
+                    worker reviewer submitted
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    assert_task_outcome reviewer submitted
+                    answer_question Q-001 web {"branch_key":"approve"}
+                    answer_question Q-002 web {"branch_key":"answered"}
+                    assert_outcome merged
+                    restart_runtime
+                    """);
+
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+
+            assertAll(
+                    () -> assertEquals(9, failure.line(), "the failure names the restart's line"),
+                    () -> assertEquals("line 9: restart_runtime has nothing to continue: the scope ended with 'merged'",
+                            failure.getMessage(), "the refusal names the ended outcome"));
         }
 
         @Test

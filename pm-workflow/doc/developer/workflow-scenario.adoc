@@ -181,10 +181,11 @@ call: the attempt ends `exited_without_submit` at the step's instant and the gen
 the loss (`worker_lost`) falls one silence limit after the relay's death, and the generation is fenced there.
 
 |`stall_worker <role> <seconds>`
-|The role's worker makes no call for the given time, counted from its last call, so stalls add up. Shorter than the
-limit that governs its open attempt (`ackDeadlineSeconds` for an unacknowledged offer, otherwise `silenceLimitSeconds()`
-of `de.planmarshall.core.profile.WorkerParameters`) it changes nothing and the worker is not replaced; at or beyond the
-limit the attempt ends `worker_lost` at the limit, never before, and the generation is fenced there.
+|The role's worker makes no call for the given time, and the silence is measured from its last call, so stalls add up.
+While that silence stays below the limit that governs its open attempt (`ackDeadlineSeconds` for an unacknowledged
+offer, otherwise `silenceLimitSeconds()` of `de.planmarshall.core.profile.WorkerParameters`), nothing changes and the
+worker is not replaced; once it reaches the limit — one stall or several — the attempt ends `worker_lost` at the limit,
+never before, and the generation is fenced there.
 
 |`restart_runtime`
 |Rebuilds the engine, the task protocol and the stores' objects over the same directory of the replay: the status is
@@ -284,6 +285,10 @@ does not evaluate (`asked`)
 |A `kill_relay` or `end_turn` whose task the worker has not acknowledged
 |`ScenarioFailure` at the fault's line, naming the role and the state of its task.
 
+|A `kill_worker` or `stall_worker` on a task the protocol no longer leases to the worker's generation
+|`ScenarioFailure` at the fault's line, naming the role and the refusal the protocol answered (`stale_entity`,
+`job_scope_mismatch`).
+
 |A `restart_runtime` of a scope that was not started or that already ended
 |`ScenarioFailure` at the restart's line.
 
@@ -345,9 +350,10 @@ it:
 * the same script with a protocol worker (`worker_wait`, `worker_do`) yields byte-identical status and queue bytes,
   because the task's record carries the generation id, the attempt and the instants of the manual clock, never an
   instant or an id of the machine;
-* every fault scenario of `WorkerFaultScenarios` — the six of the fault matrix, the budget exhaustion and the two
-  runtime-crash scenarios — yields byte-identical status and queue bytes in two replays from empty stores, so a fault's
-  deadline, its fence and the restart's rebuilt objects are all reproducible from the script;
+* every fault scenario of `WorkerFaultScenarios` — the eight of the fault matrix (including the stall whose two stalls
+  add up), the budget exhaustion and the three runtime-crash scenarios — yields byte-identical status and queue bytes in
+  two replays from empty stores, so a fault's deadline, its fence and the restart's rebuilt objects are all reproducible
+  from the script;
 * the same script against a unit with one changed transition (`answered -> handed_back` instead of
   `answered -> completed`) writes the same bytes as the unchanged unit up to the step that takes the changed
   transition, writes different bytes at that step, and fails at the script's next `assert_state`, which names its line.
@@ -400,10 +406,11 @@ the bytes kept after every step; an operator act taking its link and its free pa
 acknowledging, submitting, reporting infeasible and reading its closed outcome from the queue record, with the
 role-less `worker_do` the specification writes; a refused call asserted and a wrong refusal or state failing at its
 line; a wait answered with no offer failing; the consultation re-offering the asker's task at its next wait, with the
-submit that omits its reference refused and the one that names it accepted; the six fault scenarios of
-`WorkerFaultScenarios` with their properties (one submit, the loss at its deadline and not before, the lease released
-at the fence, `generation_fenced` for a late call, a live worker not replaced before its deadline), the budget
-exhaustion closing the task `lost`, the two runtime-crash scenarios and the protocol half of a pause at once
+submit that omits its reference refused and the one that names it accepted; the eight fault scenarios of
+`WorkerFaultScenarios` with their properties (one submit, the loss at its deadline and not before, the lease released at
+the fence, `generation_fenced` for a late call, a live worker not replaced before its deadline), the budget exhaustion
+closing the task `lost`, the three runtime-crash scenarios, the loss after a restart and the protocol half of a pause at
+once, with the two refusals of a fault on an unacknowledged task and of a restart of an ended scope
 |`ScenarioDeterminismTest` |Two replays with identical status and queue bytes after every step, for the direct worker,
 for a protocol worker and for every fault scenario of `WorkerFaultScenarios`; a changed transition failing at the
 assertion after the step that takes it, with the same bytes before it
@@ -462,5 +469,5 @@ this package: they live in `pm-conformance` of `plan-marshall-mcp` (link:../adr/
   task protocol; `worker_wait` and `worker_do` are the protocol worker's form, `worker` the direct one's, and a role
   uses one of them.
 * link:../adr/workflow-scenario/010-worker-faults-apply-the-supervisors-facts.adoc[ADR 010]: a worker fault applies
-  the fact the supervisor reports for it at the deadline the compiled worker values give that fact; `restart_runtime`
+  the fact the supervisor reports for it at the deadline the fixture worker values give that fact; `restart_runtime`
   rebuilds the engine, the protocol and the stores over the same directory.

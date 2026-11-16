@@ -703,11 +703,6 @@ final class ScenarioFixtures {
             now = now.plus(STEP);
         }
 
-        /** Moves the clock by the given time. */
-        void advance(Duration time) {
-            now = now.plus(time);
-        }
-
         /** Moves the clock to the given instant, never back. */
         void advanceTo(Instant instant) {
             if (instant.isAfter(now)) {

@@ -55,8 +55,9 @@ Each fault word is one fact of the supervisor, applied by the harness at the ins
 |The relay's death plus `WorkerParameters.silenceLimitSeconds()`
 
 |`stall_worker <role> <seconds>`
-|The worker made no call for the given time; shorter than the limit that governs its open attempt nothing happens
-|`worker_lost`, at and beyond the limit
+|The worker makes no call for the given time; while the silence since its last call stays below the limit that governs
+its open attempt nothing happens
+|`worker_lost`, once that silence reaches the limit
 |The limit's own instant, never the end of the given time
 |===
 

@@ -171,7 +171,8 @@ class ScenarioDeterminismTest {
                 Arguments.of("restart-with-a-lease", WorkerFaultScenarios.RESTART_WITH_A_LEASE),
                 Arguments.of("restart-held-by-one-generation",
                         WorkerFaultScenarios.RESTART_HELD_BY_ONE_GENERATION),
-                Arguments.of("restart-after-a-loss", WorkerFaultScenarios.RESTART_AFTER_A_LOSS));
+                Arguments.of("restart-after-a-loss", WorkerFaultScenarios.RESTART_AFTER_A_LOSS),
+                Arguments.of("restart-then-lost", WorkerFaultScenarios.RESTART_THEN_LOST));
     }
 
     private static List<Snapshot> replayFault(String text, Path directory) {

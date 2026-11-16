@@ -268,6 +268,21 @@ final class WorkerFaultScenarios {
             assert_state execute.ask
             """;
 
+    /**
+     * A worker lost after a runtime restart: the restart keeps the instant of the worker's last call, so the loss that
+     * follows is the deadline the silence gives it.
+     */
+    static final String RESTART_THEN_LOST = """
+            scenario restart-then-lost
+            start plan scenario-plan
+            complete_job b-0000000000000001 {"outcome":"succeeded"}
+            worker_wait reviewer
+            worker_do reviewer ack {}
+            restart_runtime
+            kill_worker reviewer
+            assert_worker_state reviewer fenced
+            """;
+
     private WorkerFaultScenarios() {
     }
 }
