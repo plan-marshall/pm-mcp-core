@@ -13,12 +13,16 @@ import java.util.OptionalLong;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The tokens a grading item or form used (Store Schemas § Role Qualification Record, {@code total_tokens}): a measured
- * count of at least one, or the explicit mark {@code unmeasured} when the harness reported none. Beside the total it
- * carries the split a view shows (PM-WF-14, Client Profiles § Tokens, Not Money): {@code tokens_in} (input, cache read
+ * The tokens a grading measure used (Store Schemas § Role Qualification Record, {@code total_tokens}): a measured
+ * count of at least one, or the explicit mark {@code unmeasured} when the harness reported none. Beside the total it can
+ * carry the split a view shows (PM-WF-14, Client Profiles § Tokens, Not Money): {@code tokens_in} (input, cache read
  * and cache creation) and {@code tokens_out} (output and reasoning), each measured or {@code unmeasured}. The split is
  * measured as a pair and sums to the total; a total whose split is unknown carries {@code unmeasured} at both, and is
  * shown as its total alone.
+ * <p>
+ * The qualification and judge-check records persist no split ({@code store-schemas/16} declares only
+ * {@code total_tokens}); a view derives it (ADR {@code core-store/048}). The split is kept for the decision calibration
+ * record, whose schema requires {@code tokens_in} and {@code tokens_out}.
  *
  * @param tokens    the total; {@code null} when unmeasured
  * @param tokensIn  the input split; {@code null} when unmeasured
