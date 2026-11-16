@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted.
+Superseded in part by link:006-grading-records-persist-the-total-only.adoc[ADR 006] (the qualification and judge-check
+records persist the total only); its decision for the decision calibration record stands.
 
 == Date
 

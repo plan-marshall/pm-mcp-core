@@ -1,0 +1,53 @@
+= ADR 006: The qualification and judge-check records persist the total only
+
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-16.
+
+== Context
+
+The role qualification record and the judge check record are closed objects of `store-schemas/16` (Store Schemas § Role
+Qualification Record, § Judge Check Record) and declare `total_tokens` only; `tokens_in` and `tokens_out` appear in the
+decision calibration record alone. `QualificationRecordCodec` and `JudgeCheckCodec` still wrote and required the two
+members, so a document the code wrote was invalid against its schema, and no test read the two schema files. The split
+an operator sees (Client Profiles § Tokens, Not Money) is a view fact: the metrics rows persist the token components and
+the split is derived on read (ADR core-store/048). ADR core-role/005 decided that `TokenTotal` carries the split and
+named the two grading records among its writers.
+
+== Decision
+
+The two grading records follow `store-schemas/16`. `QualificationRecordCodec` and `JudgeCheckCodec` write and read
+`total_tokens` alone and refuse `tokens_in` or `tokens_out` as an undeclared member; the format version stays 1, with no
+reader for the old shape and no migration (R13). `TokenTotal` keeps the split for the decision calibration record, whose
+schema requires both members and whose codec is owed to the package that builds it (`PLAN-V2-60`, parked). ADR
+core-role/005 is superseded in the part that names the qualification and judge-check records as writers of the split;
+its decision for the decision calibration record stands.
+
+== Alternatives Considered
+
+Keeping the two members in the codecs and changing the specification instead was rejected: the specification is the
+authority for the record shape, and #215 closed the two objects at `total_tokens`. Deriving the split from the total when
+a record is written was rejected for the reason ADR core-role/005 gives: a total is never split into parts it did not
+measure. Deleting the split from `TokenTotal` was rejected: the decision calibration record still requires it, and a later
+plan would add it back.
+
+== Consequences
+
+A document that carries either member is refused like any other undeclared member, and no migration exists because
+nothing is released (R13). The split a view shows is derived on read (ADR core-store/048). `QualificationSchemaParityTest`
+reads both schema files and pins the members, the required set, the enumerations, the format version and the validity of
+every written document, so the drift cannot recur unnoticed. A plan that gives either record a split must change the
+schema first and this ADR with it.
+
+== Source
+
+Pull request of `PLAN-V2-56` (`qualification-token-split`); the work package `token-usage` closed by #215 (`81c51719`);
+Store Schemas § Role Qualification Record, § Judge Check Record, § Decision Calibration Record; ADR
+link:005-token-total-carries-the-split.adoc[core-role/005]; ADR
+link:../core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[core-store/048].
