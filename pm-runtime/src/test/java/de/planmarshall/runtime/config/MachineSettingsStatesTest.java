@@ -53,8 +53,9 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
 /**
  * The engine half of the machine's settings states (State Catalogue § The Machine's Settings, UC-ONB-10): the facts of
  * {@code settings.choose}, the withdrawal of a remembered consent with its audit record and its asking again,
- * {@code settings.store-credential}'s drop of the tokens the old secret derived, and {@code settings.verify-providers}
- * over every recorded provider with the revision rule.
+ * {@code settings.store-credential}'s drop of the tokens the old secret derived, and {@code settings.verify-providers} in
+ * both forms — every recorded provider on request, the rotated credential's providers after a rotation — with the
+ * revision rule.
  */
 @EnableGeneratorController
 @DisplayName("Machine settings states")

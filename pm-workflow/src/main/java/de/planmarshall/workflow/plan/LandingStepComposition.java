@@ -78,8 +78,9 @@ public class LandingStepComposition {
      * @param variants the trees of the landing axis's variants the request supplies
      * @return the phase with the bound variant's states and the pruned states of the others
      * @throws IllegalArgumentException if the bound variant is no landing variant, a supplied tree is no landing
-     *                                  variant, the bound variant's tree is not supplied, a state is declared twice, or
-     *                                  the bound variant declares a state the phase declares itself
+     *                                  variant, the bound variant's tree is not supplied, a state is declared twice, a
+     *                                  supplied variant declares a state the phase declares itself, or the bound variant
+     *                                  declares no step state
      */
     public static Merged merge(WorkflowDefinition phase, PlanFacts.BoundVariant landing,
             List<WorkflowDefinition> variants) {

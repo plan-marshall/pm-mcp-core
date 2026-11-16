@@ -114,8 +114,9 @@ Axes]). The store never imports the workflow module: the values travel as plain 
 == The Machine's Settings States
 
 `MachineSettingsStates` is the engine half of the settings states of the machine's onboarding (State Catalogue § The
-Machine's Settings), in the shape of `CredentialStoreAspect`: one method per state, each answering a `Transition` with the
-next state and, where it refuses, the reason.
+Machine's Settings), in the shape of `CredentialStoreAspect`: one method per state that has an engine half, each answering
+a `Transition` with the next state and, where it refuses, the reason. The operator wait `settings.credential` has none —
+choosing rotate or replace is the operator's act — and the engine half starts at `settings.store-credential`.
 
 [cols="2,4"]
 |===
@@ -142,9 +143,11 @@ with `credential_store_unavailable`.
 over the providers of one credential key, the form the rotation opens; both write the results against the change's
 revision. A declined consent records nothing and leaves the providers as they were; the consent each verification answers
 with is the caller's to record.
+
 |===
 
-The settings' own audit record — the channel and the paired device of a change — is the local API's, which serves the
+Each state above has an engine half except the operator wait `settings.credential`, which is the operator's act: choosing
+rotate or replace. The settings' own audit record — the channel and the paired device of a change — is the local API's, which serves the
 operator: this package writes only what the consent store audits. The hold of a plan that goes on after a rotation is the
 job subsystem's; what this package guarantees is that no consumer keeps a token of the replaced secret
 (link:../adr/runtime-config/006-the-settings-states-run-in-the-runtime-and-drop-derived-tokens-through-a-seam.adoc[ADR

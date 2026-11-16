@@ -32,9 +32,10 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
 /**
  * The engine half of the machine's settings states the onboarding's settings unit reaches (State Catalogue § The
  * Machine's Settings, UC-ONB-10): {@code settings.choose} with what the machine recorded, {@code settings.withdraw} and
- * {@code settings.remove-consent} for a remembered consent, {@code settings.credential} and
- * {@code settings.store-credential} for a rotated or replaced secret, and {@code settings.verify-providers} for the
- * providers checked again. The states themselves are units of the machine's onboarding, which lives in
+ * {@code settings.remove-consent} for a remembered consent, {@code settings.store-credential} for a rotated or replaced
+ * secret, and {@code settings.verify-providers} for the providers checked again. The operator wait
+ * {@code settings.credential} has no engine half here: choosing rotate or replace is the operator's act. The states
+ * themselves are units of the machine's onboarding, which lives in
  * {@code plan-marshall-mcp}; this class is what those units run over the stores of this repository, and it is provable
  * over fixtures without a workflow.
  * <p>
