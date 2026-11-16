@@ -28,9 +28,10 @@ import de.planmarshall.core.SchemaResource;
  * {@link MachineConfigurationCodec} keeps parity with the schema of Store Schemas § Machine Configuration Store: a
  * document the codec creates carries exactly the members the schema requires, in schema order, its provider keys and
  * variant values are the schema's closed lists, and its two defaults and its format version are the schema's. The codec
- * owns only {@code providers} and copies every other member through, so the parity is stated over the document it
- * creates, not over the members the owner may add. The schema is the file {@code machine-config.schema.json} beside the
- * codec in {@code pm-runtime/src/main/resources/de/planmarshall/runtime/config/}, read from the class path through
+ * owns {@code providers}, {@code sources.documents_mode} and {@code cleanup} and copies every other member through, so
+ * the parity is stated over the document it creates, not over the members the owner may add. The schema is the file
+ * {@code machine-config.schema.json} beside the codec in
+ * {@code pm-runtime/src/main/resources/de/planmarshall/runtime/config/}, read from the class path through
  * {@link SchemaResource}.
  */
 @DisplayName("Machine configuration schema parity")

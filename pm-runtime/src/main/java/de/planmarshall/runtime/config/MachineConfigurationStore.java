@@ -12,6 +12,8 @@ package de.planmarshall.runtime.config;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.SettingsConflict;
 import de.planmarshall.core.service.InternalFaultException;
@@ -50,11 +52,16 @@ public final class MachineConfigurationStore {
     /**
      * What a read of the document found.
      *
-     * @param providers the machine's provider defaults; none where the document records none
-     * @param revision  the {@code revision} of the document; {@value #NO_DOCUMENT} when it does not exist
+     * @param providers     the machine's provider defaults; none where the document records none
+     * @param documentsMode the machine's {@code sources.documents_mode}; {@link DocumentsMode#DEFAULT} where the
+     *                      document records none, which is the value the schema applies
+     * @param cleanup       the machine's {@code cleanup} durations; {@link CleanupDurations#defaults()} where the
+     *                      document records none, which is the value the schema applies
+     * @param revision      the {@code revision} of the document; {@value #NO_DOCUMENT} when it does not exist
      * @since 0.1
      */
-    public record Snapshot(ProviderDefaults providers, long revision) {
+    public record Snapshot(ProviderDefaults providers, DocumentsMode documentsMode, CleanupDurations cleanup,
+            long revision) {
     }
 
     /**
@@ -88,17 +95,21 @@ public final class MachineConfigurationStore {
     }
 
     /**
-     * Reads the provider defaults and the document's revision without a lock.
+     * Reads the members this store owns and the document's revision without a lock.
      *
-     * @return the defaults and the revision; none and {@value #NO_DOCUMENT} if the document does not exist
+     * @return the defaults and settings at their recorded value, or at the schema default where the document records
+     *         none; the revision is {@value #NO_DOCUMENT} if the document does not exist
      * @throws StoreRefusal         if the document is unreadable or in another format version
      * @throws UncheckedIOException if the document exists and cannot be read
      */
     public Snapshot read() {
         return StoreSnapshot.read(storeFile.store()).content()
                 .map(document -> MachineConfigurationCodec.read(storeFile.store(), document))
-                .map(read -> new Snapshot(read.providers(), read.revision()))
-                .orElseGet(() -> new Snapshot(ProviderDefaults.none(), NO_DOCUMENT));
+                .map(read -> new Snapshot(read.providers(),
+                        read.documentsMode() == null ? DocumentsMode.DEFAULT : read.documentsMode(),
+                        read.cleanup() == null ? CleanupDurations.defaults() : read.cleanup(), read.revision()))
+                .orElseGet(() -> new Snapshot(ProviderDefaults.none(), DocumentsMode.DEFAULT,
+                        CleanupDurations.defaults(), NO_DOCUMENT));
     }
 
     /**
@@ -113,6 +124,68 @@ public final class MachineConfigurationStore {
      */
     public void writeProviders(ProviderDefaults providers, long revision) {
         Objects.requireNonNull(providers, "providers");
+        transact(revision, current -> current == null
+                ? (Object) ProviderDefaults.none()
+                : current.providers(), bytes -> bytes == null
+                ? MachineConfigurationCodec.create(providers)
+                : MachineConfigurationCodec.write(storeFile.store(), bytes, providers, revision + 1));
+    }
+
+    /**
+     * Records how a start takes its documents, the machine's {@code sources.documents_mode}, and increments the
+     * revision.
+     *
+     * @param mode     the mode the machine's settings recorded
+     * @param revision the revision the caller read
+     * @throws SettingsConflict       if the document holds another revision than {@code revision}
+     * @throws StoreRefusal           if the document is unreadable or in another format version
+     * @throws UncheckedIOException   if the document cannot be read or written
+     * @throws InternalFaultException if the lock of the document must not be acquired by the transaction
+     */
+    public void writeDocumentsMode(DocumentsMode mode, long revision) {
+        Objects.requireNonNull(mode, "mode");
+        transact(revision,
+                current -> current == null || current.documentsMode() == null
+                        ? DocumentsMode.DEFAULT
+                        : current.documentsMode(),
+                bytes -> bytes == null
+                        ? MachineConfigurationCodec.createDocumentsMode(mode)
+                        : MachineConfigurationCodec.writeDocumentsMode(storeFile.store(), bytes, mode,
+                                revision + 1));
+    }
+
+    /**
+     * Records the durations of the one cleanup, the machine's {@code cleanup} member, and increments the revision.
+     *
+     * @param durations the durations the machine's settings recorded
+     * @param revision  the revision the caller read
+     * @throws SettingsConflict       if the document holds another revision than {@code revision}
+     * @throws StoreRefusal           if the document is unreadable or in another format version
+     * @throws UncheckedIOException   if the document cannot be read or written
+     * @throws InternalFaultException if the lock of the document must not be acquired by the transaction
+     */
+    public void writeCleanupDurations(CleanupDurations durations, long revision) {
+        Objects.requireNonNull(durations, "durations");
+        transact(revision,
+                current -> current == null || current.cleanup() == null
+                        ? CleanupDurations.defaults()
+                        : current.cleanup(),
+                bytes -> bytes == null
+                        ? MachineConfigurationCodec.createCleanup(durations)
+                        : MachineConfigurationCodec.writeCleanup(storeFile.store(), bytes, durations,
+                                revision + 1));
+    }
+
+    /**
+     * Writes one member in the document's transaction: it reads the document again, refuses a revision the document
+     * moved past, and writes what {@code compose} returns.
+     *
+     * @param revision     the revision the caller read
+     * @param currentValue the current value of the member, for the refusal
+     * @param compose      the new document, from the document as read ({@code null} when it does not exist)
+     */
+    private void transact(long revision, Function<MachineConfigurationCodec.@Nullable Document, Object> currentValue,
+            Composer composer) {
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(storeFile.lockKey());
             var document = storeFile.read(transaction);
@@ -120,13 +193,21 @@ public final class MachineConfigurationStore {
                     .orElse(null);
             var currentRevision = current == null ? NO_DOCUMENT : current.revision();
             if (currentRevision != revision) {
-                var value = current == null ? (Object) ProviderDefaults.none() : current.providers();
-                throw new SettingsConflict(storeFile.store(), revision, currentRevision, value);
+                throw new SettingsConflict(storeFile.store(), revision, currentRevision, currentValue.apply(current));
             }
-            storeFile.write(transaction, document
-                    .map(bytes -> MachineConfigurationCodec.write(storeFile.store(), bytes, providers, revision + 1))
-                    .orElseGet(() -> MachineConfigurationCodec.create(providers)));
+            storeFile.write(transaction, composer.compose(document.orElse(null)));
         }
+    }
+
+    /** Composes the new document from the document as read, or from none. */
+    @FunctionalInterface
+    private interface Composer {
+
+        /**
+         * @param document the document as read; {@code null} when it does not exist
+         * @return the document to write
+         */
+        byte[] compose(byte @Nullable [] document);
     }
 
     /** @return the document file, absolute and normalized */
