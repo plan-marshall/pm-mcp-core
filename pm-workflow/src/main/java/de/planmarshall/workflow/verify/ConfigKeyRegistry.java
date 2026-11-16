@@ -39,7 +39,10 @@ public record ConfigKeyRegistry(Map<String, ConfigKey> keys) {
      */
     public ConfigKeyRegistry {
         Objects.requireNonNull(keys, "keys");
-        keys = Collections.unmodifiableMap(new LinkedHashMap<>(keys));
+        var copy = new LinkedHashMap<String, ConfigKey>();
+        keys.forEach((key, value) -> copy.put(Objects.requireNonNull(key, "key"),
+                Objects.requireNonNull(value, "value")));
+        keys = Collections.unmodifiableMap(copy);
     }
 
     /**

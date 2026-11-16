@@ -265,7 +265,8 @@ include::../../../pm-workflow/src/main/resources/de/planmarshall/workflow/dsl/un
 characters, marked with `...` where it cuts. The frontmatter is read from the head of the source; its body is never read for it.
 * *The icon*: every unit declares the required key `icon`, whose value is a stable icon id of the grammar `[a-z][a-z0-9._-]{0,63}` without a `..` segment: it names an icon of the visual language, never a file path, and carries neither a slash, a backslash, a blank nor a colon. The icon is data of the unit, so a client resolves it without a second registry keyed by unit name. A unit without the key, an invalid id and a repeated key are refused (link:../../../pm-workflow/doc/adr/workflow-dsl/008-required-icon-field.adoc[ADR 008 of `workflow-dsl`]).
 * *The reads and the inputs*: the frontmatter declares what the unit reads and the inputs a caller binds, in the style of
-  its entries and exits: `reads_config` names effective configuration keys (one per line, at most 32), `reads_fact`
+  its entries and exits: `reads_config` names effective configuration keys (one per line, at most 32; one or more
+  identifier segments joined by dots, none a reserved keyword), `reads_fact`
   names derived fact kinds (one per line, at most 32), and `input` opens one input (at most 16) whose `input_type` stands
   directly below it, followed in order by `input_default`, `input_fallback` and `input_description`. The type of an input
   is one of `enum[…]`, `int` with its optional `[<low>..<high>]` and `list<enum[…]>`, with the trailing `?` of the

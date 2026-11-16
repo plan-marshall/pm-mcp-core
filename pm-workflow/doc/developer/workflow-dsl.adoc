@@ -264,7 +264,8 @@ implicit control exit of every sub-workflow).
 |`reads_config`
 |0..32
 |An effective configuration key the unit reads, in the grammar `config_key` (`project.review.currency`,
-`workflow.mode`). The key must exist in the closed configuration the verifier is given, and it never carries the bare
+`local-config.mode`): one or more identifier segments joined by dots, none a reserved keyword. The key must exist in the
+closed configuration the verifier is given, and it never carries the bare
 value `derived` or the `derived.` stem: a derived fact is read with `reads_fact`
 (link:../adr/workflow-verify/037-reads-config-never-names-a-fact.adoc[ADR 037]). Declared once.
 

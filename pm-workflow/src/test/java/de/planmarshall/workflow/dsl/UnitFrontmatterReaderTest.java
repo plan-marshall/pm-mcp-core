@@ -615,7 +615,7 @@ class UnitFrontmatterReaderTest {
         void readsEveryTypeForm() {
             var result = read(unit(inserted(
                     "reads_config: project.review.currency",
-                    "reads_config: workflow.mode",
+                    "reads_config: local-config.mode",
                     "reads_fact: push_remote",
                     "input: mode",
                     "input_type: enum[strict|Lenient]",
@@ -636,7 +636,7 @@ class UnitFrontmatterReaderTest {
             var inputs = result.frontmatter().inputs();
 
             assertAll(
-                    () -> assertEquals(List.of("project.review.currency", "workflow.mode"),
+                    () -> assertEquals(List.of("project.review.currency", "local-config.mode"),
                             result.frontmatter().readsConfig()),
                     () -> assertEquals(new InputType.Enumeration(List.of("strict", "Lenient")),
                             inputs.get(0).type()),
@@ -693,6 +693,8 @@ class UnitFrontmatterReaderTest {
                             List.of("input: a", "input_type: enum[x|y]", "input_default: z"), 12, 16),
                     Arguments.of("an integer default outside its range",
                             List.of("input: a", "input_type: int[1..5]", "input_default: 6"), 12, 16),
+                    Arguments.of("an integer default beyond the range of an int",
+                            List.of("input: a", "input_type: int", "input_default: 2147483648"), 12, 16),
                     Arguments.of("an empty list default outside a list type",
                             List.of("input: a", "input_type: enum[x]", "input_default: []"), 12, 16),
                     Arguments.of("a default beside the optional form",
@@ -713,6 +715,8 @@ class UnitFrontmatterReaderTest {
                             List.of("input: a", "input_type: list<int>"), 11, 13),
                     Arguments.of("a configuration key with an empty segment",
                             List.of("reads_config: project..mode"), 10, 15),
+                    Arguments.of("a configuration key with a reserved segment",
+                            List.of("reads_config: project.state"), 10, 15),
                     Arguments.of("a configuration key in upper case",
                             List.of("reads_config: Project.mode"), 10, 15),
                     Arguments.of("a fact kind in upper case",

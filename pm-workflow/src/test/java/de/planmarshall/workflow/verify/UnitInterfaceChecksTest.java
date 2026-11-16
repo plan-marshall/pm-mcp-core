@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -47,9 +48,9 @@ class UnitInterfaceChecksTest {
             new ConfigKeyRegistry.ConfigKey("project.review.currency",
                     new InputType.Enumeration(List.of("current", "stale")), true),
             new ConfigKeyRegistry.ConfigKey("project.review.retries", new InputType.IntRange(0, 5), true),
-            new ConfigKeyRegistry.ConfigKey("workflow.mode", new InputType.Enumeration(List.of("strict", "lenient")),
-                    false),
-            new ConfigKeyRegistry.ConfigKey("workflow.targets",
+            new ConfigKeyRegistry.ConfigKey("local-config.mode",
+                    new InputType.Enumeration(List.of("strict", "lenient")), false),
+            new ConfigKeyRegistry.ConfigKey("local-config.targets",
                     new InputType.EnumList(List.of("origin", "mirror")), true)));
 
     private static final FactKindRegistry FACTS = FactKindRegistry.of(List.of("push_remote", "changed_files"));
@@ -99,11 +100,11 @@ class UnitInterfaceChecksTest {
     @DisplayName("passes an input with a default whose fallback key has no compiled default")
     void passesADefaultedFallbackWithoutCompiledDefault() {
         var definition = VerifyFixtures.parseSource("declared-reads.pmwf", source(
-                "reads_config: workflow.mode",
+                "reads_config: local-config.mode",
                 "input: mode",
                 "input_type: enum[strict|lenient]",
                 "input_default: strict",
-                "input_fallback: workflow.mode"));
+                "input_fallback: local-config.mode"));
 
         var found = VALIDATOR.verify(definition).violations();
 
@@ -158,8 +159,8 @@ class UnitInterfaceChecksTest {
                                 "input_fallback: project.review.currency")),
                 Arguments.of("a fallback without a compiled default", "INPUT_DECLARATION",
                         "has no compiled default",
-                        List.of("reads_config: workflow.mode", "input: mode",
-                                "input_type: enum[strict|lenient]", "input_fallback: workflow.mode")));
+                        List.of("reads_config: local-config.mode", "input: mode",
+                                "input_type: enum[strict|lenient]", "input_fallback: local-config.mode")));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -187,7 +188,7 @@ class UnitInterfaceChecksTest {
                     () -> assertEquals(Optional.of("project.review.currency"),
                             CONFIG.find("project.review.currency").map(ConfigKeyRegistry.ConfigKey::key),
                             "a registered key is found by its effective form"),
-                    () -> assertTrue(CONFIG.contains("workflow.mode"), "a registered key is contained"),
+                    () -> assertTrue(CONFIG.contains("local-config.mode"), "a registered key is contained"),
                     () -> assertFalse(CONFIG.contains("workflow.unknown"), "an unknown key is not contained"),
                     () -> assertEquals(Optional.empty(), CONFIG.empty().find("project.review.currency"),
                             "the empty registry finds nothing"));
@@ -202,6 +203,16 @@ class UnitInterfaceChecksTest {
 
             assertThrows(IllegalArgumentException.class, () -> ConfigKeyRegistry.of(entries),
                     "a key registered twice must be refused");
+        }
+
+        @Test
+        @DisplayName("refuses a null value in the canonical constructor")
+        void refusesANullValue() {
+            var keys = new HashMap<String, ConfigKeyRegistry.ConfigKey>();
+            keys.put("project.review.currency", null);
+
+            assertThrows(NullPointerException.class, () -> new ConfigKeyRegistry(keys),
+                    "a null value in the map must be refused");
         }
 
         @Test

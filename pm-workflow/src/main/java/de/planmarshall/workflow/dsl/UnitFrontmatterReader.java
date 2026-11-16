@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.workflow.ast.CallValue;
@@ -139,10 +140,11 @@ public final class UnitFrontmatterReader {
     private static final Set<String> INPUT_KEYS = Set.of(KEY_INPUT_TYPE, KEY_INPUT_DEFAULT, KEY_INPUT_FALLBACK,
             KEY_INPUT_DESCRIPTION);
 
-    private static final Set<String> KEYS = Set.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON, KEY_ENTRY,
-            KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_READS_CONFIG, KEY_READS_FACT, KEY_INPUT,
-            KEY_INPUT_TYPE, KEY_INPUT_DEFAULT, KEY_INPUT_FALLBACK, KEY_INPUT_DESCRIPTION, KEY_MODIFICATION_DATE,
-            KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE);
+    /** Every admitted key: the fields of this reader plus the input sub-keys, which are defined once. */
+    private static final Set<String> KEYS = Stream.concat(Stream.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON,
+            KEY_ENTRY, KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_READS_CONFIG, KEY_READS_FACT,
+            KEY_INPUT, KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE), INPUT_KEYS.stream())
+            .collect(Collectors.toUnmodifiableSet());
 
     /** The outcome id of the implicit control exit, which no frontmatter declares. */
     private static final String STEPPED_OUT = "stepped_out";
@@ -477,13 +479,19 @@ public final class UnitFrontmatterReader {
             return value;
         }
 
-        /** Checks a {@code config_key}: one or more identifier segments, each of at most 32 characters, joined by dots. */
+        /** Checks a {@code config_key}: one or more identifier segments, each of at most 32 characters and no reserved
+         * keyword, joined by dots (the same rule the parser applies to {@code depends_on_config}). */
         private static String configKey(String value, int number, int column) {
             var segments = value.split("\\.", -1);
             for (var segment : segments) {
                 if (!IDENTIFIER.matcher(segment).matches()) {
                     throw new Refusal(number, column,
                             "the configuration key '%s' is no dotted key of identifier segments".formatted(echo(value)));
+                }
+                if (WorkflowParser.RESERVED_KEYWORDS.contains(segment)) {
+                    throw new Refusal(number, column,
+                            "the configuration key '%s' names the reserved keyword '%s'".formatted(echo(value),
+                                    segment));
                 }
             }
             return value;
@@ -568,7 +576,12 @@ public final class UnitFrontmatterReader {
             if ("[]".equals(value)) {
                 parsed = new CallValue.EnumList(List.of());
             } else if (INTEGER.matcher(value).matches()) {
-                parsed = new CallValue.IntValue(Integer.parseInt(value));
+                try {
+                    parsed = new CallValue.IntValue(Integer.parseInt(value));
+                } catch (NumberFormatException _) {
+                    throw new Refusal(number, column,
+                            "the input_default '%s' is out of the range of an integer".formatted(echo(value)));
+                }
             } else if (ENUM_VALUE.matcher(value).matches()) {
                 parsed = new CallValue.EnumValue(value);
             } else {

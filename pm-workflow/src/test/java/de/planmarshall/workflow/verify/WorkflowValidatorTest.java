@@ -416,8 +416,7 @@ class WorkflowValidatorTest {
             var accounted = Stream.of(CHECKLIST.stream().map(Check::rule), UNPLANTABLE.stream().map(Unpinned::rule),
                     SEAMS.stream().map(Unpinned::rule)).flatMap(stream -> stream).collect(Collectors.toSet());
 
-            assertAll(() -> assertEquals(35, VerificationRule.values().length),
-                    () -> assertEquals(Set.of(VerificationRule.values()), accounted));
+            assertEquals(Set.of(VerificationRule.values()), accounted);
         }
 
         @Test

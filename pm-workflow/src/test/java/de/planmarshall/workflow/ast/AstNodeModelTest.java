@@ -202,7 +202,7 @@ class AstNodeModelTest {
         @Test
         @DisplayName("the reads and the inputs of the frontmatter are copied and keep their order")
         void frontmatterReadsAndInputsAreCopied() {
-            var readsConfig = new ArrayList<>(List.of("project.review.currency", "workflow.mode"));
+            var readsConfig = new ArrayList<>(List.of("project.review.currency", "local-config.mode"));
             var readsFact = new ArrayList<>(List.of("push_remote"));
             var pushMode = new InputDecl("push_mode", new InputType.Enumeration(List.of("push", "no_push")), false,
                     null, null, null, LOCATION);
@@ -220,7 +220,7 @@ class AstNodeModelTest {
             var copiedInputs = frontmatter.inputs();
 
             assertAll(
-                    () -> assertEquals(List.of("project.review.currency", "workflow.mode"), copiedReads),
+                    () -> assertEquals(List.of("project.review.currency", "local-config.mode"), copiedReads),
                     () -> assertEquals(List.of("push_remote"), copiedFacts),
                     () -> assertEquals(List.of(pushMode), copiedInputs),
                     () -> assertThrows(UnsupportedOperationException.class, copiedReads::clear),
