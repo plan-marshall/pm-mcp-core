@@ -45,8 +45,10 @@ projects below `src/guard-controls`. The commands for the whole repository are i
 The test scope is published as the `pm-core:tests` test JAR (the `tests` classifier, built by `verify` and deployed
 with the `SNAPSHOT`). It holds the package `de.planmarshall.core.testing.generators` with one
 `TypedGenerator<T>` per foundation type that another module builds by hand (`ProjectEnrolment`, `EndpointProfile`,
-`LeaseRecord`, `RoleSkill`) and the `CoreGenerators` factory that registers them, and beside it the class
-`de.planmarshall.core.SchemaResource`, the loader of the schema files. The `test-jar` goal includes only these two,
+`LeaseRecord`, `RoleSkill`) and the `CoreGenerators` factory that registers them, the package
+`de.planmarshall.core.testing.assertions` with the assertion-message scanner (`AssertionMessages`, ADR 012 as amended
+by PLAN-V2-103) that a module's thin guard reads its own test tree through, and beside them the class
+`de.planmarshall.core.SchemaResource`, the loader of the schema files. The `test-jar` goal includes only these three,
 so the tests and fixtures of `pm-core` itself are not published. `pm-workflow`, `pm-runtime` and
 every provider module may consume it as a test-scope dependency of type `test-jar`; its version comes from the root
 POM's `dependencyManagement`. A generator for a foundation type belongs here, never in a test class of another
