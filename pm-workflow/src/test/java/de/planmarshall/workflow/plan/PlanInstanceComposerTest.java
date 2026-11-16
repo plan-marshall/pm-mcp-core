@@ -1191,5 +1191,17 @@ class PlanInstanceComposerTest {
 
             assertEquals(withoutProject.text(), withProject.text(), "A fitting project changes nothing");
         }
+
+        @Test
+        @DisplayName("a post-run-only composition skips the landing check")
+        void postRunSkipsLanding() {
+            var inForce = version1();
+
+            var composed = composer().compose(request(CompositionEvent.FALLBACK,
+                    facts().postRun("returned").build(), inForce, List.of(), AT_START),
+                    new LandingVariantValidation.Project(false, false));
+
+            assertEquals(2, composed(composed).version(), "The post-run form composes without a provider");
+        }
     }
 }

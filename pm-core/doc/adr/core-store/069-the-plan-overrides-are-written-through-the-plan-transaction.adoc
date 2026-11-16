@@ -25,12 +25,16 @@ offers `replace` but no read.
 * `PlanOverrides` is the typed document in `core.store`: the revision, the per-role values, the axis variants, the
   posture, the base branch, the integration variants, the optional providers, and the write's channel, device and instant.
 * `PlanOverridesCodec` reads and writes the closed document; the closed variant list of each axis is checked where the axis
-  binds (`PlanFacts`), not in the codec, which checks the schema's own rules (an axis value carries its axis as prefix, an
-  integration variant is `native` or `cli`, a role object sets at least one value).
+  binds (`PlanFacts`), not in the codec, which checks the schema's own rules (an axis value carries its axis as prefix and
+  a lower-case name after it, an integration variant is `native` or `cli`, a role object sets at least one value).
 * `PlanOverridesStore(JournalScope)` reads the file directly, and `write(transaction, values, revision, updatedBy,
   updatedAt)` reads the current document inside the caller's open transaction — the plan lock is already held, so no other
   writer can move it before the commit — refuses a revision mismatch with `SettingsConflict` and the current document, and
   stages `replace("overrides.json", …)` at the next revision.
+* One write per lock transaction: the store refuses a transaction that already stages the document
+  (`ScopeTransaction.isTarget`). The plan lock keeps other writers out, but it does not make two transactions opened under
+  one lock transaction sequential, and two of them would both read the same revision and stage the same next one; the
+  second would overwrite the first unseen.
 * The store composes nothing: the composition of the `override` version, the audit record and the `settings_changed`
   inbox message are the caller's acts around one transaction.
 

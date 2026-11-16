@@ -126,9 +126,9 @@ public final class PlanInstanceComposer {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    private static @Nullable String landingViolation(PlanFacts facts,
-            LandingVariantValidation.@Nullable Project project) {
-        if (project == null) {
+    private static @Nullable String landingViolation(PlanFacts facts, LandingVariantValidation.@Nullable Project project,
+            CompositionEvent event) {
+        if (project == null || event == CompositionEvent.FALLBACK || event == CompositionEvent.EMPTY_HARVEST) {
             return null;
         }
         var landing = facts.bound(PlanFacts.Axis.LANDING).variant();
@@ -164,7 +164,7 @@ public final class PlanInstanceComposer {
         var facts = withVariantDeclarations(request.facts(), request.subUnits());
         var effects = CompositionRuleEvaluator.evaluate(rules, facts);
         var bound = Arrays.stream(PlanFacts.Axis.values()).map(facts::bound).toList();
-        var landingViolation = landingViolation(facts, project);
+        var landingViolation = landingViolation(facts, project, request.event());
         if (landingViolation != null) {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED,
                     List.of(landingViolation));

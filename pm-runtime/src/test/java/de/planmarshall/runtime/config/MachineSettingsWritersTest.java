@@ -187,7 +187,7 @@ class MachineSettingsWritersTest {
     }
 
     @Test
-    @DisplayName("an incomplete cleanup member is written back unchanged by another write")
+    @DisplayName("an incomplete cleanup member keeps each explicit value and defaults the rest")
     void incompleteCleanupSurvives() throws Exception {
         Files.writeString(file, """
                 {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
@@ -195,14 +195,17 @@ class MachineSettingsWritersTest {
                 plansAfterDays), UTF_8);
 
         store.writeDocumentsMode(DocumentsMode.COPY, revision);
+        var read = store.read();
 
         assertAll(
-                () -> assertEquals(DocumentsMode.COPY, store.read().documentsMode(),
+                () -> assertEquals(DocumentsMode.COPY, read.documentsMode(),
                         "The write records its own documents mode"),
                 () -> assertTrue(Files.readString(file, UTF_8).contains("\"plans_after_days\":" + plansAfterDays),
                         "The incomplete cleanup member survives unchanged"),
-                () -> assertEquals(CleanupDurations.defaults(), store.read().cleanup(),
-                        "An incomplete cleanup member reads as the schema defaults"));
+                () -> assertEquals(CleanupDuration.ofDays(plansAfterDays), read.cleanup().plansAfterDays(),
+                        "The explicit cleanup duration is reported, never a default"),
+                () -> assertEquals(CleanupDurations.defaults().epicsAfterDays(), read.cleanup().epicsAfterDays(),
+                        "An absent cleanup member reads at the schema default"));
     }
 
     @Test

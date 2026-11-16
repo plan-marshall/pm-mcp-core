@@ -111,8 +111,9 @@ public class MachineConfigurationCodec {
      * @param providers     the machine's provider defaults; none where the document records none
      * @param documentsMode how a start takes its documents; {@code null} where the document records no mode and the
      *                      schema default ({@link DocumentsMode#DEFAULT}) applies
-     * @param cleanup       the durations of the one cleanup; {@code null} where the document records no complete
-     *                      {@code cleanup} member and the schema defaults ({@link CleanupDurations#defaults()}) apply
+     * @param cleanup       the durations of the one cleanup, each member at the value the document sets or at the schema
+     *                      default where it does not; {@code null} where the document records no {@code cleanup} member
+     *                      and {@link CleanupDurations#defaults()} applies
      * @param revision      the {@code revision} of the document
      * @since 0.1
      */
@@ -498,7 +499,7 @@ public class MachineConfigurationCodec {
                     default -> throw undeclared(field);
                 }
             }
-            cleanup = completeCleanup(plans, epics, logs, reports, unenrolled, remind);
+            cleanup = cleanupWithDefaults(plans, epics, logs, reports, unenrolled, remind);
             if (replacementCleanup != null) {
                 writeCleanup(generator, replacementCleanup);
                 return;
@@ -526,18 +527,22 @@ public class MachineConfigurationCodec {
         }
 
         /**
-         * Reads a {@code cleanup} member as a complete value, or {@code null} where it does not name all six durations;
-         * such a member is legal per the schema but reads as no complete durations, and the pass writes its members back
-         * unchanged, so a member the operator wrote incompletely survives a write of another setting.
+         * Reads a {@code cleanup} member as a complete value: each member the document sets keeps its value, and each
+         * member it does not set reads at the schema default, so a partial member never reports a longer retention than
+         * the operator recorded. The pass writes the members back as it read them, so a partial member survives a write
+         * of another setting unchanged.
          */
-        private static @Nullable CleanupDurations completeCleanup(@Nullable CleanupDuration plans,
+        private static CleanupDurations cleanupWithDefaults(@Nullable CleanupDuration plans,
                 @Nullable CleanupDuration epics, @Nullable CleanupDuration logs, @Nullable CleanupDuration reports,
                 @Nullable CleanupDuration unenrolled, @Nullable Integer remind) {
-            if (plans == null || epics == null || logs == null || reports == null || unenrolled == null
-                    || remind == null) {
-                return null;
-            }
-            return new CleanupDurations(plans, epics, logs, reports, unenrolled, remind);
+            var defaultDays = CleanupDuration.ofDays(CleanupDuration.DEFAULT_DAYS);
+            return new CleanupDurations(
+                    plans == null ? defaultDays : plans,
+                    epics == null ? defaultDays : epics,
+                    logs == null ? defaultDays : logs,
+                    reports == null ? defaultDays : reports,
+                    unenrolled == null ? defaultDays : unenrolled,
+                    remind == null ? CleanupDurations.DEFAULT_REMIND_DAYS : remind);
         }
 
         private static CleanupDuration cleanupDuration(JsonParser parser, String field) throws IOException {

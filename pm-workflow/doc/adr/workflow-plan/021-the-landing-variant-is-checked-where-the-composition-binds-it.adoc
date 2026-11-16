@@ -25,8 +25,9 @@ calls on its own, leaving the composition free to bind a variant no check had se
 * `LandingVariantValidation` is a pure check in `workflow.plan`: it takes the variant and a `Project` value (a pull-request
   provider, a protected base branch) and answers a verdict with the reason.
 * `PlanInstanceComposer` gains `compose(request, project)`: it validates the *bound* landing variant before composing and
-  refuses the version with `invariant_failed` and the reason in its violation line. `compose(request)` keeps its signature
-  and composes without the check, for a caller with no project known.
+  refuses the version with `invariant_failed` and the reason in its violation line. The post-run-only events (`fallback`,
+  `empty_harvest`) skip the check: their version prunes the landing work, so the variant decides nothing there.
+  `compose(request)` keeps its signature and composes without the check, for a caller with no project known.
 * The `Project` value is passed per call, not stored in `CompositionRequest`: the record's facts stay the values the
   composition reads, and a request built by a caller without a project is unchanged.
 * The check does not decide which level set the variant: the reason names the variant, and a machine default that does not

@@ -99,6 +99,9 @@ public class PlanOverridesCodec {
     /** The grammar of a paired device id, from the schema. */
     static final Pattern DEVICE_ID = Pattern.compile("dev-[0-9a-f]{12}");
 
+    /** The grammar of a variant's name after its axis prefix, from the schema. */
+    static final Pattern VARIANT_NAME = Pattern.compile("[a-z][a-z0-9-]*");
+
     /** The form of a refusal that names the member and the reason. */
     private static final String DETAIL_FORMAT = "%s: %s";
 
@@ -303,12 +306,16 @@ public class PlanOverridesCodec {
         @Nullable String effort = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_HARNESS -> harness = requireRole(string(parser, field));
-                case FIELD_MODEL -> model = requireBounded(string(parser, field), MODEL_MAX_LENGTH, FIELD_MODEL);
-                case FIELD_EFFORT -> effort = requireBounded(string(parser, field), EFFORT_MAX_LENGTH,
-                        FIELD_EFFORT);
-                default -> throw undeclared(field);
+            try {
+                switch (field) {
+                    case FIELD_HARNESS -> harness = requireRole(string(parser, field));
+                    case FIELD_MODEL -> model = requireBounded(string(parser, field), MODEL_MAX_LENGTH, FIELD_MODEL);
+                    case FIELD_EFFORT -> effort = requireBounded(string(parser, field), EFFORT_MAX_LENGTH,
+                            FIELD_EFFORT);
+                    default -> throw undeclared(field);
+                }
+            } catch (IllegalArgumentException e) {
+                throw unreadable(DETAIL_FORMAT.formatted(name, e.getMessage()), e);
             }
         }
         try {
@@ -446,9 +453,10 @@ public class PlanOverridesCodec {
     }
 
     static String requireVariant(Axis axis, String value) {
-        if (!axis.names(value)) {
-            throw new IllegalArgumentException("A %s variant is named with '%s.' as its prefix: %s"
-                    .formatted(axis.key(), axis.prefix(), value));
+        var prefix = axis.prefix() + ".";
+        if (!axis.names(value) || !VARIANT_NAME.matcher(value.substring(prefix.length())).matches()) {
+            throw new IllegalArgumentException("A %s variant is named '%s' and a lower-case name: %s"
+                    .formatted(axis.key(), prefix, value));
         }
         return value;
     }

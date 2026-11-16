@@ -151,6 +151,28 @@ class PlanOverridesCodecTest {
     }
 
     @Test
+    @DisplayName("a role length that breaks the schema and a malformed axis name are refused")
+    void grammarRefusals() {
+        var text = new String(PlanOverridesCodec.write(overrides()), UTF_8);
+        var tooLongModel = text.replace("\"deepseek-v4.1-flash\"",
+                "\"" + "m".repeat(PlanOverridesCodec.MODEL_MAX_LENGTH + 1) + "\"").getBytes(UTF_8);
+        var emptyVariant = text.replace("\"landing.main\"", "\"landing.\"").getBytes(UTF_8);
+        var upperVariant = text.replace("\"landing.main\"", "\"landing.Main\"").getBytes(UTF_8);
+        var documentFile = file();
+
+        assertAll(
+                () -> assertThrows(StoreRefusal.class,
+                        () -> PlanOverridesCodec.read(documentFile, tooLongModel),
+                        "A model over its length is an unreadable document"),
+                () -> assertThrows(StoreRefusal.class,
+                        () -> PlanOverridesCodec.read(documentFile, emptyVariant),
+                        "A variant with an empty name is refused"),
+                () -> assertThrows(StoreRefusal.class,
+                        () -> PlanOverridesCodec.read(documentFile, upperVariant),
+                        "A variant with an upper-case name is refused"));
+    }
+
+    @Test
     @DisplayName("a written document is at revision 1 or more and carries its stamp")
     void stampRequired() {
         var unstamped = overrides().toBuilder().updatedAt(null).build();

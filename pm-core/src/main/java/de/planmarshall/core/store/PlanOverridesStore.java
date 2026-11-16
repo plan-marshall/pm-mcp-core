@@ -25,11 +25,13 @@ import de.planmarshall.core.store.PlanOverrides.UpdatedBy;
  * Workflow DSL § Plan Overrides): {@code plans/<plan_id>/overrides.json}, written through a {@link ScopeTransaction} of
  * the plan the caller holds and commits.
  * <p>
- * The document is absent until the first value is set. A write names the revision it was made against; the first change
- * wins, and a later one against an older revision is refused with {@link SettingsConflict} carrying the current revision
- * and the current document, so nothing is merged and nothing is overwritten unseen. The write itself is the caller's
- * act; composing the instance version of the event {@code override}, auditing it and answering with that version are the
- * transaction's, and happen around this store.
+ * The document is absent until the first value is set. A write names the revision it was made against, and it is the one
+ * write of that document in its transaction: a second write of {@code overrides.json} under the same lock transaction is
+ * refused, so two staged revisions can never overwrite each other in sequence. The first change wins, and a later one
+ * against an older revision is refused with {@link SettingsConflict} carrying the current revision and the current
+ * document, so nothing is merged and nothing is overwritten unseen. The write itself is the caller's act; composing the
+ * instance version of the event {@code override}, auditing it and answering with that version are the transaction's, and
+ * happen around this store.
  *
  * @since 0.1
  */
@@ -85,7 +87,8 @@ public final class PlanOverridesStore {
      * @throws SettingsConflict         if the document holds another revision than {@code revision}
      * @throws StoreRefusal             if the document is unreadable or in another format version
      * @throws UncheckedIOException     if the document cannot be read
-     * @throws IllegalArgumentException if the transaction is not the plan's, or a value is not one the schema admits
+     * @throws IllegalArgumentException if the transaction is not the plan's, the transaction already stages this
+     *                                  document, or a value is not one the schema admits
      */
     public PlanOverrides write(ScopeTransaction transaction, PlanOverrides values, long revision, UpdatedBy updatedBy,
             Instant updatedAt) {
@@ -95,6 +98,10 @@ public final class PlanOverridesStore {
         Objects.requireNonNull(updatedAt, "updatedAt");
         if (!transaction.scope().equals(scope)) {
             throw new IllegalArgumentException("The plan overrides are written by the plan's own transaction: "
+                    + scope.scopeId());
+        }
+        if (transaction.isTarget(file())) {
+            throw new IllegalArgumentException("The plan overrides are written once per transaction: "
                     + scope.scopeId());
         }
         var current = read();

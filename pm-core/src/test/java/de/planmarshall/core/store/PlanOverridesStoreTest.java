@@ -204,4 +204,23 @@ class PlanOverridesStoreTest {
     private Path expected() {
         return LockKey.projectStore(base, project).resolve("plans").resolve(plan).resolve("overrides.json");
     }
+
+    @Test
+    @DisplayName("a second write of the document in one transaction is refused")
+    void oneWritePerTransaction() {
+        var values = values();
+        var stamp = new UpdatedBy(Channel.CLI, null);
+        var now = CLOCK.instant();
+
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(scope.lockKey());
+            var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+            write.replace(PlanOverridesStore.FILE_NAME,
+                    PlanOverridesCodec.write(values.toBuilder().revision(1).updatedAt(now).updatedBy(stamp).build()));
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> store.write(write, values, PlanOverrides.NO_DOCUMENT, stamp, now),
+                    "The plan overrides are written once per transaction");
+        }
+    }
 }

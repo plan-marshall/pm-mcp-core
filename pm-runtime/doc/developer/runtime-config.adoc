@@ -13,14 +13,14 @@ A field, parameter or record component whose value may be absent is written `@Nu
 _Requirements: link:{req}/15-extensions-and-recipes.adoc#PM-EXT-6[PM-EXT-6], link:{req}/07-credentials.adoc#PM-CRED-1[PM-CRED-1]_
 
 Package `de.planmarshall.runtime.config` of `pm-runtime` owns three members of the machine's operator document:
-`providers` ({spec}/store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas § Machine Provider Defaults]),
-`sources.documents_mode` ({spec}/state-catalogue/09-bootstrap-and-lessons.adoc#documents-source[State Catalogue §
-Documents as a Source]) and `cleanup` ({spec}/timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets § One
-Cleanup]) of `machine-config.json` ({spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine
-Configuration Store]). The provider step of the machine's onboarding and its later runs write the defaults; the machine's
-settings write the documents mode and the cleanup durations
-({spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-settings[State Catalogue § The Machine's Settings]).
-Every project takes a machine default unless its own operator values set another.
+`providers` (link:{spec}/store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas § Machine Provider Defaults]),
+`sources.documents_mode` (link:{spec}/state-catalogue/09-bootstrap-and-lessons.adoc#documents-source[State Catalogue §
+Documents as a Source]) and `cleanup` (link:{spec}/timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets §
+One Cleanup]) of `machine-config.json` (link:{spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas §
+Machine Configuration Store]). The provider step of the machine's onboarding and its later runs write the defaults; the
+machine's settings write the documents mode and the cleanup durations
+(link:{spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-settings[State Catalogue § The Machine's
+Settings]). Every project takes a machine default unless its own operator values set another.
 
 The package lies in the runtime, not in `pm-core`'s `core.config`, because the closed list of providers names them and the
 foundation is provider-neutral by its architecture guard
@@ -43,13 +43,13 @@ coordinated by `locks/machine-config.lock`.
 * `ProviderDefaults` is the closed object: per provider its default. A provider the machine does not serve is absent, not
   recorded as unavailable; a `cli` variant for a provider without one is refused, and so is an omitted variant for a
   provider with one (`git`, `github`, `gitlab` name it, `forgejo` and `sonar` omit it).
-* `DocumentsMode` is `copy`, `move` or `ask`; `ASK` is the schema default while the key is absent. A start reads it, and
-  answering always records `copy` or `move` here.
+* `DocumentsMode` is `copy`, `move` or `ask`; `ASK` is the schema default while the key is absent. The store reads and
+  writes it; the start that reads it and records an "always" answer is the onboarding's, which this half does not deliver.
 * `CleanupDuration` is whole days (at least 7, so no window of the system view loses data) or `never`;
   `CleanupDurations` is the six values the cleanup reads — the five item kinds and the reminder's days — and
   `CleanupDurations.defaults()` is what the schema applies while the member is absent (30 days, a 3-day reminder).
-  A member that does not name all six is legal per the schema but reads at the schema defaults; the codec writes its
-  members back unchanged, so an incomplete member the operator wrote is never lost by a write of another setting.
+  A `cleanup` member that sets only some of them reads with each explicit member kept and only the absent ones at the
+  schema default; the codec writes the members back as they were read, so a partial member is never lost.
 
 A provider is recorded available only after its verification passed
 (link:runtime-credentials.adoc#_provider_verification[`runtime.credentials` § Provider Verification]); one whose checks

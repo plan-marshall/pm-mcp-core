@@ -218,11 +218,13 @@ every project here; a variant that is not one of `PlanFacts.Axis.LANDING.variant
 reason the operator reads, so a refusal is never bare.
 
 The check runs at the composition where a project is known: `PlanInstanceComposer.compose(request, project)` validates the
-*bound* landing variant before anything is composed and refuses the version with that reason. The bound variant is the
+*bound* landing variant before anything is composed and refuses the version with that reason. It is skipped for the
+post-run-only events (`fallback`, `empty_harvest`), whose composition prunes the landing work: a plan that is being handed
+back or returned does not land in that version, so its landing variant decides nothing there. The bound variant is the
 nearest level that set it, so a machine default that does not fit the project is refused for that project exactly like a
-project's own choice — the caller passes the level it resolved, and the reason names the variant, not the level. The one
-argument overload `compose(request)` composes without the check, for a caller with no project known (a preview, or a unit
-test of the composition itself).
+project's own choice — the caller resolves the level, and the reason names the variant, not the level. The one-argument
+overload `compose(request)` composes without the check, for a caller with no project known (a preview, or a unit test of
+the composition itself).
 
 The machine's own check is not this class: `MachineDefaultsValidation` of `runtime.config` reads only what the machine
 provides (a provider for `landing.pull-request`) and never a repository.
