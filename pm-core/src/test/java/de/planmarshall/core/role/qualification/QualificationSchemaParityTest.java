@@ -44,10 +44,10 @@ import de.planmarshall.core.store.SchemaParity;
 /**
  * The two grading codecs keep parity with the schema files {@code qualification-record.schema.json} and
  * {@code judge-check-record.schema.json}, read from the class path: the members they write and require in schema order,
- * the closed enumerations, the format version 1, and every document they write is valid against its schema. Two drifts
- * are pinned, each with its owner: the file requires the {@code thin} mark on a topic result and declares an optional
- * {@code judge_check} member of the record, and a codec writes neither (owner: the work package
- * {@code qualification-evidence}).
+ * the closed enumerations, the format version 1, and the validity of every written document — the judge-check document
+ * as written, the qualification document but for the pinned {@code thin} mark. Two drifts are pinned, each with its
+ * owner: the file requires the {@code thin} mark on a topic result and declares an optional {@code judge_check} member
+ * of the record, and a codec writes neither (owner: the work package {@code qualification-evidence}).
  */
 @EnableGeneratorController
 @DisplayName("Qualification schema parity")
