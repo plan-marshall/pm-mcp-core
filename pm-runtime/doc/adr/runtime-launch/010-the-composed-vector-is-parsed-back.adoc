@@ -1,0 +1,120 @@
+= ADR 010: The composed worker vector is parsed back, at the end of the composition
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-15.
+
+== Context
+
+Model Work § Launch Contract states that the composed vector of a worker launch is validated against its argument schema
+without resolving, and Job Runtime § Worker Jobs ends its bullet on a worker job with *validated like every other*. Both
+sentences describe the argument-schema validation the job runtime gives every job. At the head before this plan the worker
+start path ran none of it: `SubprocessJobRunner.startWorker` admitted the record and ran `launch.argv()` without a
+pipeline call, while `start` called `pipeline.verify`. `LaunchComposer` filled the profile's template by string
+replacement (`composeArgv`, `fill`) and re-checked nothing, and `CompositionException.refusal()` was fixed to
+`prompt_composition_failed`, so a composition could only ever fail as a prompt failure.
+
+The vector is composed from server-owned inputs only (`PM-CLIENT-2`): the enrolled executable, the profile's template with
+its typed slots, the role's model, effort and tool set, the job-private paths and the working directory. A defect in that
+composition — a wrong tier model, an unaccepted effort, a path outside the job-private directory, a tool outside the role,
+an element a profile edit added — reached the harness unflagged.
+
+== Decision
+
+`WorkerVectorCheck` (package `runtime.launch`) is the check. `LaunchComposer.composeArgv` calls it once, on the vector it
+has filled and prefixed with the enrolled executable, before the `WorkerLaunch` is built. A violation throws
+`CompositionException.argumentRejected`, whose `refusal()` is the new
+`LaunchRefusal.ARGUMENT_REJECTED` (`argument_rejected`); `WorkerSupervisor` records it through the `refuseWorker` path it
+already has, with the fate `refused`, and is not edited.
+
+The check answers the first violated rule and the position of the element, never the value, in this order:
+
+. (a) element 0 is the enrolled executable path;
+. (b) every element of the vector corresponds to one element of the template — the elements the template skips are the
+  only gaps and the literal parts of a template element are reproduced exactly;
+. (c) every typed slot value matches the closed grammar of its slot;
+. (d) no element outside the two JSON slots contains a shell metacharacter;
+. (e) the vector carries no element that is neither a template element nor a slot value.
+
+**The check parses the vector back instead of rendering it again.** It splits each template element into its literal
+fragments and its slot markers, requires every fragment at the position the previous one ended, and reads the text
+between two fragments as the value that slot carries. Re-running `fill` with the same slots would exercise the composer's
+own replacement code, so a defect in that code would be invisible to it: it would compare the composition with itself.
+Reading the *rendered* element back gives an independent witness — a dropped element, an altered literal, a duplicated
+element or a value substituted for another slot all fail rule (b) or (e), and each slot value is then checked against the
+grammar of the slot the template names.
+
+**The check runs at the end of the composition, inside the start path, and not in `SubprocessJobRunner`.** The
+composition is where the vector is made from the profile's data, so it is where the data's conformance is decidable, and
+it is the last step that can still refuse *before* the job record is admitted and the model slot claimed. The check
+runs against the very template that was filled: the ephemeral flag of a role that may resume is withheld from the
+template before it is rendered, so the vector and the template correspond element for element, rule (b) has exactly one
+kind of gap — the one a skipped slot makes — and a slot value that happens to contain the flag's text is never mistaken
+for the flag.
+
+**The two JSON slots are exempt from the metacharacter rule and checked as JSON.** `{{mcp_config}}` and `{{agent}}`
+carry a canonical JSON object the composer serialised itself; a JSON object contains characters a shell metacharacter
+rule would refuse, and the shape that matters there is the object's structure. They are parsed and required to be an
+object of the composed shape — `{"mcpServers":{"pm-job":{…}}}` for the MCP configuration, `{"pm-job":{…}}` for the
+inline agent — and every other element is refused when it contains `|`, `;`, `&`, `$`, `` ` ``, `>` or `<`, the rule
+`ArgumentCheck` applies to every caller-supplied argument of every other job kind.
+
+== Alternatives Considered
+
+**Re-rendering the template from the slots and comparing.** Rejected: it repeats the composer's own code, so a defect in
+`fill` or in the slot assembly would be reproduced by the check and compare equal. It also needs every slot value,
+including the ones the composer has already converted, which makes the check a second composition rather than a check of
+the one that ran.
+
+**A stage of `VerifyNotResolvePipeline` over a new `JobRequest` kind for workers.** Rejected: the pipeline's stage 3
+validates the arguments the *caller* supplies for a job the project's enrolment admits; a worker's vector is composed
+from the profile's template and the role, not from a caller's request, and the pipeline reaches the decision through
+`ProjectEnrolment`, `DefaultTemplates` and `ArgumentSchemaValidator`. Putting a launch-template concept into
+`runtime.job` would make the pipeline depend on the launch package for a case it has no request type for.
+
+**Validation in `WorkerSupervisor.startWorker`.** Rejected: it would refuse after the composition had written the
+job-private files and after the model slot was claimed and the job record admitted, so the refusal would have to undo
+state that the composition's own refusal never creates. It also puts the rule in the supervisor, which the specification
+keeps free of composition rules.
+
+**Validating the vector after a filter has removed elements from it.** Considered and rejected in favour of withholding
+the flag at the template: a filter over the rendered vector removes by content, so a slot value that happens to contain
+the flag's text (a session id, a path) would remove an element the vector needs and leave its flag dangling, and rule
+(b) would have to admit a second kind of gap — the one the filter explains. Withholding the flag from the template
+before it is rendered leaves the vector and the template in exact correspondence, and no value is ever matched against
+the flag's text. (The rejected candidate was to run the check on the vector before the filter; that keeps the
+correspondence but leaves the filtered vector — the one that is spawned — unchecked against the template, and keeps the
+content match.)
+
+== Consequences
+
+A profile whose template renders a metacharacter into an element, or a role whose tool set, model or effort the grammar
+does not accept, now refuses the launch as `argument_rejected` with the fate `refused` instead of spawning it. The
+refusal's act is *correct the profile's template or enrol the harness profile again*, because the template is
+operator-owned and the vector is composed from it; a shipped profile that fails the check is a profile defect, not a
+harness defect.
+
+The job-private files the composition writes before the vector is composed — the prompt file and, for a fresh worker
+with an envelope, the result schema — stay on disk after a refusal. They are the composition's own, mode `0600`, and the
+refused generation never starts; a later launch writes its own directory.
+
+Every new typed slot must reach three places: `HeadlessBlock`'s projection, `LaunchComposer.composeArgv` and the closed
+grammar of `WorkerVectorCheck`. A slot the grammar does not name is refused, which is the fail-closed direction: a
+profile that declares a slot this runtime cannot check refuses the launch instead of shipping the value unchecked. The
+three lists stay three: `ProfileValidator.SLOTS` is the profile schema's contract in `pm-core`, the composer's map is what
+that composition fills, and the check's grammar is the independent witness the decision above requires — deriving the
+last from the others would make the witness agree with the code it checks by construction. A shared registry of the slot
+names would remove the hand-synchronisation without merging the three roles; that is a change of `pm-core` and belongs to
+a plan that owns it.
+
+== Source
+
+PLAN-V2-48 (`worker-vector-verify-not-resolve`), workstream WS-06, carrying the open defect *the verify-not-resolve
+validation of a composed worker vector has no owner*; Model Work § Launch Contract; Job Runtime § Worker Jobs and
+§ Argument Schema Validation; Harness Profiles § Headless Block (`headless.argv`); `ArgumentCheck` (PM-EXEC-1);
+ADR `runtime-launch/001`.
