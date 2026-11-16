@@ -24,14 +24,14 @@ maven-build:
   maven-profiles-snapshot: ''
   maven-profiles-release: ''
   npm-cache: false
-  # The docs-only skip of the reusable workflows stays on, but every documentation and source tree counts as code even
-  # though the default ignore list (**/*.adoc, **/*.md, doc/**) matches it (ADR doc/adr/015, which supersedes ADR
-  # doc/adr/009): tests read doc/specification (pm.specification.root, ADR doc/adr/007), doc/LogMessages.adoc, the
-  # developer guides below {module}/doc/developer and the .md/.adoc fixtures below src/test/resources, and a rule over
-  # whole trees needs no list that mirrors those readers. A pull request that changes only .plan/, .claude/, the
-  # README/CLAUDE.md files or .github/project.yml still skips the build.
+  # The docs-only skip of the reusable workflows stays on. `**/src/**` counts every source tree (and the .md and
+  # .adoc fixtures below src/test/resources) as code; the only file below a doc/ tree a test still reads is the
+  # generated log message listings, which the one glob doc/log-messages/*.adoc names (ADR doc/adr/019). Every other
+  # documentation file matches the default ignore list and skips the build, now that no test reads a specification
+  # any more: ADR doc/adr/016 supersedes the premise of ADR doc/adr/009 and the **/doc/** entry of ADR doc/adr/015.
+  # .plan/, .claude/, the README/CLAUDE.md files and .github/project.yml skip as before.
   paths-code-extra:
-    - '**/doc/**'
+    - 'doc/log-messages/*.adoc'
     - '**/src/**'
 
 # The project of the SonarCloud organisation plan-marshall; its Automatic Analysis is off, the CI build analyses.
