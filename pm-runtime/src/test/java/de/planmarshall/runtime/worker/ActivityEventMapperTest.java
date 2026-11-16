@@ -94,8 +94,10 @@ class ActivityEventMapperTest {
     @Test
     @DisplayName("a harness without an event stream maps nothing")
     void noMapping() {
-        assertFalse(new ActivityEventMapper(null, Map.of()).mapsEvents());
-        assertTrue(new ActivityEventMapper(null, Map.of()).map("{\"type\":\"assistant\"}").isEmpty());
+        assertFalse(new ActivityEventMapper(null, Map.of()).mapsEvents(),
+                "a mapper without event mapping reports no events");
+        assertTrue(new ActivityEventMapper(null, Map.of()).map("{\"type\":\"assistant\"}").isEmpty(),
+                "a mapper without event mapping maps no line");
     }
 
     @Test
@@ -106,9 +108,10 @@ class ActivityEventMapperTest {
                 .orElseThrow();
 
         assertAll(
-                () -> assertEquals(ActivityEntry.Kind.TEXT, mapped.kind()),
-                () -> assertEquals(ActivityEntry.TEXT_BOUND, mapped.text().length()),
-                () -> assertTrue(mapped.truncated()));
+                () -> assertEquals(ActivityEntry.Kind.TEXT, mapped.kind(), "the mapped kind is text"),
+                () -> assertEquals(ActivityEntry.TEXT_BOUND, mapped.text().length(),
+                        "the text is cut to the compiled bound"),
+                () -> assertTrue(mapped.truncated(), "the cut text is marked truncated"));
     }
 
     @Test
@@ -118,8 +121,8 @@ class ActivityEventMapperTest {
                 .orElseThrow();
 
         assertAll(
-                () -> assertFalse(mapped.truncated()),
-                () -> assertEquals(shortText, mapped.text()));
+                () -> assertFalse(mapped.truncated(), "a short text is not marked truncated"),
+                () -> assertEquals(shortText, mapped.text(), "the short text is kept whole"));
     }
 
     @Test
@@ -130,9 +133,9 @@ class ActivityEventMapperTest {
                 """.formatted(toolName, filePath, argumentValue)).orElseThrow();
 
         assertAll(
-                () -> assertEquals(ActivityEntry.Kind.TOOL_CALL, mapped.kind()),
-                () -> assertEquals(toolName, mapped.tool().name()),
-                () -> assertEquals(filePath, mapped.tool().target()));
+                () -> assertEquals(ActivityEntry.Kind.TOOL_CALL, mapped.kind(), "the mapped kind is a tool call"),
+                () -> assertEquals(toolName, mapped.tool().name(), "the tool keeps its name"),
+                () -> assertEquals(filePath, mapped.tool().target(), "the tool keeps the first target path"));
     }
 
     @Test
@@ -141,7 +144,7 @@ class ActivityEventMapperTest {
         var mapped = mapper().map("{\"type\":\"tool_use\",\"name\":\"bash\",\"input\":{\"command\":\"" + command + "\"}}")
                 .orElseThrow();
 
-        assertEquals(command, mapped.tool().target());
+        assertEquals(command, mapped.tool().target(), "the tool falls back to the command target");
     }
 
     @Test
@@ -152,9 +155,10 @@ class ActivityEventMapperTest {
                 .orElseThrow();
 
         assertAll(
-                () -> assertEquals(ActivityEntry.Kind.TOOL_RESULT, mapped.kind()),
-                () -> assertEquals(resultSize, mapped.result().bytes()),
-                () -> assertTrue(mapped.result().failed()));
+                () -> assertEquals(ActivityEntry.Kind.TOOL_RESULT, mapped.kind(),
+                        "the mapped kind is a tool result"),
+                () -> assertEquals(resultSize, mapped.result().bytes(), "the result keeps the reported size"),
+                () -> assertTrue(mapped.result().failed(), "the failed result is marked failed"));
     }
 
     @Test
@@ -162,7 +166,7 @@ class ActivityEventMapperTest {
     void fileChanged() {
         var mapped = mapper().map("{\"type\":\"file\",\"path\":\"" + filePath + "\"}").orElseThrow();
 
-        assertEquals(filePath, mapped.path());
+        assertEquals(filePath, mapped.path(), "the file change keeps its path");
     }
 
     @Test
@@ -174,11 +178,13 @@ class ActivityEventMapperTest {
                 """).orElseThrow();
 
         assertAll(
-                () -> assertEquals(ActivityEntry.Kind.TURN, mapped.kind()),
-                () -> assertEquals(ActivityEntry.StopReason.MAX_TOKENS, mapped.stopReason()),
+                () -> assertEquals(ActivityEntry.Kind.TURN, mapped.kind(), "the mapped kind is a turn"),
+                () -> assertEquals(ActivityEntry.StopReason.MAX_TOKENS, mapped.stopReason(),
+                        "the stop reason is max tokens"),
                 () -> assertEquals("{\"cache_creation\":\"not_applicable\",\"cache_read\":7,"
                         + "\"cost_usd\":\"unmeasured\",\"input_tokens\":120,\"output_tokens\":30,"
-                        + "\"reasoning\":\"unmeasured\",\"tool_uses\":\"unmeasured\"}", mapped.usage()));
+                        + "\"reasoning\":\"unmeasured\",\"tool_uses\":\"unmeasured\"}", mapped.usage(),
+                        "the usage is read through the pointers"));
     }
 
     @Test
@@ -186,10 +192,11 @@ class ActivityEventMapperTest {
     void stopReason() {
         assertAll(
                 () -> assertEquals(ActivityEntry.StopReason.OTHER,
-                        ActivityEventMapper.stopReason("pause_turn")),
-                () -> assertNull(mapper().map("{\"type\":\"result\"}").orElseThrow().stopReason()),
+                        ActivityEventMapper.stopReason("pause_turn"), "an unknown stop reason maps to other"),
+                () -> assertNull(mapper().map("{\"type\":\"result\"}").orElseThrow().stopReason(),
+                        "an absent stop reason stays null"),
                 () -> assertEquals(ActivityEntry.StopReason.REFUSAL,
-                        ActivityEventMapper.stopReason("refusal")));
+                        ActivityEventMapper.stopReason("refusal"), "a refusal stop reason is mapped"));
     }
 
     @Test
@@ -198,12 +205,15 @@ class ActivityEventMapperTest {
         var mapper = mapper();
 
         assertAll(
-                () -> assertTrue(mapper.map("{\"type\":\"unknown\"}").isEmpty()),
-                () -> assertTrue(mapper.map("not json").isEmpty()),
-                () -> assertTrue(mapper.map("{\"type\":\"tool_use\",\"input\":{}}").isEmpty()),
-                () -> assertTrue(mapper.map("{\"type\":\"tool_result\",\"size\":\"big\"}").isEmpty()),
-                () -> assertTrue(mapper.map("").isEmpty()),
-                () -> assertTrue(mapper.map(null).isEmpty()));
+                () -> assertTrue(mapper.map("{\"type\":\"unknown\"}").isEmpty(),
+                        "an unknown kind maps no entry"),
+                () -> assertTrue(mapper.map("not json").isEmpty(), "a malformed line maps no entry"),
+                () -> assertTrue(mapper.map("{\"type\":\"tool_use\",\"input\":{}}").isEmpty(),
+                        "a tool call without a name maps no entry"),
+                () -> assertTrue(mapper.map("{\"type\":\"tool_result\",\"size\":\"big\"}").isEmpty(),
+                        "a tool result with a bad size maps no entry"),
+                () -> assertTrue(mapper.map("").isEmpty(), "an empty line maps no entry"),
+                () -> assertTrue(mapper.map(null).isEmpty(), "a null line maps no entry"));
     }
 
     @Test
@@ -215,10 +225,12 @@ class ActivityEventMapperTest {
 
         assertAll(
                 () -> assertEquals(10, ActivityEventMapper.resolve(root, "/a~1b/c~0d/0").orElseThrow()
-                        .integerValue().orElse(-1)),
+                        .integerValue().orElse(-1), "the pointer resolves the escaped first element"),
                 () -> assertEquals(20, ActivityEventMapper.resolve(root, "/a~1b/c~0d/1").orElseThrow()
-                        .integerValue().orElse(-1)),
-                () -> assertTrue(ActivityEventMapper.resolve(root, "/a~1b/c~0d/2").isEmpty()),
-                () -> assertTrue(ActivityEventMapper.resolve(root, "a/b").isEmpty()));
+                        .integerValue().orElse(-1), "the pointer resolves the escaped second element"),
+                () -> assertTrue(ActivityEventMapper.resolve(root, "/a~1b/c~0d/2").isEmpty(),
+                        "an index past the array end resolves to nothing"),
+                () -> assertTrue(ActivityEventMapper.resolve(root, "a/b").isEmpty(),
+                        "a pointer without a leading slash resolves nothing"));
     }
 }

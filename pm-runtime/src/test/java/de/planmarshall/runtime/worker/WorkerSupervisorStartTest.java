@@ -97,7 +97,7 @@ class WorkerSupervisorStartTest {
 
         assertAll(
                 () -> assertEquals(2, outcomes.size(), "one worker serves each directory"),
-                () -> assertEquals(2, started(outcomes)),
+                () -> assertEquals(2, started(outcomes), "two directories each get one worker"),
                 () -> assertEquals(List.of(), supervisor.start(List.of()), "no queued work starts nothing"));
     }
 
@@ -142,7 +142,8 @@ class WorkerSupervisorStartTest {
         var supervisor = supervisor(guard, OPEN_GATE);
         var requests = List.of(fixture.freshRequest(role));
 
-        var thrown = assertThrows(IllegalStateException.class, () -> supervisor.start(requests));
+        var thrown = assertThrows(IllegalStateException.class, () -> supervisor.start(requests),
+                "a throwing start propagates its failure");
         var heldWhileTheRestartedBackoffRuns = guard.holds(role.artifact().name(), role.harness());
         fixture.advance(StartFailureGuard.PROBE_BACKOFF);
         var nextProbeAdmitted = !guard.holds(role.artifact().name(), role.harness());
@@ -151,7 +152,7 @@ class WorkerSupervisorStartTest {
                 () -> assertEquals(startFailure, thrown.getMessage(),
                         "the start's own failure propagates"),
                 () -> assertTrue(heldWhileTheRestartedBackoffRuns,
-                        "the throw releases the consumed probe and restarts its backoff"),
+                        "the throw restarts the probe backoff"),
                 () -> assertTrue(nextProbeAdmitted, "the restarted backoff admits the next probe"),
                 () -> assertTrue(supervisor.generations().isEmpty(), "the throwing start registers no generation"),
                 () -> assertEquals(1, fixture.released.size(), "the throwing start returns its model slot"));
@@ -219,7 +220,8 @@ class WorkerSupervisorStartTest {
         var outcome = supervisor.start(List.of(fixture.freshRequest(role))).getFirst();
 
         assertAll(
-                () -> assertInstanceOf(StartOutcome.Started.class, outcome),
+                () -> assertInstanceOf(StartOutcome.Started.class, outcome,
+                        "a successful start obtains a started outcome"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.WORKER_GENERATION_STARTED.resolveIdentifierString()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
@@ -242,7 +244,8 @@ class WorkerSupervisorStartTest {
     }
 
     private static WorkerStartRefusal declined(List<StartOutcome> outcomes) {
-        var outcome = assertInstanceOf(StartOutcome.Declined.class, outcomes.getFirst());
+        var outcome = assertInstanceOf(StartOutcome.Declined.class, outcomes.getFirst(),
+                "the start is declined by the supervisor");
         return outcome.reason();
     }
 }

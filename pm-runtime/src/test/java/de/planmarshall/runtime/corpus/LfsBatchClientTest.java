@@ -302,7 +302,7 @@ class LfsBatchClientTest {
             assertNotNull(batchRequest.getBody(), "the batch request carries a body");
             var batchBody = batchRequest.getBody().utf8();
             assertAll("the batch request and the download",
-                    () -> assertEquals("POST", batchRequest.getMethod(), "the batch is a POST"),
+                    () -> assertEquals("POST", batchRequest.getMethod(), "the batch request is a POST"),
                     () -> assertEquals(batch(), batchRequest.getTarget(), "the batch API of the repository"),
                     () -> assertEquals(LfsBatchClient.MEDIA_TYPE, batchRequest.getHeaders().get("Accept"),
                             "the batch accepts the LFS media type"),
@@ -468,7 +468,7 @@ class LfsBatchClientTest {
                     () -> assertEquals(1, server.getRequestCount(), "only the batch request is sent"));
             var batchRequest = nextRequest();
             assertAll("the batch request",
-                    () -> assertEquals("POST", batchRequest.getMethod(), "the batch is a POST"),
+                    () -> assertEquals("POST", batchRequest.getMethod(), "the batch request is a POST"),
                     () -> assertEquals(batch(), batchRequest.getTarget(), "the batch API of the repository"),
                     () -> assertNull(batchRequest.getHeaders().get("Authorization"),
                             "the action's header is never sent"));
@@ -560,7 +560,8 @@ class LfsBatchClientTest {
         assertAll("the refused cleartext repository",
                 () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                 () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
-                () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
+                () -> assertEquals(0, server.getRequestCount(),
+                        "the refused cleartext repository sends nothing"));
         assertUnavailableLogged();
     }
 
@@ -572,7 +573,8 @@ class LfsBatchClientTest {
         assertAll("the refused user information",
                 () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                 () -> assertFalse(fetch.detail().contains("pw"), fetch::detail),
-                () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
+                () -> assertEquals(0, server.getRequestCount(),
+                        "the refused user information sends nothing"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -585,7 +587,8 @@ class LfsBatchClientTest {
         assertAll("the refused URL",
                 () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                 () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
-                () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
+                () -> assertEquals(0, server.getRequestCount(),
+                        "the refused URL without scheme sends nothing"));
         assertUnavailableLogged();
         LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, "<a URL without scheme or host>");
     }

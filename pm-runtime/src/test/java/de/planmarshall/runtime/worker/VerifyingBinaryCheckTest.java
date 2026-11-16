@@ -65,7 +65,8 @@ class VerifyingBinaryCheckTest {
 
         var verdict = check.verify(recorded);
 
-        var match = assertInstanceOf(VerifyingBinaryCheck.Verdict.Match.class, verdict);
+        var match = assertInstanceOf(VerifyingBinaryCheck.Verdict.Match.class, verdict,
+                "a matching binary yields a match verdict");
         assertEquals(installed, match.installed(), "the match names the installed identity");
     }
 
@@ -77,7 +78,8 @@ class VerifyingBinaryCheckTest {
 
         var verdict = check.verify(recorded);
 
-        var mismatch = assertInstanceOf(VerifyingBinaryCheck.Verdict.Mismatch.class, verdict);
+        var mismatch = assertInstanceOf(VerifyingBinaryCheck.Verdict.Mismatch.class, verdict,
+                "another commit yields a mismatch verdict");
         assertAll(
                 () -> assertEquals(installed, mismatch.installed(), "the mismatch names the installed build"),
                 () -> assertEquals(recorded, mismatch.recorded(), "the mismatch names the recorded build"));
@@ -92,7 +94,8 @@ class VerifyingBinaryCheckTest {
 
         var verdict = check.verify(recorded);
 
-        assertInstanceOf(VerifyingBinaryCheck.Verdict.Unreadable.class, verdict);
+        assertInstanceOf(VerifyingBinaryCheck.Verdict.Unreadable.class, verdict,
+                "a binary without identity is unreadable");
     }
 
     @Test

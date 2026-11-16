@@ -64,8 +64,9 @@ class CredentialStoreMoveRecordTest {
                         {"format_version":1,"from":"os","to":"file","started_at":"2026-10-17T15:00:00Z",\
                         "phase":"copying","target_held_key":false,"operation":"move",\
                         "transaction_id":"018f0000-0000-7000-8000-000000000001"}
-                        """, document),
-                () -> assertEquals(moveRecord, read(document)));
+                        """, document, "the written document carries the one record shape"),
+                () -> assertEquals(moveRecord, read(document),
+                        "the document reads back as the same move record"));
     }
 
     @Test
@@ -81,8 +82,9 @@ class CredentialStoreMoveRecordTest {
                         {"format_version":1,"from":"file","to":"os","started_at":"2026-10-17T15:00:00Z",\
                         "phase":"copying","target_held_key":true,"operation":"first_recording",\
                         "transaction_id":"018f0000-0000-7000-8000-000000000001"}
-                        """, document),
-                () -> assertEquals(firstRecording, read(document)));
+                        """, document, "the first recording is written in the same record shape"),
+                () -> assertEquals(firstRecording, read(document),
+                        "the document reads back as the same first recording"));
     }
 
     @Test
@@ -98,8 +100,9 @@ class CredentialStoreMoveRecordTest {
                         {"format_version":1,"from":"file","to":"os","started_at":"2026-10-17T15:00:00Z",\
                         "phase":"copying","target_held_key":true,"operation":"move",\
                         "transaction_id":"018f0000-0000-7000-8000-000000000001"}
-                        """, document),
-                () -> assertEquals(moveRecord, read(document)));
+                        """, document, "the record names that the target held the integrity key"),
+                () -> assertEquals(moveRecord, read(document),
+                        "the target-held key flag survives the round trip"));
     }
 
     @Test
@@ -113,7 +116,8 @@ class CredentialStoreMoveRecordTest {
             var read = read(new String(written.write(), StandardCharsets.UTF_8));
 
             assertAll(
-                    () -> assertEquals(operation, read.operation()),
+                    () -> assertEquals(operation, read.operation(),
+                            "every operation is read back under its own wire name"),
                     () -> assertTrue(wireNames.add(operation.value()), operation.value()));
         }
         assertEquals(Operation.values().length, wireNames.size(), "every operation has its own wire name");
@@ -127,22 +131,26 @@ class CredentialStoreMoveRecordTest {
 
         assertAll(
                 () -> assertEquals(new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.COPYING, true,
-                        Operation.FIRST_RECORDING, TRANSACTION), copying),
+                                Operation.FIRST_RECORDING, TRANSACTION), copying,
+                        "copying() starts the record in phase copying"),
                 () -> assertEquals(new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.SWITCHED, true,
-                        Operation.FIRST_RECORDING, TRANSACTION), copying.switched()));
+                                Operation.FIRST_RECORDING, TRANSACTION), copying.switched(),
+                        "switched() changes only the phase of the record"));
     }
 
     @Test
     @DisplayName("the record lies below the state directory of the base")
     void file() {
         assertEquals(Path.of("/pm-base/state/credential-store-move.json"),
-                CredentialStoreMoveRecord.file(Path.of("/pm-base")));
+                CredentialStoreMoveRecord.file(Path.of("/pm-base")),
+                "the record file lies below the state directory");
     }
 
     @Test
     @DisplayName("a record from a store to itself is not a record")
     void sameStores() {
-        assertThrows(IllegalArgumentException.class, () -> move(Store.OS, Store.OS, Phase.COPYING, false));
+        assertThrows(IllegalArgumentException.class, () -> move(Store.OS, Store.OS, Phase.COPYING, false),
+                "a record from a store to itself is refused");
     }
 
     @ParameterizedTest(name = "{0}")
@@ -194,21 +202,26 @@ class CredentialStoreMoveRecordTest {
             "[]"})
     @DisplayName("a document outside the one shape is refused as unreadable, naming the file")
     void unreadable(String document) {
-        var refusal = assertThrows(StoreRefusal.class, () -> read(document));
+        var refusal = assertThrows(StoreRefusal.class, () -> read(document),
+                "every document outside the one shape is refused");
 
         assertAll(
-                () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
-                () -> assertEquals(FILE, refusal.file()));
+                () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome(),
+                        "the refusal reports the document as unreadable"),
+                () -> assertEquals(FILE, refusal.file(),
+                        "the refusal names the record file"));
     }
 
     @Test
     @DisplayName("a record of a newer format version is refused as newer")
     void newerVersion() {
         var refusal = assertThrows(StoreRefusal.class, () -> read(
-                "{\"format_version\":2,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
-                        + "\"phase\":\"copying\",\"target_held_key\":false,\"operation\":\"move\","
-                        + "\"transaction_id\":\"018f0000-0000-7000-8000-000000000001\"}"));
+                        "{\"format_version\":2,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
+                                + "\"phase\":\"copying\",\"target_held_key\":false,\"operation\":\"move\","
+                                + "\"transaction_id\":\"018f0000-0000-7000-8000-000000000001\"}"),
+                "a record of a newer format version is refused");
 
-        assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, refusal.outcome());
+        assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, refusal.outcome(),
+                "the refusal reports the newer format version");
     }
 }

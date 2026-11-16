@@ -83,17 +83,17 @@ class KeychainSecretStoreTest {
     @Test
     @DisplayName("put, get, replace and delete a generic-password item")
     void roundTrip() {
-        assertEquals(Optional.empty(), store.get(global));
+        assertEquals(Optional.empty(), store.get(global), "absent item reads as no secret");
 
         store.put(global, firstSecret);
-        assertEquals(Optional.of(firstSecret), store.get(global));
+        assertEquals(Optional.of(firstSecret), store.get(global), "first put stores the secret");
         store.put(global, secondSecret);
-        assertEquals(Optional.of(secondSecret), store.get(global));
+        assertEquals(Optional.of(secondSecret), store.get(global), "second put replaces the stored secret");
 
-        assertTrue(store.delete(global));
-        assertFalse(store.delete(global));
-        assertEquals(Optional.empty(), store.get(global));
-        assertEquals(SecretStore.KEYCHAIN, store.name());
+        assertTrue(store.delete(global), "delete removes the keychain item");
+        assertFalse(store.delete(global), "repeated delete of a missing item is false");
+        assertEquals(Optional.empty(), store.get(global), "deleted item reads as no secret");
+        assertEquals(SecretStore.KEYCHAIN, store.name(), "store name is the keychain backend");
     }
 
     @Test
@@ -102,14 +102,16 @@ class KeychainSecretStoreTest {
         store.put(global, globalSecret);
         store.put(project, projectSecret);
 
-        assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"));
-        assertEquals(Optional.of(globalSecret), store.resolve(otherProject, "github"));
+        assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"),
+                "project account resolves before global");
+        assertEquals(Optional.of(globalSecret), store.resolve(otherProject, "github"),
+                "another project falls back to global");
     }
 
     @Test
     @DisplayName("an empty service name lists no entry")
     void entriesEmpty() {
-        assertEquals(List.of(), store.entries());
+        assertEquals(List.of(), store.entries(), "empty service name lists no entry");
     }
 
     @Test
@@ -121,8 +123,10 @@ class KeychainSecretStoreTest {
         store.put(global, globalSecret);
         other.put(foreign, Generators.letterStrings(1, 20).next());
         try {
-            assertEquals(List.of(global, project), store.entries());
-            assertEquals(List.of(foreign), other.entries());
+            assertEquals(List.of(global, project), store.entries(),
+                    "entries list the global and project accounts");
+            assertEquals(List.of(foreign), other.entries(),
+                    "other service lists only the foreign account");
         } finally {
             other.delete(foreign);
         }
@@ -134,8 +138,11 @@ class KeychainSecretStoreTest {
         var dataProtection = new KeychainSecretStore(service, true);
 
         var e = assertThrows(KeychainSecretStore.KeychainException.class,
-                () -> dataProtection.put(global, Generators.letterStrings(1, 20).next()));
-        assertEquals(MacSecurity.MISSING_ENTITLEMENT, e.status());
-        assertEquals(SecretStoreException.Reason.FAILED, e.reason());
+                () -> dataProtection.put(global, Generators.letterStrings(1, 20).next()),
+                "data-protection keychain refuses the put");
+        assertEquals(MacSecurity.MISSING_ENTITLEMENT, e.status(),
+                "refused put reports the missing entitlement");
+        assertEquals(SecretStoreException.Reason.FAILED, e.reason(),
+                "refused put reports the failed reason");
     }
 }

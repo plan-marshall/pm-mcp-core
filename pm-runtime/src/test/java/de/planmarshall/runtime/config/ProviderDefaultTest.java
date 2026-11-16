@@ -100,7 +100,7 @@ class ProviderDefaultTest {
 
         var refused = assertThrows(IllegalArgumentException.class,
                 () -> new ProviderDefault(false, ProviderVariant.NATIVE, null, passed),
-                "a passed result cannot accompany a provider recorded not available");
+                "a passed result cannot accompany an unavailable provider");
 
         assertTrue(refused.getMessage().contains("not available"), "the refusal names the state");
     }

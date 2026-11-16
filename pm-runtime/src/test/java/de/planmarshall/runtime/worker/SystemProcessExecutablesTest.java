@@ -48,10 +48,11 @@ class SystemProcessExecutablesTest {
     @DisplayName("the reader resolves the test JVM's own executable path and digest")
     void resolvesTheOwnExecutable() {
         var reading = new SystemProcessExecutables().read(CURRENT_PID);
-        var executable = assertInstanceOf(ProcessExecutables.Found.class, reading).executable();
+        var executable = assertInstanceOf(ProcessExecutables.Found.class, reading,
+                "the own process is found by the reader").executable();
 
         assertAll(
-                () -> assertEquals(CURRENT_PID, executable.pid()),
+                () -> assertEquals(CURRENT_PID, executable.pid(), "the reading names the current process id"),
                 () -> assertTrue(executable.path().isAbsolute(), "the path is absolute"),
                 () -> assertTrue(Files.isRegularFile(executable.path()), "the path is a regular file"),
                 () -> assertEquals(ProcessExecutable.DIGEST_PREFIX
@@ -68,7 +69,9 @@ class SystemProcessExecutablesTest {
         var reading = new SystemProcessExecutables().read(CURRENT_PID);
 
         assertEquals(Path.of("/proc/self/exe").toRealPath(),
-                assertInstanceOf(ProcessExecutables.Found.class, reading).executable().path());
+                assertInstanceOf(ProcessExecutables.Found.class, reading,
+                        "the linux reading is a found executable").executable().path(),
+                "the Linux branch reads the kernel's proc link");
     }
 
     @Test
@@ -76,7 +79,7 @@ class SystemProcessExecutablesTest {
     void anAbsentProcessYieldsAbsent() {
         var reading = new SystemProcessExecutables().read(Integer.MAX_VALUE);
 
-        assertInstanceOf(ProcessExecutables.Absent.class, reading);
+        assertInstanceOf(ProcessExecutables.Absent.class, reading, "an absent pid yields an absent reading");
     }
 
     @Test
@@ -89,7 +92,8 @@ class SystemProcessExecutablesTest {
         var reading = reader.read(someProcessId());
 
         assertEquals(deleted.toAbsolutePath().normalize(),
-                assertInstanceOf(ProcessExecutables.NotRegular.class, reading).path(),
+                assertInstanceOf(ProcessExecutables.NotRegular.class, reading,
+                        "a non-regular file yields not-regular").path(),
                 "the answer names the path it could not digest");
     }
 
@@ -98,7 +102,8 @@ class SystemProcessExecutablesTest {
     void aProcessWithoutAPathYieldsAbsent() {
         var reader = new SystemProcessExecutables(pid -> Optional.empty(), HarnessVerifier::digestExecutable);
 
-        assertInstanceOf(ProcessExecutables.Absent.class, reader.read(someProcessId()));
+        assertInstanceOf(ProcessExecutables.Absent.class, reader.read(someProcessId()),
+                "a process without a path yields absent");
     }
 
     private static long someProcessId() {

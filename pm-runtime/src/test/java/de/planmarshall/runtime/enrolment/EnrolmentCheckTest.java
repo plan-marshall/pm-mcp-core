@@ -110,16 +110,18 @@ class EnrolmentCheckTest {
     }
 
     private StoreRefusal refused(String projectId) {
-        return assertThrows(StoreRefusal.class, () -> verify(projectId));
+        return assertThrows(StoreRefusal.class, () -> verify(projectId), "a refused verify throws StoreRefusal");
     }
 
     private void assertTampered(StoreRefusal refusal, Path file, String reason) {
         assertAll(
-                () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
-                () -> assertEquals(file, refusal.file()),
+                () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome(),
+                        "the refusal outcome is enrolment tampered"),
+                () -> assertEquals(file, refusal.file(), "the refusal names the tampered file"),
                 () -> assertTrue(refusal.getMessage().contains(reason), refusal.getMessage()),
                 () -> assertTrue(refusal.getMessage().contains(COMMAND), refusal.getMessage()),
-                () -> assertEquals(List.of(AuditEvent.enrolmentTampered(PROJECT, reason)), events),
+                () -> assertEquals(List.of(AuditEvent.enrolmentTampered(PROJECT, reason)), events,
+                        "one tampered event names the reason"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.ENROLMENT_TAMPERED.resolveIdentifierString()));
     }
@@ -130,10 +132,11 @@ class EnrolmentCheckTest {
         var enrolment = verify(PROJECT);
 
         assertAll(
-                () -> assertEquals(PROJECT, enrolment.projectId()),
-                () -> assertTrue(enrolment.pilot()),
-                () -> assertEquals("/home/dev/git/" + PROJECT, enrolment.projectRoot()),
-                () -> assertTrue(events.isEmpty()),
+                () -> assertEquals(PROJECT, enrolment.projectId(), "the enrolment names the requested project"),
+                () -> assertTrue(enrolment.pilot(), "the enrolment carries the pilot flag"),
+                () -> assertEquals("/home/dev/git/" + PROJECT, enrolment.projectRoot(),
+                        "the project root is the enrolled one"),
+                () -> assertTrue(events.isEmpty(), "a passing check records no audit event"),
                 () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, EnrolmentCheck.class));
     }
 
@@ -160,11 +163,14 @@ class EnrolmentCheckTest {
             var refusal = refused(otherProject);
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
-                    () -> assertTrue(refusal.getMessage().contains(EnrolmentCheck.HMAC_MISMATCH)),
-                    () -> assertTrue(refusal.getMessage().contains("pm-operator accept-edit enrolment " + otherProject)),
+                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome(),
+                            "the refusal outcome is enrolment tampered"),
+                    () -> assertTrue(refusal.getMessage().contains(EnrolmentCheck.HMAC_MISMATCH),
+                            "the refusal names the HMAC mismatch"),
+                    () -> assertTrue(refusal.getMessage().contains("pm-operator accept-edit enrolment " + otherProject),
+                            "the refusal names the accept-edit command"),
                     () -> assertEquals(List.of(AuditEvent.enrolmentTampered(otherProject, EnrolmentCheck.HMAC_MISMATCH)),
-                            events));
+                            events, "one tampered event for the forged file"));
         }
 
         @Test
@@ -209,7 +215,8 @@ class EnrolmentCheckTest {
 
             StoreRefusal refusal;
             try (var transaction = locks.openTransaction()) {
-                refusal = assertThrows(StoreRefusal.class, () -> keyringCheck.verify(transaction, PROJECT));
+                refusal = assertThrows(StoreRefusal.class, () -> keyringCheck.verify(transaction, PROJECT),
+                        "a key absent from the key source is refused");
             }
 
             assertTampered(refusal, store.file(PROJECT), EnrolmentCheck.KEY_ABSENT);
@@ -222,8 +229,8 @@ class EnrolmentCheckTest {
             var enrolment = verify(PROJECT);
 
             assertAll(
-                    () -> assertEquals(PROJECT, enrolment.projectId()),
-                    () -> assertTrue(events.isEmpty()));
+                    () -> assertEquals(PROJECT, enrolment.projectId(), "the enrolment names the requested project"),
+                    () -> assertTrue(events.isEmpty(), "a passing check records no audit event"));
         }
 
         @Test
@@ -237,12 +244,15 @@ class EnrolmentCheckTest {
 
             StoreRefusal refusal;
             try (var transaction = locks.openTransaction()) {
-                refusal = assertThrows(StoreRefusal.class, () -> failingCheck.verify(transaction, PROJECT));
+                refusal = assertThrows(StoreRefusal.class, () -> failingCheck.verify(transaction, PROJECT),
+                        "the refusal stands when the audit sink fails");
             }
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
-                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())));
+                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome(),
+                            "the refusal outcome is enrolment tampered"),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed()),
+                            "the sink failure is attached to the refusal"));
         }
     }
 
@@ -258,10 +268,11 @@ class EnrolmentCheckTest {
             var refusal = refused(PROJECT);
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
-                    () -> assertEquals(store.file(PROJECT), refusal.file()),
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
+                            "the refusal outcome is enrolment insecure"),
+                    () -> assertEquals(store.file(PROJECT), refusal.file(), "the refusal names the enrolment file"),
                     () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, "mode 0644 broader than 0600")),
-                            events),
+                            events, "one insecure event for the broad mode"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INSECURE.resolveIdentifierString()));
         }
@@ -275,10 +286,11 @@ class EnrolmentCheckTest {
             var refusal = refused(PROJECT);
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
-                    () -> assertEquals(store.sidecar(PROJECT), refusal.file()),
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
+                            "the refusal outcome is enrolment insecure"),
+                    () -> assertEquals(store.sidecar(PROJECT), refusal.file(), "the refusal names the sidecar"),
                     () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, EnrolmentFileCheck.SYMBOLIC_LINK)),
-                            events));
+                            events, "one insecure event for the symbolic link"));
         }
 
         @Test
@@ -291,15 +303,16 @@ class EnrolmentCheckTest {
             var other = verify(otherProject);
 
             assertAll(
-                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
-                    () -> assertEquals(store.file(PROJECT), refusal.file()),
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
+                            "the refusal outcome is enrolment insecure"),
+                    () -> assertEquals(store.file(PROJECT), refusal.file(), "the refusal names the enrolment file"),
                     () -> assertTrue(refusal.getMessage().contains(EnrolmentFileCheck.SYMBOLIC_LINK),
                             refusal.getMessage()),
                     () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, EnrolmentFileCheck.SYMBOLIC_LINK)),
-                            events),
+                            events, "one insecure event for the symbolic link"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INSECURE.resolveIdentifierString()),
-                    () -> assertEquals(otherProject, other.projectId()));
+                    () -> assertEquals(otherProject, other.projectId(), "the other enrolled project still verifies"));
         }
 
         @Test
@@ -308,8 +321,8 @@ class EnrolmentCheckTest {
             var enrolment = verify(PROJECT);
 
             assertAll(
-                    () -> assertEquals(PROJECT, enrolment.projectId()),
-                    () -> assertTrue(events.isEmpty()));
+                    () -> assertEquals(PROJECT, enrolment.projectId(), "the enrolment names the requested project"),
+                    () -> assertTrue(events.isEmpty(), "a passing check records no audit event"));
         }
     }
 
@@ -338,12 +351,14 @@ class EnrolmentCheckTest {
         private void assertInvalid(StoreRefusal refusal, Outcome outcome, Path file, String expectedMessage) {
             var reason = outcome.code() + " in " + file.getFileName();
             assertAll(
-                    () -> assertEquals(outcome, refusal.outcome()),
-                    () -> assertEquals(expectedMessage, refusal.getMessage()),
-                    () -> assertEquals(List.of(AuditEvent.enrolmentInvalid(PROJECT, reason)), events),
+                    () -> assertEquals(outcome, refusal.outcome(), "the refusal outcome matches the strict read"),
+                    () -> assertEquals(expectedMessage, refusal.getMessage(), "the refusal message matches the read"),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentInvalid(PROJECT, reason)), events,
+                            "one invalid event is recorded per refusal"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INVALID.resolveIdentifierString()),
-                    () -> assertEquals(otherProject, verify(otherProject).projectId()));
+                    () -> assertEquals(otherProject, verify(otherProject).projectId(),
+                            "the other project is still verified"));
         }
 
         @Test
@@ -351,7 +366,8 @@ class EnrolmentCheckTest {
         void unreadableSidecar() throws Exception {
             var content = "not a record".getBytes(StandardCharsets.UTF_8);
             Files.write(store.sidecar(PROJECT), content);
-            var expected = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content));
+            var expected = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content),
+                    "an unreadable sidecar refuses the strict read");
 
             assertInvalid(refused(PROJECT), Outcome.UNREADABLE, store.sidecar(PROJECT), expected.getMessage());
         }
@@ -361,7 +377,8 @@ class EnrolmentCheckTest {
         void sidecarOfOtherVersion() throws Exception {
             var content = otherVersionOfSidecar();
             Files.write(store.sidecar(PROJECT), content);
-            var expected = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content));
+            var expected = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content),
+                    "a newer format sidecar refuses the strict read");
 
             assertInvalid(refused(PROJECT), Outcome.FORMAT_NEWER, store.sidecar(PROJECT), expected.getMessage());
         }
@@ -373,7 +390,8 @@ class EnrolmentCheckTest {
         void unreadableFile(String document, Outcome outcome) throws Exception {
             var content = document.getBytes(StandardCharsets.UTF_8);
             writeSignedFile(content);
-            var expected = assertThrows(StoreRefusal.class, () -> store.decode(PROJECT, content));
+            var expected = assertThrows(StoreRefusal.class, () -> store.decode(PROJECT, content),
+                    "an unreadable file refuses the strict read");
 
             assertInvalid(refused(PROJECT), outcome, store.file(PROJECT), expected.getMessage());
         }
@@ -389,12 +407,14 @@ class EnrolmentCheckTest {
 
             StoreRefusal refusal;
             try (var transaction = locks.openTransaction()) {
-                refusal = assertThrows(StoreRefusal.class, () -> failingCheck.verify(transaction, PROJECT));
+                refusal = assertThrows(StoreRefusal.class, () -> failingCheck.verify(transaction, PROJECT),
+                        "the refusal stands when the audit sink fails");
             }
 
             assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())));
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is unreadable"),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed()),
+                            "the sink failure is attached to the refusal"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -427,9 +447,10 @@ class EnrolmentCheckTest {
         var other = verify(otherProject);
 
         assertAll(
-                () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
-                () -> assertEquals(otherProject, other.projectId()),
-                () -> assertFalse(other.pilot()));
+                () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome(),
+                        "the refusal outcome is enrolment tampered"),
+                () -> assertEquals(otherProject, other.projectId(), "the other enrolled project is unaffected"),
+                () -> assertFalse(other.pilot(), "the other project is not a pilot"));
     }
 
     @Test
@@ -438,8 +459,8 @@ class EnrolmentCheckTest {
         var refusal = refused("unknown-project");
 
         assertAll(
-                () -> assertEquals(Outcome.ABSENT, refusal.outcome()),
-                () -> assertTrue(events.isEmpty()));
+                () -> assertEquals(Outcome.ABSENT, refusal.outcome(), "an unknown project is absent, not tampered"),
+                () -> assertTrue(events.isEmpty(), "an absent project records no audit event"));
     }
 
     @Test
@@ -450,8 +471,8 @@ class EnrolmentCheckTest {
         var refusal = refused(PROJECT);
 
         assertAll(
-                () -> assertInstanceOf(StoreRefusal.class, refusal),
-                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                () -> assertEquals(store.sidecar(PROJECT), refusal.file()));
+                () -> assertInstanceOf(StoreRefusal.class, refusal, "the unreadable sidecar is refused"),
+                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is unreadable"),
+                () -> assertEquals(store.sidecar(PROJECT), refusal.file(), "the refusal names the sidecar"));
     }
 }

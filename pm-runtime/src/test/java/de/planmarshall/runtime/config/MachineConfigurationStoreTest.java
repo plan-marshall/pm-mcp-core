@@ -332,7 +332,7 @@ class MachineConfigurationStoreTest {
     @DisplayName("an available provider without a verification result is refused")
     void unverifiedAvailableRefused() {
         var refused = assertThrows(IllegalArgumentException.class, this::unverifiedGithub,
-                "an available provider without a verification result is refused");
+                "an available provider without a result is refused");
 
         assertTrue(refused.getMessage().contains("verification"), "the refusal must name the verification");
     }
@@ -351,7 +351,7 @@ class MachineConfigurationStoreTest {
                 lspIdleTimeout), UTF_8);
 
         var refused = assertThrows(StoreRefusal.class, store::read,
-                "a document without a verification result for an available provider is refused");
+                "a document whose available provider has no result is refused");
 
         assertAll(
                 () -> assertEquals(file, refused.file(), "the refusal must name the file"),

@@ -105,9 +105,10 @@ class QuestionLogRecordReaderReadTest {
 
             var read = reader.read(request(PLAN, question));
 
-            assertEquals(new Resolved("answered"), read);
+            assertEquals(new Resolved("answered"), read,
+                    "a resolved record reads back as resolved");
             assertEquals(before, tree(plan.pathBase()),
-                    "a read writes nothing and creates no file: the tree, its sizes and its times are the same");
+                    "a read leaves the names, sizes and times unchanged");
         }
 
         private static Map<String, String> tree(Path root) throws IOException {
@@ -160,8 +161,9 @@ class QuestionLogRecordReaderReadTest {
                 assertTrue(locked.await(10, SECONDS), "the holder should hold the append lock");
                 var read = assertTimeout(Duration.ofSeconds(10),
                         () -> reader.read(request(PLAN, question)),
-                        "the read takes no lock and returns although an append holds it");
-                assertEquals(new Open(), read);
+                        "a read takes no lock while an append holds it");
+                assertEquals(new Open(), read,
+                        "the read returns open while the append is uncommitted");
             } finally {
                 release.countDown();
                 holder.join(10_000);
@@ -192,9 +194,11 @@ class QuestionLogRecordReaderReadTest {
                     "a refused path is a value, never an exception");
 
             assertNotEquals(new Open(), read, "a refused log is never reported open");
-            var unreadable = assertInstanceOf(Unreadable.class, read);
+            var unreadable = assertInstanceOf(Unreadable.class, read,
+                    "the refused log is an unreadable value");
             assertEquals("the question log is refused with path_traversal_rejected: outside_workspace",
-                    unreadable.reason());
+                    unreadable.reason(),
+                    "the reason names the confinement refusal");
         }
 
         @Test
@@ -204,11 +208,14 @@ class QuestionLogRecordReaderReadTest {
             var confined = new QuestionLogRecordReader(base, PROJECT,
                     new WorkspaceConfinement(new WorkspaceRoots(missing, Set.of())));
 
-            var read = assertDoesNotThrow(() -> confined.read(request(PLAN, question)));
+            var read = assertDoesNotThrow(() -> confined.read(request(PLAN, question)),
+                    "a root that cannot be canonicalized is answered");
 
-            var unreadable = assertInstanceOf(Unreadable.class, read);
+            var unreadable = assertInstanceOf(Unreadable.class, read,
+                    "a missing root still yields an unreadable value");
             assertEquals("the question log is refused with path_traversal_rejected: canonicalization_failed",
-                    unreadable.reason());
+                    unreadable.reason(),
+                    "the reason names the canonicalization failure");
         }
 
         @ParameterizedTest
@@ -220,10 +227,13 @@ class QuestionLogRecordReaderReadTest {
             var linkedScope = plan.pathBase().getParent().resolve("linked-plan");
             Files.createSymbolicLink(linkedScope, plan.pathBase());
 
-            var read = assertDoesNotThrow(() -> reader.read(request("linked-plan", question)));
+            var read = assertDoesNotThrow(() -> reader.read(request("linked-plan", question)),
+                    "a symbolic link is answered, not thrown");
 
-            var unreadable = assertInstanceOf(Unreadable.class, read);
-            assertEquals("the question log is not reached by its canonical path", unreadable.reason());
+            var unreadable = assertInstanceOf(Unreadable.class, read,
+                    "the linked scope is an unreadable value");
+            assertEquals("the question log is not reached by its canonical path", unreadable.reason(),
+                    "the reason names the canonical path refusal");
         }
     }
 }
