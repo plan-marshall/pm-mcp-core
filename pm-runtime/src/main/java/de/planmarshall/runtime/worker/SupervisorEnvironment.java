@@ -264,6 +264,18 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
         }
 
         /**
+         * Records the first call of a worker of the role on the harness, which the specification requires to reset the
+         * count: a worker that connects again proves the harness serves the role, and a probe's first call clears the
+         * hold the guard put on it. The open guard counts no failure, so a first call leaves it as it is.
+         *
+         * @param role    the role
+         * @param harness the client id of the harness
+         */
+        default void firstCall(String role, String harness) {
+            // the open guard counts no failure, so a first call leaves it as it is
+        }
+
+        /**
          * Records that the probe {@link #holds} admitted never started, so the caller declined it before any worker
          * made its first call. The open guard runs no probe and has nothing to decline.
          *
