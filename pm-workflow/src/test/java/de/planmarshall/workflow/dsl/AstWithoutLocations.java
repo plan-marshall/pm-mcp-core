@@ -13,9 +13,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import de.planmarshall.workflow.ast.DecisionDeclaration;
+import de.planmarshall.workflow.ast.InputDecl;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
-import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -57,9 +57,7 @@ final class AstWithoutLocations {
         definition.entryBindings().forEach((entry, binding) -> entryBindings.put(entry,
                 new WorkflowDefinition.EntryBinding(binding.stateId(), NOWHERE)));
         return new WorkflowDefinition(strip(definition.frontmatter()), definition.id(), definition.version(),
-                definition.scope(),
-                definition.params().stream().map(p -> new ParamDecl(p.name(), p.type(), NOWHERE)).toList(),
-                definition.resultSchema(), definition.instance(), declarations, decisions,
+                definition.scope(), definition.resultSchema(), definition.instance(), declarations, decisions,
                 definition.formatVersion(), definition.origin(), definition.derivedFrom(),
                 definition.startState(), entryBindings,
                 definition.migrations().stream()
@@ -69,8 +67,16 @@ final class AstWithoutLocations {
 
     private static UnitFrontmatter strip(UnitFrontmatter frontmatter) {
         return new UnitFrontmatter(frontmatter.name(), frontmatter.description(), frontmatter.type(),
-                frontmatter.icon(), frontmatter.entries(), frontmatter.exits(), frontmatter.modificationDate(),
-                frontmatter.version(), frontmatter.author(), frontmatter.signature(), NOWHERE);
+                frontmatter.icon(), frontmatter.entries(), frontmatter.exits(), frontmatter.readsConfig(),
+                frontmatter.readsFact(),
+                frontmatter.inputs().stream().map(AstWithoutLocations::strip).toList(),
+                frontmatter.modificationDate(), frontmatter.version(), frontmatter.author(), frontmatter.signature(),
+                NOWHERE);
+    }
+
+    private static InputDecl strip(InputDecl input) {
+        return new InputDecl(input.name(), input.type(), input.optional(), input.defaultValue(), input.fallback(),
+                input.description(), NOWHERE);
     }
 
     private static DecisionDeclaration strip(DecisionDeclaration decision) {

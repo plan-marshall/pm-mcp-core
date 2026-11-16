@@ -567,3 +567,25 @@ East Asian character against the table. A browser test of the web app draws the 
 diagram font and checks that the drawn width of every label lies within its box.
 Source:: obsidianmd/pele (commit `4eff76f`), `src/text/measurer.ts`, `src/text/metrics.ts` (advance widths of Arial
 compiled into the renderer, measured without a DOM).
+
+[#PM-WATCH-DSL-39]
+=== PM-WATCH-DSL-39: A project copy loosens an input
+
+Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow
+Units, Levels & Compiled Invariants] (`INV-GEN-1`), link:../specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+
+Hazard:: A project's copy of a designable sub-workflow widens the domain of an input, drops one, or moves a default into
+the input of its own, so a call site written against the default unit binds a value the copy no longer admits, or the copy
+silently changes what the default does. The input is part of the interface a caller relies on, and the copy is resolved
+over the default without a warning.
+
+Guard:: `INV-GEN-1` compares the inputs of a project unit with those of its default unit: name, type, optional form,
+default and fallback, in declaration order, and names the differing input (`CompiledInvariantsTest`, the cases
+`INTERFACE_INPUT_WIDENED` (an enum domain) and `INTERFACE_INPUT_RANGE` (an int range) of `git-commit-and-push.pmwf` and
+`remediation-qgate-findings.pmwf`, and `INTERFACE_INPUT_MISSING`, of `pm-workflow`,
+link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
+Developer Guide § INV-GEN-1 over Type and Interface]). The comparison does not read the description, so a copy may
+reword it.
+
+Source:: design review (PLAN-V2-04).
+

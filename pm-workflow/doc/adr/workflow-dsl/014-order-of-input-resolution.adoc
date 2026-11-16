@@ -1,0 +1,52 @@
+= ADR 014: The Order of Resolution of an Input at a Call
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+A frontmatter input can take its value from three places: the literal the call site binds, the configuration key its
+`input_fallback` names, and its `input_default`. The engine copies the bound value once into the call frame; a value the
+call site does not bind has to be resolved in a stated order, so that two readings of the declaration never disagree.
+
+== Decision
+
+* The value of an input at a call is resolved in this order: the value bound at the call site; else the value of the
+  `input_fallback` configuration key; else `input_default`; else absent when the type carries the `?`; else the call
+  site is refused.
+* The refusal is static for a literal call site (Rule 6, `SUBWORKFLOW_CALL_CONTRACT`) and happens at the call when the
+  value is not a literal.
+* `input_fallback` names a configuration key the unit also lists in `reads_config` — one place that says what the unit
+  reads — and the key's domain is assignable to the input type. An input with neither a default nor the `?`, for which
+  the fallback is its only source, additionally needs a compiled default on that key, so the fallback never leaves the
+  input without a value (`INPUT_DECLARATION`).
+* A call binds explicitly, `callee_input = caller_value`; the runtime copies the bound value once into the frame.
+
+== Alternatives Considered
+
+* *The default before the fallback.* Not taken: a configuration value is the deployment's, a compiled default the
+  binary's, and the deployment overrides the binary.
+* *A fallback for configuration keys the unit does not read.* Not taken: the `reads_config` list is the one declaration
+  of what a unit reads, and a hidden second read is what the plan removes.
+* *Resolving the value at the call only.* Not taken: the fallback and the default have no call site, and the second
+  specification fills text and path inputs at call time.
+
+== Consequences
+
+* Rule 6 checks the literal call sites; the engine resolves the rest at the call.
+* `INPUT_DECLARATION` refuses a fallback outside `reads_config`, a domain that does not fit the type, and a fallback
+  key without a compiled default where the input has neither a default nor the `?`.
+* `INV-GEN-1` compares the fallback and the default of a project copy with those of its default unit, so a copy cannot
+  change the resolution.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rules 1 and 6)
+* link:../../developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules]

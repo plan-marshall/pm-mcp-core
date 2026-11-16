@@ -19,6 +19,7 @@ import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.DecisionDeclaration;
 import de.planmarshall.workflow.ast.GuardExpr;
 import de.planmarshall.workflow.ast.GuardSpec;
+import de.planmarshall.workflow.ast.InputDecl;
 import de.planmarshall.workflow.ast.LinkAction;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
@@ -37,10 +38,11 @@ import org.jspecify.annotations.Nullable;
  * printed source into the same tree, source locations aside.
  * <p>
  * The output is canonical: the frontmatter between its two {@code ---} lines in the order of its field table (name,
- * description, type, icon, each entry with its description, each exit with its description, modification date, version,
- * author, signature), each value plain when a plain scalar can carry it and double-quoted otherwise; the unit header,
- * the {@code instance} line with the header JSON exactly as it was read, the {@code scope} clause (with the
- * {@code param} and {@code result} declarations of a sub-workflow), the {@code declare} lines, the {@code decide} lines,
+ * description, type, icon, each entry with its description, each exit with its description, the configuration keys and
+ * fact kinds the unit reads, each input with its type and its optional default, fallback and description, modification
+ * date, version, author, signature), each value plain when a plain scalar can carry it and double-quoted otherwise; the
+ * unit header, the {@code instance} line with the header JSON exactly as it was read, the {@code scope} clause (with the
+ * {@code result} declaration of a sub-workflow), the {@code declare} lines, the {@code decide} lines,
  * the {@code start} line or the {@code entry <name> -> <state>} bindings, the {@code migrate} lines, and the states in
  * declaration order, a {@code call} with the entry it names, each preceded by a blank line and followed by its clauses,
  * indented by nesting. Every link names its form explicitly, and a guard carries exactly the parentheses its precedence
@@ -88,8 +90,9 @@ public final class WorkflowPrinter {
 
     /**
      * Prints the frontmatter between its two {@code ---} lines, in the order of the field table: name, description,
-     * type, icon, each entry with its description, each exit with its description, modification date, version, author
-     * and signature.
+     * type, icon, each entry with its description, each exit with its description, the configuration keys and fact
+     * kinds the unit reads, each input with its type and its optional default, fallback and description, modification
+     * date, version, author and signature.
      */
     private void printFrontmatter(UnitFrontmatter frontmatter) {
         line(0, UnitFrontmatterReader.DELIMITER);
@@ -105,11 +108,30 @@ public final class WorkflowPrinter {
             field("exit", exit.name());
             optionalField("exit_description", exit.description());
         });
+        frontmatter.readsConfig().forEach(key -> field("reads_config", key));
+        frontmatter.readsFact().forEach(kind -> field("reads_fact", kind));
+        frontmatter.inputs().forEach(this::input);
         field("modification_date", frontmatter.modificationDate().toString());
         field("version", frontmatter.version());
         field("author", frontmatter.author());
         optionalField("signature", frontmatter.signature());
         line(0, UnitFrontmatterReader.DELIMITER);
+    }
+
+    /** Prints one input, its type and its optional default, fallback and description, in that order. */
+    private void input(InputDecl declaration) {
+        field("input", declaration.name());
+        field("input_type", declaration.type().sourceText() + (declaration.optional() ? "?" : ""));
+        var defaultValue = declaration.defaultValue();
+        if (defaultValue != null) {
+            if (defaultValue instanceof CallValue.EnumList(var values) && values.isEmpty()) {
+                line(0, "input_default: []");
+            } else {
+                field("input_default", value(defaultValue));
+            }
+        }
+        optionalField("input_fallback", declaration.fallback());
+        optionalField("input_description", declaration.description());
     }
 
     private void field(String key, String value) {
@@ -149,7 +171,6 @@ public final class WorkflowPrinter {
         }
         line(0, "scope " + lower(definition.scope()));
         if (definition.scope() == WorkflowScope.SUBWORKFLOW) {
-            definition.params().forEach(param -> line(0, "param %s : %s".formatted(param.name(), type(param.type()))));
             var resultSchema = definition.resultSchema();
             if (resultSchema != null) {
                 line(0, "result schema[" + resultSchema + "]");

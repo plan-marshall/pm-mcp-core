@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
@@ -44,11 +45,11 @@ import de.planmarshall.core.store.StrictJson;
  * Reads and writes {@code <PM_MCP_BASE>/machine-config.json} (Store Schemas § Machine Configuration Store).
  * <p>
  * The document belongs to the operator and holds far more than the machine's provider defaults, so this codec never
- * rewrites the whole file from its own model: it reads {@code providers} in place, and a write replaces that one member,
- * keeps every other member — {@code credentials}, the concurrency limits, the languages, the plan defaults — copied
- * through untouched, and writes the revision the caller names. The members the file requires and this codec does not own
- * ({@code max_build_slots}, {@code lsp_idle_timeout_seconds}) are written at their schema defaults when the document is
- * created.
+ * rewrites the whole file from its own model: it reads {@code providers}, {@code sources.documents_mode} and
+ * {@code cleanup} in place, and a write replaces that one member, keeps every other member — {@code credentials}, the
+ * concurrency limits, the languages, the plan defaults — copied through untouched, and writes the revision the caller
+ * names. The members the file requires and this codec does not own ({@code max_build_slots},
+ * {@code lsp_idle_timeout_seconds}) are written at their schema defaults when the document is created.
  *
  * @since 0.1
  */
@@ -71,6 +72,16 @@ public class MachineConfigurationCodec {
     private static final String FIELD_CHECKS = "checks";
     private static final String FIELD_CHECK = "check";
     private static final String FIELD_OK = "ok";
+    private static final String FIELD_SOURCES = "sources";
+    private static final String FIELD_DOCUMENTS_MODE = "documents_mode";
+    private static final String FIELD_CLEANUP = "cleanup";
+    private static final String FIELD_PLANS_AFTER_DAYS = "plans_after_days";
+    private static final String FIELD_EPICS_AFTER_DAYS = "epics_after_days";
+    private static final String FIELD_LOGS_AFTER_DAYS = "logs_after_days";
+    private static final String FIELD_REPORTS_AFTER_DAYS = "reports_after_days";
+    private static final String FIELD_UNENROLLED_AFTER_DAYS = "unenrolled_after_days";
+    private static final String FIELD_REMIND_AFTER_DAYS = "remind_after_days";
+    private static final String NEVER = "never";
 
     /** The lowest and highest {@code max_build_slots} the schema admits. */
     static final int MIN_BUILD_SLOTS = 1;
@@ -78,6 +89,12 @@ public class MachineConfigurationCodec {
 
     /** The lowest {@code lsp_idle_timeout_seconds} the schema admits. */
     static final int MIN_LSP_IDLE_TIMEOUT_SECONDS = 60;
+
+    /** The parameter name of a document's file, in a refusal. */
+    private static final String ARG_FILE = "file";
+
+    /** The parameter name of a document's bytes, in a refusal. */
+    private static final String ARG_DOCUMENT = "document";
 
     /** The form of a refusal that names the member and the reason. */
     private static final String DETAIL_FORMAT = "%s: %s";
@@ -91,26 +108,33 @@ public class MachineConfigurationCodec {
     /**
      * What a read of the document found.
      *
-     * @param providers the machine's provider defaults; none where the document records none
-     * @param revision  the {@code revision} of the document
+     * @param providers     the machine's provider defaults; none where the document records none
+     * @param documentsMode how a start takes its documents; {@code null} where the document records no mode and the
+     *                      schema default ({@link DocumentsMode#DEFAULT}) applies
+     * @param cleanup       the durations of the one cleanup, each member at the value the document sets or at the schema
+     *                      default where it does not; {@code null} where the document records no {@code cleanup} member
+     *                      and {@link CleanupDurations#defaults()} applies
+     * @param revision      the {@code revision} of the document
      * @since 0.1
      */
-    public record Document(ProviderDefaults providers, long revision) {
+    @Builder
+    public record Document(ProviderDefaults providers, @Nullable DocumentsMode documentsMode,
+    @Nullable CleanupDurations cleanup, long revision) {
     }
 
     /**
      * @param file     the document's file, named by a refusal
      * @param document the document, UTF-8 encoded
-     * @return the provider defaults and the revision
+     * @return the provider defaults, the settings this codec owns and the revision
      * @throws StoreRefusal if the document declares another format version or is unreadable
      */
     public static Document read(Path file, byte[] document) {
-        Objects.requireNonNull(file, "file");
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(file, ARG_FILE);
+        Objects.requireNonNull(document, ARG_DOCUMENT);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
-        var pass = new Pass(file, null, -1);
+        var pass = new Pass(file, Replacement.NONE);
         pass.run(document);
-        return new Document(pass.providers, pass.readRevision);
+        return new Document(pass.providers, pass.documentsMode, pass.cleanup, pass.readRevision);
     }
 
     /**
@@ -124,11 +148,52 @@ public class MachineConfigurationCodec {
      * @throws StoreRefusal if the document declares another format version or is unreadable
      */
     public static byte[] write(Path file, byte[] document, ProviderDefaults providers, long revision) {
-        Objects.requireNonNull(file, "file");
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(file, ARG_FILE);
+        Objects.requireNonNull(document, ARG_DOCUMENT);
         Objects.requireNonNull(providers, FIELD_PROVIDERS);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
-        var pass = new Pass(file, providers, revision);
+        var pass = new Pass(file, new Replacement(providers, null, null, revision));
+        pass.run(document);
+        return pass.rewritten;
+    }
+
+    /**
+     * Replaces the machine's documents mode, keeps every other member of the operator's document, and writes the given
+     * revision.
+     *
+     * @param file      the document's file, named by a refusal
+     * @param document  the document, UTF-8 encoded
+     * @param mode      the mode to record
+     * @param revision  the revision to write
+     * @return the rewritten document, UTF-8 encoded
+     * @throws StoreRefusal if the document declares another format version or is unreadable
+     */
+    public static byte[] writeDocumentsMode(Path file, byte[] document, DocumentsMode mode, long revision) {
+        Objects.requireNonNull(file, ARG_FILE);
+        Objects.requireNonNull(document, ARG_DOCUMENT);
+        Objects.requireNonNull(mode, FIELD_DOCUMENTS_MODE);
+        StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
+        var pass = new Pass(file, new Replacement(null, mode, null, revision));
+        pass.run(document);
+        return pass.rewritten;
+    }
+
+    /**
+     * Replaces the machine's cleanup durations, keeps every other member and writes the given revision.
+     *
+     * @param file      the document's file, named by a refusal
+     * @param document  the document, UTF-8 encoded
+     * @param durations the durations to record
+     * @param revision  the revision to write
+     * @return the rewritten document, UTF-8 encoded
+     * @throws StoreRefusal if the document declares another format version or is unreadable
+     */
+    public static byte[] writeCleanup(Path file, byte[] document, CleanupDurations durations, long revision) {
+        Objects.requireNonNull(file, ARG_FILE);
+        Objects.requireNonNull(document, ARG_DOCUMENT);
+        Objects.requireNonNull(durations, FIELD_CLEANUP);
+        StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
+        var pass = new Pass(file, new Replacement(null, null, durations, revision));
         pass.run(document);
         return pass.rewritten;
     }
@@ -139,6 +204,28 @@ public class MachineConfigurationCodec {
      */
     public static byte[] create(ProviderDefaults providers) {
         Objects.requireNonNull(providers, FIELD_PROVIDERS);
+        return create(new Replacement(providers, null, null, 1));
+    }
+
+    /**
+     * @param mode the documents mode of the new document
+     * @return a machine configuration document at revision 1 holding only the required members and the mode
+     */
+    public static byte[] createDocumentsMode(DocumentsMode mode) {
+        Objects.requireNonNull(mode, FIELD_DOCUMENTS_MODE);
+        return create(new Replacement(null, mode, null, 1));
+    }
+
+    /**
+     * @param durations the cleanup durations of the new document
+     * @return a machine configuration document at revision 1 holding only the required members and the durations
+     */
+    public static byte[] createCleanup(CleanupDurations durations) {
+        Objects.requireNonNull(durations, FIELD_CLEANUP);
+        return create(new Replacement(null, null, durations, 1));
+    }
+
+    private static byte[] create(Replacement replacement) {
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
@@ -146,7 +233,15 @@ public class MachineConfigurationCodec {
             generator.writeNumberField(FIELD_REVISION, 1);
             generator.writeNumberField(FIELD_MAX_BUILD_SLOTS, DEFAULT_MAX_BUILD_SLOTS);
             generator.writeNumberField(FIELD_LSP_IDLE_TIMEOUT_SECONDS, DEFAULT_LSP_IDLE_TIMEOUT_SECONDS);
-            writeProviders(generator, providers);
+            if (replacement.providers() != null) {
+                writeProviders(generator, replacement.providers());
+            }
+            if (replacement.mode() != null) {
+                writeSources(generator, replacement.mode());
+            }
+            if (replacement.cleanup() != null) {
+                writeCleanup(generator, replacement.cleanup());
+            }
             generator.writeEndObject();
         } catch (IOException e) {
             throw new IllegalStateException("The machine configuration cannot be written", e);
@@ -163,6 +258,33 @@ public class MachineConfigurationCodec {
             writeProvider(generator, entry.getKey(), entry.getValue());
         }
         generator.writeEndObject();
+    }
+
+    private static void writeSources(JsonGenerator generator, DocumentsMode mode) throws IOException {
+        generator.writeObjectFieldStart(FIELD_SOURCES);
+        generator.writeStringField(FIELD_DOCUMENTS_MODE, mode.wireName());
+        generator.writeEndObject();
+    }
+
+    private static void writeCleanup(JsonGenerator generator, CleanupDurations durations) throws IOException {
+        generator.writeObjectFieldStart(FIELD_CLEANUP);
+        writeCleanupDuration(generator, FIELD_PLANS_AFTER_DAYS, durations.plansAfterDays());
+        writeCleanupDuration(generator, FIELD_EPICS_AFTER_DAYS, durations.epicsAfterDays());
+        writeCleanupDuration(generator, FIELD_LOGS_AFTER_DAYS, durations.logsAfterDays());
+        writeCleanupDuration(generator, FIELD_REPORTS_AFTER_DAYS, durations.reportsAfterDays());
+        writeCleanupDuration(generator, FIELD_UNENROLLED_AFTER_DAYS, durations.unenrolledAfterDays());
+        generator.writeNumberField(FIELD_REMIND_AFTER_DAYS, durations.remindAfterDays());
+        generator.writeEndObject();
+    }
+
+    private static void writeCleanupDuration(JsonGenerator generator, String field, CleanupDuration duration)
+            throws IOException {
+        var days = duration.days();
+        if (days == null) {
+            generator.writeStringField(field, NEVER);
+        } else {
+            generator.writeNumberField(field, days);
+        }
     }
 
     private static void writeProvider(JsonGenerator generator, Provider provider, ProviderDefault def)
@@ -197,20 +319,45 @@ public class MachineConfigurationCodec {
         generator.writeEndObject();
     }
 
-    /** One pass over the document: it reads the provider defaults and, when a write is asked for, composes the new one. */
+    /**
+     * The one member a write replaces, and the revision it writes; exactly one of the members is set.
+     *
+     * @param providers the provider defaults to write, or {@code null}
+     * @param mode      the documents mode to write, or {@code null}
+     * @param cleanup   the cleanup durations to write, or {@code null}
+     * @param revision  the revision to write
+     */
+    @Builder
+    private record Replacement(@Nullable ProviderDefaults providers, @Nullable DocumentsMode mode,
+    @Nullable CleanupDurations cleanup, long revision) {
+
+        static final Replacement NONE = new Replacement(null, null, null, -1);
+    }
+
+    /** One pass over the document: it reads what this codec owns and, when a write is asked for, composes the new one. */
     private static final class Pass {
 
         private final Path file;
         private final @Nullable ProviderDefaults replacement;
+        private final @Nullable DocumentsMode replacementMode;
+        private final @Nullable CleanupDurations replacementCleanup;
         private final long writeRevision;
         private ProviderDefaults providers = ProviderDefaults.none();
+        private @Nullable DocumentsMode documentsMode;
+        private @Nullable CleanupDurations cleanup;
         private long readRevision;
         private byte @Nullable [] rewritten = null;
 
-        Pass(Path file, @Nullable ProviderDefaults replacement, long writeRevision) {
+        Pass(Path file, Replacement replacement) {
             this.file = file;
-            this.replacement = replacement;
-            this.writeRevision = writeRevision;
+            this.replacement = replacement.providers();
+            this.replacementMode = replacement.mode();
+            this.replacementCleanup = replacement.cleanup();
+            this.writeRevision = replacement.revision();
+        }
+
+        private boolean writing() {
+            return replacement != null || replacementMode != null || replacementCleanup != null;
         }
 
         void run(byte[] document) {
@@ -228,6 +375,8 @@ public class MachineConfigurationCodec {
                             case FIELD_FORMAT_VERSION -> copyFormatVersion(parser, generator);
                             case FIELD_REVISION -> copyRevision(parser, generator);
                             case FIELD_PROVIDERS -> copyProviders(parser, generator);
+                            case FIELD_SOURCES -> copySources(parser, generator);
+                            case FIELD_CLEANUP -> copyCleanup(parser, generator);
                             case FIELD_MAX_BUILD_SLOTS -> copyBoundedInteger(parser, generator, field,
                                     MIN_BUILD_SLOTS, MAX_BUILD_SLOTS);
                             case FIELD_LSP_IDLE_TIMEOUT_SECONDS -> copyBoundedInteger(parser, generator, field,
@@ -237,19 +386,30 @@ public class MachineConfigurationCodec {
                     }
                     requireFields(seen, "machine configuration", FIELD_FORMAT_VERSION, FIELD_REVISION,
                             FIELD_MAX_BUILD_SLOTS, FIELD_LSP_IDLE_TIMEOUT_SECONDS);
-                    if (replacement != null && !seen.contains(FIELD_PROVIDERS)) {
-                        writeProviders(generator, replacement);
-                    }
+                    writeMissing(generator, seen);
                     generator.writeEndObject();
                 }
                 if (parser.nextToken() != null) {
                     throw unreadable("content after the document");
                 }
-                if (replacement != null) {
+                if (writing()) {
                     rewritten = out.toByteArray();
                 }
             } catch (IOException | StrictJson.Malformed e) {
                 throw StoreRefusal.unreadable(file, FORMAT_VERSION, String.valueOf(e.getMessage()), e);
+            }
+        }
+
+        /** Writes the members a write replaces that the document did not hold yet, after the members it holds. */
+        private void writeMissing(JsonGenerator generator, HashSet<String> seen) throws IOException {
+            if (replacement != null && !seen.contains(FIELD_PROVIDERS)) {
+                writeProviders(generator, replacement);
+            }
+            if (replacementMode != null && !seen.contains(FIELD_SOURCES)) {
+                writeSources(generator, replacementMode);
+            }
+            if (replacementCleanup != null && !seen.contains(FIELD_CLEANUP)) {
+                writeCleanup(generator, replacementCleanup);
             }
         }
 
@@ -266,7 +426,7 @@ public class MachineConfigurationCodec {
                 throw unreadable("'revision' must not be negative: " + documentRevision);
             }
             readRevision = documentRevision;
-            generator.writeNumberField(FIELD_REVISION, replacement == null ? documentRevision : writeRevision);
+            generator.writeNumberField(FIELD_REVISION, writing() ? writeRevision : documentRevision);
         }
 
         /** Copies one required setting through, refusing a value that is not an integer inside the schema's bounds. */
@@ -295,6 +455,131 @@ public class MachineConfigurationCodec {
                 }
                 generator.writeEndObject();
             }
+        }
+
+        private void copySources(JsonParser parser, JsonGenerator generator) throws IOException {
+            requireObject(parser, FIELD_SOURCES);
+            var seen = new HashSet<String>();
+            @Nullable DocumentsMode read = null;
+            while (parser.nextToken() == JsonToken.FIELD_NAME) {
+                var field = nextField(parser, seen);
+                if (!FIELD_DOCUMENTS_MODE.equals(field)) {
+                    throw undeclared(field);
+                }
+                read = documentsMode(parser);
+            }
+            documentsMode = read;
+            var written = replacementMode != null ? replacementMode : read;
+            if (written == null) {
+                generator.writeObjectFieldStart(FIELD_SOURCES);
+                generator.writeEndObject();
+            } else {
+                writeSources(generator, written);
+            }
+        }
+
+        private void copyCleanup(JsonParser parser, JsonGenerator generator) throws IOException {
+            requireObject(parser, FIELD_CLEANUP);
+            var seen = new HashSet<String>();
+            @Nullable CleanupDuration plans = null;
+            @Nullable CleanupDuration epics = null;
+            @Nullable CleanupDuration logs = null;
+            @Nullable CleanupDuration reports = null;
+            @Nullable CleanupDuration unenrolled = null;
+            @Nullable Integer remind = null;
+            while (parser.nextToken() == JsonToken.FIELD_NAME) {
+                var field = nextField(parser, seen);
+                switch (field) {
+                    case FIELD_PLANS_AFTER_DAYS -> plans = cleanupDuration(parser, field);
+                    case FIELD_EPICS_AFTER_DAYS -> epics = cleanupDuration(parser, field);
+                    case FIELD_LOGS_AFTER_DAYS -> logs = cleanupDuration(parser, field);
+                    case FIELD_REPORTS_AFTER_DAYS -> reports = cleanupDuration(parser, field);
+                    case FIELD_UNENROLLED_AFTER_DAYS -> unenrolled = cleanupDuration(parser, field);
+                    case FIELD_REMIND_AFTER_DAYS -> remind = remindAfterDays(parser);
+                    default -> throw undeclared(field);
+                }
+            }
+            cleanup = cleanupWithDefaults(plans, epics, logs, reports, unenrolled, remind);
+            if (replacementCleanup != null) {
+                writeCleanup(generator, replacementCleanup);
+                return;
+            }
+            generator.writeObjectFieldStart(FIELD_CLEANUP);
+            if (plans != null) {
+                writeCleanupDuration(generator, FIELD_PLANS_AFTER_DAYS, plans);
+            }
+            if (epics != null) {
+                writeCleanupDuration(generator, FIELD_EPICS_AFTER_DAYS, epics);
+            }
+            if (logs != null) {
+                writeCleanupDuration(generator, FIELD_LOGS_AFTER_DAYS, logs);
+            }
+            if (reports != null) {
+                writeCleanupDuration(generator, FIELD_REPORTS_AFTER_DAYS, reports);
+            }
+            if (unenrolled != null) {
+                writeCleanupDuration(generator, FIELD_UNENROLLED_AFTER_DAYS, unenrolled);
+            }
+            if (remind != null) {
+                generator.writeNumberField(FIELD_REMIND_AFTER_DAYS, remind);
+            }
+            generator.writeEndObject();
+        }
+
+        /**
+         * Reads a {@code cleanup} member as a complete value: each member the document sets keeps its value, and each
+         * member it does not set reads at the schema default, so a partial member never reports a longer retention than
+         * the operator recorded. The pass writes the members back as it read them, so a partial member survives a write
+         * of another setting unchanged.
+         */
+        private static CleanupDurations cleanupWithDefaults(@Nullable CleanupDuration plans,
+                @Nullable CleanupDuration epics, @Nullable CleanupDuration logs, @Nullable CleanupDuration reports,
+                @Nullable CleanupDuration unenrolled, @Nullable Integer remind) {
+            var defaultDays = CleanupDuration.ofDays(CleanupDuration.DEFAULT_DAYS);
+            return new CleanupDurations(
+                    plans == null ? defaultDays : plans,
+                    epics == null ? defaultDays : epics,
+                    logs == null ? defaultDays : logs,
+                    reports == null ? defaultDays : reports,
+                    unenrolled == null ? defaultDays : unenrolled,
+                    remind == null ? CleanupDurations.DEFAULT_REMIND_DAYS : remind);
+        }
+
+        private static CleanupDuration cleanupDuration(JsonParser parser, String field) throws IOException {
+            if (parser.currentToken() == JsonToken.VALUE_STRING) {
+                var text = string(parser, field);
+                if (!NEVER.equals(text)) {
+                    throw unreadable("'%s' is a number of days or 'never': %s".formatted(field, text));
+                }
+                return CleanupDuration.never();
+            }
+            if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT) {
+                throw unreadable("'%s' is a number of days or 'never'".formatted(field));
+            }
+            var days = parser.getIntValue();
+            try {
+                return CleanupDuration.ofDays(days);
+            } catch (IllegalArgumentException e) {
+                throw unreadable(DETAIL_FORMAT.formatted(field, e.getMessage()), e);
+            }
+        }
+
+        private static int remindAfterDays(JsonParser parser) throws IOException {
+            if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT) {
+                throw unreadable("'%s' must be an integer".formatted(FIELD_REMIND_AFTER_DAYS));
+            }
+            var days = parser.getIntValue();
+            if (days < CleanupDurations.MIN_REMIND_DAYS) {
+                throw unreadable("'%s' must be at least %d: %d"
+                        .formatted(FIELD_REMIND_AFTER_DAYS, CleanupDurations.MIN_REMIND_DAYS, days));
+            }
+            return days;
+        }
+
+        private static DocumentsMode documentsMode(JsonParser parser) throws IOException {
+            var wireName = string(parser, FIELD_DOCUMENTS_MODE);
+            return DocumentsMode.of(wireName)
+                    .orElseThrow(() -> unreadable("not a documents mode: " + wireName));
         }
 
         private static ProviderDefaults providers(JsonParser parser) throws IOException {

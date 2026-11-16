@@ -1,0 +1,47 @@
+= ADR 012: The Typed Result Stays in the Body
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+The PLAN-V2-04 refactoring moves the input interface of a sub-workflow from the body `param` declarations into the
+frontmatter. The typed result record, declared as `result schema[<name>]` after `scope subworkflow`, is the OUTPUT of
+the unit, and the question was whether it moves into the frontmatter in the same pass.
+
+The alternative would add an output key to the frontmatter and change `WorkflowDefinition.resultSchema()` for its five
+consumers (`WorkflowPrinter`, `WorkflowValidator`, `PlanInstanceComposer`, `SubWorkflowInvariants` and the fixtures).
+
+== Decision
+
+* `result schema[<name>]` stays a body declaration of a `scope subworkflow` unit, printed after the `scope` line.
+* The frontmatter gains the inputs (`input`, `input_type`, `input_default`, `input_fallback`, `input_description`) and
+  the reads (`reads_config`, `reads_fact`); it gains no output key.
+* A later move to an `exit_result` line below the `exit` declaration is possible and is not blocked by this decision.
+
+Rationale not recorded beyond the one-source rule for the INPUT interface, which the move serves and an output key
+would not.
+
+== Alternatives Considered
+
+* *A frontmatter key for the result schema.* Not taken: it changes the print order and the consumers of
+  `resultSchema()` for no gain in the input channel, and the output has exactly one declaration today.
+* *Both declarations in the frontmatter.* Not taken: the same churn, and it would mix the input and the output channels
+  in one block that the specification keeps apart.
+
+== Consequences
+
+* A sub-workflow's body keeps one interface line, `result`, and its inputs sit in the frontmatter only.
+* Any later move of `result` is a change of the frontmatter contract and needs its own ADR.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#sub-workflow-exits[Workflow DSL § Result guards and the sub-workflow exit contract]
+* link:../../developer/workflow-dsl.adoc#_the_body_start_state_or_entry_bindings[Workflow DSL Developer Guide § The Body: Start State or Entry Bindings]

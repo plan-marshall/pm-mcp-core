@@ -2,10 +2,10 @@
   "id": "PLAN-V2-04",
   "slug": "unit-input-interface",
   "workstream": "WS-01",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-04-unit-input-interface",
+  "pr": "#460",
+  "landing": "landings/PLAN-V2-04.md",
   "seq": 4
 }

@@ -11,6 +11,7 @@ package de.planmarshall.core.role.qualification;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,8 +74,9 @@ class QualificationRecordCodecTest {
                 () -> assertTrue(text.contains("\"score\":\"ungraded\""), "the ungraded score keeps its mark"),
                 () -> assertTrue(text.contains("\"total_tokens\":\"unmeasured\""),
                         "the unmeasured total keeps its mark"),
-                () -> assertTrue(text.contains("\"tokens_in\":3000"), "the measured input tokens are written"),
-                () -> assertTrue(text.contains("\"tokens_out\":1000"), "the measured output tokens are written"),
+                () -> assertTrue(text.contains("\"total_tokens\":4000"), "the measured total is written"),
+                () -> assertFalse(text.contains("\"tokens_in\""), "no form or item writes an input split"),
+                () -> assertFalse(text.contains("\"tokens_out\""), "no form or item writes an output split"),
                 () -> assertTrue(text.contains("\"answer\":{\"detail\":\"a defect\"}"),
                         "an object answer keeps its members"),
                 () -> assertTrue(text.contains("\"missed_sources\":[\"reviews\"]"),
@@ -97,7 +99,12 @@ class QualificationRecordCodecTest {
                         text().replace("\"total_tokens\":\"unmeasured\"", "\"total_tokens\":0")),
                 Map.entry("another form", text().replace("\"form\":\"fresh\"", "\"form\":\"lukewarm\"")),
                 Map.entry("another checkout",
-                        text().replace("\"checkout\":\"current\"", "\"checkout\":\"elsewhere\"")));
+                        text().replace("\"checkout\":\"current\"", "\"checkout\":\"elsewhere\"")),
+                Map.entry("a form input split",
+                        text().replace("\"total_tokens\":\"unmeasured\"",
+                                "\"total_tokens\":\"unmeasured\",\"tokens_in\":3000")),
+                Map.entry("an item output split",
+                        text().replace("\"total_tokens\":1200", "\"total_tokens\":1200,\"tokens_out\":300")));
 
         for (var entry : cases.entrySet()) {
             var bytes = entry.getValue().getBytes(StandardCharsets.UTF_8);
@@ -168,7 +175,7 @@ class QualificationRecordCodecTest {
                                 new BigDecimal("80"), 10),
                         Topic.GENERIC, new QualificationRecord.TopicResult(new BigDecimal("83.33"),
                                 new BigDecimal("70"), 12)),
-                22, TokenTotal.measured(4_000, 3_000, 1_000), 1_000);
+                22, TokenTotal.measured(4_000), 1_000);
         var warm = new QualificationRecord.FormResult(
                 Map.of(
                         Topic.OWN, new QualificationRecord.TopicResult(new BigDecimal("85"),
@@ -178,7 +185,7 @@ class QualificationRecordCodecTest {
                 22, TokenTotal.unmeasured(), 2_000);
         var items = List.of(
                 new QualificationRecord.ItemResult(itemId, RoleForm.FRESH, Checkout.CURRENT,
-                        JsonNode.string(itemAnswer), Grade.of(true), TokenTotal.measured(1_200, 900, 300), 500L),
+                        JsonNode.string(itemAnswer), Grade.of(true), TokenTotal.measured(1_200), 500L),
                 new QualificationRecord.ItemResult(itemId, RoleForm.WARM, Checkout.ITEM_COMMIT,
                         JsonNode.object(Map.of("detail", JsonNode.string("a defect"))), Grade.ungraded(),
                         TokenTotal.unmeasured(), null));

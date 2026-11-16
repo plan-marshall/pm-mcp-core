@@ -29,7 +29,7 @@ The `git.commit_and_push` sub-workflow models the complete git commit-and-push s
 
 ==== Bound Parameter Contract
 
-The sub-workflow header declares both parameters with `param` and its result record with `result` (see the DSL definition below); every `call git.commit_and_push (…)` site must bind both parameters exactly once with a declared value (Rule 6 in xref:04-ast-node-model.adoc#static-verification-rules[Static AST Verification Rules (Build Time & Every Unit Load)]).
+The sub-workflow frontmatter declares both inputs with `input` and `input_type` and the header its result record with `result` (see the DSL definition below); every `call git.commit_and_push (…)` site must bind each required input exactly once with a declared value, and may omit an input that carries a default, a fallback or the optional form (Rule 6 in xref:04-ast-node-model.adoc#static-verification-rules[Static AST Verification Rules (Build Time & Every Unit Load)]).
 
 [cols="1,2,3"]
 |===
@@ -58,14 +58,16 @@ entry: commit
 entry_description: The worktree holds the changes to commit, or is clean.
 exit: done
 exit_description: Commit and push are settled; the result record says what was committed, pushed, or landed.
+input: message_mode
+input_type: enum[auto_deliverable|step_or_fallback|interactive|none_assert_clean]
+input: push_mode
+input_type: enum[never|if_push_remote|always|post_pr_conditional]
 modification_date: 2026-10-14
 version: 1.0.0
 author: plan-marshall
 ---
 workflow git.commit_and_push version 1 format 1
 scope subworkflow
-param message_mode: enum[auto_deliverable|step_or_fallback|interactive|none_assert_clean]
-param push_mode: enum[never|if_push_remote|always|post_pr_conditional]
 result schema[commit-result]
 entry commit -> git.inspect-worktree
 
@@ -332,4 +334,4 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-22[PM-WF-22: Designing a Process]_
 
-A *short landing* lands one small change of a project that no plan makes: `git.land-removal` the removal from git of documents the operator chose to move into a start's source directory (link:../state-catalogue/09-bootstrap-and-lessons.adoc#documents-source[State Catalogue, Documents as a Source]), and `git.land-unit` a workflow unit placed or removed at project level (xref:04-ast-node-model.adoc#process-designer[Designing a Process]). Both are compiled-only sub-workflows (type `system`, called) with the parameter-free entry `land` and the exit `done` with the result record of `git.commit_and_push` (beside the implicit `stepped_out`), and both land exactly one commit, which stages only the paths of their change, through `git.commit_and_push` and the project's landing variant: with `landing.pull-request` on a branch of its own through a pull request, merged like the epic's ledger; with `landing.main` committed and pushed onto the base branch; with `landing.files` nothing is committed and the change stays in the working tree. A short landing runs on after the act that started it (the source stored, the unit placed); until it has landed it shows in the project's running work, and a landing that failed waits for the operator as the hold `landing_failed` (link:../state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue, Holds and Their Acts]). `git.land-removal` never removes anything but the moved documents, and `git.land-unit` never anything but the placed or removed unit.
+A *short landing* lands one small change of a project that no plan makes: `git.land-removal` the removal from git of documents the operator chose to move into a start's source directory (link:../state-catalogue/09-bootstrap-and-lessons.adoc#documents-source[State Catalogue, Documents as a Source]), and `git.land-unit` a workflow unit placed or removed at project level (xref:04-ast-node-model.adoc#process-designer[Designing a Process]). Both are compiled-only sub-workflows (type `system`, called) with the input-free entry `land` and the exit `done` with the result record of `git.commit_and_push` (beside the implicit `stepped_out`), and both land exactly one commit, which stages only the paths of their change, through `git.commit_and_push` and the project's landing variant: with `landing.pull-request` on a branch of its own through a pull request, merged like the epic's ledger; with `landing.main` committed and pushed onto the base branch; with `landing.files` nothing is committed and the change stays in the working tree. A short landing runs on after the act that started it (the source stored, the unit placed); until it has landed it shows in the project's running work, and a landing that failed waits for the operator as the hold `landing_failed` (link:../state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue, Holds and Their Acts]). `git.land-removal` never removes anything but the moved documents, and `git.land-unit` never anything but the placed or removed unit.

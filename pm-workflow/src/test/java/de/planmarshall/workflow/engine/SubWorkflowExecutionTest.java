@@ -77,15 +77,18 @@ class SubWorkflowExecutionTest {
             icon: workflow.default
             entry: main
             exit: done
+            input: mode
+            input_type: enum[strict|lenient]
+            input: rounds
+            input_type: int[1..5]
+            input: targets
+            input_type: list<enum[origin|mirror]>
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall
             ---
             workflow sub.args version 1 format 1
             scope subworkflow
-            param mode : enum[strict|lenient]
-            param rounds : int[1..5]
-            param targets : list<enum[origin|mirror]>
             entry main -> sub.wait
 
             state sub.wait

@@ -8,6 +8,14 @@ exit: resolved
 exit: waived
 exit: exhausted
 exit: fix_requested
+input: retry_budget
+input_type: int[0..5]
+input: fix_budget
+input_type: int[0..5]
+input: waiver_wait_seconds
+input_type: int[0..86400]
+input: actions
+input_type: list<enum[retry|fix|loop_back]>
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
@@ -17,10 +25,6 @@ author: plan-marshall
 # all_waived of the gather or waived of the waiver wait; a nested commit routes a commit-less exit to the budget check.
 workflow remediation.qgate-findings version 1 format 1
 scope subworkflow
-param retry_budget : int[0..5]
-param fix_budget : int[0..5]
-param waiver_wait_seconds : int[0..86400]
-param actions : list<enum[retry|fix|loop_back]>
 entry main -> remediation-qgate.gather
 
 state remediation-qgate.gather

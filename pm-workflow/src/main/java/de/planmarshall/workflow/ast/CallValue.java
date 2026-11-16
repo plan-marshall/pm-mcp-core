@@ -13,8 +13,8 @@ import java.util.HashSet;
 import java.util.List;
 
 /**
- * A literal {@code call_value}: bound to a sub-workflow parameter at a {@code call} site or declared by a
- * {@code declare} line (PM-IMPL-5, PM-WF-16).
+ * A literal {@code call_value}: bound to a frontmatter input at a {@code call} site, carried as an input's default, or
+ * declared by a {@code declare} line (PM-IMPL-5, PM-WF-16).
  *
  * @since 0.1
  */

@@ -103,9 +103,9 @@ Guard:: Engine waits use monotonic wall-clock deadlines (test with fast pollers)
 not absent; the only calls a model holds open are a worker's `pm_wait` and a running `pm_build`: a `pm_wait` returns
 an offer, `wait_again`, or `end` within its harness's bounded window and never fails with a transport timeout, a
 `pm_build` whose window ends with the build still running returns `status: running` with its `job_id`, and a
-`pm_build` continuing on an unknown or finished `job_id`, or one of another scope, is refused `invalid_arguments`;
-time deferred by a provider rate limit is attributed
-`provider_rate_limit`, never counted as a timeout. The wait population below is the baseline for wait metrics.
+`pm_build` continuing on an unknown or finished `job_id`, or one of another scope, is refused `invalid_arguments`.
+Not built (owner `runtime-metrics`): time deferred by a provider rate limit is attributed
+`provider_rate_limit` and never counted as a timeout, and the wait population below is the baseline for wait metrics.
 Fixture:: 600 s budget burned in seconds ("CodeRabbit absent" while running); a script cost rollup of 2,051 calls, 14,423,580 ms, dominated by the three wait notations
 build_server 27.4%, ci 27.3%, ci_complete_precondition 23.1% (77.8% together). Wait attribution by reason:
 deliberate (an operator ruling to wait out a CodeRabbit quota window) vs poll miss (8 `ci_complete_precondition`

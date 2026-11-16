@@ -16,7 +16,9 @@ import java.util.Objects;
 
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.verify.ConfigKeyRegistry;
 import de.planmarshall.workflow.verify.EntityKindRegistry;
+import de.planmarshall.workflow.verify.FactKindRegistry;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
@@ -32,12 +34,15 @@ import lombok.Builder;
  * @param entityKinds     the registered entity kinds
  * @param questionClasses the registered question classes
  * @param schemas         the registered named parameter schemas
+ * @param configKeys      the keys of the closed configuration a unit may read
+ * @param factKinds       the closed fact kinds a unit may read
  * @param compiledUnits   the units compiled into the release that no project owns
  * @since 0.1
  */
 @Builder
 public record VerificationContext(PrimitiveRegistry registry, EntityKindRegistry entityKinds,
-QuestionClassRegistry questionClasses, SchemaRegistry schemas, List<WorkflowDefinition> compiledUnits) {
+QuestionClassRegistry questionClasses, SchemaRegistry schemas, ConfigKeyRegistry configKeys,
+FactKindRegistry factKinds, List<WorkflowDefinition> compiledUnits) {
 
     /**
      * Refuses a missing component and copies the compiled units.
@@ -46,6 +51,8 @@ QuestionClassRegistry questionClasses, SchemaRegistry schemas, List<WorkflowDefi
      * @param entityKinds     the entity kinds
      * @param questionClasses the question classes
      * @param schemas         the schemas
+     * @param configKeys      the keys of the closed configuration
+     * @param factKinds       the closed fact kinds
      * @param compiledUnits   the units no project owns
      * @throws NullPointerException if a component or an element is {@code null}
      */
@@ -54,7 +61,25 @@ QuestionClassRegistry questionClasses, SchemaRegistry schemas, List<WorkflowDefi
         Objects.requireNonNull(entityKinds, "entityKinds");
         Objects.requireNonNull(questionClasses, "questionClasses");
         Objects.requireNonNull(schemas, "schemas");
+        Objects.requireNonNull(configKeys, "configKeys");
+        Objects.requireNonNull(factKinds, "factKinds");
         compiledUnits = List.copyOf(compiledUnits);
+    }
+
+    /**
+     * A context whose verifier carries the empty registries of the static reads, so a unit that declares one fails
+     * closed.
+     *
+     * @param registry        the primitives
+     * @param entityKinds     the entity kinds
+     * @param questionClasses the question classes
+     * @param schemas         the schemas
+     * @param compiledUnits   the units no project owns
+     */
+    public VerificationContext(PrimitiveRegistry registry, EntityKindRegistry entityKinds,
+            QuestionClassRegistry questionClasses, SchemaRegistry schemas, List<WorkflowDefinition> compiledUnits) {
+        this(registry, entityKinds, questionClasses, schemas, ConfigKeyRegistry.empty(), FactKindRegistry.empty(),
+                compiledUnits);
     }
 
     /**
@@ -66,6 +91,6 @@ QuestionClassRegistry questionClasses, SchemaRegistry schemas, List<WorkflowDefi
         var catalog = new ArrayList<>(compiledUnits);
         catalog.addAll(loadedUnits);
         return new WorkflowValidator(registry, releasedStates, entityKinds, questionClasses, schemas,
-                new WorkflowCatalog(catalog));
+                new WorkflowCatalog(catalog), configKeys, factKinds);
     }
 }

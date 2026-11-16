@@ -1,0 +1,65 @@
+= ADR 004: The Machine's Settings Are Written Beside the Provider Defaults
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-16
+
+== Context
+
+`machine-config.json` holds the operator's whole machine configuration, of which `pm-runtime` `runtime.config` wrote one
+member — `providers` — and `runtime.credentials` wrote `credentials.store`. The machine's settings
+(state-catalogue/14 § The Machine's Settings) need two more writers: `sources.documents_mode` (`copy`, `move`, `ask`) and
+`cleanup` (five item durations, each days or `never`, and the reminder's days).
+
+Three placements were possible: a new package per setting, a new store class per setting in `runtime.config`, or
+extending the existing codec and store by one member each. The members are small, share the document's one lock, and share
+exactly the revision protocol the provider defaults already carry.
+
+== Decision
+
+* The two settings are modelled in `runtime.config`: `DocumentsMode`, `CleanupDuration` and `CleanupDurations` beside
+  `ProviderDefaults`.
+* `MachineConfigurationCodec` reads and replaces `sources.documents_mode` and `cleanup` in place, as it does `providers`,
+  and writes the required members at their schema defaults when it creates a document. A member the document does not
+  hold is appended after the members it holds.
+* `MachineConfigurationStore` gains `writeDocumentsMode(mode, revision)` and `writeCleanupDurations(durations, revision)`
+  beside `writeProviders`. All three share one transaction: read the document again under `locks/machine-config.lock`,
+  refuse a revision the document moved past with `SettingsConflict` and the current value of the member, else replace that
+  member and write the next revision.
+* `read()` answers the effective values: the documents mode at `ASK` and the cleanup durations at the schema defaults where
+  the document records none, so a caller never applies a second default of its own.
+* The format version stays 1 (R13): the members already exist in the schema and are added in place.
+
+== Alternatives Considered
+
+1. *A store per setting.* _Not taken_: each would own the same document and the same lock, and each would copy every other
+   member through — the discipline the existing codec already implements once.
+2. *A whole-document model in `runtime.config`.* _Not taken_: the document belongs to the operator and holds members this
+   module does not own (`web`, `proxy`, `harness_profiles`, `project_defaults`); a model would rewrite them from a
+   partial read and delete the ones the model does not know.
+3. *Read an absent `cleanup` as an empty value rather than the schema defaults.* _Not taken_: the cleanup would then need
+   its own default table, a second statement of the schema's defaults.
+
+== Consequences
+
+* A write of one member keeps `credentials`, `providers` (or the settings when a provider write runs), the languages and
+  `project_defaults` untouched; the store's tests assert the operator's `credentials` survives both new writers.
+* A second change against the revision the first one consumed is refused with `conflict` (409) and the current value —
+  the first change wins, nothing merged (state-catalogue/14, two changes against one revision).
+* An incomplete `cleanup` member keeps each explicit member and reads only the absent ones at the schema default; its
+  members are written back unchanged.
+
+== Source
+
+* Plan PLAN-V2-43, deliverable 8 (Task 9)
+* link:../../../../doc/specification/state-catalogue/14-machine-onboarding.adoc#state-catalogue-settings[State Catalogue §
+  The Machine's Settings], link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#machine-config[Store
+  Schemas § Machine Configuration Store], link:../../../../doc/specification/timeouts/03-retention-harness-config.adoc#cleanup[Timeouts
+  & Budgets § One Cleanup]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/config/DocumentsMode.java`, `CleanupDuration.java`,
+  `CleanupDurations.java`, `MachineConfigurationCodec.java`, `MachineConfigurationStore.java`

@@ -31,6 +31,9 @@
  * <li><em>Writes across scopes</em>: an {@link de.planmarshall.core.store.OrderedWrite} writes the authoritative store
  * first and every derived store after it, one lock at a time, and a
  * {@link de.planmarshall.core.store.CrossScopeReconciler} completes the derived writes a crash left undone.</li>
+ * <li><em>Plan overrides</em>: a plan's own values ({@link de.planmarshall.core.store.PlanOverrides}), kept in
+ * {@code plans/<plan_id>/overrides.json} and written through the plan's transaction under the revision rule by
+ * {@link de.planmarshall.core.store.PlanOverridesStore}.</li>
  * <li><em>Locks and leases</em>: the key of every lock in the total lock order
  * ({@link de.planmarshall.core.store.LockKey}) and the lease stores of the machine.</li>
  * <li><em>Project enrolments</em> (PM-EXEC-2, PM-MIG-1): the typed, closed enrolment of a project

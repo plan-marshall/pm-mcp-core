@@ -2,10 +2,10 @@
   "id": "PLAN-V2-56",
   "slug": "qualification-token-split",
   "workstream": "WS-05",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-56-qualification-token-split",
+  "pr": "#465",
+  "landing": "landings/PLAN-V2-56.md",
   "seq": 56
 }

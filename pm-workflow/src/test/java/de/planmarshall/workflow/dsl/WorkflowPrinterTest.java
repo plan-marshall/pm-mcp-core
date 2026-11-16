@@ -108,6 +108,12 @@ class WorkflowPrinterTest {
             description: A unit written for the tests of pm-workflow.
             type: instance
             icon: unit.plan
+            input: mode
+            input_type: enum[fast|Slow]
+            input: tries
+            input_type: int[1..3]
+            input: picks
+            input_type: list<enum[a|b]>
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall
@@ -117,9 +123,6 @@ class WorkflowPrinterTest {
             "templates": [{"unit": "git.flow", "digest": "t", "origin": "default"}], "sub_units": [], \
             "composition_rules": {"revision": "r", "digest": "d"}, "plan_facts_digest": "f"}}
             scope subworkflow
-            param mode : enum[fast|Slow]
-            param tries : int[1..3]
-            param picks : list<enum[a|b]>
             result schema[flow-result]
             declare rounds = 2
             declare flavours = [Sweet, sour]
@@ -208,6 +211,71 @@ class WorkflowPrinterTest {
             state demo.end terminal done success
             """;
 
+    /** A sub-workflow whose frontmatter declares what it reads and its inputs, every input sub-key in its order. */
+    private static final String WITH_INPUTS = """
+            ---
+            name: demo.inputs
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: run
+            exit: done
+            reads_config: project.review.currency
+            reads_fact: push_remote
+            input: push_mode
+            input_type: enum[push|no_push]
+            input_description: Whether the branch is pushed.
+            input: attempts
+            input_type: int[1..5]
+            input_default: 2
+            input: retries
+            input_type: int[0..5]
+            input_fallback: project.review.retries
+            input: skip
+            input_type: int[1..3]?
+            input: targets
+            input_type: list<enum[a|b]>
+            input_default: []
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow demo.inputs version 1 format 1
+            scope subworkflow
+            entry run -> demo.work
+
+            state demo.work
+                auto demo.go
+                    done -> demo.end
+
+            state demo.end terminal done success
+            """;
+
+    @Test
+    @DisplayName("prints the reads and the inputs of the frontmatter in their order")
+    void printsTheReadsAndInputs() {
+        var definition = parse("demo.inputs.pmwf", WITH_INPUTS);
+        var printed = WorkflowPrinter.print(definition);
+        var reparsed = parse("demo.inputs.pmwf", printed);
+
+        assertAll(
+                () -> assertTrue(printed.contains("reads_config: project.review.currency"), printed),
+                () -> assertTrue(printed.contains("reads_fact: push_remote"), printed),
+                () -> assertTrue(printed.contains("input: push_mode"), printed),
+                () -> assertTrue(printed.contains("input_type: enum[push|no_push]"), printed),
+                () -> assertTrue(printed.contains("input_description: Whether the branch is pushed."), printed),
+                () -> assertTrue(printed.contains("input_default: 2"), printed),
+                () -> assertTrue(printed.contains("input_fallback: project.review.retries"), printed),
+                () -> assertTrue(printed.contains("input_type: int[1..3]?"), printed),
+                () -> assertTrue(printed.contains("input_default: []"), printed),
+                () -> assertTrue(printed.indexOf("reads_config:") < printed.indexOf("reads_fact:"), printed),
+                () -> assertTrue(printed.indexOf("reads_fact:") < printed.indexOf("input: push_mode"), printed),
+                () -> assertTrue(printed.indexOf("input_default: 2") < printed.indexOf("modification_date:"),
+                        printed),
+                () -> assertEquals(strip(definition), strip(reparsed), "the printed source must read back"),
+                () -> assertEquals(printed, WorkflowPrinter.print(reparsed), "the printer must be canonical"));
+    }
+
     private static WorkflowDefinition parse(String resource, String source) {
         return parse(resource, source, UnitOrigin.DEFAULT);
     }
@@ -234,7 +302,7 @@ class WorkflowPrinterTest {
     private static WorkflowDefinition unitWith(UnitFrontmatter frontmatter, LinkSpec... links) {
         var state = new StateNode("demo.begin", null, null, null,
                 new StateBehavior.InteractiveLinks(List.of(links)), NOWHERE);
-        return new WorkflowDefinition(frontmatter, "demo", 1, WorkflowScope.WORKSPACE, List.of(), null,
+        return new WorkflowDefinition(frontmatter, "demo", 1, WorkflowScope.WORKSPACE, null,
                 null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
                 "demo.begin", Map.of(), List.of(), Map.of("demo.begin", state), NOWHERE);
     }

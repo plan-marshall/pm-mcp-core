@@ -150,19 +150,6 @@ every launch prompt of a `writer` or `read_only` worker starts with the shim par
 a skill named by URI after a compaction; no server path reads a harness marker for a clear or a compaction.
 Source:: harness-as-worker evaluation (doc/specification/evaluation.adoc).
 
-[#PM-WATCH-DISP-56]
-=== PM-WATCH-DISP-56: A repeated submit after the close is stale, not a scope violation
-
-Anchor:: link:../specification/model-work/02-task-protocol.adoc#execute-submit[Model Work § Execute & Submit]
-Hazard:: The lease is released in the transaction that closes the task, so a lease check that only asks "is this
-entity leased to the caller" answers a retried submit (after a lost response) with `job_scope_mismatch`, which the
-worker reads as a contract breach, or lets it through as a second result.
-Guard:: Test: a worker submits, the response is dropped, and it submits again: the second call is refused
-`stale_entity` carrying the entity's representation, and the task stays closed exactly once; the same holds for any
-other closing link of that task by that generation; matched control: a call on an entity never leased to the
-generation is refused `job_scope_mismatch`.
-Source:: design review.
-
 [#PM-WATCH-DISP-60]
 === PM-WATCH-DISP-60: One stalled worker blocks every process of its harness
 

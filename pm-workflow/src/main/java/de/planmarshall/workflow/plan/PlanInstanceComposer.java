@@ -63,6 +63,10 @@ import org.jspecify.annotations.Nullable;
  * revision, the header as its {@code instance} line, the template's frontmatter with the type {@code instance}, and the
  * template's start state.
  * <p>
+ * A caller that names what the project provides has its bound landing variant validated before anything is composed
+ * ({@link LandingVariantValidation}), and a variant that does not fit the project is refused with the reason; a caller
+ * with no project known composes without that check.
+ * <p>
  * The version is kept only if it passes every check, and is otherwise refused as a {@link CompositionResult.Refused}
  * value, the version in force staying:
  * <ol>
@@ -122,18 +126,49 @@ public final class PlanInstanceComposer {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
+    private static @Nullable String landingViolation(PlanFacts facts, LandingVariantValidation.@Nullable Project project,
+            CompositionEvent event) {
+        if (project == null || event == CompositionEvent.FALLBACK || event == CompositionEvent.EMPTY_HARVEST) {
+            return null;
+        }
+        var landing = facts.bound(PlanFacts.Axis.LANDING).variant();
+        var verdict = LandingVariantValidation.validate(landing, project);
+        return verdict.valid() ? null
+                : "landing: the variant '%s' does not fit the project: %s".formatted(landing, verdict.reason());
+    }
+
     /**
-     * Composes and verifies the version the request asks for.
+     * Composes and verifies the version the request asks for, without a project's landing check.
      *
      * @param request what the composition reads
      * @return the composed version, or its refusal
      * @throws NullPointerException if the request is {@code null}
      */
     public CompositionResult compose(CompositionRequest request) {
+        return compose(request, null);
+    }
+
+    /**
+     * Composes and verifies the version the request asks for, validating the bound landing variant against the project
+     * where one is known (Workflow DSL § Plan Behaviour Axes, item 3).
+     *
+     * @param request what the composition reads
+     * @param project what the project provides for the landing check; {@code null} where no project is known, which
+     *                composes without the check
+     * @return the composed version, or its refusal
+     * @throws NullPointerException if the request is {@code null}
+     */
+    public CompositionResult compose(CompositionRequest request,
+            LandingVariantValidation.@Nullable Project project) {
         Objects.requireNonNull(request, "request");
         var facts = withVariantDeclarations(request.facts(), request.subUnits());
         var effects = CompositionRuleEvaluator.evaluate(rules, facts);
         var bound = Arrays.stream(PlanFacts.Axis.values()).map(facts::bound).toList();
+        var landingViolation = landingViolation(facts, project, request.event());
+        if (landingViolation != null) {
+            return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED,
+                    List.of(landingViolation));
+        }
         PlanInstanceHeader.@Nullable Lane lanePruned = request.event() == CompositionEvent.START ? null : facts.lane();
         var pruned = InstancePruner.prune(request.template(), effects, bound, request.waivers(),
                 request.verificationSteps(), request.finalizeSteps(), lanePruned);
@@ -306,7 +341,6 @@ public final class PlanInstanceComposer {
                 .id(definition.id())
                 .version(version)
                 .scope(definition.scope())
-                .params(definition.params())
                 .resultSchema(definition.resultSchema())
                 .instance(null)
                 .declarations(definition.declarations())
@@ -414,7 +448,6 @@ public final class PlanInstanceComposer {
                 .id(PLAN_UNIT)
                 .version(header.version())
                 .scope(template.scope())
-                .params(template.params())
                 .resultSchema(template.resultSchema())
                 .instance(instance)
                 .declarations(template.declarations())
@@ -439,6 +472,9 @@ public final class PlanInstanceComposer {
                 .icon(template.icon())
                 .entries(template.entries())
                 .exits(template.exits())
+                .readsConfig(template.readsConfig())
+                .readsFact(template.readsFact())
+                .inputs(template.inputs())
                 .modificationDate(template.modificationDate())
                 .version(template.version())
                 .author(template.author())
@@ -469,7 +505,8 @@ public final class PlanInstanceComposer {
         var catalog = new ArrayList<>(context.compiledUnits());
         request.subUnits().forEach(subUnit -> catalog.add(subUnit.definition()));
         var validator = new WorkflowValidator(context.registry(), List.of(), context.entityKinds(),
-                context.questionClasses(), context.schemas(), new WorkflowCatalog(catalog));
+                context.questionClasses(), context.schemas(), new WorkflowCatalog(catalog), context.configKeys(),
+                context.factKinds());
         var result = validator.verify(unit, settled);
         result.violations().forEach(violation -> found.add("Rule %d (%s) in '%s': %s".formatted(
                 violation.rule().specificationRule(), violation.rule(), violation.stateId(), violation.message())));
