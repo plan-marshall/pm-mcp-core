@@ -230,7 +230,7 @@ class GitMetadataDigestTest {
 
         var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
 
-        assertEquals(java.util.Set.of(".git/extra.cfg"), changed, "a quoted path with a comment is digested");
+        assertEquals(Set.of(".git/extra.cfg"), changed, "a quoted path with a comment is digested");
     }
 
     @Test

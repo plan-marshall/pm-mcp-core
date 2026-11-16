@@ -265,7 +265,7 @@ class JobConfinementComposerTest {
 
         @Test
         @DisplayName("a linked worktree outside the root is not named as a read-only path")
-        void outsideWorktreeIsNotReadOnly() throws IOException {
+        void outsideWorktreeIsNotReadOnly() throws Exception {
             var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var admin = Files.createDirectories(project.resolve(".git/worktrees/outside"));
             Files.writeString(admin.resolve("commondir"), "../..\n");
