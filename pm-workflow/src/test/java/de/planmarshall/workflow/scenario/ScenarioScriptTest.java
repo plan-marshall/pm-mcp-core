@@ -41,7 +41,12 @@ import de.planmarshall.workflow.scenario.ScenarioDirective.AssertTaskOutcome;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertWorkerState;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Call;
 import de.planmarshall.workflow.scenario.ScenarioDirective.CompleteJob;
+import de.planmarshall.workflow.scenario.ScenarioDirective.EndTurn;
+import de.planmarshall.workflow.scenario.ScenarioDirective.KillRelay;
+import de.planmarshall.workflow.scenario.ScenarioDirective.KillWorker;
 import de.planmarshall.workflow.scenario.ScenarioDirective.OperatorDo;
+import de.planmarshall.workflow.scenario.ScenarioDirective.RestartRuntime;
+import de.planmarshall.workflow.scenario.ScenarioDirective.StallWorker;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Start;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Worker;
 import de.planmarshall.workflow.scenario.ScenarioDirective.WorkerDo;
@@ -101,6 +106,17 @@ class ScenarioScriptTest {
                 Arguments.of("operator_do proceed web {\"note\":{\"x\":1}}", "is no scalar"),
                 Arguments.of("worker_wait", "missing argument"),
                 Arguments.of("worker_wait reviewer extra", "surplus argument 'extra'"),
+                Arguments.of("kill_worker", "missing argument"),
+                Arguments.of("kill_worker reviewer extra", "surplus argument 'extra'"),
+                Arguments.of("kill_worker Reviewer", "role is no role name"),
+                Arguments.of("end_turn", "missing argument"),
+                Arguments.of("kill_relay Reviewer", "role is no role name"),
+                Arguments.of("stall_worker reviewer", "missing argument"),
+                Arguments.of("stall_worker reviewer soon", "'soon' is no number of seconds"),
+                Arguments.of("stall_worker reviewer 0", "a stall is counted from 1 second"),
+                Arguments.of("stall_worker reviewer 30 extra", "surplus argument 'extra'"),
+                Arguments.of("restart_runtime now", "surplus argument 'now'"),
+                Arguments.of("restart_runtime {}", "takes no JSON argument"),
                 Arguments.of("worker_do", "missing argument"),
                 Arguments.of("worker_do reviewer", "'reviewer' is no worker action"),
                 Arguments.of("worker_do reviewer ack extra", "surplus argument 'extra'"),
@@ -277,6 +293,59 @@ class ScenarioScriptTest {
         }
 
         @Test
+        @DisplayName("Should read the fault directives and the runtime restart with their roles and times")
+        void shouldReadTheFaultDirectives() {
+            var script = assertDoesNotThrow(() -> ScenarioScript.read("""
+                    scenario faults
+                    worker_wait reviewer
+                    worker_do ack {}
+                    kill_worker reviewer
+                    end_turn reviewer
+                    kill_relay reviewer
+                    stall_worker reviewer 30
+                    restart_runtime
+                    """));
+
+            assertAll(
+                    () -> assertEquals(List.of(
+                            new WorkerWait(2, "reviewer"),
+                            new WorkerDo(3, new Call(null, new Action.Ack(), Map.of())),
+                            new KillWorker(4, "reviewer"),
+                            new EndTurn(5, "reviewer"),
+                            new KillRelay(6, "reviewer"),
+                            new StallWorker(7, "reviewer", 30),
+                            new RestartRuntime(8)), script.directives(), "the faults read with their lines"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("kill_worker"),
+                            "kill_worker is no longer refused"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("stall_worker"),
+                            "stall_worker is no longer refused"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("end_turn"), "end_turn is no longer refused"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("kill_relay"), "kill_relay is no longer refused"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("restart_runtime"),
+                            "restart_runtime is no longer refused"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a fault of a role the script never waits for, when it is read")
+        void shouldRefuseAFaultWithoutItsWait() {
+            var kill = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario no-wait-fault
+                    kill_worker reviewer
+                    """));
+            var stall = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
+                    scenario no-wait-stall
+                    stall_worker reviewer 30
+                    worker_wait reviewer
+                    """));
+
+            assertAll(
+                    () -> assertEquals("line 2: kill_worker names the role reviewer, which the script never declares "
+                            + "with worker_wait before it", kill.getMessage(), "the fault needs a wait before it"),
+                    () -> assertEquals("line 2: stall_worker names the role reviewer, which the script never declares "
+                            + "with worker_wait before it", stall.getMessage(), "a later wait does not count"));
+        }
+
+        @Test
         @DisplayName("Should accept every refusal of TaskRefusal and no other reason")
         void shouldAcceptTheRefusalSetOfTheProtocol() {
             var reasons = Arrays.stream(TaskRefusal.values()).map(TaskRefusal::wireName).toList();
@@ -380,12 +449,13 @@ class ScenarioScriptTest {
             assertAll(
                     () -> assertTrue(ScenarioScript.REFUSED.values().stream().noneMatch(String::isBlank),
                             ScenarioScript.REFUSED.toString()),
-                    () -> assertEquals("supervision-scenarios", ScenarioScript.REFUSED.get("kill_worker")),
                     () -> assertEquals("plan-instance", ScenarioScript.REFUSED.get("assert_instance_version")),
                     () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_wait")),
                     () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_do")),
                     () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_worker_state")),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_refused")));
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_refused")),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("kill_worker")),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("restart_runtime")));
         }
 
         @ParameterizedTest(name = "{0}")

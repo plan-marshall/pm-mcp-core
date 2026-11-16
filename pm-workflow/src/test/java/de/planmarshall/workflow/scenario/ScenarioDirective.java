@@ -336,6 +336,91 @@ sealed interface ScenarioDirective {
     }
 
     /**
+     * A worker fault of the supervision scenarios (Model Work § Supervision &amp; Recycling, Detection): the role's
+     * protocol worker is lost between its offer and its acknowledgement, and the attempt ends with the fact the
+     * acknowledgement deadline reports.
+     *
+     * @param line the line of the script
+     * @param role the role whose protocol worker is lost
+     */
+    record KillWorker(int line, String role) implements ScenarioDirective {
+
+        /** @throws IllegalArgumentException if the line is not positive or the role is no role name */
+        public KillWorker {
+            requireLine(line);
+            requireRole(role);
+        }
+    }
+
+    /**
+     * A worker fault: the role's protocol worker ends its turn without a submit, which is the exit the supervisor
+     * observes after the worker's first call.
+     *
+     * @param line the line of the script
+     * @param role the role whose protocol worker ends its turn
+     */
+    record EndTurn(int line, String role) implements ScenarioDirective {
+
+        /** @throws IllegalArgumentException if the line is not positive or the role is no role name */
+        public EndTurn {
+            requireLine(line);
+            requireRole(role);
+        }
+    }
+
+    /**
+     * A worker fault: the relay of the role's protocol worker is killed under the wait the acknowledged worker holds.
+     *
+     * @param line the line of the script
+     * @param role the role whose relay is killed
+     */
+    record KillRelay(int line, String role) implements ScenarioDirective {
+
+        /** @throws IllegalArgumentException if the line is not positive or the role is no role name */
+        public KillRelay {
+            requireLine(line);
+            requireRole(role);
+        }
+    }
+
+    /**
+     * A worker fault: the role's protocol worker makes no call for the given time, and is lost when that time reaches
+     * the limit its {@link de.planmarshall.core.profile.WorkerParameters} compile for it.
+     *
+     * @param line    the line of the script
+     * @param role    the role whose protocol worker stalls
+     * @param seconds the time the worker makes no call
+     */
+    record StallWorker(int line, String role, int seconds) implements ScenarioDirective {
+
+        /**
+         * @throws IllegalArgumentException if the line is not positive, the role is no role name or the time is not
+         *                                  positive
+         */
+        public StallWorker {
+            requireLine(line);
+            requireRole(role);
+            if (seconds < 1) {
+                throw new IllegalArgumentException("a stall is counted from 1 second: " + seconds);
+            }
+        }
+    }
+
+    /**
+     * The runtime restart of the supervision scenarios: the engine, the task protocol and the stores' objects are
+     * rebuilt over the same directory of the replay, and the scenario continues.
+     *
+     * @param line the line of the script
+     */
+    record RestartRuntime(int line) implements ScenarioDirective {
+
+        /** @throws IllegalArgumentException if the line is not positive */
+        public RestartRuntime {
+            requireLine(line);
+        }
+    }
+
+    /**
      * Asserts the state of the role's scripted worker's task, read from the queue record.
      *
      * @param line  the line of the script

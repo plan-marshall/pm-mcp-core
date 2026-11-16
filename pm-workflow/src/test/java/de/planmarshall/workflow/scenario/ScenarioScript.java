@@ -76,9 +76,6 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
         refused.put("assert_rejected", links);
         refused.put("do", links);
         refused.put("assert_instance_version", "plan-instance");
-        for (var fault : List.of("kill_worker", "stall_worker", "end_turn", "kill_relay", "restart_runtime")) {
-            refused.put(fault, "supervision-scenarios");
-        }
         refused.put("set_role_unqualified", "role-qualification");
         refused.put("operator_cli", "the operator verbs (no work package yet)");
         REFUSED = Collections.unmodifiableMap(refused);
@@ -145,6 +142,14 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
                     throw new IllegalArgumentException(
                             "line %d: assert_worker_state names the role %s, which the script never declares with worker_wait before it"
                                     .formatted(assertion.line(), assertion.role()));
+                case ScenarioDirective.KillWorker fault -> requireWaitedRole(fault.line(), fault.role(),
+                        "kill_worker", waited);
+                case ScenarioDirective.EndTurn fault -> requireWaitedRole(fault.line(), fault.role(), "end_turn",
+                        waited);
+                case ScenarioDirective.KillRelay fault -> requireWaitedRole(fault.line(), fault.role(), "kill_relay",
+                        waited);
+                case ScenarioDirective.StallWorker fault -> requireWaitedRole(fault.line(), fault.role(),
+                        "stall_worker", waited);
                 case ScenarioDirective.AssertRefused assertion -> requireProtocolCall(assertion, previous);
                 default -> {
                     // every other directive names no protocol worker
@@ -165,6 +170,15 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
             throw new IllegalArgumentException(
                     "line %d: worker_do names the role %s, which the script never declares with worker_wait before it"
                             .formatted(call.line(), role));
+        }
+    }
+
+    /** A fault's role must have waited before it: the fault acts on the role's protocol worker. */
+    private static void requireWaitedRole(int line, String role, String directive, Set<String> waited) {
+        if (!waited.contains(role)) {
+            throw new IllegalArgumentException(
+                    "line %d: %s names the role %s, which the script never declares with worker_wait before it"
+                            .formatted(line, directive, role));
         }
     }
 
@@ -310,6 +324,24 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
                 line.requireArity(1, "worker_wait <role>");
                 yield line.build(() -> new ScenarioDirective.WorkerWait(line.number(), line.args().getFirst()));
             }
+            case "kill_worker" -> roleFault(line, "kill_worker <role>",
+                    (number, role) -> new ScenarioDirective.KillWorker(number, role));
+            case "end_turn" -> roleFault(line, "end_turn <role>",
+                    (number, role) -> new ScenarioDirective.EndTurn(number, role));
+            case "kill_relay" -> roleFault(line, "kill_relay <role>",
+                    (number, role) -> new ScenarioDirective.KillRelay(number, role));
+            case "stall_worker" -> {
+                line.requireNoJson();
+                line.requireArity(2, "stall_worker <role> <seconds>");
+                var role = line.args().getFirst();
+                var seconds = seconds(line, line.args().get(1));
+                yield line.build(() -> new ScenarioDirective.StallWorker(line.number(), role, seconds));
+            }
+            case "restart_runtime" -> {
+                line.requireNoJson();
+                line.requireArity(0, "restart_runtime");
+                yield line.build(() -> new ScenarioDirective.RestartRuntime(line.number()));
+            }
             case "worker_do" -> workerDo(line);
             case "assert_worker_state" -> {
                 line.requireNoJson();
@@ -345,6 +377,39 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
         var word = line.args().get(1);
         return line.build(() -> new ScenarioDirective.WorkerDo(line.number(),
                 new ScenarioDirective.Call(role, action(word), arguments)));
+    }
+
+    /** Reads a fault directive that names only the role of its protocol worker. */
+    private static ScenarioDirective roleFault(Line line, String form, RoleDirective directive) {
+        line.requireNoJson();
+        line.requireArity(1, form);
+        var role = line.args().getFirst();
+        return line.build(() -> directive.of(line.number(), role));
+    }
+
+    /**
+     * @param line   the line of the directive
+     * @param value  the argument that names a number of seconds
+     * @return the seconds
+     */
+    private static int seconds(Line line, String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw line.refused("'%s' is no number of seconds".formatted(value));
+        }
+    }
+
+    /** A fault directive that names one role. */
+    @FunctionalInterface
+    private interface RoleDirective {
+
+        /**
+         * @param line the line of the script
+         * @param role the role
+         * @return the directive
+         */
+        ScenarioDirective of(int line, String role);
     }
 
     private static ScenarioDirective.Action action(String word) {

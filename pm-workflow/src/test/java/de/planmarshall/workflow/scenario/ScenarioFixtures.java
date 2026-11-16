@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -36,6 +37,7 @@ import java.util.function.Function;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
 
+import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.queue.FencedGenerations;
 import de.planmarshall.core.queue.QueueStore;
 import de.planmarshall.core.queue.QueueTaskRecord;
@@ -110,6 +112,34 @@ final class ScenarioFixtures {
     /** The re-offer budget of the state a protocol worker's task belongs to. */
     static final int RE_OFFER_BUDGET = 3;
 
+    /** The acknowledgement deadline of the compiled worker values of the replay, in seconds. */
+    static final int ACK_DEADLINE_SECONDS = 5;
+
+    /** The bounded wait of the compiled worker values of the replay, in seconds. */
+    static final int BOUNDED_WAIT_SECONDS = 10;
+
+    /** The silence grace of the compiled worker values of the replay, in seconds. */
+    static final int SILENCE_GRACE_SECONDS = 20;
+
+    /**
+     * The compiled worker values a fault compares its times with
+     * ({@link de.planmarshall.core.profile.WorkerParameters}, read only): the offer's acknowledgement is due after
+     * {@value #ACK_DEADLINE_SECONDS} seconds, and the silence limit is the bounded wait plus the grace,
+     * {@value #BOUNDED_WAIT_SECONDS} + {@value #SILENCE_GRACE_SECONDS} seconds.
+     */
+    static final WorkerParameters WORKER_PARAMETERS = WorkerParameters.builder()
+            .eligible(true)
+            .ackDeadlineSeconds(OptionalInt.of(ACK_DEADLINE_SECONDS))
+            .ackInformational(false)
+            .silenceGraceSeconds(SILENCE_GRACE_SECONDS)
+            .idleWakeups(3)
+            .boundedWaitSeconds(BOUNDED_WAIT_SECONDS)
+            .progressResetsTimeout(true)
+            .build();
+
+    /** The silence limit of the compiled worker values, in seconds: the bounded wait plus the silence grace. */
+    static final int SILENCE_LIMIT_SECONDS = WORKER_PARAMETERS.silenceLimitSeconds();
+
     /**
      * The fixture plan unit: an {@code auto} state, a job state, a task state of the role {@code reviewer}, a question
      * state of the class {@code review}, a question state of the class {@code clarification}, and the two terminals.
@@ -178,16 +208,16 @@ final class ScenarioFixtures {
     final Locks locks = new Locks();
 
     /** The queue of the replay, {@code projects/scenario-project/queue/} below the replay's directory. */
-    final QueueStore queue;
+    QueueStore queue;
 
     /** The fence store of the replay's queue: the generations the harness fenced. */
-    final FencedGenerations fences;
+    FencedGenerations fences;
 
     /** The consultation service over the replay's queue. */
-    final ConsultationService consultations;
+    ConsultationService consultations;
 
     /** The queue task port of the engine: it writes a real record into {@link #queue}. */
-    final QueueTasks queueTasks;
+    QueueTasks queueTasks;
 
     /** The question port of the engine. */
     final ScriptedQuestionRecordReader questionReader = new ScriptedQuestionRecordReader();
@@ -195,7 +225,7 @@ final class ScenarioFixtures {
     /** The free-parameter primitive of the operator unit, which records the notes its links submitted. */
     final Note note = new Note();
 
-    private final TaskProtocol protocol;
+    private TaskProtocol protocol;
     private List<String> consultRoles = List.of();
     private int generations;
 
@@ -205,6 +235,18 @@ final class ScenarioFixtures {
     ScenarioFixtures(Path base) {
         var directory = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         queue = QueueStore.ofProject(directory, PROJECT, locks);
+        buildRuntime();
+    }
+
+    /**
+     * Rebuilds the runtime's objects over the same directory, as a runtime restart does: the stores keep their bytes,
+     * nothing in memory survives. The manual clock and the id counters are the harness's, not the runtime's, and stay.
+     */
+    void restart() {
+        buildRuntime();
+    }
+
+    private void buildRuntime() {
         fences = new FencedGenerations(queue.directory(), queue.lockKey(), locks);
         consultations = new ConsultationService(queue);
         queueTasks = new QueueTasks(queue, clock, this::roleClass);
@@ -658,6 +700,18 @@ final class ScenarioFixtures {
             now = now.plus(STEP);
         }
 
+        /** Moves the clock by the given time. */
+        void advance(Duration time) {
+            now = now.plus(time);
+        }
+
+        /** Moves the clock to the given instant, never back. */
+        void advanceTo(Instant instant) {
+            if (instant.isAfter(now)) {
+                now = instant;
+            }
+        }
+
         @Override
         public Instant now() {
             return now;
@@ -676,11 +730,13 @@ final class ScenarioFixtures {
         private final Function<String, RoleClass> roleClasses;
         private final List<CreateRequest> requests = new ArrayList<>();
         private QueueTaskRecord.Scope scope = new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "scenario");
+        private int sequence;
 
         QueueTasks(QueueStore queue, WorkflowClock clock, Function<String, RoleClass> roleClasses) {
             this.queue = Objects.requireNonNull(queue, "queue");
             this.clock = Objects.requireNonNull(clock, "clock");
             this.roleClasses = Objects.requireNonNull(roleClasses, "roleClasses");
+            this.sequence = queue.records().size();
         }
 
         /**
@@ -698,7 +754,7 @@ final class ScenarioFixtures {
         @Override
         public Created create(CreateRequest request) {
             Objects.requireNonNull(request, "request");
-            var queueTaskId = "qt-%016x".formatted(requests.size() + 1);
+            var queueTaskId = "qt-%016x".formatted(++sequence);
             requests.add(request);
             queue.create(QueueTaskRecord.builder()
                     .queueTaskId(queueTaskId)
