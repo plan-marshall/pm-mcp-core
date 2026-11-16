@@ -143,7 +143,7 @@ class LandingStepCompositionTest {
                 () -> assertEquals(phase.id(), merged.phase().id(), "The composed file keeps the phase's id"),
                 () -> assertEquals(phase.scope(), merged.phase().scope(), "The composed file keeps the scope"),
                 () -> assertEquals(phase.startState(), merged.phase().startState(), "The start state stays"),
-                () -> assertEquals(phase.entryBindings(), merged.phase().entryBindings(), "The entries stay"),
+                () -> assertEquals(phase.entryBindings(), merged.phase().entryBindings(), "The phase's entries stay"),
                 () -> assertTrue(merged.pruned().isEmpty(), "A single bound variant prunes nothing"));
     }
 
@@ -209,6 +209,38 @@ class LandingStepCompositionTest {
                 () -> assertTrue(wrongAxis.getMessage().contains("asking"), "The refusal names the axis"),
                 () -> assertTrue(wrongTree.getMessage().contains("ask.questions-only"),
                         "The refusal names the unit"));
+    }
+
+    @Test
+    @DisplayName("a state a second landing variant declares is refused, and a variant supplied twice too")
+    void refusesDuplicateStates() {
+        var collision = assertThrows(IllegalArgumentException.class,
+                () -> LandingStepComposition.merge(phase(), bound("landing.main", PlanFacts.Level.PLAN),
+                        List.of(landing("landing.main", "finalize.land-main"),
+                                landing("landing.files", "finalize.land-main"))),
+                "A state two variants declare is refused");
+        var twice = assertThrows(IllegalArgumentException.class,
+                () -> LandingStepComposition.merge(phase(), bound("landing.main", PlanFacts.Level.PLAN),
+                        List.of(landing("landing.main", "finalize.land-main"),
+                                landing("landing.main", "finalize.land-main"))),
+                "A variant supplied twice is refused");
+
+        assertAll(
+                () -> assertTrue(collision.getMessage().contains("finalize.land-main"),
+                        "The refusal names the state declared twice"),
+                () -> assertTrue(twice.getMessage().contains("supplied twice"),
+                        "The refusal names the duplicated variant"));
+    }
+
+    @Test
+    @DisplayName("a bound variant that declares no step state is refused")
+    void refusesVariantWithoutStepState() {
+        var refused = assertThrows(IllegalArgumentException.class,
+                () -> LandingStepComposition.merge(phase(), bound("landing.main", PlanFacts.Level.MACHINE),
+                        List.of(landing("landing.main"))),
+                "A landing variant owes at least one step state");
+
+        assertTrue(refused.getMessage().contains("no step state"), "The refusal names the missing step state");
     }
 
     @Test

@@ -62,8 +62,8 @@ public final class MachineSettingsStates {
     public static final String NOT_REMEMBERED = "not_remembered";
 
     /** The aspects the settings offer as {@code reconfigure:<aspect>}, in the order of the guided run. */
-    public static final List<String> ASPECTS = List.of("language", "harnesses", "models", "roles",
-            "credential-store", "providers", "plan-defaults");
+    public static final List<String> ASPECTS = List.of("language", "harness", "catalogue", "roles", "store", "providers",
+            "defaults");
 
     /**
      * A cache of tokens derived from a credential's secret, registered by the assembly.
@@ -150,7 +150,8 @@ public final class MachineSettingsStates {
     /**
      * What {@code settings.choose} shows (State Catalogue § The Machine's Settings): the machine's recorded values, the
      * remembered consents and the links the operator may take. The credentials' status is the recorded verification of
-     * each provider; the state of a plan a credential holds is the hold's own record, which this class does not read.
+     * each provider, carried in {@code providers}; the state of a plan a credential holds is the hold's own record, and
+     * the paired devices are the web server's, neither of which this class reads.
      *
      * @param documentsMode how a start takes its documents
      * @param cleanup       the durations of the one cleanup
@@ -234,7 +235,9 @@ public final class MachineSettingsStates {
         var links = new ArrayList<String>();
         ASPECTS.forEach(aspect -> links.add("reconfigure:" + aspect));
         remembered.forEach(consent -> {
-            var link = "withdraw:" + consent.kind().wireName();
+            var link = consent.projectId() == null
+                    ? "withdraw:" + consent.kind().wireName()
+                    : "withdraw:" + consent.kind().wireName() + "/" + consent.projectId();
             if (!links.contains(link)) {
                 links.add(link);
             }
@@ -315,9 +318,11 @@ public final class MachineSettingsStates {
     }
 
     /**
-     * {@code settings.verify-providers}: checks every provider the machine recorded again, records each result with the
-     * change's revision, and answers the state {@code settings.choose}. The caller records the consent each verification
-     * answers with {@link ProviderVerification.Verification#toRecord()}.
+     * {@code settings.verify-providers}: checks every provider the machine recorded again — the on-request form of the
+     * state, which the catalogue opens "over every chosen provider" — records each result with the change's revision, and
+     * answers the state {@code settings.choose}. A consent that declined runs no check and leaves the recorded defaults
+     * as they are. The caller records the consent each verification answers with
+     * {@link ProviderVerification.Verification#toRecord()}.
      *
      * @param gate     the gate read from the consent store before the question
      * @param answer   the answer the operator gave
@@ -342,7 +347,10 @@ public final class MachineSettingsStates {
                 results.put(provider, default_);
             }
         });
-        configuration.writeProviders(new ProviderDefaults(results), revision);
+        var ran = verifications.stream().anyMatch(ProviderVerification.Verification::ran);
+        if (ran) {
+            configuration.writeProviders(new ProviderDefaults(results), revision);
+        }
         return Recheck.builder()
                 .transition(Transition.to(State.CHOOSE))
                 .verifications(verifications)

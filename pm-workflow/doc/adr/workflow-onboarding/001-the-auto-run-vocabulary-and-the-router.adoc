@@ -54,4 +54,5 @@ what the run decided or where it goes next.
 
 * Plan PLAN-V2-153, deliverable 2 (D2, D7)
 * `plan-marshall-documentation` CLI & Security § Automatic Onboarding; State Catalogue § Machine Onboarding
-* `pm-workflow/src/main/java/de/planmarshall/workflow/onboarding/`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/onboarding/package-info.java` and the package's classes
+  (`OnboardingRouter`, `AutoOnboardingResult`, `OnboardingProposal`, `ProposalReason`, `OnboardingAspect`, `OnboardRun`)

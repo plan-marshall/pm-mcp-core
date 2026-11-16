@@ -78,7 +78,9 @@ public final class PlanAxisLevels {
                     .computeIfAbsent(axis, ignored -> new EnumMap<>(PlanFacts.Level.class))
                     .put(level, value)));
         }
-        return Collections.unmodifiableMap(axes);
+        var frozen = new EnumMap<PlanFacts.Axis, Map<PlanFacts.Level, String>>(PlanFacts.Axis.class);
+        axes.forEach((axis, levels) -> frozen.put(axis, Collections.unmodifiableMap(levels)));
+        return Collections.unmodifiableMap(frozen);
     }
 
     /**

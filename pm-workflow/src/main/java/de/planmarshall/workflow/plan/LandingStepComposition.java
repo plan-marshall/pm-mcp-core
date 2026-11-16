@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.plan;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -104,6 +105,13 @@ public class LandingStepComposition {
                     .formatted(landing.variant()));
         }
         var states = new LinkedHashMap<>(phase.states());
+        var declared = new HashSet<String>();
+        byId.values().forEach(variant -> variant.states().keySet().forEach(id -> {
+            if (!declared.add(id)) {
+                throw new IllegalArgumentException("the state '%s' is declared by more than one landing variant"
+                        .formatted(id));
+            }
+        }));
         var boundSteps = bound.states().entrySet().stream().filter(entry -> isStepState(entry.getKey())).toList();
         if (boundSteps.isEmpty()) {
             throw new IllegalArgumentException("the landing variant '%s' declares no step state of the finalize phase"

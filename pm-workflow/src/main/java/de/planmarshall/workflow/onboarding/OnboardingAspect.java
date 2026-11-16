@@ -15,28 +15,29 @@ import java.util.Optional;
 
 /**
  * One aspect of the machine's onboarding, in the fixed order of the guided and the automatic run (State Catalogue §
- * Machine Onboarding; {@code language}, {@code harnesses}, {@code models}, {@code role assignment}, {@code credential
- * store}, {@code providers}, {@code plan defaults}): the first run and the automatic run take them in this order, and a
- * later run calls exactly one of them with {@code onboard_run: reconfigure}.
+ * Machine Onboarding; {@code language}, {@code harness}, {@code catalogue}, {@code roles}, {@code store}, {@code
+ * providers}, {@code defaults}): the first run and the automatic run take them in this order, and a later run calls
+ * exactly one of them with {@code onboard_run: reconfigure}. The value is the aspect unit's own prefix (Workflow DSL §
+ * Machine Scope, item 3), which is also what a {@code reconfigure:<aspect>} link of the settings names.
  *
  * @since 0.1
  */
 public enum OnboardingAspect {
 
-    /** The interface and model languages, {@code onboard.language}. */
+    /** The interface and model languages, {@code onboard.language}, whose states carry the prefix {@code language.*}. */
     LANGUAGE("language"),
-    /** The harness scan, the login probes and the enrolments, {@code onboard.harnesses}. */
-    HARNESSES("harnesses"),
-    /** The model catalogue, {@code onboard.models}. */
-    MODELS("models"),
-    /** The default role assignment and the steward role, {@code onboard.assign-roles}. */
-    ROLE_ASSIGNMENT("role-assignment"),
-    /** The credential store as the operator's choice, {@code onboard.credential-store}. */
-    CREDENTIAL_STORE("credential-store"),
-    /** The machine's provider defaults and their verification, {@code onboard.providers}. */
+    /** The harness scan, the login probes and the enrolments, {@code onboard.harnesses}, prefix {@code harness.*}. */
+    HARNESSES("harness"),
+    /** The model catalogue, {@code onboard.models}, prefix {@code catalogue.*}. */
+    MODELS("catalogue"),
+    /** The default role assignment and the steward role, {@code onboard.assign-roles}, prefix {@code roles.*}. */
+    ROLE_ASSIGNMENT("roles"),
+    /** The credential store as the operator's choice, {@code onboard.credential-store}, prefix {@code store.*}. */
+    CREDENTIAL_STORE("store"),
+    /** The machine's provider defaults and their verification, {@code onboard.providers}, prefix {@code providers.*}. */
     PROVIDERS("providers"),
-    /** The machine's plan behaviour defaults, {@code onboard.plan-defaults}. */
-    PLAN_DEFAULTS("plan-defaults");
+    /** The machine's plan behaviour defaults, {@code onboard.plan-defaults}, prefix {@code defaults.*}. */
+    PLAN_DEFAULTS("defaults");
 
     private final String wireName;
 

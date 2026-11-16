@@ -51,9 +51,11 @@ composition algorithm, not the units.
 
 == Consequences
 
-* The landing choice is visible where the process is: the composed phase holds the bound variant's states and the header
-  lists the other variants' states with `plan_default`.
-* `LandingStepCompositionTest` covers the merge, the pruning, the identity of the phase and every refusal.
+* A caller that composes `phase-6-finalize` gets the bound variant's step states in the phase's tree and the other
+  variants' step states as a prune list, which it adds to the version's header. This repository's composer composes by
+  call site and does not compose that phase, so the wiring is the assembly's — stated as owed in the plan's table.
+* `LandingStepCompositionTest` covers the merge, the pruning, the identity of the phase and every refusal, including a
+  state two variants declare.
 * A variant unit that declares a state the phase declares is a blocker at composition time, not a silent override.
 
 == Source

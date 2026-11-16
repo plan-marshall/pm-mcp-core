@@ -27,7 +27,9 @@ composition's machine level had no reader of a value it could trust.
   other members and answers a change against an older revision with `SettingsConflict` and the current defaults, so the
   first change wins and the second is refused — the rule the two existing writers already follow.
 * The reader of the composition's machine level is `PlanAxisLevels` of `workflow.plan`, fed with the raw member. The store
-  does not import the workflow module: the values travel as plain strings and the axis vocabulary stays in one place.
+  does not import the workflow module: the values travel as plain strings. The schema keeps the closed lists,
+  `MachineConfigurationSchemaParityTest` holds the store to them, and `PlanFacts.Axis` keeps the axis vocabulary in the
+  workflow module.
 
 == Alternatives Considered
 

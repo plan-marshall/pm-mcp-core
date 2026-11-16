@@ -43,7 +43,7 @@ import de.planmarshall.core.store.StoreRefusal;
  * The member names, the format version, the provider, variant and credential-store wire names and the schema defaults
  * are the specified document format. The revisions, the limits, the credential keys and the free text of the members
  * the store copies through are generated; the free text keeps a dash, a dot and a space, because it goes through a
- * parse and a write of the document.
+ * parse and a write of the document. {@code plan_defaults} carries a schema value, because the codec owns that member.
  */
 @EnableGeneratorController
 @DisplayName("Machine configuration store")

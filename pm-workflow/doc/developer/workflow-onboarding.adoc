@@ -24,8 +24,9 @@ package is what those units run where the run is deterministic, and it is provab
 |Type |What it is
 
 |`OnboardingAspect`
-|The closed list of the aspects in the fixed order of the guided and the automatic run: `language`, `harnesses`, `models`,
-`role-assignment`, `credential-store`, `providers`, `plan-defaults`; `next()` walks it.
+|The closed list of the aspects in the fixed order of the guided and the automatic run, named by the aspect unit's own
+prefix (Workflow DSL § Machine Scope, item 3): `language`, `harness`, `catalogue`, `roles`, `store`, `providers`,
+`defaults`; `next()` walks it, and a `reconfigure:<aspect>` link names it.
 
 |`OnboardRun`
 |How an aspect is called: `first_run`, `auto`, `reconfigure`.

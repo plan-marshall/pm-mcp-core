@@ -28,9 +28,9 @@ import de.planmarshall.core.store.StoreSnapshot;
 /**
  * The writer and reader of the machine's settings of {@code machine-config.json} that this package owns (Store Schemas §
  * Machine Configuration Store): the provider defaults ({@code providers}), how a start takes its documents
- * ({@code sources.documents_mode}) and the durations of the one cleanup ({@code cleanup}). The provider step of the
- * machine's onboarding and its later runs write the defaults, the machine's settings write the other two, all under
- * {@code locks/machine-config.lock}.
+ * ({@code sources.documents_mode}), the durations of the one cleanup ({@code cleanup}) and the machine's default of each
+ * plan behaviour axis ({@code plan_defaults}). The provider step of the machine's onboarding and its later runs write the
+ * defaults, the machine's settings write the other three, all under {@code locks/machine-config.lock}.
  * <p>
  * A write is one short transaction on the lock: it reads the document again, checks the caller's revision, replaces that
  * one member — every other member of the operator's document survives, among them {@code credentials.store}, which only

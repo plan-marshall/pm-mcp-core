@@ -212,11 +212,14 @@ reads no store: the caller reads the three documents and hands the values in (li
 
 The landing axis is not a call site. A landing variant holds the step states of the finalize phase's landing orders
 (Workflow DSL § Plan Behaviour Axes, item 1), so `LandingStepComposition.merge(phase, boundVariant, variants)` composes
-the bound variant's `finalize.*` states into the composed file of `phase-6-finalize` and lists the states of the variants
-not bound as pruned states with the reason `plan_default` and the binding level as source fact. It refuses a state two
-owners declare, a variant whose tree is not supplied, and a variant that declares no step state. The phase's own roster
-(`CompositionRequest.finalizeSteps`) stays the version's step list; the composition adds no step id.
-Writing the machine's and the project's values and the plan's overrides is not this package's.
+the bound variant's `finalize.*` states into the phase's tree and returns the states of the variants not bound as pruned
+states with the reason `plan_default` and the binding level as source fact; the caller writes that tree as the composed
+file of `phase-6-finalize` and adds the prunes to the version's header. It refuses a state two owners declare (the phase's
+own state or another variant's), a variant whose tree is not supplied, and a variant that declares no step state. The
+phase's own roster (`CompositionRequest.finalizeSteps`) stays the version's step list; the composition adds no step id.
+This repository's composer composes by call site and does not compose the finalize phase, so the wiring is the assembly's
+and is named owed in the plan's table. Writing the machine's and the project's values and the plan's overrides is not this
+package's.
 
 [#_the_landing_variant_of_the_project]
 === The Landing Variant of the Project

@@ -274,6 +274,70 @@ class MachineSettingsStatesTest {
     }
 
     @Test
+    @DisplayName("two re-checks against one revision: the first recorded, the second refused with the current defaults")
+    void verifyProvidersFirstChangeWins() throws Exception {
+        document();
+        ProviderVerification.ProviderProbe probe = createMock(ProviderVerification.ProviderProbe.class);
+        ProviderVerification.ToolProbe tools = createMock(ProviderVerification.ToolProbe.class);
+        expect(probe.origin(Provider.GITHUB)).andReturn(ProviderVerification.Answer.ok("reachable")).anyTimes();
+        expect(probe.identity(Provider.GITHUB, CREDENTIAL_KEY))
+                .andReturn(ProviderVerification.Answer.ok("ci-whoami")).anyTimes();
+        expect(probe.permissions(Provider.GITHUB, CREDENTIAL_KEY))
+                .andReturn(ProviderVerification.Answer.ok("repo")).anyTimes();
+        expect(probe.expiry(Provider.GITHUB, CREDENTIAL_KEY))
+                .andReturn(ProviderVerification.Answer.ok("2027-01-01")).anyTimes();
+        expect(tools.version(Provider.GITHUB)).andReturn(ProviderVerification.Answer.ok("gh 2.0")).anyTimes();
+        expect(tools.loginIdentity(Provider.GITHUB))
+                .andReturn(ProviderVerification.Answer.ok("ci-whoami")).anyTimes();
+        replay(probe, tools);
+        SecretStore unusedSecrets = createMock(SecretStore.class);
+        var verifying = new MachineSettingsStates(configuration, consentStore, unusedSecrets, List.of(),
+                new ProviderVerification(probe, tools), CLOCK);
+        var gate = new ConsentGate(consentStore.read(), CLOCK);
+        var first = verifying.verifyProviders(gate, ConsentGate.Answer.YES, Consent.Channel.CLI, null, revision);
+        var recorded = configuration.read();
+
+        var conflict = assertThrows(SettingsConflict.class, () -> verifying.verifyProviders(gate,
+                        ConsentGate.Answer.YES, Consent.Channel.CLI, null, revision),
+                "A second re-check against the consumed revision is refused");
+
+        assertAll(
+                () -> assertTrue(first.transition().succeeded(), "The first re-check did what it says"),
+                () -> assertTrue(recorded.providers().providers().get(Provider.GITHUB).available(),
+                        "The first re-check recorded the provider"),
+                () -> assertEquals(recorded.providers(), conflict.currentValue(),
+                        "The refusal names the current provider defaults"),
+                () -> assertEquals(revision + 1, conflict.currentRevision(),
+                        "The refusal names the revision the document holds"),
+                () -> assertEquals(recorded.providers(), configuration.read().providers(),
+                        "The refused re-check wrote nothing"));
+    }
+
+    @Test
+    @DisplayName("a declined consent runs no check and leaves the recorded providers as they are")
+    void verifyProvidersDeclined() throws Exception {
+        document();
+        ProviderVerification.ProviderProbe probe = createMock(ProviderVerification.ProviderProbe.class);
+        ProviderVerification.ToolProbe tools = createMock(ProviderVerification.ToolProbe.class);
+        replay(probe, tools);
+        SecretStore unusedSecrets = createMock(SecretStore.class);
+        var verifying = new MachineSettingsStates(configuration, consentStore, unusedSecrets, List.of(),
+                new ProviderVerification(probe, tools), CLOCK);
+        var gate = new ConsentGate(consentStore.read(), CLOCK);
+
+        var declined = verifying.verifyProviders(gate, ConsentGate.Answer.NO, Consent.Channel.CLI, null, revision);
+        var read = configuration.read();
+
+        assertAll(
+                () -> assertEquals(MachineSettingsStates.State.CHOOSE, declined.transition().next(),
+                        "A declined consent returns to the settings"),
+                () -> assertFalse(declined.verifications().getFirst().ran(), "The declined consent ran no check"),
+                () -> assertFalse(read.providers().providers().get(Provider.GITHUB).available(),
+                        "The provider's recorded availability is unchanged"),
+                () -> assertEquals(revision, read.revision(), "Nothing is written, so no revision advances"));
+    }
+
+    @Test
     @DisplayName("a re-check against a consumed revision is refused and writes nothing")
     void verifyProvidersConflict() throws Exception {
         document();

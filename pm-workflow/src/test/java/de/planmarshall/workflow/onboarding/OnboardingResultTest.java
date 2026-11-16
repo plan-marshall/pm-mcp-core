@@ -44,8 +44,7 @@ class OnboardingResultTest {
     @DisplayName("the aspects keep the fixed order of the guided and the automatic run")
     void aspectOrder() {
         assertAll(
-                () -> assertEquals(List.of("language", "harnesses", "models", "role-assignment", "credential-store",
-                                "providers", "plan-defaults"),
+                () -> assertEquals(List.of("language", "harness", "catalogue", "roles", "store", "providers", "defaults"),
                         Arrays.stream(OnboardingAspect.values()).map(OnboardingAspect::wireName).toList(),
                         "The aspects are the specification's, in its order"),
                 () -> assertEquals(Optional.of(OnboardingAspect.HARNESSES), OnboardingAspect.LANGUAGE.next(),
@@ -56,7 +55,7 @@ class OnboardingResultTest {
                         "The plan defaults follow the providers"),
                 () -> assertEquals(Optional.empty(), OnboardingAspect.PLAN_DEFAULTS.next(),
                         "The last aspect has no successor"),
-                () -> assertEquals(Optional.of(OnboardingAspect.MODELS), OnboardingAspect.of("models"),
+                () -> assertEquals(Optional.of(OnboardingAspect.MODELS), OnboardingAspect.of("catalogue"),
                         "An aspect is read by its name"),
                 () -> assertEquals(Optional.empty(), OnboardingAspect.of("speech"), "An unknown name has no aspect"));
     }
