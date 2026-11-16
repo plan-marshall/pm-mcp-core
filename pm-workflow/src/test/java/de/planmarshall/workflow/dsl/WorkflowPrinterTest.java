@@ -208,6 +208,51 @@ class WorkflowPrinterTest {
             state demo.end terminal done success
             """;
 
+    /** A sub-workflow whose frontmatter declares what it reads and its inputs, every input sub-key in its order. */
+    private static final String WITH_INPUTS = """
+            ---
+            name: demo.inputs
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: run
+            exit: done
+            reads_config: project.review.currency
+            reads_fact: push_remote
+            input: push_mode
+            input_type: enum[push|no_push]
+            input_description: Whether the branch is pushed.
+            input: attempts
+            input_type: int[1..5]
+            input_default: 2
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow demo.inputs version 1 format 1
+            scope subworkflow
+            entry run -> demo.work
+
+            state demo.work
+                auto demo.go
+                    done -> demo.end
+
+            state demo.end terminal done success
+            """;
+
+    @Test
+    @DisplayName("prints the reads and the inputs of the frontmatter in their order")
+    void printsTheReadsAndInputs() {
+        var printed = WorkflowPrinter.print(parse("demo.inputs.pmwf", WITH_INPUTS));
+
+        assertAll(
+                () -> assertTrue(printed.contains("reads_config: project.review.currency"), printed),
+                () -> assertTrue(printed.contains("reads_fact: push_remote"), printed),
+                () -> assertTrue(printed.contains("input: push_mode"), printed),
+                () -> assertTrue(printed.contains("input_type: enum[push|no_push]"), printed),
+                () -> assertTrue(printed.contains("input_default: 2"), printed));
+    }
+
     private static WorkflowDefinition parse(String resource, String source) {
         return parse(resource, source, UnitOrigin.DEFAULT);
     }

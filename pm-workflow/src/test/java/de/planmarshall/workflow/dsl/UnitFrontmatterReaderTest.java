@@ -549,6 +549,39 @@ class UnitFrontmatterReaderTest {
     }
 
     @Nested
+    @DisplayName("Inputs and reads")
+    class InputsAndReads {
+
+        /** A frontmatter that declares what the unit reads and its inputs, every input sub-key in its order. */
+        private static final List<String> WITH_INPUTS = List.of(
+                "name: Commit and Push",
+                "description: Commits the changes of the plan's worktree and pushes its branch.",
+                "type: subworkflow",
+                "icon: git.commit",
+                "entry: commit",
+                "exit: done",
+                "reads_config: project.review.currency",
+                "reads_fact: push_remote",
+                "input: push_mode",
+                "input_type: enum[push|no_push]",
+                "input_description: Whether the branch is pushed.",
+                "input: attempts",
+                "input_type: int[1..5]",
+                "input_default: 2",
+                "modification_date: 2026-10-14",
+                "version: 1.0.0",
+                "author: plan-marshall");
+
+        @Test
+        @DisplayName("reads the reads_config, reads_fact and input keys of a frontmatter")
+        void readsTheReadsAndInputs() {
+            var result = UnitFrontmatterReader.read(RESOURCE, unit(WITH_INPUTS));
+
+            assertInstanceOf(UnitFrontmatterReader.Result.Read.class, result, () -> "refused: " + result);
+        }
+    }
+
+    @Nested
     @DisplayName("The bounds")
     class Bounds {
 
