@@ -410,7 +410,11 @@ class CompiledInvariantsTest {
                                     + " default unit"),
                     Arguments.of(InvariantFixtures.INTERFACE_BINDING,
                             "the entry bindings {main=replan.apply} differ from the entry bindings"
-                                    + " {main=replan.assess} of the default unit"));
+                                    + " {main=replan.assess} of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_INPUT_WIDENED,
+                            "the input 'push_mode' differs from the input of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_INPUT_MISSING,
+                            "the input 'push_mode' of the default unit is missing"));
         }
 
         private static List<InvariantViolation> generalOne(WorkflowDefinition unit) {
@@ -421,8 +425,8 @@ class CompiledInvariantsTest {
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("differences")
-        @DisplayName("a project unit differing from its default unit in its type, an entry, an exit or an entry"
-                + " binding fails INV-GEN-1 at its header, naming the differing element")
+        @DisplayName("a project unit differing from its default unit in its type, an entry, an exit, an entry binding"
+                + " or an input fails INV-GEN-1 at its header, naming the differing element")
         void refusesDifference(Mutation mutation, String message) {
             var unit = InvariantFixtures.mutatedUnit(mutation);
 
@@ -431,8 +435,8 @@ class CompiledInvariantsTest {
             var matching = found.stream().filter(violation -> message.equals(violation.message())).toList();
             assertAll(
                     () -> assertEquals(1, matching.size(), found::toString),
-                    () -> assertEquals(new InvariantLocation(InvariantId.INV_GEN_1, REPLAN_FILE,
-                                    InvariantFixtures.lineOf(mutation.applied(), "workflow replan")),
+                    () -> assertEquals(new InvariantLocation(InvariantId.INV_GEN_1, mutation.file(),
+                                    InvariantFixtures.lineOf(mutation.applied(), "workflow " + unit.id())),
                             InvariantLocation.of(matching.getFirst())));
         }
 

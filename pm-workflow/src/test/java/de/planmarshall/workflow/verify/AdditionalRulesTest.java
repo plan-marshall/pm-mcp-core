@@ -639,6 +639,19 @@ class AdditionalRulesTest {
     }
 
     @Test
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: an input with a default, a fallback or the optional form may be omitted")
+    void subWorkflowInputMayBeOmitted() {
+        var def = unit("plan", """
+                state verify.entry
+                    call git.commit_and_push(push = enabled, targets = [origin])
+                        done -> verify.done
+                        stepped_out -> plan.return
+                """ + PLAN_RETURN + DONE_TERMINAL);
+
+        assertEquals(List.of(), found(def), () -> "attempts carries a default");
+    }
+
+    @Test
     @DisplayName("SUBWORKFLOW_CALL_CONTRACT: missing required inputs and exit outcomes")
     void subWorkflowMissingParamsAndOutcomes() {
         var def = unit("plan", """
@@ -653,7 +666,6 @@ class AdditionalRulesTest {
                 "the call does not route the exit outcome 'done' of 'git.commit_and_push'",
                 "the call does not route the exit outcome 'stepped_out' of 'git.commit_and_push'",
                 "the call omits the required input 'push' of 'git.commit_and_push'",
-                "the call omits the required input 'attempts' of 'git.commit_and_push'",
                 "the call omits the required input 'targets' of 'git.commit_and_push'"),
                 found(def));
     }

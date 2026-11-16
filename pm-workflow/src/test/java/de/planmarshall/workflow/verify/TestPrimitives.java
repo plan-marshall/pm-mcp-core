@@ -249,6 +249,7 @@ final class TestPrimitives {
                 input_type: enum[enabled|disabled]
                 input: attempts
                 input_type: int[1..5]
+                input_default: 2
                 input: targets
                 input_type: list<enum[origin|mirror]>
                 modification_date: 2026-01-15

@@ -113,6 +113,14 @@ public final class InvariantFixtures {
     static final Mutation INTERFACE_BINDING = new Mutation("another entry binding", REPLAN_FILE,
             "entry main -> replan.assess", "entry main -> replan.apply");
 
+    /** The project's commit unit widens the domain of an input its default unit declares. */
+    static final Mutation INTERFACE_INPUT_WIDENED = new Mutation("an input of a widened domain", GIT_FILE,
+            "input_type: enum[push|no_push]", "input_type: enum[push|no_push|force]");
+
+    /** The project's commit unit drops an input its default unit declares. */
+    static final Mutation INTERFACE_INPUT_MISSING = new Mutation("an input the default unit declares", GIT_FILE,
+            "input: push_mode\ninput_type: enum[push|no_push]\n", "");
+
     /** The phase file of the init phase, which holds the split of the lanes at {@code init.ready}. */
     public static final String INIT_FILE = "init.pmwf";
 
