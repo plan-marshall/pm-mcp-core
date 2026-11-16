@@ -38,10 +38,11 @@ import org.jspecify.annotations.Nullable;
  * printed source into the same tree, source locations aside.
  * <p>
  * The output is canonical: the frontmatter between its two {@code ---} lines in the order of its field table (name,
- * description, type, icon, each entry with its description, each exit with its description, modification date, version,
- * author, signature), each value plain when a plain scalar can carry it and double-quoted otherwise; the unit header,
- * the {@code instance} line with the header JSON exactly as it was read, the {@code scope} clause (with the
- * {@code param} and {@code result} declarations of a sub-workflow), the {@code declare} lines, the {@code decide} lines,
+ * description, type, icon, each entry with its description, each exit with its description, the configuration keys and
+ * fact kinds the unit reads, each input with its type and its optional default, fallback and description, modification
+ * date, version, author, signature), each value plain when a plain scalar can carry it and double-quoted otherwise; the
+ * unit header, the {@code instance} line with the header JSON exactly as it was read, the {@code scope} clause (with the
+ * {@code result} declaration of a sub-workflow), the {@code declare} lines, the {@code decide} lines,
  * the {@code start} line or the {@code entry <name> -> <state>} bindings, the {@code migrate} lines, and the states in
  * declaration order, a {@code call} with the entry it names, each preceded by a blank line and followed by its clauses,
  * indented by nesting. Every link names its form explicitly, and a guard carries exactly the parentheses its precedence
@@ -170,7 +171,6 @@ public final class WorkflowPrinter {
         }
         line(0, "scope " + lower(definition.scope()));
         if (definition.scope() == WorkflowScope.SUBWORKFLOW) {
-            definition.params().forEach(param -> line(0, "param %s : %s".formatted(param.name(), type(param.type()))));
             var resultSchema = definition.resultSchema();
             if (resultSchema != null) {
                 line(0, "result schema[" + resultSchema + "]");

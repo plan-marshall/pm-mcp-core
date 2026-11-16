@@ -34,7 +34,6 @@ import org.jspecify.annotations.Nullable;
  * @param id            the identifier of the unit
  * @param version       the revision of the unit, counted by its own header
  * @param scope         the scope the unit runs in
- * @param params        the parameter declarations; non-empty only for a {@link WorkflowScope#SUBWORKFLOW} unit
  * @param resultSchema  the named schema of the result record a sub-workflow returns with {@code done}; {@code null}
  *                      when the unit declares none
  * @param instance      the parsed {@code instance} header line of a plan instance version; {@code null} for any other
@@ -57,7 +56,6 @@ UnitFrontmatter frontmatter,
 String id,
 int version,
 WorkflowScope scope,
-List<ParamDecl> params,
 @Nullable String resultSchema,
 @Nullable InstanceHeader instance,
 Map<String, ValueDeclaration> declarations,
@@ -78,7 +76,6 @@ SourceLocation location) {
      * @param id            the identifier of the unit
      * @param version       the revision of the unit
      * @param scope         the scope the unit runs in
-     * @param params        the parameter declarations
      * @param resultSchema  the named schema of the result record, or {@code null}
      * @param instance      the parsed instance header line, or {@code null}
      * @param declarations  the {@code declare} lines by name, each with its value and line
@@ -93,7 +90,6 @@ SourceLocation location) {
      * @param location      where the unit header was read
      */
     public WorkflowDefinition {
-        params = List.copyOf(params);
         declarations = Collections.unmodifiableMap(new LinkedHashMap<>(declarations));
         decisions = Collections.unmodifiableMap(new LinkedHashMap<>(decisions));
         derivedFrom = Collections.unmodifiableMap(new LinkedHashMap<>(derivedFrom));

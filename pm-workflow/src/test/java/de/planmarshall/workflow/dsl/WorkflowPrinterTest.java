@@ -108,6 +108,12 @@ class WorkflowPrinterTest {
             description: A unit written for the tests of pm-workflow.
             type: instance
             icon: unit.plan
+            input: mode
+            input_type: enum[fast|Slow]
+            input: tries
+            input_type: int[1..3]
+            input: picks
+            input_type: list<enum[a|b]>
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall
@@ -117,9 +123,6 @@ class WorkflowPrinterTest {
             "templates": [{"unit": "git.flow", "digest": "t", "origin": "default"}], "sub_units": [], \
             "composition_rules": {"revision": "r", "digest": "d"}, "plan_facts_digest": "f"}}
             scope subworkflow
-            param mode : enum[fast|Slow]
-            param tries : int[1..3]
-            param picks : list<enum[a|b]>
             result schema[flow-result]
             declare rounds = 2
             declare flavours = [Sweet, sour]
@@ -288,7 +291,7 @@ class WorkflowPrinterTest {
     private static WorkflowDefinition unitWith(UnitFrontmatter frontmatter, LinkSpec... links) {
         var state = new StateNode("demo.begin", null, null, null,
                 new StateBehavior.InteractiveLinks(List.of(links)), NOWHERE);
-        return new WorkflowDefinition(frontmatter, "demo", 1, WorkflowScope.WORKSPACE, List.of(), null,
+        return new WorkflowDefinition(frontmatter, "demo", 1, WorkflowScope.WORKSPACE, null,
                 null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
                 "demo.begin", Map.of(), List.of(), Map.of("demo.begin", state), NOWHERE);
     }

@@ -32,7 +32,6 @@ import de.planmarshall.workflow.ast.LinkForm;
 import de.planmarshall.workflow.ast.LinkRelation;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
-import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
 import de.planmarshall.workflow.ast.ResultGuard;
@@ -58,12 +57,14 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * It reads the frontmatter first, through {@link UnitFrontmatterReader} (a missing or refused frontmatter is a
  * {@link RefusalRule#FRONTMATTER} refusal), then the body from the line after the closing {@code ---}: the unit
- * header, the optional {@code instance} line of a plan instance, the {@code scope} clause (with the {@code param} and
- * {@code result} declarations of a sub-workflow), the {@code declare} and {@code decide} lines, either one
+ * header, the optional {@code instance} line of a plan instance, the {@code scope} clause (with the {@code result}
+ * declaration of a sub-workflow), the {@code declare} and {@code decide} lines, either one
  * {@code start} line or one or more {@code entry <name> -> <state>} bindings, the {@code migrate} lines, and every
  * state form with its links, guards, transitions, result guards and step completions; a {@code call} may name the
  * callee's entry with {@code entry <name>}. A {@code link} clause without a form takes the relation's default form.
- * The keyword {@code entry} is positional, not reserved, so {@code setup.entry} stays a state identifier.
+ * The keyword {@code entry} is positional, not reserved, so {@code setup.entry} stays a state identifier. The inputs of
+ * a sub-workflow are the {@code input} declarations of its frontmatter; a body {@code param} declaration is not part of
+ * the grammar and is refused, naming the frontmatter keys that replace it.
  * <p>
  * It refuses, and the first refusal wins: a frontmatter outside its closed format or field rules, a structural
  * violation of the grammar (among them a body with both a {@code start} line and entry bindings, or with neither), a
@@ -199,13 +200,14 @@ public final class WorkflowParser {
         header.expectEnd();
         @Nullable InstanceHeader instance = nextStatementIs("instance") ? parseInstance() : null;
         var scope = parseScope();
-        var params = new ArrayList<ParamDecl>();
+        if (nextStatementIs("param")) {
+            throw refuse(RefusalRule.STRUCTURE, firstOfNextLine(),
+                    "a body 'param' declaration is not part of the grammar; declare the input in the frontmatter with"
+                            + " the keys 'input' and 'input_type'");
+        }
         @Nullable String resultSchema = null;
-        if (scope == WorkflowScope.SUBWORKFLOW) {
-            params.addAll(parseParams());
-            if (nextStatementIs(KEYWORD_RESULT)) {
-                resultSchema = parseResult();
-            }
+        if (scope == WorkflowScope.SUBWORKFLOW && nextStatementIs(KEYWORD_RESULT)) {
+            resultSchema = parseResult();
         }
         var declarations = new LinkedHashMap<String, ValueDeclaration>();
         var decisions = new LinkedHashMap<String, DecisionDeclaration>();
@@ -240,7 +242,7 @@ public final class WorkflowParser {
         do {
             parseState(states);
         } while (hasLine());
-        return new WorkflowDefinition(frontmatter, id, version, scope, params, resultSchema, instance, declarations,
+        return new WorkflowDefinition(frontmatter, id, version, scope, resultSchema, instance, declarations,
                 decisions, formatVersion, origin, derivedFrom, startState, entryBindings, migrations, states,
                 location);
     }
@@ -306,24 +308,6 @@ public final class WorkflowParser {
         var scope = keyword(line, WorkflowScope.class, "a scope");
         line.expectEnd();
         return scope;
-    }
-
-    private List<ParamDecl> parseParams() {
-        var params = new ArrayList<ParamDecl>();
-        var names = new HashSet<String>();
-        while (nextStatementIs("param")) {
-            var line = nextLine();
-            var keyword = line.next("the keyword 'param'");
-            var name = paramName(line);
-            if (!names.add(name.text())) {
-                throw refuse(RefusalRule.DUPLICATE_ID, name, PARAMETER_DECLARED_TWICE, name.text());
-            }
-            line.expect(COLON);
-            var type = subWorkflowType(line);
-            line.expectEnd();
-            params.add(new ParamDecl(name.text(), type, location(keyword)));
-        }
-        return params;
     }
 
     /** Reads the {@code result schema[...]} line; the caller has seen that the next statement is one. */
@@ -754,23 +738,6 @@ public final class WorkflowParser {
             case KEYWORD_SCHEMA -> new ParamType.SchemaRef(schemaName(line));
             default -> throw refuse(RefusalRule.STRUCTURE, type, EXPECTED_BUT_FOUND,
                     "a type (text, int, enum, schema or list)", type.text());
-        };
-    }
-
-    private ParamType subWorkflowType(LineCursor line) {
-        var what = "a sub-workflow parameter type (enum, int or list<enum>)";
-        var type = line.next(what);
-        return switch (type.kind() == Token.Kind.IDENT ? type.text() : "") {
-            case KEYWORD_ENUM -> enumValues(line);
-            case KEYWORD_INT -> intType(line);
-            case KEYWORD_LIST -> {
-                line.expect("<");
-                line.expect(KEYWORD_ENUM);
-                var element = enumValues(line);
-                line.expect(">");
-                yield new ParamType.ListOf(element);
-            }
-            default -> throw refuse(RefusalRule.STRUCTURE, type, EXPECTED_BUT_FOUND, what, type.text());
         };
     }
 

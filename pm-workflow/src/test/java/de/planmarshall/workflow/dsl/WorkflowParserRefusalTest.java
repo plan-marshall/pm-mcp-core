@@ -142,11 +142,11 @@ class WorkflowParserRefusalTest {
         }
 
         @Test
-        @DisplayName("finds one fixture per refusal class: 14 of the body, 19 of the frontmatter, 2 of the entries")
+        @DisplayName("finds one fixture per refusal class: 13 of the body, 20 of the frontmatter, 2 of the entries")
         void fixturesPresent() {
             assertAll(
                     () -> assertEquals(35, malformedFixtures().size()),
-                    () -> assertEquals(21, frontmatterAndEntryFixtures().size()));
+                    () -> assertEquals(22, frontmatterAndEntryFixtures().size()));
         }
 
         static Set<RefusalRule> statedRules() {
@@ -671,14 +671,11 @@ class WorkflowParserRefusalTest {
         static Stream<Arguments> duplicateEnumValues() {
             var declare = "declare modes = [a, b, a]";
             var call = "call demo.sub(modes = [x, y, x])";
-            var enumType = "param mode : enum[a|b|a]";
             return Stream.of(
                     Arguments.of("declare line", withHeaderLines("plan", declare), FRONTMATTER_LINES + 3,
                             declare.lastIndexOf("a]") + 1, "a"),
                     Arguments.of("call binding", unitWithBody("plan", call, "done -> demo.begin"),
-                            FRONTMATTER_LINES + 5, call.lastIndexOf("x]") + 1, "x"),
-                    Arguments.of("enum type", withHeaderLines("subworkflow", enumType), FRONTMATTER_LINES + 3,
-                            enumType.lastIndexOf("a]") + 1, "a"));
+                            FRONTMATTER_LINES + 5, call.lastIndexOf("x]") + 1, "x"));
         }
 
         @ParameterizedTest(name = "{0}")

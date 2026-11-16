@@ -21,8 +21,8 @@ import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.OutcomeTransition;
-import de.planmarshall.workflow.ast.ParamDecl;
-import de.planmarshall.workflow.ast.ParamType;
+import de.planmarshall.workflow.ast.InputDecl;
+import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
@@ -140,8 +140,8 @@ final class RemediationInvariants {
     /** The outcome of the terminal a phase sub-workflow leaves on when the plan unit hands the plan back. */
     private static final String HAND_BACK_OUTCOME = "handed_back";
 
-    private static final ParamType BUDGET_TYPE = new ParamType.Int(0, BUDGET_CAP);
-    private static final ParamType WAIT_TYPE = new ParamType.Int(0, WAIVER_WAIT_CAP);
+    private static final InputType BUDGET_TYPE = new InputType.IntRange(0, BUDGET_CAP);
+    private static final InputType WAIT_TYPE = new InputType.IntRange(0, WAIVER_WAIT_CAP);
 
     private static final Map<String, OutcomeClass> TERMINALS = Map.of("resolved", OutcomeClass.SUCCESS,
             GeneralInvariants.WAIVED, OutcomeClass.SUCCESS, EXHAUSTED, OutcomeClass.FAILURE, FIX_REQUESTED_OUTCOME,
@@ -163,8 +163,8 @@ final class RemediationInvariants {
     private static void contract(Context context) {
         var unit = context.unit();
         var expected = expectedParams();
-        for (var param : unit.params()) {
-            checkParam(context, expected, param);
+        for (var input : unit.frontmatter().inputs()) {
+            checkParam(context, expected, input);
         }
         reportMissingParams(context, expected.keySet());
         var reachable = context.reachable();
@@ -178,8 +178,8 @@ final class RemediationInvariants {
     /**
      * @return the parameters of the contract but {@code actions}, by name, with their declared types
      */
-    private static Map<String, ParamType> expectedParams() {
-        var expected = new LinkedHashMap<String, ParamType>();
+    private static Map<String, InputType> expectedParams() {
+        var expected = new LinkedHashMap<String, InputType>();
         expected.put(WAIVER_WAIT, WAIT_TYPE);
         expected.put(RETRY_BUDGET, BUDGET_TYPE);
         expected.put(FIX_BUDGET, BUDGET_TYPE);
@@ -190,7 +190,7 @@ final class RemediationInvariants {
      * Checks one declared parameter against the contract: {@code actions} against the action set, every other one
      * against its expected type.
      */
-    private static void checkParam(Context context, Map<String, ParamType> expected, ParamDecl param) {
+    private static void checkParam(Context context, Map<String, InputType> expected, InputDecl param) {
         var id = InvariantId.INV_REM_1;
         var unitId = context.unit().id();
         if (ACTIONS.equals(param.name())) {
@@ -199,22 +199,22 @@ final class RemediationInvariants {
         }
         var type = expected.get(param.name());
         if (type == null) {
-            context.report(id, unitId, param.location(), "the parameter '%s' is not part of the contract"
+            context.report(id, unitId, param.location(), "the input '%s' is not part of the contract"
                     .formatted(param.name()));
         } else if (!type.equals(param.type())) {
-            context.report(id, unitId, param.location(), "the parameter '%s' is not declared as %s"
+            context.report(id, unitId, param.location(), "the input '%s' is not declared as %s"
                     .formatted(param.name(), describe(type)));
         }
     }
 
     /**
-     * Reports every parameter of the contract the unit does not declare, {@code actions} last.
+     * Reports every input of the contract the unit does not declare, {@code actions} last.
      */
     private static void reportMissingParams(Context context, Set<String> expectedNames) {
         var id = InvariantId.INV_REM_1;
         var unit = context.unit();
         var declared = new LinkedHashSet<String>();
-        unit.params().forEach(param -> declared.add(param.name()));
+        unit.frontmatter().inputs().forEach(input -> declared.add(input.name()));
         expectedNames.stream().filter(name -> !declared.contains(name)).forEach(name -> context.reportUnit(id,
                 "the unit does not declare the parameter '%s'".formatted(name)));
         if (!declared.contains(ACTIONS)) {
@@ -243,7 +243,7 @@ final class RemediationInvariants {
         }
     }
 
-    private static void checkActions(Context context, ParamType type, SourceLocation location) {
+    private static void checkActions(Context context, InputType type, SourceLocation location) {
         var id = InvariantId.INV_REM_1;
         var actions = actionsOf(type);
         if (actions.isEmpty() || !ACTION_SET.containsAll(actions.get())) {
@@ -258,8 +258,8 @@ final class RemediationInvariants {
         }
     }
 
-    private static Optional<Set<String>> actionsOf(ParamType type) {
-        if (type instanceof ParamType.ListOf(ParamType.EnumOf(var values))) {
+    private static Optional<Set<String>> actionsOf(InputType type) {
+        if (type instanceof InputType.EnumList(var values)) {
             return Optional.of(Set.copyOf(values));
         }
         return Optional.empty();
@@ -267,16 +267,15 @@ final class RemediationInvariants {
 
     /**
      * @param definition a remediation unit
-     * @return the values of its {@code actions} parameter; empty when it declares none
+     * @return the values of its {@code actions} input; empty when it declares none
      */
     static Optional<Set<String>> actionsOf(WorkflowDefinition definition) {
-        return definition.params().stream().filter(param -> ACTIONS.equals(param.name())).findFirst()
-                .flatMap(param -> actionsOf(param.type()));
+        return definition.frontmatter().inputs().stream().filter(input -> ACTIONS.equals(input.name())).findFirst()
+                .flatMap(input -> actionsOf(input.type()));
     }
 
-    private static String describe(ParamType type) {
-        return type instanceof ParamType.Int(var min, var max) && min != null && max != null
-                ? "int[%d..%d]".formatted(min, max) : type.toString();
+    private static String describe(InputType type) {
+        return type.sourceText();
     }
 
     // ----- INV-REM-2

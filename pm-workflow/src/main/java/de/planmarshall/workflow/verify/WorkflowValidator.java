@@ -33,12 +33,13 @@ import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.workflow.ast.CallValue;
+import de.planmarshall.workflow.ast.InputDecl;
+import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.LinkAction;
 import de.planmarshall.workflow.ast.LinkForm;
 import de.planmarshall.workflow.ast.LinkRelation;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
-import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
 import de.planmarshall.workflow.ast.ResultGuard;
@@ -306,9 +307,6 @@ public final class WorkflowValidator {
                     .location(definition.location())
                     .message("the result schema '%s' is not registered".formatted(schemaName))
                     .build());
-        }
-        for (var param : definition.params()) {
-            checkParamSchema(param.name(), param.type(), param.location(), unitStateId(definition), violations);
         }
         for (var state : definition.states().values()) {
             for (var link : UnitGraph.declaredLinks(state.behavior())) {
@@ -1497,34 +1495,34 @@ public final class WorkflowValidator {
                     }
                 }
 
-                var declaredParams = new LinkedHashMap<String, ParamDecl>();
-                for (var param : callee.params()) {
-                    declaredParams.put(param.name(), param);
+                var declaredInputs = new LinkedHashMap<String, InputDecl>();
+                for (var input : callee.frontmatter().inputs()) {
+                    declaredInputs.put(input.name(), input);
                 }
                 for (var entry : call.paramBindings().entrySet()) {
-                    var paramName = entry.getKey();
+                    var inputName = entry.getKey();
                     var callValue = entry.getValue();
-                    var paramDecl = declaredParams.get(paramName);
-                    if (paramDecl == null) {
+                    var input = declaredInputs.get(inputName);
+                    if (input == null) {
                         violations.add(Violation.builder()
                                 .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                                 .stateId(state.id())
                                 .location(state.location())
-                                .message("the parameter binding '%s' names an undeclared parameter of '%s'"
-                                        .formatted(paramName, call.subWorkflowId()))
+                                .message("the input binding '%s' names an undeclared input of '%s'"
+                                        .formatted(inputName, call.subWorkflowId()))
                                 .build());
                     } else {
-                        checkParamValueMatch(state, call.subWorkflowId(), paramDecl, callValue, violations);
+                        checkInputValueMatch(state, call.subWorkflowId(), input, callValue, violations);
                     }
                 }
-                for (var paramName : declaredParams.keySet()) {
-                    if (!call.paramBindings().containsKey(paramName)) {
+                for (var input : declaredInputs.values()) {
+                    if (!call.paramBindings().containsKey(input.name())) {
                         violations.add(Violation.builder()
                                 .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                                 .stateId(state.id())
                                 .location(state.location())
-                                .message("the call omits the required parameter '%s' of '%s'"
-                                        .formatted(paramName, call.subWorkflowId()))
+                                .message("the call omits the required input '%s' of '%s'"
+                                        .formatted(input.name(), call.subWorkflowId()))
                                 .build());
                     }
                 }
@@ -1636,18 +1634,18 @@ public final class WorkflowValidator {
         return g1.field().equals(g2.field()) && g1.negated() != g2.negated();
     }
 
-    private static void checkParamValueMatch(StateNode state, String subWorkflowId, ParamDecl param,
+    private static void checkInputValueMatch(StateNode state, String subWorkflowId, InputDecl input,
             CallValue value, List<Violation> violations) {
-        switch (param.type()) {
-            case ParamType.EnumOf(var allowedValues) -> {
+        switch (input.type()) {
+            case InputType.Enumeration(var allowedValues) -> {
                 if (value instanceof CallValue.EnumValue(var enumVal)) {
                     if (!allowedValues.contains(enumVal)) {
                         violations.add(Violation.builder()
                                 .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                                 .stateId(state.id())
                                 .location(state.location())
-                                .message("the value '%s' of parameter '%s' is not in the allowed enum values %s of '%s'"
-                                        .formatted(enumVal, param.name(), allowedValues, subWorkflowId))
+                                .message("the value '%s' of input '%s' is not in the allowed enum values %s of '%s'"
+                                        .formatted(enumVal, input.name(), allowedValues, subWorkflowId))
                                 .build());
                     }
                 } else {
@@ -1655,12 +1653,12 @@ public final class WorkflowValidator {
                             .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                             .stateId(state.id())
                             .location(state.location())
-                            .message("the parameter '%s' of '%s' expects an enum value, but found %s"
-                                    .formatted(param.name(), subWorkflowId, value))
+                            .message("the input '%s' of '%s' expects an enum value, but found %s"
+                                    .formatted(input.name(), subWorkflowId, value))
                             .build());
                 }
             }
-            case ParamType.Int(var min, var max) -> {
+            case InputType.IntRange(var min, var max) -> {
                 if (value instanceof CallValue.IntValue(var intVal)) {
                     var minVal = min != null ? min : Integer.MIN_VALUE;
                     var maxVal = max != null ? max : Integer.MAX_VALUE;
@@ -1669,8 +1667,8 @@ public final class WorkflowValidator {
                                 .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                                 .stateId(state.id())
                                 .location(state.location())
-                                .message("the integer value %d of parameter '%s' is out of range [%d..%d] for '%s'"
-                                        .formatted(intVal, param.name(), minVal, maxVal, subWorkflowId))
+                                .message("the integer value %d of input '%s' is out of range [%d..%d] for '%s'"
+                                        .formatted(intVal, input.name(), minVal, maxVal, subWorkflowId))
                                 .build());
                     }
                 } else {
@@ -1678,30 +1676,30 @@ public final class WorkflowValidator {
                             .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                             .stateId(state.id())
                             .location(state.location())
-                            .message("the parameter '%s' of '%s' expects an int value, but found %s"
-                                    .formatted(param.name(), subWorkflowId, value))
+                            .message("the input '%s' of '%s' expects an int value, but found %s"
+                                    .formatted(input.name(), subWorkflowId, value))
                             .build());
                 }
             }
-            case ParamType.ListOf(var elementType) -> {
+            case InputType.EnumList(var allowedValues) -> {
                 if (value instanceof CallValue.EnumList(var listVals)) {
                     if (listVals.isEmpty()) {
                         violations.add(Violation.builder()
                                 .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                                 .stateId(state.id())
                                 .location(state.location())
-                                .message("the parameter '%s' of '%s' must not be an empty list"
-                                        .formatted(param.name(), subWorkflowId))
+                                .message("the input '%s' of '%s' must not be an empty list"
+                                        .formatted(input.name(), subWorkflowId))
                                 .build());
-                    } else if (elementType instanceof ParamType.EnumOf(var allowedValues)) {
+                    } else {
                         for (var elem : listVals) {
                             if (!allowedValues.contains(elem)) {
                                 violations.add(Violation.builder()
                                         .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                                         .stateId(state.id())
                                         .location(state.location())
-                                        .message("the list value '%s' of parameter '%s' is not in the allowed enum values %s of '%s'"
-                                                .formatted(elem, param.name(), allowedValues, subWorkflowId))
+                                        .message("the list value '%s' of input '%s' is not in the allowed enum values %s of '%s'"
+                                                .formatted(elem, input.name(), allowedValues, subWorkflowId))
                                         .build());
                             }
                         }
@@ -1711,12 +1709,10 @@ public final class WorkflowValidator {
                             .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                             .stateId(state.id())
                             .location(state.location())
-                            .message("the parameter '%s' of '%s' expects a list value, but found %s"
-                                    .formatted(param.name(), subWorkflowId, value))
+                            .message("the input '%s' of '%s' expects a list value, but found %s"
+                                    .formatted(input.name(), subWorkflowId, value))
                             .build());
                 }
-            }
-            case ParamType.Text _, ParamType.SchemaRef _ -> {
             }
         }
     }

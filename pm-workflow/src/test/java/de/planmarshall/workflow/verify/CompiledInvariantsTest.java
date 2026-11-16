@@ -44,7 +44,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.workflow.ast.ParamDecl;
+import de.planmarshall.workflow.ast.InputDecl;
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
@@ -175,7 +175,7 @@ class CompiledInvariantsTest {
         @DisplayName("are the parameters of the remediation contract but its actions, the set INV-REM-5 caps")
         void contractParameters() {
             var unit = InvariantFixtures.defaultUnits().get("remediation.qgate-findings");
-            var declared = unit.params().stream().map(ParamDecl::name)
+            var declared = unit.frontmatter().inputs().stream().map(InputDecl::name)
                     .filter(name -> !RemediationInvariants.ACTIONS.equals(name)).collect(Collectors.toSet());
 
             assertAll(
@@ -554,13 +554,14 @@ class CompiledInvariantsTest {
                     type: subworkflow
                     icon: workflow.default
                     exit: resolved
+                    input: waiver_wait_seconds
+                    input_type: int[0..86400]
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
                     ---
                     workflow remediation.spend version 1 format 1
                     scope subworkflow
-                    param waiver_wait_seconds : int[0..86400]
                     start remediation-spend.resolved
 
                     state remediation-spend.resolved terminal resolved success
@@ -755,7 +756,8 @@ class CompiledInvariantsTest {
                         "        push_state_unknown -> git.verify\n\nstate git.lease-push",
                         "push_state_unknown -> git.verify"),
                 change(InvariantId.INV_REM_1, "the fix budget exceeds its hard cap", REMEDIATION_FILE,
-                        "param fix_budget : int[0..5]", "param fix_budget : int[0..9]", "param fix_budget"),
+                        "input: fix_budget\ninput_type: int[0..5]",
+                        "input: fix_budget\ninput_type: int[0..9]", "input: fix_budget"),
                 change(InvariantId.INV_REM_2, "the lost decision task routes past the conservative remedy",
                         REMEDIATION_FILE,
                         "infeasible -> remediation-qgate.conservative\n        lost -> remediation-qgate.conservative",

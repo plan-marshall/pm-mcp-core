@@ -158,14 +158,11 @@ class AstNodeModelTest {
         @DisplayName("the collections of the definition are copied")
         void definitionCollectionsAreCopied() {
             var stateId = Generators.letterStrings(1, 8).next();
-            var params = new ArrayList<ParamDecl>();
             var migrations = new ArrayList<StateMigration>();
             var states = new LinkedHashMap<String, StateNode>();
             states.put(stateId, terminalState(stateId));
-            var definition = definition(params, migrations, states);
+            var definition = definition(migrations, states);
 
-            params.add(new ParamDecl(Generators.letterStrings(1, 8).next(),
-                    new ParamType.EnumOf(List.of(Generators.letterStrings(1, 8).next())), LOCATION));
             migrations.add(new StateMigration(Generators.letterStrings(1, 8).next(), stateId, LOCATION));
             var addedStateId = text();
             states.put(addedStateId, terminalState(addedStateId));
@@ -173,7 +170,6 @@ class AstNodeModelTest {
             var copiedMigrations = definition.migrations();
 
             assertAll(
-                    () -> assertEquals(List.of(), definition.params()),
                     () -> assertEquals(List.of(), copiedMigrations),
                     () -> assertEquals(List.of(stateId), List.copyOf(copiedStates.keySet())),
                     () -> assertThrows(UnsupportedOperationException.class, copiedStates::clear),
@@ -269,7 +265,7 @@ class AstNodeModelTest {
             var states = new LinkedHashMap<String, StateNode>();
             states.put(stateId, terminalState(stateId));
 
-            var definition = definition(List.of(), List.of(), states);
+            var definition = definition(List.of(), states);
 
             assertEquals(List.of(stateId), definition.startingStates());
         }
@@ -458,7 +454,7 @@ class AstNodeModelTest {
                 states.put(id, terminalState(id));
             }
 
-            var definition = definition(List.of(), List.of(), states);
+            var definition = definition(List.of(), states);
 
             assertEquals(ids, List.copyOf(definition.states().keySet()));
         }
@@ -665,10 +661,10 @@ class AstNodeModelTest {
                 "0.1.0", "plan-marshall", null, LOCATION);
     }
 
-    private static WorkflowDefinition definition(List<ParamDecl> params, List<StateMigration> migrations,
+    private static WorkflowDefinition definition(List<StateMigration> migrations,
             Map<String, StateNode> states) {
         return new WorkflowDefinition(frontmatter(List.of(), List.of()),
-                Generators.letterStrings(1, 8).next(), Generators.integers(1, 100).next(), WorkflowScope.PLAN, params,
+                Generators.letterStrings(1, 8).next(), Generators.integers(1, 100).next(), WorkflowScope.PLAN,
                 null, null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
                 states.keySet().iterator().next(), Map.of(), migrations, states, LOCATION);
     }
@@ -677,7 +673,7 @@ class AstNodeModelTest {
             Map<String, StateNode> states) {
         return new WorkflowDefinition(frontmatter(List.of(), List.of()),
                 Generators.letterStrings(1, 8).next(), Generators.integers(1, 100).next(), WorkflowScope.SUBWORKFLOW,
-                List.of(), null, null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT,
+                null, null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT,
                 Map.of(), null, entryBindings, List.of(), states, LOCATION);
     }
 
