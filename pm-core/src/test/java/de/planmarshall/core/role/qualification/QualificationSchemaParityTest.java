@@ -23,6 +23,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -43,10 +44,10 @@ import de.planmarshall.core.store.SchemaParity;
 /**
  * The two grading codecs keep parity with the schema files {@code qualification-record.schema.json} and
  * {@code judge-check-record.schema.json}, read from the class path: the members they write and require in schema order,
- * the closed enumerations, the format version 1, and every document they write is valid against its schema. One drift
- * is pinned, each with its owner: the file declares the {@code thin} mark of a topic result (owner: the work package
- * {@code qualification-evidence}) and an optional {@code judge_check} member of the record, neither of which a codec
- * reads or writes.
+ * the closed enumerations, the format version 1, and every document they write is valid against its schema. Two drifts
+ * are pinned, each with its owner: the file requires the {@code thin} mark on a topic result and declares an optional
+ * {@code judge_check} member of the record, and a codec writes neither (owner: the work package
+ * {@code qualification-evidence}).
  */
 @EnableGeneratorController
 @DisplayName("Qualification schema parity")
@@ -61,6 +62,9 @@ class QualificationSchemaParityTest {
     private static final String TOPICS = "topics";
     private static final String ITEMS = "items";
     private static final String THIN = "thin";
+
+    /** The compiled item count below which a topic result is {@code thin} ({@code qualification-record.schema.json}). */
+    private static final int THIN_LIMIT = 20;
 
     private static Map<?, ?> schema(String resource) {
         return SchemaResource.load(resource);
@@ -115,15 +119,26 @@ class QualificationSchemaParityTest {
 
     /**
      * @param document a written qualification record
-     * @return the same document with the pinned {@code thin} mark supplied on every topic result
+     * @return the same document with the pinned {@code thin} mark supplied on every topic result, as the schema defines it
      */
     @SuppressWarnings("unchecked")
     private static byte[] withTopicMark(byte[] document) {
         var parsed = SchemaParity.object(SchemaParity.document(document));
         SchemaResource.object(parsed.get(FORMS)).values().forEach(form ->
-                SchemaResource.object(SchemaResource.object(form).get(TOPICS)).values().forEach(topic ->
-                        ((Map<String, Object>) SchemaResource.object(topic)).put(THIN, Boolean.TRUE)));
+                SchemaResource.object(SchemaResource.object(form).get(TOPICS)).values().forEach(topic -> {
+                    var values = (Map<String, Object>) SchemaResource.object(topic);
+                    values.put(THIN, ((Number) values.get(ITEMS)).intValue() < THIN_LIMIT);
+                }));
         return SchemaParity.text(parsed).getBytes(UTF_8);
+    }
+
+    /**
+     * @return the topic result's required members, with the pinned {@code thin} mark
+     */
+    private static List<String> topicRequired() {
+        var members = new ArrayList<>(QualificationRecordCodec.TOPIC_MEMBERS);
+        members.add(THIN);
+        return List.copyOf(members);
     }
 
     @Nested
@@ -159,16 +174,21 @@ class QualificationSchemaParityTest {
         }
 
         @Test
-        @DisplayName("every required member of the record, its form and its item is written")
+        @DisplayName("every required member of the record, its form, its item and its topic is written")
         void requiredAreWritten() {
             var schema = schema(QUALIFICATION);
 
             assertAll(
+                    () -> assertEquals(QualificationRecordCodec.CONFIGURATION_MEMBERS,
+                            required(member(schema, "configuration")),
+                            "the configuration's required members are the codec's"),
                     () -> assertEquals(QualificationRecordCodec.FORM_MEMBERS,
                             required(definition(schema, "formResult")),
                             "the form's required members are the codec's"),
                     () -> assertEquals(QualificationRecordCodec.ITEM_MEMBERS, required(itemOf(schema, ITEMS)),
-                            "the item's required members are the codec's"));
+                            "the item's required members are the codec's"),
+                    () -> assertEquals(topicRequired(), required(definition(schema, "topicResult")),
+                            "the topic's required members are the codec's and the pin"));
         }
 
         @Test
@@ -238,6 +258,8 @@ class QualificationSchemaParityTest {
 
             assertAll(
                     () -> assertFalse(properties(schema).isEmpty(), "the schema declares its members"),
+                    () -> assertEquals(List.of(), SchemaParity.memberDiffs(JudgeCheckCodec.MEMBERS, schema),
+                            "the record members are the schema's"),
                     () -> assertEquals(JudgeCheckCodec.MEMBERS, required(schema),
                             "the record members are the required ones in order"),
                     () -> assertEquals(JudgeCheckCodec.ITEM_MEMBERS, memberNames(itemOf(schema, ITEMS)),

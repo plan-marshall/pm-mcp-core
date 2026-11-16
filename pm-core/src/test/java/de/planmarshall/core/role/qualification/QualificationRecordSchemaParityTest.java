@@ -27,9 +27,9 @@ import de.planmarshall.core.store.SchemaParity;
 /**
  * The qualification record keeps parity with {@code qualification-record.schema.json}: the codec writes the file's
  * members in its order, every required member is written, the closed enumerations are the file's, and the bounds are
- * the record's own limits. One drift is pinned: the file declares an optional {@code judge_check} member the codec
- * neither writes nor reads (owner: the work package {@code qualification-evidence}). The codec writes no token split,
- * as the file declares only {@code total_tokens}.
+ * the record's own limits. The optional {@code judge_check} member the codec neither writes nor reads is pinned here
+ * (owner: the work package {@code qualification-evidence}); the required {@code thin} mark of a topic result is pinned in
+ * {@link QualificationSchemaParityTest}. The codec writes no token split, as the file declares only {@code total_tokens}.
  */
 @DisplayName("Qualification record schema parity")
 class QualificationRecordSchemaParityTest {

@@ -261,7 +261,7 @@ file), `QualificationCheckTest` (the validity matrix, the level change, the base
 `ConstantBaselineTest`, `RoleTopicsTest`, `ScoringTest`, `JudgeCheckTest` (the oracle and blind accuracies, the lost
 judge task, the stale record), `QualificationRecordCodecTest`, `QualificationRecordStoreTest` and
 `QualificationSchemaParityTest` (the two grading schema files, their members, enumerations and the validity of every
-written document).
+written document, the qualification record but for the pinned `thin` mark of a topic result).
 
 == Tokens and the Split
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5]_
@@ -277,7 +277,9 @@ never part of a grading record. A total of `0` is refused (the lower bound is `1
 total is refused at construction.
 
 `QualificationRecordCodecTest` covers the split of `TokenTotal` and asserts that a record is written without it;
-`QualificationSchemaParityTest` reads the two schema files and validates every written document against its schema.
+`QualificationSchemaParityTest` reads the two schema files and validates every written document against its schema, the
+qualification record but for the pinned `thin` mark of a topic result (owner: the work package
+`qualification-evidence`).
 
 link:../adr/core-role/006-grading-records-persist-the-total-only.adoc[ADR 006]: the qualification and judge-check records
 persist the total only. link:../adr/core-role/005-token-total-carries-the-split.adoc[ADR 005] is superseded in the part

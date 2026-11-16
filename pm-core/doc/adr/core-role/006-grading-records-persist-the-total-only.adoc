@@ -15,10 +15,11 @@ Accepted.
 The role qualification record and the judge check record are closed objects of `store-schemas/16` (Store Schemas § Role
 Qualification Record, § Judge Check Record) and declare `total_tokens` only; `tokens_in` and `tokens_out` appear in the
 decision calibration record alone. `QualificationRecordCodec` and `JudgeCheckCodec` still wrote and required the two
-members, so a document the code wrote was invalid against its schema, and no test read the two schema files. The split
-an operator sees (Client Profiles § Tokens, Not Money) is a view fact: the metrics rows persist the token components and
-the split is derived on read (ADR core-store/048). ADR core-role/005 decided that `TokenTotal` carries the split and
-named the two grading records among its writers.
+members, so a document the code wrote was invalid against its schema. Two parity tests read the two files and pinned that
+drift to this plan rather than closing it, and no test validated a written document against them. The split an operator
+sees (Client Profiles § Tokens, Not Money) is a view fact: the metrics rows persist the token components and the split is
+derived on read (ADR core-store/048). ADR core-role/005 decided that `TokenTotal` carries the split and named the two
+grading records among its writers.
 
 == Decision
 
@@ -41,9 +42,10 @@ plan would add it back.
 
 A document that carries either member is refused like any other undeclared member, and no migration exists because
 nothing is released (R13). The split a view shows is derived on read (ADR core-store/048). `QualificationSchemaParityTest`
-reads both schema files and pins the members, the required set, the enumerations, the format version and the validity of
-every written document, so the drift cannot recur unnoticed. A plan that gives either record a split must change the
-schema first and this ADR with it.
+(beside the two per-record parity tests) reads both schema files and pins the members, the required set, the enumerations,
+the format version and the validity of every written document: the judge-check document as written, and the qualification
+document but for the required `thin` mark of a topic result, which the codec does not write (owner: the work package
+`qualification-evidence`). A plan that gives either record a split must change the schema first and this ADR with it.
 
 == Source
 
