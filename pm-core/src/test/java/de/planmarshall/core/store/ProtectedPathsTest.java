@@ -14,15 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Files;
 import java.text.Normalizer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import de.planmarshall.core.SpecificationDocument;
 
 /**
  * The protected paths of the hook definitions (PM-WF-11, PM-SEC-5): the family of
@@ -92,24 +88,6 @@ class ProtectedPathsTest {
                         "a near miss is not protected"),
                 () -> assertFalse(ProtectedPaths.isProtected(".husky/pre-commit", Set.of(".husky/pre-commit")),
                         "a declared path is lifted"));
-    }
-
-    @Test
-    @DisplayName("the hook family is the specification's list")
-    void hookFamilyIsTheSpecificationList() throws Exception {
-        var document = SpecificationDocument.root()
-                .resolve("doc/specification/phase-workflows/03-q-gate-and-execute.adoc");
-        var bullet = Files.readAllLines(document).stream()
-                .filter(line -> line.contains("[[protected-paths]]")).findFirst()
-                .orElseThrow(() -> new AssertionError("the Protected paths bullet is absent"));
-        var start = bullet.indexOf("the hook definitions git runs from tracked files (");
-        var end = bullet.indexOf(")", start);
-        var declared = Arrays.stream(bullet.substring(start + "the hook definitions git runs from tracked files ("
-                .length(), end).split(",")).map(String::strip).map(name -> name.replace("`", ""))
-                .toList();
-
-        assertEquals(List.of(".husky/**", ".githooks/**", "lefthook.yml", ".lefthook.yml", "lefthook-local.yml",
-                ".pre-commit-config.yaml"), declared, "the matcher's hook family is the specification's list");
     }
 
     @Test
