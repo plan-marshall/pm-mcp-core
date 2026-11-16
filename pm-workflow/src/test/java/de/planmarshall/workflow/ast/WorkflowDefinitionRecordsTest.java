@@ -31,12 +31,6 @@ import de.planmarshall.workflow.testing.generators.WorkflowGenerators;
 @DisplayName("WorkflowDefinition builder")
 class WorkflowDefinitionRecordsTest {
 
-    private static ParamDecl param() {
-        return new ParamDecl(Generators.letterStrings(1, 20).next(),
-                new ParamType.SchemaRef(Generators.letterStrings(1, 20).next()),
-                WorkflowGenerators.sourceLocations().next());
-    }
-
     @Test
     @DisplayName("the builder builds the workflow definition the constructor builds")
     void workflowDefinitionBuilderEqualsConstructor() {
@@ -44,12 +38,12 @@ class WorkflowDefinitionRecordsTest {
         var modificationDate = LocalDate.ofEpochDay(Generators.longs(0, 20_000).next());
         var frontmatter = new UnitFrontmatter(Generators.letterStrings(1, 20).next(),
                 Generators.letterStrings(1, 40).next(), Generators.enumValues(UnitType.class).next(),
-                Generators.letterStrings(1, 20).next(), List.of(), List.of(), modificationDate,
-                Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 20).next(), null, location);
+                Generators.letterStrings(1, 20).next(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                modificationDate, Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 20).next(), null,
+                location);
         var id = Generators.letterStrings(1, 20).next();
         var version = Generators.integers(1, 99).next();
         var scope = Generators.enumValues(WorkflowScope.class).next();
-        var params = List.of(param());
         var resultSchema = Generators.letterStrings(1, 20).next();
         var declarations = Map.of(Generators.letterStrings(1, 20).next(),
                 new ValueDeclaration(new CallValue.IntValue(Generators.integers(0, 100).next()), location));
@@ -66,7 +60,7 @@ class WorkflowDefinitionRecordsTest {
                 new StateNode(Generators.letterStrings(1, 20).next(), null, null, null,
                         new StateBehavior.TerminalState(), location));
 
-        var constructed = new WorkflowDefinition(frontmatter, id, version, scope, params, resultSchema, null,
+        var constructed = new WorkflowDefinition(frontmatter, id, version, scope, resultSchema, null,
                 declarations, decisions, formatVersion, origin, derivedFrom, null, entryBindings, migrations, states,
                 location);
         var built = WorkflowDefinition.builder()
@@ -74,7 +68,6 @@ class WorkflowDefinitionRecordsTest {
                 .id(id)
                 .version(version)
                 .scope(scope)
-                .params(params)
                 .resultSchema(resultSchema)
                 .declarations(declarations)
                 .decisions(decisions)

@@ -1,0 +1,53 @@
+= ADR 013: `input_type` Carries the Optional Form as a Trailing `?`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+A frontmatter input has one of the three closed types the body `param` declarations carried: `enum[…]`, `int` with an
+optional range, and `list<enum[…]>`. An input may also be absent, and the specification needs one spelling for that,
+because the value resolution has to distinguish an input that a call may omit from one it must bind.
+
+The link parameters already carry the optional form as a trailing `?` (`param_decl = param_name ":" type_spec ["?"]`,
+`01-grammar.adoc` line 170, `ParamSpec.optional`), and an input with `input_default` or `input_fallback` is not required
+either.
+
+== Decision
+
+* `input_type` carries the optional form as a trailing `?`: `input_type: int[0..5]?` declares an input whose absence is
+  legal, with the semantics its `input_description` documents.
+* The `?` is a component of the declaration (`InputDecl.optional()`), not a fourth `InputType`; `InputType` stays the
+  three closed types.
+* An input that declares `input_default` or `input_fallback` must not carry the `?`: the reader refuses the combination
+  as two ways to say the same, at the line and column of the default or the fallback.
+* An absent input has the semantics its description documents (for example an absent `files` means every changed path of
+  the scope in the sibling specification).
+
+== Alternatives Considered
+
+* *`input_optional: true` as a key of its own.* Not taken: a second line per input in a frontmatter that is capped at
+  200 lines, and a spelling the link parameters do not use.
+* *A fourth type such as `optional<int[0..5]>`.* Not taken: the optional form is a property of the declaration, not a
+  value domain, and it would duplicate the type vocabulary.
+* *An absent default meaning "optional".* Not taken: it cannot express an optional input with no default, which the
+  second specification needs.
+
+== Consequences
+
+* The reader parses and refuses the `?`; the printer writes it after the type.
+* `InputDecl.required()` is the one place that decides whether a call must bind the input: it is false for `?`, a
+  default or a fallback.
+* A default or a fallback beside `?` is a frontmatter refusal, never a verifier violation.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:../../../../doc/specification/identifiers/01-general-rules-and-registry.adoc#id-param-name[Identifiers Specification § Free parameter name]
+* link:../../developer/workflow-dsl.adoc#_the_unit_frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter]

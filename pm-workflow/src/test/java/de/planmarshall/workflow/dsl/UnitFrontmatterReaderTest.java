@@ -37,6 +37,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.config.LimitProperties;
+import de.planmarshall.workflow.ast.CallValue;
+import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
 import de.planmarshall.workflow.ast.UnitType;
@@ -545,6 +547,277 @@ class UnitFrontmatterReaderTest {
                 default -> frontmatter.exits().getFirst().description();
             };
             assertEquals(value, actual);
+        }
+    }
+
+    @Nested
+    @DisplayName("Inputs and reads")
+    class InputsAndReads {
+
+        /** A frontmatter that declares what the unit reads and its inputs, every input sub-key in its order. */
+        private static final List<String> WITH_INPUTS = List.of(
+                "name: Commit and Push",
+                "description: Commits the changes of the plan's worktree and pushes its branch.",
+                "type: subworkflow",
+                "icon: git.commit",
+                "entry: commit",
+                "exit: done",
+                "reads_config: project.review.currency",
+                "reads_fact: push_remote",
+                "input: push_mode",
+                "input_type: enum[push|no_push]",
+                "input_description: Whether the branch is pushed.",
+                "input: attempts",
+                "input_type: int[1..5]",
+                "input_default: 2",
+                "modification_date: 2026-10-14",
+                "version: 1.0.0",
+                "author: plan-marshall");
+
+        /** The valid frontmatter with the given lines directly above {@code modification_date}. */
+        private static List<String> inserted(String... extra) {
+            var lines = new ArrayList<String>();
+            for (var line : VALID) {
+                if (line.startsWith("modification_date:")) {
+                    lines.addAll(List.of(extra));
+                }
+                lines.add(line);
+            }
+            return lines;
+        }
+
+        @Test
+        @DisplayName("reads the reads_config, reads_fact and input keys of a frontmatter")
+        void readsTheReadsAndInputs() {
+            var result = read(unit(WITH_INPUTS));
+            var frontmatter = result.frontmatter();
+            var pushMode = frontmatter.inputs().getFirst();
+            var attempts = frontmatter.inputs().get(1);
+
+            assertAll(
+                    () -> assertEquals(List.of("project.review.currency"), frontmatter.readsConfig()),
+                    () -> assertEquals(List.of("push_remote"), frontmatter.readsFact()),
+                    () -> assertEquals(2, frontmatter.inputs().size()),
+                    () -> assertEquals("push_mode", pushMode.name()),
+                    () -> assertEquals(new InputType.Enumeration(List.of("push", "no_push")), pushMode.type()),
+                    () -> assertFalse(pushMode.optional()),
+                    () -> assertNull(pushMode.defaultValue()),
+                    () -> assertEquals("Whether the branch is pushed.", pushMode.description()),
+                    () -> assertEquals(new SourceLocation(RESOURCE, 10, 8), pushMode.location()),
+                    () -> assertEquals(new SourceLocation(RESOURCE, 13, 8), attempts.location()),
+                    () -> assertEquals(new InputType.IntRange(1, 5), attempts.type()),
+                    () -> assertEquals(new CallValue.IntValue(2), attempts.defaultValue()),
+                    () -> assertFalse(attempts.required()));
+        }
+
+        @Test
+        @DisplayName("reads every type form and the optional form, a fallback and an empty list default")
+        void readsEveryTypeForm() {
+            var result = read(unit(inserted(
+                    "reads_config: project.review.currency",
+                    "reads_config: local-config.mode",
+                    "reads_fact: push_remote",
+                    "input: mode",
+                    "input_type: enum[strict|Lenient]",
+                    "input: depth",
+                    "input_type: int",
+                    "input: rounds",
+                    "input_type: int[0..9]",
+                    "input: targets",
+                    "input_type: list<enum[origin|Mirror]>",
+                    "input: skip",
+                    "input_type: int[1..3]?",
+                    "input: retries",
+                    "input_type: int[0..5]",
+                    "input_fallback: project.review.retries",
+                    "input: notes",
+                    "input_type: list<enum[a|B]>",
+                    "input_default: []")));
+            var inputs = result.frontmatter().inputs();
+
+            assertAll(
+                    () -> assertEquals(List.of("project.review.currency", "local-config.mode"),
+                            result.frontmatter().readsConfig()),
+                    () -> assertEquals(new InputType.Enumeration(List.of("strict", "Lenient")),
+                            inputs.get(0).type()),
+                    () -> assertEquals(new InputType.IntRange(null, null), inputs.get(1).type()),
+                    () -> assertEquals(new InputType.IntRange(0, 9), inputs.get(2).type()),
+                    () -> assertEquals(new InputType.EnumList(List.of("origin", "Mirror")), inputs.get(3).type()),
+                    () -> assertTrue(inputs.get(4).optional()),
+                    () -> assertFalse(inputs.get(4).required()),
+                    () -> assertEquals("project.review.retries", inputs.get(5).fallback()),
+                    () -> assertEquals(new CallValue.EnumList(List.of()), inputs.get(6).defaultValue()),
+                    () -> assertEquals(7, inputs.size()));
+        }
+
+        @Test
+        @DisplayName("reads the CRLF twin of a frontmatter with every input key as the same frontmatter")
+        void readsTheCrlfTwin() {
+            var lf = read(unit(WITH_INPUTS)).frontmatter();
+            var crlf = read(unit(WITH_INPUTS).replace("\n", "\r\n")).frontmatter();
+
+            assertEquals(lf, crlf, "the CRLF twin must read the same frontmatter");
+        }
+
+        static Stream<Arguments> refusedInputs() {
+            return Stream.of(
+                    Arguments.of("a default before its type",
+                            List.of("input: a", "input_default: 1", "input_type: int"), 11, 1),
+                    Arguments.of("a fallback before its type",
+                            List.of("input: a", "input_fallback: project.mode", "input_type: int"), 11, 1),
+                    Arguments.of("a description before its type",
+                            List.of("input: a", "input_description: x", "input_type: int"), 11, 1),
+                    Arguments.of("a sub-key without an input line",
+                            List.of("input_type: int"), 10, 1),
+                    Arguments.of("a second input_type",
+                            List.of("input: a", "input_type: int", "input_type: int"), 12, 1),
+                    Arguments.of("a second input_default",
+                            List.of("input: a", "input_type: int", "input_default: 1", "input_default: 2"), 13, 1),
+                    Arguments.of("a second input_fallback",
+                            List.of("input: a", "input_type: int", "input_fallback: project.a",
+                                    "input_fallback: project.b"), 13, 1),
+                    Arguments.of("a second input_description",
+                            List.of("input: a", "input_type: int", "input_description: x", "input_description: y"),
+                            13, 1),
+                    Arguments.of("a missing input_type",
+                            List.of("input: a", "input: b", "input_type: int"), 11, 1),
+                    Arguments.of("an input name with a hyphen",
+                            List.of("input: max-rounds", "input_type: int"), 10, 8),
+                    Arguments.of("an input name in upper case",
+                            List.of("input: Mode", "input_type: int"), 10, 8),
+                    Arguments.of("a reserved input name",
+                            List.of("input: state", "input_type: int"), 10, 8),
+                    Arguments.of("a repeated input name",
+                            List.of("input: a", "input_type: int", "input: a", "input_type: int"), 12, 8),
+                    Arguments.of("a default outside an enum",
+                            List.of("input: a", "input_type: enum[x|y]", "input_default: z"), 12, 16),
+                    Arguments.of("an integer default outside its range",
+                            List.of("input: a", "input_type: int[1..5]", "input_default: 6"), 12, 16),
+                    Arguments.of("an integer default beyond the range of an int",
+                            List.of("input: a", "input_type: int", "input_default: 2147483648"), 12, 16),
+                    Arguments.of("an empty list default outside a list type",
+                            List.of("input: a", "input_type: enum[x]", "input_default: []"), 12, 16),
+                    Arguments.of("a default beside the optional form",
+                            List.of("input: a", "input_type: int?", "input_default: 1"), 12, 16),
+                    Arguments.of("a fallback beside the optional form",
+                            List.of("input: a", "input_type: int?", "input_fallback: project.a"), 12, 17),
+                    Arguments.of("an enum value twice",
+                            List.of("input: a", "input_type: enum[x|x]"), 11, 13),
+                    Arguments.of("an empty enum",
+                            List.of("input: a", "input_type: enum[]"), 11, 13),
+                    Arguments.of("a range with its high bound zero",
+                            List.of("input: a", "input_type: int[1..0]"), 11, 13),
+                    Arguments.of("a range with its low bound above its high bound",
+                            List.of("input: a", "input_type: int[9..1]"), 11, 13),
+                    Arguments.of("a range without its digits",
+                            List.of("input: a", "input_type: int[..]"), 11, 13),
+                    Arguments.of("a list of a type other than enum",
+                            List.of("input: a", "input_type: list<int>"), 11, 13),
+                    Arguments.of("a configuration key with an empty segment",
+                            List.of("reads_config: project..mode"), 10, 15),
+                    Arguments.of("a configuration key with a reserved segment",
+                            List.of("reads_config: project.state"), 10, 15),
+                    Arguments.of("a configuration key in upper case",
+                            List.of("reads_config: Project.mode"), 10, 15),
+                    Arguments.of("a fact kind in upper case",
+                            List.of("reads_fact: Push"), 10, 13),
+                    Arguments.of("a repeated reads_config value",
+                            List.of("reads_config: project.mode", "reads_config: project.mode"), 11, 15),
+                    Arguments.of("a repeated reads_fact value",
+                            List.of("reads_fact: push_remote", "reads_fact: push_remote"), 11, 13));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("refusedInputs")
+        @DisplayName("refuses an input or read outside its closed form with the rule, line and column")
+        void refuses(String description, List<String> lines, int line, int column) {
+            var diagnostic = refuse(unit(inserted(lines.toArray(String[]::new))));
+
+            assertRefused(diagnostic, line, column);
+        }
+
+        @Test
+        @DisplayName("refuses an input whose input_type is missing at the closing delimiter")
+        void refusesAMissingTypeAtTheClosingDelimiter() {
+            var diagnostic = refuse(unit(appended("input: a")));
+
+            assertRefused(diagnostic, APPENDED_LINE + 1, 1);
+        }
+
+        @Test
+        @DisplayName("refuses more than 16 inputs")
+        void refusesMoreThanSixteenInputs() {
+            var lines = new ArrayList<String>();
+            for (var index = 1; index <= UnitFrontmatterReader.MAX_INPUTS; index++) {
+                lines.add("input: in_" + index);
+                lines.add("input_type: int");
+            }
+            lines.add("input: overflow");
+            lines.add("input_type: int");
+
+            var diagnostic = refuse(unit(inserted(lines.toArray(String[]::new))));
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(), diagnostic::message),
+                    () -> assertTrue(diagnostic.message().contains(Integer.toString(UnitFrontmatterReader.MAX_INPUTS)),
+                            diagnostic::message));
+        }
+
+        @Test
+        @DisplayName("refuses more than 32 reads_config values")
+        void refusesMoreThanThirtyTwoReadsConfigValues() {
+            var lines = new ArrayList<String>();
+            for (var index = 1; index <= UnitFrontmatterReader.MAX_READS; index++) {
+                lines.add("reads_config: project.key" + index);
+            }
+            lines.add("reads_config: project.overflow");
+
+            var diagnostic = refuse(unit(inserted(lines.toArray(String[]::new))));
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(), diagnostic::message),
+                    () -> assertTrue(diagnostic.message().contains(Integer.toString(UnitFrontmatterReader.MAX_READS)),
+                            diagnostic::message));
+        }
+
+        @Test
+        @DisplayName("refuses more than 32 reads_fact values")
+        void refusesMoreThanThirtyTwoReadsFactValues() {
+            var lines = new ArrayList<String>();
+            for (var index = 1; index <= UnitFrontmatterReader.MAX_READS; index++) {
+                lines.add("reads_fact: kind" + index);
+            }
+            lines.add("reads_fact: overflow");
+
+            var diagnostic = refuse(unit(inserted(lines.toArray(String[]::new))));
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(), diagnostic::message),
+                    () -> assertTrue(diagnostic.message().contains(Integer.toString(UnitFrontmatterReader.MAX_READS)),
+                            diagnostic::message));
+        }
+
+        @Test
+        @DisplayName("pins the caps to the numbers the specification states")
+        void pinsTheSpecificationNumbers() {
+            assertAll(
+                    () -> assertEquals(16, UnitFrontmatterReader.MAX_INPUTS, "the input cap is the specification's 16"),
+                    () -> assertEquals(32, UnitFrontmatterReader.MAX_READS,
+                            "the reads cap of each key is the specification's 32"),
+                    () -> assertEquals(500, UnitFrontmatterReader.MAX_INPUT_DESCRIPTION,
+                            "the input description cap is the specification's 500"));
+        }
+
+        @Test
+        @DisplayName("reads a 500-character input description and refuses 501")
+        void boundsTheInputDescription() {
+            var longest = "d".repeat(UnitFrontmatterReader.MAX_INPUT_DESCRIPTION);
+            var accepted = read(unit(inserted("input: a", "input_type: int", "input_description: " + longest)));
+            var tooLong = refuse(unit(inserted("input: a", "input_type: int", "input_description: " + longest + "d")));
+
+            assertAll(
+                    () -> assertEquals(longest, accepted.frontmatter().inputs().getFirst().description()),
+                    () -> assertRefused(tooLong, 12, 20));
         }
     }
 

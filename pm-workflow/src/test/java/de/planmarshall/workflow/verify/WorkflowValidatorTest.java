@@ -287,7 +287,10 @@ class WorkflowValidatorTest {
             new Check("Rule 12: an escalate link is request_waiver",
                     VerificationRule.LINK_COMPATIBILITY, "link-escalate-id.pmwf"));
 
-    /** The checks a fixture cannot plant: the language or the primitive registry refuses the input first. */
+    /**
+     * The checks no fixture of this harness can plant: the language, the primitive registry or the harness's empty read
+     * registries refuse the unit first. Each entry names what pins it instead.
+     */
     private static final List<Unpinned> UNPLANTABLE = List.of(
             new Unpinned("Rule 1: every question clause names a registered question class",
                     VerificationRule.QUESTION_CLASS_BINDING,
@@ -298,7 +301,18 @@ class WorkflowValidatorTest {
                     "PrimitiveRegistry refuses such a primitive at registration"),
             new Unpinned("Rule 9: an ATTEMPT_CAP primitive names an exhaustion outcome of class FAILURE",
                     VerificationRule.STEP_COMPLETION,
-                    "PrimitiveRegistry refuses such a primitive at registration"));
+                    "PrimitiveRegistry refuses such a primitive at registration"),
+            new Unpinned("Rule 1: every reads_config key names a key of the closed configuration",
+                    VerificationRule.CONFIG_KEY_BINDING,
+                    "the fixture harness's validator carries the empty registries, so a unit that declares a reads_config"
+                            + " key cannot pass; pinned by UnitInterfaceChecksTest with a fixture registry"),
+            new Unpinned("Rule 1: every reads_fact names a known fact kind", VerificationRule.FACT_KIND_BINDING,
+                    "the fixture harness's validator carries the empty registries, so a unit that declares a reads_fact"
+                            + " cannot pass; pinned by UnitInterfaceChecksTest with a fixture registry"),
+            new Unpinned("Rule 1: every input fallback is a listed reads_config key of an assignable domain",
+                    VerificationRule.INPUT_DECLARATION,
+                    "the fixture harness's validator carries the empty registries, so a unit that declares an input"
+                            + " fallback cannot pass; pinned by UnitInterfaceChecksTest with a fixture registry"));
 
     /** What the specification asks and the verifier does not check: the seams, each named by its ADR. */
     private static final List<Unpinned> SEAMS = List.of(
@@ -402,8 +416,7 @@ class WorkflowValidatorTest {
             var accounted = Stream.of(CHECKLIST.stream().map(Check::rule), UNPLANTABLE.stream().map(Unpinned::rule),
                     SEAMS.stream().map(Unpinned::rule)).flatMap(stream -> stream).collect(Collectors.toSet());
 
-            assertAll(() -> assertEquals(32, VerificationRule.values().length),
-                    () -> assertEquals(Set.of(VerificationRule.values()), accounted));
+            assertEquals(Set.of(VerificationRule.values()), accounted);
         }
 
         @Test

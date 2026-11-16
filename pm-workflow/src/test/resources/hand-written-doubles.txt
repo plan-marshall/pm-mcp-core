@@ -35,11 +35,14 @@ de/planmarshall/workflow/scenario/ScenarioFixtures.java#EvaluateOutcome#1
 de/planmarshall/workflow/scenario/ScenarioFixtures.java#FateOutcome#1
 de/planmarshall/workflow/scenario/ScenarioFixtures.java#Fixed#1
 de/planmarshall/workflow/scenario/ScenarioFixtures.java#HoldingEverything#1
+de/planmarshall/workflow/scenario/ScenarioFixtures.java#Locks#1
 de/planmarshall/workflow/scenario/ScenarioFixtures.java#ManualClock#1
 de/planmarshall/workflow/scenario/ScenarioFixtures.java#Note#1
+de/planmarshall/workflow/scenario/ScenarioFixtures.java#QueueTasks#1
 de/planmarshall/workflow/scenario/ScenarioFixtures.java#ScenarioParameterBinder#1
 de/planmarshall/workflow/scenario/ScenarioFixtures.java#ScriptedQuestionRecordReader#1
 de/planmarshall/workflow/scenario/ScenarioFixtures.java#StepOutcome#1
+de/planmarshall/workflow/scenario/ScenarioFixtures.java#anonymous:LockTransaction#1
 de/planmarshall/workflow/task/TestLocks.java#TestLocks#1
 de/planmarshall/workflow/task/TestLocks.java#anonymous:LockTransaction#1
 de/planmarshall/workflow/verify/InvariantFixtures.java#AnalyzeOutcome#1

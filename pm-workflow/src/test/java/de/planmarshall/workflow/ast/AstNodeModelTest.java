@@ -158,14 +158,11 @@ class AstNodeModelTest {
         @DisplayName("the collections of the definition are copied")
         void definitionCollectionsAreCopied() {
             var stateId = Generators.letterStrings(1, 8).next();
-            var params = new ArrayList<ParamDecl>();
             var migrations = new ArrayList<StateMigration>();
             var states = new LinkedHashMap<String, StateNode>();
             states.put(stateId, terminalState(stateId));
-            var definition = definition(params, migrations, states);
+            var definition = definition(migrations, states);
 
-            params.add(new ParamDecl(Generators.letterStrings(1, 8).next(),
-                    new ParamType.EnumOf(List.of(Generators.letterStrings(1, 8).next())), LOCATION));
             migrations.add(new StateMigration(Generators.letterStrings(1, 8).next(), stateId, LOCATION));
             var addedStateId = text();
             states.put(addedStateId, terminalState(addedStateId));
@@ -173,7 +170,6 @@ class AstNodeModelTest {
             var copiedMigrations = definition.migrations();
 
             assertAll(
-                    () -> assertEquals(List.of(), definition.params()),
                     () -> assertEquals(List.of(), copiedMigrations),
                     () -> assertEquals(List.of(stateId), List.copyOf(copiedStates.keySet())),
                     () -> assertThrows(UnsupportedOperationException.class, copiedStates::clear),
@@ -201,6 +197,35 @@ class AstNodeModelTest {
                     () -> assertEquals(List.of(done), copiedExits),
                     () -> assertThrows(UnsupportedOperationException.class, copiedEntries::clear),
                     () -> assertThrows(UnsupportedOperationException.class, () -> copiedExits.add(done)));
+        }
+
+        @Test
+        @DisplayName("the reads and the inputs of the frontmatter are copied and keep their order")
+        void frontmatterReadsAndInputsAreCopied() {
+            var readsConfig = new ArrayList<>(List.of("project.review.currency", "local-config.mode"));
+            var readsFact = new ArrayList<>(List.of("push_remote"));
+            var pushMode = new InputDecl("push_mode", new InputType.Enumeration(List.of("push", "no_push")), false,
+                    null, null, null, LOCATION);
+            var inputs = new ArrayList<>(List.of(pushMode));
+            var frontmatter = new UnitFrontmatter(Generators.letterStrings(3, 100).next(),
+                    Generators.letterStrings(1, 100).next(), UnitType.SUBWORKFLOW, "workflow.default", List.of(),
+                    List.of(), readsConfig, readsFact, inputs, LocalDate.of(2026, 1, 15), "0.1.0", "plan-marshall",
+                    null, LOCATION);
+
+            readsConfig.clear();
+            readsFact.add("other");
+            inputs.clear();
+            var copiedReads = frontmatter.readsConfig();
+            var copiedFacts = frontmatter.readsFact();
+            var copiedInputs = frontmatter.inputs();
+
+            assertAll(
+                    () -> assertEquals(List.of("project.review.currency", "local-config.mode"), copiedReads),
+                    () -> assertEquals(List.of("push_remote"), copiedFacts),
+                    () -> assertEquals(List.of(pushMode), copiedInputs),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedReads::clear),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> copiedFacts.add("other")),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedInputs::clear));
         }
 
         @Test
@@ -240,7 +265,7 @@ class AstNodeModelTest {
             var states = new LinkedHashMap<String, StateNode>();
             states.put(stateId, terminalState(stateId));
 
-            var definition = definition(List.of(), List.of(), states);
+            var definition = definition(List.of(), states);
 
             assertEquals(List.of(stateId), definition.startingStates());
         }
@@ -429,7 +454,7 @@ class AstNodeModelTest {
                 states.put(id, terminalState(id));
             }
 
-            var definition = definition(List.of(), List.of(), states);
+            var definition = definition(List.of(), states);
 
             assertEquals(ids, List.copyOf(definition.states().keySet()));
         }
@@ -636,10 +661,10 @@ class AstNodeModelTest {
                 "0.1.0", "plan-marshall", null, LOCATION);
     }
 
-    private static WorkflowDefinition definition(List<ParamDecl> params, List<StateMigration> migrations,
+    private static WorkflowDefinition definition(List<StateMigration> migrations,
             Map<String, StateNode> states) {
         return new WorkflowDefinition(frontmatter(List.of(), List.of()),
-                Generators.letterStrings(1, 8).next(), Generators.integers(1, 100).next(), WorkflowScope.PLAN, params,
+                Generators.letterStrings(1, 8).next(), Generators.integers(1, 100).next(), WorkflowScope.PLAN,
                 null, null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
                 states.keySet().iterator().next(), Map.of(), migrations, states, LOCATION);
     }
@@ -648,7 +673,7 @@ class AstNodeModelTest {
             Map<String, StateNode> states) {
         return new WorkflowDefinition(frontmatter(List.of(), List.of()),
                 Generators.letterStrings(1, 8).next(), Generators.integers(1, 100).next(), WorkflowScope.SUBWORKFLOW,
-                List.of(), null, null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT,
+                null, null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT,
                 Map.of(), null, entryBindings, List.of(), states, LOCATION);
     }
 

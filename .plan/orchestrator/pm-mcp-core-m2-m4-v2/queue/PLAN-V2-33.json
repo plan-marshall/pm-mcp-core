@@ -2,10 +2,10 @@
   "id": "PLAN-V2-33",
   "slug": "scenario-task-protocol",
   "workstream": "WS-02",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-33-scenario-task-protocol",
+  "pr": "#457",
+  "landing": "landings/PLAN-V2-33.md",
   "seq": 33
 }
