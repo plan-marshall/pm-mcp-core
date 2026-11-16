@@ -218,11 +218,11 @@ class GitHubClientTest {
             List<ReviewThread> threads = result.value();
             ReviewThread read = threads.getFirst();
             assertAll("the threads and the requests",
-                    () -> assertTrue(result.complete(), "every page is read"),
+                    () -> assertTrue(result.complete(), "every page is read completely"),
                     () -> assertEquals(List.of(first.id(), second.id()),
                             threads.stream().map(ReviewThread::id).toList(), "both pages' threads are read"),
                     () -> assertFalse(read.resolved(), "the resolved flag is read"),
-                    () -> assertEquals(String.valueOf(first.line()), read.line(), "the line is read"),
+                    () -> assertEquals(String.valueOf(first.line()), read.line(), "the thread line is read back"),
                     () -> assertEquals(first.firstLine() + "\n" + first.secondLine(),
                             read.comments().getFirst().body(), "the multi-line comment is read"),
                     () -> assertEquals(first.author(), read.comments().getFirst().author(),
