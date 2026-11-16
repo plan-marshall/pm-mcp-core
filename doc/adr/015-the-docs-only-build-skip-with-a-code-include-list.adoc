@@ -22,7 +22,9 @@ documentation.
 `.github/workflows/integration-tests.yml`) adds `maven-build.paths-code-extra`: globs that count as code even when the
 default ignore list or `paths-ignore-extra` matches them. Both the build and the integration-test workflow read it.
 
-The tests of this repository read these files the default ignore list matches:
+At the time of the decision the tests of this repository read these files the default ignore list matches (the last
+reader was retired by the work package `adoc-reading-retired`, ADR
+link:016-schemas-are-files-of-the-implementing-module.adoc[016]):
 
 * `doc/specification/**`: the schema parity tests through `pm.specification.root` (ADR
   link:007-specifications-of-the-engine-in-this-repository.adoc[007]), among them `FindingSchemaParityTest`,
@@ -33,11 +35,15 @@ The tests of this repository read these files the default ignore list matches:
 
 == Decision
 
-The docs-only skip is on again: `skip-on-docs-only` is removed from `.github/project.yml`, so its default `true`
-applies. `maven-build.paths-code-extra` lists `**/doc/**` and `**/src/**`: every documentation tree (the root `doc/`
-and each `{module}/doc/`) and every source tree counts as code. A pull request that changes any file below one of them
-builds; a pull request whose every file is matched by the ignore list and lies outside both trees skips. That leaves
-`.plan/`, `.claude/`, the `README`/`CLAUDE.md` files and `.github/project.yml` as the changes that skip.
+The docs-only skip was turned on again: `skip-on-docs-only` was removed from `.github/project.yml`, so its default
+`true` applied. `maven-build.paths-code-extra` listed `**/doc/**` and `**/src/**`: every documentation tree (the root
+`doc/` and each `{module}/doc/`) and every source tree counted as code. A pull request that changed any file below one
+of them built; a pull request whose every file was matched by the ignore list and lay outside both trees skipped. That
+left `.plan/`, `.claude/`, the `README`/`CLAUDE.md` files and `.github/project.yml` as the changes that skipped.
+
+ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016] later narrowed the `**/doc/**` entry to
+`doc/log-messages/*.adoc`: with no test reading a specification any more, the generated log message listings are the
+only files below a `doc/` tree a test reads, so every other documentation file skips the build.
 
 The rule names trees, not the files the tests read, so it does not mirror the readers: a new test that reads another
 specification part, guide or fixture below `doc/` or `src/` is covered without a change of the list.
@@ -54,10 +60,12 @@ specification part, guide or fixture below `doc/` or `src/` is covered without a
 
 == Consequences
 
-A pull request that changes only `.plan/`, `.claude/`, the `README`/`CLAUDE.md` files or `.github/project.yml` skips
-the build again; one that changes only an ADR or a developer guide builds, about eight minutes. A new test that reads a
-file the ignore list matches outside `doc/` and `src/` (a `README`, say) must add its path to `paths-code-extra`;
-otherwise a change of only that file is reported green without the test having run.
+Under that list a pull request that changed only `.plan/`, `.claude/`, the `README`/`CLAUDE.md` files or
+`.github/project.yml` skipped the build again; one that changed only an ADR or a developer guide built, about eight
+minutes. A new test that reads a file the ignore list matches outside `doc/` and `src/` (a `README`, say) must add its
+path to `paths-code-extra`; otherwise a change of only that file is reported green without the test having run. With
+the entry narrowed by ADR 016 that hazard remains, because a new reader outside `doc/log-messages` and the source trees
+needs its path in the list.
 
 This pull request changes `doc/adr/`, so its own build runs under the new setting. That a
 specification-only pull request builds can only be observed by the next such pull request.

@@ -12,14 +12,15 @@ Accepted
 == Context
 
 The specifications of this repository state the JSON schemas of the stored records as `[source,json]` blocks inside
-their `.adoc` documents (ADR link:007-specifications-of-the-engine-in-this-repository.adoc[007]). The parity tests read
-these blocks at run time out of the `.adoc` files, through `pm.specification.root`. A pull request that changes only a
-specification part can therefore break `main`: it changes the input of a test without changing code, and twice in four
-days it did (ADR link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009]). ADR
-link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015] keeps such a pull request building by counting
-`**/doc/**` as code, which is a consequence of the tests reading documentation, not a cure.
+their `.adoc` documents (ADR link:007-specifications-of-the-engine-in-this-repository.adoc[007]). At the time of the
+decision the parity tests read these blocks at run time out of the `.adoc` files, through `pm.specification.root`. A
+pull request that changes only a specification part can therefore break `main`: it changes the input of a test without
+changing code, and twice in four days it did (ADR link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009]).
+ADR link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015] kept such a pull request building by counting
+`**/doc/**` as code, which was a consequence of the tests reading documentation, not a cure.
 
-Twelve test classes read the specification: the nine test classes of `pm-core` that use the test helper
+At the time of the decision twelve test classes read the specification: the nine test classes of `pm-core` that use the
+test helper
 `SpecificationDocument` (the schema parity tests of the findings, the task queue, the audit trail, the derived facts,
 the job record, the lesson front matter, the pending entry and the workflow status, and `AnalysisResultSchemaTest`),
 `CredentialStoreMoveRecordParityTest` and `StalledScopeDetectorTest` of `pm-runtime`, and
