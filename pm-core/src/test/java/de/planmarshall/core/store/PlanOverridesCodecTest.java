@@ -135,16 +135,18 @@ class PlanOverridesCodecTest {
         var offAxis = overridesWithAxes(Map.of(Axis.LANDING, "method.test-first"));
         var unknownMember = text.replace("\"revision\":3", "\"revision\":3,\"unknown\":true").getBytes(UTF_8);
         var unknownAxis = text.replace("\"method\":", "\"unknown\":").getBytes(UTF_8);
+        var documentFile = file();
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new Role(null, null, null), "A role override sets at least one value"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> PlanOverridesCodec.write(offAxis), "A variant off its axis is refused"),                () -> assertThrows(StoreRefusal.class,
-                        () -> PlanOverridesCodec.read(file(), unknownMember),
+                        () -> PlanOverridesCodec.write(offAxis), "A variant off its axis is refused"),
+                () -> assertThrows(StoreRefusal.class,
+                        () -> PlanOverridesCodec.read(documentFile, unknownMember),
                         "An undeclared member is refused"),
                 () -> assertThrows(StoreRefusal.class,
-                        () -> PlanOverridesCodec.read(file(), unknownAxis),
+                        () -> PlanOverridesCodec.read(documentFile, unknownAxis),
                         "An axis the schema does not admit is refused"));
     }
 
