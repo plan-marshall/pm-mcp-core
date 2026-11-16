@@ -330,12 +330,13 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/CompositionRefu
 
 Implementation (the `worker-launch` part of bullets 3, 4 and 5's service side, `runtime.launch`): the launch of a worker
 of an enrolled harness from the role's effective configuration and the harness's harness profile — the model tier rendered,
-the effort narrowed, the working directory fixed, the tool set and the per-call MCP configuration composed, the launch
-prompt with its shared prefix and the writing skill derived from the link schemas, the job token minted and only its
-digest recorded, the harness enrolment store with its HMAC sidecar and its launch-time verification and self-update, and
-the launch started or refused through the job runner
+the effort narrowed, the working directory fixed, the class's tool set and per-call MCP configuration composed
+(`HeadlessBlock`), the launch prompt with its shared prefix and the writing skill derived from the link schemas, the
+job token minted and only its digest recorded (`JobTokenStore`), the harness enrolment store with its HMAC sidecar and
+its launch-time verification and self-update, the model slots admitted in FIFO order with at most one `writer` worker of
+a plan (`ModelSlotScheduler`), and the launch started or refused through the job runner
 (link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). Not implemented and owned
-elsewhere: the relay's per-request binding, the supervisor's start and supervision, output and usage reading, model slots,
+elsewhere: the relay's per-request binding, the supervisor's start and supervision, output and usage reading,
 and warm offers (link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide] § Owed).
 
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest],
@@ -345,6 +346,9 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/PromptComposerTe
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/FreeTextDerivationTest.java[FreeTextDerivationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessVerifierTest.java[HarnessVerifierTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java[HarnessEnrolmentStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HeadlessBlockTest.java[HeadlessBlockTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/JobTokenStoreTest.java[JobTokenStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/ModelSlotSchedulerTest.java[ModelSlotSchedulerTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/WorkerJobTest.java[WorkerJobTest]
 
 Documentation: link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide],
