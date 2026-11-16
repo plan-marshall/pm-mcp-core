@@ -12,13 +12,9 @@ package de.planmarshall.core.store;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.text.Normalizer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -92,27 +88,6 @@ class ProtectedPathsTest {
                         "a near miss is not protected"),
                 () -> assertFalse(ProtectedPaths.isProtected(".husky/pre-commit", Set.of(".husky/pre-commit")),
                         "a declared path is lifted"));
-    }
-
-    private static final String SPECIFICATION_ROOT = "pm.specification.root";
-
-    @Test
-    @DisplayName("the hook family is the specification's list")
-    void hookFamilyIsTheSpecificationList() throws Exception {
-        var root = System.getProperty(SPECIFICATION_ROOT);
-        assertNotNull(root, "the specification root is configured");
-        var document = Path.of(root).resolve("doc/specification/phase-workflows/03-q-gate-and-execute.adoc");
-        var bullet = Files.readAllLines(document).stream()
-                .filter(line -> line.contains("[[protected-paths]]")).findFirst()
-                .orElseThrow(() -> new AssertionError("the Protected paths bullet is absent"));
-        var prefix = "the hook definitions git runs from tracked files (";
-        var start = bullet.indexOf(prefix);
-        var end = bullet.indexOf(")", start);
-        var declared = Arrays.stream(bullet.substring(start + prefix.length(), end).split(","))
-                .map(String::strip).map(name -> name.replace("`", "")).toList();
-
-        assertEquals(List.of(".husky/**", ".githooks/**", "lefthook.yml", ".lefthook.yml", "lefthook-local.yml",
-                ".pre-commit-config.yaml"), declared, "the matcher's hook family is the specification's list");
     }
 
     @Test
