@@ -234,6 +234,24 @@ class GitMetadataDigestTest {
     }
 
     @Test
+    @DisplayName("Should keep a hash inside a quoted include path and an apostrophe in a path")
+    void shouldKeepQuotedHashAndApostrophe() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"),
+                "[include]\n\tpath = \"extra #1.cfg\"\n\tpath = o'brien.cfg\n");
+        Files.writeString(root.resolve(".git/extra #1.cfg"), "[core]\n\thooksPath = " + name() + "\n");
+        Files.writeString(root.resolve(".git/o'brien.cfg"), "[core]\n\tfsmonitor = " + name() + "\n");
+        var before = GitMetadataDigest.of(root);
+        Files.writeString(root.resolve(".git/extra #1.cfg"), "[core]\n\thooksPath = attacker\n");
+        Files.writeString(root.resolve(".git/o'brien.cfg"), "[core]\n\tfsmonitor = attacker\n");
+
+        var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
+
+        assertEquals(Set.of(".git/extra #1.cfg", ".git/o'brien.cfg"), changed,
+                "a quoted hash and an apostrophe stay in the path");
+    }
+
+    @Test
     @DisplayName("Should digest nothing for a project without git")
     void shouldDigestNothingWithoutGit() throws Exception {
         var root = Files.createDirectories(base.resolve(name()));

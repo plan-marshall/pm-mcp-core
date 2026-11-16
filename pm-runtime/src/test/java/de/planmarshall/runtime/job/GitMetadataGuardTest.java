@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
+import java.util.TreeSet;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -120,25 +121,33 @@ class GitMetadataGuardTest {
 
         var verdict = guard.verify(root);
 
-        assertEquals(GitMetadataGuard.Changed.class, verdict.getClass(), "a tree that became unreadable differs");
+        assertAll("A tree that became unreadable differs",
+                () -> assertEquals(GitMetadataGuard.Changed.class, verdict.getClass(),
+                        "the unreadable tree is refused"),
+                () -> {
+                    guard.rebaseline(root);
+                    assertEquals(new GitMetadataGuard.Unchanged(), guard.verify(root),
+                            "the operator's act accepts the unreadable tree");
+                });
     }
 
     @Test
-    @DisplayName("Should let the operator's act accept an unreadable tree")
-    void shouldRebaselineAnUnreadableTree() throws Exception {
+    @DisplayName("Should withhold a baseline it cannot read and refuse until the operator accepts it")
+    void shouldWithholdAnUnreadableBaseline() throws Exception {
         var root = Files.createDirectories(base.resolve(name()));
         Files.createSymbolicLink(root.resolve(".git"), Files.createDirectories(base.resolve(name())));
         var guard = new GitMetadataGuard();
         guard.record(root);
 
-        assertAll("An unreadable tree is recoverable",
-                () -> assertEquals(new GitMetadataGuard.Unchanged(), guard.verify(root),
-                        "the recorded unreadable tree compares equal"),
-                () -> {
-                    guard.rebaseline(root);
-                    assertEquals(new GitMetadataGuard.Unchanged(), guard.verify(root),
-                            "the operator's act accepts it");
-                });
+        var refused = guard.verify(root);
+        guard.rebaseline(root);
+        var accepted = guard.verify(root);
+
+        assertAll("An unreadable tree at the baseline",
+                () -> assertEquals(new GitMetadataGuard.Changed(new TreeSet<>(Set.of(GitMetadataDigest.UNREADABLE))),
+                        refused, "no baseline is taken, so the tree is refused"),
+                () -> assertEquals(new GitMetadataGuard.Unchanged(), accepted,
+                        "the operator's act accepts it"));
     }
 
     private Path repository() throws IOException {

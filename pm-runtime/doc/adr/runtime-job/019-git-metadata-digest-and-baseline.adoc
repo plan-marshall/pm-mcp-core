@@ -33,10 +33,12 @@ is hand-written; no dependency is added.
 `GitMetadataGuard` keeps one baseline per project in memory: `record` takes it at the first worker spawn of a project in
 the runtime and keeps it, `verify` compares it after a worker's fate is recorded and in `start` before a `git` job's
 write-ahead record, and `rebaseline` is the operator's act. A later worker's spawn does not move the baseline, so two
-concurrent workers cannot erase each other's change and a detection is not cleared by the next spawn. A difference
-writes the security audit record `git_metadata_changed`, a WARN record and one call of `GitMetadataChangeSink`; before a
-`git` job it also refuses the job with `git_metadata_changed`, so every `git` job of the project is refused while the
-baseline differs. The runtime never repairs a file.
+concurrent workers cannot erase each other's change and a detection is not cleared by the next spawn. A tree that is
+unreadable when the baseline would be taken takes none: the guard refuses with the fail-closed part `unreadable` until
+the operator's `rebaseline` accepts it, so a project whose metadata the runtime cannot read is never silently compared. A
+difference writes the security audit record `git_metadata_changed`, a WARN record and one call of
+`GitMetadataChangeSink`; before a `git` job it also refuses the job with `git_metadata_changed`, so every `git` job of
+the project is refused while the baseline differs. The runtime never repairs a file.
 
 == Alternatives Considered
 
