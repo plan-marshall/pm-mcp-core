@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -22,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 
@@ -36,7 +39,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.queue.QueueTaskRecord;
+import de.planmarshall.core.queue.QueueTaskRecord.Attempt;
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
+import de.planmarshall.core.queue.QueueTaskRecord.LostReason;
 import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
 import de.planmarshall.core.queue.QueueTaskRecord.Status;
 import de.planmarshall.core.spi.QueueTaskCreator;
@@ -45,6 +50,8 @@ import de.planmarshall.core.store.WorkflowStatusStore;
 import de.planmarshall.workflow.consult.ConsultationService;
 import de.planmarshall.workflow.consult.SubmitValidation;
 import de.planmarshall.workflow.scenario.ScenarioReplayRunner.ScenarioFailure;
+import de.planmarshall.workflow.task.WaitAnswer;
+import de.planmarshall.workflow.task.WaitRequest;
 
 /**
  * The runner of {@code pm-scenario} (PM-TEST-4): a script replays in process against the real engine over the fixture
@@ -603,6 +610,261 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals(Status.CLOSED,
                             runner.fixtures().queue.read("qt-0000000000000001").orElseThrow().status(),
                             "the task record is closed"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Worker faults")
+    class WorkerFaults {
+
+        private static final String TASK_ID = "qt-0000000000000001";
+
+        private ScenarioReplayRunner replayed(String text) {
+            var runner = runner();
+            runner.run(ScenarioScript.read(text));
+            return runner;
+        }
+
+        private QueueTaskRecord task(ScenarioReplayRunner runner) {
+            return runner.fixtures().queue.read(TASK_ID).orElseThrow();
+        }
+
+        private static List<Attempt> attempts(QueueTaskRecord task) {
+            return task.attempts();
+        }
+
+        private static long closedAttempts(QueueTaskRecord task) {
+            return attempts(task).stream().filter(attempt -> attempt.end() == AttemptEnd.CLOSED).count();
+        }
+
+        @Test
+        @DisplayName("Should detect a worker lost between its offer and its acknowledgement at the acknowledgement deadline")
+        void shouldDetectALossBeforeTheAcknowledgement() {
+            var runner = replayed(WorkerFaultScenarios.KILL_BEFORE_ACK);
+            var task = task(runner);
+            var lost = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the replacing worker submitted once"),
+                    () -> assertEquals(2, attempts(task).size(), "the task was offered to two generations"),
+                    () -> assertEquals(AttemptEnd.WORKER_LOST, lost.end(), "the offer's acknowledgement was missed"),
+                    () -> assertEquals(lost.offeredAt().plusSeconds(ScenarioFixtures.ACK_DEADLINE_SECONDS),
+                            lost.endedAt(), "the loss is detected at the acknowledgement deadline, never before"),
+                    () -> assertNotEquals(lost.generationId(), attempts(task).get(1).generationId(),
+                            "the replacing worker is another generation"),
+                    () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"),
+                    () -> assertTrue(runner.fixtures().fences.isFenced(lost.generationId()),
+                            "the lost generation is fenced"));
+        }
+
+        @Test
+        @DisplayName("Should detect a worker lost between its acknowledgement and its submit at the silence limit")
+        void shouldDetectALossAfterTheAcknowledgement() {
+            var runner = replayed(WorkerFaultScenarios.KILL_AFTER_ACK);
+            var task = task(runner);
+            var lost = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the replacing worker submitted once"),
+                    () -> assertEquals(2, attempts(task).size(), "the task was offered to two generations"),
+                    () -> assertEquals(AttemptEnd.WORKER_LOST, lost.end(), "the acknowledged worker went silent"),
+                    () -> assertEquals(lost.acknowledgedAt().plusSeconds(ScenarioFixtures.SILENCE_LIMIT_SECONDS),
+                            lost.endedAt(), "the loss is detected at the silence limit, never before"),
+                    () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"));
+        }
+
+        @Test
+        @DisplayName("Should keep a worker that stalls less than its silence limit, with no re-offer spent")
+        void shouldKeepAWorkerThatStallsLessThanTheLimit() {
+            var runner = replayed(WorkerFaultScenarios.STALL_SHORT);
+            var task = task(runner);
+            var only = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the same worker submitted the task"),
+                    () -> assertEquals(1, attempts(task).size(), "no re-offer was spent"),
+                    () -> assertEquals(0, task.spentReOffers(), "the attempt did not count as a re-offer"),
+                    () -> assertEquals(AttemptEnd.CLOSED, only.end(), "the attempt closed the task"),
+                    () -> assertEquals(only.acknowledgedAt().plusSeconds(ScenarioFixtures.SILENCE_LIMIT_SECONDS / 3
+                                    + ScenarioFixtures.STEP.getSeconds()),
+                            only.endedAt(), "the submit came after the stall, by the same generation"));
+        }
+
+        @Test
+        @DisplayName("Should replace a worker that stalls up to its silence limit, exactly at the limit")
+        void shouldReplaceAWorkerThatStallsUpToTheLimit() {
+            var runner = replayed(WorkerFaultScenarios.STALL_LONG);
+            var task = task(runner);
+            var lost = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the replacing worker submitted once"),
+                    () -> assertEquals(2, attempts(task).size(), "the task was offered to two generations"),
+                    () -> assertEquals(AttemptEnd.WORKER_LOST, lost.end(), "the stalled worker was lost"),
+                    () -> assertEquals(lost.acknowledgedAt().plusSeconds(ScenarioFixtures.SILENCE_LIMIT_SECONDS),
+                            lost.endedAt(), "the loss is detected at the silence limit, never before"),
+                    () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"));
+        }
+
+        @Test
+        @DisplayName("Should detect a worker that ends its turn without a submit as the exit after its first call")
+        void shouldDetectAWorkerThatEndsItsTurn() {
+            var runner = replayed(WorkerFaultScenarios.END_TURN);
+            var task = task(runner);
+            var lost = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the replacing worker submitted once"),
+                    () -> assertEquals(2, attempts(task).size(), "the task was offered to two generations"),
+                    () -> assertEquals(AttemptEnd.EXITED_WITHOUT_SUBMIT, lost.end(), "the worker exited without a submit"),
+                    () -> assertEquals(lost.acknowledgedAt().plusSeconds(ScenarioFixtures.STEP.getSeconds()),
+                            lost.endedAt(), "the exit is observed at once, at the step's instant"),
+                    () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"));
+        }
+
+        @Test
+        @DisplayName("Should detect a relay killed under a held wait a silence limit after the relay's death")
+        void shouldDetectARelayKilledUnderAHeldWait() {
+            var runner = replayed(WorkerFaultScenarios.KILL_RELAY);
+            var task = task(runner);
+            var lost = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the replacing worker submitted once"),
+                    () -> assertEquals(2, attempts(task).size(), "the task was offered to two generations"),
+                    () -> assertEquals(AttemptEnd.WORKER_LOST, lost.end(), "the worker whose relay died was lost"),
+                    () -> assertEquals(lost.acknowledgedAt().plusSeconds(WorkerFaultScenarios.HELD_WAIT_SECONDS
+                                    + ScenarioFixtures.STEP.getSeconds()
+                                    + ScenarioFixtures.SILENCE_LIMIT_SECONDS),
+                            lost.endedAt(), "the silence counts from the relay's death, at the limit, never before"),
+                    () -> assertTrue(lost.endedAt().isAfter(lost.acknowledgedAt()
+                                    .plusSeconds(ScenarioFixtures.SILENCE_LIMIT_SECONDS)),
+                            "a held wait suppresses the silence until the relay dies"),
+                    () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"));
+        }
+
+        @Test
+        @DisplayName("Should close a task lost with attempts_spent once its re-offers are spent")
+        void shouldCloseTheTaskWhenTheBudgetIsSpent() {
+            var runner = replayed(WorkerFaultScenarios.BUDGET_EXHAUSTED);
+            var task = task(runner);
+
+            assertAll(
+                    () -> assertEquals(Outcome.LOST, task.outcome(), "the task closed lost"),
+                    () -> assertEquals(LostReason.ATTEMPTS_SPENT, task.reason(), "the re-offers are spent"),
+                    () -> assertEquals(ScenarioFixtures.RE_OFFER_BUDGET + 1, attempts(task).size(),
+                            "every lost attempt was offered again until the budget was spent"),
+                    () -> assertEquals(ScenarioFixtures.RE_OFFER_BUDGET + 1, task.spentReOffers(),
+                            "every loss spent one re-offer"),
+                    () -> assertEquals(0, closedAttempts(task), "no attempt closed the task"));
+        }
+
+        @Test
+        @DisplayName("Should release the lease of a lost worker at the fence, before a successor takes the task")
+        void shouldReleaseTheLeaseAtTheFence() {
+            var runner = runner();
+            runner.run(ScenarioScript.read("""
+                    scenario lost-and-released
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    worker_wait reviewer
+                    worker_do reviewer ack {}
+                    kill_worker reviewer
+                    """));
+            var task = task(runner);
+
+            assertAll(
+                    () -> assertEquals(Status.QUEUED, task.status(), "the task waits for a successor"),
+                    () -> assertEquals(Optional.of("fenced"), runner.workerStateOf("reviewer"),
+                            "the fence's release reads fenced"),
+                    () -> assertNull(task.lease(), "the lease was released at the fence"),
+                    () -> assertEquals(AttemptEnd.WORKER_LOST, task.currentAttempt().orElseThrow().end(),
+                            "the attempt ended with the loss, not with the fence"),
+                    () -> assertEquals(1, task.spentReOffers(), "the loss spent one re-offer"),
+                    () -> assertTrue(runner.fixtures().fences.isFenced(
+                                    task.currentAttempt().orElseThrow().generationId()),
+                            "the lost generation is fenced"));
+        }
+
+        @Test
+        @DisplayName("Should rebuild the runtime over the same stores and keep a lease, a fence and the queue record")
+        void shouldSurviveARuntimeRestartWithALeasedTask() {
+            var runner = replayed(WorkerFaultScenarios.RESTART_WITH_A_LEASE);
+            var task = task(runner);
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the one submit closed the task"),
+                    () -> assertEquals(1, closedAttempts(task), "the task was closed once"),
+                    () -> assertEquals(1, attempts(task).stream()
+                                    .map(Attempt::generationId).distinct().count(),
+                            "the same generation kept the lease"),
+                    () -> assertEquals(AttemptEnd.WAITED_AGAIN, attempts(task).getFirst().end(),
+                            "the restarted generation's wait ended the attempt waited_again"),
+                    () -> assertTrue(runner.fixtures().fences.fenced().isEmpty(),
+                            "an orderly restart writes no fence"));
+        }
+
+        @Test
+        @DisplayName("Should answer a second generation no_task while the lease of the restarted one is held")
+        void shouldAnswerASecondGenerationNoTask() {
+            var runner = replayed(WorkerFaultScenarios.RESTART_HELD_BY_ONE_GENERATION);
+            var task = task(runner);
+            var successor = "l-%016x".formatted(2);
+            var other = runner.fixtures().protocol().wait(new WaitRequest(successor, "reviewer",
+                            ScenarioFixtures.DIGEST, ScenarioFixtures.DIGEST, ScenarioFixtures.RE_OFFER_BUDGET),
+                    runner.fixtures().clock.now().plus(ScenarioFixtures.STEP));
+
+            assertAll(
+                    () -> assertEquals(Status.OFFERED, task.status(), "the held task is offered to its generation"),
+                    () -> assertEquals("l-0000000000000001", task.lease() == null ? null : task.lease().generationId(),
+                            "the lease survived the restart"),
+                    () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), other,
+                            "a second generation is answered no_task while the lease is held"));
+        }
+
+        @Test
+        @DisplayName("Should let the successor take the released task after a restart that follows a loss")
+        void shouldLetTheSuccessorTakeTheTaskAfterARestart() {
+            var runner = replayed(WorkerFaultScenarios.RESTART_AFTER_A_LOSS);
+            var task = task(runner);
+            var lost = attempts(task).getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.SUBMITTED, task.outcome(), "the successor submitted the task once"),
+                    () -> assertEquals(2, attempts(task).size(), "the task was offered to two generations"),
+                    () -> assertEquals(AttemptEnd.WORKER_LOST, lost.end(), "the first worker was lost"),
+                    () -> assertNotEquals(lost.generationId(), attempts(task).get(1).generationId(),
+                            "the successor is another generation"),
+                    () -> assertTrue(runner.fixtures().fences.isFenced(lost.generationId()),
+                            "the fence survived the restart"),
+                    () -> assertEquals(1, closedAttempts(task), "exactly one attempt closed the task"));
+        }
+
+        @Test
+        @DisplayName("Should free a leased task on a pause at once without spending a re-offer")
+        void shouldFreeTheLeaseOnAPauseAtOnce() {
+            var runner = runner();
+            runner.run(ScenarioScript.read("""
+                    scenario pause-at-once
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    worker_wait reviewer
+                    worker_do reviewer ack {}
+                    """));
+
+            var ended = runner.fixtures().protocol().pausePlan(PLAN_ID,
+                    runner.fixtures().clock.now().plus(ScenarioFixtures.STEP));
+            var task = task(runner);
+
+            assertAll(
+                    () -> assertEquals(1, ended, "the pause ended the one open attempt"),
+                    () -> assertEquals(Optional.of("queued"), runner.workerStateOf("reviewer"),
+                            "the release the fence did not cause reads queued"),
+                    () -> assertEquals(Status.QUEUED, task.status(), "the task waits for a successor"),
+                    () -> assertNull(task.lease(), "the pause released the lease"),
+                    () -> assertEquals(AttemptEnd.PAUSED, task.currentAttempt().orElseThrow().end(),
+                            "the attempt ended paused"),
+                    () -> assertEquals(0, task.spentReOffers(), "a pause at once spends no re-offer"));
         }
     }
 

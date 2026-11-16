@@ -18,11 +18,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.workflow.scenario.ScenarioReplayRunner.ScenarioFailure;
 import de.planmarshall.workflow.scenario.ScenarioReplayRunner.Snapshot;
@@ -152,5 +156,36 @@ class ScenarioDeterminismTest {
                         "every step before the changed transition writes the same bytes"),
                 () -> assertFalse(Arrays.equals(expected.get(8).status(), changed.get(8).status()),
                         "the answered clarification takes the changed transition"));
+    }
+
+    static Stream<Arguments> faultScenarios() {
+        return Stream.of(
+                Arguments.of("kill-before-ack", WorkerFaultScenarios.KILL_BEFORE_ACK),
+                Arguments.of("kill-after-ack", WorkerFaultScenarios.KILL_AFTER_ACK),
+                Arguments.of("stall-short", WorkerFaultScenarios.STALL_SHORT),
+                Arguments.of("stall-long", WorkerFaultScenarios.STALL_LONG),
+                Arguments.of("end-turn", WorkerFaultScenarios.END_TURN),
+                Arguments.of("kill-relay", WorkerFaultScenarios.KILL_RELAY),
+                Arguments.of("budget-exhausted", WorkerFaultScenarios.BUDGET_EXHAUSTED),
+                Arguments.of("restart-with-a-lease", WorkerFaultScenarios.RESTART_WITH_A_LEASE),
+                Arguments.of("restart-after-a-loss", WorkerFaultScenarios.RESTART_AFTER_A_LOSS));
+    }
+
+    private static List<Snapshot> replayFault(String text, Path directory) {
+        var runner = new ScenarioReplayRunner(ScenarioFixtures.planUnit(), directory);
+        runner.run(ScenarioScript.read(text));
+        return runner.snapshots();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("de.planmarshall.workflow.scenario.ScenarioDeterminismTest#faultScenarios")
+    @DisplayName("Should replay a fault scenario twice from empty stores to the same bytes after every step")
+    void shouldReplayAFaultScenarioToSameBytes(String name, String script) {
+        var once = replayFault(script, first);
+        var twice = replayFault(script, second);
+
+        assertAll(
+                () -> assertFalse(once.isEmpty(), name + " replayed its steps"),
+                () -> assertEquals(once, twice, name + " writes the same store bytes twice"));
     }
 }
