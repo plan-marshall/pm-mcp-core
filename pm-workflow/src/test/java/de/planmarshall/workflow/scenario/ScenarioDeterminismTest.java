@@ -64,6 +64,27 @@ class ScenarioDeterminismTest {
 
     private static final String CHANGED_TRANSITION = "answered -> handed_back";
 
+    /**
+     * The protocol worker's script: the task is offered to the generation, acknowledged and submitted, and the state
+     * routes the closed outcome.
+     */
+    private static final String PROTOCOL_SCRIPT = """
+            scenario determinism-protocol
+            start plan scenario-plan
+            complete_job b-0000000000000001 {"outcome":"succeeded"}
+            worker_wait reviewer
+            worker_do reviewer ack {}
+            worker_do reviewer submit:change {}
+            assert_worker_state reviewer closed
+            assert_task_outcome reviewer submitted
+            assert_state execute.ask
+            answer_question Q-001 web {"branch_key":"approve"}
+            assert_state execute.confirm
+            answer_question Q-002 web {"branch_key":"answered"}
+            assert_state completed
+            assert_outcome merged
+            """;
+
     @TempDir
     Path first;
 
@@ -76,6 +97,12 @@ class ScenarioDeterminismTest {
         return runner.snapshots();
     }
 
+    private static List<Snapshot> replayProtocol(Path directory) {
+        var runner = new ScenarioReplayRunner(ScenarioFixtures.planUnit(), directory);
+        runner.run(ScenarioScript.read(PROTOCOL_SCRIPT));
+        return runner.snapshots();
+    }
+
     @Test
     @DisplayName("Should write the same status bytes after every step in two replays from empty stores")
     void shouldReplayToSameBytes() {
@@ -85,6 +112,21 @@ class ScenarioDeterminismTest {
         assertAll(
                 () -> assertEquals(11, once.size()),
                 () -> assertTrue(once.stream().allMatch(snapshot -> snapshot.status().length > 0)),
+                () -> assertEquals(once, twice));
+    }
+
+    @Test
+    @DisplayName("Should write the same status and queue bytes for a protocol worker in two replays from empty stores")
+    void shouldReplayTheProtocolWorkerToSameBytes() {
+        var once = replayProtocol(first);
+        var twice = replayProtocol(second);
+
+        assertAll(
+                () -> assertEquals(13, once.size()),
+                () -> assertEquals(1, once.getLast().queue().size(),
+                        "the replay wrote the one queue record of its task"),
+                () -> assertTrue(once.getLast().queue().containsKey("qt-0000000000000001.json"),
+                        once.getLast().queue().keySet().toString()),
                 () -> assertEquals(once, twice));
     }
 

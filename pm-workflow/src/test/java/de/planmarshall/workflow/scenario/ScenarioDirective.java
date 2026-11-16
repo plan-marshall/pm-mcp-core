@@ -9,13 +9,16 @@
  */
 package de.planmarshall.workflow.scenario;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.workflow.engine.EngineEvent;
+import de.planmarshall.workflow.task.TaskRefusal;
 
 /**
  * One step of a scenario script of the replay harness {@code pm-scenario} (PM-TEST-4): a simulated actor action or a
@@ -213,6 +216,148 @@ sealed interface ScenarioDirective {
         }
     }
 
+    /**
+     * A wait of the scripted protocol worker of one role: the role's generation calls the task protocol's
+     * {@code wait} and is offered its task. A role declared with this directive is a protocol worker; its calls come
+     * with {@code worker_do}, and no role uses this form and {@link Worker} together.
+     *
+     * @param line the line of the script
+     * @param role the role
+     */
+    record WorkerWait(int line, String role) implements ScenarioDirective {
+
+        /** @throws IllegalArgumentException if the line is not positive or the role is no role name */
+        public WorkerWait {
+            requireLine(line);
+            requireRole(role);
+        }
+    }
+
+    /**
+     * A call of the scripted protocol worker of one role on its leased task entity: the acknowledgement, the submit with
+     * its kind, the infeasible report, or the consultation of another role.
+     *
+     * @param line      the line of the script
+     * @param role      the role of the calling worker
+     * @param action    the call
+     * @param arguments the scalar members of the JSON-shaped argument, empty for a call that takes none; copied
+     */
+    record WorkerDo(int line, String role, Action action, Map<String, String> arguments) implements ScenarioDirective {
+
+        /**
+         * @throws IllegalArgumentException if the line is not positive, the role is no role name, the action is
+         *                                  {@code null} or an argument name is no token
+         */
+        public WorkerDo {
+            requireLine(line);
+            requireRole(role);
+            Objects.requireNonNull(action, "action");
+            Objects.requireNonNull(arguments, "arguments");
+            arguments.forEach((name, value) -> {
+                requireToken(name, "argument name");
+                Objects.requireNonNull(value, name);
+            });
+            arguments = Map.copyOf(arguments);
+        }
+    }
+
+    /**
+     * The call a {@link WorkerDo} makes: the task protocol's acknowledgement, submit and infeasible report, and the
+     * consultation of another role through the shipped consultation service.
+     */
+    sealed interface Action {
+
+        /**
+         * Acknowledges the offer through the {@code ack} link.
+         */
+        record Ack() implements Action {
+        }
+
+        /**
+         * Closes the task with the outcome {@code submitted}, through the {@code submit:<kind>} link of its entity.
+         *
+         * @param kind the kind the link names: the entity kind of a work task, {@code answer} for a consultation task
+         */
+        record Submit(String kind) implements Action {
+
+            /** @throws IllegalArgumentException if the kind is no token */
+            public Submit {
+                requireToken(kind, "submit kind");
+            }
+        }
+
+        /**
+         * Closes the task with the outcome {@code infeasible}, through the entity's {@code infeasible} link.
+         */
+        record Infeasible() implements Action {
+        }
+
+        /**
+         * Follows the {@code consult:<role>} link: the task is consulted by the role and waits for the answer.
+         *
+         * @param role the consulted role
+         */
+        record Consult(String role) implements Action {
+
+            /** @throws IllegalArgumentException if the role is no role name */
+            public Consult {
+                requireRole(role);
+            }
+        }
+    }
+
+    /**
+     * Asserts the state of the role's scripted worker's task, read from the queue record.
+     *
+     * @param line  the line of the script
+     * @param role  the role whose protocol worker holds the task
+     * @param state one of {@link #WORKER_STATES}: {@code offered}, {@code acknowledged}, {@code closed}, {@code queued}
+     *              or {@code fenced}
+     */
+    record AssertWorkerState(int line, String role, String state) implements ScenarioDirective {
+
+        /**
+         * @throws IllegalArgumentException if the line is not positive, the role is no role name or the state is not
+         *                                  one of the states a worker's task takes
+         */
+        public AssertWorkerState {
+            requireLine(line);
+            requireRole(role);
+            Objects.requireNonNull(state, "state");
+            if (!WORKER_STATES.contains(state)) {
+                throw new IllegalArgumentException("'%s' is no state of a worker's task: %s"
+                        .formatted(state, WORKER_STATES));
+            }
+        }
+    }
+
+    /**
+     * Asserts that the last {@code worker_do} of a replaced or closed task was refused with the reason: the wire name of
+     * one constant of {@link TaskRefusal}, which is the closed set of the assertion.
+     *
+     * @param line   the line of the script
+     * @param reason the refusal, a wire name of {@link TaskRefusal}
+     */
+    record AssertRefused(int line, String reason) implements ScenarioDirective {
+
+        /**
+         * @throws IllegalArgumentException if the line is not positive or the reason is no refusal of the task protocol
+         */
+        public AssertRefused {
+            requireLine(line);
+            Objects.requireNonNull(reason, "reason");
+            if (!REFUSALS.contains(reason)) {
+                throw new IllegalArgumentException("'%s' is no refusal of a task: %s".formatted(reason, REFUSALS));
+            }
+        }
+    }
+
+    /** The states of the task of a protocol worker. */
+    List<String> WORKER_STATES = List.of("offered", "acknowledged", "closed", "queued", "fenced");
+
+    /** The refusals {@code assert_refused} accepts: the wire names of {@link TaskRefusal}, derived from the enum. */
+    List<String> REFUSALS = Arrays.stream(TaskRefusal.values()).map(TaskRefusal::wireName).toList();
+
     /** The shape of a job id, as {@link EngineEvent.JobSettled} states it. */
     Pattern JOB_ID = Pattern.compile("^[bcgp]-[0-9a-f]{16}$");
 
@@ -232,6 +377,13 @@ sealed interface ScenarioDirective {
         Objects.requireNonNull(value, name);
         if (!TOKEN.matcher(value).matches()) {
             throw new IllegalArgumentException("%s is no token: '%s'".formatted(name, value));
+        }
+    }
+
+    private static void requireRole(String role) {
+        Objects.requireNonNull(role, "role");
+        if (!RoleName.matches(role)) {
+            throw new IllegalArgumentException("role is no role name: '%s'".formatted(role));
         }
     }
 

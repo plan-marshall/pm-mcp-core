@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,9 +35,15 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.queue.QueueTaskRecord;
+import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
+import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
+import de.planmarshall.core.queue.QueueTaskRecord.Status;
 import de.planmarshall.core.spi.QueueTaskCreator;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.WorkflowStatusStore;
+import de.planmarshall.workflow.consult.ConsultationService;
+import de.planmarshall.workflow.consult.SubmitValidation;
 import de.planmarshall.workflow.scenario.ScenarioReplayRunner.ScenarioFailure;
 
 /**
@@ -77,7 +84,12 @@ class ScenarioReplayRunnerTest {
 
     /** @return the failure of replaying the text */
     private ScenarioFailure failure(String text) {
-        var runner = runner();
+        return failure(text, directory);
+    }
+
+    /** @return the failure of replaying the text in the directory */
+    private ScenarioFailure failure(String text, Path replayDirectory) {
+        var runner = new ScenarioReplayRunner(ScenarioFixtures.planUnit(), replayDirectory);
         var script = ScenarioScript.read(text);
         return assertThrows(ScenarioFailure.class, () -> runner.run(script));
     }
@@ -161,7 +173,7 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals(1, fixtures.jobRequests.getValues().size(),
                             "the replay started the build job once"),
                     () -> assertEquals(List.of(new QueueTaskCreator.CreateRequest(PLAN_ID, "execute.review", "change",
-                                    "reviewer")), fixtures.taskRequests.getValues(),
+                                    "reviewer")), fixtures.queueTasks.requests(),
                             "the replay created the queue task once"));
         }
 
@@ -267,7 +279,7 @@ class ScenarioReplayRunnerTest {
 
         @Test
         @DisplayName("Should fail a declared outcome no task took, at the declaration's line and naming the role")
-        void shouldFailSurplusOutcome() {
+        void shouldFailSurplusOutcome() throws Exception {
             var surplus = failure(reviewed("submitted lost", "assert_task_outcome reviewer submitted"));
             var unused = failure("""
                     scenario unused-role
@@ -276,7 +288,7 @@ class ScenarioReplayRunnerTest {
                     start plan scenario-plan
                     complete_job b-0000000000000001 {"outcome":"succeeded"}
                     assert_task_outcome reviewer submitted
-                    """);
+                    """, Files.createDirectory(directory.resolve(Generators.letterStrings(4, 10).next())));
 
             assertAll(
                     () -> assertEquals("line 2: the worker of role reviewer has task outcomes no task took: [lost]",
@@ -412,6 +424,231 @@ class ScenarioReplayRunnerTest {
                     () -> assertArrayEquals(started, asserted, "assert_state writes nothing"),
                     () -> assertFalse(Arrays.equals(asserted, settledJob), "complete_job writes the next state"),
                     () -> assertTrue(new String(settledJob, StandardCharsets.UTF_8).contains("execute.review")));
+        }
+    }
+
+    @Nested
+    @DisplayName("Protocol worker")
+    class ProtocolWorker {
+
+        /**
+         * The protocol worker's script: the task is offered to its generation, acknowledged, submitted, and the closed
+         * outcome is read from the queue record.
+         */
+        private static final String SCRIPT = """
+                scenario protocol-worker
+                start plan scenario-plan
+                complete_job b-0000000000000001 {"outcome":"succeeded"}
+                assert_state execute.review
+                worker_wait reviewer
+                assert_worker_state reviewer offered
+                worker_do reviewer ack {}
+                assert_worker_state reviewer acknowledged
+                worker_do reviewer submit:change {}
+                assert_worker_state reviewer closed
+                assert_task_outcome reviewer submitted
+                assert_state execute.ask
+                answer_question Q-001 web {"branch_key":"approve"}
+                assert_state execute.confirm
+                answer_question Q-002 web {"branch_key":"answered"}
+                assert_state completed
+                assert_outcome merged
+                """;
+
+        /** The script whose first call is refused and asserted, and whose late call of the closed task is asserted. */
+        private static final String REFUSED = """
+                scenario refused
+                start plan scenario-plan
+                complete_job b-0000000000000001 {"outcome":"succeeded"}
+                worker_wait reviewer
+                worker_do reviewer submit:change {}
+                assert_refused link_not_available
+                worker_do reviewer ack {}
+                worker_do reviewer submit:change {}
+                worker_do reviewer ack {}
+                assert_refused stale_entity
+                assert_worker_state reviewer closed
+                assert_task_outcome reviewer submitted
+                assert_state execute.ask
+                """;
+
+        @Test
+        @DisplayName("Should wait, acknowledge, submit and read the closed outcome from the queue record")
+        void shouldRunTheProtocolWorker() {
+            var runner = runner();
+
+            runner.run(ScenarioScript.read(SCRIPT));
+
+            var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN, PLAN_ID));
+            var record = runner.fixtures().queue.read("qt-0000000000000001").orElseThrow();
+            assertAll(
+                    () -> assertEquals("completed", stored.read().orElseThrow().state()),
+                    () -> assertEquals(1, record.attempts().size()),
+                    () -> assertEquals(Status.CLOSED, record.status(), "the task record is closed"),
+                    () -> assertEquals(Outcome.SUBMITTED, record.outcome(), "the closed outcome is submitted"),
+                    () -> assertEquals(AttemptEnd.CLOSED, record.currentAttempt().orElseThrow().end(),
+                            "the attempt ended closed"),
+                    () -> assertEquals("l-0000000000000001",
+                            record.currentAttempt().orElseThrow().generationId(),
+                            "the task was leased to the worker's generation"));
+        }
+
+        @Test
+        @DisplayName("Should fail a call the script expected accepted, at the step's line")
+        void shouldFailACallTheScriptExpectedAccepted() {
+            var failure = failure("""
+                    scenario no-ack
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    worker_wait reviewer
+                    worker_do reviewer submit:change {}
+                    """);
+
+            assertAll(
+                    () -> assertEquals(5, failure.line()),
+                    () -> assertEquals("line 5: the call was refused 'link_not_available'", failure.getMessage()));
+        }
+
+        @Test
+        @DisplayName("Should assert the refusal of the last call, of an offer and of a closed task")
+        void shouldAssertRefusalsAndStates() {
+            var runner = runner();
+
+            runner.run(ScenarioScript.read(REFUSED));
+
+            var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN, PLAN_ID));
+            assertEquals("execute.ask", stored.read().orElseThrow().state(), "the submit took the approved branch");
+        }
+
+        @Test
+        @DisplayName("Should fail assert_refused at its line when the call was refused with another reason")
+        void shouldFailAnAssertRefusedOnAnotherReason() {
+            var failure = failure("""
+                    scenario wrong-refusal
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    worker_wait reviewer
+                    worker_do reviewer ack {}
+                    worker_do reviewer ack {}
+                    assert_refused stale_entity
+                    """);
+
+            assertAll(
+                    () -> assertEquals(7, failure.line()),
+                    () -> assertEquals("line 7: assert_refused expected 'stale_entity' but the call was refused "
+                            + "'link_not_available'", failure.getMessage()));
+        }
+
+        @Test
+        @DisplayName("Should fail assert_worker_state at its line when the task rests in another state")
+        void shouldFailAnAssertWorkerStateOnAnotherState() {
+            var failure = failure("""
+                    scenario wrong-state
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    worker_wait reviewer
+                    assert_worker_state reviewer acknowledged
+                    """);
+
+            assertAll(
+                    () -> assertEquals(5, failure.line()),
+                    () -> assertEquals("line 5: assert_worker_state expected 'acknowledged' for role reviewer but its "
+                            + "task qt-0000000000000001 is 'offered'", failure.getMessage()));
+        }
+
+        @Test
+        @DisplayName("Should fail a wait the protocol answers with no task, naming the answer")
+        void shouldFailAWaitWithoutAnOffer() {
+            var failure = failure("""
+                    scenario no-offer
+                    start plan scenario-plan
+                    complete_job b-0000000000000001 {"outcome":"succeeded"}
+                    worker_wait reviewer
+                    worker_do reviewer ack {}
+                    worker_do reviewer submit:change {}
+                    worker_wait reviewer
+                    """);
+
+            assertAll(
+                    () -> assertEquals(7, failure.line()),
+                    () -> assertEquals("line 7: worker_wait of role reviewer expected an offer but the protocol "
+                            + "answered 'no_task', an empty window", failure.getMessage()));
+        }
+    }
+
+    @Nested
+    @DisplayName("Consultation")
+    class Consultation {
+
+        /** The asker consults the reviewer, the reviewer answers, and the asker's submit omits the reference. */
+        private static final String SCRIPT = """
+                scenario consultation
+                start plan scenario-ask
+                assert_state execute.review
+                worker_wait author
+                worker_do author ack {}
+                worker_do author consult:reviewer {"question":"is the change safe?"}
+                worker_wait reviewer
+                worker_do reviewer ack {}
+                worker_do reviewer submit:answer {"answer":"yes"}
+                worker_wait author
+                worker_do author submit:change {}
+                """;
+
+        private static final String ANSWERED = """
+                scenario consultation-answered
+                start plan scenario-ask
+                worker_wait author
+                worker_do author ack {}
+                worker_do author consult:reviewer {"question":"is the change safe?"}
+                worker_wait reviewer
+                worker_do reviewer ack {}
+                worker_do reviewer submit:answer {"answer":"yes"}
+                worker_wait author
+                """;
+
+        private ScenarioReplayRunner consultRunner() {
+            return new ScenarioReplayRunner(ScenarioFixtures.consultUnit(), directory);
+        }
+
+        @Test
+        @DisplayName("Should refuse the submit that omits the delivered consultation reference")
+        void shouldRefuseTheSubmitWithoutTheReference() {
+            var runner = consultRunner();
+            var script = ScenarioScript.read(SCRIPT);
+
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+
+            assertAll(
+                    () -> assertEquals(11, failure.line()),
+                    () -> assertTrue(failure.getMessage().startsWith(
+                                    "line 11: the submit was refused: the submit omits the delivered consultation_id "),
+                            failure.getMessage()));
+        }
+
+        @Test
+        @DisplayName("Should deliver the answer to the asker's next wait and accept the submit that names it")
+        void shouldAcceptTheSubmitThatNamesTheReference() {
+            var runner = consultRunner();
+
+            runner.run(ScenarioScript.read(ANSWERED));
+
+            var queue = runner.fixtures().queue;
+            var asker = queue.records().stream()
+                    .filter(task -> task.kind() == QueueTaskRecord.Kind.WORK).findFirst().orElseThrow();
+            var consultation = asker.consultations().getFirst();
+            var service = new ConsultationService(queue);
+            assertAll(
+                    () -> assertEquals(QueueTaskRecord.ConsultationStatus.ANSWERED, consultation.status(),
+                            "the consultation is answered"),
+                    () -> assertEquals(QueueTaskRecord.DeliveredTo.WAIT, consultation.deliveredTo(),
+                            "the answer is delivered to the asker's wait"),
+                    () -> assertInstanceOf(SubmitValidation.Accepted.class,
+                            service.validateSubmit(asker.queueTaskId(), List.of(consultation.consultationId())),
+                            "the submit that names the reference is accepted"),
+                    () -> assertInstanceOf(SubmitValidation.Refused.class,
+                            service.validateSubmit(asker.queueTaskId(), List.of()),
+                            "the submit that omits the reference is refused"));
         }
     }
 }

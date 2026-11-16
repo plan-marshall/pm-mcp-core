@@ -72,10 +72,7 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
         refused.put("assert_rejected", links);
         refused.put("do", links);
         refused.put("assert_instance_version", "plan-instance");
-        refused.put("worker_wait", "task-queue-and-protocol");
-        refused.put("worker_do", "task-queue-and-protocol");
-        for (var fault : List.of("kill_worker", "stall_worker", "end_turn", "kill_relay", "restart_runtime",
-                "assert_worker_state", "assert_refused")) {
+        for (var fault : List.of("kill_worker", "stall_worker", "end_turn", "kill_relay", "restart_runtime")) {
             refused.put(fault, "supervision-scenarios");
         }
         refused.put("set_role_unqualified", "role-qualification");
@@ -104,6 +101,72 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
         }
         if (directives.isEmpty()) {
             throw new IllegalArgumentException("the scenario %s names no step".formatted(name));
+        }
+        requireOneFormPerRole(workers, directives);
+        requireProtocolWorkerDeclarations(directives);
+        requireWorkerDoBeforeAssertRefused(directives);
+    }
+
+    /**
+     * A role is settled by its direct worker or by its protocol worker, never by both: the two declarations of one role
+     * are refused when the script is read.
+     */
+    private static void requireOneFormPerRole(List<ScenarioDirective.Worker> workers,
+            List<ScenarioDirective> directives) {
+        for (var directive : directives) {
+            if (!(directive instanceof ScenarioDirective.WorkerWait wait)) {
+                continue;
+            }
+            for (var worker : workers) {
+                if (worker.role().equals(wait.role())) {
+                    throw new IllegalArgumentException(
+                            "line %d: the worker of role %s is declared with worker and waits with worker_wait; a role uses one form"
+                                    .formatted(Math.max(worker.line(), wait.line()), wait.role()));
+                }
+            }
+        }
+    }
+
+    /**
+     * A protocol worker's call and the assertion of its task need the role's {@code worker_wait}: a script that never
+     * waits for the role is refused when it is read, not run.
+     */
+    private static void requireProtocolWorkerDeclarations(List<ScenarioDirective> directives) {
+        var waited = new HashSet<String>();
+        for (var directive : directives) {
+            if (directive instanceof ScenarioDirective.WorkerWait wait) {
+                waited.add(wait.role());
+            }
+        }
+        for (var directive : directives) {
+            switch (directive) {
+                case ScenarioDirective.WorkerDo call when !waited.contains(call.role()) ->
+                    throw new IllegalArgumentException(
+                            "line %d: worker_do names the role %s, which the script never declares with worker_wait"
+                                    .formatted(call.line(), call.role()));
+                case ScenarioDirective.AssertWorkerState assertion when !waited.contains(assertion.role()) ->
+                    throw new IllegalArgumentException(
+                            "line %d: assert_worker_state names the role %s, which the script never declares with worker_wait"
+                                    .formatted(assertion.line(), assertion.role()));
+                default -> {
+                    // every other directive names no protocol worker
+                }
+            }
+        }
+    }
+
+    /** {@code assert_refused} asserts the last {@code worker_do}: a script that never made the call is refused when read. */
+    private static void requireWorkerDoBeforeAssertRefused(List<ScenarioDirective> directives) {
+        var called = false;
+        for (var directive : directives) {
+            if (directive instanceof ScenarioDirective.AssertRefused assertion && !called) {
+                throw new IllegalArgumentException(
+                        "line %d: assert_refused asserts the last worker_do, but no worker_do precedes it"
+                                .formatted(assertion.line()));
+            }
+            if (directive instanceof ScenarioDirective.WorkerDo) {
+                called = true;
+            }
         }
     }
 
@@ -217,8 +280,67 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
                 yield line.build(() -> new ScenarioDirective.OperatorDo(line.number(), line.args().getFirst(),
                         line.args().get(1), parameters));
             }
+            case "worker_wait" -> {
+                line.requireNoJson();
+                line.requireArity(1, "worker_wait <role>");
+                yield line.build(() -> new ScenarioDirective.WorkerWait(line.number(), line.args().getFirst()));
+            }
+            case "worker_do" -> workerDo(line);
+            case "assert_worker_state" -> {
+                line.requireNoJson();
+                line.requireArity(2, "assert_worker_state <role> <state>");
+                yield line.build(() -> new ScenarioDirective.AssertWorkerState(line.number(), line.args().getFirst(),
+                        line.args().get(1)));
+            }
+            case "assert_refused" -> {
+                line.requireNoJson();
+                line.requireArity(1, "assert_refused <reason>");
+                yield line.build(() -> new ScenarioDirective.AssertRefused(line.number(), line.args().getFirst()));
+            }
             default -> throw line.refused("'%s' is no directive".formatted(word));
         };
+    }
+
+    /** The worker's call: its action, the JSON-shaped argument it may carry, and the two together. */
+    private static ScenarioDirective workerDo(Line line) {
+        var form = "worker_do <role> ack | submit:<kind> {…} | infeasible | consult:<role> {…}";
+        if (line.args().size() < 2) {
+            throw line.refused("missing argument: " + form);
+        }
+        if (line.args().size() > 2) {
+            throw line.refused("surplus argument '%s': %s".formatted(line.args().get(2), form));
+        }
+        var role = line.args().getFirst();
+        var word = line.args().get(1);
+        var arguments = line.jsonMembers();
+        return line.build(() -> new ScenarioDirective.WorkerDo(line.number(), role, action(word, arguments), arguments));
+    }
+
+    private static ScenarioDirective.Action action(String word, Map<String, String> arguments) {
+        if ("ack".equals(word)) {
+            return new ScenarioDirective.Action.Ack();
+        }
+        if ("infeasible".equals(word)) {
+            return new ScenarioDirective.Action.Infeasible();
+        }
+        if (word.startsWith("submit:")) {
+            var kind = word.substring("submit:".length());
+            if ("answer".equals(kind) && !arguments.containsKey("answer")) {
+                throw new IllegalArgumentException(
+                        "missing argument: worker_do submit:answer takes {\"answer\":\"…\"}");
+            }
+            return new ScenarioDirective.Action.Submit(kind);
+        }
+        if (word.startsWith("consult:")) {
+            var role = word.substring("consult:".length());
+            if (!arguments.containsKey("question")) {
+                throw new IllegalArgumentException(
+                        "missing argument: worker_do consult:%s takes {\"question\":\"…\"}".formatted(role));
+            }
+            return new ScenarioDirective.Action.Consult(role);
+        }
+        throw new IllegalArgumentException(
+                "'%s' is no worker action: ack, submit:<kind>, infeasible or consult:<role>".formatted(word));
     }
 
     private static ScenarioDirective start(Line line) {
