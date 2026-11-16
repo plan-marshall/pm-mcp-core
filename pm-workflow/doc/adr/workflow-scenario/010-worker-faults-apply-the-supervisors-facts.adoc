@@ -1,0 +1,128 @@
+= ADR 010: The Worker Faults Apply the Supervisor's Reported Facts
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-16
+
+== Context
+
+The specification's deterministic scenario replay harness names the worker faults `kill_worker <role>`,
+`stall_worker <role> <seconds>`, `end_turn <role>` and `kill_relay <role>`, and the runtime restart `restart_runtime`
+(Workflow DSL § Deterministic Scenario Replay Harness, the simulated actor actions of regression scenario 12). The
+harness refused them by name, with the work package that now ships them.
+
+The supervisor that reports these facts lives in `pm-runtime` (`LossDetection`, `LossReason`, `WorkerEnding`), and
+`pm-workflow` depends on `pm-core` alone: no scenario of this harness can drive it, and a harness that started a
+process would stop being deterministic. What crosses the boundary is the fact the supervisor reports, and the task
+protocol already carries it: `TaskProtocol.report(TaskCall, AttemptEnd, int, Instant)` ends an attempt with one of the
+closed set of `AttemptEnd` values, and `TaskProtocol.fence(String, Instant)` fences a generation.
+
+Model Work § Supervision & Recycling, Detection names the three facts a lost worker produces — the exit of the
+worker's process, a missing acknowledgement, and silence past the silence limit — and `LossReason` maps them to the
+attempt's end: `EXIT` → `exited_without_submit`, `ACK_MISSED` and `SILENCE` → `worker_lost`.
+
+== Decision
+
+Each fault word is one fact of the supervisor, applied by the harness at the instant of the manual clock.
+
+[cols="1,2,1,2"]
+|===
+|Directive |Fact |Attempt end |The instant it is applied at
+
+|`kill_worker <role>` (after an offer, before its acknowledgement)
+|The offer was not acknowledged within the harness's acknowledgement deadline (`ack_missed`)
+|`worker_lost`
+|The offer's instant plus `WorkerParameters.ackDeadlineSeconds`
+
+|`kill_worker <role>` (after the acknowledgement, before the submit)
+|The acknowledged worker made no call and holds no bounded wait past the silence limit (`silence`)
+|`worker_lost`
+|The worker's last call plus `WorkerParameters.silenceLimitSeconds()`
+
+|`end_turn <role>`
+|The worker's process exited after its first call without a submit (`exit`)
+|`exited_without_submit`
+|The step's own instant: the supervisor observes an exit at once, never at a deadline
+
+|`kill_relay <role>`
+|The relay died under the wait its acknowledged worker held, so the silence counts again from the relay's death
+|`worker_lost`
+|The relay's death plus `WorkerParameters.silenceLimitSeconds()`
+
+|`stall_worker <role> <seconds>`
+|The worker makes no call for the given time; while the silence since its last call stays below the limit that governs
+its open attempt nothing happens
+|`worker_lost`, once that silence reaches the limit
+|The limit's own instant, never the end of the given time
+|===
+
+The limit a stall is compared with is the limit of the attempt the worker holds: `ackDeadlineSeconds` while its offer is
+unacknowledged, `silenceLimitSeconds()` (the bounded wait plus the silence grace) once it is acknowledged. Both are read
+from `de.planmarshall.core.profile.WorkerParameters`; the harness re-implements neither the detector nor its timers. The
+silence is measured from the worker's last call, not from the step, so two stalls whose times add up past the limit
+lose the worker exactly as one does.
+
+* **The order is the protocol's.** A fault reports the fact first and fences the generation after it. `report` ends
+  the attempt, spends one re-offer where the end counts (`worker_lost` and `exited_without_submit` do, `restart` does
+  not) and releases the lease; `fence` persists the fence and, since the lease is released already, only writes it.
+  A fence applied first would end the attempt `restart` and spend none, which is the pause's fact, not a loss's. The
+  supervisor of this repository fences through `WorkerEnding.exited` and names each loss's attempt end in
+  `LossReason.attemptEnd()`, which has no caller here: the report that writes it with the loss reaches the protocol
+  outside `pm-workflow`, and is reported as a lead rather than copied.
+* **The replacement is the fencing's.** The replaced generation's late call is refused `generation_fenced`, which is
+  the refusal the fence exists for, and the role's next `worker_wait` starts the successor generation, which takes the
+  task from the released queue. A task whose re-offers are spent closes `lost` with `attempts_spent`, and the task
+  state routes that to the unit's own outcome.
+* **`restart_runtime` rebuilds what memory held.** The engine, the task protocol, the queue's object, its fence store,
+  the consultation service and the status store are rebuilt over the same directory; the status is re-read from its
+  bytes, and each protocol worker is rebuilt over its own generation with the task handle it held, read back from the
+  queue record. The harness's manual clock and its id counters are the script's, not the runtime's, and stay. A
+  start-failure guard is not part of the rebuild: the harness has no process to fail to start (`pm-runtime` proves that
+  guard, `SupervisorScenarioTest`).
+* **The scenario's instants are the manual clock's.** A fault that ends an attempt advances the clock to at least the
+  instant it applies the fact at, so a script's stored bytes and a task's `endedAt` both name the deadline rather than
+  the moment the test happened to run.
+
+== Alternatives Considered
+
+1. *Drive the real supervisor from the scenario.* _Rejected_: `pm-workflow` does not depend on `pm-runtime`, and the
+   supervisor starts and kills processes — the replay would stop being deterministic and would need a live model
+   harness for a test-scope proof.
+2. *Re-implement loss detection in the harness.* _Rejected_: the harness asserts on the protocol's records, never on a
+   supervisor state; a second detector would prove the second detector.
+3. *Model `kill_worker` as the exit fact, `exited_without_submit`.* _Rejected_: the specification's regression scenario
+   12 demands that a lost worker be detected within its deadline and never before, and a killed worker's relay reports
+   no exit the harness could date before a deadline. The exit fact is what `end_turn` applies, at the step's instant.
+4. *Make `kill_relay` another immediate loss beside `kill_worker`.* _Rejected_: it would lose the one fact the row
+   exists for — a held wait suppresses the silence (Model Work § Detection), so the loss falls a silence limit after
+   the relay dies and not a silence limit after the worker's last call. The scenario holds the wait for a third of the
+   limit first and asserts that the loss comes later than the unsuppressed deadline would have been.
+5. *A `pause` directive for the protocol half of the pause at once.* _Rejected_: no such directive exists in the
+   specification. The harness proves the protocol half (`pausePlan` frees the lease without spending a re-offer) in a
+   test, and the supervisor half stays proven by `SupervisorScenarioTest`.
+
+== Consequences
+
+* The six scenarios of regression scenario 12 and the runtime-crash scenarios replay without a live model, and every
+  property they name — one submit, detection at the deadline, the lease released, `generation_fenced` for a late call,
+  no replacement of a live worker, an exhausted budget closing the task — is a record of the real queue.
+* `assert_worker_state` reaches `offered`, `acknowledged`, `closed` and `fenced` (a released task whose last
+  attempt's generation is fenced) through a directive. `queued` — a release the fence did not cause — is reached by the
+  pause's protocol half only, since no directive releases a task without fencing it, and is asserted through the
+  runner's own derivation.
+* A fault names a role the script declared with `worker_wait` before it, and the harness refuses the script when it is
+  read otherwise, as it does for every other protocol directive.
+* The harness cannot produce a loss the supervisor would detect without a process: its facts are the protocol's.
+
+== Source
+
+* Work package `doc/plans/supervision-scenarios.adoc`, the `pm-scenario` half of D1, D2, and the scenarios of D3 and D4
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
+* link:../../../../doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]
+* link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#detection[Model Work § Supervision & Recycling, Detection]
+* link:../../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas § Task Queue]

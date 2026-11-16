@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
+import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.workflow.task.CallResult;
 import de.planmarshall.workflow.task.TaskCall;
 import de.planmarshall.workflow.task.TaskProtocol;
@@ -27,7 +28,13 @@ import de.planmarshall.workflow.task.WaitRequest;
  * <p>
  * The generation id comes from the fixtures' counter, so two replays start the same generations; the configuration
  * digest is the replay's one fixed digest, so the protocol offers the task to the generation. One instance serves one
- * role of one replay.
+ * role of one replay, for one generation.
+ * <p>
+ * A worker the harness loses ({@code kill_worker}, {@code end_turn}, {@code kill_relay}, {@code stall_worker}) is
+ * {@link #replaced()}: its generation is fenced, and the role's next {@code worker_wait} starts the successor
+ * {@link #successor()} with the next generation of the counter. A runtime restart rebuilds the instance over the same
+ * generation, with its leased task re-read from the queue, because nothing in memory survives the restart and the
+ * lease does.
  */
 // Every datum in this class is the replay's contract: the generation and the leased task entity.
 final class ScriptedProtocolWorker {
@@ -36,6 +43,9 @@ final class ScriptedProtocolWorker {
     private final String generation;
     private final TaskProtocol protocol;
     private String queueTaskId;
+    private boolean replaced;
+    private Instant offeredAt;
+    private Instant lastCallAt;
 
     /**
      * @param role       the role the worker serves
@@ -63,6 +73,48 @@ final class ScriptedProtocolWorker {
         return Optional.ofNullable(queueTaskId);
     }
 
+    /** @return the instant of the offer the worker holds; empty before its first offer */
+    Optional<Instant> offeredAt() {
+        return Optional.ofNullable(offeredAt);
+    }
+
+    /** @return the instant of the worker's latest call; empty before its first */
+    Optional<Instant> lastCallAt() {
+        return Optional.ofNullable(lastCallAt);
+    }
+
+    /** @return whether the harness lost this generation, so the role's next wait starts a successor */
+    boolean replaced() {
+        return replaced;
+    }
+
+    /** Records that the harness lost this generation: its lease was released and its generation fenced. */
+    void replaced(boolean value) {
+        replaced = value;
+    }
+
+    /**
+     * Records the task a rebuilt instance holds after a runtime restart: the queue record is durable, the in-memory
+     * handle is not, so the offer's instant and the worker's last call are read back from its attempt.
+     *
+     * @param task the task the queue's lease names for this generation
+     */
+    void leased(QueueTaskRecord task) {
+        queueTaskId = task.queueTaskId();
+        var attempt = task.currentAttempt().orElse(null);
+        offeredAt = attempt == null ? null : attempt.offeredAt();
+        if (attempt != null && attempt.acknowledgedAt() != null) {
+            lastCallAt = attempt.acknowledgedAt();
+        } else {
+            lastCallAt = offeredAt;
+        }
+    }
+
+    /** @return the successor of this lost generation, over the same protocol, with the next generation of the counter */
+    ScriptedProtocolWorker successor(String nextGeneration) {
+        return new ScriptedProtocolWorker(role, nextGeneration, protocol);
+    }
+
     /**
      * Calls the protocol's wait with the worker's generation and role.
      *
@@ -73,8 +125,10 @@ final class ScriptedProtocolWorker {
         var answer = protocol.wait(
                 new WaitRequest(generation, role, ScenarioFixtures.DIGEST, ScenarioFixtures.DIGEST,
                         ScenarioFixtures.RE_OFFER_BUDGET), at);
+        called(at);
         if (answer instanceof WaitAnswer.Offered offered) {
             queueTaskId = offered.task().queueTaskId();
+            offeredAt = at;
         }
         return answer;
     }
@@ -84,6 +138,7 @@ final class ScriptedProtocolWorker {
      * @return the task in {@code executing}, or the refusal
      */
     CallResult acknowledge(Instant at) {
+        called(at);
         return protocol.acknowledge(call(), at);
     }
 
@@ -92,6 +147,7 @@ final class ScriptedProtocolWorker {
      * @return the closed task, or the refusal
      */
     CallResult submit(Instant at) {
+        called(at);
         return protocol.submit(call(), at);
     }
 
@@ -100,7 +156,22 @@ final class ScriptedProtocolWorker {
      * @return the closed task, or the refusal
      */
     CallResult infeasible(Instant at) {
+        called(at);
         return protocol.infeasible(call(), at);
+    }
+
+    /**
+     * Records a consultation the worker opened or answered: a consultation is one of the worker's calls, so the silence
+     * limit counts from it.
+     *
+     * @param at the instant of the consultation
+     */
+    void consulted(Instant at) {
+        called(at);
+    }
+
+    private void called(Instant at) {
+        lastCallAt = at;
     }
 
     private TaskCall call() {

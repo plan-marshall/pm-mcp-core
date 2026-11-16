@@ -259,23 +259,31 @@ steward, the catalogue precedence), `RoleDigestTest` (the digest table), `Effect
 the context-budget and idle fallbacks, the off-track defaults), `ShippedRolesTest` (the classpath reader and the reserved
 file), `QualificationCheckTest` (the validity matrix, the level change, the baseline and the warm downgrade),
 `ConstantBaselineTest`, `RoleTopicsTest`, `ScoringTest`, `JudgeCheckTest` (the oracle and blind accuracies, the lost
-judge task, the stale record), `QualificationRecordCodecTest` and `QualificationRecordStoreTest`.
+judge task, the stale record), `QualificationRecordCodecTest`, `QualificationRecordStoreTest` and
+`QualificationSchemaParityTest` (the two grading schema files, their members, enumerations and the validity of the written
+documents: the judge-check record as written, the qualification record but for the pinned `thin` mark of a topic result).
 
 == Tokens and the Split
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5]_
 
-`TokenTotal` carries the total a grading item or form used and the split beside it: `tokens_in` and `tokens_out`. The
-split is a measured pair that sums to the total, or `unmeasured` at both when it is unknown; an unmeasured total carries
-no split, and `plus` sums the split only when both addends have one. The qualification and judge-check records write the
-split beside `total_tokens`; the decision calibration record's schema carries the same two members, and its codec is owed
-with the package that builds it. The cost is never part of a grading record. A total of `0` is refused (the lower bound
-is `1`), and a split that does not sum to the total is refused at construction.
+`TokenTotal` carries the total a grading measure used and can carry the split beside it: `tokens_in` and `tokens_out`.
+The split is a measured pair that sums to the total, or `unmeasured` at both when it is unknown; an unmeasured total
+carries no split, and `plus` sums the split only when both addends have one. The qualification and judge-check records
+persist `total_tokens` alone (`store-schemas/16`); a view derives the split on read
+(link:../adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/048]), and a
+document that carries either member is refused as undeclared. The decision calibration record's schema requires the two
+members, and `TokenTotal` keeps the split for it until the codec owed with the package that builds it exists. The cost is
+never part of a grading record. A total of `0` is refused (the lower bound is `1`), and a split that does not sum to the
+total is refused at construction.
 
-`QualificationRecordCodecTest` covers the measured split and the refusals and carries it through the codec's round-trip;
-`JudgeCheckCodec` writes and reads the two members beside `total_tokens`.
+`QualificationRecordCodecTest` covers the split of `TokenTotal` and asserts that a record is written without it;
+`QualificationSchemaParityTest` reads the two schema files and validates the written documents against their schemas: the
+judge-check record as written, the qualification record but for the pinned `thin` mark of a topic result (owner: the work
+package `qualification-evidence`).
 
-link:../adr/core-role/005-token-total-carries-the-split.adoc[ADR 005]: the token total of a grading record carries its
-split.
+link:../adr/core-role/006-grading-records-persist-the-total-only.adoc[ADR 006]: the qualification and judge-check records
+persist the total only. link:../adr/core-role/005-token-total-carries-the-split.adoc[ADR 005] is superseded in the part
+that named those two records as writers of the split; its decision for the decision calibration record stands.
 
 == The Null Contract of This Package
 
