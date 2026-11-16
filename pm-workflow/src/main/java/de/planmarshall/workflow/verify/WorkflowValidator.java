@@ -363,7 +363,7 @@ public final class WorkflowValidator {
                         .location(location)
                         .message("the reads_config key '%s' is declared twice".formatted(key))
                         .build());
-            } else if (key.equals("derived") || key.startsWith("derived.")) {
+            } else if ("derived".equals(key) || key.startsWith("derived.")) {
                 violations.add(Violation.builder()
                         .rule(VerificationRule.CONFIG_KEY_BINDING)
                         .stateId(stateId)

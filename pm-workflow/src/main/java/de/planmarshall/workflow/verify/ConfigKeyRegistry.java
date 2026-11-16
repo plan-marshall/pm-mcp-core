@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -38,7 +39,7 @@ public record ConfigKeyRegistry(Map<String, ConfigKey> keys) {
      */
     public ConfigKeyRegistry {
         Objects.requireNonNull(keys, "keys");
-        keys = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(keys));
+        keys = Collections.unmodifiableMap(new LinkedHashMap<>(keys));
     }
 
     /**

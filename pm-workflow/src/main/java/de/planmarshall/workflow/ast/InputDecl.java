@@ -35,7 +35,7 @@ import org.jspecify.annotations.Nullable;
  */
 @Builder
 public record InputDecl(String name, InputType type, boolean optional, @Nullable CallValue defaultValue,
-        @Nullable String fallback, @Nullable String description, SourceLocation location) {
+@Nullable String fallback, @Nullable String description, SourceLocation location) {
 
     /**
      * @return whether a call site must bind the input: it carries neither the optional form nor a default nor a

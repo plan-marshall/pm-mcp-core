@@ -190,8 +190,8 @@ final class GeneralInvariants {
     /** @return whether two inputs declare the same contract: name aside, the type, the optional form, default and fallback */
     private static boolean sameInterface(InputDecl input, InputDecl reference) {
         return input.type().equals(reference.type()) && input.optional() == reference.optional()
-                && java.util.Objects.equals(input.defaultValue(), reference.defaultValue())
-                && java.util.Objects.equals(input.fallback(), reference.fallback());
+                && Objects.equals(input.defaultValue(), reference.defaultValue())
+                && Objects.equals(input.fallback(), reference.fallback());
     }
 
     /**
