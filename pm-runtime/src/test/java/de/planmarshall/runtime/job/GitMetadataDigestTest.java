@@ -252,6 +252,20 @@ class GitMetadataDigestTest {
     }
 
     @Test
+    @DisplayName("Should read an escaped quote in a quoted include path")
+    void shouldReadEscapedQuote() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"), "[include]\n\tpath = \"a\\\"b.cfg\"\n");
+        Files.writeString(root.resolve(".git/a\"b.cfg"), "[core]\n\tfsmonitor = " + name() + "\n");
+        var before = GitMetadataDigest.of(root);
+        Files.writeString(root.resolve(".git/a\"b.cfg"), "[core]\n\tfsmonitor = attacker\n");
+
+        var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
+
+        assertEquals(Set.of(".git/a\"b.cfg"), changed, "an escaped quote stays in the path");
+    }
+
+    @Test
     @DisplayName("Should digest nothing for a project without git")
     void shouldDigestNothingWithoutGit() throws Exception {
         var root = Files.createDirectories(base.resolve(name()));

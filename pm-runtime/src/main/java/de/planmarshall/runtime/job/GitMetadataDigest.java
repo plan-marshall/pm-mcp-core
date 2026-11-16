@@ -227,7 +227,12 @@ public final class GitMetadataDigest {
         for (var index = 0; index < raw.length(); index++) {
             var character = raw.charAt(index);
             if (quoted && character == '\\' && index + 1 < raw.length()) {
-                value.append(raw.charAt(++index));
+                var escaped = raw.charAt(++index);
+                value.append(switch (escaped) {
+                    case 'n' -> '\n';
+                    case 't' -> '\t';
+                    default -> escaped;
+                });
                 continue;
             }
             if (character == '"') {

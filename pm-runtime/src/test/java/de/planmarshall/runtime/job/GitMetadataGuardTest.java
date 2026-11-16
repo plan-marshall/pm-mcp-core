@@ -150,6 +150,33 @@ class GitMetadataGuardTest {
                         "the operator's act accepts it"));
     }
 
+    @Test
+    @DisplayName("Should keep a withheld project refused until the operator's act, even when it becomes readable")
+    void shouldKeepWithheldUntilTheOperatorsAct() throws Exception {
+        var root = Files.createDirectories(base.resolve(name()));
+        var real = Files.createDirectories(base.resolve(name()));
+        Files.createDirectories(real.resolve("hooks"));
+        Files.writeString(real.resolve("config"), "[core]\n\trepositoryformatversion = 0\n");
+        var link = root.resolve(".git");
+        Files.createSymbolicLink(link, real);
+        var guard = new GitMetadataGuard();
+        guard.record(root);
+        Files.delete(link);
+        Files.createDirectories(link.resolve("hooks"));
+        Files.writeString(link.resolve("config"), "[core]\n\trepositoryformatversion = 0\n");
+
+        guard.record(root);
+        var refused = guard.verify(root);
+        guard.rebaseline(root);
+        var accepted = guard.verify(root);
+
+        assertAll("A readable repair is still the operator's act",
+                () -> assertEquals(GitMetadataGuard.Changed.class, refused.getClass(),
+                        "the readable repair does not clear the detection"),
+                () -> assertEquals(new GitMetadataGuard.Unchanged(), accepted,
+                        "the operator's act accepts the repaired tree"));
+    }
+
     private Path repository() throws IOException {
         var root = Files.createDirectories(base.resolve(name()));
         var git = Files.createDirectories(root.resolve(".git"));

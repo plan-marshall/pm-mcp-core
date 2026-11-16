@@ -39,16 +39,18 @@ public final class GitMetadataGuard {
 
     /**
      * The projects whose metadata could not be read when a baseline would have been taken. Such a project holds no
-     * baseline, so every comparison answers {@link Changed} with the fail-closed part until the operator's
-     * {@link #rebaseline(Path)} records the accepted state.
+     * baseline it can vouch for, or keeps the one it had, which no longer describes the tree; either way every
+     * comparison answers {@link Changed} with the fail-closed part until the operator's {@link #rebaseline(Path)}
+     * records the accepted state.
      */
     private final Set<Path> withheld = ConcurrentHashMap.newKeySet();
 
     /**
      * Takes the baseline of a project when it holds none and its metadata can be read. A tree that is unreadable at the
-     * spawn takes no baseline: {@link #verify(Path)} then answers {@link Changed} until the operator's
-     * {@link #rebaseline(Path)} accepts it. The first readable spawn of a project in this runtime takes the baseline; a
-     * later spawn keeps it, so a change made between two spawns is not baselined away.
+     * spawn takes no baseline (or keeps the one it had, which no longer describes the tree): {@link #verify(Path)} then
+     * answers {@link Changed} until the operator's {@link #rebaseline(Path)} accepts the state. A withheld project stays
+     * withheld through a later readable spawn, so the detection is cleared by the operator's act alone, never by a spawn.
+     * The first readable spawn of a project in this runtime takes the baseline; a later spawn keeps it.
      *
      * @param projectRoot the canonical enrolled project root
      */
@@ -59,7 +61,9 @@ public final class GitMetadataGuard {
             withheld.add(key);
             return;
         }
-        withheld.remove(key);
+        if (withheld.contains(key)) {
+            return;
+        }
         baselines.putIfAbsent(key, digest);
     }
 
