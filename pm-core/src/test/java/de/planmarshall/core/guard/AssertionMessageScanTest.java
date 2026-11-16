@@ -10,393 +10,51 @@
 package de.planmarshall.core.guard;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
-import de.cuioss.test.generator.Generators;
-import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.testing.assertions.AssertionMessages;
 
 /**
- * Guards the rule of the {@code junit-core} skill that every assertion carries a message of 20 to 60 characters.
+ * Guards the rule of the {@code junit-core} skill that every assertion carries a message of 20 to 60 characters, for
+ * the test tree of this module.
  * <p>
- * The scan reads the source text of the scanned test packages. A call of one of the assertion methods of the rule that
- * carries no message argument fails, and a message written as one string literal outside the 20 to 60 character range
- * fails too. A message that is not a single literal — a supplier, a method reference, the exception's own message, a
- * concatenation or a constant — is accepted and not measured. An assertion call inside a comment, a string or a text
- * block is not code and is ignored.
- * <p>
- * The scan reads text, not types, so two shapes are outside what it can tell: a tolerance passed as an identifier or a
- * call ({@code assertEquals(a, b, DELTA)} reads as a message) and a comma inside a top-level type argument of a
- * single-argument assertion. The measurement is of the source spelling: an escape counts by its spelling, and a comment
- * beside a message literal makes it read as a non-literal. A plan that brings another package to the rule adds it to
- * {@link #SCANNED_PACKAGES}; a package with no test source fails the scan instead of passing as empty.
+ * The scan walks every test source below {@code de/planmarshall/core} and skips the two packages this list exempts, by
+ * name and with a reason: a new package is guarded as soon as it is written, because the list is the exemption and not
+ * the population. The scan itself is the shared scanner of the {@code tests} JAR
+ * ({@link AssertionMessages}), which a module's own thin guard reuses for its own tree.
  */
-@EnableGeneratorController
 @DisplayName("Every assertion carries a message")
 class AssertionMessageScanTest {
 
-    /** The test packages under the module's {@code src/test/java} that this guard scans. */
-    private static final List<String> SCANNED_PACKAGES = List.of("de/planmarshall/core/store");
+    /** The base package this module's tests are written below. */
+    private static final String BASE_PACKAGE = "de/planmarshall/core";
 
-    private static final int MIN_MESSAGE_LENGTH = 20;
-
-    private static final int MAX_MESSAGE_LENGTH = 60;
-
-    private static final Set<String> ASSERTIONS = Set.of("assertTrue", "assertFalse", "assertEquals",
-            "assertNotEquals", "assertNull", "assertNotNull", "assertSame", "assertThrows", "assertInstanceOf",
-            "assertDoesNotThrow", "assertArrayEquals");
-
-    /** The assertions whose signature starts with a single mandatory argument, so a message is the second argument. */
-    private static final Set<String> ONE_ARGUMENT_ASSERTIONS = Set.of("assertTrue", "assertFalse", "assertNull",
-            "assertNotNull", "assertDoesNotThrow");
-
-    private static final Pattern NUMERIC = Pattern.compile(
-            "[+-]?(?:0[xX](?:[0-9a-fA-F][0-9a-fA-F_]*(?:\\.[0-9a-fA-F_]*)?|\\.[0-9a-fA-F][0-9a-fA-F_]*)[pP][+-]?\\d+"
-                    + "|(?:\\d[\\d_]*(?:\\.[\\d_]*)?|\\.[\\d_]+)(?:[eE][+-]?\\d[\\d_]*)?)[dDfF]?");
-
-    private static final Pattern LITERAL = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"");
-
-    /** Where the offenders of the last failing scan are written, so the failure names a readable list. */
+    /** Where the offenders of a failing scan are written, so the failure names a readable list. */
     private static final Path VIOLATIONS = Path.of("target/assertion-message-violations.txt");
 
-    /** The lexical state of {@link #codeView(String)}. */
-    private enum State {
-        CODE, LINE_COMMENT, BLOCK_COMMENT, TEXT_BLOCK, STRING, CHARACTER
-    }
-
-    @Test
-    @DisplayName("every assertion of the scanned packages carries a 20 to 60 character message")
-    void everyAssertionOfTheScannedPackagesCarriesAMessage() {
-        var root = testSourceRoot();
-        var violations = new ArrayList<String>();
-        for (var scannedPackage : SCANNED_PACKAGES) {
-            var scan = scanTree(root.resolve(scannedPackage));
-            if (scan.files() == 0) {
-                violations.add(scannedPackage + ": no test source was scanned");
-            }
-            violations.addAll(scan.violations());
-        }
-        if (!violations.isEmpty()) {
-            writeViolations(violations);
-        }
-
-        assertTrue(violations.isEmpty(), () -> "Every assertion needs a message of 20 to 60 characters; the "
-                + "offenders are listed in " + VIOLATIONS);
-    }
-
-    @Test
-    @DisplayName("a missing message, an out-of-range message and a tolerance are reported")
-    void missingAndOutOfRangeMessagesAreReported(@TempDir Path temp) throws Exception {
-        assertReported(temp.resolve("missing"), "assertTrue: no message", "assertTrue(refusal.isPresent());");
-        assertReported(temp.resolve("nested"), "assertTrue: no message",
-                "assertAll(\"the refusal\", () -> assertTrue(refusal.isPresent()));");
-        assertReported(temp.resolve("short"), "shorter than " + MIN_MESSAGE_LENGTH,
-                "assertTrue(refusal.isPresent(), \"too short\");");
-        assertReported(temp.resolve("long"), "longer than " + MAX_MESSAGE_LENGTH,
-                "assertTrue(refusal.isPresent(), \"" + "x".repeat(MAX_MESSAGE_LENGTH + 1) + "\");");
-        assertReported(temp.resolve("array-tolerance"), "assertArrayEquals: no message",
-                "assertArrayEquals(EXPECTED, value, 0.001);");
-        for (var tolerance : List.of("1e-6", "1_000.0", "0x1.0p-6")) {
-            assertReported(temp.resolve("tolerance-" + tolerance), "assertEquals: no message",
-                    "assertEquals(1.0, value, " + tolerance + ");");
-        }
-    }
-
-    private static void assertReported(Path root, String reason, String statement) throws IOException {
-        assertTrue(reported(packageFixture(root, statement), reason),
-                () -> "expected '" + reason + "' for " + statement);
-    }
-
-    @Test
-    @DisplayName("an assertion with a message in range and a dynamic message are not reported")
-    void acceptableAssertionsAreNotReported(@TempDir Path temp) throws Exception {
-        var root = packageFixture(temp,
-                "assertTrue(refusal.isPresent(), \"the refusal must be present\");",
-                "assertEquals(\"the refusal\", refusal.orElseThrow().getMessage(), failure::getMessage);",
-                "assertThrows(IllegalStateException.class, () -> store.read(file), () -> \"the store refuses\");");
-
-        assertTrue(scanTree(root).violations().isEmpty(),
-                "a message in range and a dynamic message are accepted");
-    }
-
-    @Test
-    @DisplayName("an assertion call inside a comment or a string is not reported")
-    void assertionTextOutsideCodeIsNotReported(@TempDir Path temp) throws Exception {
-        var root = packageFixture(temp,
-                "// assertTrue(refusal.isPresent());",
-                "/* assertTrue(refusal.isPresent()); */",
-                "assertTrue(text.contains(\"assertTrue(value);\"), \"the text carries the assertion text\");",
-                "var block = \"\"\"\n                assertTrue(value);\n                \"\"\";",
-                "assertFalse(block.isBlank(), \"the planted text block is not blank\");");
-
-        assertTrue(scanTree(root).violations().isEmpty(),
-                "an assertion call in a comment or a string is not code");
-    }
-
-    private static boolean reported(Path root, String reason) {
-        return scanTree(root).violations().stream().anyMatch(violation -> violation.contains(reason));
-    }
-
-    private static void writeViolations(List<String> violations) {
-        try {
-            Files.createDirectories(VIOLATIONS.getParent());
-            Files.write(VIOLATIONS, violations);
-        } catch (IOException exception) {
-            throw new UncheckedIOException(exception);
-        }
-    }
-
-    private static Path packageFixture(Path root, String... statements) throws IOException {
-        var directory = root.resolve("de/planmarshall/fixture");
-        Files.createDirectories(directory);
-        var className = "C" + Generators.letterStrings(3, 10).next();
-        var source = "class " + className + " {\n    void planted() {\n        "
-                + String.join("\n        ", statements) + "\n    }\n}\n";
-        Files.writeString(directory.resolve(className + ".java"), source);
-        return root;
-    }
-
-    private static Path testSourceRoot() {
-        var current = Path.of("").toAbsolutePath().normalize();
-        for (var candidate = current; candidate != null; candidate = candidate.getParent()) {
-            var moduleRelative = candidate.resolve("src/test/java");
-            if (Files.isDirectory(moduleRelative.resolve(SCANNED_PACKAGES.getFirst()))) {
-                return moduleRelative;
-            }
-            var reactorRelative = candidate.resolve("pm-core/src/test/java");
-            if (Files.isDirectory(reactorRelative.resolve(SCANNED_PACKAGES.getFirst()))) {
-                return reactorRelative;
-            }
-        }
-        return fail("the root of the pm-core test sources was not found");
-    }
-
-    private static Scan scanTree(Path root) {
-        if (!Files.isDirectory(root)) {
-            return new Scan(0, List.of());
-        }
-        var violations = new ArrayList<String>();
-        var files = new ArrayList<Path>();
-        try (Stream<Path> walk = Files.walk(root)) {
-            walk.filter(Files::isRegularFile)
-                    .filter(file -> file.toString().endsWith(".java"))
-                    .sorted()
-                    .forEach(files::add);
-        } catch (IOException exception) {
-            throw new UncheckedIOException(exception);
-        }
-        files.forEach(file -> violations.addAll(scan(relative(root, file), read(file))));
-        return new Scan(files.size(), violations);
-    }
-
-    /** The source files a package scan read, and its violations; a package with no file fails instead of passing. */
-    private record Scan(int files, List<String> violations) {
-    }
-
-    private static String relative(Path root, Path file) {
-        return root.relativize(file).toString().replace('\\', '/');
-    }
-
-    private static String read(Path file) {
-        try {
-            return Files.readString(file);
-        } catch (IOException exception) {
-            throw new UncheckedIOException(exception);
-        }
-    }
-
-    private static List<String> scan(String path, String source) {
-        var view = codeView(source);
-        var violations = new ArrayList<String>();
-        var index = 0;
-        while (index < view.length()) {
-            if (!Character.isJavaIdentifierStart(view.charAt(index))) {
-                index++;
-                continue;
-            }
-            var start = index;
-            while (index < view.length() && Character.isJavaIdentifierPart(view.charAt(index))) {
-                index++;
-            }
-            var name = view.substring(start, index);
-            var open = nextNonWhitespace(view, index);
-            if (!ASSERTIONS.contains(name) || open >= view.length() || view.charAt(open) != '(') {
-                continue;
-            }
-            var spans = argumentSpans(view, open);
-            var minimum = ONE_ARGUMENT_ASSERTIONS.contains(name) ? 1 : 2;
-            var line = lineAt(view, start);
-            if (spans.size() <= minimum) {
-                violations.add(path + ":" + line + " " + name + ": no message");
-            } else if (spans.size() == minimum + 1 && NUMERIC.matcher(source.substring(spans.getLast()[0],
-                    spans.getLast()[1]).strip()).matches() && isNumericTolerance(name)) {
-                violations.add(path + ":" + line + " " + name + ": no message (a tolerance is not a message)");
-            } else {
-                var message = source.substring(spans.getLast()[0], spans.getLast()[1]).strip();
-                if (LITERAL.matcher(message).matches()) {
-                    var length = message.length() - 2;
-                    if (length < MIN_MESSAGE_LENGTH) {
-                        violations.add(path + ":" + line + " " + name + ": message shorter than "
-                                + MIN_MESSAGE_LENGTH + " characters (" + length + ")");
-                    } else if (length > MAX_MESSAGE_LENGTH) {
-                        violations.add(path + ":" + line + " " + name + ": message longer than "
-                                + MAX_MESSAGE_LENGTH + " characters (" + length + ")");
-                    }
-                }
-            }
-        }
-        return violations;
-    }
-
-    private static boolean isNumericTolerance(String name) {
-        return "assertEquals".equals(name) || "assertNotEquals".equals(name)
-                || "assertArrayEquals".equals(name);
-    }
-
-    private static int nextNonWhitespace(String view, int from) {
-        var index = from;
-        while (index < view.length() && Character.isWhitespace(view.charAt(index))) {
-            index++;
-        }
-        return index;
-    }
-
-    /** @return the start and end index of every top-level argument of the call whose {@code (} is at {@code open} */
-    private static List<int[]> argumentSpans(String view, int open) {
-        var spans = new ArrayList<int[]>();
-        var depth = 0;
-        var start = open + 1;
-        for (var index = open + 1; index < view.length(); index++) {
-            var current = view.charAt(index);
-            if (current == '(' || current == '[' || current == '{') {
-                depth++;
-            } else if (current == ')' || current == ']' || current == '}') {
-                if (depth == 0) {
-                    if (index > start) {
-                        spans.add(new int[]{start, index});
-                    }
-                    return spans;
-                }
-                depth--;
-            } else if (current == ',' && depth == 0) {
-                spans.add(new int[]{start, index});
-                start = index + 1;
-            }
-        }
-        return spans;
-    }
-
-    private static int lineAt(String view, int position) {
-        var line = 1;
-        for (var index = 0; index < position; index++) {
-            if (view.charAt(index) == '\n') {
-                line++;
-            }
-        }
-        return line;
-    }
-
     /**
-     * @param source the source text
-     * @return the same text with comments and the content of string, character and text-block literals blanked, so a
-     *         call inside one is not read as code; the length and the line breaks are kept, so an index into the view
-     *         is an index into the source
+     * The packages the walk leaves out. Both are outside the scope of the assertion-message family and were clean when
+     * the walk replaced the list (PLAN-V2-102 landing, L3-8); a plan that takes one of them up removes its entry.
      */
-    private static String codeView(String source) {
-        var view = new StringBuilder(source);
-        var state = State.CODE;
-        for (var index = 0; index < source.length(); index++) {
-            var current = source.charAt(index);
-            var next = index + 1 < source.length() ? source.charAt(index + 1) : '\0';
-            switch (state) {
-                case CODE -> {
-                    if (current == '/' && next == '/') {
-                        state = State.LINE_COMMENT;
-                        view.setCharAt(index, ' ');
-                    } else if (current == '/' && next == '*') {
-                        state = State.BLOCK_COMMENT;
-                        view.setCharAt(index, ' ');
-                    } else if (current == '"' && next == '"' && index + 2 < source.length()
-                            && source.charAt(index + 2) == '"') {
-                        state = State.TEXT_BLOCK;
-                        view.setCharAt(index, ' ');
-                        view.setCharAt(index + 1, ' ');
-                        view.setCharAt(index + 2, ' ');
-                        index += 2;
-                    } else if (current == '"') {
-                        state = State.STRING;
-                    } else if (current == '\'') {
-                        state = State.CHARACTER;
-                    }
-                }
-                case LINE_COMMENT -> {
-                    if (current == '\n') {
-                        state = State.CODE;
-                    } else {
-                        view.setCharAt(index, ' ');
-                    }
-                }
-                case BLOCK_COMMENT -> {
-                    if (current == '*' && next == '/') {
-                        view.setCharAt(index, ' ');
-                        view.setCharAt(index + 1, ' ');
-                        index++;
-                        state = State.CODE;
-                    } else if (current != '\n') {
-                        view.setCharAt(index, ' ');
-                    }
-                }
-                case TEXT_BLOCK -> {
-                    if (current == '\\' && index + 1 < source.length()) {
-                        view.setCharAt(index, ' ');
-                        view.setCharAt(index + 1, ' ');
-                        index++;
-                    } else if (current == '"' && next == '"' && index + 2 < source.length()
-                            && source.charAt(index + 2) == '"') {
-                        view.setCharAt(index, ' ');
-                        view.setCharAt(index + 1, ' ');
-                        view.setCharAt(index + 2, ' ');
-                        index += 2;
-                        state = State.CODE;
-                    } else if (current != '\n') {
-                        view.setCharAt(index, ' ');
-                    }
-                }
-                case STRING -> {
-                    if (current == '\\' && index + 1 < source.length()) {
-                        view.setCharAt(index, ' ');
-                        view.setCharAt(index + 1, ' ');
-                        index++;
-                    } else if (current == '"') {
-                        state = State.CODE;
-                    } else if (current != '\n') {
-                        view.setCharAt(index, ' ');
-                    }
-                }
-                case CHARACTER -> {
-                    if (current == '\\' && index + 1 < source.length()) {
-                        view.setCharAt(index, ' ');
-                        view.setCharAt(index + 1, ' ');
-                        index++;
-                    } else if (current == '\'') {
-                        state = State.CODE;
-                    } else if (current != '\n') {
-                        view.setCharAt(index, ' ');
-                    }
-                }
-            }
+    private static final Map<String, String> EXEMPTIONS = Map.of(
+            "de/planmarshall/core/id", "outside the family's scope and clean when the walk replaced the list",
+            "de/planmarshall/core/testing", "outside the family's scope and clean when the walk replaced the list");
+
+    @Test
+    @DisplayName("every assertion below the base package carries a 20 to 60 character message")
+    void everyAssertionOfTheModuleCarriesAMessage() {
+        var root = AssertionMessages.testSourceRoot(BASE_PACKAGE);
+        var scan = AssertionMessages.scan(root, BASE_PACKAGE, EXEMPTIONS);
+        var violations = scan.violations();
+        if (violations.isEmpty()) {
+            return;
         }
-        return view.toString();
+        AssertionMessages.writeViolations(VIOLATIONS, violations);
+
+        assertTrue(violations.isEmpty(), () -> AssertionMessages.failureMessage(violations, VIOLATIONS));
     }
 }

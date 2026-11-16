@@ -92,8 +92,8 @@ public final class LaunchComposer {
         var tokenSha256 = token.isEmpty() ? "" : JobTokens.sha256Hex(token);
         var mcp = composeMcp(request, roleClass, workingDirectory, token);
         var tools = roleClass == RoleClass.ZERO_TOOL ? List.<String>of() : toolSet(role, block);
-        var argv = composeArgv(request, block, roleClass, workingDirectory, model, effort.value(), promptFile,
-                resultSchema, tools, mcp);
+        var argv = composeArgv(request, block, roleClass, workingDirectory, jobPrivate, model, effort.value(),
+                promptFile, resultSchema, tools, mcp);
         var env = composeEnvironment(request, jobPrivate);
         var workerBlock = workerBlock(request, role, roleClass, workdirKind, model, effort, prompt, now, tokenSha256);
         return WorkerLaunch.builder()
@@ -299,11 +299,12 @@ public final class LaunchComposer {
     // holder would hide which slot a caller sets and where its value comes from.
     @SuppressWarnings("java:S107")
     private static List<String> composeArgv(LaunchRequest request, HeadlessBlock block, RoleClass roleClass,
-            Path workingDirectory, String model, String effort, Path promptFile, @Nullable Path resultSchema,
-            List<String> tools, McpComposition mcp) {
+            Path workingDirectory, Path jobPrivate, String model, String effort, Path promptFile,
+            @Nullable Path resultSchema, List<String> tools, McpComposition mcp) {
         var template = request.resumeSessionId() != null && !block.resumeArgv().isEmpty()
                 ? block.resumeArgv()
                 : block.argumentsFor(roleClass);
+        var rendered = mayResume(request) ? withoutEphemeralFlag(template) : template;
         var slots = new LinkedHashMap<String, String>();
         slots.put(MEMBER_MODEL, model);
         slots.put(MEMBER_EFFORT, effort);
@@ -315,16 +316,46 @@ public final class LaunchComposer {
         slots.put("agent", block.agentMode() == HeadlessBlock.AgentMode.INLINE ? inlineAgent(request, model, effort,
                 tools) : null);
         slots.put("session_id", request.resumeSessionId());
-        var filled = fill(template, slots);
+        var filled = fill(rendered, slots);
         if (filled.isEmpty()) {
             throw new CompositionException("the argument template of '%s' rendered empty".formatted(roleClass
                     .wireName()));
         }
         filled.add(0, request.enrolment().executablePath().toString());
-        if (mayResume(request)) {
-            filled.removeIf(argument -> argument.contains(EPHEMERAL_FLAG));
+        var violation = WorkerVectorCheck.check(WorkerVectorCheck.Input.builder()
+                .template(rendered)
+                .vector(filled)
+                .executablePath(request.enrolment().executablePath())
+                .model(model)
+                .acceptedEfforts(block.efforts(model))
+                .jobPrivateDirectory(jobPrivate)
+                .workingDirectory(workingDirectory)
+                .tools(tools)
+                .absentSlots(absentSlots(slots))
+                .build());
+        if (violation.isPresent()) {
+            throw CompositionException.argumentRejected(violation.get());
         }
         return List.copyOf(filled);
+    }
+
+    /**
+     * @param template the argument template of the class
+     * @return the template without the ephemeral flag, which a role that may resume must not receive
+     */
+    private static List<String> withoutEphemeralFlag(List<String> template) {
+        return template.stream().filter(element -> !element.contains(EPHEMERAL_FLAG)).toList();
+    }
+
+    /** @return the names of the slots the composition left empty, whose element and flag the template removes */
+    private static Set<String> absentSlots(Map<String, String> slots) {
+        var absent = new LinkedHashSet<String>();
+        slots.forEach((name, value) -> {
+            if (value == null) {
+                absent.add(name);
+            }
+        });
+        return absent;
     }
 
     private static boolean mayResume(LaunchRequest request) {
@@ -474,17 +505,30 @@ public final class LaunchComposer {
         @Serial
         private static final long serialVersionUID = 1L;
 
+        private final LaunchRefusal refusal;
+
         CompositionException(String detail) {
-            super(detail);
+            this(detail, LaunchRefusal.PROMPT_COMPOSITION_FAILED);
         }
 
         CompositionException(String detail, Throwable cause) {
             super(detail, cause);
+            this.refusal = LaunchRefusal.PROMPT_COMPOSITION_FAILED;
+        }
+
+        private CompositionException(String detail, LaunchRefusal refusal) {
+            super(detail);
+            this.refusal = refusal;
+        }
+
+        /** @return the refusal of a vector that violates the check, naming the rule and the position only */
+        static CompositionException argumentRejected(WorkerVectorCheck.Violation violation) {
+            return new CompositionException(violation.detail(), LaunchRefusal.ARGUMENT_REJECTED);
         }
 
         /** @return the launch refusal reason of the failure */
         public LaunchRefusal refusal() {
-            return LaunchRefusal.PROMPT_COMPOSITION_FAILED;
+            return refusal;
         }
     }
 }

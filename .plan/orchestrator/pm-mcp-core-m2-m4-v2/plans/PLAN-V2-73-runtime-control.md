@@ -59,13 +59,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/runtime-control.adoc` § What, Trace, Done When on `origin/main` at `4617865` (8 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/runtime-control.adoc not in git log 88ec9c70..f4a1bd07; 8 What bullets equal D1 to D8
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/runtime-control.adoc at HEAD has 7 Tasks and no What section with 8 bullets (restructured by #286); the spec states no correction for it.
 - OBSERVED: the package file and its index row (`blocked`; depends on PLAN-30 (`supervisor`); PLAN-28 (`task-queue-and-protocol`); PLAN-46 (`machine-onboarding-unit`) (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)) — read at `doc/plans/runtime-control.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row blocked, depends only on machine-onboarding-unit (consent store) and the registry credential question; PLAN-28 and PLAN-30 are shipped; the question is still open in the documentation open-questions
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README row is blocked and depends on machine-onboarding-unit and the registry-credential question only (README 210-213); PLAN-28 and PLAN-30 shipped. Re-grounding Record Premises corrected states it.
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: runtime/start paths exist (RuntimeDrain, DrainParticipant, JobDrainParticipant); no consent type or check_updates code, no EX_TEMPFAIL
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Surface inferred from the Where line is outline work; runtime/start drain classes exist and ConsentKind.CHECK_UPDATES exists, EX_TEMPFAIL is absent; fit of the whole surface cannot be settled by reading.
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row blocked; registry question open; machine-onboarding-unit open; no open PR names runtime-control
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Row still blocked and registry-credential still open at documentation open-questions.adoc:14; UC-SYS-1 is AGREED; the spec carries a Parked note for exactly this. Open pull requests cannot be read here.
 
 ## Expected Surface
 
@@ -150,6 +150,12 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 - **Landing note (2026-10-29):** PLAN-46 landed (#233): `check_updates` now exists in `ConsentKind`.
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-30 (`supervisor`); PLAN-28 (`task-queue-and-protocol`); PLAN-46 (`machine-onboarding-unit`) (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
+
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 0 (contradicted at HEAD): doc/plans/runtime-control.adoc at HEAD has 7 Tasks and no What section with 8 bullets (restructured by #286); the spec states no correction for it.
 
 ## Hand-Off Command
 

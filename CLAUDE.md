@@ -87,7 +87,8 @@ its own pull request.
 
 Six modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
 `SNAPSHOT` like every other artifact of the repository. The five generator artifacts carry only their generator
-package, and `pm-core:tests` also the schema loader `SchemaResource` (ADR `doc/adr/016`); `pm-runtime:tests` carries
+package, and `pm-core:tests` also the schema loader `SchemaResource` (ADR `doc/adr/016`) and the assertion-message
+scanner (ADR `doc/adr/012`); `pm-runtime:tests` carries
 its whole test scope, because the assembly already consumes `TestBases` and the
 fakes there:
 
@@ -101,6 +102,10 @@ fakes there:
 The two provider artifacts `pm-provider-ci:tests` and `pm-provider-git:tests` are the operator's decision of
 2026-11-06 (PLAN-V2-92): a provider module that needs a generator for its own type in two or more of its own test
 classes publishes it.
+
+The assertion-message scanner (`de.planmarshall.core.testing.assertions`, PLAN-V2-103) is shared the same way: each
+module guards its own test tree with a thin test that names its base package and reads its own `src/test/java`; the
+scan logic is published once in `pm-core:tests`, never copied per module.
 
 A consumer declares the artifact as a test-scope dependency of type `test-jar`; its version comes from the root
 POM's `dependencyManagement`, never from a literal. The generators live in

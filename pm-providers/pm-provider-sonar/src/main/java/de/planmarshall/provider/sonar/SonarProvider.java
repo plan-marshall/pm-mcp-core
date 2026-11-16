@@ -9,11 +9,14 @@
  */
 package de.planmarshall.provider.sonar;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * The identity of Sonar among the code analysis providers (PM-IMPL-1).
  *
  * @since 0.1
  */
+@UtilityClass
 public final class SonarProvider {
 
     /**
@@ -21,7 +24,4 @@ public final class SonarProvider {
      * provider of the gate {@code analysis_gate:sonar}.
      */
     public static final String ID = "sonar";
-
-    private SonarProvider() {
-    }
 }

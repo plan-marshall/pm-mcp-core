@@ -30,12 +30,12 @@ class AnalysisStatusTest {
             "NOT_RUN, not_run"})
     @DisplayName("carries the value of the wait dimension")
     void wireNames(AnalysisStatus status, String wireName) {
-        assertEquals(wireName, status.wireName());
+        assertEquals(wireName, status.wireName(), "status carries its declared wire name");
     }
 
     @Test
     @DisplayName("is closed at six values")
     void closed() {
-        assertEquals(6, AnalysisStatus.values().length);
+        assertEquals(6, AnalysisStatus.values().length, "analysis status is closed at six values");
     }
 }

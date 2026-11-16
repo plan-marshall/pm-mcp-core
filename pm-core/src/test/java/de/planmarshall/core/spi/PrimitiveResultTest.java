@@ -43,7 +43,8 @@ class PrimitiveResultTest {
     @DisplayName("an outcome that declares reasons refuses a result without one")
     void refusesMissingReason() {
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null, null));
+                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null, null),
+                "a declared reason is required in the result");
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the missing reason");
     }
@@ -53,7 +54,8 @@ class PrimitiveResultTest {
     void refusesForeignReason() {
         var foreignReason = OtherReason.OTHER;
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null, foreignReason));
+                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null, foreignReason),
+                "a reason of another enum type is refused");
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the foreign reason");
     }
@@ -63,7 +65,8 @@ class PrimitiveResultTest {
     void refusesReasonOnUnadmittedOutcome() {
         var unadmittedReason = TestReason.FOOTPRINT;
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(PlainOutcome.DONE, Map.of(), null, unadmittedReason));
+                () -> new PrimitiveResult<>(PlainOutcome.DONE, Map.of(), null, unadmittedReason),
+                "a plain outcome never carries a reason");
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the unadmitted reason");
     }
@@ -88,7 +91,8 @@ class PrimitiveResultTest {
     @DisplayName("the three-component form refuses an outcome that declares a reason")
     void threeComponentFormRefusesMissingReason() {
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null));
+                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null),
+                "the three-component form needs a reason");
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the missing reason");
     }
@@ -131,7 +135,8 @@ class PrimitiveResultTest {
     @DisplayName("a reason type that is no class is refused instead of a ClassCastException")
     void refusesNonClassReasonType() {
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(NonClassReasonOutcome.FAILED, Map.of(), null, null));
+                () -> new PrimitiveResult<>(NonClassReasonOutcome.FAILED, Map.of(), null, null),
+                "a reason type that is no class is refused");
 
         assertTrue(thrown.getMessage().contains("reason type"), "the refusal names the malformed reason type");
     }

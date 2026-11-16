@@ -71,7 +71,8 @@ class AnalysisCallResultTest {
             .build();
 
     private static void assertRefused(String rule, Executable construction) {
-        var refusal = assertThrows(IllegalArgumentException.class, construction);
+        var refusal = assertThrows(IllegalArgumentException.class, construction,
+                "an invalid combination is refused as illegal argument");
         assertTrue(refusal.getMessage().contains(rule),
                 () -> "the refusal names the rule '%s': %s".formatted(rule, refusal.getMessage()));
     }
@@ -86,9 +87,9 @@ class AnalysisCallResultTest {
             var result = AnalysisCallResult.status(AnalysisOutcome.OK, RESULT);
 
             assertAll(
-                    () -> assertTrue(result.isOk()),
-                    () -> assertEquals(RESULT, result.value()),
-                    () -> assertNull(result.completeness()));
+                    () -> assertTrue(result.isOk(), "ok status result reports itself as ok"),
+                    () -> assertEquals(RESULT, result.value(), "the analysis result is carried as the value"),
+                    () -> assertNull(result.completeness(), "an ok status result carries no completeness"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -99,11 +100,12 @@ class AnalysisCallResultTest {
             var issues = AnalysisCallResult.issues(outcome, null, null);
 
             assertAll(
-                    () -> assertFalse(status.isOk()),
-                    () -> assertNull(status.value()),
-                    () -> assertFalse(issues.isOk()),
-                    () -> assertNull(issues.value()),
-                    () -> assertNull(issues.completeness()));
+                    () -> assertFalse(status.isOk(), "a transport status is not an ok status"),
+                    () -> assertNull(status.value(), "a transport status carries no value"),
+                    () -> assertFalse(issues.isOk(), "a transport issues result is not ok"),
+                    () -> assertNull(issues.value(), "a transport issues result carries no value"),
+                    () -> assertNull(issues.completeness(),
+                            "a transport issues result carries no completeness"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -113,8 +115,9 @@ class AnalysisCallResultTest {
             var result = AnalysisCallResult.issues(AnalysisOutcome.OK, List.of(ISSUE), completeness);
 
             assertAll(
-                    () -> assertEquals(List.of(ISSUE), result.value()),
-                    () -> assertEquals(completeness, result.completeness()));
+                    () -> assertEquals(List.of(ISSUE), result.value(), "ok issues result carries the given issues"),
+                    () -> assertEquals(completeness, result.completeness(),
+                            "the completeness is carried through unchanged"));
         }
 
         @Test
@@ -122,7 +125,7 @@ class AnalysisCallResultTest {
         void okNoIssues() {
             var result = AnalysisCallResult.issues(AnalysisOutcome.OK, List.of(), Completeness.COMPLETE);
 
-            assertEquals(List.of(), result.value());
+            assertEquals(List.of(), result.value(), "ok issues result of no issues is empty list");
         }
 
         @Test
@@ -134,8 +137,9 @@ class AnalysisCallResultTest {
             var value = result.value();
 
             assertAll(
-                    () -> assertEquals(List.of(ISSUE), value),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> value.add(ISSUE)));
+                    () -> assertEquals(List.of(ISSUE), value, "the copied issues hold the original issue"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> value.add(ISSUE),
+                            "the copied issues cannot be changed"));
         }
 
         @ParameterizedTest(name = "{0} is {1}")
@@ -144,8 +148,9 @@ class AnalysisCallResultTest {
         @DisplayName("the outcomes carry their wire names and are found by them")
         void outcomeWireNames(AnalysisOutcome outcome, String wireName) {
             assertAll(
-                    () -> assertEquals(wireName, outcome.wireName()),
-                    () -> assertEquals(Optional.of(outcome), AnalysisOutcome.fromWireName(wireName)));
+                    () -> assertEquals(wireName, outcome.wireName(), "the outcome carries its wire name"),
+                    () -> assertEquals(Optional.of(outcome),
+                            AnalysisOutcome.fromWireName(wireName), "the wire name finds its outcome back"));
         }
 
         @ParameterizedTest(name = "{0} is {1}")
@@ -153,18 +158,24 @@ class AnalysisCallResultTest {
         @DisplayName("the completeness values carry their wire names and are found by them")
         void completenessWireNames(Completeness completeness, String wireName) {
             assertAll(
-                    () -> assertEquals(wireName, completeness.wireName()),
-                    () -> assertEquals(Optional.of(completeness), Completeness.fromWireName(wireName)));
+                    () -> assertEquals(wireName, completeness.wireName(),
+                            "the completeness carries its wire name"),
+                    () -> assertEquals(Optional.of(completeness),
+                            Completeness.fromWireName(wireName),
+                            "the wire name finds its completeness back"));
         }
 
         @Test
         @DisplayName("exactly five outcomes exist, and no other wire name finds one")
         void closedOutcomes() {
             assertAll(
-                    () -> assertEquals(5, AnalysisOutcome.values().length),
-                    () -> assertEquals(Optional.empty(), AnalysisOutcome.fromWireName("not_found")),
-                    () -> assertEquals(Optional.empty(), AnalysisOutcome.fromWireName("rate_limited")),
-                    () -> assertEquals(Optional.empty(), Completeness.fromWireName("partial")));
+                    () -> assertEquals(5, AnalysisOutcome.values().length, "exactly five outcomes are declared"),
+                    () -> assertEquals(Optional.empty(), AnalysisOutcome.fromWireName("not_found"),
+                            "an undeclared outcome wire name finds none"),
+                    () -> assertEquals(Optional.empty(), AnalysisOutcome.fromWireName("rate_limited"),
+                            "a rate limited wire name finds no outcome"),
+                    () -> assertEquals(Optional.empty(), Completeness.fromWireName("partial"),
+                            "an undeclared completeness wire name finds none"));
         }
     }
 
@@ -217,7 +228,8 @@ class AnalysisCallResultTest {
         @Test
         @DisplayName("a missing outcome is refused")
         void missingOutcome() {
-            assertThrows(NullPointerException.class, () -> AnalysisCallResult.status(null, RESULT));
+            assertThrows(NullPointerException.class, () -> AnalysisCallResult.status(null, RESULT),
+                    "a missing outcome is refused as null pointer");
         }
     }
 }

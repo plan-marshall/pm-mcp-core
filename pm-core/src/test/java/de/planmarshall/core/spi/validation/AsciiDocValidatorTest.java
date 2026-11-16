@@ -164,7 +164,7 @@ class AsciiDocValidatorTest {
         var violations = validator.validate(text);
 
         assertEquals(List.of(AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@1", AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@2"),
-                keysAndLines(violations));
+                keysAndLines(violations), "the open block is reported before the open listing");
     }
 
     @Test
@@ -175,7 +175,7 @@ class AsciiDocValidatorTest {
         var violations = validator.validate(text);
 
         assertEquals(List.of(AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@1", AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@3"),
-                keysAndLines(violations));
+                keysAndLines(violations), "the outer sidebar is reported before the inner listing");
     }
 
     @Test
@@ -186,14 +186,16 @@ class AsciiDocValidatorTest {
         var violations = validator.validate(text);
 
         assertEquals(List.of(AsciiDocValidator.RULE_TITLE_NOT_FIRST + "@2",
-                AsciiDocValidator.RULE_SECTION_LEVEL_SKIPPED + "@3",
-                AsciiDocValidator.RULE_CONTROL_CHARACTER + "@4",
-                AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@5"), keysAndLines(violations));
+                        AsciiDocValidator.RULE_SECTION_LEVEL_SKIPPED + "@3",
+                        AsciiDocValidator.RULE_CONTROL_CHARACTER + "@4",
+                        AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@5"), keysAndLines(violations),
+                "the four violations come back in the order of the lines");
     }
 
     @Test
     @DisplayName("refuses null instead of returning a violation")
     void nullText() {
-        assertThrows(NullPointerException.class, () -> validator.validate(null));
+        assertThrows(NullPointerException.class, () -> validator.validate(null),
+                "a null text is refused, not reported as a violation");
     }
 }

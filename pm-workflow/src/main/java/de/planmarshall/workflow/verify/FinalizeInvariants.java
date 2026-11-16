@@ -27,6 +27,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
+import lombok.experimental.UtilityClass;
 
 /**
  * The invariants of the finalize phase (Phase 6) of the plan unit, {@code INV-FIN-1} to {@code INV-FIN-6}
@@ -55,6 +56,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  *
  * @since 0.1
  */
+@UtilityClass
 final class FinalizeInvariants {
 
     /** The push barrier, the only push before the pull request. */
@@ -88,9 +90,6 @@ final class FinalizeInvariants {
     static final Set<String> PUSH_PRIMITIVES = Set.of("git.execute-push", "git.push-with-lease");
 
     private static final Set<LaneClass> MANDATORY_LANE_CLASSES = Set.of(LaneClass.CORE, LaneClass.DERIVED_STATE);
-
-    private FinalizeInvariants() {
-    }
 
     static Map<InvariantId, Check> checks() {
         return Map.of(

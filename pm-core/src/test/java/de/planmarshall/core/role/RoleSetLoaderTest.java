@@ -55,12 +55,15 @@ class RoleSetLoaderTest {
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine).withProject(project));
 
         assertAll(
-                () -> assertEquals(projectCount, set.effective(RoleFixtures.ROLE).orElseThrow().count()),
+                () -> assertEquals(projectCount, set.effective(RoleFixtures.ROLE).orElseThrow().count(),
+                        "project count replaces the machine count"),
                 () -> assertEquals(description,
-                        set.effective(RoleFixtures.ROLE).orElseThrow().description()),
+                        set.effective(RoleFixtures.ROLE).orElseThrow().description(),
+                        "project description replaces the machine's"),
                 () -> assertTrue(set.effective(RoleFixtures.ROLE).orElseThrow().declaredContextBudget().isEmpty(),
-                        "the project artifact omits the machine artifact's context budget"),
-                () -> assertEquals(RoleSetKind.PROJECT, set.kind(RoleFixtures.ROLE).orElseThrow()));
+                        "project omits the machine's context budget"),
+                () -> assertEquals(RoleSetKind.PROJECT, set.kind(RoleFixtures.ROLE).orElseThrow(),
+                        "the project set is the effective kind"));
     }
 
     @Test
@@ -71,7 +74,8 @@ class RoleSetLoaderTest {
 
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine));
 
-        assertEquals(count, set.effective(RoleFixtures.ROLE).orElseThrow().count());
+        assertEquals(count, set.effective(RoleFixtures.ROLE).orElseThrow().count(),
+                "machine count replaces the shipped count");
     }
 
     @Test
@@ -83,8 +87,9 @@ class RoleSetLoaderTest {
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine));
 
         assertAll(
-                () -> assertTrue(set.effective(role).isPresent()),
-                () -> assertEquals(300, set.effective(role).orElseThrow().budgetFloorSeconds()));
+                () -> assertTrue(set.effective(role).isPresent(), "the extra role is present"),
+                () -> assertEquals(300, set.effective(role).orElseThrow().budgetFloorSeconds(),
+                        "the added role keeps the shipped floor"));
     }
 
     @Test
@@ -95,10 +100,11 @@ class RoleSetLoaderTest {
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine));
 
         assertAll(
-                () -> assertTrue(set.effective(RoleFixtures.ROLE).isEmpty()),
-                () -> assertFalse(set.refused().isEmpty()),
+                () -> assertTrue(set.effective(RoleFixtures.ROLE).isEmpty(),
+                        "an invalid machine artifact is undefined"),
+                () -> assertFalse(set.refused().isEmpty(), "the refusal is recorded"),
                 () -> assertEquals(RoleValidationReason.SCHEMA_INVALID,
-                        set.refused().getFirst().refusal().reason()));
+                        set.refused().getFirst().refusal().reason(), "the refusal reason is schema_invalid"));
     }
 
     @Test
@@ -110,9 +116,10 @@ class RoleSetLoaderTest {
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine));
 
         assertAll(
-                () -> assertTrue(set.effective(role).isEmpty()),
+                () -> assertTrue(set.effective(role).isEmpty(), "a name mismatch leaves the role undefined"),
                 () -> assertEquals(RoleValidationReason.SCHEMA_INVALID,
-                        set.refused().getFirst().refusal().reason()));
+                        set.refused().getFirst().refusal().reason(),
+                        "a name mismatch refuses as schema_invalid"));
     }
 
     @Test
@@ -124,9 +131,10 @@ class RoleSetLoaderTest {
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine).withProject(project));
 
         assertAll(
-                () -> assertTrue(set.effective(RoleFixtures.ROLE).isPresent()),
+                () -> assertTrue(set.effective(RoleFixtures.ROLE).isPresent(), "the higher set restores the role"),
                 () -> assertTrue(set.refused().isEmpty(), () -> set.refused().toString()),
-                () -> assertEquals(RoleSetKind.PROJECT, set.kind(RoleFixtures.ROLE).orElseThrow()));
+                () -> assertEquals(RoleSetKind.PROJECT, set.kind(RoleFixtures.ROLE).orElseThrow(),
+                        "the project set defines the role"));
     }
 
     @Nested
@@ -138,7 +146,7 @@ class RoleSetLoaderTest {
         void shippedRoleIsEffective() {
             var set = RoleSetLoader.load(RoleFixtures.shipped(Map.of(RoleFixtures.ROLE, RoleFixtures.validBytes())));
 
-            assertTrue(set.effective(RoleFixtures.ROLE).isPresent());
+            assertTrue(set.effective(RoleFixtures.ROLE).isPresent(), "the shipped role is effective");
         }
 
         @Test
@@ -148,8 +156,10 @@ class RoleSetLoaderTest {
                     Map.of(RoleFixtures.ROLE, RoleFixtures.valid().set("/bogus", 1).bytes())));
 
             assertAll(
-                    () -> assertTrue(set.effective(RoleFixtures.ROLE).isEmpty()),
-                    () -> assertEquals(RoleSetKind.SHIPPED, set.refused().getFirst().kind()));
+                    () -> assertTrue(set.effective(RoleFixtures.ROLE).isEmpty(),
+                            "an invalid shipped artifact is undefined"),
+                    () -> assertEquals(RoleSetKind.SHIPPED, set.refused().getFirst().kind(),
+                            "the refusal comes from the shipped set"));
         }
     }
 

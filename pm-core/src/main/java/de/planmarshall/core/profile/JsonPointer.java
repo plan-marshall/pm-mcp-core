@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.profile;
 
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -22,10 +23,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class JsonPointer {
-
-    private JsonPointer() {
-    }
 
     /**
      * @param root     the document

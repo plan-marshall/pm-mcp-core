@@ -12,6 +12,8 @@ package de.planmarshall.workflow.plan;
 import java.util.ArrayList;
 import java.util.Objects;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * Evaluates the composition rules against the facts of a plan (PM-IMPL-5, PM-EXT-7, PM-WF-25): every rule whose
  * condition holds contributes its prunes, each with the rule's reason and the fact the rule read as the source fact, and
@@ -22,10 +24,8 @@ import java.util.Objects;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class CompositionRuleEvaluator {
-
-    private CompositionRuleEvaluator() {
-    }
 
     /**
      * @param rules the composition rules

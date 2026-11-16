@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.id.HarnessId;
@@ -34,15 +35,13 @@ import de.planmarshall.core.id.HarnessId;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class JudgeCheck {
 
     /** The format version of a judge check record. */
     public static final int FORMAT_VERSION = 1;
 
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
-
-    private JudgeCheck() {
-    }
 
     /**
      * The measurements of one check.

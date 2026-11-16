@@ -58,13 +58,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/operator-reports.adoc` § What, Trace, Done When on `origin/main` at `4617865` (10 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/operator-reports.adoc unchanged since 88ec9c70; 10 What bullets
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/operator-reports.adoc at HEAD has 8 Tasks, no What section and no 10 bullets; the navigation figures (D10) are left out (later-improvements L-40, #397). No binding section of the spec states it.
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-21 (`plan-and-epic-control`) (the plan's outcomes, its end, and its holds); PLAN-V2-27 (`epic-resource-and-release`) (the end of an epic, the release of a project); PLAN-V2-38 (`epic-auto`); PLAN-V2-23 (`decision-engine`); PLAN-V2-22 (`start-source-intake`) (a screened source flagged); PLAN-61 (`token-usage`); PLAN-66 (`worker-activity`) (`task.off_track`)) — read at `doc/plans/operator-reports.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open with the same eight dependencies, all open rows
+  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: README row is open and lists plan-and-epic-control, epic-resource-and-release, epic-auto, decision-engine, start-source-intake, worker-activity; operator-wait-and-machine-scope and token-usage are no longer listed.
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: no report code at f4a1bd07 (report_id, reports.jsonl, report.sent not found; only StalledScopeDetector.HOLD_RELEASED); no report lock key
+  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Surface inferred from the Where line is outline work; at HEAD no report code exists (no reports.jsonl, report.sent or report_id in main), which fits the surface but does not settle it.
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row open; no open PR; #185 and #190 delivered no report code
+  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row is open, not blocked; UC-PLN-6 is AGREED in documentation origin/main (03-plans.adoc:280-283). Open pull requests cannot be read here.
 
 ## Expected Surface
 
@@ -135,6 +135,13 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-21 (`plan-and-epic-control`) (the plan's outcomes, its end, and its holds); PLAN-V2-27 (`epic-resource-and-release`) (the end of an epic, the release of a project); PLAN-V2-38 (`epic-auto`); PLAN-V2-23 (`decision-engine`); PLAN-V2-22 (`start-source-intake`) (a screened source flagged); PLAN-61 (`token-usage`); PLAN-66 (`worker-activity`) (`task.off_track`)
 - Blocks: PLAN-V2-74 (`cleanup`)
+
+## Re-ground record (cleanup 2026-11-15, BINDING over any contradicting older text of this spec)
+
+Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
+
+- Claim 0 (contradicted at HEAD): doc/plans/operator-reports.adoc at HEAD has 8 Tasks, no What section and no 10 bullets; the navigation figures (D10) are left out (later-improvements L-40, #397). No binding section of the spec states it.
+- Claim 1 (contradicted at HEAD): README row is open and lists plan-and-epic-control, epic-resource-and-release, epic-auto, decision-engine, start-source-intake, worker-activity; operator-wait-and-machine-scope and token-usage are no longer listed.
 
 ## Hand-Off Command
 

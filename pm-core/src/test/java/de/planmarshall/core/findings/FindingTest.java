@@ -152,7 +152,7 @@ class FindingTest {
         @MethodSource("de.planmarshall.core.findings.FindingTest#sourceFamilies")
         @DisplayName("a well-formed finding of each source family is accepted")
         void sourceFamily(String family, Finding.FindingBuilder builder) {
-            assertDoesNotThrow(builder::build);
+            assertDoesNotThrow(builder::build, "a well-formed finding of this source builds");
         }
 
         @Test
@@ -168,8 +168,9 @@ class FindingTest {
             var held = finding.requirementRefs();
 
             assertAll(
-                    () -> assertEquals(List.of(first), held),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> held.add(third)));
+                    () -> assertEquals(List.of(first), held, "copied requirement refs keep the original"),
+                    () -> assertThrows(UnsupportedOperationException.class,
+                            () -> held.add(third), "copied requirement refs are unmodifiable"));
         }
 
         @Test
@@ -177,7 +178,7 @@ class FindingTest {
         void screenWithoutSpans() {
             var screen = new Screen(Screen.Verdict.CLEAN, false, null);
 
-            assertTrue(screen.spans().isEmpty());
+            assertTrue(screen.spans().isEmpty(), "a screen without spans has an empty span list");
         }
 
         @Test
@@ -186,13 +187,13 @@ class FindingTest {
             var finding = qgate().build();
 
             assertAll(
-                    () -> assertNull(finding.provider()),
-                    () -> assertNull(finding.ciFailure()),
-                    () -> assertNull(finding.screen()),
-                    () -> assertNull(finding.requirementRefs()),
-                    () -> assertNull(finding.disposition()),
-                    () -> assertNull(finding.transmitReason()),
-                    () -> assertNull(finding.updatedAt()));
+                    () -> assertNull(finding.provider(), "provider stays null without external source"),
+                    () -> assertNull(finding.ciFailure(), "ci failure stays null on a qgate finding"),
+                    () -> assertNull(finding.screen(), "screen stays null without a review"),
+                    () -> assertNull(finding.requirementRefs(), "requirement refs stay null when absent"),
+                    () -> assertNull(finding.disposition(), "disposition stays null when not triaged"),
+                    () -> assertNull(finding.transmitReason(), "transmit reason stays null when unset"),
+                    () -> assertNull(finding.updatedAt(), "updated at stays null when never updated"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -202,7 +203,7 @@ class FindingTest {
         void transmitReasonForUnsentOutcome(TransmitOutcome outcome) {
             var builder = review().transmitOutcome(outcome).transmitReason(TransmitReason.REPLY_FAILED);
 
-            assertDoesNotThrow(builder::build);
+            assertDoesNotThrow(builder::build, "a transmit reason fits an unsent outcome");
         }
 
         @Test
@@ -222,7 +223,7 @@ class FindingTest {
                     .screen(new Screen(Screen.Verdict.SUSPICIOUS, true,
                             List.of(new Screen.Span(spanStart, spanEnd, SPAN_REASON))));
 
-            assertDoesNotThrow(builder::build);
+            assertDoesNotThrow(builder::build, "a carried and resolved finding builds");
         }
     }
 
@@ -236,9 +237,10 @@ class FindingTest {
         void requiredMember(String member, UnaryOperator<Finding.FindingBuilder> change) {
             var builder = change.apply(qgate());
 
-            var refusal = assertThrows(NullPointerException.class, builder::build);
+            var refusal = assertThrows(NullPointerException.class, builder::build,
+                    "the missing member raises a refusal");
 
-            assertEquals(member, refusal.getMessage());
+            assertEquals(member, refusal.getMessage(), "the refusal names the missing member");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -294,9 +296,11 @@ class FindingTest {
         @DisplayName("a CI failure with an empty check name is refused")
         void ciFailureCheckName() {
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new CiFailure("", CiFailure.FailureClass.FAILURE, CiFailure.FailureKind.UNKNOWN, false));
+                    () -> new CiFailure("", CiFailure.FailureClass.FAILURE, CiFailure.FailureKind.UNKNOWN, false),
+                    "an empty check name is refused");
 
-            assertTrue(refusal.getMessage().contains("ci_failure.check_name"));
+            assertTrue(refusal.getMessage().contains("ci_failure.check_name"),
+                    "the refusal names ci_failure.check_name");
         }
 
         @Test
@@ -343,18 +347,22 @@ class FindingTest {
             var issueKey = "k".repeat(257);
 
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new ProviderRef(null, null, null, null, issueKey));
+                    () -> new ProviderRef(null, null, null, null, issueKey),
+                    "an overlong issue key is refused");
 
-            assertTrue(refusal.getMessage().contains("provider_ref.issue_key"));
+            assertTrue(refusal.getMessage().contains("provider_ref.issue_key"),
+                    "the refusal names provider_ref.issue_key");
         }
 
         @Test
         @DisplayName("a pull-request number of the provider reference below 1 is refused")
         void providerRefPrNumber() {
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new ProviderRef(0, null, null, null, null));
+                    () -> new ProviderRef(0, null, null, null, null),
+                    "a pull-request number below 1 is refused");
 
-            assertTrue(refusal.getMessage().contains("provider_ref.pr_number"));
+            assertTrue(refusal.getMessage().contains("provider_ref.pr_number"),
+                    "the refusal names provider_ref.pr_number");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -363,9 +371,11 @@ class FindingTest {
         void screenWithheld(Screen.Verdict verdict) {
             var withheld = verdict != Screen.Verdict.SUSPICIOUS;
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> new Screen(verdict, withheld, null));
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> new Screen(verdict, withheld, null),
+                    "a withheld flag disagreeing with verdict is refused");
 
-            assertTrue(refusal.getMessage().contains("screen.withheld"));
+            assertTrue(refusal.getMessage().contains("screen.withheld"), "the refusal names screen.withheld");
         }
 
         @Test
@@ -375,11 +385,14 @@ class FindingTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Screen.Span(-1, 4, SPAN_REASON)),
+                            () -> new Screen.Span(-1, 4, SPAN_REASON),
+                            "a negative start offset is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Screen.Span(0, -1, SPAN_REASON)),
+                            () -> new Screen.Span(0, -1, SPAN_REASON),
+                            "a negative end offset is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Screen.Span(0, 4, overlong)));
+                            () -> new Screen.Span(0, 4, overlong),
+                            "an overlong span reason is refused"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -434,7 +447,8 @@ class FindingTest {
         }
 
         private static void assertRefused(Finding.FindingBuilder builder, String rule) {
-            var refusal = assertThrows(IllegalArgumentException.class, builder::build);
+            var refusal = assertThrows(IllegalArgumentException.class, builder::build,
+                    "building the invalid finding is refused");
 
             assertTrue(refusal.getMessage().contains(rule),
                     () -> "the refusal names the rule " + rule + ": " + refusal.getMessage());

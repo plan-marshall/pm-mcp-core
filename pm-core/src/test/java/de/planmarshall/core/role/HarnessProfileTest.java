@@ -52,24 +52,32 @@ class HarnessProfileTest {
                 """));
 
         assertAll(
-                () -> assertEquals("acme-cli", profile.clientId()),
-                () -> assertTrue(profile.eligible()),
-                () -> assertTrue(profile.restrictedModelsDeclared()),
-                () -> assertTrue(profile.allowsRestrictedModel("other-model")),
-                () -> assertFalse(profile.allowsRestrictedModel("acme-model")),
-                () -> assertEquals(HarnessProfile.ToolSet.ENFORCED, profile.toolSet(RoleClass.WRITER).orElseThrow()),
-                () -> assertEquals(HarnessProfile.ToolSet.ADVISORY, profile.toolSet(RoleClass.READ_ONLY).orElseThrow()),
-                () -> assertEquals(HarnessProfile.ToolSet.ENFORCED, profile.toolSet(RoleClass.ZERO_TOOL).orElseThrow()),
-                () -> assertEquals(List.of("low", "high"), profile.efforts("acme-standard")),
-                () -> assertEquals(List.of("low"), profile.efforts("acme-fast")),
-                () -> assertEquals("acme-standard", profile.tierModel("standard").orElseThrow()),
-                () -> assertEquals(300_000, profile.contextBudgetTokens()),
-                () -> assertEquals(4, profile.idleWakeups()),
-                () -> assertTrue(profile.resumability().hold()),
-                () -> assertEquals(300, profile.resumability().maxHoldSeconds()),
-                () -> assertTrue(profile.resumability().resume()),
-                () -> assertEquals(86_400, profile.resumability().maxResumeAgeSeconds()),
-                () -> assertEquals("ask_question", profile.askUserTool()));
+                () -> assertEquals("acme-cli", profile.clientId(), "client id is projected"),
+                () -> assertTrue(profile.eligible(), "worker is marked eligible"),
+                () -> assertTrue(profile.restrictedModelsDeclared(), "restricted models are declared"),
+                () -> assertTrue(profile.allowsRestrictedModel("other-model"),
+                        "declared restricted model is allowed"),
+                () -> assertFalse(profile.allowsRestrictedModel("acme-model"),
+                        "undeclared model is not restricted"),
+                () -> assertEquals(HarnessProfile.ToolSet.ENFORCED, profile.toolSet(RoleClass.WRITER).orElseThrow(),
+                        "writer class resolves to enforced"),
+                () -> assertEquals(HarnessProfile.ToolSet.ADVISORY, profile.toolSet(RoleClass.READ_ONLY).orElseThrow(),
+                        "read_only class resolves to advisory"),
+                () -> assertEquals(HarnessProfile.ToolSet.ENFORCED, profile.toolSet(RoleClass.ZERO_TOOL).orElseThrow(),
+                        "zero_tool class resolves to enforced"),
+                () -> assertEquals(List.of("low", "high"), profile.efforts("acme-standard"),
+                        "acme-standard lists low and high efforts"),
+                () -> assertEquals(List.of("low"), profile.efforts("acme-fast"),
+                        "wildcard effort applies to acme-fast"),
+                () -> assertEquals("acme-standard", profile.tierModel("standard").orElseThrow(),
+                        "standard tier names acme-standard"),
+                () -> assertEquals(300_000, profile.contextBudgetTokens(), "document context budget is honoured"),
+                () -> assertEquals(4, profile.idleWakeups(), "worker idle wakeups are four"),
+                () -> assertTrue(profile.resumability().hold(), "resumability declares hold"),
+                () -> assertEquals(300, profile.resumability().maxHoldSeconds(), "max hold seconds is 300"),
+                () -> assertTrue(profile.resumability().resume(), "resumability declares resume argv"),
+                () -> assertEquals(86_400, profile.resumability().maxResumeAgeSeconds(), "max resume age is 86400"),
+                () -> assertEquals("ask_question", profile.askUserTool(), "ask_user tool is ask_question"));
     }
 
     @Test
@@ -83,12 +91,12 @@ class HarnessProfileTest {
                 """));
 
         assertAll(
-                () -> assertTrue(profile.runsNoClass()),
-                () -> assertTrue(profile.modelEfforts().isEmpty()),
-                () -> assertNull(profile.contextBudgetTokens()),
-                () -> assertNull(profile.idleWakeups()),
-                () -> assertFalse(profile.resumability().hold()),
-                () -> assertFalse(profile.resumability().resume()));
+                () -> assertTrue(profile.runsNoClass(), "profile without headless runs no class"),
+                () -> assertTrue(profile.modelEfforts().isEmpty(), "model efforts are empty"),
+                () -> assertNull(profile.contextBudgetTokens(), "no headless means no context budget"),
+                () -> assertNull(profile.idleWakeups(), "no headless means no idle wakeups"),
+                () -> assertFalse(profile.resumability().hold(), "absent resumability declares no hold"),
+                () -> assertFalse(profile.resumability().resume(), "absent resumability declares no resume"));
     }
 
     private static LoadedProfile loaded(String document) {

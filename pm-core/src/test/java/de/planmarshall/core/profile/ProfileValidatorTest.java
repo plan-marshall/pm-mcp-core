@@ -45,8 +45,10 @@ class ProfileValidatorTest {
         var profile = ProfileValidator.validate(ProfileFixtures.validBytes(), DOCUMENT, ProfileRules.none());
 
         assertAll(
-                () -> assertEquals("acme-cli", ProfileValidator.clientId(profile)),
-                () -> assertEquals("Acme CLI", profile.member("display_name").flatMap(JsonNode::text).orElseThrow()));
+                () -> assertEquals("acme-cli", ProfileValidator.clientId(profile),
+                        "client id comes from the file name"),
+                () -> assertEquals("Acme CLI", profile.member("display_name").flatMap(JsonNode::text).orElseThrow(),
+                        "display name is read as text"));
     }
 
     static Stream<Arguments> loadDirectiveSlots() {
@@ -110,7 +112,7 @@ class ProfileValidatorTest {
         var classes = profile.member("headless").flatMap(headless -> headless.member("classes")).orElseThrow();
 
         assertTrue(classes.members().values().stream().noneMatch(JsonNode::isNull),
-                "Every declared class must be runnable on an exclusive configuration");
+                "no declared class is left unconfigured");
     }
 
     @Nested
@@ -604,9 +606,9 @@ class ProfileValidatorTest {
         var document = "{\"x\":1e1001}".getBytes(StandardCharsets.UTF_8);
 
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> JsonDocument.parse(document, DOCUMENT));
+                () -> JsonDocument.parse(document, DOCUMENT), "oversized decimal is refused");
 
-        assertEquals("/x", refusal.pointer());
+        assertEquals("/x", refusal.pointer(), "refusal points at the number");
     }
 
     @Test
@@ -617,9 +619,9 @@ class ProfileValidatorTest {
         var bytes = fixture.bytes();
 
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(bytes, DOCUMENT, rules));
+                () -> ProfileValidator.validate(bytes, DOCUMENT, rules), "managed bundle path is refused");
 
-        assertEquals("/headless/writable_paths/0", refusal.pointer());
+        assertEquals("/headless/writable_paths/0", refusal.pointer(), "refusal points at writable path");
     }
 
     @Test
@@ -630,9 +632,9 @@ class ProfileValidatorTest {
         var bytes = fixture.bytes();
 
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(bytes, DOCUMENT, rules));
+                () -> ProfileValidator.validate(bytes, DOCUMENT, rules), "harness home path is refused");
 
-        assertEquals("/headless/writable_paths/0", refusal.pointer());
+        assertEquals("/headless/writable_paths/0", refusal.pointer(), "refusal points at harness home");
     }
 
     @Test
@@ -642,11 +644,12 @@ class ProfileValidatorTest {
 
         var rules = ProfileRules.none();
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(document, DOCUMENT, rules));
+                () -> ProfileValidator.validate(document, DOCUMENT, rules), "duplicate member is refused");
 
         assertAll(
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()),
-                () -> assertEquals("/schema_version", refusal.pointer()));
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(),
+                        "duplicate member is profile invalid"),
+                () -> assertEquals("/schema_version", refusal.pointer(), "refusal points at schema_version"));
     }
 
     @Test
@@ -656,10 +659,11 @@ class ProfileValidatorTest {
 
         var rules = ProfileRules.none();
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(document, DOCUMENT, rules));
+                () -> ProfileValidator.validate(document, DOCUMENT, rules), "oversized document is refused");
 
         assertAll(
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()),
-                () -> assertEquals("", refusal.pointer()));
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(),
+                        "oversized document is profile invalid"),
+                () -> assertEquals("", refusal.pointer(), "no pointer for an unread document"));
     }
 }

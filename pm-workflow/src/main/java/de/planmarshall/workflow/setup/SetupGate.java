@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 
 /**
  * The setup gate of a start, as the machine scope's onboarding decides it (PM-WF-26, PM-SEC-8; Workflow DSL,
@@ -27,6 +28,7 @@ import lombok.Builder;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class SetupGate {
 
     /** The reason of a start refused while the machine's first onboarding has not completed. */
@@ -40,9 +42,6 @@ public final class SetupGate {
 
     /** The operator's two clients, both named in a refusal so the operator knows where the onboarding goes on. */
     public static final List<String> CLIENTS = List.of("web", "cli");
-
-    private SetupGate() {
-    }
 
     /**
      * What the operator asks the scope to do, as the gate decides it.

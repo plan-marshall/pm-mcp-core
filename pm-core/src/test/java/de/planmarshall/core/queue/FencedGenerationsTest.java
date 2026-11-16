@@ -44,10 +44,14 @@ class FencedGenerationsTest {
         reopened.fence(QueueFixtures.GENERATION, at.plusSeconds(Generators.longs(1, 3600).next()));
 
         assertAll(
-                () -> assertTrue(reopened.isFenced(QueueFixtures.GENERATION)),
-                () -> assertFalse(reopened.isFenced(QueueFixtures.OTHER_GENERATION)),
-                () -> assertEquals(1, reopened.fenced().size()),
-                () -> assertEquals(at, reopened.entries().getFirst().fencedAt()));
+                () -> assertTrue(reopened.isFenced(QueueFixtures.GENERATION),
+                        "fenced generation is recognised after reopen"),
+                () -> assertFalse(reopened.isFenced(QueueFixtures.OTHER_GENERATION),
+                        "unrelated generation stays unfenced"),
+                () -> assertEquals(1, reopened.fenced().size(),
+                        "only the fenced generation is stored"),
+                () -> assertEquals(at, reopened.entries().getFirst().fencedAt(),
+                        "first fence keeps its original instant"));
     }
 
     @Test
@@ -57,6 +61,6 @@ class FencedGenerationsTest {
         var fences = new FencedGenerations(queue.directory(), queue.lockKey(), new TestLocks());
         fences.fence(QueueFixtures.GENERATION, Instant.EPOCH);
 
-        assertTrue(queue.queueTaskIds().isEmpty());
+        assertTrue(queue.queueTaskIds().isEmpty(), "fence file holds no queue task ids");
     }
 }

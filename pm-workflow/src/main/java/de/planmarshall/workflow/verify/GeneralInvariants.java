@@ -24,6 +24,7 @@ import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -53,6 +54,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
+@UtilityClass
 final class GeneralInvariants {
 
     /** The task protocol unit, compiled only; no unit defines, calls or replaces it. */
@@ -71,9 +73,6 @@ final class GeneralInvariants {
     static final String ADJUDICATE_ESCALATED = "adjudicate.escalated";
 
     private static final Set<String> WAIVER_OUTCOMES = Set.of(WAIVED, ALL_WAIVED);
-
-    private GeneralInvariants() {
-    }
 
     static Map<InvariantId, Check> checks() {
         return Map.of(

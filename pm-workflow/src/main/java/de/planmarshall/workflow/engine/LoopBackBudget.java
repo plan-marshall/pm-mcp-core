@@ -15,6 +15,7 @@ import java.util.Objects;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.PolicyCounter;
+import lombok.experimental.UtilityClass;
 
 /**
  * The accounting of loop-backs and remediation budgets in the status of a plan (PM-WF-7: every budget is persisted and
@@ -36,6 +37,7 @@ import de.planmarshall.core.store.WorkflowStatus.PolicyCounter;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class LoopBackBudget {
 
     /** The compiled budget of {@code loop_back_outline} transitions per plan. */
@@ -43,9 +45,6 @@ public final class LoopBackBudget {
 
     /** The outcome a spent budget yields instead of the loop-back. */
     public static final String EXHAUSTED = "exhausted";
-
-    private LoopBackBudget() {
-    }
 
     /**
      * What a charge against a budget yields.

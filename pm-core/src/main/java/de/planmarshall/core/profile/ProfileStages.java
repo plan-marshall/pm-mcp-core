@@ -21,6 +21,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Builder;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.role.RoleClass;
 
@@ -42,6 +43,7 @@ import de.planmarshall.core.role.RoleClass;
  *
  * @since 0.1
  */
+@UtilityClass
 public final class ProfileStages {
 
     /** The figure names of {@code headless.usage}, spelled once. */
@@ -76,9 +78,6 @@ public final class ProfileStages {
     private static final String PROFILE_SUFFIX = ".json";
     private static final String MEASURED = "measured";
     private static final String NOT_MEASURED = "not_measured";
-
-    private ProfileStages() {
-    }
 
     /**
      * The result of the stage {@code isolation}.

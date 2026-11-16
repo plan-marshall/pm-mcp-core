@@ -183,7 +183,9 @@ class ShippedUsageFixturesTest {
         var row = UsagePointers.of(usage).read(ProfileFixtures.node(Map.of("usage",
                 Map.of("input_tokens", inputTokens, "output_tokens", outputTokens))));
 
-        assertAll(() -> assertTrue(row.cacheCreationInputTokens().isNotApplicable()),
-                () -> assertEquals(Measurement.State.UNMEASURED, row.cacheReadInputTokens().state()));
+        assertAll(() -> assertTrue(row.cacheCreationInputTokens().isNotApplicable(),
+                        "cache creation is not applicable"),
+                () -> assertEquals(Measurement.State.UNMEASURED, row.cacheReadInputTokens().state(),
+                        "cache read input tokens are unmeasured"));
     }
 }

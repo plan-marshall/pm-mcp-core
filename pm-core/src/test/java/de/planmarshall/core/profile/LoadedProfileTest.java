@@ -38,16 +38,17 @@ class LoadedProfileTest {
         var second = loaded(DISPLAY_NAME);
 
         assertAll(
-                () -> assertEquals(first, second),
-                () -> assertEquals(first.hashCode(), second.hashCode()),
-                () -> assertEquals(first.digest(), second.digest()),
-                () -> assertTrue(first.toString().contains("bytes=[")));
+                () -> assertEquals(first, second, "two loads of one document are equal"),
+                () -> assertEquals(first.hashCode(), second.hashCode(), "equal loaded profiles share a hash"),
+                () -> assertEquals(first.digest(), second.digest(), "equal loaded profiles share a digest"),
+                () -> assertTrue(first.toString().contains("bytes=["), "toString names the document bytes"));
     }
 
     @Test
     @DisplayName("a different document is a different profile")
     void differentDocumentIsNotEqual() {
-        assertNotEquals(loaded(DISPLAY_NAME), loaded(OTHER_DISPLAY_NAME));
+        assertNotEquals(loaded(DISPLAY_NAME), loaded(OTHER_DISPLAY_NAME),
+                "different display name makes a different profile");
     }
 
     @Test
@@ -56,10 +57,10 @@ class LoadedProfileTest {
         var loaded = loaded(DISPLAY_NAME);
 
         assertAll(
-                () -> assertTrue(loaded.classRunnable("writer")),
-                () -> assertTrue(loaded.classRunnable("read_only")),
-                () -> assertTrue(loaded.classRunnable("zero_tool")),
-                () -> assertFalse(loaded.classRunnable("absent")));
+                () -> assertTrue(loaded.classRunnable("writer"), "declared writer class is runnable"),
+                () -> assertTrue(loaded.classRunnable("read_only"), "declared read_only class is runnable"),
+                () -> assertTrue(loaded.classRunnable("zero_tool"), "declared zero_tool class is runnable"),
+                () -> assertFalse(loaded.classRunnable("absent"), "undeclared class is not runnable"));
     }
 
     @Test
@@ -69,16 +70,20 @@ class LoadedProfileTest {
         var withoutHeadless = loaded(ProfileFixtures.valid().set("/headless", null).set("/worker/eligible", false));
 
         assertAll(
-                () -> assertEquals("acme", loaded.headless("/executable").flatMap(JsonNode::text).orElse("")),
-                () -> assertTrue(withoutHeadless.headless("/executable").isEmpty()));
+                () -> assertEquals("acme", loaded.headless("/executable").flatMap(JsonNode::text).orElse(""),
+                        "headless executable resolves on the document"),
+                () -> assertTrue(withoutHeadless.headless("/executable").isEmpty(),
+                        "no headless block yields no path"));
     }
 
     @Test
     @DisplayName("a state names itself on the wire")
     void stateWireNames() {
         assertAll(
-                () -> assertEquals("verified", LoadedProfile.State.VERIFIED.wireName()),
-                () -> assertEquals("verified_on_other_build", LoadedProfile.State.VERIFIED_ON_OTHER_BUILD.wireName()));
+                () -> assertEquals("verified", LoadedProfile.State.VERIFIED.wireName(),
+                        "verified state spells verified on the wire"),
+                () -> assertEquals("verified_on_other_build", LoadedProfile.State.VERIFIED_ON_OTHER_BUILD.wireName(),
+                        "other-build state keeps its wire name"));
     }
 
     @Test
@@ -89,10 +94,10 @@ class LoadedProfileTest {
         var other = new ProfileSets.ShippedProfile("{}".getBytes(UTF_8));
 
         assertAll(
-                () -> assertEquals(first, second),
-                () -> assertEquals(first.hashCode(), second.hashCode()),
-                () -> assertNotEquals(first, other),
-                () -> assertTrue(first.toString().contains("bytes")));
+                () -> assertEquals(first, second, "same document bytes are equal profiles"),
+                () -> assertEquals(first.hashCode(), second.hashCode(), "equal shipped profiles share a hash"),
+                () -> assertNotEquals(first, other, "different bytes are different profiles"),
+                () -> assertTrue(first.toString().contains("bytes"), "toString mentions the document bytes"));
     }
 
     private static LoadedProfile loaded(String displayName) {

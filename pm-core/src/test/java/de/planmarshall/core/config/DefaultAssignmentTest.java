@@ -58,12 +58,16 @@ class DefaultAssignmentTest {
 
         var implement = defaults.of("implement").orElseThrow();
         assertAll(
-                () -> assertEquals("standard", implement.tier()),
-                () -> assertEquals(new EffortValue("high"), implement.effort()),
-                () -> assertEquals(HARNESS, implement.preferredHarness()),
-                () -> assertEquals("Implements the tasks of a plan.", implement.advisory()),
-                () -> assertNull(defaults.of("screener").orElseThrow().effort()),
-                () -> assertTrue(defaults.of("outline").isEmpty()));
+                () -> assertEquals("standard", implement.tier(), "the implement role keeps its tier"),
+                () -> assertEquals(new EffortValue("high"), implement.effort(),
+                        "the implement role keeps its effort"),
+                () -> assertEquals(HARNESS, implement.preferredHarness(),
+                        "the implement role keeps its harness"),
+                () -> assertEquals("Implements the tasks of a plan.", implement.advisory(),
+                        "the implement role keeps its advisory"),
+                () -> assertNull(defaults.of("screener").orElseThrow().effort(),
+                        "the screener role has no effort"),
+                () -> assertTrue(defaults.of("outline").isEmpty(), "the outline role is absent"));
     }
 
     @Test
@@ -72,15 +76,18 @@ class DefaultAssignmentTest {
         var loaded = DefaultAssignment.load(getClass().getClassLoader());
 
         assertAll(
-                () -> assertTrue(loaded.isPresent()),
-                () -> assertTrue(loaded.orElseThrow().of("steward").isPresent()),
-                () -> assertEquals("standard", loaded.orElseThrow().of("steward").orElseThrow().tier()));
+                () -> assertTrue(loaded.isPresent(), "the default assignment is shipped"),
+                () -> assertTrue(loaded.orElseThrow().of("steward").isPresent(),
+                        "the default names the steward"),
+                () -> assertEquals("standard", loaded.orElseThrow().of("steward").orElseThrow().tier(),
+                        "the steward's tier is standard"));
     }
 
     @Test
     @DisplayName("a release that ships no default assignment answers empty")
     void absent() {
-        assertTrue(DefaultAssignment.load(ClassLoader.getSystemClassLoader().getParent()).isEmpty());
+        assertTrue(DefaultAssignment.load(ClassLoader.getSystemClassLoader().getParent()).isEmpty(),
+                "no shipped assignment answers empty");
     }
 
     @Test
@@ -91,16 +98,21 @@ class DefaultAssignmentTest {
         var missing = "{\"format_version\":1,\"roles\":{\"implement\":{\"tier\":\"standard\"}}}".getBytes(UTF_8);
         var withoutRoles = "{\"format_version\":1}".getBytes(UTF_8);
         var badTier = assertThrows(IllegalArgumentException.class,
-                () -> new DefaultAssignment.DefaultRole("enormous", null, HARNESS, ADVISORY));
-        var newerVersion = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, newer));
-        var missingMember = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, missing));
-        var noRoles = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, withoutRoles));
+                () -> new DefaultAssignment.DefaultRole("enormous", null, HARNESS, ADVISORY),
+                "a tier outside the list is refused");
+        var newerVersion = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, newer),
+                "a newer format version is refused");
+        var missingMember = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, missing),
+                "a role missing a member is refused");
+        var noRoles = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, withoutRoles),
+                "a document without roles is refused");
 
         assertAll(
-                () -> assertTrue(badTier.getMessage().contains("enormous")),
-                () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, newerVersion.outcome()),
-                () -> assertEquals(file, missingMember.file()),
-                () -> assertEquals(file, noRoles.file()));
+                () -> assertTrue(badTier.getMessage().contains("enormous"), "the refusal names the bad tier"),
+                () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, newerVersion.outcome(),
+                        "the newer version reports FORMAT_NEWER"),
+                () -> assertEquals(file, missingMember.file(), "the missing member names the file"),
+                () -> assertEquals(file, noRoles.file(), "the roleless document names the file"));
     }
 
     @Test
@@ -108,7 +120,7 @@ class DefaultAssignmentTest {
     void roles() {
         var defaults = DefaultAssignment.read(base.resolve("default-assignment.json"), DOCUMENT.getBytes(UTF_8));
 
-        assertEquals(Set.of("implement", "screener"), defaults.roles().keySet());
-        assertFalse(defaults.roles().isEmpty());
+        assertEquals(Set.of("implement", "screener"), defaults.roles().keySet(), "both named roles are read");
+        assertFalse(defaults.roles().isEmpty(), "the role set is not empty");
     }
 }

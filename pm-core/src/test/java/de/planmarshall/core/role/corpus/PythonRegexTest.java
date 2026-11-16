@@ -81,20 +81,23 @@ class PythonRegexTest {
     @MethodSource("pinned")
     @DisplayName("matches what Python's re.search matches")
     void pinned(String name, String pattern, String value, boolean found) {
-        assertEquals(found, PythonRegex.compile(pattern).matcher(value).find());
+        assertEquals(found, PythonRegex.compile(pattern).matcher(value).find(),
+                "the pattern matches what Python's re.search finds");
     }
 
     @Test
     @DisplayName("syntax Java lacks does not compile")
     void pythonOnlySyntax() {
-        assertThrows(PatternSyntaxException.class, () -> PythonRegex.compile("(?P<name>a)"));
+        assertThrows(PatternSyntaxException.class, () -> PythonRegex.compile("(?P<name>a)"),
+                "Python-only named group syntax does not compile");
     }
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"[\\B]", "[\\Z]", "^[^a\\B]$", "^[a-z\\Z]+$"})
     @DisplayName("\\B and \\Z in a class do not compile, as Python refuses them as a bad escape")
     void badEscapeInClass(String pattern) {
-        var refusal = assertThrows(PatternSyntaxException.class, () -> PythonRegex.compile(pattern));
+        var refusal = assertThrows(PatternSyntaxException.class, () -> PythonRegex.compile(pattern),
+                "a bad escape in a class is refused as such");
         assertTrue(refusal.getDescription().startsWith("bad escape"), refusal.getDescription());
     }
 
@@ -102,7 +105,9 @@ class PythonRegexTest {
     @DisplayName("\\B and \\Z outside a class still compile")
     void escapesOutsideClass() {
         assertAll(
-                () -> assertTrue(PythonRegex.compile("a\\B").matcher("ab").find()),
-                () -> assertFalse(PythonRegex.compile("[a]\\Z").matcher("a\n").find()));
+                () -> assertTrue(PythonRegex.compile("a\\B").matcher("ab").find(),
+                        "a backslash-B outside a class still compiles"),
+                () -> assertFalse(PythonRegex.compile("[a]\\Z").matcher("a\n").find(),
+                        "a class then a hard end does not match a line feed"));
     }
 }

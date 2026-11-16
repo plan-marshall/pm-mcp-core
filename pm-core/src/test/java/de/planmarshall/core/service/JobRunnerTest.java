@@ -104,9 +104,9 @@ class JobRunnerTest {
                     requestText, payload);
 
             assertAll(
-                    () -> assertEquals(JobId.Kind.BUILD, request.kind()),
-                    () -> assertEquals(budgetSeconds, request.budgetSeconds()),
-                    () -> assertEquals(payload, request.stdin()),
+                    () -> assertEquals(JobId.Kind.BUILD, request.kind(), "start request keeps its job kind"),
+                    () -> assertEquals(budgetSeconds, request.budgetSeconds(), "start request keeps its budget"),
+                    () -> assertEquals(payload, request.stdin(), "start request keeps the standard input"),
                     () -> assertNull(request(JobId.Kind.BUILD, "build:verify", budgetSeconds).stdin(),
                             "an absent standard input stays null"));
         }
@@ -116,15 +116,20 @@ class JobRunnerTest {
         void missing() {
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest<>(null, PLAN, "build:verify", 1, FLOOR, REQUEST_TEXT, null)),
+                            () -> new StartRequest<>(null, PLAN, "build:verify", 1, FLOOR, REQUEST_TEXT, null),
+                            "start request needs a job kind"),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<>(JobId.Kind.BUILD, null,
-                            "build:verify", 1, FLOOR, REQUEST_TEXT, null)),
+                                    "build:verify", 1, FLOOR, REQUEST_TEXT, null),
+                            "start request needs a scope"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, null, 1, FLOOR, REQUEST_TEXT, null)),
+                            () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, null, 1, FLOOR, REQUEST_TEXT, null),
+                            "start request needs a budget key"),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<>(JobId.Kind.BUILD, PLAN,
-                            "build:verify", 1, null, "r", null)),
+                                    "build:verify", 1, null, "r", null),
+                            "start request needs a budget derivation"),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<String>(JobId.Kind.BUILD,
-                            PLAN, "build:verify", 1, FLOOR, null, null)));
+                                    PLAN, "build:verify", 1, FLOOR, null, null),
+                            "start request needs the request text"));
         }
 
         @Test
@@ -133,12 +138,16 @@ class JobRunnerTest {
             long budgetSeconds = Generators.longs(2, 100).next();
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> request(JobId.Kind.PROBE, "probe:version", budgetSeconds)),
+                            () -> request(JobId.Kind.PROBE, "probe:version", budgetSeconds),
+                            "a probe is not a start request"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> request(JobId.Kind.BUILD, " ", budgetSeconds)),
+                            () -> request(JobId.Kind.BUILD, " ", budgetSeconds),
+                            "a blank budget key is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> request(JobId.Kind.BUILD, "build:verify", 0)),
-                    () -> assertEquals(1, request(JobId.Kind.BUILD, "build:verify", 1).budgetSeconds()));
+                            () -> request(JobId.Kind.BUILD, "build:verify", 0),
+                            "a budget under one second is refused"),
+                    () -> assertEquals(1, request(JobId.Kind.BUILD, "build:verify", 1).budgetSeconds(),
+                            "a budget of one second is accepted"));
         }
 
         @Test
@@ -148,8 +157,9 @@ class JobRunnerTest {
             var consented = new ProbeRequest<>(candidate, true);
 
             assertAll(
-                    () -> assertTrue(consented.consented()),
-                    () -> assertThrows(NullPointerException.class, () -> new ProbeRequest<String>(null, true)));
+                    () -> assertTrue(consented.consented(), "a probe request carries consent"),
+                    () -> assertThrows(NullPointerException.class, () -> new ProbeRequest<String>(null, true),
+                            "a probe request needs its candidate"));
         }
     }
 
@@ -163,15 +173,17 @@ class JobRunnerTest {
             var jobId = new JobId("b-" + "%016x".formatted(Generators.longs().next()));
 
             assertAll(
-                    () -> assertEquals(jobId, new StartResult.Started(jobId).jobId()),
-                    () -> assertThrows(NullPointerException.class, () -> new StartResult.Started(null)));
+                    () -> assertEquals(jobId, new StartResult.Started(jobId).jobId(), "started result names the job"),
+                    () -> assertThrows(NullPointerException.class, () -> new StartResult.Started(null),
+                            "a started result needs a job id"));
         }
 
         @ParameterizedTest(name = "\"{0}\"")
         @ValueSource(strings = {"", " ", "Digest_mismatch", "has space", "1st", "_leading", "argument-rejected"})
         @DisplayName("a refusal reason outside the lower-case snake-case form is refused")
         void invalidReason(String reason) {
-            assertThrows(IllegalArgumentException.class, () -> new StartResult.Refused(reason));
+            assertThrows(IllegalArgumentException.class, () -> new StartResult.Refused(reason),
+                    "a refusal reason must be lower-case snake-case");
         }
 
         @Test
@@ -179,8 +191,10 @@ class JobRunnerTest {
         void refused() {
             assertAll(
                     () -> assertEquals("executable_digest_mismatch",
-                            new StartResult.Refused("executable_digest_mismatch").reason()),
-                    () -> assertThrows(NullPointerException.class, () -> new StartResult.Refused(null)));
+                            new StartResult.Refused("executable_digest_mismatch").reason(),
+                            "a refusal carries its reason text"),
+                    () -> assertThrows(NullPointerException.class, () -> new StartResult.Refused(null),
+                            "a refusal needs its reason"));
         }
     }
 
@@ -198,8 +212,8 @@ class JobRunnerTest {
         @DisplayName("each cause settles the job by its row of the outcome derivation")
         void mapping(CancelCause cause, int row, Fate fate) {
             assertAll(
-                    () -> assertEquals(row, cause.outcomeRow()),
-                    () -> assertEquals(fate, cause.fate()));
+                    () -> assertEquals(row, cause.outcomeRow(), "the cancel cause settles by its row"),
+                    () -> assertEquals(fate, cause.fate(), "the cancel cause settles to its fate"));
         }
 
         @Test
@@ -209,8 +223,8 @@ class JobRunnerTest {
                     .collect(Collectors.toUnmodifiableSet());
 
             assertAll(
-                    () -> assertEquals(Set.of(2, 3, 4), rows),
-                    () -> assertEquals(5, CancelCause.values().length));
+                    () -> assertEquals(Set.of(2, 3, 4), rows, "the cancel causes cover rows 2 to 4"),
+                    () -> assertEquals(5, CancelCause.values().length, "the closed set holds five causes"));
         }
     }
 
@@ -224,7 +238,7 @@ class JobRunnerTest {
             var production = new ClassFileImporter().withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
                     .importPackages("de.planmarshall.core");
 
-            assertEquals(List.of(), implementations(production));
+            assertEquals(List.of(), implementations(production), "the foundation implements no job runner");
         }
 
         @Test
@@ -232,7 +246,8 @@ class JobRunnerTest {
         void guardFindsAnImplementation() {
             var withRunner = new ClassFileImporter().importClasses(TestRunner.class, JobRunner.class);
 
-            assertEquals(List.of(TestRunner.class.getName()), implementations(withRunner));
+            assertEquals(List.of(TestRunner.class.getName()), implementations(withRunner),
+                    "the guard finds the only implementation");
         }
     }
 }

@@ -42,7 +42,11 @@ public enum LaunchRefusal {
 
     /** The launch prompt cannot be composed. */
     PROMPT_COMPOSITION_FAILED("prompt_composition_failed",
-            "restore the skill or the schema the prompt reads and launch the task again");
+            "restore the skill or the schema the prompt reads and launch the task again"),
+
+    /** The composed argument vector does not conform to the profile's template and the slot grammars. */
+    ARGUMENT_REJECTED("argument_rejected",
+            "correct the profile's template or enrol the harness profile again with `pm-operator enrol-harness %s`");
 
     private final String code;
     private final String act;

@@ -9,9 +9,6 @@
  */
 package de.planmarshall.workflow.plan;
 
-import static de.planmarshall.workflow.log.WorkflowLogMessages.INFO;
-import static de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +29,8 @@ import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
+import de.planmarshall.workflow.log.WorkflowLogMessages.INFO;
+import de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
 
 /**
  * The versions of a plan instance, the composition log and the texts of the bound sub-units, in the plan's directory

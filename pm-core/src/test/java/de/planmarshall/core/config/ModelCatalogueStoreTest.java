@@ -75,9 +75,9 @@ class ModelCatalogueStoreTest {
         var read = store.read();
 
         assertAll(
-                () -> assertTrue(read.harnesses().isEmpty()),
-                () -> assertEquals(0L, read.revision()),
-                () -> assertFalse(read.allows(HARNESS, MODEL)));
+                () -> assertTrue(read.harnesses().isEmpty(), "an absent catalogue holds no harness"),
+                () -> assertEquals(0L, read.revision(), "an absent catalogue is at revision 0"),
+                () -> assertFalse(read.allows(HARNESS, MODEL), "nothing is allowed yet"));
     }
 
     @Test
@@ -87,13 +87,15 @@ class ModelCatalogueStoreTest {
 
         var read = store.read();
         assertAll(
-                () -> assertEquals(1L, read.revision()),
-                () -> assertTrue(read.allows(HARNESS, MODEL)),
-                () -> assertFalse(read.allows(HARNESS, FRONTIER_MODEL)),
-                () -> assertTrue(read.catalogue().allows(HARNESS, FAST_MODEL)),
-                () -> assertFalse(read.catalogue().allows(OTHER_HARNESS, FAST_MODEL)),
+                () -> assertEquals(1L, read.revision(), "the write records revision 1"),
+                () -> assertTrue(read.allows(HARNESS, MODEL), "the written model is allowed"),
+                () -> assertFalse(read.allows(HARNESS, FRONTIER_MODEL), "an unwritten model is not allowed"),
+                () -> assertTrue(read.catalogue().allows(HARNESS, FAST_MODEL),
+                        "the catalogue exposes the fast model"),
+                () -> assertFalse(read.catalogue().allows(OTHER_HARNESS, FAST_MODEL),
+                        "another harness does not allow it"),
                 () -> assertEquals(List.of(probe(MODEL), probe(FAST_MODEL)),
-                        read.harnesses().get(HARNESS)));
+                        read.harnesses().get(HARNESS), "the harness keeps both probed models"));
     }
 
     @Test
@@ -104,8 +106,10 @@ class ModelCatalogueStoreTest {
 
         var read = store.read();
         assertAll(
-                () -> assertEquals(Set.of(HARNESS), read.harnesses().keySet()),
-                () -> assertFalse(read.allows(GONE_HARNESS, OLD_MODEL)));
+                () -> assertEquals(Set.of(HARNESS), read.harnesses().keySet(),
+                        "only the enrolled harness remains"),
+                () -> assertFalse(read.allows(GONE_HARNESS, OLD_MODEL),
+                        "the dropped harness allows nothing"));
     }
 
     @Test
@@ -115,13 +119,15 @@ class ModelCatalogueStoreTest {
         store.write(Map.of(HARNESS, List.of(probe(MODEL))), enrolled, 0L);
         var stale = Map.of(HARNESS, List.of(probe(FAST_MODEL)));
 
-        var conflict = assertThrows(SettingsConflict.class, () -> store.write(stale, enrolled, 0L));
+        var conflict = assertThrows(SettingsConflict.class, () -> store.write(stale, enrolled, 0L),
+                "a stale revision is refused");
 
         assertAll(
-                () -> assertEquals(1L, conflict.currentRevision()),
-                () -> assertInstanceOf(ModelCatalogueStore.Snapshot.class, conflict.currentValue()),
-                () -> assertTrue(store.read().allows(HARNESS, MODEL)),
-                () -> assertFalse(store.read().allows(HARNESS, FAST_MODEL)));
+                () -> assertEquals(1L, conflict.currentRevision(), "the conflict names the current revision"),
+                () -> assertInstanceOf(ModelCatalogueStore.Snapshot.class, conflict.currentValue(),
+                        "the conflict carries the current snapshot"),
+                () -> assertTrue(store.read().allows(HARNESS, MODEL), "the stored model is untouched"),
+                () -> assertFalse(store.read().allows(HARNESS, FAST_MODEL), "the stale model is not stored"));
     }
 
     @Test
@@ -133,11 +139,13 @@ class ModelCatalogueStoreTest {
         project.write(Map.of(HARNESS, List.of(probe(MODEL))), Set.of(HARNESS), 0L);
 
         assertAll(
-                () -> assertTrue(project.read().allows(HARNESS, MODEL)),
+                () -> assertTrue(project.read().allows(HARNESS, MODEL),
+                        "the project catalogue allows the model"),
                 () -> assertEquals(LockKey.localConfiguration(base, PROJECT).lockFile(),
-                        ModelCatalogueStore.project(base, PROJECT).lockKey().lockFile()),
+                        ModelCatalogueStore.project(base, PROJECT).lockKey().lockFile(),
+                        "the project store takes its lock"),
                 () -> assertTrue(Files.exists(base.resolve("projects").resolve(PROJECT)
-                        .resolve(ModelCatalogueStore.FILE_NAME))));
+                        .resolve(ModelCatalogueStore.FILE_NAME)), "the project catalogue file is written"));
     }
 
     @Test
@@ -150,12 +158,13 @@ class ModelCatalogueStoreTest {
         var upperSet = Set.of("Upper");
 
         var writeRefused = assertThrows(IllegalArgumentException.class,
-                () -> store.write(upper, upperSet, 0L));
-        var readRefused = assertThrows(StoreRefusal.class, store::read);
+                () -> store.write(upper, upperSet, 0L), "an uppercase client id is refused");
+        var readRefused = assertThrows(StoreRefusal.class, store::read,
+                "the document with Upper is refused");
 
         assertAll(
-                () -> assertTrue(writeRefused.getMessage().contains("Upper")),
-                () -> assertEquals(file, readRefused.file()));
+                () -> assertTrue(writeRefused.getMessage().contains("Upper"), "the refusal names the client id"),
+                () -> assertEquals(file, readRefused.file(), "the refusal names the catalogue file"));
     }
 
     @Test
@@ -167,9 +176,9 @@ class ModelCatalogueStoreTest {
                   {"model":"%s","source":"guess","recorded_at":"%s"}]}}}"""
                 .formatted(HARNESS, MODEL, RECORDED), UTF_8);
 
-        assertThrows(StoreRefusal.class, store::read);
+        assertThrows(StoreRefusal.class, store::read, "an unknown model source is refused");
         assertThrows(IllegalArgumentException.class,
-                () -> new CatalogueModel("", ModelSource.PROBE, RECORDED));
+                () -> new CatalogueModel("", ModelSource.PROBE, RECORDED), "an empty model id is refused");
     }
 
     @Test
@@ -178,8 +187,9 @@ class ModelCatalogueStoreTest {
         var wrong = new AtomicStoreFile(base.resolve("model-catalogue.json"), LockKey.harnesses(base));
 
         var wrongLock = new TestLocks();
-        var refused = assertThrows(IllegalArgumentException.class, () -> new ModelCatalogueStore(wrong, wrongLock));
+        var refused = assertThrows(IllegalArgumentException.class, () -> new ModelCatalogueStore(wrong, wrongLock),
+                "a wrong lock key is refused");
 
-        assertTrue(refused.getMessage().contains("catalogue"));
+        assertTrue(refused.getMessage().contains("catalogue"), "the refusal names the catalogue lock");
     }
 }

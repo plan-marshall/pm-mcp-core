@@ -27,6 +27,7 @@ import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
+import lombok.experimental.UtilityClass;
 
 /**
  * The unit-level invariants of the project-owned sub-workflows that are not remediation units (PM-IMPL-5, PM-WF-16):
@@ -52,6 +53,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  *
  * @since 0.1
  */
+@UtilityClass
 final class SubWorkflowInvariants {
 
     /** The success outcome of the commit sub-workflow. */
@@ -65,9 +67,6 @@ final class SubWorkflowInvariants {
 
     /** The lease push of the plan's own branch after a server rebase. */
     static final String LEASE_PUSH = "git.push-with-lease";
-
-    private SubWorkflowInvariants() {
-    }
 
     static Map<InvariantId, Check> checks() {
         return Map.of(

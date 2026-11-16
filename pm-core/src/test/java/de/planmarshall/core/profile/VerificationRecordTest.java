@@ -74,9 +74,10 @@ class VerificationRecordTest {
 
         assertAll(() -> assertEquals(List.of(new StartContext("writer", MODEL, OptionalLong.of(TOKENS)),
                                 new StartContext("zero_tool", MODEL, OptionalLong.empty())),
-                        parsed.stages().get("usage").startContext()),
+                        parsed.stages().get("usage").startContext(), "start context is read per class"),
                 () -> assertEquals("not_applicable",
-                        parsed.stages().get("usage").results().get("cache_creation")));
+                        parsed.stages().get("usage").results().get("cache_creation"),
+                        "cache creation reads not_applicable"));
     }
 
     @Test
@@ -84,9 +85,10 @@ class VerificationRecordTest {
     void unknownClassRefused() {
         var bytes = RECORD.replace("\"writer\"", "\"" + UNKNOWN_CLASS + "\"").getBytes(UTF_8);
 
-        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"));
+        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"),
+                "unknown class is refused");
 
-        assertEquals("/stages/usage/start_context/0", refusal.pointer());
+        assertEquals("/stages/usage/start_context/0", refusal.pointer(), "refusal points at the first entry");
     }
 
     @Test
@@ -95,9 +97,11 @@ class VerificationRecordTest {
         var bytes = RECORD.replace("\"model\": \"" + MODEL + "\"", "\"model\": \"" + OTHER_MODEL + "\"")
                 .getBytes(UTF_8);
 
-        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"));
+        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"),
+                "unlisted model is refused");
 
-        assertEquals("/stages/usage/start_context/0/model", refusal.pointer());
+        assertEquals("/stages/usage/start_context/0/model", refusal.pointer(),
+                "refusal points at the model");
     }
 
     @Test
@@ -105,8 +109,9 @@ class VerificationRecordTest {
     void unknownTokensRefused() {
         var bytes = RECORD.replace("\"tokens\": " + TOKENS, "\"tokens\": \"measured\"").getBytes(UTF_8);
 
-        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"));
+        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"),
+                "unknown token value is refused");
 
-        assertEquals("/stages/usage/start_context/0/tokens", refusal.pointer());
+        assertEquals("/stages/usage/start_context/0/tokens", refusal.pointer(), "refusal points at tokens");
     }
 }

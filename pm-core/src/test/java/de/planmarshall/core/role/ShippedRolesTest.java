@@ -32,15 +32,16 @@ class ShippedRolesTest {
         var sets = ShippedRoles.read();
 
         assertAll(
-                () -> assertTrue(sets.shipped().containsKey("interpret")),
-                () -> assertTrue(sets.shipped().containsKey("steward")),
-                () -> assertEquals(2, sets.shipped().size()));
+                () -> assertTrue(sets.shipped().containsKey("interpret"), "interpret is among the shipped roles"),
+                () -> assertTrue(sets.shipped().containsKey("steward"), "steward is among the shipped roles"),
+                () -> assertEquals(2, sets.shipped().size(), "the fixture supplies two roles"));
     }
 
     @Test
     @DisplayName("the reserved default assignment is not read as a role")
     void skipsDefaultAssignment() {
-        assertFalse(ShippedRoles.read().shipped().containsKey("default-assignment"));
+        assertFalse(ShippedRoles.read().shipped().containsKey("default-assignment"),
+                "the default assignment is not a role");
     }
 
     @Test
@@ -50,7 +51,9 @@ class ShippedRolesTest {
 
         assertAll(
                 () -> assertTrue(set.refused().isEmpty(), () -> set.refused().toString()),
-                () -> assertEquals(RoleClass.READ_ONLY, set.effective("interpret").orElseThrow().roleClass()),
-                () -> assertEquals(300, set.effective("steward").orElseThrow().budgetFloorSeconds()));
+                () -> assertEquals(RoleClass.READ_ONLY, set.effective("interpret").orElseThrow().roleClass(),
+                        "interpret is a read_only role"),
+                () -> assertEquals(300, set.effective("steward").orElseThrow().budgetFloorSeconds(),
+                        "steward keeps a five minute floor"));
     }
 }
