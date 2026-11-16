@@ -4,7 +4,7 @@
 :toc-title: Table of Contents
 :nofooter:
 
-What each requirement of the link:../../plan-marshall-documentation/doc/Requirements.adoc[Requirements Document] that the modules of this repository implement is implemented by, verified by and documented in. A work package adds the lines of the requirements it implements here, in its own pull request: `Implementation:` links the production classes, `Verified by:` the automated tests, and `Documentation:` the developer documentation of the module (`{module}/doc/developer/`) and, where it exists, the concept and user documentation of `plan-marshall-documentation`. The links into this repository are relative; a requirement keeps its link to the specification it is specified in, and the implemented sections of that specification are deleted (link:Specification.adoc[Specification]).
+What each requirement of the link:../../plan-marshall-documentation/doc/Requirements.adoc[Requirements Document] that the modules of this repository implement is implemented by, verified by and documented in. A work package adds the lines of the requirements it implements here, in its own pull request: `Implementation:` links the production classes, `Verified by:` the automated tests, and `Documentation:` the developer documentation of the module (`{module}/doc/developer/`) and, where it exists, the concept and user documentation of `plan-marshall-documentation`. The links into this repository are relative; a requirement keeps its link to the specification it is specified in, and the implemented sections of that specification are condensed to the statement of what the requirement asks, with the link to the developer documentation (link:Specification.adoc[Specification]; ADR link:adr/027-condense-and-point-the-implemented-specification-parts.adoc[027]).
 
 A requirement implemented in another repository is traced there, or, for code without documents of its own, in the requirement itself.
 
@@ -330,12 +330,14 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/CompositionRefu
 
 Implementation (the `worker-launch` part of bullets 3, 4 and 5's service side, `runtime.launch`): the launch of a worker
 of an enrolled harness from the role's effective configuration and the harness's harness profile — the model tier rendered,
-the effort narrowed, the working directory fixed, the tool set and the per-call MCP configuration composed, the launch
+the effort narrowed, the working directory fixed, the launch contract projected out of the profile's `headless` block
+(`HeadlessBlock`) and the class's tool set and per-call MCP configuration composed (`LaunchComposer`), the launch
 prompt with its shared prefix and the writing skill derived from the link schemas, the job token minted and only its
-digest recorded, the harness enrolment store with its HMAC sidecar and its launch-time verification and self-update, and
-the launch started or refused through the job runner
+digest recorded (`LaunchComposer`; resolved and revoked by `JobTokenStore`), the harness enrolment store with its HMAC
+sidecar and its launch-time verification and self-update, the model slots admitted in FIFO order with at most one
+`writer` worker of a plan (`ModelSlotScheduler`), and the launch started or refused through the job runner
 (link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). Not implemented and owned
-elsewhere: the relay's per-request binding, the supervisor's start and supervision, output and usage reading, model slots,
+elsewhere: the relay's per-request binding, the supervisor's start and supervision, output and usage reading,
 and warm offers (link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide] § Owed).
 
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest],
@@ -345,6 +347,9 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/PromptComposerTe
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/FreeTextDerivationTest.java[FreeTextDerivationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessVerifierTest.java[HarnessVerifierTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java[HarnessEnrolmentStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HeadlessBlockTest.java[HeadlessBlockTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/JobTokenStoreTest.java[JobTokenStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/ModelSlotSchedulerTest.java[ModelSlotSchedulerTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/WorkerJobTest.java[WorkerJobTest]
 
 Documentation: link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide],
@@ -718,8 +723,12 @@ link:../pm-workflow/doc/adr/workflow-engine/013-link-states-await-the-operator-a
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-25[PM-WF-25]
 
-Implementation (the composition side of bullets 1 to 3, as far as the library module `pm-workflow` carries it: the variant of each axis bound from the nearest level that sets it, the plan's own value, the project's, the machine's, else the shipped plan default, and every other variant of the axis pruned as a call with the reason `plan_default` and the level as source fact; the declaration schemas of the method and asking variants, their choices enumeration values; the declarations of the bound variant read as facts of the composition rules, so the merge execution is pruned with `merge_by_operator` where the bound asking variant declares `self_merge = false`; the plan's `overrides.json` counted in the digest of the plan facts, and the composition event `override`, refused with `position_not_contained` where the version would not contain the plan's position. Not implemented yet: composing the landing variant into the finalize phase and one composed file per bound variant, the validation of a landing variant, the reading and writing of the three levels and of the plan's overrides, the operator's acts that set them, and the qualification of an override): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanFacts.java[PlanFacts],
+Implementation (the composition side of bullets 1 to 3, as far as the library module `pm-workflow` carries it: the variant of each axis bound from the nearest level that sets it, the plan's own value, the project's, the machine's, else the shipped plan default, and every other variant of the axis pruned as a call with the reason `plan_default` and the level as source fact; the declaration schemas of the method and asking variants, their choices enumeration values; the declarations of the bound variant read as facts of the composition rules, so the merge execution is pruned with `merge_by_operator` where the bound asking variant declares `self_merge = false`; the plan's `overrides.json` counted in the digest of the plan facts, and the composition event `override`, refused with `position_not_contained` where the version would not contain the plan's position; the landing variant validated where a project is known, refusing `landing.pull-request` without a provider and `landing.main` on a protected base branch with the reason; the reading and writing of the plan's own values, `overrides.json`, under the plan's transaction and revision rule. Not implemented yet: composing the landing variant into the finalize phase and one composed file per bound variant, the reading and writing of the project's and the machine's axis levels, the operator's acts that set them, and the qualification of an override): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanFacts.java[PlanFacts],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/LandingVariantValidation.java[LandingVariantValidation],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PlanOverrides.java[PlanOverrides],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PlanOverridesCodec.java[PlanOverridesCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PlanOverridesStore.java[PlanOverridesStore],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePruner.java[InstancePruner],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRules.java[CompositionRules],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRuleEvaluator.java[CompositionRuleEvaluator],
@@ -728,22 +737,33 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionEvent
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/DeclarationBounds.java[DeclarationBounds]
 
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/LandingVariantValidationTest.java[LandingVariantValidationTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanOverridesCodecTest.java[PlanOverridesCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanOverridesStoreTest.java[PlanOverridesStoreTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRuleEvaluatorTest.java[CompositionRuleEvaluatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRulesTest.java[CompositionRulesTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBoundsTest.java[DeclarationBoundsTest]
 
 Documentation: link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_plan_behaviour_axes[Plan Instance Developer Guide § The Plan Behaviour Axes],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_landing_variant_of_the_project[Plan Instance Developer Guide § The Landing Variant of the Project],
+link:../pm-core/doc/developer/core-store.adoc#_the_plan_overrides[Scope Stores Developer Guide § The Plan Overrides],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workflow Verification Developer Guide § Declaration Bounds],
 link:../pm-workflow/doc/adr/workflow-plan/015-axis-levels-and-overrides-carried-in-plan-facts.adoc[ADR workflow-plan/015],
+link:../pm-workflow/doc/adr/workflow-plan/021-the-landing-variant-is-checked-where-the-composition-binds-it.adoc[ADR workflow-plan/021],
+link:../pm-core/doc/adr/core-store/069-the-plan-overrides-are-written-through-the-plan-transaction.adoc[ADR core-store/069],
 link:../pm-workflow/doc/adr/workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[ADR workflow-verify/028]
 
-Implementation (the machine's own half of the landing validation: a `landing.pull-request` needs a forge the
-machine serves, `landing.main` and `landing.files` need none, and no repository is consulted; the project's check, which
-refuses `landing.main` on a protected base branch, is not yet traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineDefaultsValidation.java[MachineDefaultsValidation]
+Implementation (the machine's own half and the project's half of the landing validation: a `landing.pull-request` needs a
+forge the machine serves, `landing.main` and `landing.files` need none, and no repository is consulted at the machine;
+where a project is known, `landing.pull-request` without a provider of the project and `landing.main` on a base branch
+the provider reports as protected are refused with the reason): link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineDefaultsValidation.java[MachineDefaultsValidation],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/LandingVariantValidation.java[LandingVariantValidation]
 
-Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineDefaultsValidationTest.java[MachineDefaultsValidationTest]
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineDefaultsValidationTest.java[MachineDefaultsValidationTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/LandingVariantValidationTest.java[LandingVariantValidationTest]
 
-Documentation: link:../pm-runtime/doc/developer/runtime-config.adoc#_the_machines_own_check_of_its_plan_defaults[Developer Guide § The Machine's Own Check of its Plan Defaults (`runtime.config`)]
+Documentation: link:../pm-runtime/doc/developer/runtime-config.adoc#_the_machines_own_check_of_its_plan_defaults[Developer Guide § The Machine's Own Check of its Plan Defaults (`runtime.config`)],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_landing_variant_of_the_project[Plan Instance Developer Guide § The Landing Variant of the Project]
 
 [#PM-WF-26]
 === PM-WF-26: Machine Onboarding & the Machine Scope
@@ -755,15 +775,20 @@ its workflow state in `machine/mcp/status.json`, its `machine` phase and its jou
 resident unit's graph check over a unit with no terminal that rests in `onboard.completed`; the onboarding read from the
 status's `onboard_run` and `onboard_steps`; and the setup gate that refuses a start `machine_not_onboarded` while the
 first run is incomplete, an act that needs a missing step `onboarding_incomplete` with status 409, names the step and
-both clients, and admits the onboarding itself and the operator's verbs in every state. The onboarding unit's own
-sub-workflows and the operator's settings acts are other work packages'): link:../pm-core/src/main/java/de/planmarshall/core/store/JournalScope.java[JournalScope],
+both clients, and admits the onboarding itself and the operator's verbs in every state. The machine's settings' writers for
+the documents mode and the cleanup durations are here; the onboarding unit's own sub-workflows and the settings states
+themselves are not delivered by this plan and are owed): link:../pm-core/src/main/java/de/planmarshall/core/store/JournalScope.java[JournalScope],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JournalScopeType.java[JournalScopeType],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusStore.java[WorkflowStatusStore],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/WorkflowScope.java[WorkflowScope],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/setup/MachineOnboarding.java[MachineOnboarding],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/setup/SetupGate.java[SetupGate]
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/setup/SetupGate.java[SetupGate],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/DocumentsMode.java[DocumentsMode],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/CleanupDuration.java[CleanupDuration],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/CleanupDurations.java[CleanupDurations],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineConfigurationStore.java[MachineConfigurationStore]
 
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/setup/SetupGateTest.java[SetupGateTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/MachineResidentUnitTest.java[MachineResidentUnitTest],
@@ -776,8 +801,9 @@ link:../pm-core/doc/adr/core-store/046-the-machine-scope-keeps-its-state-in-mach
 link:../pm-workflow/doc/adr/workflow-verify/031-the-machine-unit-is-resident.adoc[ADR workflow-verify/031]
 
 Implementation (the stores the first run of the onboarding writes and their revision rule, over fixtures:
-`consents.json`, `model-catalogue.json` and `role-assignments.json` in `core.config`, `providers` of
-`machine-config.json` in `runtime.config`, the credential-store aspect's states with their consent, and the machine's own
+`consents.json`, `model-catalogue.json` and `role-assignments.json` in `core.config`, `providers`, the documents mode and
+the cleanup durations of `machine-config.json` in `runtime.config`, the credential-store aspect's states with their
+consent, and the machine's own
 check of its plan defaults — a `landing.pull-request` needs a provider the machine serves, and no repository is consulted.
 The run from
 `onboard.entry` to `onboard.completed`, the aspects' sub-workflows, the harness scan and the plan axes are not traced
@@ -785,6 +811,8 @@ here, and the units themselves are `plan-marshall-mcp`'s): link:../pm-core/src/m
 link:../pm-core/src/main/java/de/planmarshall/core/config/ModelCatalogueStore.java[ModelCatalogueStore],
 link:../pm-core/src/main/java/de/planmarshall/core/config/RoleAssignmentsStore.java[RoleAssignmentsStore],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineConfigurationStore.java[MachineConfigurationStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/DocumentsMode.java[DocumentsMode],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/CleanupDurations.java[CleanupDurations],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineDefaultsValidation.java[MachineDefaultsValidation],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreAspect.java[CredentialStoreAspect],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ProviderVerification.java[ProviderVerification]
@@ -793,6 +821,7 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentSt
 link:../pm-core/src/test/java/de/planmarshall/core/config/ModelCatalogueStoreTest.java[ModelCatalogueStoreTest],
 link:../pm-core/src/test/java/de/planmarshall/core/config/RoleAssignmentsStoreTest.java[RoleAssignmentsStoreTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationStoreTest.java[MachineConfigurationStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineSettingsWritersTest.java[MachineSettingsWritersTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationCodecTest.java[MachineConfigurationCodecTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/ProviderDefaultTest.java[ProviderDefaultTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineDefaultsValidationTest.java[MachineDefaultsValidationTest],
@@ -800,9 +829,10 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialS
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/ProviderVerificationTest.java[ProviderVerificationTest]
 
 Documentation: link:../pm-core/doc/developer/core-config.adoc[Consents, Model Catalogue and Role Assignments Developer Guide],
-link:../pm-runtime/doc/developer/runtime-config.adoc[Machine Configuration Provider Defaults Developer Guide],
+link:../pm-runtime/doc/developer/runtime-config.adoc[The Machine Configuration's Written Settings Developer Guide],
 link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_credential_store_aspect[Credential Stores Developer Guide § The Credential-Store Aspect],
-link:../pm-core/doc/adr/core-config/001-the-settings-conflict-carries-the-current-value.adoc[ADR core-config/001]
+link:../pm-core/doc/adr/core-config/001-the-settings-conflict-carries-the-current-value.adoc[ADR core-config/001],
+link:../pm-runtime/doc/adr/runtime-config/004-the-settings-are-written-beside-the-provider-defaults.adoc[ADR runtime-config/004]
 
 == link:../../plan-marshall-documentation/doc/requirements/03-skills.adoc[Skills]
 
@@ -2521,6 +2551,8 @@ harness worker, the worker launch, the `worker-task` unit of the assembly and th
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecordCodec.java[QueueTaskRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueStore.java[QueueStore],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/FencedGenerations.java[FencedGenerations],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java[WorkerState],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerLifecycle.java[WorkerLifecycle],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityEntry.java[ActivityEntry],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java[TaskProtocol],
@@ -2553,6 +2585,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTe
 
 Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide],
 link:../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide],
+link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervisor Developer Guide],
 link:../pm-workflow/doc/developer/workflow-question.adoc[Question Continuation Developer Guide],
 link:../pm-workflow/doc/developer/workflow-hypermedia.adoc[Hypermedia Values Developer Guide],
 link:../pm-workflow/doc/adr/workflow-task/005-the-answer-is-delivered-in-memory-and-reopens-the-task.adoc[ADR workflow-task/005],

@@ -161,6 +161,9 @@ States of `onboarding.pmwf`, reached from `onboard.completed` once the onboardin
 |xref:19-onboarding-aspects-models-providers.adoc#state-catalogue-providers[Providers]
 |===
 
+How the machine records the documents mode and the cleanup durations is documented in the
+link:../../../pm-runtime/doc/developer/runtime-config.adoc[`runtime.config` Developer Guide].
+
 [#state-catalogue-onboarding-aspects]
 == The Onboarding's Aspects
 

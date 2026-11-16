@@ -1,0 +1,63 @@
+= ADR 021: The Landing Variant Is Checked Where the Composition Binds It
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-16
+
+== Context
+
+Workflow DSL § Plan Behaviour Axes, item 3 asks that a landing variant be validated where a project is known — the
+project's setup, a plan's start, a plan's settings — refusing `landing.pull-request` without a provider of the project and
+`landing.main` on a base branch the provider reports as protected, each with the reason. The machine's own check exists
+(`MachineDefaultsValidation` of `runtime.config`) and never reads a repository.
+
+The plan instance's composition is where a plan's start and a later `override` bind the axis; a plan's settings are the
+same event, since a changed value composes a new version. The alternative was a validator that the setup and settings code
+calls on its own, leaving the composition free to bind a variant no check had seen.
+
+== Decision
+
+* `LandingVariantValidation` is a pure check in `workflow.plan`: it takes the variant and a `Project` value (a pull-request
+  provider, a protected base branch) and answers a verdict with the reason.
+* `PlanInstanceComposer` gains `compose(request, project)`: it validates the *bound* landing variant before composing and
+  refuses the version with `invariant_failed` and the reason in its violation line. The post-run-only events (`fallback`,
+  `empty_harvest`) skip the check: their version prunes the landing work, so the variant decides nothing there.
+  `compose(request)` keeps its signature and composes without the check, for a caller with no project known.
+* The `Project` value is passed per call, not stored in `CompositionRequest`: the record's facts stay the values the
+  composition reads, and a request built by a caller without a project is unchanged.
+* The check does not decide which level set the variant: the reason names the variant, and a machine default that does not
+  fit the project is refused for that project at its start. The project's setup and the plan's settings surfaces are the
+  server assembly's: this module delivers the check and the composition call site, and the landing names those call sites
+  owed.
+
+== Alternatives Considered
+
+1. *A new `refusal` value (`landing_not_fit`) in the composition log.* _Not taken_: the log's `refusal` is a closed enum of
+   the store schema (`position_not_contained`, `invariant_failed`); a new value would change the schema and every reader
+   for a validation the composer already reports as a violation line.
+2. *A component on `CompositionRequest`.* _Not taken_: the record is constructed positionally by several callers; an
+   optional component there would either break them or become a second, silently-nullable input path for a value that is
+   the caller's knowledge, not the plan's fact.
+3. *Validating only in the setup and settings code.* _Not taken_: the composition would then bind a variant no check had
+   seen whenever a caller forgot the call, which is the fail-open path this item exists to close.
+
+== Consequences
+
+* A caller that knows the project passes it; a plan start whose bound landing variant does not fit is refused before a
+  version is written, and its reason names the variant and the missing provider or the protected branch.
+* The composer stays a value in, value out: the check reads no store and writes nothing.
+* `LandingVariantValidationTest` holds the table of variants; `PlanInstanceComposerTest` holds the refusal and the control
+  that a fitting project composes the same text as no project at all.
+
+== Source
+
+* Plan PLAN-V2-43, deliverable 11 (Task 12)
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL § Plan Behaviour Axes, item
+  3]
+* `pm-workflow/src/main/java/de/planmarshall/workflow/plan/LandingVariantValidation.java`,
+  `PlanInstanceComposer.java`
