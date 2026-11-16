@@ -186,27 +186,49 @@ public final class GitMetadataDigest {
             return new IncludeScan(List.of(), true);
         }
         var includes = new ArrayList<Path>();
-        var inIncludeSection = false;
+        var state = new IncludeState();
         for (var line : lines) {
+            if (!state.scan(line, file.getParent(), includes)) {
+                return new IncludeScan(List.of(), true);
+            }
+        }
+        return new IncludeScan(List.copyOf(includes), false);
+    }
+
+    /** The section state of one config file while its lines are scanned. */
+    private static final class IncludeState {
+
+        private boolean inIncludeSection;
+
+        /**
+         * @param line      one line of the config file
+         * @param directory the directory the file's includes resolve against
+         * @param includes  the includes found so far, appended to
+         * @return {@code false} when a value cannot be resolved, so the file is fail-closed
+         */
+        boolean scan(String line, Path directory, List<Path> includes) {
             var section = SECTION.matcher(line);
             if (section.matches()) {
                 var name = section.group(1).trim().toLowerCase(Locale.ROOT);
                 inIncludeSection = INCLUDE.equals(name) || name.startsWith(INCLUDE_IF);
-            } else if (inIncludeSection) {
-                var separator = line.indexOf(EQUALS);
-                if (separator >= 0) {
-                    var key = line.substring(0, separator).trim().toLowerCase(Locale.ROOT);
-                    var value = PATH.equals(key) ? value(line.substring(separator + 1)) : "";
-                    if (!value.isEmpty()) {
-                        if (value.startsWith("%(")) {
-                            return new IncludeScan(List.of(), true);
-                        }
-                        includes.add(resolve(file.getParent(), expandHome(value)));
-                    }
-                }
+                return true;
             }
+            if (!inIncludeSection) {
+                return true;
+            }
+            var separator = line.indexOf(EQUALS);
+            if (separator < 0 || !PATH.equals(line.substring(0, separator).trim().toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+            var value = value(line.substring(separator + 1));
+            if (value.startsWith("%(")) {
+                return false;
+            }
+            if (!value.isEmpty()) {
+                includes.add(resolve(directory, expandHome(value)));
+            }
+            return true;
         }
-        return new IncludeScan(List.copyOf(includes), false);
     }
 
     /**
