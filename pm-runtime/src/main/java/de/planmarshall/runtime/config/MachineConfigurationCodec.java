@@ -151,8 +151,8 @@ public class MachineConfigurationCodec {
     }
 
     /**
-     * Replaces the machine's documents mode, keeps every other member of the operator's document — the other members
-     * of {@code sources} included — and writes the given revision.
+     * Replaces the machine's documents mode, keeps every other member of the operator's document, and writes the given
+     * revision.
      *
      * @param file      the document's file, named by a refusal
      * @param document  the document, UTF-8 encoded
@@ -320,6 +320,7 @@ public class MachineConfigurationCodec {
      * @param cleanup   the cleanup durations to write, or {@code null}
      * @param revision  the revision to write
      */
+    @Builder
     private record Replacement(@Nullable ProviderDefaults providers, @Nullable DocumentsMode mode,
     @Nullable CleanupDurations cleanup, long revision) {
 

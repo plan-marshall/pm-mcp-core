@@ -81,12 +81,19 @@ class PlanOverridesSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the length bounds of the codec are the schema's")
+    @DisplayName("the length bounds and grammars of the codec are the schema's")
     void bounds() {
         var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
         var role = SchemaResource.object(SchemaResource.object(properties.get("roles"))
                 .get("additionalProperties"));
         var roleProperties = SchemaResource.object(role.get("properties"));
+        var providerProperties = SchemaResource.object(properties.get("providers")).get("properties");
+        var codeAnalysis = SchemaResource.object(SchemaResource.object(SchemaResource.object(providerProperties)
+                .get("code_analysis")).get("items"));
+        var reviewBots = SchemaResource.object(SchemaResource.object(SchemaResource.object(providerProperties)
+                .get("review_bots")).get("items"));
+        var deviceId = SchemaResource.object(SchemaResource.object(properties.get("updated_by")).get("properties"))
+                .get("device_id");
 
         assertAll(
                 () -> assertEquals(PlanOverridesCodec.MODEL_MAX_LENGTH,
@@ -97,7 +104,16 @@ class PlanOverridesSchemaParityTest {
                         "the effort bound is the schema's"),
                 () -> assertEquals(PlanOverridesCodec.BASE_BRANCH_MAX_LENGTH,
                         ((Number) SchemaResource.object(properties.get("base_branch")).get("maxLength")).intValue(),
-                        "the base branch bound is the schema's"));
+                        "the base branch bound is the schema's"),
+                () -> assertEquals(codeAnalysis.get("pattern"),
+                        "^" + PlanOverridesCodec.CODE_ANALYSIS.pattern() + "$",
+                        "the code-analysis grammar is the schema's"),
+                () -> assertEquals(reviewBots.get("pattern"),
+                        "^" + PlanOverridesCodec.REVIEW_BOT.pattern() + "$",
+                        "the review-bot grammar is the schema's"),
+                () -> assertEquals(SchemaResource.object(deviceId).get("pattern"),
+                        "^" + PlanOverridesCodec.DEVICE_ID.pattern() + "$",
+                        "the device id grammar is the schema's"));
     }
 
     private Map<?, ?> written() {

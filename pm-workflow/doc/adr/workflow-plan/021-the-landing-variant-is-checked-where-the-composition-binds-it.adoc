@@ -30,8 +30,9 @@ calls on its own, leaving the composition free to bind a variant no check had se
 * The `Project` value is passed per call, not stored in `CompositionRequest`: the record's facts stay the values the
   composition reads, and a request built by a caller without a project is unchanged.
 * The check does not decide which level set the variant: the reason names the variant, and a machine default that does not
-  fit the project is refused for that project at its start. Whether a *project's* default fits is asked at the project's
-  setup, where the same class is called with the project's value.
+  fit the project is refused for that project at its start. The project's setup and the plan's settings surfaces are the
+  server assembly's: this module delivers the check and the composition call site, and the landing names those call sites
+  owed.
 
 == Alternatives Considered
 

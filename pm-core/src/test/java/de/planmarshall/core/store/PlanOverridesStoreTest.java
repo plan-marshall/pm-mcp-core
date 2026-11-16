@@ -119,13 +119,11 @@ class PlanOverridesStoreTest {
         var written = write(values(), PlanOverrides.NO_DOCUMENT);
 
         var read = store.read();
-        var expected = LockKey.projectStore(base, project).resolve("plans").resolve(plan)
-                .resolve(PlanOverridesStore.FILE_NAME);
 
         assertAll(
                 () -> assertEquals(1L, written.revision(), "The first write raises the revision to 1"),
                 () -> assertEquals(written, read, "The document reads as it was written"),
-                () -> assertTrue(Files.exists(expected), "The document lands in the plan's own directory"),
+                () -> assertTrue(Files.exists(expected()), "The document lands in the plan's own directory"),
                 () -> assertEquals("claude", read.roles().get("implementer").harness(),
                         "The role's harness must round-trip"),
                 () -> assertEquals("landing.main", read.axes().get(Axis.LANDING),
@@ -168,6 +166,30 @@ class PlanOverridesStoreTest {
                             CLOCK.instant()),
                     "A provider name the schema refuses is refused");
         }
-        assertTrue(Files.notExists(store.file()), "A refused write leaves no document");
+        assertTrue(Files.notExists(expected()), "A refused write leaves no document");
+    }
+
+    @Test
+    @DisplayName("a transaction of another scope is refused")
+    void foreignScopeRefused() throws Exception {
+        var epic = JournalScope.epic(base, project,
+                "epic-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
+        Files.createDirectories(epic.journalFile().getParent());
+
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(epic.lockKey());
+            var write = ScopeTransaction.open(transaction, epic, audit, CLOCK);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> store.write(write, values(), PlanOverrides.NO_DOCUMENT, new UpdatedBy(Channel.CLI, null),
+                            CLOCK.instant()),
+                    "The plan overrides are written by the plan's own transaction");
+        }
+        assertTrue(Files.notExists(expected()), "A foreign transaction writes nothing");
+    }
+
+    /** @return the document's path, built from the store layout rather than from the object under test */
+    private Path expected() {
+        return LockKey.projectStore(base, project).resolve("plans").resolve(plan).resolve("overrides.json");
     }
 }

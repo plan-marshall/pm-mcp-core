@@ -2632,11 +2632,11 @@ the non-goals, like the constraints and the assumptions, get their heading only 
 of an integration; and the optional providers the plan uses. The document is absent until the first value is set, so a key
 it does not hold defers to the project's and the machine's value.
 
-`PlanOverrides` is the closed model: the revision, the values, and the channel, device and instant of the write. Its nested
-types `Axis`, `Posture`, `Integration`, `Channel`, `Role`, `Providers` and `UpdatedBy` carry the schema's closed values;
-`PlanOverridesCodec` checks the schema's grammars and lengths as it writes, and the operator-act layer that sets a value
-validates the subject (the harness is enrolled, the model the effective catalogue allows, the provider available, the
-landing variant fit for the project) before it calls the store. `PlanOverridesCodec` reads and writes the
+`PlanOverrides` is the closed model: the revision, the values, and the channel, device and instant of the write. Its
+`Axis`, `Posture`, `Integration` and `Channel` types carry the schema's closed value lists; `Role`, `Providers` and
+`UpdatedBy` carry its members, and the codec checks the schema's grammars and lengths as it writes. The operator-act layer
+that sets a value validates the subject (the harness is enrolled, the model the effective catalogue allows, the provider
+available, the landing variant fit for the project) before it calls the store. `PlanOverridesCodec` reads and writes the
 document strictly; it checks
 the schema's own rules — an axis value carries its axis as prefix (`asking` is `ask.*`), an integration variant is `native`
 or `cli`, a role object sets at least one value — while the closed list of each axis's variants is checked where the axis

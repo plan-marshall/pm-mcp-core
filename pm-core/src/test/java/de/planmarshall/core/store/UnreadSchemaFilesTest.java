@@ -55,7 +55,8 @@ class UnreadSchemaFilesTest {
             "de/planmarshall/core/findings/finding-record.schema.json",
             QUALIFICATION + "/judge-check-record.schema.json",
             QUALIFICATION + "/qualification-record.schema.json",
-            "de/planmarshall/core/store/build-timings.schema.json");
+            "de/planmarshall/core/store/build-timings.schema.json",
+            "de/planmarshall/core/store/plan-overrides.schema.json");
 
     /** A schema file the #404 follow-up owns a reader for; not this plan's case. */
     private static final Set<String> OWNED_ELSEWHERE = Set.of(QUALIFICATION + "/judge-score-v1.schema.json");

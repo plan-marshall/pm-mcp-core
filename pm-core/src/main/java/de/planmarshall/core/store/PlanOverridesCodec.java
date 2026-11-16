@@ -91,13 +91,13 @@ public class PlanOverridesCodec {
     static final int BASE_BRANCH_MAX_LENGTH = 255;
 
     /** The grammar of a code-analysis provider name, from the schema. */
-    private static final Pattern CODE_ANALYSIS = Pattern.compile("[a-z0-9][a-z0-9-]{1,62}[a-z0-9]");
+    static final Pattern CODE_ANALYSIS = Pattern.compile("[a-z0-9][a-z0-9-]{1,62}[a-z0-9]");
 
     /** The grammar of a review-bot name, from the schema. */
-    private static final Pattern REVIEW_BOT = Pattern.compile("[a-z0-9][a-z0-9-]{0,31}");
+    static final Pattern REVIEW_BOT = Pattern.compile("[a-z0-9][a-z0-9-]{0,31}");
 
     /** The grammar of a paired device id, from the schema. */
-    private static final Pattern DEVICE_ID = Pattern.compile("dev-[0-9a-f]{12}");
+    static final Pattern DEVICE_ID = Pattern.compile("dev-[0-9a-f]{12}");
 
     /**
      * @param file     the document's file, named by a refusal
