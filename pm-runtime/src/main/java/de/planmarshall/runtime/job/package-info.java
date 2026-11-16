@@ -64,10 +64,21 @@
  * ({@link de.planmarshall.runtime.job.JobEvidence}), never from what the job reports about itself, and
  * {@link de.planmarshall.runtime.job.JobSettlement} writes it in the fixed write order: the fate first, the slot release
  * after it, the steps whose stores do not exist yet as named seams.
+ * <h2>Git metadata</h2>
+ * The git metadata of a project is kept out of a worker's reach (PM-SEC-5, PM-WATCH-JOB-48):
+ * {@link de.planmarshall.runtime.job.GitMetadataPaths} finds the git directory and every linked worktree's link file as
+ * values, {@link de.planmarshall.runtime.job.JobConfinementComposer} names them as the worker's read-only set,
+ * {@link de.planmarshall.runtime.job.LaunchReport} reads the launcher's optional {@code git_metadata} statement,
+ * {@link de.planmarshall.runtime.job.GitMetadataDigest} digests the config with its includes, the hooks and the worktree
+ * administration files, and {@link de.planmarshall.runtime.job.GitMetadataGuard} compares that digest after a worker ends
+ * and before every {@code git} job of the project. A difference is reported through
+ * {@link de.planmarshall.runtime.job.GitMetadataChangeSink}, audited and, before a {@code git} job, refused with
+ * {@code git_metadata_changed}; the runtime never repairs a file.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Verify-Not-Resolve Execution
  * Pipeline; Subprocess Lifecycle & Process-Group Isolation; Process Termination & Cancellation Protocol; Outcome
- * Derivation); {@code doc/specification/store-schemas/10-job-and-lesson-records.adoc} (Job Record).
+ * Derivation); {@code doc/specification/job-runtime/02-confinement-and-environment.adoc} (Git Metadata);
+ * {@code doc/specification/store-schemas/10-job-and-lesson-records.adoc} (Job Record).
  *
  * @since 0.1
  */

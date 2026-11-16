@@ -1,0 +1,66 @@
+= ADR 019: The Git Metadata Digest and Its Baseline
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-16
+
+== Context
+
+A worker's write set is the project root, so it holds the repository's git directory and the `.git` link file of every
+worktree. Landlock grants by directory and cannot leave out a path below a granted one, so the read-only set the launcher
+applies is the only protection, and a launcher that applies nothing records `git_metadata: unenforced`. The runtime then
+needs a second net it can run itself, without a git process and without a new dependency (link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc#git-metadata[Job Runtime Specification, Git Metadata];
+link:../../../../doc/implementation-watch/job-runtime.adoc#PM-WATCH-JOB-48[PM-WATCH-JOB-48]).
+
+The question was what to digest, where the baseline lives, and at which points it is compared, so that a change made by a
+worker is seen before the next `git` job while a legitimate server `git` job raises no false difference.
+
+== Decision
+
+`GitMetadataDigest.of(root)` digests, as named parts and never their contents: the bytes of `<git directory>/config` and of
+every file it includes (`include.path` and `includeIf.*.path`, resolved against the including file, followed to
+`MAX_INCLUDE_DEPTH`), every regular file of `<git directory>/hooks/` with its mode, and the bytes of the `.git` link file
+and of `gitdir`, `commondir` and `config.worktree` of every linked worktree's administration directory. `HEAD`, the index,
+refs, logs, objects and the tracked source stay out, because a server `git` job changes them legitimately. An existing
+input that cannot be read, an include cycle and a bound exceeded are the fail-closed part `unreadable`. The include scan
+is hand-written; no dependency is added.
+
+`GitMetadataGuard` keeps one baseline per project in memory: `record` at a worker's spawn, `verify` after a worker's fate
+is recorded and in `start` before a `git` job's write-ahead record, and `rebaseline` as the operator's act. A difference
+writes the security audit record `git_metadata_changed`, a WARN record and one call of `GitMetadataChangeSink`; before a
+`git` job it also refuses the job with `git_metadata_changed`, so every `git` job of the project is refused while the
+baseline differs. The runtime never repairs a file.
+
+== Alternatives Considered
+
+A digest in the worker's job record (option B of the plan's Q2) was weighed for durability: it would survive a runtime
+restart, but it adds a nullable member to the job record the schema and parity test pin, and the recovery ends a running
+worker at restart, so the next worker's spawn records a fresh baseline anyway. A file below the project's store (option C)
+would add a new layout entry, schema and codec for the same effect. The in-memory baseline (option A) was taken because
+the guard's interface is the seam: a later plan changes only its storage.
+
+JGit's `Config` for the include scan was rejected: it would be a new dependency in `pm-runtime`, which the repository
+admits only on the operator's word.
+
+Digesting the hook directory that `core.hooksPath` names was rejected when it lies outside the git directory: a tracked
+directory such as `.husky/_` changes with every checkout and is covered by the protected-path rule.
+
+== Consequences
+
+A runtime restart loses the baseline; a change made by a worker that outlived a crash is not detected, which is accepted
+because the recovery ends such a worker. A legitimate `build` job that changes `.git/config` (a `prepare` script) makes
+the next `git` job fail until the operator rebaselines; the sink is where the assembly reports that and the operator's
+act ends it. A worktree created after the spawn is not in the read-only set, but its administration files are in the
+digest of the next comparison. The sink's wiring to the plan's hold, the native variant's call of `verify` and the
+operator's act are the assembly's and the engine's, not this package's.
+
+== Source
+
+PLAN-V2-134, `doc/plans/job-confinement-and-environment.adoc`;
+`doc/specification/job-runtime/02-confinement-and-environment.adoc#git-metadata`;
+`doc/implementation-watch/job-runtime.adoc#PM-WATCH-JOB-48`.
