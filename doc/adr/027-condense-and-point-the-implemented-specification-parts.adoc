@@ -1,0 +1,74 @@
+= ADR 027: Reduce an Implemented Specification Part by Condensing and Pointing
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-16.
+
+== Context
+
+A plan's pull request carries the reduction of the specification sections and implementation-watch items its work
+implemented (R05 of the epic's standing rules). The rule was read five ways across five landings: some kept the
+implemented sections whole, one condensed the launch prose and kept every anchor, two deleted watch items, and one
+reduced the token-usage parts and kept the anchors that unbuilt work still references. Two of them deviated with a
+reason and left the rule ambiguous for the next plan.
+
+Three facts settle the reading. Deleting a section breaks the specification links that other parts and watch items
+point at, and no landing rewired them. The design audit removed every "Implemented by … Remaining:" paragraph from
+the specifications, so an implemented section no longer says what implements it. What implements a requirement is
+recorded in `doc/Traceability.adoc`, whose requirement entry names the implementing class, the verifying test and the
+developer guide.
+
+== Decision
+
+An implemented specification section is **condensed and pointed**, not deleted:
+
+* The section keeps its heading and its anchor. A section is never deleted while an anchor of it is referenced; it is
+  condensed instead, to the one statement of what the specification requires plus the link to the developer guide of
+  the module that implements it.
+* No "Implemented by" and no "Remaining:" paragraph is written. The status of an implemented section is held by
+  `doc/Traceability.adoc`, whose requirement entry names the implementing class, the verifying test and the
+  documentation link.
+* A sentence that no class and no test of this repository covers stays as it is, so a condensed section never claims
+  more than the code does.
+* A watch item is deleted only when its guard has a named passing test and no remainder; otherwise it is kept, or
+  rewritten to its remainder, with the reason recorded.
+* A schema block of a specification part is an `include::` line of a resource file of the implementing module (ADR
+  016, `#323`). A reduction changes neither the `include::` line nor the file (R10).
+
+The evidence for every row of a reduction is a table in the pull request body: the item, its inbound reference
+count, the verdict (`implemented`, `mixed` or `open`), the implementing class and the verifying test read at the head
+of `main`, and the action taken.
+
+== Alternatives Considered
+
+* **Delete the implemented section and rewire every inbound reference.** Not taken: it costs a rewiring of every
+  cross-part link for no reader's benefit, and a page that still states the requirement is what the next plan reads to
+  find what is left.
+* **Leave the sections as they are.** Not taken: the restated prose doubles the developer guide and drifts from it,
+  and the implementation-watch items then guard what the code already does.
+* **Mark the section with an "Implemented by …" note.** Not taken: the design audit removed those notes from the
+  specifications, and the same facts already stand in `doc/Traceability.adoc`, in one place per requirement.
+
+== Consequences
+
+The specification parts stay readable as requirements and keep every anchor, so no link of another part breaks. The
+implementation evidence has exactly one home, `doc/Traceability.adoc`, which a reduction keeps accurate for the
+requirements whose sections it touches. A watch item needs a named test before it may be deleted, so an implemented
+looking concern without a test stays visible. What a later change has to respect: a reduction never edits an
+`include::` line or a schema file, never writes a status paragraph, and never deletes an anchor another part
+references.
+
+== Source
+
+Pull request: PLAN-V2-34 (`r05-reduction-waits-launch-protocol`) of the epic `pm-mcp-core-m2-m4-v2`.
+Work package: `doc/plans/` of the closed epic `pm-mcp-core-m2-m4` (packages `waits`, `task-queue-and-protocol`,
+`worker-launch`, `slots-usage-and-budgets`, `consultation`).
+Specification sections the decision rests on: `doc/specification/timeouts/01-job-budgets-and-waits.adoc#waits`,
+`doc/specification/model-work/02-task-protocol.adoc`, `doc/specification/model-work/04-worker-launch.adoc`,
+`doc/specification/model-work/05-consultation.adoc`; requirement entries `PM-IMPL-4`, `PM-WORK-2`, `PM-WORK-4`,
+`PM-WF-5` of `doc/Traceability.adoc`; ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016].
