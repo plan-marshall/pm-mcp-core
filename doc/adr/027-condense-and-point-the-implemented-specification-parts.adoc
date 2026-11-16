@@ -44,6 +44,10 @@ The evidence for every row of a reduction is a table in the pull request body: t
 count, the verdict (`implemented`, `mixed` or `open`), the implementing class and the verifying test read at the head
 of `main`, and the action taken.
 
+* The evidence is read at the head of `main` where the implementation predates the reduction, and at the pull
+  request's head where the same pull request adds the class and the test; a reduction never cites a class or a test
+  that does not exist in the tree it is merged into.
+
 == Alternatives Considered
 
 * **Delete the implemented section and rewire every inbound reference.** Not taken: it costs a rewiring of every
