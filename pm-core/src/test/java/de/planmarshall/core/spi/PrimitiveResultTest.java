@@ -142,6 +142,16 @@ class PrimitiveResultTest {
     }
 
     @Test
+    @DisplayName("a reason type that is a null Optional is refused instead of read as absence")
+    void refusesNullReasonType() {
+        var thrown = assertThrows(IllegalArgumentException.class,
+                () -> new PrimitiveResult<>(ReasonPrimitives.NullReasonOutcome.FAILED, Map.of(), null, null),
+                "the null reason type is refused");
+
+        assertTrue(thrown.getMessage().contains("reason type"), "the refusal names the malformed reason type");
+    }
+
+    @Test
     @DisplayName("a null reason component means the outcome declares none")
     void nullReasonComponentIsAbsence() {
         var result = new PrimitiveResult<>(PlainOutcome.DONE, Map.of(), null, null);

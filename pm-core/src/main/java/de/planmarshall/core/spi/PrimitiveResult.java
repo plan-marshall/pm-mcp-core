@@ -53,9 +53,9 @@ Map<String, Object> updatedFacts,
     /**
      * @throws NullPointerException if a component, a fact name or a fact value is {@code null}
      * @throws IllegalArgumentException if the reason does not pair with the outcome: present when the outcome
-     *         declares no reason type, absent when it declares one, or not a constant of the declared type
+     *         declares no reason type, absent when it declares one, or not a constant of the declared type; also
+     *         when the outcome answers a reason type that is no {@code Optional}
      */
-    @SuppressWarnings({"java:S2583", "java:S2789", "java:S1905"})
     public PrimitiveResult {
         Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(updatedFacts, "updatedFacts");
@@ -64,12 +64,13 @@ Map<String, Object> updatedFacts,
                 Objects.requireNonNull(name, "name of a fact"),
                 Objects.requireNonNull(value, "value of a fact")));
         updatedFacts = Collections.unmodifiableMap(copy);
-        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional or a payload that is no
-        // Class; both are refused as a pairing error instead of escaping as a ClassCastException. The cast to the
-        // wildcard Optional is deliberate: it erases the implicit cast to Class, so the payload is inspected first.
-        var declared = (Optional<?>) outcome.reasonType();
-        if (declared == null) {
-            declared = Optional.empty();
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null reason type or a payload that is no
+        // Class; both are refused as a pairing error instead of escaping as a ClassCastException. The value is read
+        // as an Object and matched, so the payload is inspected before it is read and no cast is needed.
+        Object raw = outcome.reasonType();
+        if (!(raw instanceof Optional<?> declared)) {
+            throw new IllegalArgumentException(
+                    "the outcome %s declares a reason type that is no Optional".formatted(outcome));
         }
         var declaredType = declared.map(payload -> reasonTypeOf(outcome, payload)).orElse(null);
         if ((reason != null) != (declaredType != null)) {
@@ -109,16 +110,16 @@ Map<String, Object> updatedFacts,
      */
     public static final class Builder<R extends Enum<R> & PrimitiveOutcome> {
 
-        private R outcome;
+        private @Nullable R outcome;
         private Map<String, Object> updatedFacts = Map.of();
         private @Nullable String spawnedJobId;
         private @Nullable OutcomeReason reason;
 
         /**
          * The builder collects the required outcome through its {@code outcome} setter before {@link #build()} hands
-         * it to the canonical constructor, so the field is unset until then by design.
+         * it to the canonical constructor, so the field is nullable until then by design and {@link #build()} refuses
+         * a builder that never received one.
          */
-        @SuppressWarnings("java:S2637")
         private Builder() {
         }
 
@@ -164,7 +165,8 @@ Map<String, Object> updatedFacts,
          * @throws IllegalArgumentException if the reason does not pair with the outcome
          */
         public PrimitiveResult<R> build() {
-            return new PrimitiveResult<>(outcome, updatedFacts, spawnedJobId, reason);
+            return new PrimitiveResult<>(Objects.requireNonNull(outcome, "outcome"), updatedFacts, spawnedJobId,
+                    reason);
         }
     }
 }
