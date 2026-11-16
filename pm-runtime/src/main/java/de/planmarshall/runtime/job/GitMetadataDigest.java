@@ -186,49 +186,49 @@ public final class GitMetadataDigest {
             return new IncludeScan(List.of(), true);
         }
         var includes = new ArrayList<Path>();
-        var state = new IncludeState();
+        var inIncludeSection = false;
         for (var line : lines) {
-            if (!state.scan(line, file.getParent(), includes)) {
+            var step = scan(line, inIncludeSection, file.getParent());
+            inIncludeSection = step.inIncludeSection();
+            if (step.unreadable()) {
                 return new IncludeScan(List.of(), true);
+            }
+            if (step.include() != null) {
+                includes.add(step.include());
             }
         }
         return new IncludeScan(List.copyOf(includes), false);
     }
 
-    /** The section state of one config file while its lines are scanned. */
-    private static final class IncludeState {
+    /**
+     * What scanning one line of a config file found.
+     *
+     * @param inIncludeSection whether the following line is inside an include section
+     * @param include          the include the line names, or {@code null}
+     * @param unreadable       whether the line names a value that cannot be resolved
+     */
+    private record ScanStep(boolean inIncludeSection, @Nullable Path include, boolean unreadable) {
+    }
 
-        private boolean inIncludeSection;
-
-        /**
-         * @param line      one line of the config file
-         * @param directory the directory the file's includes resolve against
-         * @param includes  the includes found so far, appended to
-         * @return {@code false} when a value cannot be resolved, so the file is fail-closed
-         */
-        boolean scan(String line, Path directory, List<Path> includes) {
-            var section = SECTION.matcher(line);
-            if (section.matches()) {
-                var name = section.group(1).trim().toLowerCase(Locale.ROOT);
-                inIncludeSection = INCLUDE.equals(name) || name.startsWith(INCLUDE_IF);
-                return true;
-            }
-            if (!inIncludeSection) {
-                return true;
-            }
-            var separator = line.indexOf(EQUALS);
-            if (separator < 0 || !PATH.equals(line.substring(0, separator).trim().toLowerCase(Locale.ROOT))) {
-                return true;
-            }
-            var value = value(line.substring(separator + 1));
-            if (value.startsWith("%(")) {
-                return false;
-            }
-            if (!value.isEmpty()) {
-                includes.add(resolve(directory, expandHome(value)));
-            }
-            return true;
+    /** @return what one line of the config file contributes */
+    private static ScanStep scan(String line, boolean inIncludeSection, Path directory) {
+        var section = SECTION.matcher(line);
+        if (section.matches()) {
+            var name = section.group(1).trim().toLowerCase(Locale.ROOT);
+            return new ScanStep(INCLUDE.equals(name) || name.startsWith(INCLUDE_IF), null, false);
         }
+        if (!inIncludeSection) {
+            return new ScanStep(false, null, false);
+        }
+        var separator = line.indexOf(EQUALS);
+        if (separator < 0 || !PATH.equals(line.substring(0, separator).trim().toLowerCase(Locale.ROOT))) {
+            return new ScanStep(true, null, false);
+        }
+        var value = value(line.substring(separator + 1));
+        if (value.startsWith("%(")) {
+            return new ScanStep(true, null, true);
+        }
+        return new ScanStep(true, value.isEmpty() ? null : resolve(directory, expandHome(value)), false);
     }
 
     /**
