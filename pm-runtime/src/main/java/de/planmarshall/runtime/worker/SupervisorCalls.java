@@ -98,6 +98,26 @@ public final class SupervisorCalls implements WorkerCalls {
         var at = supervisor.environment().clock().instant();
         var detection = detection(generation);
         detection.waitOpened(at);
+        var answer = answerTo(generation, queueTaskId, roleDigest, at, detection);
+        detection.waitClosed(at);
+        return answer;
+    }
+
+    /**
+     * Decides the answer to an opened wait and records what it means for the generation: an end already requested ends
+     * it without a lease, a named task is offered and leased, and no task counts an idle wake-up through the recycling,
+     * which may recycle the generation in the same answer.
+     *
+     * @param generation  the generation of the wait
+     * @param queueTaskId the candidate task the transport names; blank when it has none
+     * @param roleDigest  the role's current configuration digest
+     * @param at          the instant of the answer
+     * @param detection   the generation's loss detection
+     * @return the answer the transport receives
+     */
+    private WaitAnswer answerTo(WorkerGeneration generation, String queueTaskId, String roleDigest, Instant at,
+            LossDetection detection) {
+        var generationId = generation.generationId();
         if (ending.endRequested(generationId)) {
             return new WaitAnswer.End();
         }

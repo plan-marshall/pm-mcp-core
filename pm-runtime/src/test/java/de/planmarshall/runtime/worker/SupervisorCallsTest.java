@@ -190,6 +190,8 @@ class SupervisorCallsTest {
 
         var answer = calls.waitOpened(generation.generationId(), "", generation.configurationDigest());
         var idle = supervisor.generation(generation.generationId()).orElseThrow();
+        var beforeTheLimit = ending.requestedCause(generation.generationId());
+        fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
 
         assertAll(
                 () -> assertEquals(new WorkerCalls.WaitAnswer.WaitAgain(), answer,
@@ -197,8 +199,9 @@ class SupervisorCallsTest {
                 () -> assertEquals(1L, idle.idleWakeups(), "the answer counts one idle wake-up"),
                 () -> assertEquals(WorkerLifecycle.WAITING, idle.lifecycle(),
                         "the generation waits after the answer"),
-                () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
-                        "an idle wake-up below the bound recycles nothing"));
+                () -> assertTrue(beforeTheLimit.isEmpty(), "an idle wake-up below the bound recycles nothing"),
+                () -> assertEquals(Optional.of(EndCause.LOST), ending.requestedCause(generation.generationId()),
+                        "the answered wait re-arms the silence limit"));
     }
 
     @Test
