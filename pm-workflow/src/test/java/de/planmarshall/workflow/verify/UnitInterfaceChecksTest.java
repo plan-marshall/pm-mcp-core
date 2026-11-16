@@ -198,8 +198,9 @@ class UnitInterfaceChecksTest {
         void refusesADuplicate() {
             var key = new ConfigKeyRegistry.ConfigKey("project.review.currency",
                     new InputType.Enumeration(List.of("current")), true);
+            var entries = List.of(key, key);
 
-            assertThrows(IllegalArgumentException.class, () -> ConfigKeyRegistry.of(List.of(key, key)),
+            assertThrows(IllegalArgumentException.class, () -> ConfigKeyRegistry.of(entries),
                     "a key registered twice must be refused");
         }
 
@@ -228,12 +229,13 @@ class UnitInterfaceChecksTest {
         @Test
         @DisplayName("refuses a fact kind registered twice and copies the set")
         void factKinds() {
+            var duplicated = List.of("push_remote", "push_remote");
+
             assertAll(
                     () -> assertTrue(FACTS.contains("push_remote"), "a registered kind is found"),
                     () -> assertFalse(FACTS.contains("unknown"), "an unknown kind is not found"),
                     () -> assertFalse(FactKindRegistry.empty().contains("push_remote"), "the empty set holds none"),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> FactKindRegistry.of(List.of("push_remote", "push_remote")),
+                    () -> assertThrows(IllegalArgumentException.class, () -> FactKindRegistry.of(duplicated),
                             "a kind registered twice must be refused"));
         }
     }

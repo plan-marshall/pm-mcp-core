@@ -157,13 +157,13 @@ public final class UnitFrontmatterReader {
     private static final Pattern ENUM_VALUE = Pattern.compile("[A-Za-z][A-Za-z0-9_-]*");
 
     /** The low bound of an int range: zero or a positive integer without a leading zero. */
-    private static final Pattern RANGE_LOW = Pattern.compile("0|[1-9][0-9]*");
+    private static final Pattern RANGE_LOW = Pattern.compile("0|[1-9]\\d*");
 
     /** The high bound of an int range: a positive integer without a leading zero. */
-    private static final Pattern RANGE_HIGH = Pattern.compile("[1-9][0-9]*");
+    private static final Pattern RANGE_HIGH = Pattern.compile("[1-9]\\d*");
 
     /** A non-negative integer default. */
-    private static final Pattern INTEGER = Pattern.compile("0|[1-9][0-9]*");
+    private static final Pattern INTEGER = Pattern.compile("0|[1-9]\\d*");
 
     /** The icon id: lowercase, at most 64 characters, and never a path. */
     private static final Pattern ICON_ID = Pattern.compile("[a-z][a-z0-9._-]{0,63}");
@@ -398,7 +398,7 @@ public final class UnitFrontmatterReader {
          * ({@link #outOfOrder}); this is the one owner of the order, the sub-keys have no second reading.
          */
         private void inputField(String key, String value, int number, int column) {
-            var open = requireInput(key, number, column);
+            var open = requireInput(key, number);
             switch (key) {
                 case KEY_INPUT_TYPE -> {
                     if (!KEY_INPUT.equals(previousKey)) {
@@ -432,7 +432,7 @@ public final class UnitFrontmatterReader {
             }
         }
 
-        private Input requireInput(String key, int number, int column) {
+        private Input requireInput(String key, int number) {
             if (input == null) {
                 throw new Refusal(number, 1, "the %s does not stand below an 'input' line".formatted(key));
             }
