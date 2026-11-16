@@ -138,7 +138,13 @@ public final class PlanInstanceComposer {
     }
 
     /**
-     * Composes and verifies the version the request asks for, without a project's landing check.
+     * Composes and verifies the version the request asks for, without a project's landing check. This is the preview
+     * form: the version 1 the operator sees before a plan exists, and the machine's own composition, whose landing
+     * default is validated against what the machine provides
+     * ({@code MachineDefaultsValidation} of {@code pm-runtime}). A plan's own composition goes through
+     * {@link #compose(CompositionRequest, LandingVariantValidation.Project)} with the project it belongs to: this
+     * overload is the opt-in skip that ADR {@code workflow-plan/021} Alternative 3 rejects for the setup code, and no
+     * production caller of this repository uses it for a plan.
      *
      * @param request what the composition reads
      * @return the composed version, or its refusal

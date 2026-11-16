@@ -77,4 +77,28 @@ class LandingVariantValidationTest {
                 () -> assertTrue(fits.valid(), "A fitting variant is valid"),
                 () -> assertNull(fits.reason(), "A fitting variant carries no reason"));
     }
+
+    @Test
+    @DisplayName("a lookup that failed is no answer: the variant that needs it is refused")
+    void unknownAnswersAreRefused() {
+        var unknownProvider = LandingVariantValidation.validate("landing.pull-request",
+                LandingVariantValidation.Project.unknown());
+        var unknownProtection = LandingVariantValidation.validate("landing.main",
+                new LandingVariantValidation.Project(true, null));
+        var unknownAsked = LandingVariantValidation.Project.unknown();
+        var known = LandingVariantValidation.Project.known(true, false);
+
+        assertAll(
+                () -> assertFalse(unknownProvider.valid(), "A failed provider lookup refuses the pull request"),
+                () -> assertTrue(unknownProvider.reason().contains("provider lookup"),
+                        "The reason names the failed lookup, never 'not protected'"),
+                () -> assertFalse(unknownProtection.valid(), "A failed protection lookup refuses landing.main"),
+                () -> assertTrue(unknownProtection.reason().contains("protection"),
+                        "The reason names the failed protection lookup"),
+                () -> assertFalse(unknownAsked.answered(), "A failed lookup answered nothing"),
+                () -> assertTrue(known.answered(), "A known project answered both questions"),
+                () -> assertTrue(LandingVariantValidation.validate("landing.files",
+                        LandingVariantValidation.Project.unknown()).valid(),
+                        "landing.files needs no lookup and fits an unknown project"));
+    }
 }

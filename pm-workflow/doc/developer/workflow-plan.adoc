@@ -204,7 +204,19 @@ The declaration schemas of the variants are those of `DeclarationBounds` (link:w
 
 At every kept call site of an axis, a state that calls one of its variants, `InstancePruner` binds the bound variant with the template's entry, arguments and transitions, and lists every other variant of the axis as a pruned `call` `<call_site>/<variant>` with the reason `plan_default` and the source fact `<level>.axes.<axis>` of the level that bound it.
 A later change of one of the plan's own values composes a version with the event `override` (<<_events>>).
-Writing the machine's and the project's values and the plan's overrides is not this package's, and neither is composing a landing variant into the finalize phase.
+
+`PlanAxisLevels` is the reader of the three levels: it maps the raw members of the machine's `plan_defaults`, the
+project's values and the plan's overrides onto the axes, refuses a key or a value the axes do not admit with the level
+named, and resolves the posture by the same levels (`applyTo` sets both on a `PlanFacts.Builder`). The composer still
+reads no store: the caller reads the three documents and hands the values in (link:../../../pm-runtime/doc/developer/runtime-config.adoc#_the_machine_s_plan_defaults[`runtime.config` Developer Guide § The Machine's Plan Defaults]).
+
+The landing axis is not a call site. A landing variant holds the step states of the finalize phase's landing orders
+(Workflow DSL § Plan Behaviour Axes, item 1), so `LandingStepComposition.merge(phase, boundVariant, variants)` composes
+the bound variant's `finalize.*` states into the composed file of `phase-6-finalize` and lists the states of the variants
+not bound as pruned states with the reason `plan_default` and the binding level as source fact. It refuses a state two
+owners declare, a variant whose tree is not supplied, and a variant that declares no step state. The phase's own roster
+(`CompositionRequest.finalizeSteps`) stays the version's step list; the composition adds no step id.
+Writing the machine's and the project's values and the plan's overrides is not this package's.
 
 [#_the_landing_variant_of_the_project]
 === The Landing Variant of the Project
@@ -217,6 +229,11 @@ whether it has a provider that opens a pull request, and whether the provider re
 every project here; a variant that is not one of `PlanFacts.Axis.LANDING.variants()` is refused. The verdict carries the
 reason the operator reads, so a refusal is never bare.
 
+Both facts are nullable on `LandingVariantValidation.Project`, and a lookup that failed is no answer: a variant that needs
+the failed lookup is refused with a reason naming it, so a failed provider lookup is never read as "not protected"
+(link:../adr/workflow-plan/022-an-unknown-project-answer-is-a-refusal.adoc[ADR 022]). `Project.known` carries the two
+answers, `Project.unknown` the failed ones, and `answered()` tells them apart.
+
 The check runs at the composition where a project is known: `PlanInstanceComposer.compose(request, project)` validates the
 *bound* landing variant before anything is composed and refuses the version with that reason. It is skipped for the
 post-run-only events (`fallback`, `empty_harvest`), whose composition prunes the landing work: a plan that is being handed
@@ -224,7 +241,7 @@ back or returned does not land in that version, so its landing variant decides n
 nearest level that set it, so a machine default that does not fit the project is refused for that project exactly like a
 project's own choice — the caller resolves the level, and the reason names the variant, not the level. The one-argument
 overload `compose(request)` composes without the check, for a caller with no project known (a preview, or a unit test of
-the composition itself).
+the composition itself); no production caller of this repository composes a plan through it.
 
 The machine's own check is not this class: `MachineDefaultsValidation` of `runtime.config` reads only what the machine
 provides (a provider for `landing.pull-request`) and never a repository.

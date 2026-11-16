@@ -1,0 +1,64 @@
+= ADR 023: The Landing Step States Compose into the Finalize Phase
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-16
+
+== Context
+
+Workflow DSL § Plan Behaviour Axes, item 1 draws the landing axis differently from the other two. The method variant is
+called at `plan.order-tasks` and the asking variant at the plan unit's `phases.ask`, so `InstancePruner` binds them like
+any call site. A landing variant instead *holds the step states of the landing orders*: the instance composes the bound
+variant's states into the composed file of `phase-6-finalize`, the states keep their `finalize.` identifiers, and the
+phase's dispatch hub fires them like the phase's own steps. The variants not bound are pruned so the process in force
+shows the choice.
+
+The composition half of this was left open by PLAN-V2-43; only the call-site axes were bound. The unit files themselves
+(the finalize phase and the landing variants) are resources of `plan-marshall-mcp`, so this repository can carry the
+composition algorithm, not the units.
+
+== Decision
+
+* `LandingStepComposition.merge(phase, boundLanding, variants)` is a pure operation in `workflow.plan`: it composes the
+  bound variant's step states into the phase's tree and lists the step states of the other variants as pruned states with
+  the reason `plan_default` and the binding level as source fact.
+* Only states whose id starts with `finalize.` take part: a landing variant's own entry and terminal states are scaffolding
+  of the unit, not steps of the phase, and composing them would leave dead states in the phase.
+* The merge refuses a state that two owners declare, a bound variant whose tree is not supplied, a tree that is no landing
+  variant, and a bound variant that declares no step state — a step state has exactly one owner, and a silent override
+  would hide a defect of the units.
+* The phase's step list (`CompositionRequest.finalizeSteps`) is unchanged: the composition adds states at the phase's
+  orders, and the instance's roster keeps naming them. A landing variant that needs its own roster entry is the
+  assembly's; this class adds no step id.
+* The composer keeps its call-site composition; the merge is called where the finalize phase is composed, which is the
+  assembly's seam. `holdsLandingSteps(unit)` names the unit the states belong to.
+
+== Alternatives Considered
+
+1. *A landing call site like the other axes.* _Not taken_: the specification says the variant holds the phase's step states;
+   turning it into a sub-workflow call would move the landing work behind one state and give up the phase's roster.
+2. *Deriving each variant's step ids from its states' `completes` clauses.* _Not taken_: the states declare no `completes`
+   clause in this repository's fixtures, and the roster is the request's value; a derivation would invent a contract the
+   units do not carry.
+3. *Wiring the merge into `PlanInstanceComposer` unconditionally.* _Not taken_: the composer composes sub-units by call
+   site; a landing merge needs the finalize phase and the variants as named inputs, and the assembly is the only caller
+   that has them. The library delivers the algorithm and its tests; the wiring is named owed in the plan's table.
+
+== Consequences
+
+* The landing choice is visible where the process is: the composed phase holds the bound variant's states and the header
+  lists the other variants' states with `plan_default`.
+* `LandingStepCompositionTest` covers the merge, the pruning, the identity of the phase and every refusal.
+* A variant unit that declares a state the phase declares is a blocker at composition time, not a silent override.
+
+== Source
+
+* Plan PLAN-V2-153, deliverable 4 (D10)
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL § Plan Behaviour Axes, item
+  1]
+* `pm-workflow/src/main/java/de/planmarshall/workflow/plan/LandingStepComposition.java`

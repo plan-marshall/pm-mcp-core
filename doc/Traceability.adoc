@@ -723,12 +723,16 @@ link:../pm-workflow/doc/adr/workflow-engine/013-link-states-await-the-operator-a
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-25[PM-WF-25]
 
-Implementation (the composition side of bullets 1 to 3, as far as the library module `pm-workflow` carries it: the variant of each axis bound from the nearest level that sets it, the plan's own value, the project's, the machine's, else the shipped plan default, and every other variant of the axis pruned as a call with the reason `plan_default` and the level as source fact; the declaration schemas of the method and asking variants, their choices enumeration values; the declarations of the bound variant read as facts of the composition rules, so the merge execution is pruned with `merge_by_operator` where the bound asking variant declares `self_merge = false`; the plan's `overrides.json` counted in the digest of the plan facts, and the composition event `override`, refused with `position_not_contained` where the version would not contain the plan's position; the landing variant validated where a project is known, refusing `landing.pull-request` without a provider and `landing.main` on a protected base branch with the reason; the reading and writing of the plan's own values, `overrides.json`, under the plan's transaction and revision rule. Not implemented yet: composing the landing variant into the finalize phase and one composed file per bound variant, the reading and writing of the project's and the machine's axis levels, the operator's acts that set them, and the qualification of an override): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanFacts.java[PlanFacts],
+Implementation (the composition side of bullets 1 to 3, as far as the library modules `pm-workflow` and `pm-runtime` carry it: the variant of each axis bound from the nearest level that sets it, the plan's own value, the project's, the machine's, else the shipped plan default, and every other variant of the axis pruned as a call with the reason `plan_default` and the level as source fact; the landing axis composed by `LandingStepComposition`, which holds the bound variant's `finalize.*` step states in the composed file of `phase-6-finalize` and prunes every other variant's step states with the reason `plan_default` and the binding level as source fact; the reader of the three axis levels, `PlanAxisLevels`, which maps the machine's `plan_defaults` member (written by `MachineConfigurationStore.writePlanDefaults`), the project's values and the plan's overrides onto the axes and resolves the posture by the same levels, refusing a key or a value the axes do not admit; the declaration schemas of the method and asking variants, their choices enumeration values; the declarations of the bound variant read as facts of the composition rules, so the merge execution is pruned with `merge_by_operator` where the bound asking variant declares `self_merge = false`; the plan's `overrides.json` counted in the digest of the plan facts, and the composition event `override`, refused with `position_not_contained` where the version would not contain the plan's position; the landing variant validated where a project is known, refusing `landing.pull-request` without a provider and `landing.main` on a protected base branch with the reason, and refusing a variant whose needed lookup failed rather than reading the failed lookup as "not protected"; the reading and writing of the plan's own values, `overrides.json`, under the plan's transaction and revision rule. Not implemented yet: the writing of the project's and the machine's other axis-level documents and the operator's acts that set them, the `phase-6-finalize` and landing-variant units of the assembly (the composition is delivered as an algorithm, proved over the fixtures), and the qualification of an override): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanFacts.java[PlanFacts],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanAxisLevels.java[PlanAxisLevels],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/LandingStepComposition.java[LandingStepComposition],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/LandingVariantValidation.java[LandingVariantValidation],
 link:../pm-core/src/main/java/de/planmarshall/core/store/PlanOverrides.java[PlanOverrides],
 link:../pm-core/src/main/java/de/planmarshall/core/store/PlanOverridesCodec.java[PlanOverridesCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/store/PlanOverridesStore.java[PlanOverridesStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/PlanDefaults.java[PlanDefaults],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineConfigurationStore.java[MachineConfigurationStore],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePruner.java[InstancePruner],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRules.java[CompositionRules],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRuleEvaluator.java[CompositionRuleEvaluator],
@@ -737,7 +741,10 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionEvent
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/DeclarationBounds.java[DeclarationBounds]
 
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanAxisLevelsTest.java[PlanAxisLevelsTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/LandingStepCompositionTest.java[LandingStepCompositionTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/LandingVariantValidationTest.java[LandingVariantValidationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineSettingsWritersTest.java[MachineSettingsWritersTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanOverridesCodecTest.java[PlanOverridesCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanOverridesStoreTest.java[PlanOverridesStoreTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRuleEvaluatorTest.java[CompositionRuleEvaluatorTest],
@@ -747,9 +754,13 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBou
 Documentation: link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_plan_behaviour_axes[Plan Instance Developer Guide § The Plan Behaviour Axes],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_landing_variant_of_the_project[Plan Instance Developer Guide § The Landing Variant of the Project],
 link:../pm-core/doc/developer/core-store.adoc#_the_plan_overrides[Scope Stores Developer Guide § The Plan Overrides],
+link:../pm-runtime/doc/developer/runtime-config.adoc#_the_machine_s_plan_defaults[`runtime.config` Developer Guide § The Machine's Plan Defaults],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workflow Verification Developer Guide § Declaration Bounds],
 link:../pm-workflow/doc/adr/workflow-plan/015-axis-levels-and-overrides-carried-in-plan-facts.adoc[ADR workflow-plan/015],
 link:../pm-workflow/doc/adr/workflow-plan/021-the-landing-variant-is-checked-where-the-composition-binds-it.adoc[ADR workflow-plan/021],
+link:../pm-workflow/doc/adr/workflow-plan/022-an-unknown-project-answer-is-a-refusal.adoc[ADR workflow-plan/022],
+link:../pm-workflow/doc/adr/workflow-plan/023-the-landing-step-states-compose-into-the-finalize-phase.adoc[ADR workflow-plan/023],
+link:../pm-runtime/doc/adr/runtime-config/005-plan-defaults-are-a-written-member-of-the-machine-configuration.adoc[ADR runtime-config/005],
 link:../pm-core/doc/adr/core-store/069-the-plan-overrides-are-written-through-the-plan-transaction.adoc[ADR core-store/069],
 link:../pm-workflow/doc/adr/workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[ADR workflow-verify/028]
 
