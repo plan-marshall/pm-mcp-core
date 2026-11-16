@@ -137,7 +137,8 @@ class PlanOverridesStoreTest {
                 .build();
 
         var conflict = assertThrows(SettingsConflict.class,
-                () -> write(refused, PlanOverrides.NO_DOCUMENT));
+                () -> write(refused, PlanOverrides.NO_DOCUMENT),
+                "A change against the consumed revision is refused");
 
         assertAll(
                 () -> assertEquals(SettingsConflict.ERROR_CODE, conflict.code(), "The refusal carries conflict"),
@@ -159,7 +160,8 @@ class PlanOverridesStoreTest {
 
             assertThrows(IllegalArgumentException.class,
                     () -> store.write(write, invalid, PlanOverrides.NO_DOCUMENT, new UpdatedBy(Channel.CLI, null),
-                            CLOCK.instant()));
+                            CLOCK.instant()),
+                    "A provider name the schema refuses is refused");
         }
         assertTrue(Files.notExists(store.file()), "A refused write leaves no document");
     }

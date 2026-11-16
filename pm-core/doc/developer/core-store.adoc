@@ -2625,6 +2625,28 @@ rule lives in the acceptance and not in the record's bounds, because the record 
 lists the role's own calls under their own heading. Each criterion is rendered with its kind and its `verified_by`;
 the non-goals, like the constraints and the assumptions, get their heading only when the record holds one.
 
+== The Plan Overrides
+
+`overrides.json` holds a plan's own values (Store Schemas § Plan Overrides, Workflow DSL § Plan Overrides): per role the
+`harness`, `model` and `effort`; the variant of each plan behaviour axis; the plan's posture and base branch; the variant
+of an integration; and the optional providers the plan uses. The document is absent until the first value is set, so a key
+it does not hold defers to the project's and the machine's value.
+
+`PlanOverrides` is the closed model: the revision, the values, and the channel, device and instant of the write. Its nested
+types `Axis`, `Posture`, `Integration`, `Channel`, `Role`, `Providers` and `UpdatedBy` carry the schema's closed values, so
+a caller cannot build a document the schema refuses. `PlanOverridesCodec` reads and writes the document strictly; it checks
+the schema's own rules — an axis value carries its axis as prefix (`asking` is `ask.*`), an integration variant is `native`
+or `cli`, a role object sets at least one value — while the closed list of each axis's variants is checked where the axis
+binds (`PlanFacts.Axis`).
+
+`PlanOverridesStore` is the reader and writer of `plans/<plan_id>/overrides.json`. A write is one act of the operator's:
+`write(transaction, values, revision, updatedBy, updatedAt)` reads the current document inside the plan's open
+transaction — the plan lock is held, so no writer can move it before the commit — refuses a revision the document moved
+past with `core.config.SettingsConflict` and the current document, and stages `replace("overrides.json", …)` at the next
+revision. The composition of the event `override`, the audit record and the `settings_changed` inbox message are the
+caller's acts in the same transaction
+(link:../adr/core-store/069-the-plan-overrides-are-written-through-the-plan-transaction.adoc[ADR core-store/069]).
+
 == The Outline Record
 
 `outline.json` is the plan's solution outline (Store Schemas § Outline Record). `OutlineRecord` is the model-supplied

@@ -61,7 +61,7 @@ public final class MachineConfigurationStore {
      * @since 0.1
      */
     public record Snapshot(ProviderDefaults providers, DocumentsMode documentsMode, CleanupDurations cleanup,
-            long revision) {
+    long revision) {
     }
 
     /**
@@ -151,7 +151,7 @@ public final class MachineConfigurationStore {
                 bytes -> bytes == null
                         ? MachineConfigurationCodec.createDocumentsMode(mode)
                         : MachineConfigurationCodec.writeDocumentsMode(storeFile.store(), bytes, mode,
-                                revision + 1));
+                        revision + 1));
     }
 
     /**
@@ -173,7 +173,7 @@ public final class MachineConfigurationStore {
                 bytes -> bytes == null
                         ? MachineConfigurationCodec.createCleanup(durations)
                         : MachineConfigurationCodec.writeCleanup(storeFile.store(), bytes, durations,
-                                revision + 1));
+                        revision + 1));
     }
 
     /**

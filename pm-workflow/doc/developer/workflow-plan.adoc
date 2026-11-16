@@ -206,6 +206,27 @@ At every kept call site of an axis, a state that calls one of its variants, `Ins
 A later change of one of the plan's own values composes a version with the event `override` (<<_events>>).
 Writing the machine's and the project's values and the plan's overrides is not this package's, and neither is composing a landing variant into the finalize phase.
 
+[#_the_landing_variant_of_the_project]
+=== The Landing Variant of the Project
+
+_Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL § Plan Behaviour Axes, item 3]_
+
+`LandingVariantValidation` answers whether a landing variant fits a project, from the two facts only a project can supply:
+whether it has a provider that opens a pull request, and whether the provider reports its base branch as protected.
+`landing.pull-request` needs the provider, `landing.main` cannot land on a protected base branch, and `landing.files` fits
+every project here; a variant that is not one of `PlanFacts.Axis.LANDING.variants()` is refused. The verdict carries the
+reason the operator reads, so a refusal is never bare.
+
+The check runs at the composition where a project is known: `PlanInstanceComposer.compose(request, project)` validates the
+*bound* landing variant before anything is composed and refuses the version with that reason. The bound variant is the
+nearest level that set it, so a machine default that does not fit the project is refused for that project exactly like a
+project's own choice — the caller passes the level it resolved, and the reason names the variant, not the level. The one
+argument overload `compose(request)` composes without the check, for a caller with no project known (a preview, or a unit
+test of the composition itself).
+
+The machine's own check is not this class: `MachineDefaultsValidation` of `runtime.config` reads only what the machine
+provides (a provider for `landing.pull-request`) and never a repository.
+
 [#_the_diff_summary]
 === The Diff Summary
 

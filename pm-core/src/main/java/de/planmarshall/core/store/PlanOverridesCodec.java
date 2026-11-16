@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -124,7 +125,8 @@ public class PlanOverridesCodec {
         if (overrides.updatedAt() == null || overrides.updatedBy() == null) {
             throw new IllegalArgumentException("A written plan overrides document carries its write instant and channel");
         }
-        var out = new ByteArrayOutputStream();        try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
+        var out = new ByteArrayOutputStream();
+        try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
             generator.writeNumberField(FIELD_FORMAT_VERSION, PlanOverrides.FORMAT_VERSION);
             generator.writeNumberField(FIELD_REVISION, overrides.revision());
@@ -193,7 +195,7 @@ public class PlanOverridesCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNames(JsonGenerator generator, String field, java.util.List<String> names,
+    private static void writeNames(JsonGenerator generator, String field, List<String> names,
             Pattern pattern) throws IOException {
         if (names.isEmpty()) {
             return;
@@ -409,7 +411,7 @@ public class PlanOverridesCodec {
         return Channel.of(wireName).orElseThrow(() -> unreadable("not a channel: " + wireName));
     }
 
-    private static void requireUnique(String field, java.util.List<String> names) {
+    private static void requireUnique(String field, List<String> names) {
         if (new LinkedHashSet<>(names).size() != names.size()) {
             throw unreadable("a '%s' name is named twice".formatted(field));
         }

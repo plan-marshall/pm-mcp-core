@@ -1,4 +1,4 @@
-= The Machine Configuration's Provider Defaults (`runtime.config`) Developer Guide
+= The Machine Configuration's Written Settings (`runtime.config`) Developer Guide
 :spec: ../../../doc/specification
 :toc:
 :toclevels: 3
@@ -12,10 +12,15 @@ A field, parameter or record component whose value may be absent is written `@Nu
 
 _Requirements: link:{req}/15-extensions-and-recipes.adoc#PM-EXT-6[PM-EXT-6], link:{req}/07-credentials.adoc#PM-CRED-1[PM-CRED-1]_
 
-Package `de.planmarshall.runtime.config` of `pm-runtime` owns one member of the machine's operator document:
-`providers` of `machine-config.json` ({spec}/store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas §
-Machine Provider Defaults]). The provider step of the machine's onboarding and its later runs write it; every project
-takes the machine's default unless its own operator values set another.
+Package `de.planmarshall.runtime.config` of `pm-runtime` owns three members of the machine's operator document:
+`providers` ({spec}/store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas § Machine Provider Defaults]),
+`sources.documents_mode` ({spec}/state-catalogue/09-bootstrap-and-lessons.adoc#documents-source[State Catalogue §
+Documents as a Source]) and `cleanup` ({spec}/timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets § One
+Cleanup]) of `machine-config.json` ({spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine
+Configuration Store]). The provider step of the machine's onboarding and its later runs write the defaults; the machine's
+settings write the documents mode and the cleanup durations
+({spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-settings[State Catalogue § The Machine's Settings]).
+Every project takes a machine default unless its own operator values set another.
 
 The package lies in the runtime, not in `pm-core`'s `core.config`, because the closed list of providers names them and the
 foundation is provider-neutral by its architecture guard
@@ -38,6 +43,13 @@ coordinated by `locks/machine-config.lock`.
 * `ProviderDefaults` is the closed object: per provider its default. A provider the machine does not serve is absent, not
   recorded as unavailable; a `cli` variant for a provider without one is refused, and so is an omitted variant for a
   provider with one (`git`, `github`, `gitlab` name it, `forgejo` and `sonar` omit it).
+* `DocumentsMode` is `copy`, `move` or `ask`; `ASK` is the schema default while the key is absent. A start reads it, and
+  answering always records `copy` or `move` here.
+* `CleanupDuration` is whole days (at least 7, so no window of the system view loses data) or `never`;
+  `CleanupDurations` is the six values the cleanup reads — the five item kinds and the reminder's days — and
+  `CleanupDurations.defaults()` is what the schema applies while the member is absent (30 days, a 3-day reminder).
+  A member that does not name all six is legal per the schema but reads as no complete durations; the codec writes its
+  members back unchanged, so an incomplete member the operator wrote is never lost by a write of another setting.
 
 A provider is recorded available only after its verification passed
 (link:runtime-credentials.adoc#_provider_verification[`runtime.credentials` § Provider Verification]); one whose checks
@@ -49,12 +61,18 @@ failed is recorded only on the operator's word, and then as not available.
 refuses a store file that is not `machine-config.json` below the base the lock key lies under, so a document can never be
 written at another path under the lock's name.
 
-* `read()` answers the defaults and the document's `revision`, or none at revision `0` when the file does not exist.
+* `read()` answers the defaults, the documents mode and the cleanup durations at their recorded value — or at the schema
+  default where the document records none — and the document's `revision`, or the defaults of an absent document at
+  revision `0` when the file does not exist.
 * `writeProviders(defaults, revision)` reads the document again under the lock, checks the caller's revision, replaces
   `providers` alone, writes the next revision and keeps every other member — `credentials`, the concurrency limits, the
-  languages, the cleanup durations, `project_defaults` — copied through untouched.
+  languages, `project_defaults` — copied through untouched.
+* `writeDocumentsMode(mode, revision)` and `writeCleanupDurations(durations, revision)` write their one member the same
+  way: the other members of the operator's document, and the other member of `sources`, survive; a member the document
+  did not hold yet is appended in the schema's order.
 * A change against an older revision is refused with `core.config.SettingsConflict`: the code `conflict`, the status
-  `409`, the current revision and the defaults the document holds.
+  `409`, the current revision and the current value of the member the change names (the defaults, the mode, or the
+  durations), so the first change wins and nothing is merged.
 * A document that does not exist is created with `format_version` `1`, `revision` `1` and the two required members at
   their schema defaults (`max_build_slots` 2, `lsp_idle_timeout_seconds` 900).
 
@@ -75,10 +93,10 @@ protected, or a landing variant fits a project, is the project's own check where
 
 == Pitfalls
 
-1. **The document has two writers.** The provider step writes `providers`; the credential-store aspect writes
-   `credentials.store`. Neither may rewrite the whole document from its own model: a writer that did would delete the
-   other's key. Copying every member through is what keeps them apart, and each writer's test asserts the other's member
-   survives.
+1. **The document has several writers.** The provider step writes `providers`; the credential-store aspect writes
+   `credentials.store`; the machine's settings write `sources.documents_mode` and `cleanup`. No writer may rewrite the
+   whole document from its own model: a writer that did would delete the others' members. Copying every member through is
+   what keeps them apart, and each writer's test asserts the others' members survive.
 2. **The revision is the caller's.** A write that names the revision it read refuses a concurrent change instead of
    overwriting it; a caller that writes `revision + 1` it computed itself defeats that.
 3. **A provider without a credential key is not a provider with no credential.** `providers` records where the credential
@@ -93,7 +111,10 @@ protected, or a landing variant fits a project, is the project's own check where
 
 * Specification: link:{spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration
   Store], link:{spec}/store-schemas/12-machine-stores.adoc#provider-defaults[§ Machine Provider Defaults],
+  link:{spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-settings[State Catalogue § The Machine's
+  Settings], link:{spec}/timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets § One Cleanup],
   link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[Credentials & Enrolment §
   Provider Verification]
 * Decisions: link:../adr/runtime-config/[`doc/adr/runtime-config/`]
 * The verification and the credential-store aspect: link:runtime-credentials.adoc[`runtime.credentials`]
+* The project's own check of a landing variant: link:../../../pm-workflow/doc/developer/workflow-plan.adoc#_the_landing_variant_of_the_project[`workflow.plan` § The Landing Variant of the Project]

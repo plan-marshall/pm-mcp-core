@@ -1,0 +1,63 @@
+= ADR 069: The Plan Overrides Are Written Through the Plan's Transaction
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-16
+
+== Context
+
+A plan's own values live in `plans/<plan_id>/overrides.json` (store-schemas/14 § Plan Overrides, workflow-dsl/09 § Plan
+Overrides). The schema `plan-overrides.schema.json` existed in `core.store` with no codec. The write is the operator's,
+under the revision rule (the first change wins; a later one against an older revision is refused with `conflict` and the
+current value), and it is answered with the plan instance version of the event `override`, composed in the same act.
+
+The plan's own stores are written through a `ScopeTransaction` of the plan (`PlanInstanceStore` is the precedent): the
+transaction holds the plan's lock, stages files and commits atomically with the plan's digest sidecar. `ScopeTransaction`
+offers `replace` but no read.
+
+== Decision
+
+* `PlanOverrides` is the typed document in `core.store`: the revision, the per-role values, the axis variants, the
+  posture, the base branch, the integration variants, the optional providers, and the write's channel, device and instant.
+* `PlanOverridesCodec` reads and writes the closed document; the closed variant list of each axis is checked where the axis
+  binds (`PlanFacts`), not in the codec, which checks the schema's own rules (an axis value carries its axis as prefix, an
+  integration variant is `native` or `cli`, a role object sets at least one value).
+* `PlanOverridesStore(JournalScope)` reads the file directly, and `write(transaction, values, revision, updatedBy,
+  updatedAt)` reads the current document inside the caller's open transaction — the plan lock is already held, so no other
+  writer can move it before the commit — refuses a revision mismatch with `SettingsConflict` and the current document, and
+  stages `replace("overrides.json", …)` at the next revision.
+* The store composes nothing: the composition of the `override` version, the audit record and the `settings_changed`
+  inbox message are the caller's acts around one transaction.
+
+== Alternatives Considered
+
+1. *An `AtomicStoreFile` with its own lock, as the machine's stores use.* _Not taken_: the document lives in the plan's
+   directory and must commit with the plan's other stores under the plan's lock and digest sidecar; a second lock would
+   allow a write the plan's recovery does not know.
+2. *Reading the document before opening the transaction.* _Not taken_: the revision would then be checked against a state
+   the transaction does not hold, which is the check-then-act the revision rule exists to prevent.
+3. *Modelling `overrides.json` as free-form JSON in `PlanFacts`.* _Not taken_: the facts already carry the document's text
+   and digest; the values the operator sets are validated where they are written, so a typed document is needed at the
+   write, not only at the composition.
+
+== Consequences
+
+* A caller composes the `override` version and writes the document in one transaction; a version that fails the position
+  rule is refused before the document is staged, so a refused override changes nothing.
+* The absent document reads as `PlanOverrides.absent()` at revision 0; the first write creates revision 1.
+* A key the document does not hold defers to the project's and the machine's level; the composition reads that precedence
+  through `PlanFacts` and the document's digest is an input of the instance header.
+
+== Source
+
+* Plan PLAN-V2-43, deliverable 10 (Task 11)
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-overrides-store[Store
+  Schemas § Plan Overrides], link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow
+  DSL § Plan Overrides]
+* `pm-core/src/main/java/de/planmarshall/core/store/PlanOverrides.java`, `PlanOverridesCodec.java`,
+  `PlanOverridesStore.java`

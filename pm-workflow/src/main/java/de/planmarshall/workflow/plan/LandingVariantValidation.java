@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.plan;
 
 import java.util.Objects;
+
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 

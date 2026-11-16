@@ -10,10 +10,10 @@
 package de.planmarshall.workflow.plan;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -86,6 +86,6 @@ class LandingVariantValidationTest {
 
         assertAll(
                 () -> assertFalse(first.valid(), "The first call refuses the protected branch"),
-                () -> assertEquals(true, second.valid(), "The second call reads its own project"));
+                () -> assertTrue(second.valid(), "The second call reads its own project"));
     }
 }

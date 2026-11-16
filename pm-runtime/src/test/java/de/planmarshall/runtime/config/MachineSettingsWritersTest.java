@@ -120,7 +120,8 @@ class MachineSettingsWritersTest {
 
         store.writeDocumentsMode(DocumentsMode.COPY, revision);
         var conflict = assertThrows(SettingsConflict.class,
-                () -> store.writeDocumentsMode(DocumentsMode.MOVE, revision));
+                () -> store.writeDocumentsMode(DocumentsMode.MOVE, revision),
+                "A change against the consumed revision is refused");
 
         assertAll(
                 () -> assertEquals(SettingsConflict.ERROR_CODE, conflict.code(), "The refusal carries the conflict code"),
@@ -146,7 +147,8 @@ class MachineSettingsWritersTest {
 
         store.writeCleanupDurations(accepted, revision);
         var conflict = assertThrows(SettingsConflict.class,
-                () -> store.writeCleanupDurations(refused, revision));
+                () -> store.writeCleanupDurations(refused, revision),
+                "A change against the consumed revision is refused");
 
         assertAll(
                 () -> assertEquals(accepted, conflict.currentValue(), "The refusal names the current durations"),

@@ -110,7 +110,7 @@ public class MachineConfigurationCodec {
      * @since 0.1
      */
     public record Document(ProviderDefaults providers, @Nullable DocumentsMode documentsMode,
-            @Nullable CleanupDurations cleanup, long revision) {
+    @Nullable CleanupDurations cleanup, long revision) {
     }
 
     /**
@@ -319,7 +319,7 @@ public class MachineConfigurationCodec {
      * @param revision  the revision to write
      */
     private record Replacement(@Nullable ProviderDefaults providers, @Nullable DocumentsMode mode,
-            @Nullable CleanupDurations cleanup, long revision) {
+    @Nullable CleanupDurations cleanup, long revision) {
 
         static final Replacement NONE = new Replacement(null, null, null, -1);
     }
@@ -568,7 +568,8 @@ public class MachineConfigurationCodec {
                     .orElseThrow(() -> unreadable("not a documents mode: " + wireName));
         }
 
-        private static ProviderDefaults providers(JsonParser parser) throws IOException {            requireObject(parser, FIELD_PROVIDERS);
+        private static ProviderDefaults providers(JsonParser parser) throws IOException {
+            requireObject(parser, FIELD_PROVIDERS);
             var defaults = new EnumMap<Provider, ProviderDefault>(Provider.class);
             var seen = new HashSet<String>();
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
