@@ -142,7 +142,7 @@ public final class PlanAxisLevels {
                             + " level '%s'").formatted(value, key, axis.variants(), level.wireName()));
                 }
                 if (!key.equals(axis.wireName())) {
-                    throw new IllegalArgumentException(("'%s' is no key of the axis '%s', recorded at the level '%s'")
+                    throw new IllegalArgumentException("'%s' is no key of the axis '%s', recorded at the level '%s'"
                             .formatted(key, axis.wireName(), level.wireName()));
                 }
             }

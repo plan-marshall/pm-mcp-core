@@ -14,8 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -42,8 +45,8 @@ class OnboardingResultTest {
     void aspectOrder() {
         assertAll(
                 () -> assertEquals(List.of("language", "harnesses", "models", "role-assignment", "credential-store",
-                        "providers", "plan-defaults"),
-                        java.util.Arrays.stream(OnboardingAspect.values()).map(OnboardingAspect::wireName).toList(),
+                                "providers", "plan-defaults"),
+                        Arrays.stream(OnboardingAspect.values()).map(OnboardingAspect::wireName).toList(),
                         "The aspects are the specification's, in its order"),
                 () -> assertEquals(Optional.of(OnboardingAspect.HARNESSES), OnboardingAspect.LANGUAGE.next(),
                         "The language step is followed by the harnesses"),
@@ -63,8 +66,8 @@ class OnboardingResultTest {
     void reasons() {
         assertAll(
                 () -> assertEquals(List.of("system", "only_supported", "all_supported", "all_found", "default",
-                        "available", "tool_logged_in", "asked"),
-                        java.util.Arrays.stream(ProposalReason.values()).map(ProposalReason::wireName).toList(),
+                                "available", "tool_logged_in", "asked"),
+                        Arrays.stream(ProposalReason.values()).map(ProposalReason::wireName).toList(),
                         "The reasons are the specification's closed list"),
                 () -> assertEquals("onboard.auto.reason.tool_logged_in", ProposalReason.TOOL_LOGGED_IN.messageKey(),
                         "A reason is a message key of the catalogue"),

@@ -13,11 +13,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
-import lombok.Builder;
-import lombok.experimental.UtilityClass;
 
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
+import lombok.experimental.UtilityClass;
 
 /**
  * The landing axis composed into the finalize phase (Workflow DSL § Plan Behaviour Axes, item 1): unlike the method and

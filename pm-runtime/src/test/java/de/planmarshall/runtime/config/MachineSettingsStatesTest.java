@@ -296,7 +296,7 @@ class MachineSettingsStatesTest {
         configuration.writeDocumentsMode(DocumentsMode.COPY, revision);
 
         var conflict = assertThrows(SettingsConflict.class, () -> verifying.verifyProviders(gate,
-                ConsentGate.Answer.YES, Consent.Channel.CLI, null, revision),
+                        ConsentGate.Answer.YES, Consent.Channel.CLI, null, revision),
                 "A re-check against the consumed revision is refused");
 
         assertAll(

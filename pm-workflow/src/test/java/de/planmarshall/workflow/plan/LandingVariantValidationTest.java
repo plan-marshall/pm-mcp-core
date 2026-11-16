@@ -98,7 +98,7 @@ class LandingVariantValidationTest {
                 () -> assertFalse(unknownAsked.answered(), "A failed lookup answered nothing"),
                 () -> assertTrue(known.answered(), "A known project answered both questions"),
                 () -> assertTrue(LandingVariantValidation.validate("landing.files",
-                        LandingVariantValidation.Project.unknown()).valid(),
+                                LandingVariantValidation.Project.unknown()).valid(),
                         "landing.files needs no lookup and fits an unknown project"));
     }
 }

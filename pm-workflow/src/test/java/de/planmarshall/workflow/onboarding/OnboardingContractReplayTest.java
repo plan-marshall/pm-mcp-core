@@ -15,10 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * The replay of the {@code onboarding-contract} scenarios over the router (State Catalogue § Machine Onboarding,
@@ -42,7 +45,7 @@ class OnboardingContractReplayTest {
         var last = route;
 
         assertAll(
-                () -> assertEquals(java.util.Arrays.asList(OnboardingAspect.values()), walked,
+                () -> assertEquals(Arrays.asList(OnboardingAspect.values()), walked,
                         "The run takes every aspect in the fixed order, once each"),
                 () -> assertEquals(OnboardingRouter.Target.RESULT, last.target(),
                         "The last aspect of the automatic run opens the result"),
@@ -135,7 +138,7 @@ class OnboardingContractReplayTest {
     @DisplayName("the scenarios of the contract replay to the targets the state catalogue names")
     void scenarios() {
         record Case(String name, OnboardRun run, OnboardingRouter.OpenedFrom openedFrom, OnboardingAspect returned,
-                OnboardingRouter.Target expected) {
+        OnboardingRouter.Target expected) {
         }
         var cases = List.of(
                 new Case("auto-run-first-aspect", OnboardRun.AUTO, null, OnboardingAspect.LANGUAGE,
@@ -149,8 +152,8 @@ class OnboardingContractReplayTest {
                 new Case("later-run-from-result", OnboardRun.RECONFIGURE, OnboardingRouter.OpenedFrom.RESULT,
                         OnboardingAspect.MODELS, OnboardingRouter.Target.RESULT));
 
-        org.junit.jupiter.api.Assertions.assertAll(cases.stream()
-                .map(one -> (org.junit.jupiter.api.function.Executable) () -> assertEquals(one.expected(),
+        assertAll(cases.stream()
+                .map(one -> (Executable) () -> assertEquals(one.expected(),
                         OnboardingRouter.returned(one.run(), one.returned(), one.openedFrom()).target(),
                         one.name() + " targets")));
     }
