@@ -43,7 +43,6 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 @DisplayName("The static reads of a unit")
 class UnitInterfaceChecksTest {
 
-
     private static final ConfigKeyRegistry CONFIG = ConfigKeyRegistry.of(List.of(
             new ConfigKeyRegistry.ConfigKey("project.review.currency",
                     new InputType.Enumeration(List.of("current", "stale")), true),
@@ -157,7 +156,7 @@ class UnitInterfaceChecksTest {
                         "is not assignable to its type",
                         List.of("reads_config: project.review.currency", "input: retries", "input_type: int[0..5]",
                                 "input_fallback: project.review.currency")),
-                Arguments.of("a required fallback without a compiled default", "INPUT_DECLARATION",
+                Arguments.of("a fallback without a compiled default", "INPUT_DECLARATION",
                         "has no compiled default",
                         List.of("reads_config: workflow.mode", "input: mode",
                                 "input_type: enum[strict|lenient]", "input_fallback: workflow.mode")));

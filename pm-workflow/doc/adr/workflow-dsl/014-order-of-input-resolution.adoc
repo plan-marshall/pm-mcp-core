@@ -40,8 +40,8 @@ call site does not bind has to be resolved in a stated order, so that two readin
 == Consequences
 
 * Rule 6 checks the literal call sites; the engine resolves the rest at the call.
-* `INPUT_DECLARATION` refuses a fallback outside `reads_config`, a domain that does not fit the type, and a required
-  input whose fallback key has no compiled default.
+* `INPUT_DECLARATION` refuses a fallback outside `reads_config`, a domain that does not fit the type, and a fallback
+  key without a compiled default where the input has neither a default nor the `?`.
 * `INV-GEN-1` compares the fallback and the default of a project copy with those of its default unit, so a copy cannot
   change the resolution.
 

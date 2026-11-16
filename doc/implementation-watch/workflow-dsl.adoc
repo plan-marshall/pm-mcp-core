@@ -581,7 +581,8 @@ over the default without a warning.
 
 Guard:: `INV-GEN-1` compares the inputs of a project unit with those of its default unit: name, type, optional form,
 default and fallback, in declaration order, and names the differing input (`CompiledInvariantsTest`, the cases
-`INTERFACE_INPUT_WIDENED` and `INTERFACE_INPUT_MISSING` of `git-commit-and-push.pmwf`, of `pm-workflow`,
+`INTERFACE_INPUT_WIDENED` (an enum domain) and `INTERFACE_INPUT_RANGE` (an int range) of `git-commit-and-push.pmwf` and
+`remediation-qgate-findings.pmwf`, and `INTERFACE_INPUT_MISSING`, of `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
 Developer Guide § INV-GEN-1 over Type and Interface]). The comparison does not read the description, so a copy may
 reword it.
