@@ -19,17 +19,17 @@ image::../../resources/harness-as-worker-consultation.svg[A worker asks another 
 [#consult-declaration]
 === Declared by the Workflow
 
-A model state declares the consultations it offers, each by a role name, with the clause `consult role <role>` (for example `consult role triage-review`; grammar: link:../workflow-dsl.adoc[Workflow DSL Specification]). A state may declare several roles, each once. The runtime resolves every declared role in the project's effective role set at composition like every other role name and refuses a unit that names an undefined role with `role_undefined`, and one that names a `zero_tool` role, which has no protocol to answer through, with `class_mismatch` (xref:01-roles-and-configuration.adoc#role-composition[Composition Check]). A role artifact holds no consultation setting: whether a role may be consulted, and by whom, is decided by the workflow alone.
+A model state declares the consultations it offers, each by a role name, with the clause `consult role <role>` (for example `consult role triage-review`; grammar: link:../workflow-dsl.adoc[Workflow DSL Specification]). A state may declare several roles, each once. The runtime resolves every declared role in the project's effective role set at composition like every other role name and refuses a unit that names an undefined role with `role_undefined`, and one that names a `zero_tool` role, which has no protocol to answer through, with `class_mismatch` (xref:01-roles-and-configuration.adoc#role-composition[Composition Check]). A role artifact holds no consultation setting: whether a role may be consulted, and by whom, is decided by the workflow alone (link:../../../pm-workflow/doc/developer/workflow-consult.adoc[Consultation Developer Guide]).
 
 [#consult-link]
 === The `consult:<role>` Link
 
 While a task is executing, its entity offers exactly one link `consult:<role>` (rel `consult`, form `submit`) per role its state declares, and no other consultation link. Its parameter is `question: text[1..4000]` (link:../hypermedia-format/01-representation-and-link-forms.adoc[Hypermedia Format Specification, Representation & Link Forms]).
 
-Following it creates a queue task of the consulted role (kind `consultation`, xref:02-task-protocol.adoc#queue-task[Queue Task]) whose `queue_task_id` is the `consultation_id`, records it on the asking task, and moves the asking task and its worker to `consulting` (xref:02-task-protocol.adoc#worker-states[Worker States]). The answer of the call is the asking entity's representation in `consulting`, whose only next step is `pm_wait`.
+Following it creates a queue task of the consulted role (kind `consultation`, xref:02-task-protocol.adoc#queue-task[Queue Task]) whose `queue_task_id` is the `consultation_id`, records it on the asking task, and moves the asking task and its worker to `consulting` (xref:02-task-protocol.adoc#worker-states[Worker States]). The answer of the call is the asking entity's representation in `consulting`, whose only next step is `pm_wait` (link:../../../pm-workflow/doc/developer/workflow-consult.adoc[Consultation Developer Guide]).
 
 * *One at a time*: A task has at most one open consultation; while it is open, no `consult` link is offered.
-* *Bound*: A task follows at most the compiled `3` consultation links over all its attempts (link:../timeouts/01-job-budgets-and-waits.adoc#consultation-bound[Timeouts & Budgets Specification, Consultation Bound]); after that, no `consult` link is offered.
+* *Bound*: A task follows at most the compiled `3` consultation links over all its attempts (link:../timeouts/01-job-budgets-and-waits.adoc#consultation-bound[Timeouts & Budgets Specification, Consultation Bound]); after that, no `consult` link is offered (link:../../../pm-workflow/doc/developer/workflow-consult.adoc[Consultation Developer Guide]).
 
 [#consult-serving]
 === Serving the Consultation
