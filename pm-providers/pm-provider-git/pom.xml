@@ -26,6 +26,13 @@
             <groupId>de.planmarshall</groupId>
             <artifactId>pm-core</artifactId>
         </dependency>
+        <!-- The shared assertion-message scanner of the pm-core test scope (ADR 012, PLAN-V2-103). -->
+        <dependency>
+            <groupId>de.planmarshall</groupId>
+            <artifactId>pm-core</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>de.cuioss</groupId>
             <artifactId>cui-java-tools</artifactId>

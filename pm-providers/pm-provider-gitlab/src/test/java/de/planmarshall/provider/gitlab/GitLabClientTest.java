@@ -304,7 +304,7 @@ class GitLabClientTest {
 
             var discussions = result.value();
             assertAll("the discussions",
-                    () -> assertTrue(result.complete(), "every page is read"),
+                    () -> assertTrue(result.complete(), "every page is read completely"),
                     () -> assertEquals(List.of(first, second),
                             discussions.stream().map(GitLabClient.Discussion::id).toList(),
                             "both pages' discussions are read"),
@@ -456,9 +456,9 @@ class GitLabClientTest {
             var identity = client.tokenIdentity().value();
 
             assertAll("the token identity",
-                    () -> assertEquals(String.valueOf(userId), identity.userId(), "the user id is read"),
-                    () -> assertEquals(List.of("api", "read_repository"), identity.scopes(), "the scopes are read"),
-                    () -> assertTrue(identity.active(), "the token is active"),
+                    () -> assertEquals(String.valueOf(userId), identity.userId(), "the user id is read back"),
+                    () -> assertEquals(List.of("api", "read_repository"), identity.scopes(), "the token scopes are read"),
+                    () -> assertTrue(identity.active(), "the token is reported active"),
                     () -> assertNull(identity.expiresAt(), "a null expiry is no expiry"),
                     () -> assertEquals(name, identity.name(), "the token name is read"));
         }
@@ -476,12 +476,12 @@ class GitLabClientTest {
             var identity = result.value();
             assertAll("the fallback identity",
                     () -> assertEquals(Result.Outcome.OK, result.outcome(), "the fallback read succeeds"),
-                    () -> assertEquals(String.valueOf(userId), identity.userId(), "the user id is read"),
+                    () -> assertEquals(String.valueOf(userId), identity.userId(), "the user id is read back"),
                     () -> assertTrue(identity.active(), "an active user is active"),
                     () -> assertEquals("", identity.id(), "no token id is known"),
                     () -> assertEquals("", identity.name(), "no token name is known"),
-                    () -> assertEquals(List.of(), identity.scopes(), "no scopes are known"),
-                    () -> assertNull(identity.expiresAt(), "no expiry is known"),
+                    () -> assertEquals(List.of(), identity.scopes(), "no token scopes are known"),
+                    () -> assertNull(identity.expiresAt(), "no expiry is reported"),
                     () -> assertEquals(List.of("GET " + SELF, "GET " + USER),
                             requests.stream().map(r -> r.getMethod() + " " + r.getTarget()).toList(),
                             "the token is read first, then the user"),

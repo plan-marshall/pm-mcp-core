@@ -119,6 +119,13 @@ final class LaunchFixtures {
         return HeadlessBlock.of(profile());
     }
 
+    /**
+     * @return the fixture document with a shell metacharacter in the template element that carries {@code {{tools}}}
+     */
+    static String documentWithMetacharacterInArgv() {
+        return document().replace("\"--allowedTools\", \"{{tools}}\"", "\"--allowedTools\", \"{{tools}} ;\"");
+    }
+
     static RoleArtifact artifact(RoleClass roleClass, String model, String effort, RoleForm form,
             List<String> skills) {
         var tools = roleClass == RoleClass.ZERO_TOOL

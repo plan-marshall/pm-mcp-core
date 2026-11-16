@@ -1,0 +1,71 @@
+= ADR 013: The Downcall Interface Declares Throwable
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-15
+
+== Context
+
+`MacSecurity.Downcall<T>` is the functional interface through which every Security.framework call of the class is
+written: `T call() throws Throwable`. Its shape is not free. Every call site passes a lambda or a method reference
+around a `MethodHandle.invokeExact` call, and `invokeExact` declares `Throwable`; a functional interface whose
+abstract method declares less cannot be the target of such a lambda. The interface therefore declares `Throwable`,
+and `call(Downcall)` maps it: it rethrows an `Error` and a `SecretStoreException` and wraps everything else in a
+`SecretStoreException`. Sonar flags the declaration as `java:S112` ("generic exceptions should never be thrown").
+
+Because `invokeExact` is signature-polymorphic, the compiler derives a call site's descriptor from the static types
+it sees and does not compare them with the handle's type: a wrong descriptor compiles and fails when the call is
+linked, with a `WrongMethodTypeException`. A reader must not count on the build to catch a mismatched descriptor.
+
+== Decision
+
+* `MacSecurity.Downcall` keeps the signature `T call() throws Throwable;`. The interface cannot declare a narrower
+  checked exception and still compile the call sites that close over `invokeExact`.
+* The declaration carries an inline `@SuppressWarnings("java:S112")` with its reason, beside the `java:S1181`
+  suppression that `call(Downcall)` already carries for the same `invokeExact` contract.
+* The failure mapping stays where it is: `call(Downcall)` is the one place that decides which `Throwable` is
+  rethrown and which is wrapped, so no call site maps it.
+* An ADR of the package records the choice; the standing rule R16 (4) of the epic `pm-mcp-core-m2-m4-v2` names the
+  inline suppression with a stated reason as the settlement for a shape the design requires.
+
+== Alternatives Considered
+
+1. *Declare an unchecked type or a narrower checked type on `call()`.* _Not taken_: a lambda whose body throws the
+   checked `Throwable` that `invokeExact` declares does not compile against a functional interface that declares
+   less, and an unchecked declaration would hide the failure the mapping exists for.
+2. *Replace `invokeExact` with `invoke`.* _Not taken_: `invokeExact` links the call site to the exact descriptor at
+   run time, so a mismatch fails with a `WrongMethodTypeException` instead of being silently adapted; `invoke`
+   performs the conversions and would hide a wrong descriptor. The change would also touch every call site of the
+   class.
+3. *Catch the `Throwable` inside each call site instead of in `call(Downcall)`.* _Not taken_: it repeats the
+   mapping once per Security.framework call and loses the one place that decides whether a failure is rethrown or
+   wrapped.
+4. *Dismiss the issue in SonarCloud.* _Not taken by this plan_: the settlement is available in the code, needs no
+   credential and keeps the reason beside the declaration, as the suppression of `java:S9428` in
+   `StoreDigest.Builder` does.
+
+== Consequences
+
+* The class keeps one mapping point for Security.framework failures, and a new call site needs no error handling of
+  its own.
+* The descriptor of each call site is checked when the call is linked, not by the compiler: a mismatch surfaces as a
+  `WrongMethodTypeException`, which `call(Downcall)` wraps as a failed call. A compile-only check of the file cannot
+  show that a descriptor is right.
+* The `java:S112` issue is settled by the annotation rather than by a SonarCloud transition; a later reader finds
+  the reason beside the declaration.
+* The class stays OS-specific: the unit test that reaches it, `KeychainSecretStoreTest`, is
+  `@EnabledOnOs(OS.MAC)` and is skipped on a Linux host, so a Linux host's build does not exercise the downcall
+  path. The FFM descriptor registration in
+  `pm-runtime/src/main/resources/META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json`
+  is untouched.
+
+== Source
+
+* Plan PLAN-V2-67, deliverable 2
+* Standing rule R16 (4) of the epic `pm-mcp-core-m2-m4-v2`
+* `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/MacSecurity.java`

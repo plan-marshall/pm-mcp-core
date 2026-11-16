@@ -195,7 +195,7 @@ public class QuestionRecordCodec {
             writeAnswer(generator, question.answer());
         }
         writeText(generator, required, FIELD_CHANNEL,
-                Optional.ofNullable(question.channel()).map(channel -> channel.wireName()).orElse(null));
+                Optional.ofNullable(question.channel()).map(QuestionChannel::wireName).orElse(null));
         writeText(generator, required, FIELD_DEVICE_ID, question.deviceId());
         writeText(generator, required, FIELD_AMENDMENT_ID, question.amendmentId());
         writeText(generator, required, FIELD_REASON, question.reason());

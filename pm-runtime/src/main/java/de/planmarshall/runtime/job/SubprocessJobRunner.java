@@ -954,10 +954,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         if (job.isEmpty()) {
             return new JobRunner.StartResult.Started(first.jobId());
         }
-        var running = job.get();
-        return run(running, log -> Launch.of(verified, environment.of(verified, running.latest.jobId()),
+        var runningJob = job.get();
+        return run(runningJob, log -> Launch.of(verified, environment.of(verified, runningJob.latest.jobId()),
                 request.stdin(), log,
-                confinementComposer.forJob(verified.enrolment(), running.latest.jobId(), List.of(), false)));
+                confinementComposer.forJob(verified.enrolment(), runningJob.latest.jobId(), List.of(), false)));
     }
 
     /**
