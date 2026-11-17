@@ -99,8 +99,8 @@ class WorkflowDiagramGeneratorTest {
         void shouldUseLineFeedsOnly(String form, String golden, Function<WorkflowDefinition, String> render) {
             var rendered = render.apply(FIXTURE);
 
-            assertAll(form, () -> assertFalse(rendered.contains("\r"), "carriage return"),
-                    () -> assertTrue(rendered.endsWith("\n"), "last line feed"));
+            assertAll(form, () -> assertFalse(rendered.contains("\r"), "no carriage return appears"),
+                    () -> assertTrue(rendered.endsWith("\n"), "the text ends with a line feed"));
         }
     }
 
@@ -134,7 +134,8 @@ class WorkflowDiagramGeneratorTest {
 
             assertAll(() -> assertTrue(rendered.contains("│ *build.judge "), rendered),
                     () -> assertTrue(rendered.contains("│  (ACTIVE) "), rendered),
-                    () -> assertEquals(1, rendered.lines().filter(line -> line.contains("(ACTIVE)")).count()));
+                    () -> assertEquals(1, rendered.lines().filter(line -> line.contains("(ACTIVE)")).count(),
+                            "the active mark appears on one line"));
         }
 
         @Test
@@ -153,9 +154,11 @@ class WorkflowDiagramGeneratorTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> WorkflowDiagramGenerator.renderMermaid(FIXTURE, unknown)),
+                            () -> WorkflowDiagramGenerator.renderMermaid(FIXTURE, unknown),
+                            "an unknown active state is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> WorkflowDiagramGenerator.renderAscii(FIXTURE, unknown)));
+                            () -> WorkflowDiagramGenerator.renderAscii(FIXTURE, unknown),
+                            "an unknown active state is refused"));
         }
 
         @Test
@@ -210,7 +213,8 @@ class WorkflowDiagramGeneratorTest {
                     .takeWhile(line -> !line.startsWith("├") && !line.startsWith("└")).toList();
             assertAll(() -> assertEquals(2, block.size(), String.join("\n", block)),
                     () -> assertTrue(block.get(1).startsWith("│  task reviewer "), block.get(1)),
-                    () -> assertTrue(block.stream().allMatch(line -> line.contains(" │ - ")), "no task link"),
+                    () -> assertTrue(block.stream().allMatch(line -> line.contains(" │ - ")),
+                            "no link leaves the task state"),
                     () -> assertTrue(block.get(0).contains("approved -> build.commit"), block.get(0)),
                     () -> assertTrue(block.get(1).contains("lost -> diagram.failed"), block.get(1)));
         }
@@ -455,9 +459,9 @@ class WorkflowDiagramGeneratorTest {
             var second = render.apply(DiagramFixtures.instance(), null);
 
             assertAll(form, () -> assertArrayEquals(first.getBytes(StandardCharsets.UTF_8),
-                            second.getBytes(StandardCharsets.UTF_8)),
-                    () -> assertFalse(first.contains("\r"), "carriage return"),
-                    () -> assertTrue(first.endsWith("\n"), "last line feed"));
+                            second.getBytes(StandardCharsets.UTF_8), "a second rendering gives identical bytes"),
+                    () -> assertFalse(first.contains("\r"), "no carriage return appears"),
+                    () -> assertTrue(first.endsWith("\n"), "the text ends with a line feed"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -512,7 +516,7 @@ class WorkflowDiagramGeneratorTest {
 
             assertAll(() -> assertTrue(rendered.contains("|Active state\n|`finalize.merge-gate`\n"), rendered),
                     () -> assertTrue(WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, null)
-                            .contains("|Active state\n|-\n"), "no active state"));
+                            .contains("|Active state\n|-\n"), "no active state is named"));
         }
 
         @Test
@@ -522,7 +526,8 @@ class WorkflowDiagramGeneratorTest {
                     DiagramFixtures.WAIVED_GATE);
 
             assertAll(() -> assertTrue(rendered.contains("│ *finalize.merge-gate "), rendered),
-                    () -> assertEquals(1, rendered.lines().filter(line -> line.contains("(ACTIVE)")).count()),
+                    () -> assertEquals(1, rendered.lines().filter(line -> line.contains("(ACTIVE)")).count(),
+                            "the active mark appears on one line"),
                     () -> assertFalse(WorkflowDiagramGenerator.renderInstanceAscii(instance, null)
                             .contains("(ACTIVE)"), "no mark without an active state"));
         }
@@ -535,9 +540,11 @@ class WorkflowDiagramGeneratorTest {
             assertAll(form,
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> render.apply(instance,
-                                    "finalize.unknown-" + Generators.longs(1, Long.MAX_VALUE).next())),
+                                    "finalize.unknown-" + Generators.longs(1, Long.MAX_VALUE).next()),
+                            "an unknown active state is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> render.apply(instance, "finalize.merge-dispatch")));
+                            () -> render.apply(instance, "finalize.merge-dispatch"),
+                            "a pruned active state is refused"));
         }
 
         @ParameterizedTest(name = "{0}")
