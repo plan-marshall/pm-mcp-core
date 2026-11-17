@@ -14,10 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
+import com.networknt.schema.Schema;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Arrays;
@@ -32,6 +29,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 import de.planmarshall.core.queue.ActivityEntry.LinkRelation;
 import de.planmarshall.core.queue.ActivityEntry.Source;
 import de.planmarshall.core.queue.ActivityEntry.StopReason;
@@ -101,15 +99,14 @@ class TaskQueueSchemaParityTest {
         return Arrays.stream(values).map(wireName).collect(Collectors.toUnmodifiableSet());
     }
 
-    private static JsonSchema validator(String resourcePath) {
-        return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
-                .getSchema(SchemaResource.text(resourcePath));
+    private static Schema validator(String resourcePath) {
+        return SchemaValidation.compile(SchemaResource.text(resourcePath));
     }
 
-    private static void assertValid(JsonSchema validator, byte[] document) {
+    private static void assertValid(Schema validator, byte[] document) {
         var written = new String(document, UTF_8);
 
-        assertEquals(Set.of(), validator.validate(written, InputFormat.JSON), () -> "violations of " + written);
+        assertEquals(List.of(), SchemaValidation.validate(validator, written), () -> "violations of " + written);
     }
 
     @Nested

@@ -95,11 +95,16 @@ class TaskProtocolContinuationTest {
         var wait = protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT.plusSeconds(3));
 
         assertAll(
-                () -> assertEquals(Status.AWAITING_ANSWER, held.status()),
-                () -> assertEquals(TaskFixtures.GENERATION, held.lease().generationId()),
-                () -> assertEquals(1, held.attempts().size()),
-                () -> assertEquals(0L, held.spentReOffers()),
-                () -> assertInstanceOf(CallResult.Refused.class, refused),
+                () -> assertEquals(Status.AWAITING_ANSWER, held.status(),
+                        "the hold leaves the task awaiting its answer"),
+                () -> assertEquals(TaskFixtures.GENERATION, held.lease().generationId(),
+                        "the hold keeps the lease of its generation"),
+                () -> assertEquals(1, held.attempts().size(),
+                        "the hold adds no second attempt"),
+                () -> assertEquals(0L, held.spentReOffers(),
+                        "a hold spends none of the re-offer budget"),
+                () -> assertInstanceOf(CallResult.Refused.class, refused,
+                        "a held task refuses its links"),
                 () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.AWAITING_ANSWER), wait,
                         "a held task waits for its answer"));
     }
@@ -121,15 +126,23 @@ class TaskProtocolContinuationTest {
         var acknowledged = protocol.acknowledgeAnswer(TaskFixtures.call(held), TaskFixtures.AT.plusSeconds(7));
         var submitted = protocol.submit(TaskFixtures.call(held), TaskFixtures.AT.plusSeconds(8));
 
-        var answered = assertInstanceOf(WaitAnswer.Answered.class, delivered);
+        var answered = assertInstanceOf(WaitAnswer.Answered.class, delivered,
+                "the answer reaches the pending wait");
         assertAll(
-                () -> assertEquals(held.queueTaskId(), answered.task().queueTaskId()),
-                () -> assertEquals(answer(), answered.answers()),
-                () -> assertInstanceOf(CallResult.Refused.class, beforeAck),
+                () -> assertEquals(held.queueTaskId(), answered.task().queueTaskId(),
+                        "the answered wait names the held task"),
+                () -> assertEquals(answer(), answered.answers(),
+                        "the wait delivers the recorded answer facts"),
+                () -> assertInstanceOf(CallResult.Refused.class, beforeAck,
+                        "the links stay refused before the answer ack"),
                 () -> assertEquals(Status.EXECUTING,
-                        assertInstanceOf(CallResult.Accepted.class, acknowledged).task().status()),
+                        assertInstanceOf(CallResult.Accepted.class, acknowledged, "the answer ack is accepted")
+                                .task().status(),
+                        "acknowledging the answer leaves the task executing"),
                 () -> assertEquals(Outcome.SUBMITTED,
-                        assertInstanceOf(CallResult.Accepted.class, submitted).task().outcome()));
+                        assertInstanceOf(CallResult.Accepted.class, submitted, "the submit is accepted")
+                                .task().outcome(),
+                        "the submitted task carries the submitted outcome"));
     }
 
     @Test
@@ -148,26 +161,39 @@ class TaskProtocolContinuationTest {
 
         protocol.answer("Q-001", answer(), TaskFixtures.AT.plusSeconds(4));
         var resumed = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(5));
-        var answered = assertInstanceOf(WaitAnswer.Answered.class, resumed);
+        var answered = assertInstanceOf(WaitAnswer.Answered.class, resumed,
+                "the resumed suspension is offered with its answer");
         var repeated = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(6));
         var stray = protocol.wait(TaskFixtures.waitFor(TaskFixtures.THIRD), TaskFixtures.AT.plusSeconds(6));
         var acknowledged = protocol.acknowledgeAnswer(
                 new TaskCall(answered.task().queueTaskId(), TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(7));
 
         assertAll(
-                () -> assertEquals(Status.SUSPENDED, suspended.status()),
-                () -> assertNull(suspended.lease()),
-                () -> assertEquals(AttemptEnd.SUSPENDED, suspended.currentAttempt().orElseThrow().end()),
-                () -> assertEquals(TaskFixtures.SUCCESSOR, answered.task().lease().generationId()),
-                () -> assertEquals(answer(), answered.answers()),
-                () -> assertEquals(answer(), assertInstanceOf(WaitAnswer.Answered.class, repeated).answers(),
+                () -> assertEquals(Status.SUSPENDED, suspended.status(),
+                        "the suspension leaves the task suspended"),
+                () -> assertNull(suspended.lease(),
+                        "the suspended task holds no lease"),
+                () -> assertEquals(AttemptEnd.SUSPENDED, suspended.currentAttempt().orElseThrow().end(),
+                        "the current attempt ends as suspended"),
+                () -> assertEquals(TaskFixtures.SUCCESSOR, answered.task().lease().generationId(),
+                        "the successor holds the new generation"),
+                () -> assertEquals(answer(), answered.answers(),
+                        "the resumed offer carries the answer facts"),
+                () -> assertEquals(answer(),
+                        assertInstanceOf(WaitAnswer.Answered.class, repeated, "the retried wait is answered")
+                                .answers(),
                         "a retried wait answers with the same facts"),
                 () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), stray,
                         "a neighbouring wait keeps the answer of the resumed task"),
                 () -> assertEquals(Status.EXECUTING,
-                        assertInstanceOf(CallResult.Accepted.class, acknowledged).task().status()),
-                () -> assertEquals(2, assertInstanceOf(CallResult.Accepted.class, acknowledged).task()
-                        .attempts().size()));
+                        assertInstanceOf(CallResult.Accepted.class, acknowledged, "the resumed ack is accepted")
+                                .task().status(),
+                        "acknowledging the resumed offer leaves it executing"),
+                () -> assertEquals(2,
+                        assertInstanceOf(CallResult.Accepted.class, acknowledged, "the acknowledged call is accepted")
+                                .task()
+                                .attempts().size(),
+                        "the acknowledged offer counts two attempts"));
     }
 
     @Test
@@ -185,9 +211,12 @@ class TaskProtocolContinuationTest {
         var successor = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(5));
 
         assertAll(
-                () -> assertEquals("Q-001", queue.read(TASK).orElseThrow().continuation().questionId()),
+                () -> assertEquals("Q-001", queue.read(TASK).orElseThrow().continuation().questionId(),
+                        "the fence keeps the continuation question"),
                 () -> assertEquals(answer(),
-                        assertInstanceOf(WaitAnswer.Answered.class, successor).answers()));
+                        assertInstanceOf(WaitAnswer.Answered.class, successor, "the successor wait is answered")
+                                .answers(),
+                        "the successor receives the stored answer"));
     }
 
     @Test
@@ -205,12 +234,18 @@ class TaskProtocolContinuationTest {
                 FallbackReason.HOLD_EXPIRED, TaskFixtures.AT.plusSeconds(700))).task();
 
         assertAll(
-                () -> assertEquals(Status.CLOSED, closed.status()),
-                () -> assertEquals(Outcome.ASKED, closed.outcome()),
-                () -> assertEquals("Q-001", closed.questionId()),
-                () -> assertEquals(FallbackReason.HOLD_EXPIRED, closed.continuation().fallbackReason()),
-                () -> assertNull(closed.lease()),
-                () -> assertEquals(AttemptEnd.CLOSED, closed.currentAttempt().orElseThrow().end()));
+                () -> assertEquals(Status.CLOSED, closed.status(),
+                        "the fallback closes the asked task"),
+                () -> assertEquals(Outcome.ASKED, closed.outcome(),
+                        "the closed task carries the asked outcome"),
+                () -> assertEquals("Q-001", closed.questionId(),
+                        "the closed task keeps its question id"),
+                () -> assertEquals(FallbackReason.HOLD_EXPIRED, closed.continuation().fallbackReason(),
+                        "the fallback reason is the hold expiry"),
+                () -> assertNull(closed.lease(),
+                        "the fallback releases the lease"),
+                () -> assertEquals(AttemptEnd.CLOSED, closed.currentAttempt().orElseThrow().end(),
+                        "the fallback ends the attempt as closed"));
     }
 
     @Test
@@ -229,12 +264,16 @@ class TaskProtocolContinuationTest {
         var closed = protocol.fallback(TASK, FallbackReason.SESSION_MISSING, TaskFixtures.AT.plusSeconds(4000));
 
         assertAll(
-                () -> assertTrue(closed.isPresent()),
-                () -> assertEquals(Outcome.ASKED, closed.orElseThrow().outcome()),
+                () -> assertTrue(closed.isPresent(),
+                        "the server falls back the suspended task"),
+                () -> assertEquals(Outcome.ASKED, closed.orElseThrow().outcome(),
+                        "the fallen-back task carries the asked outcome"),
                 () -> assertEquals(FallbackReason.SESSION_MISSING,
-                        closed.orElseThrow().continuation().fallbackReason()),
+                        closed.orElseThrow().continuation().fallbackReason(),
+                        "the fallback reason is the missing session"),
                 () -> assertEquals(AttemptEnd.SUSPENDED,
-                        closed.orElseThrow().currentAttempt().orElseThrow().end()));
+                        closed.orElseThrow().currentAttempt().orElseThrow().end(),
+                        "the attempt ends as suspended"));
     }
 
     @Test
@@ -256,8 +295,10 @@ class TaskProtocolContinuationTest {
 
         assertAll(
                 () -> assertEquals(0, endedAttempts, "a suspended task holds no attempt to end"),
-                () -> assertEquals(Status.SUSPENDED, afterPause.status()),
-                () -> assertNull(afterPause.lease()),
+                () -> assertEquals(Status.SUSPENDED, afterPause.status(),
+                        "the pause leaves the suspended task suspended"),
+                () -> assertNull(afterPause.lease(),
+                        "the suspended task still holds no lease"),
                 () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), wait,
                         "a suspended task is answered no task"));
     }
@@ -280,7 +321,9 @@ class TaskProtocolContinuationTest {
                 () -> assertEquals(TASK, delivered.orElseThrow().queueTaskId(),
                         "a fenced continuation still receives its answer"),
                 () -> assertEquals(answer(),
-                        assertInstanceOf(WaitAnswer.Answered.class, successor).answers()));
+                        assertInstanceOf(WaitAnswer.Answered.class, successor, "the fenced wait is answered")
+                                .answers(),
+                        "the successor receives the answer after the fence"));
     }
 
     @Test
@@ -296,11 +339,15 @@ class TaskProtocolContinuationTest {
         var closed = protocol.fallback(TASK, FallbackReason.HOLD_EXPIRED, TaskFixtures.AT.plusSeconds(700));
 
         assertAll(
-                () -> assertTrue(closed.isPresent()),
-                () -> assertEquals(Outcome.ASKED, closed.orElseThrow().outcome()),
+                () -> assertTrue(closed.isPresent(),
+                        "the server falls back the expired hold"),
+                () -> assertEquals(Outcome.ASKED, closed.orElseThrow().outcome(),
+                        "the fallen-back hold carries the asked outcome"),
                 () -> assertEquals(FallbackReason.HOLD_EXPIRED,
-                        closed.orElseThrow().continuation().fallbackReason()),
-                () -> assertNull(closed.orElseThrow().lease()));
+                        closed.orElseThrow().continuation().fallbackReason(),
+                        "the hold fallback reason is the hold expiry"),
+                () -> assertNull(closed.orElseThrow().lease(),
+                        "the fallback of the hold releases the lease"));
     }
 
     @Test
@@ -325,10 +372,13 @@ class TaskProtocolContinuationTest {
         var scoped = protocol.answer(planB, "Q-001", answer(), TaskFixtures.AT.plusSeconds(4));
 
         assertAll(
-                () -> assertEquals(Status.AWAITING_ANSWER, heldA.status()),
-                () -> assertEquals(Status.AWAITING_ANSWER, heldB.status()),
+                () -> assertEquals(Status.AWAITING_ANSWER, heldA.status(),
+                        "the first held task awaits its answer"),
+                () -> assertEquals(Status.AWAITING_ANSWER, heldB.status(),
+                        "the second held task awaits its answer"),
                 () -> assertTrue(ambiguous.isEmpty(), "a bare question id names no scope"),
-                () -> assertEquals("qt-0000000000000002", scoped.orElseThrow().queueTaskId()));
+                () -> assertEquals("qt-0000000000000002", scoped.orElseThrow().queueTaskId(),
+                        "the scoped answer reaches the plan-b task"));
     }
 
     /** A task offered to, and acknowledged by, the named generation. */
@@ -346,6 +396,7 @@ class TaskProtocolContinuationTest {
         queue.create(TaskFixtures.queued(TASK, TaskFixtures.ROLE).build());
         var protocol = protocol(queue, locks);
 
-        assertTrue(protocol.answer("Q-999", answer(), TaskFixtures.AT).isEmpty());
+        assertTrue(protocol.answer("Q-999", answer(), TaskFixtures.AT).isEmpty(),
+                "an answer to an unknown question reaches no task");
     }
 }

@@ -129,13 +129,18 @@ class PlanHistoryEngineTest {
                 () -> assertEquals(List.of("entered", "left", "entered", "left", "entered"),
                         lines.stream().map(line -> line.event().wireName()).toList(), lines::toString),
                 () -> assertEquals(List.of("execute.first", "execute.first", "execute.second", "execute.second",
-                        "completed"), lines.stream().map(PlanHistoryLine::node).toList()),
+                                "completed"), lines.stream().map(PlanHistoryLine::node).toList(),
+                        "the lines name the states entered and left"),
                 () -> assertEquals(List.of("done", "done"), lines.stream().filter(line -> line.event()
-                        == PlanHistoryLine.Event.LEFT).map(PlanHistoryLine::outcome).toList()),
-                () -> assertEquals(List.of(1L, 2L, 3L, 4L, 5L), lines.stream().map(PlanHistoryLine::seq).toList()),
-                () -> assertTrue(lines.stream().allMatch(line -> line.instanceVersion() == INSTANCE_VERSION)),
-                () -> assertTrue(lines.stream().allMatch(line -> EXECUTE.equals(line.phase()))),
-                () -> assertEquals("completed", store.read().orElseThrow().state()));
+                                == PlanHistoryLine.Event.LEFT).map(PlanHistoryLine::outcome).toList(),
+                        "both left lines carry the outcome done"),
+                () -> assertEquals(List.of(1L, 2L, 3L, 4L, 5L), lines.stream().map(PlanHistoryLine::seq).toList(),
+                        "the line numbers run without a gap"),
+                () -> assertTrue(lines.stream().allMatch(line -> line.instanceVersion() == INSTANCE_VERSION),
+                        "every line names the instance version"),
+                () -> assertTrue(lines.stream().allMatch(line -> EXECUTE.equals(line.phase())),
+                        "every line carries the execute phase"),
+                () -> assertEquals("completed", store.read().orElseThrow().state(), "the status ends in completed"));
     }
 
     @Test
@@ -149,9 +154,10 @@ class PlanHistoryEngineTest {
 
         var lines = history.read().records();
         assertAll(
-                () -> assertEquals("completed", store.read().orElseThrow().state()),
-                () -> assertEquals(lines.size(), lines.stream().map(PlanHistoryLine::seq).distinct().count()),
-                () -> assertEquals(1L, lines.getFirst().seq()),
+                () -> assertEquals("completed", store.read().orElseThrow().state(), "the second advance ends the plan"),
+                () -> assertEquals(lines.size(), lines.stream().map(PlanHistoryLine::seq).distinct().count(),
+                        "every line has its own number"),
+                () -> assertEquals(1L, lines.getFirst().seq(), "the first line is number one"),
                 () -> assertTrue(lines.size() > 5, lines::toString));
     }
 
@@ -181,8 +187,9 @@ class PlanHistoryEngineTest {
                         && "execute.run".equals(line.node()) && "succeeded".equals(line.outcome())), lines::toString),
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.ENTERED
                         && "completed".equals(line.node())), lines::toString),
-                () -> assertTrue(lines.stream().allMatch(line -> line.instanceVersion() == INSTANCE_VERSION)),
-                () -> assertEquals("completed", store.read().orElseThrow().state()));
+                () -> assertTrue(lines.stream().allMatch(line -> line.instanceVersion() == INSTANCE_VERSION),
+                        "every line names the instance version"),
+                () -> assertEquals("completed", store.read().orElseThrow().state(), "the settled run ends completed"));
     }
 
     @Test

@@ -16,10 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
+import com.networknt.schema.Schema;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
@@ -27,11 +24,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 
 /**
  * {@link ModelCatalogueCodec} keeps parity with the schema of Store Schemas § Model Catalogue: an empty catalogue carries
@@ -95,7 +92,7 @@ class ModelCatalogueSchemaParityTest {
         var written = ModelCatalogueCodec.write(Map.of("opencode",
                 List.of(new CatalogueModel("deepseek-v4.1", ModelSource.OPERATOR, recorded))), 1);
 
-        assertEquals(Set.of(), validator().validate(new String(written, UTF_8), InputFormat.JSON),
+        assertEquals(List.of(), SchemaValidation.validate(validator(), new String(written, UTF_8)),
                 () -> "The written catalogue is valid: " + new String(written, UTF_8));
     }
 
@@ -107,12 +104,12 @@ class ModelCatalogueSchemaParityTest {
                         Instant.parse("2026-11-14T10:00:00Z")))), 1), UTF_8);
         var extended = written.substring(0, written.length() - 1) + ",\"undeclared_member\":1}";
 
-        assertFalse(validator().validate(extended, InputFormat.JSON).isEmpty(),
+        assertFalse(SchemaValidation.validate(validator(), extended).isEmpty(),
                 "an undeclared catalogue member should be refused");
     }
 
-    private static JsonSchema validator() {
-        return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(SchemaResource.text(SCHEMA));
+    private static Schema validator() {
+        return SchemaValidation.compile(SchemaResource.text(SCHEMA));
     }
 
     private static Map<?, ?> document(byte[] written) {

@@ -21,11 +21,11 @@ and lifecycle: link:../ImplementationWatch.adoc[Implementation Watch].
 
 Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#_deterministic_init_classifiers_workflow_settings[Phase Workflows § Deterministic Init Classifiers & Workflow Settings],
 link:../specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store]
-Hazard:: The scope-creep guard read a baseline SHA that nothing wrote, on every plan, and reported
-`could_not_look/no_baseline_sha`.
+Hazard:: The scope-creep guard read a baseline SHA that nothing wrote, on every plan, and reported that it could not
+evaluate for want of a baseline SHA.
 Guard:: A test asserts the baseline SHA is present on every plan after init and that the guard's not-evaluable path
 is unreachable on a healthy plan.
-Fixture:: API-Sheriff PLAN-07 and PLAN-10 `could_not_look/no_baseline_sha`.
+Fixture:: API-Sheriff PLAN-07 and PLAN-10, whose scope-creep guard could not evaluate for want of a baseline SHA.
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-145 item -012.
 
 [#PM-WATCH-PHASE-67]

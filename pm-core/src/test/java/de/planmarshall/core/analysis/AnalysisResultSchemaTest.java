@@ -13,16 +13,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
+import com.networknt.schema.Schema;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +28,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 import de.planmarshall.core.analysis.AnalysisResult.Comparator;
 import de.planmarshall.core.analysis.AnalysisResult.Condition;
 import de.planmarshall.core.analysis.AnalysisResult.CountStatus;
@@ -58,12 +55,11 @@ class AnalysisResultSchemaTest {
     private static final String ANALYSIS_REF = Generators.letterStrings(5, 20).next();
     private static final int PULL_REQUEST = Generators.integers(1, 10_000).next();
 
-    private static JsonSchema schema;
+    private static Schema schema;
 
     @BeforeAll
     static void readSchema() {
-        schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
-                .getSchema(SchemaResource.text(SCHEMA));
+        schema = SchemaValidation.compile(SchemaResource.text(SCHEMA));
     }
 
     static Stream<Arguments> fixtures() {
@@ -90,8 +86,8 @@ class AnalysisResultSchemaTest {
                         AnalysisStatus.NOT_RUN, null, CountStatus.INDETERMINATE, null, 0, false, null, AT)));
     }
 
-    private static Set<?> validate(String line) {
-        return schema.validate(line, InputFormat.JSON);
+    private static List<?> validate(String line) {
+        return SchemaValidation.validate(schema, line);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -100,7 +96,7 @@ class AnalysisResultSchemaTest {
     void writtenLineIsValid(String name, AnalysisResult result) {
         var line = new String(AnalysisResultCodec.write(result), UTF_8);
 
-        assertEquals(Set.of(), validate(line), () -> "violations of " + line);
+        assertEquals(List.of(), validate(line), () -> "violations of " + line);
     }
 
     @Test

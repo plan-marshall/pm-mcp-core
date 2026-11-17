@@ -27,9 +27,9 @@ import de.planmarshall.core.queue.SecretRedactor;
  * {@link #stored(String)}, which redacts the credential shapes and then stores at most 500 characters of the message: the
  * redaction runs first, so a cut value cannot keep a prefix the redactor would have matched whole. Both parsers use this
  * one implementation, so the two identities cannot drift apart, and every parser that files a {@link Diagnostic} passes
- * its message through {@code stored} (the OpenRewrite log parser files its own {@code RewriteFinding} records instead);
- * the one model field the seam does not reach — the collected stack trace — is redacted in the {@link Diagnostic}
- * constructor.
+ * its message through {@code stored} (the OpenRewrite log parser files its own {@code RewriteFinding} records, which redact
+ * their path and message in their constructor); the collected stack trace reaches the same redaction and the same bound in
+ * the {@link Diagnostic} constructor, which redacts the file too.
  *
  * @since 0.1
  */
@@ -94,6 +94,26 @@ class DiagnosticCollector {
     static Optional<String> storedOrEmpty(String message) {
         String stored = stored(message);
         return stored.isBlank() ? Optional.empty() : Optional.of(stored);
+    }
+
+    /**
+     * Redacts a collected stack trace and cuts it to the stored length, never splitting a surrogate pair.
+     * <p>
+     * A stack frame's credential therefore cannot leave a longer residue than a stored message, and the store never
+     * holds half of a pair.
+     *
+     * @param stackTrace the frames collected for a diagnostic, joined by {@code \n}
+     * @return the redacted stack trace, or its first {@value #MAX_MESSAGE_LENGTH} characters
+     */
+    static String storedTrace(String stackTrace) {
+        var redacted = SecretRedactor.redactText(stackTrace).orElseThrow();
+        if (redacted.length() <= MAX_MESSAGE_LENGTH) {
+            return redacted;
+        }
+        var end = Character.isHighSurrogate(redacted.charAt(MAX_MESSAGE_LENGTH - 1))
+                ? MAX_MESSAGE_LENGTH - 1
+                : MAX_MESSAGE_LENGTH;
+        return redacted.substring(0, end);
     }
 
     private static String truncate(String text, int maxLength) {

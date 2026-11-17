@@ -66,6 +66,7 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-27[PM-WF-27: Findings & Triage]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-30[PM-WF-30: PR Body & Landing Record]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-31[PM-WF-31: Lessons]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SVC-3[PM-SVC-3: Selective Upstream MCP Proxy & Provenance Tagging]_
 
 == Status: IN PROGRESS
 

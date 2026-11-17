@@ -15,10 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
+import com.networknt.schema.Schema;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,6 +28,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 
 /**
  * {@link EndpointProfile} and its reader {@link EndpointProfile#of(JsonNode)} keep parity with the schema of Harness
@@ -223,11 +221,11 @@ class EndpointProfileSchemaParityTest {
     }
 
     private static boolean schemaValid(String document) {
-        return validator().validate(document, InputFormat.JSON).isEmpty();
+        return SchemaValidation.validate(validator(), document).isEmpty();
     }
 
-    private static JsonSchema validator() {
-        return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(SchemaResource.text(SCHEMA));
+    private static Schema validator() {
+        return SchemaValidation.compile(SchemaResource.text(SCHEMA));
     }
 
     private static List<String> components(Class<? extends Record> type) {

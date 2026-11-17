@@ -1,0 +1,164 @@
+= ADR 028: The JSON Schema Validator Is on the 3.x Line
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-17
+
+== Context
+
+`com.networknt:json-schema-validator` is the validator the schema tests of `pm-core` check the documents their codecs
+write against (ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016]). It stood at 1.5.8, pinned by the
+property `version.json-schema-validator` of `pm-core/pom.xml`, because the parent chain does not manage it.
+
+Dependabot opened pull request #71 for 3.0.8 on 2026-10-15. Its diff is the one property line, and it cannot merge: the
+major line renamed the classes the schema tests import, so `build / quarkus-alignment` and the two build jobs fail with
+`cannot find symbol` for `JsonSchema`, `JsonSchemaFactory` and `SpecVersion` before any test runs. The 1.5 line receives
+no Jackson 3 security fix. The release notes that #71 quotes name one: 3.0.7 "upgrade jackson to 3.2.1 to resolve a
+security vulnerability", and 3.0.8 and 3.0.9 name Jackson 3.1.8. The notes are the source; the lane read the POMs and
+the library's sources, not the upstream changelog.
+
+Jackson 3 lives under `tools.jackson.*`, a different package root from the Jackson 2 `com.fasterxml.jackson.*` whose
+streaming API the production code of `pm-core`, `pm-workflow` and `pm-runtime` uses. Both lines therefore coexist on one
+classpath, and only the test classpath of `pm-core` gains the new one.
+
+Dependabot opened pull request #383 for 3.0.9 on 2026-11-15. B3 of the work package answers the version question: 3.0.8
+from the pull request, "a newer 3.x only if the lane reads its POM first and reports it". The lane read the 3.0.9 POM:
+it keeps `tools.jackson.core:jackson-databind` and `tools.jackson.dataformat:jackson-dataformat-yaml` as its Jackson 3
+coordinates, and the classes the tests rely on — `SchemaRegistry`, `Schema`, `SpecificationVersion`, `InputFormat`,
+`Error` — are unchanged across 3.0.8 and 3.0.9. The plan therefore takes 3.0.9.
+
+== Decision
+
+* *The line.* The validator moves from 1.5.8 to 3.0.9. The property `version.json-schema-validator` in
+  `pm-core/pom.xml` holds the version, and its comment says what the line is for.
+* *No parent change.* The version stays a property of `pm-core`; `plan-marshall/pm-mcp-parent` is not touched (B2,
+  operator `a1`). A parent decision would be a pull request in another repository and a deploy before this repository
+  could use it.
+* *Jackson 3 is accepted.* Jackson 3 joins the test classpath of `pm-core` as a transitive family of the validator (B1,
+  operator `a1`): `tools.jackson.core:jackson-databind` 3.1.8, `tools.jackson.core:jackson-core` 3.1.8,
+  `tools.jackson.dataformat:jackson-dataformat-yaml` 3.1.8, `com.fasterxml.jackson.core:jackson-annotations` 2.21 (the
+  Jackson 2 annotation artifact Jackson 3 still depends on), plus `com.ethlo.time:itu` 1.17.0,
+  `org.snakeyaml:snakeyaml-engine` 3.0.1 and `org.slf4j:slf4j-api`. Every one is `test` scope.
+* *One helper, not fourteen copies.* The validator call is the test helper `SchemaValidation` of `pm-core`
+  (`pm-core/src/test/java/de/planmarshall/core/SchemaValidation.java`): `compile(String)` builds a schema from schema
+  text through a cached `SchemaRegistry` with draft 2020-12 as the default dialect, and `validate(Schema, String)`
+  returns the `List` of `Error` items. The fourteen schema tests — the nine of the work package plus the five the head
+  added — call it, and so does the one test that consumes `ItemGeneratorTest.violations`, `CorpusImportTest` (B5, operator "b use
+  helper"; the orchestrator had recommended the edit per class). The helper is in
+  the test tree and deliberately not in the published `pm-core:tests` artifact, which carries the generator package,
+  the assertion-message scanner and `SchemaResource` (ADR link:012-generator-artifacts.adoc[012]): the library's types
+  are not handed to a consumer.
+* *The validator stays out of production.* It is `test` scope in `pm-core` alone, on no production classpath of this
+  repository and on none of the `pm-mcpd` native build (ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016],
+  ADR link:../../pm-core/doc/adr/core-profile/001-hand-written-closed-validator-over-jackson-core.adoc[core-profile/001]).
+* *#71 and #383 are superseded.* #71 was closed on 2026-11-10 with a comment naming this work package (B6, operator
+  "c: close"). #383 is superseded by the 3.0.9 line this pull request delivers; dependabot closes it the same way.
+
+=== The API difference the change absorbs
+
+* `com.networknt.schema.JsonSchemaFactory` becomes `com.networknt.schema.SchemaRegistry`, built with
+  `SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)`.
+* `com.networknt.schema.SpecVersion.VersionFlag.V202012` becomes `SpecificationVersion.DRAFT_2020_12`.
+* `com.networknt.schema.JsonSchema` becomes `com.networknt.schema.Schema`.
+* `validate(String, InputFormat)` keeps its name and arguments, and its result changes from
+  `Set<ValidationMessage>` to `List<Error>`; `com.networknt.schema.ValidationMessage` becomes
+  `com.networknt.schema.Error`, whose `getMessage()` carries the same text.
+* No change of what a schema accepts was observed. The twelve positive checks and the negative controls of the
+  fourteen classes pass with their schema files, specification blocks, codecs and expected values unchanged, so no
+  `format`, `$ref` or `unevaluatedProperties` difference surfaced. The `date-time` change the 3.0.9 notes mention is not
+  exercised: at draft 2020-12 a `format` keyword is an annotation unless format assertions are enabled, and the tests
+  enable none.
+
+=== What the dependency tree resolves
+
+`dependency:tree` of `pm-core` (build `maven-2026-11-17-073252.log` of the plan's build results):
+
+[source,text]
+----
+com.networknt:json-schema-validator:3.0.9:test
++- com.ethlo.time:itu:1.17.0:test
++- tools.jackson.core:jackson-databind:3.1.8:test
+|  +- com.fasterxml.jackson.core:jackson-annotations:2.21:test (version managed from 2.21)
+|  \- tools.jackson.core:jackson-core:3.1.8:test
++- tools.jackson.dataformat:jackson-dataformat-yaml:3.1.8:test
+|  +- (tools.jackson.core:jackson-core:3.1.8:test - omitted for duplicate)
+|  +- (tools.jackson.core:jackson-databind:3.1.8:test - omitted for duplicate)
+|  \- org.snakeyaml:snakeyaml-engine:3.0.1:test
+\- org.slf4j:slf4j-api:2.0.18:test (version managed from 2.0.20)
+----
+
+The winners are the versions the validator 3.0.9 was released against: it declares Jackson 3.1.8 itself, and
+`jackson-databind` 3.1.8 declares `jackson-annotations` 2.21, which the parent chain manages at the same 2.21 — no
+downgrade. `jackson-core` (Jackson 2) stays at 2.21.7 on the compile classpath, unchanged. The one managed downgrade is
+`org.slf4j:slf4j-api` from the validator's 2.0.20 to the 2.0.18 the parent chain manages for the whole repository; the
+same 2.0.18 already overrides archunit's 2.0.19 on this module before this plan. The operator was asked on 2026-11-17,
+because B1 requires a stop on a managed downgrade, and accepted 3.0.9 as resolved.
+
+The enforcer executions of the root POM (`bannedDependencies`, and the parent's `RequireSameVersions` and convergence
+rules) pass with the Jackson 3 artifacts present. `BuildGuardsIT` and its fixture projects below `src/guard-controls`
+are untouched. A `dependency:tree` of every other module — `pm-workflow`, `pm-runtime` and the six provider modules
+(`pm-provider-ci`, `pm-provider-git`, `pm-provider-github`, `pm-provider-gitlab`, `pm-provider-http`,
+`pm-provider-sonar`) — resolves no Jackson 3 artifact and no validator: their classpaths are unchanged.
+
+== Alternatives Considered
+
+1. *Keep 1.5.8 and let #71 close.* Rejected: dependabot would rebase the bump forever, and the 1.5 line takes no Jackson
+   3 security fix.
+2. *Take 3.0.8, the pull request's version.* Not taken because the #383 rule of the work package makes 3.0.9 the target
+   once its POM keeps the Jackson 3 coordinates and the class names, which it does.
+3. *Move the version into `plan-marshall/pm-mcp-parent`.* Rejected by the operator (B2): a parent change is a pull
+   request in another repository, merged and deployed before this one can build.
+4. *Stay on the 2.x line (2.0.1).* The fallback if Jackson 3 had been declined (B4); it is moot because B1 was accepted,
+   and it is the option if a future tree shows a banned or non-test-scope artifact.
+5. *Edit each of the fourteen classes in place.* Rejected by the operator (B5) in favour of one shared helper; the
+   helper also keeps the library's entry points in one file for the next bump.
+
+== Consequences
+
+* `pm-core`'s test classpath holds the Jackson 3 family; its compile and runtime classpaths, and every other module's
+  classpaths, hold only the Jackson 2 `jackson-core` they held before. `pm-mcpd`'s native build is unaffected because no
+  compile or runtime coordinate of any module changed.
+* A later 3.x or 4.x bump is the property plus, if the entry points move again, `SchemaValidation` alone.
+* The schema files, the specification blocks, the codecs and the expected values are unchanged: a difference in what the
+  library accepts is a finding to report, never a reason to edit a schema.
+* The negative controls of the classes that have one remain the proof that the validator really ran: in a scratch run at
+  `6722c78a` the helper was made to compile `{}` instead of the loaded schema text — the schema the validator sees is
+  replaced by the empty schema, every document is accepted — and the run failed 27 times
+  (`Tests run: 150, Failures: 27`), every failure a negative control of its class:
+  `AnalysisResultSchemaTest.validatorRejectsUndeclaredMember`,
+  `ConsentSchemaParityTest.rejectingUndeclaredMember`,
+  `ModelCatalogueSchemaParityTest.rejectingUndeclaredMember`,
+  `RoleAssignmentsSchemaParityTest.rejectingUndeclaredMember`,
+  `PlanHistorySchemaParityTest.undeclaredMemberIsViolation`,
+  `LeaseOwnerSchemaParityTest.rejectingMissingHolder`, three in `EndpointProfileSchemaParityTest`,
+  `QualificationSchemaParityTest.documents`, the four controls of `CorpusSchemaResourcesTest` and the thirteen of
+  `RoleArtifactSchemaParityTest`. The four classes without a validator negative control (`TaskQueueSchemaParityTest`,
+  `ItemGeneratorTest`, `AuditSchemaParityTest`, `IntentSchemaParityTest`) keep the positive checks that fail if the
+  validator rejects a valid document. The log is
+  `.plan/local/plans/NO_PLAN/build-results/pm-core/maven-2026-11-17-075749.log`; the mutation was reverted and never
+  committed, so a positive check cannot hide a validator that stopped validating.
+* The four ADRs that name the library were read and are unchanged, because their sentences still hold: ADR
+  link:016-schemas-are-files-of-the-implementing-module.adoc[016] (its Consequences sentence "`networknt` stays a
+  test-scope dependency of `pm-core`", which the edits of PLAN-V2-122 moved to lines 71 and 72), ADR
+  link:../../pm-core/doc/adr/core-analysis/001-analysis-result-record-with-strict-canonical-codec.adoc[core-analysis/001]
+  (line 34, "pinned by the property `version.json-schema-validator`"), ADR
+  link:../../pm-core/doc/adr/core-profile/001-hand-written-closed-validator-over-jackson-core.adoc[core-profile/001]
+  (lines 17 and 31, test scope only), and ADR
+  link:../../pm-runtime/doc/adr/runtime-endpoint/003-answer-validated-against-a-closed-schema-subset.adoc[runtime-endpoint/003]
+  (line 15, test-scope dependency of `pm-core`).
+
+== Source
+
+* The work package `PLAN-V2-130` (`plans/PLAN-V2-130-json-schema-validator-3-upgrade.md` of the epic
+  `pm-mcp-core-m2-m4-v2`) and its pull request
+* Pull request #71 (`3.0.8`) and pull request #383 (`3.0.9`) of `plan-marshall/pm-mcp-core`
+* The POMs and sources of `com.networknt:json-schema-validator` 3.0.8 and 3.0.9 and of
+  `tools.jackson.core:jackson-databind` 3.1.8 (Maven Central)
+* ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016],
+  link:012-generator-artifacts.adoc[012] and
+  link:007-specifications-of-the-engine-in-this-repository.adoc[007]

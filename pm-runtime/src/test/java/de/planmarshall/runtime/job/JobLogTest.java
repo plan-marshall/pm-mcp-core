@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.config.LimitProperties;
+import de.planmarshall.core.queue.SecretRedactor;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.job.JobEvidence.LogState;
 import de.planmarshall.runtime.job.JobLog.Complete;
@@ -150,6 +151,49 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("redacts every line the incremental read hands out")
+        void redactsTheLinesItHandsOut() throws Exception {
+            append(report + "\n" + "token=abcd1234\n");
+
+            var lines = assertInstanceOf(Lines.class, log.readLines(0), "the read answers lines");
+
+            assertAll(
+                    () -> assertFalse(lines.lines().getFirst().contains("abcd1234"), "the line carries no secret"),
+                    () -> assertTrue(lines.lines().getFirst().contains(SecretRedactor.REDACTED),
+                            "the line keeps the redaction marker"));
+        }
+
+        @Test
+        @DisplayName("masks a key block whose BEGIN line came from an earlier read")
+        void masksAKeyBlockWindow() throws Exception {
+            append(report + "\n-----END RSA PRIVATE KEY-----\nnext line\n");
+
+            var lines = assertInstanceOf(Lines.class, log.readLines(0), "the read answers lines");
+
+            var text = String.join("\n", lines.lines());
+            assertAll(
+                    () -> assertFalse(text.contains("-----END RSA PRIVATE KEY-----"),
+                            "the interior block is masked"),
+                    () -> assertTrue(text.contains(SecretRedactor.REDACTED), "the window keeps the marker"),
+                    () -> assertTrue(text.contains("next line"), "the text after the END stays readable"));
+        }
+
+        @Test
+        @DisplayName("masks a key-block window whose END line carries an invisible character")
+        void masksAKeyBlockWindowWithAnInvisibleEnd() throws Exception {
+            // U+200B inside PRIVATE: the window's invisible characters are removed before the marker is searched
+            append(report + "\n-----END PRI\u200BVATE KEY-----\nnext line\n");
+
+            var lines = assertInstanceOf(Lines.class, log.readLines(0), "the read answers lines");
+
+            var text = String.join("\n", lines.lines());
+            assertAll(
+                    () -> assertFalse(text.contains("PRIVATE KEY-----"), "the split marker is masked"),
+                    () -> assertTrue(text.contains(SecretRedactor.REDACTED), "the window keeps the marker"),
+                    () -> assertTrue(text.contains("next line"), "the text after the END stays readable"));
+        }
+
+        @Test
         @DisplayName("is missing before the launcher created it, and truncated when shorter than the offset")
         void missingAndTruncated() throws Exception {
             var missing = assertInstanceOf(Unavailable.class, log.readLines(0), "a missing log is unavailable");
@@ -185,6 +229,33 @@ class JobLogTest {
             assertAll(
                     () -> assertEquals(output, reading.jobOutput(), "the job output follows the report"),
                     () -> assertEquals(Files.size(path), whole.length(), "the length is the size of the log"));
+        }
+
+        @Test
+        @DisplayName("redacts the job output it hands out (the read-out passes the redactor)")
+        void redactsTheJobOutput() throws Exception {
+            append(report + "\npassword=abcd1234\n");
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "a readable log is complete");
+            var reading = whole.reading();
+
+            assertAll(
+                    () -> assertFalse(reading.jobOutput().contains("abcd1234"), "the output carries no secret"),
+                    () -> assertTrue(reading.jobOutput().contains(SecretRedactor.REDACTED),
+                            "the output keeps the redaction marker"));
+        }
+
+        @Test
+        @DisplayName("redacts a credential in the detail of an unavailable read")
+        void redactsTheUnavailableDetail() {
+            var secretPath = new JobLog(directory.resolve("token=abcd1234.log"));
+
+            var missing = assertInstanceOf(Unavailable.class, secretPath.readWhole(0), "a missing log is unavailable");
+
+            assertAll(
+                    () -> assertFalse(missing.detail().contains("abcd1234"), "the detail carries no secret"),
+                    () -> assertTrue(missing.detail().contains(SecretRedactor.REDACTED),
+                            "the detail keeps the redaction marker"));
         }
 
         @Test

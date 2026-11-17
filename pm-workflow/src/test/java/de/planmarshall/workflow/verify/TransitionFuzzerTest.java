@@ -100,8 +100,10 @@ class TransitionFuzzerTest {
 
             var withoutGuard = planted.stream().filter(line -> !PLANTED_GUARD.equals(line)).toList();
 
-            assertAll(() -> assertEquals(planted.size() - 1, withoutGuard.size()),
-                    () -> assertEquals(statements(CONTROL), withoutGuard));
+            assertAll(() -> assertEquals(planted.size() - 1, withoutGuard.size(),
+                            "the planted unit states exactly one more line"),
+                    () -> assertEquals(statements(CONTROL), withoutGuard,
+                            "the remaining statements match the control"));
         }
     }
 
@@ -117,13 +119,18 @@ class TransitionFuzzerTest {
             assertTrue(report.foundDeadState(), report::toString);
             assertEquals(1, report.deadStates().size(), report::toString);
             var dead = report.deadStates().getFirst();
-            assertAll(() -> assertEquals(DEAD_STATE, dead.stateId()),
-                    () -> assertEquals(PLANTED, dead.location().resourceName()),
-                    () -> assertEquals(lineOf(PLANTED, "state " + DEAD_STATE), dead.location().line()),
-                    () -> assertEquals(Boolean.FALSE, dead.assignment().get(UnitGraph.IN_WORKTREE)),
+            assertAll(() -> assertEquals(DEAD_STATE, dead.stateId(),
+                            "the fuzzer names the planted dead state"),
+                    () -> assertEquals(PLANTED, dead.location().resourceName(),
+                            "the dead state is located in the planted unit"),
+                    () -> assertEquals(lineOf(PLANTED, "state " + DEAD_STATE), dead.location().line(),
+                            "the location names the line of the state declaration"),
+                    () -> assertEquals(Boolean.FALSE, dead.assignment().get(UnitGraph.IN_WORKTREE),
+                            "the witness assigns in_worktree false"),
                     () -> assertTrue(dead.run() >= 1 && dead.run() <= RUNS, () -> "run " + dead.run()),
-                    () -> assertEquals(CONFIGURATION, report.configuration()),
-                    () -> assertEquals(RUNS, report.runsExecuted()));
+                    () -> assertEquals(CONFIGURATION, report.configuration(),
+                            "the report keeps the fuzzing configuration"),
+                    () -> assertEquals(RUNS, report.runsExecuted(), "the fuzzer executes every configured run"));
         }
 
         @Test
@@ -133,7 +140,8 @@ class TransitionFuzzerTest {
 
             assertEquals(List.of(UnitGraph.HAS_OPEN_FINDINGS, UnitGraph.PREDICATE_PREFIX + TestPrimitives.READY,
                             UnitGraph.ALL_TASKS_COMPLETED, UnitGraph.IN_WORKTREE),
-                    List.copyOf(dead.assignment().keySet()));
+                    List.copyOf(dead.assignment().keySet()),
+                    "the witness draws the atoms in first-occurrence order");
         }
 
         @Test
@@ -142,7 +150,8 @@ class TransitionFuzzerTest {
             var atoms = TransitionFuzzer.atomsOf(control());
 
             assertEquals(List.of(UnitGraph.HAS_OPEN_FINDINGS, UnitGraph.PREDICATE_PREFIX + TestPrimitives.READY,
-                    UnitGraph.ALL_TASKS_COMPLETED), atoms);
+                            UnitGraph.ALL_TASKS_COMPLETED), atoms,
+                    "only the atoms the guards of the control name");
         }
 
         @Test
@@ -156,7 +165,7 @@ class TransitionFuzzerTest {
             assertAll(() -> assertEquals(List.of(DEAD_STATE),
                             report.deadStates().stream().map(DeadState::stateId).toList(), report::toString),
                     () -> assertEquals(1, report.deadStates().getFirst().run(), report::toString),
-                    () -> assertEquals(3, report.runsExecuted()));
+                    () -> assertEquals(3, report.runsExecuted(), "three runs are executed as configured"));
         }
 
         @Test
@@ -165,7 +174,7 @@ class TransitionFuzzerTest {
             var report = fuzzer.fuzz(control(), CONFIGURATION);
 
             assertAll(() -> assertFalse(report.foundDeadState(), report::toString),
-                    () -> assertEquals(RUNS, report.runsExecuted()));
+                    () -> assertEquals(RUNS, report.runsExecuted(), "the control executes every configured run"));
         }
 
         @Test
@@ -192,9 +201,9 @@ class TransitionFuzzerTest {
             assertAll(() -> assertEquals(List.of(DEAD_STATE),
                             report.deadStates().stream().map(DeadState::stateId).toList(), report::toString),
                     () -> assertEquals(Boolean.FALSE, report.deadStates().getFirst().assignment()
-                            .get(UnitGraph.IN_WORKTREE)),
+                            .get(UnitGraph.IN_WORKTREE), "the witness still assigns in_worktree false"),
                     () -> assertFalse(control.foundDeadState(), control::toString),
-                    () -> assertEquals(RUNS, report.runsExecuted()));
+                    () -> assertEquals(RUNS, report.runsExecuted(), "the report executes every configured run"));
         }
 
         @Test
@@ -217,7 +226,7 @@ class TransitionFuzzerTest {
 
             var second = fuzzer.fuzz(planted(), CONFIGURATION);
 
-            assertEquals(first, second);
+            assertEquals(first, second, "the same seed gives the same fuzz report");
         }
 
         @ParameterizedTest(name = "seed {0}")
@@ -228,7 +237,8 @@ class TransitionFuzzerTest {
 
             assertAll(() -> assertEquals(List.of(DEAD_STATE),
                             report.deadStates().stream().map(DeadState::stateId).toList(), report::toString),
-                    () -> assertFalse(report.deadStates().getFirst().assignment().get(UnitGraph.IN_WORKTREE)));
+                    () -> assertFalse(report.deadStates().getFirst().assignment().get(UnitGraph.IN_WORKTREE),
+                            "the seeded witness assigns in_worktree false"));
         }
     }
 
@@ -240,7 +250,8 @@ class TransitionFuzzerTest {
         @CsvSource({"0, 16", "-1, 16", "64, 0", "64, -5"})
         @DisplayName("Should refuse a count that is not positive")
         void shouldRefuseANonPositiveCount(int runs, int maxSteps) {
-            assertThrows(IllegalArgumentException.class, () -> new FuzzConfiguration(SEED, runs, maxSteps));
+            assertThrows(IllegalArgumentException.class, () -> new FuzzConfiguration(SEED, runs, maxSteps),
+                    "a non-positive count is refused");
         }
 
         @Test
@@ -248,8 +259,10 @@ class TransitionFuzzerTest {
         void shouldRefuseAMissingArgument() {
             var definition = planted();
 
-            assertAll(() -> assertThrows(NullPointerException.class, () -> fuzzer.fuzz(null, CONFIGURATION)),
-                    () -> assertThrows(NullPointerException.class, () -> fuzzer.fuzz(definition, null)));
+            assertAll(() -> assertThrows(NullPointerException.class, () -> fuzzer.fuzz(null, CONFIGURATION),
+                            "a missing unit definition is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> fuzzer.fuzz(definition, null),
+                            "a missing configuration is refused"));
         }
     }
 }

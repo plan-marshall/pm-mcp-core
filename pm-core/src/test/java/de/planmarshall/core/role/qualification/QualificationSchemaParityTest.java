@@ -15,11 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
-import com.networknt.schema.ValidationMessage;
+import com.networknt.schema.Error;
+import com.networknt.schema.Schema;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
@@ -38,6 +35,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.qualification.JudgeCheck.Label;
@@ -105,17 +103,16 @@ class QualificationSchemaParityTest {
         return Arrays.stream(values).map(wireName).collect(Collectors.toUnmodifiableSet());
     }
 
-    private static JsonSchema validator(String resource) {
-        return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
-                .getSchema(SchemaResource.text(resource));
+    private static Schema validator(String resource) {
+        return SchemaValidation.compile(SchemaResource.text(resource));
     }
 
-    private static Set<String> violations(JsonSchema validator, byte[] document) {
-        return validator.validate(new String(document, UTF_8), InputFormat.JSON).stream()
-                .map(ValidationMessage::getMessage).collect(Collectors.toUnmodifiableSet());
+    private static Set<String> violations(Schema validator, byte[] document) {
+        return SchemaValidation.validate(validator, new String(document, UTF_8)).stream()
+                .map(Error::getMessage).collect(Collectors.toUnmodifiableSet());
     }
 
-    private static void assertValid(JsonSchema validator, byte[] document) {
+    private static void assertValid(Schema validator, byte[] document) {
         assertEquals(Set.of(), violations(validator, document), () -> "violations of " + new String(document, UTF_8));
     }
 

@@ -53,15 +53,16 @@ class TaskProtocolOfferTest {
 
         var answer = protocol(queue, locks).wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT);
 
-        var offered = assertInstanceOf(WaitAnswer.Offered.class, answer);
+        var offered = assertInstanceOf(WaitAnswer.Offered.class, answer, "the queued task is offered to the caller");
         assertAll(
-                () -> assertEquals(task.queueTaskId(), offered.task().queueTaskId()),
-                () -> assertEquals(Status.OFFERED, offered.task().status()),
+                () -> assertEquals(task.queueTaskId(), offered.task().queueTaskId(), "the offer keeps the queue id"),
+                () -> assertEquals(Status.OFFERED, offered.task().status(), "the offered task is marked offered"),
                 () -> assertEquals(TaskFixtures.GENERATION,
-                        offered.task().lease().generationId()),
+                        offered.task().lease().generationId(), "the lease names the offered generation"),
                 () -> assertEquals(TaskFixtures.DIGEST,
-                        offered.task().currentAttempt().orElseThrow().configurationDigest()),
-                () -> assertEquals(1, offered.task().attempts().size()));
+                        offered.task().currentAttempt().orElseThrow().configurationDigest(),
+                        "the attempt names the configuration digest"),
+                () -> assertEquals(1, offered.task().attempts().size(), "the offer opens exactly one attempt"));
     }
 
     @Test
@@ -76,9 +77,9 @@ class TaskProtocolOfferTest {
         var answer = protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT.plusSeconds(1));
 
         assertAll(
-                () -> assertEquals(1, queue.records().size()),
-                () -> assertEquals(1, TaskFixtures.task(answer).attempts().size()),
-                () -> assertEquals(Status.OFFERED, TaskFixtures.task(answer).status()));
+                () -> assertEquals(1, queue.records().size(), "the queue keeps a single record"),
+                () -> assertEquals(1, TaskFixtures.task(answer).attempts().size(), "the same offer adds no attempt"),
+                () -> assertEquals(Status.OFFERED, TaskFixtures.task(answer).status(), "the offer stays offered"));
     }
 
     @Test
@@ -95,7 +96,7 @@ class TaskProtocolOfferTest {
         assertAll(
                 () -> assertEquals(new WaitAnswer.End(WaitAnswer.EndReason.RECYCLED), answer,
                         "an outdated digest is answered recycled"),
-                () -> assertEquals(Status.QUEUED, queue.records().getFirst().status()));
+                () -> assertEquals(Status.QUEUED, queue.records().getFirst().status(), "the task stays queued"));
     }
 
     @Test
@@ -116,8 +117,8 @@ class TaskProtocolOfferTest {
         assertAll(
                 () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), whilePaused,
                         "a paused plan is answered no task"),
-                () -> assertEquals(Status.QUEUED, queuedWhilePaused),
-                () -> assertInstanceOf(WaitAnswer.Offered.class, afterStart));
+                () -> assertEquals(Status.QUEUED, queuedWhilePaused, "a paused plan leaves the task queued"),
+                () -> assertInstanceOf(WaitAnswer.Offered.class, afterStart, "the started plan offers the task"));
     }
 
     @Test
@@ -133,7 +134,8 @@ class TaskProtocolOfferTest {
         var second = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(1));
 
         assertAll(
-                () -> assertEquals("qt-0000000000000001", TaskFixtures.task(first).queueTaskId()),
+                () -> assertEquals("qt-0000000000000001",
+                        TaskFixtures.task(first).queueTaskId(), "the first writer is leased"),
                 () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), second,
                         "a second writer is answered no task"));
     }
@@ -151,8 +153,10 @@ class TaskProtocolOfferTest {
                 TaskFixtures.AT);
 
         assertAll(
-                () -> assertEquals(QueueTaskRecord.Kind.CONSULTATION, TaskFixtures.task(answer).kind()),
-                () -> assertEquals("qt-0000000000000002", TaskFixtures.task(answer).queueTaskId()));
+                () -> assertEquals(QueueTaskRecord.Kind.CONSULTATION,
+                        TaskFixtures.task(answer).kind(), "the consultation is offered first"),
+                () -> assertEquals("qt-0000000000000002",
+                        TaskFixtures.task(answer).queueTaskId(), "the consultation id is kept"));
     }
 
     @Test
@@ -169,9 +173,11 @@ class TaskProtocolOfferTest {
         var answer = protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT);
 
         assertAll(
-                () -> assertInstanceOf(WaitAnswer.Offered.class, answer),
-                () -> assertTrue(base.resolve("machine/queue/qt-0000000000000001.json").toFile().exists()),
-                () -> assertEquals(base.resolve("machine/queue").toAbsolutePath().normalize(), queue.directory()));
+                () -> assertInstanceOf(WaitAnswer.Offered.class, answer, "the machine queue offers the task"),
+                () -> assertTrue(base.resolve("machine/queue/qt-0000000000000001.json").toFile().exists(),
+                        "the task lives in the machine queue"),
+                () -> assertEquals(base.resolve("machine/queue").toAbsolutePath().normalize(),
+                        queue.directory(), "the store is the machine queue"));
     }
 
     @Test
@@ -188,6 +194,6 @@ class TaskProtocolOfferTest {
         assertAll(
                 () -> assertEquals(new WaitAnswer.End(WaitAnswer.EndReason.FENCED), answer,
                         "a fenced generation is answered end"),
-                () -> assertNull(queue.records().getFirst().lease()));
+                () -> assertNull(queue.records().getFirst().lease(), "the fenced task keeps no lease"));
     }
 }

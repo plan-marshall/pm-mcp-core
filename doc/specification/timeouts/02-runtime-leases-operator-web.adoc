@@ -315,7 +315,15 @@ The runtime owns every value of this section: it serves web access itself, on it
 |—
 |`POST /api/v1/transcriptions`; the `speech` job and the provider's call
 |A larger recording is refused `invalid_arguments`; an expired transcription ends the job (`timed_out`) or the call and answers `transcription_failed`; nothing is kept.
-|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#transcriptions[Runtime Model, Transcriptions]; link:../model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work, The Speech Role `transcribe`]
+|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#transcriptions[Runtime Model, Transcriptions]; link:../model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work, Speech Transcription (`transcribe`)]
+
+|[[chat-message-limit]]Chat message limit
+|`8000` characters per message of the operator (`text[1..8000]`)
+|fixed (compiled constant)
+|—
+|a message the operator sends into a chat (`POST …/chat/turns`, the link `message` of `chat.turn`)
+|A message outside the bound is refused `invalid_arguments` and records no turn.
+|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]; link:../state-catalogue.adoc#state-chat.turn[State Catalogue, `chat.turn`]
 
 |[[chat-page]]Chat transcript page and chat context
 |`50` turns per page of `GET …/chat`; a role's reply of at most `64` KiB (the chat reply bound). The chat core budget `chat_core_budget_tokens` `6000` tokens; the chat transcript window `chat_transcript_window_tokens` `12000` tokens; the chat idle release `chat_idle_release_seconds` `600` s.
@@ -324,4 +332,12 @@ The runtime owns every value of this section: it serves web access itself, on it
 |the transcript of a chat read by a client; the reply `chat.reply` writes; the core and the transcript window a chat's generation is primed with; the chat's warm worker between turns
 |A longer reply ends its job; the turn ends `failed` with the reason `too_long`. A long text of the core (a description, an epic's intent) is given as its start of at most 1 500 characters with its URI, and over the core budget a list of the core becomes its count with its URI, so nothing is lost; turns beyond the window are read by URI. A chat worker idle for the release is recycled, and at once where queued work waits for a slot; the chat never ends by time.
 |link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]; link:../state-catalogue.adoc#chat-context[State Catalogue, What a Chat Knows]; link:../model-work/03-supervision-and-recycling.adoc#chat-worker[Model Work, The Chat Worker]
+
+|[[plan-changes-bounds]]Plan changes bounds
+|`2000` lines per file answer (`plan_changes_file_lines`); `1000` files per list answer (`plan_changes_files`).
+|fixed (compiled constants)
+|—
+|the plan's changes read by a client: the list `GET /api/v1/plans/{plan_id}/changes` and the file `GET /api/v1/plans/{plan_id}/changes/file`
+|A longer file answers its hunks up to the bound, a longer list its files in path order up to the bound; either answer carries `truncated` with the count left out (lines of the file, files of the list).
+|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#plan-changes[Runtime Model, The Plan's Changes]
 |===

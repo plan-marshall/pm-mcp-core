@@ -59,7 +59,7 @@ class AuditLogSecurityAuditTest {
         JsonlStoreFile.Content content = auditLog.snapshot();
         var line = new String(content.lines().getFirst().content(), StandardCharsets.UTF_8);
         assertAll(
-                () -> assertEquals(1, content.lines().size()),
+                () -> assertEquals(1, content.lines().size(), "the audit log holds a single line"),
                 () -> assertTrue(line.contains("\"category\":\"security\""), line),
                 () -> assertTrue(line.contains("\"event\":\"agent_started\""), line),
                 () -> assertTrue(line.contains("\"actor\":\"supervisor\""), line),

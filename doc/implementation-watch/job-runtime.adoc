@@ -633,8 +633,8 @@ list reads as "every changed line is covered"; a line number from the older tree
 adds a test for code it did not write.
 Guard:: Fixtures: a changed file whose JaCoCo package path matches no source root records `not_derived` with
 `file_not_reported`, never an empty list; an Istanbul summary alone records `no_line_data`; a report older than the job
-records `stale_report`; a file edited after the report was written is refused the same way; a changed file with two
-uncovered ranges renders those two ranges and no line of an unchanged file. Matched control: the same change with every
+records `stale_report`; the changed lines are read from the changed-line set the job recorded at its start and keeps
+with its job record, never from the current working tree, so an edit after the start adds no line; a changed file with two uncovered ranges renders those two ranges and no line of an unchanged file. Matched control: the same change with every
 changed executable line run records an empty list with no cause.
 Source:: Article analysis `agentic-frontend-qa` of plan-marshall-documentation: the team hands its agent a compact
 coverage diff, and the join with the change is where an empty result can mean a miss.
@@ -745,12 +745,14 @@ worker writes `core.fsmonitor` into `.git/config`, a hook into `.git/hooks/`, or
 worktree at a git directory of its own; the next `git` the operator's shell prompt runs, or the next `git` job of the CLI
 variant, runs it with the operator's identity. The read-only mount misses the link file or a worktree created after the
 spawn; a digest that covers `.git/config` but not its includes, or the hook directory but not `core.hooksPath`, passes a
-change; the check runs after the commit job, which has already run a changed `.husky/pre-commit`.
+change; the check runs after the commit job, which has already run a changed `.husky/pre-commit`; a hold raised only on
+the plan whose worker changed the metadata, or released plan by plan, lets another plan of the project run `git` on it.
 Guard:: Integration tests on Linux and macOS with a writer worker of a fixture harness that writes `core.fsmonitor` into
 `.git/config`, an include file inside the repository, a hook, and the worktree's `.git` link file: every write fails with
 an ordinary error, and a sentinel file each program would write stays absent after a `git status` in the checkout; a
 fixture launcher without a mount namespace records `git_metadata: unenforced`, and the same writes then refuse the next
-`git` job with `git_metadata_changed` and a `security` record before it starts; a plan whose worker changes
+`git` job with `git_metadata_changed` and a `security` record before it starts, and hold every plan of the project at
+once as `integrity_hold` with the cause `git_metadata_changed`, which one confirmed `rebaseline` releases together; a plan whose worker changes
 `.husky/pre-commit` without declaring it is refused as a protected path before any commit job runs. Matched control: a
 worker that changes only tracked source files leaves the digest unchanged, and the commit job runs.
 Source:: Article analysis `promise-that-killed-atom-zed` of plan-marshall-documentation: Zed's agent sandbox keeps the git

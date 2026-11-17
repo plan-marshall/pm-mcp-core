@@ -85,6 +85,13 @@ The following rules apply to every identifier in the registry; a table row state
 |Single use: the entity id of one entry, a start's (`bootstrap-plan` or `bootstrap-epic`, hosted by the workspace scope) or a project onboarding's (until `project.enrol` moves it into the project's workspace scope); deleted by the transaction that starts its scope (for a created scope as the last write of `start.create-scope`, re-done by the recovery when the scope exists, link:../runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Lifecycle, Per-Project Recovery]), when the entry is abandoned, or with the release of its project; kept across a refused re-check of its `start.create-scope` transaction; never removed by time. A request naming a deleted id is `scope_not_found`. Never reused
 |`/api/v1/entries/{entry_id}` link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#event-streams[Runtime Model, Events per Scope]; a worker's `pm_state` / `pm_do` with `plan_id: NO_PLAN` and `entity: <entry_id>` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools]; pending entry record link:../store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas]
 
+|[[id-source-id]]`source_id`
+|A member of the entity identifier grammar (<<id-entity-id>>), since it is the entity of the operator link `remove:<source_id>`; it never holds a separator or a traversal (a resource read naming one is refused `path_traversal_rejected`).
+|server, minted per entry when it stores the source
+|One sources manifest (`sources.json`) of an entry, moved with it into the plan or the epic
+|Fixed when the source is stored; the source it names is never changed. Never reused within its manifest, also after its source was removed (<<general-rules>>, rule 8)
+|Sources manifest link:../filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout, Source Directory]; `remove:<source_id>` link:../state-catalogue/09-bootstrap-and-lessons.adoc#state-start.sources[State Catalogue, `start.sources`]; `pm://entry/{entry_id}/sources/{source_id}` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc#_normative_resource_uri_templates[MCP Tools, Resource URIs]
+
 |[[id-epic-ordinal]]Epic queue `ordinal`
 |Not an identifier: the display-only epic-local ordinal (`PLAN-03`, `PLAN-PR-025B`) of an epic queue row. No link, envelope, resource, or lookup addresses a row by it.
 |server (staging)
