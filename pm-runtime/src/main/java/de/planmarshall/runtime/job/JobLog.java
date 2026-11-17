@@ -240,9 +240,9 @@ public record JobLog(Path path) {
     private static LaunchReport.Reading redacted(LaunchReport.Reading reading) {
         return switch (reading) {
             case LaunchReport.Reported(var report, var jobOutput) ->
-                    new LaunchReport.Reported(report, redacted(jobOutput));
+                new LaunchReport.Reported(report, redacted(jobOutput));
             case LaunchReport.Unreported(var detail, var jobOutput) ->
-                    new LaunchReport.Unreported(redacted(detail), redacted(jobOutput));
+                new LaunchReport.Unreported(redacted(detail), redacted(jobOutput));
         };
     }
 
