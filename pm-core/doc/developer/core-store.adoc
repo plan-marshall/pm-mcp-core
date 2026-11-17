@@ -604,7 +604,7 @@ and `gate_facts`, a number or a string for a `ClampedValue`'s `configured`; trai
 the whole store on read. The record carries
 its own vocabularies: `Execution` (`process`, `in_process`), `Status` (`queued`, `refused`, `running`, `ended`),
 `Fate`, `Confinement`, the owning `Scope` (`plan`, `epic`, `workspace`, `project`, `machine`, `entry`), the
-`BudgetDerivation`, a `SelfReportContradiction` and the `ClampedValue` rows. `isSpawnRecorded()` is true once the record
+`BudgetDerivation`, a `SelfReportContradiction` and the `ClampedValue` rows. A worker's record carries `git_metadata` (`enforced` or `unenforced`, non-null exactly for kind `llm`, link:../adr/core-store/070-the-job-record-git-metadata-is-a-nullable-enumeration.adoc[ADR 070]); every other kind keeps it `null`. `isSpawnRecorded()` is true once the record
 carries the PID: only from then on does the job count as running.
 `JobRecordCodec`:: Reads and writes the record over `StrictJson`: `format_version` first, every member once, only the
 declared members, every required member, one JSON type per member, the closed values; the `kind` must be the kind the
@@ -2668,3 +2668,25 @@ an item of the record, every criterion is covered, no deliverable's `satisfies` 
 it.
 
 A store record carries its absent state as `@Nullable`: `ScopeIntegrity.Mismatch.current`, `LessonResolution.StoreTampered.current`, `ProjectResolver.Match.refusal`, `HarnessUsage.costUsd` and `HarnessUsage.unmeasuredReason`, `IntentAcceptance.Context.epic` and the builder fields of `MetricsCodec` are nullable, and a codec writes the absent member exactly as it wrote `Optional.empty()` (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]). The codec's `required(...)` helper takes a nullable value and refuses it with the same `StoreRefusal` as before.
+
+[#_protected_paths]
+== Protected Paths
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-11[PM-WF-11], link:{docs}/Requirements.adoc#PM-SEC-5[PM-SEC-5]_
+
+`ProtectedPaths` decides which of a list of repository-relative paths a plan may not change without declaring them
+(link:../adr/core-store/071-the-protected-path-matcher-is-a-pure-core-class.adoc[ADR 071]). It is pure: it reads no file
+and performs no repository operation, so the boundary check that calls it decides when to ask.
+
+The first family is the tracked hook definitions git runs (`{spec}/phase-workflows/03-q-gate-and-execute.adoc#protected-paths`,
+§ Protected Paths): `.husky/**`, `.githooks/**`, `lefthook.yml`, `.lefthook.yml`, `lefthook-local.yml` and
+`.pre-commit-config.yaml`, matched at the repository root, ignoring case and after Unicode NFC normalization on every
+platform. A path the plan's `declared_files` names is not reported; the declaration lifts exactly that path, never its
+family. A near miss such as `husky/x`, `docs/lefthook.yml` or `.pre-commit-config.yaml.bak` is not protected.
+
+The other families of that paragraph (`.marshall/**`, harness configuration, forge CI, editor files) are added as rows by
+the plan that implements `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`. The wiring of the matcher into the refusal before
+the next commit job is the boundary check of `git.stage-and-commit` (`FootprintBoundary`, reason `footprint_violation`),
+which is not part of this package.
+
+Tested by `ProtectedPathsTest`: each of the six patterns, a nested file, the case variants, a decomposed name, a declared
+path that lifts only itself, the near misses and the matched control (`README.md`, `CLAUDE.md`).

@@ -36,13 +36,15 @@ class LaunchReportRecordsTest {
         var processStartedAt = Instant.ofEpochSecond(Generators.longs(0, 1_900_000_000).next());
         var confinement = Generators.enumValues(JobRecord.Confinement.class).next();
         var landlockAbi = Generators.integers(2, 6).next();
+        var gitMetadata = Generators.enumValues(JobRecord.GitMetadata.class).next();
 
-        var constructed = new LaunchReport(pid, processStartedAt, confinement, landlockAbi);
+        var constructed = new LaunchReport(pid, processStartedAt, confinement, landlockAbi, gitMetadata);
         var built = LaunchReport.builder()
                 .pid(pid)
                 .processStartedAt(processStartedAt)
                 .confinement(confinement)
                 .landlockAbi(landlockAbi)
+                .gitMetadata(gitMetadata)
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same launch report");

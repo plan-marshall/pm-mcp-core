@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.JobRecord.Confinement;
+import de.planmarshall.core.store.JobRecord.GitMetadata;
 import de.planmarshall.runtime.job.LaunchReport.Reported;
 import de.planmarshall.runtime.job.LaunchReport.Unreported;
 
@@ -82,8 +83,9 @@ class LaunchReportTest {
             var reading = assertInstanceOf(Reported.class, LaunchReport.read(log), "the log carries a report");
 
             assertAll(
-                    () -> assertEquals(new LaunchReport(pid, startedAt, Confinement.CONFINED, abi), reading.report(),
-                            "the report fields are taken from line one"),
+                    () -> assertEquals(new LaunchReport(pid, startedAt, Confinement.CONFINED, abi, null),
+                            reading.report(), "the report fields are taken from line one"),
+                    () -> assertNull(reading.report().gitMetadata(), "a report without the member names none"),
                     () -> assertEquals(firstJobLine + "\n" + more + "\n", reading.jobOutput(),
                             "the job output follows the report unchanged"),
                     () -> assertTrue(reading.jobOutput().startsWith(firstJobLine),
@@ -103,6 +105,24 @@ class LaunchReportTest {
             assertAll(
                     () -> assertEquals(pid, reading.report().pid(), "the first line is the report"),
                     () -> assertEquals(jobLine + "\n", reading.jobOutput(), "the report-shaped job line is kept"));
+        }
+
+        @Test
+        @DisplayName("the optional git_metadata member is read for each value")
+        void gitMetadataMember() {
+            var enforced = report.replace("}", ",\"git_metadata\":\"enforced\"}");
+            var unenforced = report.replace("}", ",\"git_metadata\":\"unenforced\"}");
+
+            var enforcedReading = assertInstanceOf(Reported.class, LaunchReport.read(enforced + "\n"),
+                    "the report with enforced is read");
+            var unenforcedReading = assertInstanceOf(Reported.class, LaunchReport.read(unenforced + "\n"),
+                    "the report with unenforced is read");
+
+            assertAll("the git metadata member is read",
+                    () -> assertEquals(GitMetadata.ENFORCED, enforcedReading.report().gitMetadata(),
+                            "enforced is read as the enforced value"),
+                    () -> assertEquals(GitMetadata.UNENFORCED, unenforcedReading.report().gitMetadata(),
+                            "unenforced is read as the unenforced value"));
         }
 
         @Test
@@ -143,6 +163,15 @@ class LaunchReportTest {
                 "{\"pid\":1,\"process_started_at\":\"2026-10-17T10:00:00Z\","
                         + "\"confinement\":\"confined\",\"landlock_abi\":0}\n",
                 "{\"pid\":1,\"process_started_at\":\"2026-10-17T10:00:00Z\","
+                        + "\"confinement\":\"confined\",\"landlock_abi\":5,\"git_metadata\":\"partial\"}\n",
+                "{\"pid\":1,\"process_started_at\":\"2026-10-17T10:00:00Z\","
+                        + "\"confinement\":\"confined\",\"landlock_abi\":5,\"git_metadata\":1}\n",
+                "{\"pid\":1,\"process_started_at\":\"2026-10-17T10:00:00Z\","
+                        + "\"confinement\":\"confined\",\"landlock_abi\":5,\"git_metadata\":null}\n",
+                "{\"pid\":1,\"process_started_at\":\"2026-10-17T10:00:00Z\","
+                        + "\"confinement\":\"confined\",\"landlock_abi\":5,\"git_metadata\":\"enforced\","
+                        + "\"git_metadata\":\"unenforced\"}\n",
+                "{\"pid\":1,\"process_started_at\":\"2026-10-17T10:00:00Z\","
                         + "\"confinement\":\"confined\",\"landlock_abi\":5}"})
         @DisplayName("a first line that is no complete report strips nothing")
         void unreported(String log) {
@@ -179,7 +208,7 @@ class LaunchReportTest {
                     () -> assertThrows(NullPointerException.class, () -> LaunchReport.read(null),
                             "a null log is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new LaunchReport(0, Instant.EPOCH, Confinement.CONFINED, null),
+                            () -> new LaunchReport(0, Instant.EPOCH, Confinement.CONFINED, null, null),
                             "a PID of 0 is refused"));
         }
     }

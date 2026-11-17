@@ -730,6 +730,13 @@ Source:: Article analyses `secure-architecture-for-ai-agents-owasp-llm` and `sec
 [#PM-WATCH-JOB-48]
 === PM-WATCH-JOB-48: A worker cannot plant code that git runs outside its confinement
 
+_Kept after PLAN-V2-134: the guard's full form needs a real launcher with a mount namespace on Linux and macOS, which is
+`pm-exec`'s and outside this repository; the part the runtime owns — the read-only set, the report member, the digest
+with its two comparison points, the refusal, the audit record and the sink — is covered by
+link:../../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataJobTest.java[GitMetadataJobTest] with a
+fixture launcher that applies nothing, and the protected-path family by
+link:../../pm-core/src/test/java/de/planmarshall/core/store/ProtectedPathsTest.java[ProtectedPathsTest]._
+
 Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#git-metadata[Job Runtime § Git Metadata],
 link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]

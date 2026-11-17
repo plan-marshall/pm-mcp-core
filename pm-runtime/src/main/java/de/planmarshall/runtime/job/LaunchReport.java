@@ -20,12 +20,14 @@ import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobRecord.Confinement;
+import de.planmarshall.core.store.JobRecord.GitMetadata;
 import de.planmarshall.core.store.StrictJson;
 
 /**
  * The launch report of {@code pm-exec} (PM-EXEC-4): the one line holding one JSON object the launcher writes to
  * {@code stderr} right before {@code execve}, so it is the first line of the job log. It names the job PID, which is
- * its process-group id, the process start instant, the confinement applied and the Landlock ABI of the ruleset.
+ * its process-group id, the process start instant, the confinement applied and the Landlock ABI of the ruleset; a
+ * worker's report also names whether the git metadata of its project is unwritable for it.
  * <p>
  * Exactly the first line of the log is the report: {@link #read(String)} takes it, and the job's own output is
  * everything after it, byte for byte. A first line of the job's own output that looks like a report stays in the
@@ -40,11 +42,13 @@ import de.planmarshall.core.store.StrictJson;
  * @param processStartedAt the start instant of the process
  * @param confinement      the confinement applied to the job
  * @param landlockAbi      the Landlock ABI version of the applied ruleset; {@code null} when none was applied
+ * @param gitMetadata      whether the git metadata of the project is unwritable for the job; {@code null} when the
+ *                         launcher's report names no such member
  * @since 0.1
  */
 @Builder
 public record LaunchReport(long pid, Instant processStartedAt, Confinement confinement,
-@Nullable Integer landlockAbi) {
+@Nullable Integer landlockAbi, @Nullable GitMetadata gitMetadata) {
 
     /** The exit codes of the launcher itself: usage, confinement not applied, {@code execve} failed. */
     public static final Set<Integer> LAUNCHER_FAILURE_EXITS = Set.of(64, 126, 127);
@@ -56,6 +60,7 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
     private static final String PROCESS_STARTED_AT = "process_started_at";
     private static final String CONFINEMENT_MEMBER = "confinement";
     private static final String LANDLOCK_ABI = "landlock_abi";
+    private static final String GIT_METADATA = "git_metadata";
 
     /**
      * @throws NullPointerException     if the start instant or the confinement is {@code null}
@@ -149,6 +154,7 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
         @Nullable Instant startedAt = null;
         @Nullable Confinement confinement = null;
         @Nullable Integer landlockAbi = null;
+        @Nullable GitMetadata gitMetadata = null;
         var seen = new HashSet<String>();
         try (var parser = StrictJson.factory().createParser(line)) {
             parser.nextToken();
@@ -161,6 +167,7 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
                     case CONFINEMENT_MEMBER -> confinement = confinement(StrictJson.string(parser, field));
                     case LANDLOCK_ABI -> landlockAbi = parser.currentToken() == JsonToken.VALUE_NULL ? null
                             : abi(StrictJson.integer(parser, field));
+                    case GIT_METADATA -> gitMetadata = gitMetadata(StrictJson.string(parser, field));
                     default -> throw StrictJson.undeclared(field);
                 }
             }
@@ -170,7 +177,7 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
         }
         StrictJson.requireFields(seen, "launch report", PID_MEMBER, PROCESS_STARTED_AT, CONFINEMENT_MEMBER,
                 LANDLOCK_ABI);
-        return new LaunchReport(pid, startedAt, confinement, landlockAbi);
+        return new LaunchReport(pid, startedAt, confinement, landlockAbi, gitMetadata);
     }
 
     private static Instant instant(String text) {
@@ -192,5 +199,10 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
     private static Confinement confinement(String wireName) {
         return Confinement.fromWireName(wireName).orElseThrow(() -> StrictJson.unreadable(
                 "'%s' has the undeclared value '%s'".formatted(CONFINEMENT_MEMBER, wireName)));
+    }
+
+    private static GitMetadata gitMetadata(String wireName) {
+        return GitMetadata.fromWireName(wireName).orElseThrow(() -> StrictJson.unreadable(
+                "'%s' has the undeclared value '%s'".formatted(GIT_METADATA, wireName)));
     }
 }

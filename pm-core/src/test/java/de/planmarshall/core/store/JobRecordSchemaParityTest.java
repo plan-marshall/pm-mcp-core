@@ -31,6 +31,7 @@ import de.planmarshall.core.store.JobRecord.ClampedValue;
 import de.planmarshall.core.store.JobRecord.Confinement;
 import de.planmarshall.core.store.JobRecord.Execution;
 import de.planmarshall.core.store.JobRecord.Fate;
+import de.planmarshall.core.store.JobRecord.GitMetadata;
 import de.planmarshall.core.store.JobRecord.Scope;
 import de.planmarshall.core.store.JobRecord.Status;
 import de.planmarshall.core.store.WorkerState.EndReason;
@@ -124,6 +125,9 @@ class JobRecordSchemaParityTest {
                         "the statuses are the schema's statuses"),
                 () -> assertEquals(enumOf(properties, "fate"), wireNames(Fate.values(), Fate::wireName),
                         "the fates are the schema's fates"),
+                () -> assertEquals(enumOf(properties, "git_metadata"),
+                        wireNames(GitMetadata.values(), GitMetadata::wireName),
+                        "the git metadata values are the schema's"),
                 () -> assertEquals(enumOf(derivationProperties, "kind"),
                         wireNames(BudgetDerivation.Kind.values(), BudgetDerivation.Kind::wireName),
                         "the derivation kinds are the schema's kinds"),

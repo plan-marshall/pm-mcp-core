@@ -246,7 +246,8 @@ class JobRecoveryStepTest {
 
     private JobRecord worker() {
         return write(JobId.Kind.LLM, workerQueue, jobId -> processJob(jobId).scope(workerQueue).worker(WORKER)
-                .budgetKey("worker:" + name()).status(Status.RUNNING).build());
+                .gitMetadata(JobRecord.GitMetadata.UNENFORCED).budgetKey("worker:" + name()).status(Status.RUNNING)
+                .build());
     }
 
     private JobRecord read(JobRecord job) {
