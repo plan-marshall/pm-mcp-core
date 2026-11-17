@@ -74,7 +74,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("a record without the claimed paths stage refuses")
     void aMissingPathsStageRefuses() {
-        var profile = machine(record("").faults(10).egress("passed"));
+        var profile = machine(recordFor("").faults(10).egress("passed"));
 
         var refusal = refusalOf(profile);
 
@@ -87,7 +87,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("a faults stage with nine trials refuses (the specification asks at least ten)")
     void nineTrialsRefuse() {
-        var profile = machine(record("").faults(9).conforming());
+        var profile = machine(recordFor("").faults(9).conforming());
 
         var refusal = refusalOf(profile);
 
@@ -100,7 +100,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("a faults stage without a trial count refuses")
     void aFaultsStageWithoutTrialsRefuses() {
-        var profile = machine(record("").faults(null).conforming());
+        var profile = machine(recordFor("").faults(null).conforming());
 
         var refusal = refusalOf(profile);
 
@@ -113,7 +113,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("a record whose platform confinement is none refuses")
     void noConfinementRefuses() {
-        var profile = machine(record("").conforming().confinement("none"));
+        var profile = machine(recordFor("").conforming().confinement("none"));
 
         var refusal = refusalOf(profile);
 
@@ -126,7 +126,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("an enforced tool set without the measured isolation stage refuses")
     void anEnforcedToolSetWithoutIsolationRefuses() {
-        var profile = machine(record(ENFORCED_WRITER).conforming().stage("classes", "passed"));
+        var profile = machine(recordFor(ENFORCED_WRITER).conforming().stage("classes", "passed"));
 
         var refusal = refusalOf(profile);
 
@@ -139,7 +139,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("a record whose profile digest is another document's refuses")
     void anotherDigestRefuses() {
-        var profile = machine(record("").conforming().digestOfAnotherDocument());
+        var profile = machine(recordFor("").conforming().digestOfAnotherDocument());
 
         var refusal = refusalOf(profile);
 
@@ -152,7 +152,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("an egress stage recorded unenforced refuses while the machine has not accepted it")
     void unenforcedEgressWithoutAcceptanceRefuses() {
-        var profile = machine(record("").faults(10).stage("paths", "passed").egressUnenforced());
+        var profile = machine(recordFor("").faults(10).stage("paths", "passed").egressUnenforced());
 
         var refusal = refusalOf(profile);
 
@@ -165,7 +165,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("a record that passes every check and ten trials is eligible")
     void aConformingRecordIsEligible() {
-        var profile = machine(record("").conforming());
+        var profile = machine(recordFor("").conforming());
 
         var verdict = ProfileWorkerEligibility.of(profile, THIS_PLATFORM).verdict();
 
@@ -175,7 +175,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("an accepted unenforced egress record is eligible")
     void acceptedUnenforcedEgressIsEligible() {
-        var profile = machine(record("").faults(10).stage("paths", "passed").egressUnenforced());
+        var profile = machine(recordFor("").faults(10).stage("paths", "passed").egressUnenforced());
 
         var verdict = ProfileWorkerEligibility.of(profile, THIS_PLATFORM, true).verdict();
 
@@ -185,10 +185,10 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("the refusal does not depend on the order of the stages in the record")
     void theRefusalDoesNotDependOnStageOrder() {
-        var claimed = machine(record(ENFORCED_WRITER).conforming().stage("classes", "passed"));
-        var claimedReversed = machine(record(ENFORCED_WRITER).conforming().stage("classes", "passed").reversed());
-        var incidental = machine(record("").conforming().stage("identity", "failed").stage("limits", "failed"));
-        var incidentalReversed = machine(record("").conforming().stage("identity", "failed")
+        var claimed = machine(recordFor(ENFORCED_WRITER).conforming().stage("classes", "passed"));
+        var claimedReversed = machine(recordFor(ENFORCED_WRITER).conforming().stage("classes", "passed").reversed());
+        var incidental = machine(recordFor("").conforming().stage("identity", "failed").stage("limits", "failed"));
+        var incidentalReversed = machine(recordFor("").conforming().stage("identity", "failed")
                 .stage("limits", "failed").reversed());
 
         var refusal = refusalOf(claimed);
@@ -272,9 +272,9 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("an enforced tool set is admitted only against the measured classes and isolation stages")
     void anEnforcedToolSetNeedsTheClassesStage() {
-        var measured = machine(record(ENFORCED_WRITER).conforming().stage("classes", "passed")
+        var measured = machine(recordFor(ENFORCED_WRITER).conforming().stage("classes", "passed")
                 .stage("isolation", "passed"));
-        var unmeasured = machine(record(ENFORCED_WRITER).conforming());
+        var unmeasured = machine(recordFor(ENFORCED_WRITER).conforming());
 
         var refusal = refusalOf(unmeasured);
 
@@ -289,7 +289,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("an advisory tool set makes no claim and needs no classes stage")
     void anAdvisoryToolSetMakesNoClaim() {
-        var advisory = machine(record(ADVISORY_WRITER).conforming());
+        var advisory = machine(recordFor(ADVISORY_WRITER).conforming());
 
         var verdict = ProfileWorkerEligibility.of(advisory, THIS_PLATFORM).verdict();
 
@@ -312,7 +312,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("a claimed stage the record never measured is refused")
     void aClaimStageAbsentRefuses() {
-        var profile = machine(record("").faults(10).stage("paths", "passed"));
+        var profile = machine(recordFor("").faults(10).stage("paths", "passed"));
 
         var refusal = refusalOf(profile);
 
@@ -325,7 +325,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("a failed stage outside the claim still refuses the profile")
     void anIncidentalFailedStageRefuses() {
-        var profile = machine(record("").conforming().stage("identity", "failed"));
+        var profile = machine(recordFor("").conforming().stage("identity", "failed"));
 
         var refusal = refusalOf(profile);
 
@@ -338,7 +338,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("the gate admits a start exactly when its verdict is eligible")
     void admitsFollowsTheVerdict() {
-        var eligible = ProfileWorkerEligibility.of(machine(record("").conforming()), THIS_PLATFORM);
+        var eligible = ProfileWorkerEligibility.of(machine(recordFor("").conforming()), THIS_PLATFORM);
         var refused = ProfileWorkerEligibility.of(
                 withFixture(true, "", "verification-record-faults-failed.json"), THIS_PLATFORM);
 
@@ -354,11 +354,11 @@ class ProfileWorkerEligibilityTest {
         return assertInstanceOf(EligibilityVerdict.Refused.class, verdict, "the verdict is a refusal").refusal();
     }
 
-    private static LoadedProfile machine(RecordBuilder record) {
-        return loaded(ProfileSetKind.MACHINE, record.document, record.build());
+    private static LoadedProfile machine(RecordBuilder builder) {
+        return loaded(ProfileSetKind.MACHINE, builder.document, builder.build());
     }
 
-    private RecordBuilder record(String classes) {
+    private RecordBuilder recordFor(String classes) {
         return new RecordBuilder(document(true, classes));
     }
 
