@@ -340,11 +340,15 @@ class PlanInstanceHeaderTest {
         @Test
         @DisplayName("an in_unit that names no composed unit of the header's templates is refused")
         void inUnitOfNoComposedUnitRefused() {
-            var violations = HeaderSchemaCheck.check(nestedHeader("no-such-unit"));
-
-            assertEquals(List.of(new HeaderViolation("/policy_calls/1/in_unit",
-                            HeaderSchemaCheck.NOT_COMPOSED_UNIT)), violations,
-                    "the check names the pointer and the reason");
+            assertAll(
+                    () -> assertEquals(List.of(new HeaderViolation("/policy_calls/1/in_unit",
+                                    HeaderSchemaCheck.NOT_COMPOSED_UNIT)),
+                            HeaderSchemaCheck.check(nestedHeader("no-such-unit")),
+                            "an unknown unit is refused"),
+                    () -> assertEquals(List.of(new HeaderViolation("/policy_calls/1/in_unit",
+                                    HeaderSchemaCheck.NOT_COMPOSED_UNIT)),
+                            HeaderSchemaCheck.check(nestedHeader(PlanInstanceComposer.PLAN_UNIT)),
+                            "the plan unit is no composed unit"));
         }
 
         /** A header whose templates name the plan unit and {@code phase-6-finalize}, with a nested policy call. */

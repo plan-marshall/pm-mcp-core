@@ -488,7 +488,7 @@ waived gates.
 Every policy call of a composed file's body is listed in the header with `in_unit` naming that file, after the plan
 unit's own calls, which carry no `in_unit`; the diff summary keys such a call by its unit and its state id
 (link:../adr/workflow-plan/026-a-composed-units-policy-calls-carry-their-unit.adoc[ADR 026]). A kept call whose callee
-the request supplies no sub-unit for is refused before the set is built, and a prune never removes a state an entry
+the request supplies no sub-unit for is refused before the position rule and the header are checked, and a prune never removes a state an entry
 binds to (link:../adr/workflow-plan/025-the-composed-set-guards-an-unresolved-callee-and-an-entry-state.adoc[ADR 025]).
 
 link:../adr/workflow-plan/020-a-version-is-a-set-of-composed-files.adoc[ADR 020]: a version is a set of composed files,

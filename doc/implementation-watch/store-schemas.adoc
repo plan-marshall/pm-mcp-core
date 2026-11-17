@@ -167,7 +167,7 @@ a refused line are still handled by the full read. It is new `core.store` code; 
 primitive to promote (it reads the whole journal and bounds it by compaction, lines 195 to 215).
 Guard:: No test covers it today. The measure above is the trigger; the plan that implements the bounded read adds the
 test that proves it against a torn tail and a refused line.
-Source:: `store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json`; link:../../../pm-workflow/doc/adr/workflow-plan/027-the-plan-history-is-read-whole-until-it-is-long.adoc[ADR workflow-plan 027].
+Source:: `store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json`; link:../../pm-workflow/doc/adr/workflow-plan/027-the-plan-history-is-read-whole-until-it-is-long.adoc[ADR workflow-plan 027].
 
 == Findings Ledger Record (`findings.jsonl`)
 

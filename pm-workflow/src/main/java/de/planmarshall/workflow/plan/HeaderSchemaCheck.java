@@ -48,6 +48,10 @@ import lombok.experimental.UtilityClass;
  * date-time that the reader can parse. A JSON text that is no single JSON value, or names a member of an object
  * twice, is one violation of the header as a whole or of that member.
  * <p>
+ * Where one member's value must be one of a sibling array's values, the check reads that array: a
+ * {@code policy_calls[].in_unit} must name a composed unit of {@code inputs.templates}, the plan unit excluded, and a
+ * value outside the array is a violation of the member.
+ * <p>
  * A violation names the JSON pointer of the member or element that breaks the constraint and what is wrong. A member
  * of the wrong type is reported once, and what lies inside it is not checked further.
  *

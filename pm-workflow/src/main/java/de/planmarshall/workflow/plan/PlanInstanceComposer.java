@@ -384,7 +384,7 @@ public final class PlanInstanceComposer {
      * @return every policy call, the plan unit's first and then those of the composed units in the order they were
      *         composed
      */
-    private static List<PolicyCall> policyCalls(List<PolicyCall> ofThePlan, List<PolicyCall> ofTheComposed) {
+    static List<PolicyCall> policyCalls(List<PolicyCall> ofThePlan, List<PolicyCall> ofTheComposed) {
         var calls = new ArrayList<>(ofThePlan);
         calls.addAll(ofTheComposed);
         return List.copyOf(calls);

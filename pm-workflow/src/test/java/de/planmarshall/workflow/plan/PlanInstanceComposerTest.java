@@ -37,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -1188,10 +1189,6 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(List.of("phase-2-refine", "phase-3-outline", "phase-4-plan", "phase-5-execute"),
                             composed.stream().map(PolicyCall::inUnit).distinct().toList(),
                             "each call names the composed unit that holds it"),
-                    () -> assertEquals(composed, instance.header().policyCalls()
-                                    .subList(instance.header().policyCalls().size() - composed.size(),
-                                            instance.header().policyCalls().size()),
-                            "the composed calls follow the plan unit's"),
                     () -> assertEquals(new CallValue.IntValue(3),
                             composed.stream().filter(call -> "execute.remediate".equals(call.callSite()))
                                     .findFirst().orElseThrow().args().get("fix_budget").value(),
@@ -1199,6 +1196,18 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(instance.header().policyCalls().stream()
                                     .filter(call -> call.inUnit() == null).findFirst().isEmpty(),
                             "the merged plan unit holds no policy call of its own"));
+        }
+
+        @Test
+        @DisplayName("the plan unit's policy calls are listed before every composed unit's")
+        void planUnitCallsFirst() {
+            var planUnit = PolicyCall.of("finalize.remediate", "remediation.qgate-findings", Map.of());
+            var composed = PolicyCall.of("execute.remediate", "remediation.qgate-findings", Map.of())
+                    .withInUnit("phase-5-execute");
+
+            assertEquals(List.of(planUnit, composed),
+                    PlanInstanceComposer.policyCalls(List.of(planUnit), List.of(composed)),
+                    "the plan unit's calls come first");
         }
 
         @Test
