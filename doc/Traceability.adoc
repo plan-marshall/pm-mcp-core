@@ -2653,7 +2653,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartFailureGuar
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java[HarnessStartSpacingTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/AgentStartedDetectorTest.java[AgentStartedDetectorTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java[SupervisorCallsTest] (each call of `WorkerCalls` and its answer, the unknown generation, an end-requested wait, the pause of a plan and the enrolment's clear),
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once, the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once — against the fixture's mocked `WorkerStateWriter`, because the landed writer refuses a settled record, see ADR `runtime-worker/014` — the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
 
 Documentation: link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
 link:../pm-runtime/doc/adr/runtime-worker/001-one-supervisor-per-project-and-role.adoc[ADR runtime-worker/001],

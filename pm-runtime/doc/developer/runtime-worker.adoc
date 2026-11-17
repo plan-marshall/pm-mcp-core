@@ -225,8 +225,12 @@ logs `WORKER_GENERATION_RECYCLED` exactly once with its link:{src}/RecycleCause.
 * *Idle yield* (`IDLE_YIELD`) — another role's queued task waits for a model slot. The longest-idle warm generation that
   is `WAITING`, holds no lease and serves another role is recycled, so idle warm workers never starve queued work.
 
-A `fresh` generation is never recycled: it ends after its one task. The idle yield and the lease-aware idle rule are
-ADR 008's; the deadlines and the timers are ADR 004's.
+A `fresh` generation is never recycled: it ends after its one task. In the composition this package now carries, that end
+is the pass's observation of the settled job record, which classifies a post-first-call exit as the `EXIT` loss
+(`EndCause.LOST`) — `EndCause.TASK_DONE` has no production caller, and nothing ends a fresh generation on a closed task.
+The success is still on the record (`JobRecord.Fate`), so a mapping from a succeeded fate onto `TASK_DONE` is possible;
+it is an open specification decision (ADR `runtime-worker/014`), not a behaviour this package claims. The idle yield and
+the lease-aware idle rule are ADR 008's; the deadlines and the timers are ADR 004's.
 
 == The Start-Failure Guard and the Start Spacing
 
@@ -424,8 +428,12 @@ signal and the answer re-arms it. A heartbeat beyond the first call settles an o
 `LossDetection.acknowledged`: the acknowledgement deadline runs from the offer (or a fresh worker's first call), and only
 a call clears it; a warm worker's first call arms none, because it owes no acknowledgement before an offer. `planPaused`
 forces every generation of the plan at once, `harnessEnrolled` clears the start-failure
-guard of every role the registry holds on the harness, and the first call of a worker clears that guard — the clear the
-specification requires, which the `StartGuard` seam names as `firstCall`. A call of a generation that already ended is
+guard of every role
+the registry holds on the harness — the roles this supervisor has seen, because the registry is the only role list it
+has; a role with no generation in it is not cleared, which is narrower than Deliverable 1's "every role on the harness"
+and a known deviation (ADR `runtime-worker/014`). The first call of a worker clears that guard — the clear the
+specification requires, which the `StartGuard` seam names as `firstCall` — whether the call is a heartbeat or the
+worker's first wait. A call of a generation that already ended is
 ignored like a call of an unknown one.
 
 link:{src}/SupervisionPass.java[`SupervisionPass`] is the periodic step the assembly schedules. `run()` takes one reading
@@ -443,8 +451,9 @@ writes the fate and carries the worker block the record held, so the store's con
 the fate — while the fate is what tells the pass the exit happened. Against the landed writer the first pass over an ended
 worker throws and its generation never becomes terminal; the throw escapes `run()`, so the generations after it in
 registry order go unobserved and the idle yield never runs, each retry repeats the end path's pre-write side effects
-(fence, token revocation, slot release) and re-derives the cause as `LOST`, and the detections and pumps of those
-generations leak. The package's tests cannot see it because the fixture mocks the writer — a `WorkerStateWriter.over` over
+(fence, token revocation, slot release) and re-derives the cause as `LOST`; the attempt's end is appended once before the
+throw and cannot be appended again, and the detection of the throwing generation leaks while the generations after it own
+no pump yet. The package's tests cannot see it because the fixture mocks the writer — a `WorkerStateWriter.over` over
 a settled record would. The trigger and the write order need a specification amendment, which this plan may not make: it
 is owed to the assembly or to a follow-up plan, and it keeps this pull request from being ready to merge.
 
@@ -454,8 +463,12 @@ the scheduling of `SupervisionPass.run()` and the construction of the pump, the 
 stage written into the verification record and the harness enrolment (the machine harness verification); the plan-task
 boundary of the `over_size` and `outside_footprint` signals (the assembly's adapter of the `WorkerTaskActivity` port) and
 the plan cleanup that adopts `ActivityJournal.archiveInto` and `delete`. The supervisor's start-failure count of an exit
-the pass observes is part of that: `StartGuard` names the clear, not the count, and `AgentStartedDetector` needs a
-`forget` for a terminal generation, which the pass makes long-lived. So does the acknowledgement entry ADR
+the pass observes is owed to a follow-up and **not** to the transport or the assembly: the pass is the only reader of the
+settled record, so nothing else can see the exit, and `StartFailureGuard.startFailed` has no production caller — until it
+is wired, the guard's hold is unreachable from a real start failure. `AgentStartedDetector` needs a `forget` for a
+terminal generation, which the pass makes long-lived, and the pass's pump map and the calls' detection, loss and digest
+maps are removed only by the pass's completion, so a generation retired from the registry another way is an owed
+cleanup. So does the acknowledgement entry ADR
 `runtime-worker/012` names — a `WorkerCalls` method that reaches `LossDetection.answerDelivered` — which the sibling plan
 `continuation-hold-and-budget` adds when it extends `SupervisorCalls`. The work packages `worker-activity` and
 `question-continuation` stay open.
@@ -468,7 +481,10 @@ ADR 003's.
 _Requirements:_ link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4], link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3]
 
 The package's tests are deterministic and sleep-free. The clock they move is an injected value, and the harness they
-start is a real process whose behaviour they observe rather than assume.
+start is a real process whose behaviour they observe rather than assume. `SupervisorCallsTest` and
+`SupervisionPassTest` cover the inbound calls and the scheduled pass: one test per call of `WorkerCalls`, the answers, the
+guard clears and the acknowledgement's matched pair, and the pass's pump, replay, exit, `agent_started` and
+nothing-to-do cases.
 
 [horizontal]
 link:{test}/SupervisorTestFixture.java[`SupervisorTestFixture`]:: Builds the real launch contracts over a temporary base.

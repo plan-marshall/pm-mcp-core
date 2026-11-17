@@ -32,9 +32,10 @@ armed with `started(startedAt)`, constructed with the supervisor's clock and tim
 and the profile's worker values. The detection's `LossSignal` runs the one end path, `WorkerEnding.end(generation,
 signal)`.
 
-The class maps the calls onto the landed types: `callHeartbeat` to `LossDetection.firstCall`/`called` and, on the first
-call, to `StartGuard.firstCall`, which the specification's start-failure guard requires as its clear; `waitOpened` to
-`LossDetection.waitOpened`, the answer's close (`waitClosed`) and one of the three answers; `turnCompleted` to the
+The class maps the calls onto the landed types: `callHeartbeat` to `LossDetection.firstCall`/`acknowledged` and, on the
+first call, to `StartGuard.firstCall`, which the specification's start-failure guard requires as its clear; `waitOpened` to
+`LossDetection.waitOpened`, the answer's close (`waitClosed`) and one of the three answers — and, when it is the
+generation's first call, to the same first-call record, because every call is a heartbeat; `turnCompleted` to the
 generation's `ContextTokens` and `WorkerRecycling.afterTurnCompleted`; `taskClosed` to the served tasks and
 `WorkerRecycling.afterTaskClosed`; `planPaused` to `WorkerEnding.forceEnd(generation, EndCause.PAUSE_AT_ONCE)` for
 every generation of the plan; and `harnessEnrolled` to `StartGuard.clear` of every role the registry holds on that
@@ -48,8 +49,11 @@ acknowledgement deadline waits for, so a heartbeat beyond the first call settles
 `LossDetection.acknowledged`. Without that mapping the deadline an offer arms would never be cleared and every worker of
 a harness whose `ack_deadline_seconds` is short (the shipped `claude` value is 15) would be declared lost 15 seconds after
 its offer. `LossDetection.firstCall` arms that deadline too, which the specification scopes to a fresh worker and to an
-offer; a warm worker's first call therefore settles it at once when the generation holds no lease, or a worker sitting in
-a legal bounded wait would be lost a deadline later.
+offer; a warm worker's first call therefore settles it at once, or a worker sitting in a legal bounded wait would be lost
+a deadline later.
+
+The pass completes an end while holding the calls object's monitor, which every inbound call also holds, so a transport
+call that read the generation before the terminal write cannot land after it and resurrect a terminal generation.
 
 A wait's `queueTaskId` is the candidate task the transport would offer, and a blank one is the answered absence: the
 `pm_wait` tool takes no argument and the server decides the offer, so the transport names what it holds and the
@@ -110,19 +114,31 @@ to name it.
   ended worker therefore throws, the generation is never replaced terminal, and later passes throw again; the throw
   escapes `run()`, so the generations after it in registry order go unobserved and the idle yield never runs, and each
   retry repeats the end path's pre-write side effects (fence, token revocation, slot release) because the request was
-  already consumed, re-deriving the cause as `LOST`. The detections and pumps of those generations leak with it. The
-  package's tests cannot see it because the fixture injects a mock writer — a `WorkerStateWriter.over` over a settled
-  record would show it. The trigger and the write order need a specification amendment (a second exit observable, or a
-  store-compatible terminal write), which this plan may not make: it is an owed rest for the assembly or a follow-up
-  plan, and it is the reason this pull request is not ready to merge.
+  already consumed, re-deriving the cause as `LOST`; the attempt's end is appended once before the throw and cannot be
+  appended again (the pump is gone), and the detection of the throwing generation, with its loss and digest, leaks while
+  the generations after it own no pump yet. The package's tests cannot see it because the fixture injects a mock writer — a
+  `WorkerStateWriter.over` over a settled record would show it. The trigger and the write order need a specification
+  amendment (a second exit observable, or a store-compatible terminal write), which this plan may not make: it is an owed
+  rest for the assembly or a follow-up plan, and it is the reason this pull request is not ready to merge.
+* **A second gap, recorded as an open item rather than decided here.** The pass derives the end cause from the detection
+  and the requested end alone (`LossDetection.exit` answers `EXIT` for every post-first-call exit), so a `fresh` worker
+  that submitted its task and exited is recorded `LOST`/`EXITED` with the attempt end `exited_without_submit`, and
+  `EndCause.TASK_DONE` has no production caller: nothing ends a fresh generation on a closed task
+  (`WorkerRecycling.afterTaskClosed` returns empty for `FRESH`). The settled record does carry the discriminator
+  (`JobRecord.Fate`), so a mapping from a succeeded fate to `TASK_DONE` is possible — but it is a design decision this
+  plan's deliverables do not name, so it is left to the specification and the orchestrator rather than invented here.
 * The acknowledgement entry of the inbound port that ADR `runtime-worker/012` names — a `WorkerCalls` method that reaches
   `LossDetection.answerDelivered` — is still owed: `WorkerCalls` has no such method and this plan may not add one. It
   belongs with the sibling plan `continuation-hold-and-budget`, which extends `SupervisorCalls`.
-* The start-failure guard's `startFailed` count of an exit the pass observes stays with the transport and the
-  assembly: `StartGuard` names `firstCall`, `clear` and `probeDeclined`, not the count, and this plan may not add a
-  deliverable the specification does not name for it.
+* The start-failure guard's `startFailed` count of an exit the pass observes is owed to a follow-up, and **not** to the
+  transport or the assembly: the pass is the only reader of the settled job record, so nothing else can observe the exit,
+  and `StartFailureGuard.startFailed` has no production caller. `StartGuard` names `firstCall`, `clear` and
+  `probeDeclined`, not the count, and this plan may not add a deliverable the specification does not name for it. Until a
+  follow-up wires it (through a widened seam or a spec amendment), the guard's hold can never be reached from a real start
+  failure, and the two seams this plan does wire act on a state nothing sets.
 * `AgentStartedDetector` keeps its process trees and its reported set per generation and forgets them only on a report.
-  The pass makes it long-lived, so a `forget(generationId)` on a terminal generation is an owed follow-up.
+  The pass makes it long-lived, so a `forget(generationId)` on a terminal generation is an owed follow-up; the same holds
+  for the pass's own pump map and the calls' detection, loss and digest maps, which only the pass's completion removes.
 * A pass over a supervisor with no generation, and over one whose only generations are terminal, writes nothing.
 * An unreadable or truncated log appends nothing and is read again at the next pass (ADR `runtime-worker/011`), and a
   task whose facts are gone is not pumped at all; a job record the store refuses propagates, so a corrupt record is
