@@ -106,7 +106,8 @@ The replacement keeps the label, so a reader still sees what was removed, and re
 `Bearer`, `Basic` or `Token`
 |the value after the separator; a quoted value runs to its closing quote on its line, and a close that a word character
 follows — or that lies on the next line — is read as unclosed, masking the rest of the first line, so a first word
-shorter than four characters (`token="ab cd ef"`) is masked whole
+shorter than four characters (`token="ab cd ef"`) is masked whole. An escaped form masks the rest of the line from the
+escaped opening quote, so a JSON object embedded as a JSON string (`{\"password\":\"hunter2\"}`) is masked too
 |a secret in a query parameter whose name is no listed label; and under an `Authorization:` header of another scheme
 (`Digest`, `Negotiate`) the scheme word is taken as the value and masked, while the credential after it stays readable.
 An unquoted value shorter than four characters stays readable: the minimum is deliberate and an accepted residue.
@@ -129,7 +130,8 @@ is an npm token, and a package name that starts with `npm_` keeps its text (an o
 |the secret, also when it holds a raw `/`, `?`, `#` or `@` (it runs to the last `@` of the token), when the user holds a
 raw `@` (the user runs to the first colon), behind a percent-encoded scheme separator
 (`https%3A%2F%2Fuser:secret@host`), and in the empty-user form `https://:secret@host` (Azure DevOps, git credential
-helpers)
+helpers). One linear scan per separator: each scheme start is visited once and a token's last `@` is looked up once, so
+a token without a closing `@` (`x://y:x://y:…`) costs one pass
 |the single-user form `https://<token>@host`, which has no colon and so no secret part (an operator decision, a known
 residue); `scheme://host:8080/path`; a path with a colon; prose. The false-positive costs: a `host:port/path` followed
 later on the same token by a raw `@` is read as user information, and its port and path up to that `@` are masked; and
@@ -147,7 +149,9 @@ false-positive cost: usage text such as `--token <token>` masks the placeholder.
 
 |PEM private-key block and PGP private-key block (`-----BEGIN PGP PRIVATE KEY BLOCK-----`)
 |the block from its `BEGIN` line to its `END` line; a block without its `END` line is masked to the end of the text (the
-over-masking is kept: masking too much costs evidence, a readable key body costs the credential)
+over-masking is kept: masking too much costs evidence, a readable key body costs the credential). The block scan runs
+before the label passes, so a block that is the value of a labelled assignment (`PRIVATE_KEY="-----BEGIN …"`,
+`secret: -----BEGIN …`) is masked whole instead of losing its marker to the label pass
 |a block whose `BEGIN` line lies before the excerpt window, so that the text starts inside it: nothing in the text marks
 the body as a key, and the window is not widened to reach the marker. Prose that names `PRIVATE KEY` outside a marker.
 |===
@@ -155,11 +159,14 @@ the body as a key, and the window is not widened to reach the marker. Prose that
 *The matcher is Unicode-aware where the labels and separators are.* The label, separator, URL and credential-flag
 patterns match `\s`, `\S`, `\w` and `\b` in their Unicode forms, so a no-break space (`U+00A0`) or a narrow no-break
 space (`U+202F`) cannot separate a label from its value; the provider-token and npm-token shapes stay ASCII, as the wire
-formats they encode are. The invisible formatting characters — the zero-width space and joiners, the bidi controls, the
-soft hyphen and the byte-order mark — are removed before the shapes are matched, so one of them cannot split a label;
-none of them is visible, so removing one costs no evidence. The false-positive cost is a wider notion of whitespace and
-word characters: text that carries an invisible character loses it, and a quoted assignment whose first word is shorter
-than four characters is masked whole.
+formats they encode are. Four invisible characters are removed before the shapes are matched — the zero-width space
+(`U+200B`), the word joiner (`U+2060`), the soft hyphen (`U+00AD`) and the byte-order mark (`U+FEFF`) — so one of them
+cannot split a label, and none of them is visible, so removing one costs no evidence. The zero-width joiners (`U+200C`,
+`U+200D`) and the bidi controls (`U+200E` to `U+200F`, `U+202A` to `U+202E`) stay in the text by the operator's decision
+of 2026-11-17, because they carry meaning in Persian, Indic and right-to-left text and in emoji sequences; the cost is
+that a credential label split by one of them is no longer matched, and a split label with a joiner is not a realistic
+secret shape. The further false-positive cost is a wider notion of whitespace and word characters and a quoted
+assignment whose first word is shorter than four characters, which is masked whole.
 
 *The journal path strips escape sequences.* `SecretRedactor.redact(ActivityEntry)` strips the terminal escape sequences
 of the text, the tool target and the link target through `BuildLogText.stripAnsi` of `core.build` — the expression the
@@ -169,24 +176,26 @@ each part is applied after the redaction. `redactText(String)` leaves escape seq
 `core.queue` depend on `core.build`, which already depends on `core.queue`; no guard forbids the cycle of packages, and
 ADR `core-build/009` records it.
 
-*The input is bounded on every path, and the key-block scan is linear.* The unparsed excerpt cuts every kept line to
+*The input is bounded on every path, and the shapes are linear.* The unparsed excerpt cuts every kept line to
 `BuildLogText.MAX_LINE_LENGTH` characters before the redaction; the npm diagnostic is composed from lines
 `NpmErrorParser` has already cut at its entry; and the journal path redacts an entry whose compiled bounds hold already
 (`ActivityEntry.TEXT_BOUND` of 2000 code points for the text, 1000 for a tool target, 128 for a link target), both in
-`ActivityJournal` and in `ActivityRecorder` of `pm-runtime`. The URL shape is two patterns applied in sequence, one for
-`://` and one for the percent-encoded `%3A%2F%2F`; in each the scheme and the user are possessive and the scheme starts
-only where no scheme character precedes it, while the secret is a greedy `\S+` that gives characters back to the last
-`@` of the token. Its cost is therefore not linear: a token without that `@` is scanned back once from each scheme start,
-quadratic in one line at worst, and the line cut above is what bounds it. The quoted credential-flag value is an unrolled
-loop (a plain run, then escape pairs each followed by a plain run) with possessive repetitions only, so it neither
-backtracks nor recurses per character. The PEM or PGP key block is a single left-to-right scan: it finds a `BEGIN`
-marker, finds the next `END` marker after it once, masks the span and resumes after that `END`, so a text of many
+`ActivityJournal` and in `ActivityRecorder` of `pm-runtime`. The URL shape is one linear scan per scheme separator (`://`
+and the percent-encoded `%3A%2F%2F`): each scheme start is visited once, the user is taken up to the next colon, and a
+token's last `@` is looked up once and kept for every start of that token, so a token without that `@` costs one pass
+(PLAN-V2-151 replaced the backtracking pattern that was quadratic in one line). The quoted credential-flag value is an
+unrolled loop (a plain run, then escape pairs each followed by a plain run) with possessive repetitions only, so it
+neither backtracks nor recurses per character. The PEM or PGP key block is a single left-to-right scan: it finds a
+`BEGIN` marker, finds the next `END` marker after it once, masks the span and resumes after that `END`, so a text of many
 `BEGIN` markers without an `END` costs one pass; the former lazy `.*?` under `(?s)` scanned to the end of the text from
-every such marker, quadratic in the text and not bounded by the per-line cut at all. `SecretRedactorTest` bounds that cost
-with a wall-clock test over 400 000 characters of `BEGIN` markers and a 3 700-marker input, and asserts that a
-1 000 000-character quoted flag value redacts without a stack overflow. The `ProviderVerification` of
-`pm-runtime` (`runtime.credentials`) cuts a probe answer at the same line bound before it redacts it, and masks a
-user-information head that the cut leaves without its `@`, so that input is bounded and carries no residue.
+every such marker, quadratic in the text and not bounded by the per-line cut at all. The scan runs before the label
+passes, so a labelled key block is masked whole rather than losing its `BEGIN` marker to a label pass. `SecretRedactorTest`
+bounds the cost with wall-clock tests over 400 000 characters of `BEGIN` markers, a 3 700-marker input, a
+1 000 000-character quoted flag value and a 1 000 000-character escape-pair run, and measures both URL shapes with the
+same bound; `DiagnosticCollectorRedactionTest` measures the stored seam and the `Diagnostic` constructor on 2 000 lines of
+8 192 characters. The `ProviderVerification` of `pm-runtime` (`runtime.credentials`) cuts a probe answer at the same line
+bound before it redacts it, and masks a user-information head that the cut leaves without its `@`, so that input is
+bounded and carries no residue.
 
 == How to use and extend it
 

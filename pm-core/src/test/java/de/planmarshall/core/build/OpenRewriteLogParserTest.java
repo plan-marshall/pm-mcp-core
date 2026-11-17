@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.build;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashSet;
@@ -18,6 +20,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import de.planmarshall.core.queue.SecretRedactor;
 
 /**
  * The ported tests of {@link OpenRewriteLogParser} (PM-TEST-2): one case per plain-file fixture below
@@ -67,6 +71,35 @@ class OpenRewriteLogParserTest {
     @DisplayName("closes the corpus of both original suites in both directions")
     void roster() {
         BuildLogFixtures.assertRoster(DIRECTORY, fixtures(), ROSTER_CASES);
+    }
+
+    @Test
+    @DisplayName("a finding path that is invisible only is a parse error, not a failed parse")
+    void invisibleOnlyFindingPathIsAParseError() {
+        var log = String.join("\n", "--- rewrite:run (compile)",
+                "CUI_REWRITE-100: Finding detected at \u200B:3:4 by org.example.Recipe: text");
+
+        var result = OpenRewriteLogParser.parse(log, true);
+
+        assertAll("an invisible-only finding path",
+                () -> assertEquals(RewriteVerdict.PARSE_ERROR, result.verdict(), "the line is a parse error"),
+                () -> assertTrue(result.findings().isEmpty(), "no finding is filed for the line"));
+    }
+
+    @Test
+    @DisplayName("the finding path and its message are redacted at the record")
+    void findingPathAndMessageRedacted() {
+        var log = String.join("\n", "--- rewrite:run (compile)",
+                "CUI_REWRITE-100: Finding detected at https://deploy:s3cret@host/A.java:3:4 by org.example.Recipe: "
+                        + "password=abcd1234");
+
+        var finding = OpenRewriteLogParser.parse(log, true).findings().getFirst();
+
+        assertAll("the finding fields are redacted",
+                () -> assertEquals("https://deploy:" + SecretRedactor.REDACTED + "@host/A.java", finding.path(),
+                        "a credential in the finding path is masked"),
+                () -> assertEquals("password=" + SecretRedactor.REDACTED, finding.message(),
+                        "a credential in the finding message is masked"));
     }
 
     private static boolean domainActive(BuildLogFixtures.Case fixture, Set<Integer> consumed) {

@@ -215,6 +215,8 @@ include::../../src/main/resources/de/planmarshall/runtime/job/job-log-limits.pro
 
 The first line is kept because it is the launch report, from which the launcher-failure decision is taken; `Complete.length` is the length of the file, not of what was read; and an over-cap log is never `TRUNCATED`, because that state means the log is shorter than what the runtime already read from it. A first line longer than the cap cannot be taken by a bounded read, and the head alone is answered. The cut is recorded in link:../../../pm-core/doc/adr/core-build/007-the-read-and-the-patterns-are-bounded.adoc[ADR `core-build/007`].
 
+Every read-out passes the redactor: `readLines` redacts the lines it answers and `readWhole` the reading it hands on — the job's output, the reason it carries no report and an `Unavailable` detail — the whole read after the size cap and both before the text leaves the class, so a credential the job printed reaches neither a parser nor a model (Job Runtime § Pipeline and Subprocesses, the redaction of every read-out; the shapes are those of link:../../../pm-core/doc/developer/core-queue.adoc#redactor-shapes[`core.queue` § The Redactor's Shapes]). A key block a window carries only in part is masked from the window's start through its `END` line when that `END` lies in the window; a window that lies entirely inside the body and carries no marker of its own stays readable, the named residue.
+
 A log that cannot serve a read is a value, `Unavailable(state, detail)`, never an exception, and its state is the one row 5 of the outcome derivation reads:
 
 [cols="1,3"]

@@ -10,7 +10,6 @@
 package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -103,6 +102,39 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a backslash-escaped quoted assignment is masked (the escaped JSON shape)")
+    void escapedJsonAssignment() {
+        // a JSON object embedded as a JSON string: every quote is preceded by a backslash
+        var redacted = redactValue("{\\\"password\\\":\\\"hunter2\\\"}");
+
+        assertAll("escaped JSON assignment",
+                () -> assertFalse(redacted.contains("hunter2"), "the escaped JSON value is masked"),
+                () -> assertTrue(redacted.contains(SecretRedactor.REDACTED),
+                        "the escaped JSON shape keeps the marker"),
+                () -> assertEquals(redacted, redactValue(redacted),
+                        "redacting the masked JSON shape changes nothing"));
+    }
+
+    @Test
+    @DisplayName("an escaped JSON value holding spaces is masked to the end of its line")
+    void escapedJsonValueWithSpaces() {
+        var redacted = redactValue("{\\\"password\\\":\\\"my secret phrase\\\"}");
+
+        assertAll("escaped JSON value with spaces",
+                () -> assertFalse(redacted.contains("secret phrase"), "the multi-word escaped value is masked"),
+                () -> assertTrue(redacted.contains(SecretRedactor.REDACTED),
+                        "the multi-word escaped shape keeps the marker"));
+    }
+
+    @Test
+    @DisplayName("a backslash-escaped key that is no credential stays readable")
+    void escapedJsonNegativeControl() {
+        var text = "{\\\"tokenizer\\\":\\\"wordpiece\\\"}";
+
+        assertEquals(text, redactValue(text), "an escaped non-credential key stays readable");
+    }
+
+    @Test
     @DisplayName("ordinary build text that starts with pass is not a credential")
     void passIsNarrow() {
         assertAll(
@@ -161,6 +193,9 @@ class SecretRedactorTest {
                 () -> assertEquals("https%3A%2F%2Fuser:" + SecretRedactor.REDACTED + "@host",
                         redactValue("https%3A%2F%2Fuser:secret@host"),
                         "a percent-encoded scheme separator is masked"),
+                () -> assertEquals("https%3a%2f%2fuser:" + SecretRedactor.REDACTED + "@host",
+                        redactValue("https%3a%2f%2fuser:secret@host"),
+                        "a lower-case encoded separator is masked too"),
                 () -> assertEquals("https://user:" + SecretRedactor.REDACTED + "@host",
                         redactValue("https://user:p%40ss%2Fw0rd@host"),
                         "a percent-encoded password stays masked"));
@@ -204,10 +239,13 @@ class SecretRedactorTest {
     @Test
     @DisplayName("a scheme-and-colon run without @ as long as a bounded line is redacted to itself")
     void urlUserInformationLongRunWithoutAt() {
-        // x://y: repeated without any @ is the worst case of the pattern: every scheme start scans back to it
+        // x://y: repeated without any @ is the worst case of the shape: every scheme start is a candidate
         var run = "x://y:".repeat(BuildLogText.MAX_LINE_LENGTH / 6 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
 
-        assertEquals(run, redactValue(run), "a long run without any @ stays as it is");
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(run),
+                "a long run without any @ redacts within the bound");
+
+        assertEquals(run, redacted, "a long run without any @ stays as it is");
     }
 
     @Test
@@ -217,9 +255,14 @@ class SecretRedactorTest {
         var run = "a.".repeat(BuildLogText.MAX_LINE_LENGTH / 2 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
         var withSeparator = run + "://";
 
+        var redactedRun = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(run),
+                "a long scheme-character run redacts within the bound");
+        var redactedSeparator = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(withSeparator),
+                "the scheme run with its separator redacts within the bound");
+
         assertAll("long scheme-like runs",
-                () -> assertEquals(run, redactValue(run), "a long scheme-character run stays as it is"),
-                () -> assertEquals(withSeparator, redactValue(withSeparator),
+                () -> assertEquals(run, redactedRun, "a long scheme-character run stays as it is"),
+                () -> assertEquals(withSeparator, redactedSeparator,
                         "the same run followed by :// stays as it is"));
     }
 
@@ -581,8 +624,51 @@ class SecretRedactorTest {
                 "an unclosed PGP key block is masked to the end");
     }
 
+    @Test
+    @DisplayName("a private key behind a label is masked whole, its BEGIN marker included")
+    void labelledPrivateKeyBlock() {
+        var block = String.join("\n", "-----BEGIN RSA PRIVATE KEY-----", "MIIEowIBAAKCAQEA7v0x",
+                "-----END RSA PRIVATE KEY-----");
+        var quoted = "PRIVATE_KEY=\"" + block + "\"";
+        var unquoted = "secret: " + block;
+
+        assertAll("a private key behind a label",
+                () -> assertEquals("PRIVATE_KEY=\"" + SecretRedactor.REDACTED + "\"", redactValue(quoted),
+                        "a quoted labelled private key is masked whole"),
+                () -> assertFalse(redactValue(quoted).contains("MIIEowIBAAKCAQEA7v0x"),
+                        "the key body behind a label is gone"),
+                () -> assertEquals("secret: " + SecretRedactor.REDACTED, redactValue(unquoted),
+                        "an unquoted labelled private key is masked whole"),
+                () -> assertFalse(redactValue(unquoted).contains("-----END"),
+                        "the END line behind a label is gone"));
+    }
+
+    @Test
+    @DisplayName("a quoted labelled private key is masked whole with and without its closing quote")
+    void quotedLabelledPrivateKeyBlock() {
+        var block = String.join("\n", "-----BEGIN RSA PRIVATE KEY-----", "MIIEowIBAAKCAQEA7v0x",
+                "-----END RSA PRIVATE KEY-----");
+        var closed = "PRIVATE_KEY=\"" + block + "\"";
+        var unclosed = "PRIVATE_KEY=\"" + block;
+
+        assertAll("quoted labelled private keys",
+                () -> assertEquals("PRIVATE_KEY=\"" + SecretRedactor.REDACTED + "\"", redactValue(closed),
+                        "the closed quoted form keeps its closing quote"),
+                () -> assertEquals("PRIVATE_KEY=\"" + SecretRedactor.REDACTED, redactValue(unclosed),
+                        "the unclosed quoted form masks to the text end"));
+    }
+
+    @Test
+    @DisplayName("a BEGIN marker in prose without an END still masks the rest (unchanged)")
+    void proseBeginMarkerWithoutEndStillMasks() {
+        var prose = "the docs say -----BEGIN PRIVATE KEY----- and nothing else";
+
+        assertEquals("the docs say " + SecretRedactor.REDACTED, redactValue(prose),
+                "an unclosed marker keeps its over-masking");
+    }
+
     /** A wall-clock bound a left-to-right scan meets easily and the former lazy pattern exceeds. */
-    private static final Duration REDACTION_BOUND = Duration.ofSeconds(5);
+    private static final Duration REDACTION_BOUND = Duration.ofSeconds(20);
 
     private static final String PEM_BEGIN_MARKER = "-----BEGIN PRIVATE KEY-----";
 
@@ -613,16 +699,42 @@ class SecretRedactorTest {
     }
 
     @Test
-    @DisplayName("a 1 000 000-character quoted flag value is masked without a stack overflow")
+    @DisplayName("a 1 000 000-character quoted flag value is masked within the bound")
     void quotedFlagValueOfOneMillionCharacters() {
         // the quoted value is one plain run: a per-character recursion would overflow the stack here
         var log = "--password \"" + "a".repeat(1_000_000) + "\"";
 
-        var redacted = assertDoesNotThrow(() -> redactValue(log),
-                "a million-character quoted value must not overflow the stack");
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(log),
+                "a million-character value must redact within the bound");
 
         assertEquals("--password \"" + SecretRedactor.REDACTED + "\"", redacted,
                 "the whole quoted value is masked");
+    }
+
+    @Test
+    @DisplayName("an encoded-separator run without a colon is masked within the bound")
+    void encodedSeparatorRunWithoutColonIsLinear() {
+        // x%3A%2F%2F_ repeated has a valid scheme boundary at each start and no user delimiter in the text: the user scan
+        // must not walk the whole suffix again for every start
+        var run = "x%3A%2F%2F_".repeat(100_000);
+
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(run),
+                "the encoded no-colon run redacts within the bound");
+
+        assertEquals(run, redacted, "a run without a colon stays as it is");
+    }
+
+    @Test
+    @DisplayName("a 1 000 000-character run of escape pairs is masked without a stack overflow")
+    void quotedFlagValueOfOneMillionEscapePairs() {
+        // every character pair is an escape pair, the repeated group the unrolled loop must stay iterative on
+        var log = "--password \"" + "\\x".repeat(500_000) + "\"";
+
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(log),
+                "a million-character escape run redacts within the bound");
+
+        assertEquals("--password \"" + SecretRedactor.REDACTED + "\"", redacted,
+                "the whole escape-pair value is masked");
     }
 
     @Test

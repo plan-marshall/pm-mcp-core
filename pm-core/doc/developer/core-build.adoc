@@ -271,12 +271,14 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
 *Every stored diagnostic is redacted.* `DiagnosticCollector.stored` redacts a message through `SecretRedactor` before it
 cuts it to the stored length, so the TAP, Jest, ESLint, TypeScript, Maven, Gradle and pyproject messages — and the npm
 ones — reach neither the model nor a store unmasked, and a truncated message cannot keep half a secret.
-`OpenRewriteLogParser` files its own `RewriteFinding` records rather than a `Diagnostic`, so its messages do not pass
-through this seam. A message that is only whitespace or invisible characters gets a fixed fallback where the parser's
-status depends on the diagnostic (mypy, Ruff, pytest, Jest), so a recognized failure never reads as a green build; where
-the status comes from the tool's own failure marker (Maven, TAP), the empty diagnostic is skipped instead. `Diagnostic`
-redacts its collected `stackTrace` in its constructor, so the TAP and Jest frames and the frames `StackTraceCollector`
-attaches to a Maven or Gradle issue are covered by the same rule.
+`OpenRewriteLogParser` files its own `RewriteFinding` records rather than a `Diagnostic`, and the record redacts its path
+and message in its constructor. A message that is only whitespace or invisible characters gets a fixed fallback where the
+parser's status depends on the diagnostic (mypy, Ruff, pytest, Jest), so a recognized failure never reads as a green
+build; where the status comes from the tool's own failure marker (Maven, TAP), the empty diagnostic is skipped instead.
+`Diagnostic` redacts its file and its collected `stackTrace` in its constructor, so the TAP and Jest frames and the frames
+`StackTraceCollector` attaches to a Maven or Gradle issue are covered by the same rule, and the stack trace is cut to the
+stored bound after the redaction: a credentialed URL whose closing `@` lies beyond the line cut can no longer leave more
+than a stored message's worth of a partial password (link:../adr/core-build/010-the-key-block-runs-first-and-the-record-redacts-its-read-outs.adoc[ADR `core-build/010`]).
 
 === Counts of the Six
 
@@ -571,4 +573,4 @@ _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 * Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; of the items this package closed,
   PM-WATCH-JOB-10, -12 and -18 were deleted from the watch document, and PM-WATCH-JOB-11 stays with its guard now carried
   by every parser of the package
-* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes], link:../adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR 004 the unparsed excerpt is bounded, redacted and diagnostic-free], link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR 005 the coverage model and the XML hardening], link:../adr/core-build/006-the-redactor-shapes-and-the-npm-diagnostic-redaction.adoc[ADR 006 the redactor shapes and the npm diagnostic redaction], link:../adr/core-build/007-the-read-and-the-patterns-are-bounded.adoc[ADR 007 the read and the patterns are bounded], link:../adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR 008 the coverage parsers read with DTD off and bounded], link:../adr/core-build/009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR 009 the redactor shapes, the diagnostic redaction and the input bounds]
+* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes], link:../adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR 004 the unparsed excerpt is bounded, redacted and diagnostic-free], link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR 005 the coverage model and the XML hardening], link:../adr/core-build/006-the-redactor-shapes-and-the-npm-diagnostic-redaction.adoc[ADR 006 the redactor shapes and the npm diagnostic redaction], link:../adr/core-build/007-the-read-and-the-patterns-are-bounded.adoc[ADR 007 the read and the patterns are bounded], link:../adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR 008 the coverage parsers read with DTD off and bounded], link:../adr/core-build/009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR 009 the redactor shapes, the diagnostic redaction and the input bounds], link:../adr/core-build/010-the-key-block-runs-first-and-the-record-redacts-its-read-outs.adoc[ADR 010 the key block runs first and a record redacts its read-outs]
