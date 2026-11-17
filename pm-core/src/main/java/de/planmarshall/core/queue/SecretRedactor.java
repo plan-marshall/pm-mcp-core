@@ -49,8 +49,8 @@ import de.planmarshall.core.build.BuildLogText;
  * The zero-width joiners and the bidi controls stay in the text, because they carry meaning in Persian, Indic and
  * right-to-left text and in emoji sequences.
  * <p>
- * A separator accepts an optional backslash before its quote, so a JSON object embedded as a JSON string
- * ({@code {\"password\":\"secret\"}}) is read as the quoted credential assignment it is.
+ * An escaped form reads the JSON object embedded as a JSON string ({@code {\"password\":\"secret\"}}): the escaped
+ * opening quote is taken with the separator and the rest of the line is masked, as the unclosed form does.
  * <p>
  * The replacement keeps the label so the reader knows what was removed: {@code "Authorization: Bearer …"} becomes
  * {@code "Authorization: Bearer [redacted]"}, {@code "https://user:secret@host"} keeps its scheme and user, and a key
@@ -84,7 +84,7 @@ public final class SecretRedactor {
      */
     private static final Pattern INVISIBLE = Pattern.compile("[\\u00AD\\u200B\\u2060\\uFEFF]");
 
-    private static final String SEPARATOR = "(\\\\?[\"']?\\s*[:=]\\s*\\\\?[\"']?)";
+    private static final String SEPARATOR = "((?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?)";
 
     private static final String VALUE = "([^\\s\"',;]{4,})";
 
@@ -275,6 +275,15 @@ public final class SecretRedactor {
             ASSIGNMENT_LABELS.stream().map(SecretRedactor::unclosedQuotedAssignment).toList();
 
     /**
+     * The escaped form of a credential-shaped assignment, the shape a JSON object takes when it is embedded as a JSON
+     * string: the label's quotes and the value's opening quote are each preceded by a backslash
+     * ({@code {\"password\":\"hunter2\"}}). The sharp forms cannot read it, because their opening quote is a bare one;
+     * this form takes the backslash with the opening quote and masks the rest of the line, as the unclosed form does.
+     */
+    private static final List<Pattern> ESCAPED_JSON_ASSIGNMENTS =
+            ASSIGNMENT_LABELS.stream().map(SecretRedactor::escapedJsonAssignment).toList();
+
+    /**
      * The quoted form of a credential-shaped assignment. A quoted value runs to its own closing quote, so a value whose
      * first word is shorter than the four characters the unquoted form requires ({@code token="ab cd ef"}) is masked
      * whole. The escape handling of {@link #QUOTED_LINE} keeps an escaped quote from closing the value.
@@ -303,14 +312,19 @@ public final class SecretRedactor {
      * closing quote, read through the escape pairs of {@link #QUOTED_LINE}.
      */
     private static Pattern quotedAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(\\\\?[\"']?\\s*[:=]\\s*)([\"'])"
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b((?:\\\\?[\"'])?\\s*[:=]\\s*)([\"'])"
                 + QUOTED_ASSIGNMENT_VALUE);
     }
 
     /** One unclosed quoted assignment: the label, the separator, the opening quote and the rest of its line. */
     private static Pattern unclosedQuotedAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(\\\\?[\"']?\\s*[:=]\\s*)([\"'])(?!"
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b((?:\\\\?[\"'])?\\s*[:=]\\s*)([\"'])(?!"
                 + QUOTED_ASSIGNMENT_VALUE + ")([^\\r\\n]*)");
+    }
+
+    /** One escaped-JSON assignment: the label, the separator, the escaped opening quote and the rest of its line. */
+    private static Pattern escapedJsonAssignment(String label) {
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b((?:\\\\?[\"'])?\\s*[:=]\\s*)(\\\\[\"'])([^\\r\\n]*)");
     }
 
     /**
@@ -318,8 +332,9 @@ public final class SecretRedactor {
      * <p>
      * Each scheme start is visited once: the scheme is the run of scheme characters before the separator whose first
      * character is a letter, the user is the possessive run up to the next colon, and the secret is masked up to the last
-     * {@code @} of the token that starts after that colon. The last {@code @} of a token is looked up once and kept for
-     * every scheme start of the same token, so a token without an {@code @} costs one lookup rather than one per start.
+     * {@code @} of the token that starts after that colon. The token's end and its last {@code @} are found in one pass
+     * over that token, and the answer is kept for every scheme start of the same token, so a token without an {@code @}
+     * costs one pass rather than a lookup per start.
      *
      * @param value           the text to redact
      * @param schemeSeparator {@code ://} or the percent-encoded {@code %3A%2F%2F}
@@ -332,7 +347,7 @@ public final class SecretRedactor {
         var tokenEnd = -1;
         var tokenLastAt = -1;
         while (true) {
-            var separator = value.indexOf(schemeSeparator, search);
+            var separator = indexOfSeparator(value, schemeSeparator, search);
             if (separator < 0) {
                 break;
             }
@@ -355,10 +370,13 @@ public final class SecretRedactor {
             var secretStart = userEnd + 1;
             if (tokenEnd < 0 || secretStart >= tokenEnd) {
                 tokenEnd = secretStart;
+                tokenLastAt = -1;
                 while (tokenEnd < value.length() && !isWhiteSpace(value.charAt(tokenEnd))) {
+                    if (value.charAt(tokenEnd) == '@') {
+                        tokenLastAt = tokenEnd;
+                    }
                     tokenEnd++;
                 }
-                tokenLastAt = value.lastIndexOf('@', tokenEnd - 1);
             }
             if (tokenLastAt <= secretStart) {
                 search = separator + 1;
@@ -370,6 +388,16 @@ public final class SecretRedactor {
             tokenEnd = -1;
         }
         return out.append(value, copied, value.length()).toString();
+    }
+
+    /** The next occurrence of a scheme separator, compared case-insensitively (the encoded form carries letters). */
+    private static int indexOfSeparator(String value, String separator, int from) {
+        for (var index = from; index <= value.length() - separator.length(); index++) {
+            if (value.regionMatches(true, index, separator, 0, separator.length())) {
+                return index;
+            }
+        }
+        return -1;
     }
 
     /** Whether the character can be part of a URL scheme ({@code [a-z0-9+.-]}, its case-insensitive form). */
@@ -436,6 +464,10 @@ public final class SecretRedactor {
                     .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
         }
         for (var pattern : UNCLOSED_QUOTED_ASSIGNMENTS) {
+            masked = pattern.matcher(masked)
+                    .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
+        }
+        for (var pattern : ESCAPED_JSON_ASSIGNMENTS) {
             masked = pattern.matcher(masked)
                     .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         }

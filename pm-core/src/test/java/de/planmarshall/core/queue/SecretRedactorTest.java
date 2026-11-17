@@ -117,6 +117,17 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("an escaped JSON value holding spaces is masked to the end of its line")
+    void escapedJsonValueWithSpaces() {
+        var redacted = redactValue("{\\\"password\\\":\\\"my secret phrase\\\"}");
+
+        assertAll("escaped JSON value with spaces",
+                () -> assertFalse(redacted.contains("secret phrase"), "the multi-word escaped value is masked"),
+                () -> assertTrue(redacted.contains(SecretRedactor.REDACTED),
+                        "the multi-word escaped shape keeps the marker"));
+    }
+
+    @Test
     @DisplayName("a backslash-escaped key that is no credential stays readable")
     void escapedJsonNegativeControl() {
         var text = "{\\\"tokenizer\\\":\\\"wordpiece\\\"}";
@@ -183,6 +194,9 @@ class SecretRedactorTest {
                 () -> assertEquals("https%3A%2F%2Fuser:" + SecretRedactor.REDACTED + "@host",
                         redactValue("https%3A%2F%2Fuser:secret@host"),
                         "a percent-encoded scheme separator is masked"),
+                () -> assertEquals("https%3a%2f%2fuser:" + SecretRedactor.REDACTED + "@host",
+                        redactValue("https%3a%2f%2fuser:secret@host"),
+                        "a lower-case encoded separator is masked too"),
                 () -> assertEquals("https://user:" + SecretRedactor.REDACTED + "@host",
                         redactValue("https://user:p%40ss%2Fw0rd@host"),
                         "a percent-encoded password stays masked"));

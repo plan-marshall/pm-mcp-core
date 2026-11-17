@@ -96,6 +96,26 @@ class DiagnosticCollector {
         return stored.isBlank() ? Optional.empty() : Optional.of(stored);
     }
 
+    /**
+     * Redacts a collected stack trace and cuts it to the stored length, never splitting a surrogate pair.
+     * <p>
+     * A stack frame's credential therefore cannot leave a longer residue than a stored message, and the store never
+     * holds half of a pair.
+     *
+     * @param stackTrace the frames collected for a diagnostic, joined by {@code \n}
+     * @return the redacted stack trace, or its first {@value #MAX_MESSAGE_LENGTH} characters
+     */
+    static String storedTrace(String stackTrace) {
+        var redacted = SecretRedactor.redactText(stackTrace).orElseThrow();
+        if (redacted.length() <= MAX_MESSAGE_LENGTH) {
+            return redacted;
+        }
+        var end = Character.isHighSurrogate(redacted.charAt(MAX_MESSAGE_LENGTH - 1))
+                ? MAX_MESSAGE_LENGTH - 1
+                : MAX_MESSAGE_LENGTH;
+        return redacted.substring(0, end);
+    }
+
     private static String truncate(String text, int maxLength) {
         return text.length() <= maxLength ? text : text.substring(0, maxLength);
     }

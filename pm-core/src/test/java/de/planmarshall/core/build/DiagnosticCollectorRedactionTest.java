@@ -159,11 +159,13 @@ class DiagnosticCollectorRedactionTest {
         assertMessagesRedacted(build.diagnostics());
     }
 
-    /** A wall-clock bound a linear scan meets and the former quadratic URL pattern exceeds by minutes. */
+    /** A wall-clock bound a linear scan meets and the former quadratic URL pattern exceeds. */
     private static final Duration FLOOD_BOUND = Duration.ofSeconds(30);
 
     private static List<String> hostileFlood() {
-        var line = "x://y:".repeat(BuildLogText.MAX_LINE_LENGTH / 6 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
+        // a whitespace-separated flood is many tokens: a per-token lookup that walks back into the previous tokens is
+        // quadratic on the whole line, the shape the bounded scan must not have
+        var line = "x://y: ".repeat(BuildLogText.MAX_LINE_LENGTH / 7 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
         var lines = new ArrayList<String>();
         for (var index = 0; index < 2_000; index++) {
             lines.add(line);

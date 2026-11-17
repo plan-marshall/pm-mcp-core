@@ -134,13 +134,17 @@ class DiagnosticTest {
     @Test
     @DisplayName("a collected stack trace is cut to the stored bound after redaction")
     void cutsStackTraceToTheStoredBound() {
-        var head = "https://user:" + "p".repeat(9_000);
+        var head = "password=abcd1234 https://user:" + "p".repeat(9_000);
         var diagnostic = new Diagnostic("A.java", 1, 1, "text", Category.TEST_FAILURE, Severity.ERROR,
                 head + "\nat probe.CoreTest.fails(CoreTest.java:10)");
 
         assertAll(
                 () -> assertEquals(500, diagnostic.stackTrace().length(),
                         "the stack trace is cut to the stored bound"),
+                () -> assertTrue(diagnostic.stackTrace().contains(SecretRedactor.REDACTED),
+                        "a credential inside the bound is redacted"),
+                () -> assertFalse(diagnostic.stackTrace().contains("abcd1234"),
+                        "the credential inside the bound is gone"),
                 () -> assertFalse(diagnostic.stackTrace().contains("probe.CoreTest.fails"),
                         "the frame beyond the bound is cut away"));
     }

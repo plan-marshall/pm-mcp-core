@@ -70,7 +70,7 @@ Severity severity,
             file = SecretRedactor.redactText(file).orElseThrow();
         }
         if (stackTrace != null) {
-            stackTrace = DiagnosticCollector.stored(stackTrace);
+            stackTrace = DiagnosticCollector.storedTrace(stackTrace);
         }
         if (message.isBlank()) {
             throw new IllegalArgumentException("a diagnostic message must not be blank");
