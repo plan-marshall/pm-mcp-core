@@ -264,7 +264,7 @@ final class GraderFixtures {
                 new QualificationRecord.TopicResult(agreement, BigDecimal.ZERO, 10)));
         var form = new QualificationRecord.FormResult(topics, 10, TokenTotal.measured(1_000), 100);
         return new QualificationRecord(ROLE, role().qualificationDigest(), configuration(), CORPUS_REVISION,
-                List.of(), Map.of(RoleForm.FRESH, form), null, 0, NOW, List.of());
+                List.of(), Map.of(RoleForm.FRESH, form), null, 0, null, NOW, List.of());
     }
 
     /** @return the graded members of the fixture role */

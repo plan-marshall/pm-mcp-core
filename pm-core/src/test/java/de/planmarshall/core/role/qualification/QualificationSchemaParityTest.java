@@ -44,10 +44,9 @@ import de.planmarshall.core.store.SchemaParity;
 /**
  * The two grading codecs keep parity with the schema files {@code qualification-record.schema.json} and
  * {@code judge-check-record.schema.json}, read from the class path: the members they write and require in schema order,
- * the closed enumerations, the format version 1, and the validity of every written document — the judge-check document
- * as written, the qualification document but for the pinned {@code thin} mark. Two drifts are pinned, each with its
- * owner: the file requires the {@code thin} mark on a topic result and declares an optional {@code judge_check} member
- * of the record, and a codec writes neither (owner: the work package {@code qualification-evidence}).
+ * the closed enumerations, the format version 1, and the validity of every written document. The optional
+ * {@code judge_check} member is written where the record carries it and absent otherwise; the {@code thin} mark of a
+ * topic result is derived from the count the record stores.
  */
 @EnableGeneratorController
 @DisplayName("Qualification schema parity")
@@ -62,6 +61,7 @@ class QualificationSchemaParityTest {
     private static final String TOPICS = "topics";
     private static final String ITEMS = "items";
     private static final String THIN = "thin";
+    private static final String JUDGE_CHECK_MEMBER = "judge_check";
 
     /** The compiled item count below which a topic result is {@code thin} ({@code qualification-record.schema.json}). */
     private static final int THIN_LIMIT = 20;
@@ -118,22 +118,20 @@ class QualificationSchemaParityTest {
 
     /**
      * @param document a written qualification record
-     * @return the same document with the pinned {@code thin} mark supplied where it is absent, as the schema defines it
+     * @return the same document with the {@code thin} mark of the first topic removed
      */
-    private static byte[] withTopicMark(byte[] document) {
+    private static byte[] withoutMark(byte[] document) {
         var parsed = mutableObject(SchemaParity.document(document));
         var forms = mutableObject(parsed.get(FORMS));
-        forms.replaceAll((name, form) -> {
-            var values = mutableObject(form);
-            var topics = mutableObject(values.get(TOPICS));
-            topics.replaceAll((topic, result) -> {
-                var topicValues = mutableObject(result);
-                topicValues.putIfAbsent(THIN, ((Number) topicValues.get(ITEMS)).intValue() < THIN_LIMIT);
-                return topicValues;
-            });
-            values.put(TOPICS, topics);
-            return values;
-        });
+        var formName = forms.keySet().iterator().next();
+        var form = mutableObject(forms.get(formName));
+        var topics = mutableObject(form.get(TOPICS));
+        var topicName = topics.keySet().iterator().next();
+        var topicValues = mutableObject(topics.get(topicName));
+        topicValues.remove(THIN);
+        topics.put(topicName, topicValues);
+        form.put(TOPICS, topics);
+        forms.put(formName, form);
         parsed.put(FORMS, forms);
         return SchemaParity.text(parsed).getBytes(UTF_8);
     }
@@ -148,15 +146,6 @@ class QualificationSchemaParityTest {
         return copy;
     }
 
-    /**
-     * @return the topic result's required members, with the pinned {@code thin} mark
-     */
-    private static List<String> topicRequired() {
-        var members = new ArrayList<>(QualificationRecordCodec.TOPIC_MEMBERS);
-        members.add(THIN);
-        return List.copyOf(members);
-    }
-
     @Nested
     @DisplayName("role qualification record")
     class Qualification {
@@ -167,7 +156,7 @@ class QualificationSchemaParityTest {
         }
 
         @Test
-        @DisplayName("the codec members are the schema's, in schema order, with two drifts pinned")
+        @DisplayName("the codec members are the schema's, in schema order, and the judge check is the optional member")
         void members() {
             var schema = schema(QUALIFICATION);
 
@@ -181,13 +170,18 @@ class QualificationSchemaParityTest {
                             "the form members are in schema order"),
                     () -> assertEquals(QualificationRecordCodec.ITEM_MEMBERS, memberNames(itemOf(schema, ITEMS)),
                             "the item members are in schema order"),
-                    () -> assertEquals(List.of("file-only:" + THIN),
+                    () -> assertEquals(QualificationRecordCodec.TOPIC_MEMBERS,
+                            memberNames(definition(schema, "topicResult")),
+                            "the topic members are the schema's, the thin mark included"),
+                    () -> assertEquals(List.of(),
                             SchemaParity.memberDiffs(QualificationRecordCodec.TOPIC_MEMBERS,
                                     definition(schema, "topicResult")),
-                            "the topic mark is pinned to qualification-evidence"),
-                    () -> assertEquals(List.of("file-only:judge_check"),
+                            "the topic result declares no member the file lacks"),
+                    () -> assertEquals(List.of("file-only:" + JUDGE_CHECK_MEMBER),
                             SchemaParity.memberDiffs(QualificationRecordCodec.MEMBERS, schema),
-                            "the judge check is pinned to qualification-evidence"));
+                            "the optional judge check is beyond the required set"),
+                    () -> assertEquals(QualificationRecordCodec.OPTIONAL_MEMBERS, List.of(JUDGE_CHECK_MEMBER),
+                            "the codec declares the optional member the file has"));
         }
 
         @Test
@@ -204,8 +198,9 @@ class QualificationSchemaParityTest {
                             "the form's required members are the codec's"),
                     () -> assertEquals(QualificationRecordCodec.ITEM_MEMBERS, required(itemOf(schema, ITEMS)),
                             "the item's required members are the codec's"),
-                    () -> assertEquals(topicRequired(), required(definition(schema, "topicResult")),
-                            "the topic's required members are the codec's and the pin"));
+                    () -> assertEquals(QualificationRecordCodec.TOPIC_MEMBERS,
+                            required(definition(schema, "topicResult")),
+                            "the topic's required members are the codec's"));
         }
 
         @Test
@@ -221,11 +216,15 @@ class QualificationSchemaParityTest {
                     () -> assertEquals(wireNames(RoleForm.values(), RoleForm::wireName), enumOf(item, "form"),
                             "the role forms should equal the file's"),
                     () -> assertEquals(wireNames(Checkout.values(), Checkout::wireName), enumOf(item, "checkout"),
-                            "the checkouts should equal the file's"));
+                            "the checkouts should equal the file's"),
+                    () -> assertEquals(wireNames(QualificationRecord.JudgeCheckResult.values(),
+                                    QualificationRecord.JudgeCheckResult::wireName),
+                            enumOf(schema, JUDGE_CHECK_MEMBER),
+                            "the judge check results should equal the file's"));
         }
 
         @Test
-        @DisplayName("the format version is one and the document validates but for the pinned topic mark")
+        @DisplayName("the format version is one, every written document is valid and a flipped mark is refused")
         void documents() {
             var validator = validator(QUALIFICATION);
             var written = QualificationRecordCodec.write(sample());
@@ -233,12 +232,11 @@ class QualificationSchemaParityTest {
             assertAll(
                     () -> assertEquals(1, ((Number) member(schema(QUALIFICATION), "format_version").get("const"))
                             .intValue(), "the format version constant is one"),
-                    () -> assertFalse(violations(validator, written).isEmpty(),
-                            "the written record misses the pinned mark"),
-                    () -> assertTrue(violations(validator, written).stream()
-                                    .allMatch(message -> message.contains("'" + THIN + "'")),
-                            "only the pinned topic mark is absent"),
-                    () -> assertValid(validator, withTopicMark(written)));
+                    () -> assertValid(validator, written),
+                    () -> assertFalse(violations(validator, withoutMark(written)).isEmpty(),
+                            "a document without the thin mark is invalid"),
+                    () -> assertEquals(QualificationRecord.TopicResult.THIN_LIMIT, THIN_LIMIT,
+                            "the compiled thin limit is the schema's"));
         }
 
         @Test

@@ -12,6 +12,7 @@ package de.planmarshall.core.role.qualification;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -64,6 +65,41 @@ class QualificationRecordCodecTest {
     }
 
     @Test
+    @DisplayName("a topic below the compiled item count is marked thin and one at it is not")
+    void thinMark() {
+        var below = recordWithTopicItems(QualificationRecord.TopicResult.THIN_LIMIT - 1);
+        var at = recordWithTopicItems(QualificationRecord.TopicResult.THIN_LIMIT);
+        var belowText = new String(QualificationRecordCodec.write(below), StandardCharsets.UTF_8);
+        var atText = new String(QualificationRecordCodec.write(at), StandardCharsets.UTF_8);
+
+        assertAll(
+                () -> assertEquals(19, QualificationRecord.TopicResult.THIN_LIMIT - 1,
+                        "the compiled limit is twenty"),
+                () -> assertTrue(belowText.contains("\"thin\":true"), "the thinner topic is marked"),
+                () -> assertTrue(atText.contains("\"thin\":false"), "the topic at the limit is not marked"),
+                () -> assertTrue(below.topic(Topic.OWN).orElseThrow().thin(),
+                        "the record answers the mark from the count"),
+                () -> assertEquals(below,
+                        QualificationRecordCodec.read(directory.resolve("thin.json"),
+                                QualificationRecordCodec.write(below)),
+                        "the marked topic round-trips"));
+    }
+
+    @Test
+    @DisplayName("a record without a judge check round-trips without the member")
+    void judgeCheckAbsent() {
+        var entry = recordWithTopicItems(QualificationRecord.TopicResult.THIN_LIMIT);
+        var document = QualificationRecordCodec.write(entry);
+        var read = QualificationRecordCodec.read(directory.resolve("judge.json"), document);
+
+        assertAll(
+                () -> assertNull(entry.judgeCheck(), "the fixture carries no judge check"),
+                () -> assertFalse(new String(document, StandardCharsets.UTF_8).contains("\"judge_check\""),
+                        "the absent member is not written"),
+                () -> assertEquals(entry, read, "the record survives the round trip"));
+    }
+
+    @Test
     @DisplayName("the document holds every required member and the canonical text has one form")
     void canonicalText() {
         var text = new String(QualificationRecordCodec.write(fullRecord()), StandardCharsets.UTF_8);
@@ -104,7 +140,11 @@ class QualificationRecordCodecTest {
                         text().replace("\"total_tokens\":\"unmeasured\"",
                                 "\"total_tokens\":\"unmeasured\",\"tokens_in\":3000")),
                 Map.entry("an item output split",
-                        text().replace("\"total_tokens\":1200", "\"total_tokens\":1200,\"tokens_out\":300")));
+                        text().replace("\"total_tokens\":1200", "\"total_tokens\":1200,\"tokens_out\":300")),
+                Map.entry("a thin mark that contradicts the count",
+                        text().replace("\"thin\":true", "\"thin\":false")),
+                Map.entry("another judge check result",
+                        text().replace("\"judge_check\":\"passed\"", "\"judge_check\":\"unknown\"")));
 
         for (var entry : cases.entrySet()) {
             var bytes = entry.getValue().getBytes(StandardCharsets.UTF_8);
@@ -119,7 +159,7 @@ class QualificationRecordCodecTest {
     void freshRequired() {
         assertRefused(() -> new QualificationRecord(
                 QualificationFixtures.ROLE, DIGEST, QualificationFixtures.configuration(), CORPUS_REVISION,
-                List.of(), Map.of(), null, 0, QualificationFixtures.GRADED_AT, List.of()));
+                List.of(), Map.of(), null, 0, null, QualificationFixtures.GRADED_AT, List.of()));
     }
 
     @Test
@@ -128,8 +168,8 @@ class QualificationRecordCodecTest {
         var fresh = QualificationFixtures.form(Map.of(Topic.OWN, new BigDecimal("90")), 10);
         assertRefused(() -> new QualificationRecord(
                 QualificationFixtures.ROLE, DIGEST, QualificationFixtures.configuration(), CORPUS_REVISION,
-                List.of(), Map.of(RoleForm.FRESH, fresh), BigDecimal.ONE, 0, QualificationFixtures.GRADED_AT,
-                List.of()));
+                List.of(), Map.of(RoleForm.FRESH, fresh), BigDecimal.ONE, 0, null,
+                QualificationFixtures.GRADED_AT, List.of()));
     }
 
     private static void assertRefused(Executable executable) {
@@ -144,7 +184,7 @@ class QualificationRecordCodecTest {
 
         assertRefused(() -> new QualificationRecord(graded.role(),
                 graded.qualificationDigest(), graded.configuration(), graded.corpusRevision(),
-                graded.missedSources(), graded.forms(), null, 1, graded.gradedAt(), List.of()));
+                graded.missedSources(), graded.forms(), null, 1, null, graded.gradedAt(), List.of()));
     }
 
     @Test
@@ -166,8 +206,20 @@ class QualificationRecordCodecTest {
         return new String(QualificationRecordCodec.write(fullRecord()), StandardCharsets.UTF_8);
     }
 
-    private static QualificationRecord fullRecord() {
-        var itemId = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/clean-plan";
+    /**
+     * @param items the graded items of the one topic
+     * @return a fresh-only record measured on a single own topic with that count
+     */
+    private static QualificationRecord recordWithTopicItems(int items) {
+        var topic = new QualificationRecord.TopicResult(new BigDecimal("90"), new BigDecimal("10"), items);
+        var form = new QualificationRecord.FormResult(Map.of(Topic.OWN, topic), items,
+                TokenTotal.measured(1_000), 100);
+        return new QualificationRecord(QualificationFixtures.ROLE, DIGEST, QualificationFixtures.configuration(),
+                CORPUS_REVISION, List.of(), Map.of(RoleForm.FRESH, form), null, 0, null,
+                QualificationFixtures.GRADED_AT, List.of());
+    }
+
+    private static QualificationRecord fullRecord() {        var itemId = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/clean-plan";
         var itemAnswer = Generators.letterStrings(3, 10).next();
         var fresh = new QualificationRecord.FormResult(
                 Map.of(
@@ -192,7 +244,7 @@ class QualificationRecordCodecTest {
         return new QualificationRecord(QualificationFixtures.ROLE, DIGEST, QualificationFixtures.configuration(),
                 CORPUS_REVISION, List.of("reviews"),
                 Map.of(RoleForm.FRESH, fresh, RoleForm.WARM, warm), new BigDecimal("5"), 1,
-                QualificationFixtures.GRADED_AT, items);
+                QualificationRecord.JudgeCheckResult.PASSED, QualificationFixtures.GRADED_AT, items);
     }
 
     @Test

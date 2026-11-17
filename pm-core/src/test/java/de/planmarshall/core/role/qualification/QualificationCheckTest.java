@@ -45,6 +45,38 @@ class QualificationCheckTest {
     private static final BigDecimal NINETY = new BigDecimal("90");
 
     @Test
+    @DisplayName("the thin mark changes no verdict: a topic below the compiled count qualifies as one at it")
+    void thinMarkChangesNoVerdict() {
+        var below = recordWithOwnTopic(QualificationRecord.TopicResult.THIN_LIMIT - 1);
+        var at = recordWithOwnTopic(QualificationRecord.TopicResult.THIN_LIMIT);
+        var topics = new RoleTopics(EnumSet.of(Topic.OWN));
+
+        var belowVerdict = check(topics).check(QualificationFixtures.ROLE, below, QualificationFixtures.DIGEST,
+                QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
+        var atVerdict = check(topics).check(QualificationFixtures.ROLE, at, QualificationFixtures.DIGEST,
+                QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
+
+        assertAll(
+                () -> assertTrue(below.topic(Topic.OWN).orElseThrow().thin(), "the thinner topic is marked"),
+                () -> assertFalse(at.topic(Topic.OWN).orElseThrow().thin(), "the topic at the limit is not marked"),
+                () -> assertEquals(atVerdict, belowVerdict, "the mark changes no verdict"),
+                () -> assertTrue(belowVerdict.qualified(), "a topic above its baseline qualifies however thin"));
+    }
+
+    /**
+     * @param items the graded items of the one own topic
+     * @return a record whose own topic reaches the level above its baseline
+     */
+    private static QualificationRecord recordWithOwnTopic(int items) {
+        var topic = new QualificationRecord.TopicResult(NINETY, new BigDecimal("10"), items);
+        var form = new QualificationRecord.FormResult(Map.of(Topic.OWN, topic), items,
+                TokenTotal.measured(1_000), 100);
+        return new QualificationRecord(QualificationFixtures.ROLE, QualificationFixtures.DIGEST,
+                QualificationFixtures.configuration(), QualificationFixtures.CORPUS_REVISION, List.of(),
+                Map.of(RoleForm.FRESH, form), null, 0, null, QualificationFixtures.GRADED_AT, List.of());
+    }
+
+    @Test
     @DisplayName("every topic at the level qualifies the fresh form")
     void everyTopicAtLevel() {
         var qualification = QualificationFixtures.qualification(Map.of(
@@ -189,7 +221,7 @@ class QualificationCheckTest {
                 (long) Generators.integers(1, 100).next());
         var qualification = new QualificationRecord(graded.role(), graded.qualificationDigest(),
                 graded.configuration(), graded.corpusRevision(), graded.missedSources(), graded.forms(), null, 1,
-                graded.gradedAt(), List.of(ungraded));
+                null, graded.gradedAt(), List.of(ungraded));
 
         var verdict = check(QualificationFixtures.bothTopics()).check(QualificationFixtures.ROLE, qualification,
                 QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
@@ -333,7 +365,8 @@ class QualificationCheckTest {
         results.add(result(suspicious.id(), cleanAnswer));
         results.add(result(clean.id(), cleanAnswer));
         var measured = new QualificationRecord(qualification.role(), qualification.qualificationDigest(), qualification.configuration(),
-                qualification.corpusRevision(), List.of(), qualification.forms(), null, 0, qualification.gradedAt(), results);
+                qualification.corpusRevision(), List.of(), qualification.forms(), null, 0, null,
+                qualification.gradedAt(), results);
         var topics = new RoleTopics(EnumSet.of(Topic.OWN));
         var check = new QualificationCheck(topics, List.of(suspicious, clean),
                 QualificationFixtures.settings(80));
@@ -355,7 +388,7 @@ class QualificationCheckTest {
         var qualification = QualificationFixtures.qualification(Map.of(Topic.OWN, NINETY));
         var measured = new QualificationRecord(qualification.role(), qualification.qualificationDigest(),
                 qualification.configuration(), qualification.corpusRevision(), List.of(), qualification.forms(), null,
-                0, qualification.gradedAt(), List.of());
+                0, null, qualification.gradedAt(), List.of());
         var check = new QualificationCheck(new RoleTopics(EnumSet.of(Topic.OWN)), List.of(),
                 QualificationFixtures.settings(80));
 
