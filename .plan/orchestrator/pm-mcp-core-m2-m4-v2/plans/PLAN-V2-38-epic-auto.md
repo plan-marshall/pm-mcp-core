@@ -57,13 +57,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/epic-auto.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/epic-auto.adoc at HEAD has Tasks (7 numbered), Trace, Done When; no What section or 9 bullets (efecccba #286); spec Re-ground record claim 0 states it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/epic-auto.adoc now has 7 numbered Tasks, Trace, 2-bullet Done When; no What section and not 9 bullets
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-V2-21 (`plan-and-epic-control`) (the operator's acts on a plan); PLAN-V2-27 (`epic-resource-and-release`) (next plan, the toggle among the epic's actions, archive, the release); PLAN-V2-32 (`epic-decomposition`)) — read at `doc/plans/epic-auto.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:192-196 epic-auto open, depends on plan-and-epic-control, epic-resource-and-release, epic-decomposition; all three rows still listed
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:192-195 epic-auto is open and depends on plan-and-epic-control; epic-resource-and-release (next plan, toggle, archive, release); epic-decomposition
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about how the Expected Surface was inferred, settled at the trace matrix; no epic-auto code at HEAD (workflow/epic holds only EpicTokens)
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about an Expected Surface inferred from the Where line; package file has no such section
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:192-196 epic-auto is open, not blocked, and its three dependency rows are open; use-case agreement and open PRs are not readable
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:192-194 index row says open, not blocked; the rest of the clause (use cases agreed, shipped packages) is a to-do of the executing plan
 
 ## Expected Surface
 
@@ -140,6 +140,12 @@ Specification changes carried (not yet in the Deliverables above):
 Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
 
 - Claim 0 (contradicted at HEAD): doc/plans/epic-auto.adoc was restructured by #286 (efecccba): now 7 Tasks, Trace and Done When, no What section; the 9 bullets D1-D9 and long Done-when are not the file's own words; no section of the spec says so
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): doc/plans/epic-auto.adoc now has 7 numbered Tasks, Trace, 2-bullet Done When; no What section and not 9 bullets Correction: Say: seven Tasks (settings, toggle and limit, on and off, overlap at admission, overlap while running, reacting on an ended plan, through).
 
 ## Hand-Off Command
 

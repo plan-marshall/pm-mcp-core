@@ -58,13 +58,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/process-and-overview.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/process-and-overview.adoc at HEAD has Tasks (8 numbered), Trace, Done When; no What section, not 9 bullets (rewritten by efecccba #286); spec Re-ground record names it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: Package file now has sections Tasks, Trace, Done When (no What); 8 numbered tasks, 4 trace bullets, 2 done bullets.
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-21 (`plan-and-epic-control`) (the activity, the holds)) — read at `doc/plans/process-and-overview.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/README.adoc:96-99 row is open but depends only on phase-sub-workflows and plan-and-epic-control; PLAN-42 left; spec Re-ground record claim 1 states it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/README.adoc index row of process-and-overview: `open`; depends on `phase-sub-workflows` and `plan-and-epic-control` (PLAN-42 no longer listed).
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the class names of § What, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about how the Expected Surface was inferred; settled only at the trace matrix of traced-implementation, nothing to read at HEAD
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Expected Surface is a statement of the spec itself, not of the repository; the package file Where line exists but how the surface was inferred is not reachable by reading.
 - Verify-first clause: before scoping, list the open pull requests for one that names `process-and-overview`, check in `doc/plans/README.adoc` that every dependency is `done`, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause needing the live open-PR list; README.adoc:96-99 deps phase-sub-workflows and plan-and-epic-control are still open
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause (open pull requests, dependencies done, roadmap item); not settled by reading.
 
 ## Expected Surface
 
@@ -147,6 +147,13 @@ Written by the `cleanup` verb after a read-only leaf compared every claim of thi
 
 - Claim 0 (contradicted at HEAD): doc/plans/process-and-overview.adoc was rewritten by #286 (efecccba): 8 Tasks, one new for the PlanTokens/EpicTokens tokens, no What section; the 9 spec bullets differ. Not shipped.
 - Claim 1 (contradicted at HEAD): HEAD row is open and depends on phase-sub-workflows and plan-and-epic-control only; operator-wait-and-machine-scope shipped (#203) and left the row. The spec still lists three deps.
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): Package file now has sections Tasks, Trace, Done When (no What); 8 numbered tasks, 4 trace bullets, 2 done bullets. Correction: Cite doc/plans/process-and-overview.adoc as Tasks (8 numbered), Trace (4 bullets), Done When; the section What and the bullet counts of 4617865 are gone.
+- Claim 1 (contradicted): doc/plans/README.adoc index row of process-and-overview: `open`; depends on `phase-sub-workflows` and `plan-and-epic-control` (PLAN-42 no longer listed). Correction: Index row now reads `open`; depends on `phase-sub-workflows` and `plan-and-epic-control` (PLAN-42 no longer listed).
 
 ## Hand-Off Command
 

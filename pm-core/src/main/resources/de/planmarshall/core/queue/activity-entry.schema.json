@@ -10,7 +10,7 @@
     "seq": { "type": "integer", "minimum": 1, "description": "Position in the task's journal, one above the last ever written; never reused." },
     "attempt": { "type": "integer", "minimum": 1, "description": "The attempt of the queue task (Queue Task Record, attempts[])." },
     "source": { "type": "string", "enum": ["harness", "server"] },
-    "kind": { "type": "string", "enum": ["text", "tool_call", "tool_result", "file_changed", "turn", "link", "question", "answer_ack", "signal", "attempt_end"], "description": "harness: text, tool_call, tool_result, file_changed, turn; server: the others." },
+    "kind": { "type": "string", "enum": ["text", "tool_call", "tool_result", "file_changed", "turn", "link", "question", "answer_ack", "signal", "egress", "attempt_end"], "description": "harness: text, tool_call, tool_result, file_changed, turn; server: link, question, answer_ack, signal, egress, attempt_end." },
     "text": { "type": ["string", "null"], "maxLength": 2000, "description": "text only: what the model wrote, masked and cut; untrusted." },
     "truncated": { "type": "boolean", "description": "text only: the text was cut to the bound." },
     "tool": { "type": ["object", "null"], "required": ["name", "target"], "additionalProperties": false, "description": "tool_call only.", "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 128 }, "target": { "type": ["string", "null"], "maxLength": 1000, "description": "A path, a command line, or a server link with its id; masked; untrusted." } } },
@@ -21,6 +21,7 @@
     "link": { "type": ["object", "null"], "required": ["rel", "target"], "additionalProperties": false, "description": "link only.", "properties": { "rel": { "type": "string", "enum": ["ack", "submit", "ask", "consult", "yield", "infeasible"] }, "target": { "type": ["string", "null"], "maxLength": 128, "description": "The entity or role the link names, for example TASK-007 or a consulted role." } } },
     "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "question and answer_ack only." },
     "signal": { "type": ["object", "null"], "required": ["signal", "action"], "additionalProperties": false, "description": "signal only: the same entry as the queue task record's signals[].", "properties": { "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint", "agent_started"] }, "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] } }, "if": { "properties": { "signal": { "const": "agent_started" } } }, "then": { "properties": { "action": { "const": "restart" } } } },
+    "egress": { "type": ["object", "null"], "required": ["destination"], "additionalProperties": false, "description": "egress only: the host:port a worker's egress proxy refused", "properties": { "destination": { "type": "string", "minLength": 3, "maxLength": 259, "pattern": "^[^\\r\\n]*$" } } },
     "end": { "type": ["string", "null"], "description": "attempt_end only: the attempt's end (Queue Task Record, attempts[].end)." },
     "unmapped_lines": { "type": ["integer", "null"], "minimum": 0, "description": "attempt_end only: output lines of the attempt that matched no mapping." },
     "at": { "type": "string", "format": "date-time" }

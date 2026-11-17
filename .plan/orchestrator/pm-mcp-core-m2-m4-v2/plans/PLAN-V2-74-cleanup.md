@@ -61,13 +61,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/cleanup.adoc` § What, Trace, Done When on `origin/main` at `4617865` (10 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/cleanup.adoc at 3d453e6c has 9 Tasks, Trace and Done When (Watch PM-WATCH-CLI-23 plus Tests); no What section, no 10 bullets (#286/#287)
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/cleanup.adoc now has Tasks (9 numbered tasks), Trace, Done When; no What section and no ten bullets
 - OBSERVED: the package file and its index row (`blocked`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-41 (`operator-reports`); PLAN-V2-21 (`plan-and-epic-control`) (the archives of plans); PLAN-V2-27 (`epic-resource-and-release`) (the archives of epics, the release; the unenrolment); PLAN-V2-29 (`chat`) (ended work, read-only); PLAN-V2-42 (`runtime-metrics`) (the token figures kept); PLAN-46 (`machine-onboarding-unit`) (the machine's settings); PLAN-V2-17 (`project-onboarding-unit`) (the project's values)) — read at `doc/plans/cleanup.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc cleanup row: blocked, depends on operator-reports, plan-and-epic-control, epic-resource-and-release, chat, runtime-metrics, project-onboarding-unit; PLAN-42 and PLAN-46 edges gone
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc row cleanup is blocked and depends on operator-reports, plan-and-epic-control, epic-resource-and-release, chat, runtime-metrics and project-onboarding-unit; operator-wait-and-machine-scope (PLAN-42) and machine-onboarding-unit (PLAN-46) are not listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis on the Expected Surface; cleanup.adoc Where line still names pm-core and pm-runtime but surface fit is a trace-matrix judgement, not readable
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Provenance of the plan's own Expected Surface; settled only at the trace matrix
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause; README.adoc cleanup row is still blocked at HEAD, agreed use cases and open PRs are not readable here
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause: use cases agreed and which restructured packages shipped are run-time checks
 
 ## Expected Surface
 
@@ -157,6 +157,13 @@ Written by the `cleanup` verb after a read-only leaf compared every claim of thi
 
 - Claim 0 (contradicted at HEAD): doc/plans/cleanup.adoc was rewritten by #286 and #287: it now has 9 Tasks and a Done When of watch plus tests, no What section; the 10 What bullets differ. Not shipped.
 - Claim 1 (contradicted at HEAD): HEAD row is blocked and now lists seven deps; operator-wait-and-machine-scope (#203) is gone. Still listed: operator-reports, plan-and-epic-control, epic-resource-and-release, chat, runtime-metrics, machine-onboarding-unit, project-onboarding-unit.
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): doc/plans/cleanup.adoc now has Tasks (9 numbered tasks), Trace, Done When; no What section and no ten bullets Correction: Cite the package file's Tasks (nine tasks), Trace and Done When sections.
+- Claim 1 (contradicted): README.adoc row cleanup is blocked and depends on operator-reports, plan-and-epic-control, epic-resource-and-release, chat, runtime-metrics and project-onboarding-unit; operator-wait-and-machine-scope (PLAN-42) and machine-onboarding-unit (PLAN-46) are not listed Correction: The index lists six dependencies without PLAN-42 and PLAN-46 (the machine's settings); drop them.
 
 ## Hand-Off Command
 

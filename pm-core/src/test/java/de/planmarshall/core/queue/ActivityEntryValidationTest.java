@@ -52,6 +52,7 @@ class ActivityEntryValidationTest {
         var linkTarget = "TASK-" + Generators.integers(100, 999).next();
         var questionId = "Q-" + Generators.integers(100, 999).next();
         var unmappedLines = Generators.integers(0, 100).next();
+        var destination = Generators.letterStrings(3, 32).next() + ":443";
         var entries = List.of(
                 base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TEXT).text(text).truncated(true).build(),
                 base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TOOL_CALL)
@@ -68,6 +69,8 @@ class ActivityEntryValidationTest {
                 base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ANSWER_ACK).questionId(questionId).build(),
                 base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.SIGNAL)
                         .signal(new ActivityEntry.Signal(SignalName.AGENT_STARTED, SignalAction.RESTART)).build(),
+                base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.EGRESS)
+                        .egress(new ActivityEntry.Egress(destination)).build(),
                 base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).end("off_track")
                         .unmappedLines(unmappedLines).build());
 
@@ -118,6 +121,14 @@ class ActivityEntryValidationTest {
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.SIGNAL).build(),
                         "a signal entry needs a signal"),
                 () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.SIGNAL)
+                                .signal(new ActivityEntry.Signal(SignalName.REPEATING, SignalAction.SHOW))
+                                .egress(new ActivityEntry.Egress("example.test:443")).build(),
+                        "an egress member belongs to an egress entry"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.EGRESS).build(),
+                        "an egress entry needs its destination"),
+                () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).build(),
                         "an attempt_end entry needs its end reason"));
     }
@@ -149,6 +160,18 @@ class ActivityEntryValidationTest {
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).end("x")
                                 .unmappedLines(-1).build(),
                         "a negative unmapped line count is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.EGRESS)
+                                .egress(new ActivityEntry.Egress("a".repeat(260))).build(),
+                        "a destination beyond 259 characters is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.EGRESS)
+                                .egress(new ActivityEntry.Egress("a:")).build(),
+                        "a destination below the 3-character floor is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.EGRESS)
+                                .egress(new ActivityEntry.Egress("host:4\n43")).build(),
+                        "a destination with a line break is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TURN).usage("[]").build(),
                         "a usage member that is not an object is refused"),

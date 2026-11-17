@@ -1,0 +1,67 @@
+= ADR 072: The Job Record's egress Is a Nullable Enumeration
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-17
+
+== Context
+
+The specification requires that a worker's job record state whether its egress proxy is the platform-enforced only
+route out ("Both record `egress: enforced` in the job record", "every job record then states `egress: unenforced`",
+link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[Job Runtime
+Specification, Worker Egress Proxy]). No platform in this repository and none in the shipped `pm-exec` enforces it
+today, so the runtime can only state the honest value. The operator decided on 2026-10-29 (decision 14 of 18, option 3)
+to close the specification gap and build no enforcement: the record states `unenforced` and the enforcement stays with
+`pm-exec` in `pm-mcp-clients`.
+
+The record's vocabulary has to answer three questions at once: what a launcher may report, what the runtime may write on
+its own, and what the member means for the other job kinds.
+
+== Decision
+
+`JobRecord.Egress` is a nested enumeration with the two wire names `enforced` and `unenforced`, each with `wireName()`
+and `fromWireName` in the pattern of `Confinement`. The record carries it as a `@Nullable Egress egress` component
+directly after `landlockAbi`, non-null exactly for kind `llm` (`requireKindRules`), `null` for every other kind; the rule
+makes the property required in the schema file and `string` in the `llm` branch of its first `allOf` entry, `null` in
+the `else` branch. `JobRecordCodec` writes the nullable member and reads it strictly: a record without the member is
+refused like every missing member (format version stays 1). `SubprocessJobRunner.newRecord` sets `unenforced` for a
+worker and `null` otherwise; the post-spawn and fate replaces derive from that record and keep it. No code path writes
+`enforced`: the value exists for the codec and for the `pm-exec` follow-up.
+
+== Alternatives Considered
+
+A member of the `worker` block was rejected. `JobRecordCodec` keeps that block verbatim as raw text and the supervisor
+owns it (link:../core-store/030-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 030]), so the runtime
+could neither type the value, validate it against a closed vocabulary, nor compare it with a launch report.
+
+A third value `not_applicable` for the other kinds, as `confinement` has it, was rejected. The other kinds keep the
+network their operation needs, so the member has no meaning for them; a value would say "this kind was considered" where
+`null` says "no statement", and the rule "non-null exactly for a worker" is the schema shape the `worker` block already
+uses.
+
+A boolean was rejected: it loses the wire vocabulary the launcher and the record share, and a later third state (a
+partial enforcement) would change the type.
+
+== Consequences
+
+`format_version` stays 1 (R13): the member replaces version 1 in place, and no reader for an older record is written. A
+record written before this change is refused rather than read with an absent member. The schema-parity test pins the
+property, its place in `required` and the enumeration; the codec test pins the round trip, the strict read and the rule
+per kind; `EgressJobTest` pins the runner's honest value at every write point and for a refused worker, `SubprocessJobRunnerTest`
+pins that a `git` and a `build` job record none, and `ProbeJobTest` that a probe does. A `build` and a `project_script`
+job record `null` today: the values the Build Egress section names for them join the member with their own
+implementation, which is why the schema description and that section say so. The enforcement, the launch-report member
+that would state `enforced`, the production start of `WorkerEgressProxy`, the operator's acceptance of unenforced egress
+and the runtime status line remain outside this repository and are listed in
+link:../../../../doc/plans/job-confinement-and-environment.adoc[the package file].
+
+== Source
+
+PLAN-V2-59, `doc/plans/job-confinement-and-environment.adoc`;
+`doc/specification/store-schemas/10-job-and-lesson-records.adoc#job-record`;
+`doc/specification/job-runtime/02-confinement-and-environment.adoc#worker-egress`.

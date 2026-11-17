@@ -254,5 +254,50 @@ class TaskQueueSchemaParityTest {
 
             assertValid(validator, ActivityEntryCodec.write(entry));
         }
+
+        @Test
+        @DisplayName("a destination with a line break is refused by the schema")
+        void egressLineBreakRefused() {
+            var validator = validator(SCHEMA);
+            var document = """
+                    {"format_version":1,"seq":1,"attempt":1,"source":"server","kind":"egress","text":null,\
+                    "truncated":false,"tool":null,"result":null,"path":null,"stop_reason":null,"usage":null,\
+                    "link":null,"question_id":null,"signal":null,"egress":{"destination":"host:4\\n43"},\
+                    "end":null,"unmapped_lines":null,"at":"2026-01-02T03:04:05Z"}""";
+
+            assertFalse(SchemaValidation.validate(validator, document).isEmpty(),
+                    "the schema refuses a destination with a line break");
+        }
+
+        @Test
+        @DisplayName("the egress destination bounds are the schema's")
+        void egressBounds() {
+            var egress = member(schema(SCHEMA), "egress");
+            var destination = SchemaResource.object(egress.get("properties")).get("destination");
+
+            assertAll("the destination bounds are the schema's",
+                    () -> assertEquals(ActivityEntry.Egress.MIN_DESTINATION,
+                            ((Number) SchemaResource.object(destination).get("minLength")).intValue(),
+                            "the destination floor is the schema's"),
+                    () -> assertEquals(ActivityEntry.Egress.MAX_DESTINATION,
+                            ((Number) SchemaResource.object(destination).get("maxLength")).intValue(),
+                            "the destination ceiling is the schema's"));
+        }
+
+        @Test
+        @DisplayName("an egress entry is valid against the schema")
+        void egress() {
+            var validator = validator(SCHEMA);
+            var entry = ActivityEntry.builder()
+                    .seq(1)
+                    .attempt(1)
+                    .source(Source.SERVER)
+                    .kind(ActivityEntry.Kind.EGRESS)
+                    .egress(new ActivityEntry.Egress("example.test:443"))
+                    .at(QueueFixtures.AT)
+                    .build();
+
+            assertValid(validator, ActivityEntryCodec.write(entry));
+        }
     }
 }

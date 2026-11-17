@@ -36,20 +36,21 @@ class ActivityEntryBuilderContractTest {
         var at = Instant.parse("2026-01-02T03:04:05Z");
 
         var canonical = new ActivityEntry(seq, attempt, ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TEXT,
-                text, false, null, null, null, null, null, null, null, null, null, null, at);
+                text, false, null, null, null, null, null, null, null, null, null, null, null, at);
         var built = ActivityEntry.builder().seq(canonical.seq()).attempt(canonical.attempt())
                 .source(canonical.source()).kind(canonical.kind()).text(canonical.text())
                 .truncated(canonical.truncated()).tool(canonical.tool()).result(canonical.result())
                 .path(canonical.path()).stopReason(canonical.stopReason()).usage(canonical.usage())
                 .link(canonical.link()).questionId(canonical.questionId()).signal(canonical.signal())
-                .end(canonical.end()).unmappedLines(canonical.unmappedLines()).at(canonical.at()).build();
+                .egress(canonical.egress()).end(canonical.end()).unmappedLines(canonical.unmappedLines())
+                .at(canonical.at()).build();
 
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new ActivityEntry(seq, attempt, null, ActivityEntry.Kind.TEXT, text, false, null,
-                                    null, null, null, null, null, null, null, null, null, at),
+                                    null, null, null, null, null, null, null, null, null, null, at),
                             "the constructor refuses a null source");
                     var fromBuilder = assertThrows(NullPointerException.class,
                             () -> ActivityEntry.builder().seq(seq).attempt(attempt).kind(ActivityEntry.Kind.TEXT)
