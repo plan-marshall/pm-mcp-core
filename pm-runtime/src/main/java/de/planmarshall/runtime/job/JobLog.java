@@ -22,6 +22,7 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.LimitProperties;
+import de.planmarshall.core.queue.SecretRedactor;
 import de.planmarshall.runtime.job.JobEvidence.LogState;
 
 /**
@@ -39,6 +40,11 @@ import de.planmarshall.runtime.job.JobEvidence.LogState;
  * the file does not exist, {@link LogState#TRUNCATED} when it is shorter than what the runtime already read from it,
  * {@link LogState#UNREADABLE} when it exists and cannot be read. Such a read is a value ({@link Unavailable}), never an
  * exception.
+ * <p>
+ * Every read-out passes the redactor: {@link #readLines(long)} redacts the lines it answers and {@link #readWhole(long)}
+ * the text it hands to the launch-report read, after the size cap and before the text leaves this class, so a credential
+ * the job printed reaches neither a parser nor a model (Job Runtime § Pipeline and Subprocesses, the redaction of every
+ * read-out).
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process-Group Creation via
  * the {@code pm-exec} Launcher, launch report; Outcome Derivation, row 5).
@@ -175,9 +181,9 @@ public record JobLog(Path path) {
         var text = new String(bytes, 0, end + 1, StandardCharsets.UTF_8);
         var nextOffset = offset + end + 1;
         if (offset == 0 && LaunchReport.read(text) instanceof LaunchReport.Reported(var report, var output)) {
-            return new Lines(output.lines().toList(), nextOffset, report);
+            return new Lines(redactedLines(output), nextOffset, report);
         }
-        return new Lines(text.lines().toList(), nextOffset, null);
+        return new Lines(redactedLines(text), nextOffset, null);
     }
 
     /**
@@ -212,7 +218,7 @@ public record JobLog(Path path) {
             if (remaining < size) {
                 return truncated(remaining, size);
             }
-            return new Complete(LaunchReport.read(text), size);
+            return new Complete(LaunchReport.read(redacted(text)), size);
         } catch (NoSuchFileException _) {
             return missing();
         } catch (IOException e) {
@@ -222,6 +228,16 @@ public record JobLog(Path path) {
 
     private static String whole(FileChannel channel, long size) throws IOException {
         return new String(read(channel, 0, size), StandardCharsets.UTF_8);
+    }
+
+    /** Redacts a read-out after its size cap, before the text leaves this class. */
+    private static String redacted(String text) {
+        return SecretRedactor.redactText(text).orElseThrow();
+    }
+
+    /** The complete lines of a redacted read-out. */
+    private static List<String> redactedLines(String text) {
+        return redacted(text).lines().toList();
     }
 
     /** The first line and the last {@link #MAX_BYTES} bytes of a log longer than the cap. */
