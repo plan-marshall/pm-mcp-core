@@ -29,9 +29,9 @@ import de.planmarshall.core.store.StrictJson;
  * Journal): what a worker did while it served the task, or what the server recorded about it.
  * <p>
  * The harness kinds are {@code text}, {@code tool_call}, {@code tool_result}, {@code file_changed} and {@code turn};
- * the server kinds are {@code link}, {@code question}, {@code answer_ack}, {@code signal} and {@code attempt_end}. Each
- * member belongs to the kinds that name it. A {@code usage} object belongs to another package; it is kept as the raw
- * JSON text it was read with and written back unchanged.
+ * the server kinds are {@code link}, {@code question}, {@code answer_ack}, {@code signal}, {@code egress} and
+ * {@code attempt_end}. Each member belongs to the kinds that name it. A {@code usage} object belongs to another
+ * package; it is kept as the raw JSON text it was read with and written back unchanged.
  * <p>
  * An {@code agent_started} signal always carries the action {@code restart}: the schema's {@code if}/{@code then}
  * refuses any other action, and so does this record.
@@ -52,6 +52,7 @@ import de.planmarshall.core.store.StrictJson;
  * @param link          the link the worker followed; link only
  * @param questionId    the question; question and answer_ack only
  * @param signal        the off-track signal and its action; signal only
+ * @param egress        the destination a worker's egress proxy refused; egress only
  * @param end           the attempt's end; attempt_end only
  * @param unmappedLines the output lines of the attempt that matched no mapping; attempt_end only
  * @param at            when the entry was written
@@ -62,7 +63,7 @@ import de.planmarshall.core.store.StrictJson;
 public record ActivityEntry(int seq, int attempt, Source source, Kind kind, @Nullable String text,
 boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable String path,
 @Nullable StopReason stopReason, @Nullable String usage, @Nullable Link link,
-@Nullable String questionId, @Nullable Signal signal, @Nullable String end,
+@Nullable String questionId, @Nullable Signal signal, @Nullable Egress egress, @Nullable String end,
 @Nullable Integer unmappedLines, Instant at) {
 
     /** The format version of an activity entry that is read and written. */
@@ -131,6 +132,8 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
         ANSWER_ACK("answer_ack", Source.SERVER),
         /** An off-track signal with the action taken. */
         SIGNAL(SIGNAL_LABEL, Source.SERVER),
+        /** A destination a worker's egress proxy refused. */
+        EGRESS("egress", Source.SERVER),
         /** How the attempt ended. */
         ATTEMPT_END("attempt_end", Source.SERVER);
 
@@ -326,6 +329,40 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
     }
 
     /**
+     * The destination a worker's egress proxy refused (Job Runtime § Worker Egress Proxy). It is masked by the journal
+     * like a link target before it is written.
+     *
+     * @param destination the refused {@code host:port}, at most 259 characters (a 253-character host, a colon and a
+     *                    five-digit port)
+     * @since 0.1
+     */
+    public record Egress(String destination) {
+
+        /** The shortest destination: a one-character host, a colon and a one-digit port. */
+        static final int MIN_DESTINATION = 3;
+
+        /** The longest destination the schema admits: a 253-character host, a colon and a five-digit port. */
+        static final int MAX_DESTINATION = 259;
+
+        /**
+         * @throws NullPointerException     if the destination is {@code null}
+         * @throws IllegalArgumentException if the destination is shorter than 3 or longer than 259 characters, or
+         *                                  carries a line break
+         */
+        public Egress {
+            Objects.requireNonNull(destination, "destination");
+            if (destination.length() < MIN_DESTINATION || destination.length() > MAX_DESTINATION) {
+                throw new IllegalArgumentException("An egress destination has %d to %d characters, not %d"
+                        .formatted(MIN_DESTINATION, MAX_DESTINATION, destination.length()));
+            }
+            if (destination.indexOf('\n') >= 0 || destination.indexOf('\r') >= 0) {
+                throw new IllegalArgumentException(
+                        "'egress.destination' is one line: a line break splits the JSONL entry");
+            }
+        }
+    }
+
+    /**
      * @throws NullPointerException     if a required component is {@code null}
      * @throws IllegalArgumentException if a value breaks its rule or a member is present on a kind it does not belong
      *                                  to
@@ -362,6 +399,7 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
                     + kind.wireName() + " entry");
         }
         onlyOn(kind, Kind.SIGNAL, signal, SIGNAL_LABEL);
+        onlyOn(kind, Kind.EGRESS, egress, "egress");
         onlyOn(kind, Kind.ATTEMPT_END, end, "end");
         onlyOn(kind, Kind.ATTEMPT_END, unmappedLines, "unmapped_lines");
         if (kind == Kind.TOOL_CALL && tool == null) {
@@ -375,6 +413,9 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
         }
         if (kind == Kind.SIGNAL && signal == null) {
             throw new IllegalArgumentException("A signal entry has its signal");
+        }
+        if (kind == Kind.EGRESS && egress == null) {
+            throw new IllegalArgumentException("An egress entry has its destination");
         }
         if (kind == Kind.ATTEMPT_END && end == null) {
             throw new IllegalArgumentException("An attempt_end entry has its end");

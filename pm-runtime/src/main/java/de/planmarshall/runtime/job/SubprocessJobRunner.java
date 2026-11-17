@@ -56,6 +56,7 @@ import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecord.Confinement;
+import de.planmarshall.core.store.JobRecord.Egress;
 import de.planmarshall.core.store.JobRecord.Execution;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.GitMetadata;
@@ -1816,6 +1817,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         return JobRecord.builder().jobId(jobId).execution(Execution.PROCESS).scope(scope)
                 .budgetKey(budget.key()).budgetSeconds(budget.seconds()).budgetDerivation(budget.derivation())
                 .argvDigest(argvDigest).confinement(Confinement.UNAVAILABLE)
+                .egress(worker ? Egress.UNENFORCED : null)
                 .gitMetadata(worker ? GitMetadata.UNENFORCED : null).createdAt(createdAt)
                 .clampedValues(List.of());
     }

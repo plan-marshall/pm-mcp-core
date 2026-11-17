@@ -43,6 +43,7 @@ import org.jspecify.annotations.Nullable;
  * <li>a worker ({@code llm}) carries {@code worker}, runs as a process and belongs to a project or the machine; every
  * other kind carries no {@code worker}; a probe runs as a process and belongs to the machine or an onboarding
  * entry;</li>
+ * <li>a worker carries {@code egress} and records {@code git_metadata}; every other kind carries neither;</li>
  * <li>an {@code in_process} operation has no argument digest, PID, process start, spawn instant, exit code or signal,
  * and its confinement is {@code not_applicable};</li>
  * <li>{@code pid} and {@code process_started_at} are set together, by the post-spawn replace: a job counts as running
@@ -76,6 +77,8 @@ import org.jspecify.annotations.Nullable;
  * @param signal                  the terminating signal; {@code null} when none
  * @param landlockAbi             the Landlock ABI version of the applied ruleset, at least 2; {@code null} when none was
  *                                applied
+ * @param egress                  whether the worker's egress proxy is the platform-enforced only route out; {@code null}
+ *                                for every kind but a worker
  * @param gitMetadata             whether the git metadata of the project is unwritable for the job; {@code null} for
  *                                every kind but a worker
  * @param outcomeRow              the row 1 to 13 of the outcome derivation that decided the fate; {@code null} while
@@ -95,7 +98,7 @@ String budgetKey, long budgetSeconds, BudgetDerivation budgetDerivation, @Nullab
 Status status, @Nullable Fate fate, @Nullable Long pid, @Nullable Instant processStartedAt, Confinement confinement,
 Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Nullable Long childWallMs,
 @Nullable Long exitCode, @Nullable String signal, @Nullable Integer landlockAbi,
-@Nullable GitMetadata gitMetadata, @Nullable Integer outcomeRow,
+@Nullable Egress egress, @Nullable GitMetadata gitMetadata, @Nullable Integer outcomeRow,
 @Nullable String refusalReason, boolean cancelBeforeGroup,
 @Nullable SelfReportContradiction selfReportContradiction, List<ClampedValue> clampedValues,
 @Nullable String gateFacts) {
@@ -268,6 +271,39 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
          * @return the value of that name; empty if no value has it
          */
         public static Optional<Confinement> fromWireName(String wireName) {
+            return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
+        }
+    }
+
+    /**
+     * Whether a worker's egress proxy is the platform-enforced only route out (PM-SEC-5, Job Runtime § Worker Egress
+     * Proxy), as the launch report of {@code pm-exec} states it. The value is {@code unenforced} until a report says
+     * otherwise; the runtime never records {@code enforced} on its own.
+     *
+     * @since 0.1
+     */
+    public enum Egress {
+        /** The platform makes the worker's egress proxy its only route out. */
+        ENFORCED("enforced"),
+        /** No platform mechanism makes the egress proxy the worker's only route out. */
+        UNENFORCED("unenforced");
+
+        private final String wireName;
+
+        Egress(String wireName) {
+            this.wireName = wireName;
+        }
+
+        /** @return the name of the value in a record */
+        public String wireName() {
+            return wireName;
+        }
+
+        /**
+         * @param wireName the name of a value in a record
+         * @return the value of that name; empty if no value has it
+         */
+        public static Optional<Egress> fromWireName(String wireName) {
             return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
         }
     }
@@ -540,7 +576,7 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         requireForms(argvDigest, pid, landlockAbi, refusalReason, childWallMs);
         requireRawObject(worker, "worker");
         requireRawObject(gateFacts, "gate_facts");
-        requireKindRules(jobId.kind(), execution, scope, worker, selfReportContradiction, gateFacts, gitMetadata);
+        requireKindRules(jobId.kind(), execution, scope, worker, selfReportContradiction, gateFacts, egress, gitMetadata);
         requireSettlement(status, fate, outcomeRow, refusalReason);
         requireProcessFields(execution, argvDigest, pid, processStartedAt, spawnedAt, exitCode, signal, confinement);
         if ((pid == null) != (processStartedAt == null)) {
@@ -598,34 +634,50 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
     }
 
     private static void requireKindRules(JobId.Kind kind, Execution execution, Scope scope, @Nullable String worker,
-            @Nullable SelfReportContradiction contradiction, @Nullable String gateFacts,
+            @Nullable SelfReportContradiction contradiction, @Nullable String gateFacts, @Nullable Egress egress,
             @Nullable GitMetadata gitMetadata) {
+        Objects.requireNonNull(kind, "kind");
         if (kind == JobId.Kind.LLM) {
-            if (worker == null || execution != Execution.PROCESS
-                    || !Set.of(Scope.Type.PROJECT, Scope.Type.MACHINE).contains(scope.type())) {
-                throw new IllegalArgumentException(
-                        "A worker carries its worker block, runs as a process and belongs to a project or the machine");
-            }
-            if (gitMetadata == null) {
-                throw new IllegalArgumentException("A worker records whether its git metadata is unwritable");
-            }
+            requireWorker(execution, scope, worker, egress, gitMetadata);
         } else if (worker != null) {
             throw new IllegalArgumentException("Only a worker carries a worker block, not a job of kind "
                     + kind.wireName());
+        } else if (egress != null) {
+            throw new IllegalArgumentException("Only a worker carries egress, not a job of kind " + kind.wireName());
         } else if (gitMetadata != null) {
-            throw new IllegalArgumentException("Only a worker records git_metadata, not a job of kind "
+            throw new IllegalArgumentException("Only a worker carries git_metadata, not a job of kind "
                     + kind.wireName());
         }
-        if (kind == JobId.Kind.PROBE && (execution != Execution.PROCESS
-                || !Set.of(Scope.Type.MACHINE, Scope.Type.ENTRY).contains(scope.type()))) {
-            throw new IllegalArgumentException(
-                    "A probe runs as a process and belongs to the machine or an onboarding entry");
+        if (kind == JobId.Kind.PROBE) {
+            requireProbe(execution, scope);
         }
         if (contradiction != null && kind != JobId.Kind.PROJECT_SCRIPT) {
             throw new IllegalArgumentException("Only a project script job records a self-report contradiction");
         }
         if (gateFacts != null && kind != JobId.Kind.BUILD) {
             throw new IllegalArgumentException("Only a build job records gate facts");
+        }
+    }
+
+    private static void requireWorker(Execution execution, Scope scope, @Nullable String worker, @Nullable Egress egress,
+            @Nullable GitMetadata gitMetadata) {
+        if (worker == null || execution != Execution.PROCESS
+                || !Set.of(Scope.Type.PROJECT, Scope.Type.MACHINE).contains(scope.type())) {
+            throw new IllegalArgumentException(
+                    "A worker carries its worker block, runs as a process and belongs to a project or the machine");
+        }
+        if (egress == null) {
+            throw new IllegalArgumentException("A worker records whether its egress is enforced");
+        }
+        if (gitMetadata == null) {
+            throw new IllegalArgumentException("A worker records whether its git metadata is unwritable");
+        }
+    }
+
+    private static void requireProbe(Execution execution, Scope scope) {
+        if (execution != Execution.PROCESS || !Set.of(Scope.Type.MACHINE, Scope.Type.ENTRY).contains(scope.type())) {
+            throw new IllegalArgumentException(
+                    "A probe runs as a process and belongs to the machine or an onboarding entry");
         }
     }
 

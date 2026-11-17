@@ -29,6 +29,7 @@ import de.planmarshall.core.SchemaResource;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.ClampedValue;
 import de.planmarshall.core.store.JobRecord.Confinement;
+import de.planmarshall.core.store.JobRecord.Egress;
 import de.planmarshall.core.store.JobRecord.Execution;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.GitMetadata;
@@ -128,6 +129,9 @@ class JobRecordSchemaParityTest {
                 () -> assertEquals(enumOf(properties, "git_metadata"),
                         wireNames(GitMetadata.values(), GitMetadata::wireName),
                         "the git metadata values are the schema's"),
+                () -> assertEquals(enumOf(properties, "egress"),
+                        wireNames(Egress.values(), Egress::wireName),
+                        "the egress values are the schema's"),
                 () -> assertEquals(enumOf(derivationProperties, "kind"),
                         wireNames(BudgetDerivation.Kind.values(), BudgetDerivation.Kind::wireName),
                         "the derivation kinds are the schema's kinds"),
