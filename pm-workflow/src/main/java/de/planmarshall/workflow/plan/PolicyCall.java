@@ -30,7 +30,7 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public record PolicyCall(String callSite, String unit, SortedMap<String, BoundArgument> args,
-        @Nullable String inUnit) {
+@Nullable String inUnit) {
 
     /**
      * Refuses a missing component and copies the arguments into an unmodifiable map ordered by name.

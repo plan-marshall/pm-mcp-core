@@ -332,8 +332,8 @@ public final class PlanInstanceComposer {
      */
     @Builder
     private record Composed(List<ComposedUnit> units, Map<String, Set<String>> positionStates,
-            List<PolicyCall> policyCalls, Set<String> subUnits, List<PrunedElement> pruned,
-            Set<String> unresolved) {
+    List<PolicyCall> policyCalls, Set<String> subUnits, List<PrunedElement> pruned,
+    Set<String> unresolved) {
     }
 
     /**
