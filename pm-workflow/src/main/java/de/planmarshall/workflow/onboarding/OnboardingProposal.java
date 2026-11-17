@@ -11,6 +11,7 @@ package de.planmarshall.workflow.onboarding;
 
 import java.util.Objects;
 
+import de.planmarshall.core.config.OnboardingAspect;
 import lombok.Builder;
 
 /**

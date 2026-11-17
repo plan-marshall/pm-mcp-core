@@ -20,7 +20,8 @@
  * {@link de.planmarshall.workflow.onboarding.AutoOnboardingResult}, which answers the decided values and the items the
  * run could not decide;</li>
  * <li>the aspect order of the guided and the automatic run,
- * {@link de.planmarshall.workflow.onboarding.OnboardingAspect};</li>
+ * {@link de.planmarshall.core.config.OnboardingAspect}, kept in {@code core.config} because the machine's settings of
+ * {@code pm-runtime} name the same aspects;</li>
  * <li>the routing of {@code onboard.next}, {@link de.planmarshall.workflow.onboarding.OnboardingRouter}: the aspects in
  * their fixed order, the automatic run's result, the settings, and a {@code change} on the result that calls one aspect
  * as a later run and returns to the result.</li>

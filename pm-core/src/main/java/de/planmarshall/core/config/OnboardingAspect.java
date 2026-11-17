@@ -7,36 +7,39 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.workflow.onboarding;
+package de.planmarshall.core.config;
 
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * One aspect of the machine's onboarding, in the fixed order of the guided and the automatic run (State Catalogue §
- * Machine Onboarding; {@code language}, {@code harness}, {@code catalogue}, {@code roles}, {@code store}, {@code
- * providers}, {@code defaults}): the first run and the automatic run take them in this order, and a later run calls
- * exactly one of them with {@code onboard_run: reconfigure}. The value is the aspect unit's own prefix (Workflow DSL §
- * Machine Scope, item 3), which is also what a {@code reconfigure:<aspect>} link of the settings names.
+ * One aspect of the machine's onboarding, in the fixed order of the guided and the automatic run (Workflow DSL § Machine
+ * Scope, item 3; State Catalogue § Machine Onboarding): the value is the aspect unit's own prefix, {@code language},
+ * {@code harness}, {@code catalogue}, {@code roles}, {@code store}, {@code providers} and {@code defaults}, which is also
+ * what a {@code reconfigure:<aspect>} link of the machine's settings names.
+ * <p>
+ * The list lives in this module because two modules need it and neither may depend on the other: `pm-workflow` names an
+ * aspect in its automatic run's result and its routing, and `pm-runtime` names it in the settings' links. Both read this
+ * enum, so the closed list and its order exist once.
  *
  * @since 0.1
  */
 public enum OnboardingAspect {
 
-    /** The interface and model languages, {@code onboard.language}, whose states carry the prefix {@code language.*}. */
+    /** The interface and model languages, {@code onboard.language}. */
     LANGUAGE("language"),
-    /** The harness scan, the login probes and the enrolments, {@code onboard.harnesses}, prefix {@code harness.*}. */
+    /** The harness scan, the login probes and the enrolments, {@code onboard.harnesses}. */
     HARNESSES("harness"),
-    /** The model catalogue, {@code onboard.models}, prefix {@code catalogue.*}. */
+    /** The model catalogue, {@code onboard.models}. */
     MODELS("catalogue"),
-    /** The default role assignment and the steward role, {@code onboard.assign-roles}, prefix {@code roles.*}. */
+    /** The default role assignment and the steward role, {@code onboard.assign-roles}. */
     ROLE_ASSIGNMENT("roles"),
-    /** The credential store as the operator's choice, {@code onboard.credential-store}, prefix {@code store.*}. */
+    /** The credential store as the operator's choice, {@code onboard.credential-store}. */
     CREDENTIAL_STORE("store"),
-    /** The machine's provider defaults and their verification, {@code onboard.providers}, prefix {@code providers.*}. */
+    /** The machine's provider defaults and their verification, {@code onboard.providers}. */
     PROVIDERS("providers"),
-    /** The machine's plan behaviour defaults, {@code onboard.plan-defaults}, prefix {@code defaults.*}. */
+    /** The machine's plan behaviour defaults, {@code onboard.plan-defaults}. */
     PLAN_DEFAULTS("defaults");
 
     private final String wireName;
@@ -61,7 +64,7 @@ public enum OnboardingAspect {
     }
 
     /**
-     * @param wireName the name of an aspect, as a link's {@code reconfigure:<aspect>} carries it
+     * @param wireName the name of an aspect, as a {@code reconfigure:<aspect>} link carries it
      * @return the aspect of that name; empty for a name no aspect has
      */
     public static Optional<OnboardingAspect> of(String wireName) {

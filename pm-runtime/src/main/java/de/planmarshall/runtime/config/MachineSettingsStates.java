@@ -11,6 +11,7 @@ package de.planmarshall.runtime.config;
 
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,6 +25,7 @@ import de.planmarshall.core.config.Consent;
 import de.planmarshall.core.config.ConsentGate;
 import de.planmarshall.core.config.ConsentKind;
 import de.planmarshall.core.config.ConsentStore;
+import de.planmarshall.core.config.OnboardingAspect;
 import de.planmarshall.runtime.credentials.CredentialAccount;
 import de.planmarshall.runtime.credentials.ProviderVerification;
 import de.planmarshall.runtime.credentials.SecretStore;
@@ -68,8 +70,8 @@ public final class MachineSettingsStates {
     public static final String NOT_REMEMBERED = "not_remembered";
 
     /** The aspects the settings offer as {@code reconfigure:<aspect>}, in the order of the guided run. */
-    public static final List<String> ASPECTS = List.of("language", "harness", "catalogue", "roles", "store", "providers",
-            "defaults");
+    public static final List<String> ASPECTS = Arrays.stream(OnboardingAspect.values())
+            .map(OnboardingAspect::wireName).toList();
 
     /**
      * A cache of tokens derived from a credential's secret, registered by the assembly.

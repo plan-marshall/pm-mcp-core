@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.plan;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -42,8 +43,8 @@ public final class PlanAxisLevels {
     public static final String POSTURE_KEY = "posture";
 
     /** The levels from the nearest, in the order the binding reads them. */
-    private static final List<PlanFacts.Level> LEVELS = List.of(PlanFacts.Level.PLAN,
-            PlanFacts.Level.PROJECT, PlanFacts.Level.MACHINE);
+    private static final List<PlanFacts.Level> LEVELS = Arrays.stream(PlanFacts.Level.values())
+            .filter(level -> level != PlanFacts.Level.SHIPPED).toList();
 
     private final Map<PlanFacts.Level, Map<String, String>> recorded;
 
@@ -141,6 +142,7 @@ public final class PlanAxisLevels {
             if (level == PlanFacts.Level.SHIPPED) {
                 throw new IllegalArgumentException("the shipped level is the fallback, not a recorded level");
             }
+            levels.remove(level);
             if (values != null) {
                 levels.put(level, validate(level, values));
             }

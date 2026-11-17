@@ -100,6 +100,20 @@ class PlanAxisLevelsTest {
     }
 
     @Test
+    @DisplayName("a level set again with no values records nothing, so the next level binds")
+    void clearingALevel() {
+        var levels = PlanAxisLevels.builder()
+                .level(PlanFacts.Level.PROJECT, values("landing", "landing.main"))
+                .level(PlanFacts.Level.MACHINE, values("landing", "landing.files"))
+                .level(PlanFacts.Level.PROJECT, null)
+                .build();
+        var facts = levels.applyTo(PlanFacts.builder()).build();
+
+        assertEquals("landing.files", facts.bound(PlanFacts.Axis.LANDING).variant(),
+                "The machine level binds after the project's is cleared");
+    }
+
+    @Test
     @DisplayName("a key or a value the axes do not admit is refused with its level")
     void refusals() {
         var unknownKey = values("landing_axis", "landing.main");

@@ -24,6 +24,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import de.planmarshall.core.config.OnboardingAspect;
+
 /**
  * The replay of the {@code onboarding-contract} scenarios over the router (State Catalogue § Machine Onboarding,
  * {@code onboard.next}, {@code onboard.auto-result}, {@code settings.choose}): each scenario is one named row, the run

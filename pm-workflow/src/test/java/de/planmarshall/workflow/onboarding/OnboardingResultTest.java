@@ -22,6 +22,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.config.OnboardingAspect;
+
 /**
  * The proposal and result vocabulary of the automatic run (CLI &amp; Security § Automatic Onboarding): the closed aspect
  * order, the closed reason list with its message keys, and the result's split into the values the run decided and the

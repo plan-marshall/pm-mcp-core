@@ -12,6 +12,7 @@ package de.planmarshall.workflow.onboarding;
 import java.util.Objects;
 import java.util.Optional;
 
+import de.planmarshall.core.config.OnboardingAspect;
 import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;

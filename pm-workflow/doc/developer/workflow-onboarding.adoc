@@ -23,10 +23,11 @@ package is what those units run where the run is deterministic, and it is provab
 |===
 |Type |What it is
 
-|`OnboardingAspect`
+|`OnboardingAspect` (`core.config`)
 |The closed list of the aspects in the fixed order of the guided and the automatic run, named by the aspect unit's own
 prefix (Workflow DSL § Machine Scope, item 3): `language`, `harness`, `catalogue`, `roles`, `store`, `providers`,
-`defaults`; `next()` walks it, and a `reconfigure:<aspect>` link names it.
+`defaults`; `next()` walks it, and a `reconfigure:<aspect>` link names it. It lives in `pm-core` because the machine's
+settings of `pm-runtime` name the same aspects.
 
 |`OnboardRun`
 |How an aspect is called: `first_run`, `auto`, `reconfigure`.
@@ -51,7 +52,8 @@ a `Route` (an aspect call, or `completed`, `result` or `settings`).
 
 The first run and the automatic run take the aspects in `OnboardingAspect`'s order. After the last aspect the first run
 opens `onboard.completed` and the automatic run opens `onboard.auto-result`. A `change` on the result calls that one aspect
-with `onboard_run: reconfigure` and its current values as the proposal; because the run value alone cannot say where a
+with `onboard_run: reconfigure`; the assembly supplies the aspect's current values from `result.of(aspect)` as the proposal,
+because the router reads no state. Because the run value alone cannot say where a
 later run returns, `returned(..., OpenedFrom.RESULT)` leads back to the result and `OpenedFrom.SETTINGS` back to
 `settings.choose`. A change naming an aspect the result carries no item of is refused: there is nothing to change.
 
