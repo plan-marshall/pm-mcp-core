@@ -423,12 +423,6 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |
 |
 
-|link:adoc-reading-retired.adoc[`adoc-reading-retired`]
-|`SpecificationDocument` and `pm.specification.root` deleted, the `**/doc/**` entry removed from the docs-only include list, the ADRs of the docs-only skip marked superseded
-|`open`
-|`schema-files-tested-records`
-|none: the way a specification states a schema, a limit and a list (ADR 009)
-
 |===
 
 [#how]

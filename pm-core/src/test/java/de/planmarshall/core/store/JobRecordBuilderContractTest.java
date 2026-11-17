@@ -44,7 +44,7 @@ class JobRecordBuilderContractTest {
         var derivation = new BudgetDerivation(BudgetDerivation.Kind.LEARNED, 3L);
         var canonical = new JobRecord(new JobId(JOB_ID), Execution.PROCESS, scope, null, "build:verify", 600,
                 derivation, ARGV_DIGEST, Status.QUEUED, null, null, null, Confinement.UNAVAILABLE, CREATED_AT, null,
-                null, null, null, null, null, null, null, false, null, List.of(), null);
+                null, null, null, null, null, null, null, null, false, null, List.of(), null);
         var built = JobRecord.builder().jobId(canonical.jobId()).execution(canonical.execution())
                 .scope(canonical.scope()).worker(canonical.worker()).budgetKey(canonical.budgetKey())
                 .budgetSeconds(canonical.budgetSeconds()).budgetDerivation(canonical.budgetDerivation())
@@ -53,7 +53,8 @@ class JobRecordBuilderContractTest {
                 .confinement(canonical.confinement()).createdAt(canonical.createdAt())
                 .spawnedAt(canonical.spawnedAt()).endedAt(canonical.endedAt())
                 .childWallMs(canonical.childWallMs()).exitCode(canonical.exitCode()).signal(canonical.signal())
-                .landlockAbi(canonical.landlockAbi()).outcomeRow(canonical.outcomeRow())
+                .landlockAbi(canonical.landlockAbi()).gitMetadata(canonical.gitMetadata())
+                .outcomeRow(canonical.outcomeRow())
                 .refusalReason(canonical.refusalReason()).cancelBeforeGroup(canonical.cancelBeforeGroup())
                 .selfReportContradiction(canonical.selfReportContradiction())
                 .clampedValues(canonical.clampedValues()).gateFacts(canonical.gateFacts()).build();
@@ -66,7 +67,7 @@ class JobRecordBuilderContractTest {
                             () -> new JobRecord(null, Execution.PROCESS, scope, null, "build:verify", 600,
                                     derivation, ARGV_DIGEST, Status.QUEUED, null, null, null,
                                     Confinement.UNAVAILABLE, CREATED_AT, null, null, null, null, null, null, null,
-                                    null, false, null, clampedValues, null),
+                                    null, null, false, null, clampedValues, null),
                             "the constructor refuses a null job id");
                     var incomplete = JobRecord.builder().execution(Execution.PROCESS).scope(scope)
                             .budgetKey("build:verify").budgetSeconds(600).budgetDerivation(derivation)

@@ -97,6 +97,8 @@
 |PM_RUNTIME-144 |The endpoint '%s' did not answer its readiness check at '%s'
 |PM_RUNTIME-145 |Provider '%s' failed its verification: %s
 |PM_RUNTIME-146 |The credential store move of the aspect failed: %s
+|PM_RUNTIME-147 |Git metadata of project '%s' changed at %s: %s part(s) differ
+|PM_RUNTIME-148 |The git metadata change of project '%s' could not be reported: %s
 |===
 
 === ERROR Level (200-299)

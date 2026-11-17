@@ -443,6 +443,21 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParit
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide]
 
+[#PM-WF-11]
+=== PM-WF-11: Q-Gate Validation Loop, Change-Type & Unplanned-Change Recording
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-11[PM-WF-11]
+
+Implementation (the protected-path matcher of the tracked hook definitions, as far as `pm-core` carries it; the boundary
+check that refuses the change before the next commit job is `git.stage-and-commit`'s `FootprintBoundary` and is not
+implemented yet, and the other protected-path families are those of `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`):
+link:../pm-core/src/main/java/de/planmarshall/core/store/ProtectedPaths.java[ProtectedPaths]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/ProtectedPathsTest.java[ProtectedPathsTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_protected_paths[Scope Stores Developer Guide § Protected Paths],
+link:../pm-core/doc/adr/core-store/071-the-protected-path-matcher-is-a-pure-core-class.adoc[ADR core-store/071]
+
 [#PM-WF-12]
 === PM-WF-12: Question Records vs Operator Overrides
 
@@ -1023,7 +1038,7 @@ link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Develo
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-4[PM-EXEC-4]
 
-Implementation (as far as the library modules `pm-core` and `pm-runtime` carry it and not yet wired into the runtime `pm-mcpd`: the job record of every job in the store of its scope (a project, the machine scope, an onboarding entry) with its identifier and its fixed write points, written ahead of the launch and replaced with the PID and the process start once the launcher reports them, each under the lock of the owning scope; the job runner service and its implementation, which verifies a job in a lock transaction of its own, launches it through `pm-exec` with in-memory `stdin`, takes the job PID as its process-group ID, reads and strips the launch report, keeps the job log readable while the job runs, terminates the job's process group for every cause (`SIGTERM`, the grace period, `SIGKILL` to every member left, the cancel before the group exists) through FFM, derives the fate by the closed 13-row outcome table with the child's wall time, and settles the job in the fixed write order; probe jobs with their fixed budgets; the launch of a worker of an enrolled harness (`runtime.launch`: the composed argument vector, the worker block, the job token and its revocation with the fate, and the refused launch recorded before a spawn, `SubprocessJobRunner.startWorker` and `refuseWorker`). Not implemented yet: the launcher `pm-exec` itself and its Landlock, Seatbelt, network-namespace and egress enforcement, and the `egress` field of the job record (the confinement and the environment of a job are composed here, PM-SEC-5, but their enforcement is the launcher's), the wait of a queued job for its build or model slot, the settlement steps that are seams (a worker's queue task record, the metrics row, the change-ledger row, the timing observation, its job-private directory), the in-process operations of the native variant, the wiring of the build log parsers (which exist in `pm-core` with the adapter `BuildOutputParser` in `pm-runtime`) into the assembly, and the budgets of the other job kinds): link:../pm-core/src/main/java/de/planmarshall/core/store/JobId.java[JobId],
+Implementation (as far as the library modules `pm-core` and `pm-runtime` carry it and not yet wired into the runtime `pm-mcpd`: the job record of every job in the store of its scope (a project, the machine scope, an onboarding entry) with its identifier and its fixed write points, written ahead of the launch and replaced with the PID and the process start once the launcher reports them, each under the lock of the owning scope; the job runner service and its implementation, which verifies a job in a lock transaction of its own, launches it through `pm-exec` with in-memory `stdin`, takes the job PID as its process-group ID, reads and strips the launch report, keeps the job log readable while the job runs, terminates the job's process group for every cause (`SIGTERM`, the grace period, `SIGKILL` to every member left, the cancel before the group exists) through FFM, derives the fate by the closed 13-row outcome table with the child's wall time, and settles the job in the fixed write order; probe jobs with their fixed budgets; the launch of a worker of an enrolled harness (`runtime.launch`: the composed argument vector, the worker block, the job token and its revocation with the fate, and the refused launch recorded before a spawn, `SubprocessJobRunner.startWorker` and `refuseWorker`; and the git metadata of a worker (`GitMetadataPaths`, `GitMetadataDigest`, `GitMetadataGuard`, `GitMetadataChangeSink`: the read-only set, the optional `git_metadata` member of the launch report and of the job record, the digest with its two comparison points, the refusal `git_metadata_changed`, the `security` audit record and the honest `unenforced` default). Not implemented yet: the launcher `pm-exec` itself and its Landlock, Seatbelt, network-namespace and egress enforcement, which includes the read-only mount that makes `git_metadata` `enforced`, and the `egress` field of the job record (the confinement and the environment of a job are composed here, PM-SEC-5, but their enforcement is the launcher's), the sink's wiring to the plan's hold and the operator's `rebaseline`, the wait of a queued job for its build or model slot, the settlement steps that are seams (a worker's queue task record, the metrics row, the change-ledger row, the timing observation, its job-private directory), the in-process operations of the native variant, the wiring of the build log parsers (which exist in `pm-core` with the adapter `BuildOutputParser` in `pm-runtime`) into the assembly, and the budgets of the other job kinds): link:../pm-core/src/main/java/de/planmarshall/core/store/JobId.java[JobId],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecord.java[JobRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordCodec.java[JobRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordStore.java[JobRecordStore],
@@ -1046,7 +1061,11 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeCandidate.java
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeVerification.java[ProbeVerification],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[ProbeBudget],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/JobRecoveryStep.java[JobRecoveryStep],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/JobDrainParticipant.java[JobDrainParticipant]
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/JobDrainParticipant.java[JobDrainParticipant],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataPaths.java[GitMetadataPaths],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataDigest.java[GitMetadataDigest],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataGuard.java[GitMetadataGuard],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataChangeSink.java[GitMetadataChangeSink]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/JobIdTest.java[JobIdTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/JobRecordCodecTest.java[JobRecordCodecTest],
@@ -1068,7 +1087,12 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeJobTest.java[P
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeVerificationTest.java[ProbeVerificationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobRecoveryStepTest.java[JobRecoveryStepTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobRecoveryKilledRuntimeIT.java[JobRecoveryKilledRuntimeIT],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobDrainParticipantTest.java[JobDrainParticipantTest]
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobDrainParticipantTest.java[JobDrainParticipantTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataPathsTest.java[GitMetadataPathsTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataDigestTest.java[GitMetadataDigestTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataGuardTest.java[GitMetadataGuardTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataJobTest.java[GitMetadataJobTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/LaunchReportSchemaParityTest.java[LaunchReportSchemaParityTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_job_records[Scope Stores Developer Guide § Job Records],
 link:../pm-core/doc/developer/core-service.adoc#_job_runner[Service Interfaces Developer Guide § The Job Runner],
@@ -1080,6 +1104,8 @@ link:../pm-runtime/doc/developer/runtime-job.adoc#_descendants[§ Descendants Ou
 link:../pm-runtime/doc/developer/runtime-job.adoc#_outcome_derivation[§ Outcome Derivation],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_build_output_parsing[§ Build Output Parsing],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_settlement[§ Settlement],
+link:../pm-runtime/doc/developer/runtime-job.adoc#git-metadata[§ Git Metadata],
+link:../pm-runtime/doc/adr/runtime-job/019-git-metadata-digest-and-baseline.adoc[ADR runtime-job/019],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[§ Probe Jobs],
 link:../pm-runtime/doc/developer/runtime-start.adoc#_jobs_recovery_step[Runtime Start Developer Guide § The Jobs Part of Step 3],
 link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[§ The Job Drain Participant],
@@ -1414,6 +1440,28 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerification.java[HarnessVerification],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java[LaunchRefusal]
 
+Implementation (the git metadata of a worker, as far as the runtime owns it; the read-only mount and the macOS sandbox deny are `pm-exec`'s and outside this repository): the paths of the git directory and of every worktree's `.git` link file as values, a small or unreadable pointer skipped with its reason and a symbolic link refused `path_traversal_rejected` (`GitMetadataPaths`); the worker's read-only set and the launcher option `--read-only` (`JobConfinement`, `JobConfinementComposer`); the optional `git_metadata` member of the launch report and the record's honest `unenforced` default (`LaunchReport`, `JobRecord.GitMetadata`); the digest of the configuration with its includes, the hooks with their mode and the worktree administration files, its in-memory baseline at a worker's spawn, its comparison after the worker's fate and before every `git` job, the refusal `git_metadata_changed`, the `security` audit record and the change sink (`GitMetadataDigest`, `GitMetadataGuard`, `GitMetadataChangeSink`, `SubprocessJobRunner`); and the protected-path matcher of the tracked hook definitions (`ProtectedPaths`, see the PM-WF-11 section):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataPaths.java[GitMetadataPaths],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataDigest.java[GitMetadataDigest],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataGuard.java[GitMetadataGuard],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/GitMetadataChangeSink.java[GitMetadataChangeSink],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java[JobConfinement],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinementComposer.java[JobConfinementComposer],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/LaunchReport.java[LaunchReport],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java[SubprocessJobRunner],
+link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecord.java[JobRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ProtectedPaths.java[ProtectedPaths]
+
+Verified by (the git metadata of a worker):
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataPathsTest.java[GitMetadataPathsTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataDigestTest.java[GitMetadataDigestTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataGuardTest.java[GitMetadataGuardTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataJobTest.java[GitMetadataJobTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/LaunchReportSchemaParityTest.java[LaunchReportSchemaParityTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobConfinementTest.java[JobConfinementTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobConfinementComposerTest.java[JobConfinementComposerTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProtectedPathsTest.java[ProtectedPathsTest]
+
 Verified by (the harness enrolment store and its verification):
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java[HarnessEnrolmentStoreTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessVerifierTest.java[HarnessVerifierTest]
@@ -1427,7 +1475,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTes
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/HarnessesSidecarCheckTest.java[HarnessesSidecarCheckTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentSidecarsTest.java[EnrolmentSidecarsTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#residual-risk[Concepts § Enrolment, Residual Risk], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_integrity_key_before_and_after_the_choice[Developer Guide § Enrolment Check and Operator Writes, The Integrity Key], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars (`runtime.enrolment`)], link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_first_recording_reconciles_the_key_of_both_stores[Developer Guide § The First Recording Reconciles the Key of Both Stores (`runtime.credentials`)], link:../pm-runtime/doc/adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[ADR runtime-credentials/007]
+Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#residual-risk[Concepts § Enrolment, Residual Risk], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_integrity_key_before_and_after_the_choice[Developer Guide § Enrolment Check and Operator Writes, The Integrity Key], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars (`runtime.enrolment`)], link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_first_recording_reconciles_the_key_of_both_stores[Developer Guide § The First Recording Reconciles the Key of Both Stores (`runtime.credentials`)], link:../pm-runtime/doc/adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[ADR runtime-credentials/007], link:../pm-runtime/doc/developer/runtime-job.adoc#git-metadata[Job Runtime Developer Guide § Git Metadata], link:../pm-core/doc/developer/core-store.adoc#_protected_paths[Scope Stores Developer Guide § Protected Paths], link:../pm-runtime/doc/adr/runtime-job/019-git-metadata-digest-and-baseline.adoc[ADR runtime-job/019], link:../pm-core/doc/adr/core-store/070-the-job-record-git-metadata-is-a-nullable-enumeration.adoc[ADR core-store/070]
 
 Implementation (the runtime side of the confinement and the job environment: the write set, the extra read paths and the read-denied paths composed from the verified enrolment and passed to `pm-exec` as `--write`/`--read`/`--deny-read`; the per-project daemon store keyed by the first 16 hex characters of the SHA-256 over the sorted write set; the container-engine opt-in withholding the container variables and denying the engine's sockets without it; the session bus socket denied and its variables never passed; the environment table built from scratch per job kind and the probe environment; and the worker egress proxy with its `headless.endpoints` allowlist and `egress_refused` audit record. The Landlock and Seatbelt enforcement, the network namespace and the egress tunnel enforcement are `pm-exec` work in `pm-mcp-clients` and are not implemented here; the `egress` field of the job record is not implemented here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java[JobConfinement],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinementComposer.java[JobConfinementComposer],

@@ -330,16 +330,54 @@ The jobs part of the recovery in this runtime skips every settled job, so it doe
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
 
 The runtime composes what a job may read, write and receive, and the launcher `pm-exec` applies it (link:../adr/runtime-job/014-confinement-and-environment-composed-outside-the-launcher.adoc[ADR 014]).
-The composition is deterministic and reads the project's verified enrolment; it never reads the runtime's own environment.
+The composition reads the project's verified enrolment and its git metadata and never the runtime's own environment; for
+a given tree it is deterministic.
 
 [horizontal]
-`JobConfinement`:: The write set, the extra read paths and the read-denied paths, rendered as the `--write`, `--read` and `--deny-read` options of the launcher. The paths are absolute, normalized, sorted and free of duplicates, so a launch is reproducible.
-`JobConfinementComposer`:: Composes the sets at job start. The write set is the project root, the enrolment's `write_paths`, the system temporary directory and the device nodes; a `build` or `project_script` job and a `git` job that runs repository hooks add the project's daemon store; a `ci` job adds its CLI configuration directories; a worker adds its profile's writable sub-paths and its own `data/` directory; a probe adds the checkout root and caches of a script. The read-denied set is the base directory, the session bus socket and, without the container-engine opt-in, the container engine's sockets. The base directory is writable only as the daemon store and a worker's data directory.
+`JobConfinement`:: The write set, the extra read paths, the read-only paths inside the write set and the read-denied paths, rendered as the `--write`, `--read`, `--read-only` and `--deny-read` options of the launcher. The paths are absolute, normalized, sorted and free of duplicates, so a launch is reproducible. A `--read-only` path lies inside the write set and the launcher makes it unwritable for the job; it is how a worker's git metadata is hidden from it (`GitMetadataPaths`, <<git-metadata>>).
+`JobConfinementComposer`:: Composes the sets at job start. The write set is the project root, the enrolment's `write_paths`, the system temporary directory and the device nodes; a `build` or `project_script` job and a `git` job that runs repository hooks add the project's daemon store; a `ci` job adds its CLI configuration directories; a worker adds its profile's writable sub-paths and its own `data/` directory, and names the project's git metadata as read-only paths (<<git-metadata>>); a probe adds the checkout root and caches of a script. The read-denied set is the base directory, the session bus socket and, without the container-engine opt-in, the container engine's sockets. The base directory is writable only as the daemon store and a worker's data directory.
 `BuildDaemonStore`:: `<base>/projects/<project_id>/daemons/<write_set_digest>/`, the digest being the first 16 hex characters of the SHA-256 over the sorted, de-duplicated write set (before the store itself is added, so the path is not self-referential), created with mode `0700` when the confinement is composed. The store holds only registries and logs; `mvnd` finds it through `MVND_DAEMON_STORAGE`, Gradle through the argument `gradleRegistryArgument` renders for the caller that appends it, never through `GRADLE_OPTS`.
 `JobEnvironmentComposer`:: Builds every environment from scratch: `PATH` of the enrolled host tools and the interpreters that run them, `HOME`/`USER`/`LOGNAME` of the runtime user, `LANG`/`LC_*` and the toolchain homes from the enrolment, `TMPDIR` of the write set, the daemon store for `build` and `project_script` jobs (and a hook-running `git` job when the caller says so), the container variables only for a `build` job of a project whose enrolment opts in, the CLI-variant guards for `git` and `ci`, and, for a worker, its token, id, data home and egress proxy. The runner's default `Environment` and `ProbeEnvironment` are this composer; a caller may supply its own. No job receives `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR` or a credential variable.
 `WorkerEgressProxy`:: The runtime's HTTP `CONNECT` proxy on a loopback port, one per worker generation. It admits a tunnel only to a `host:port` of the profile's `headless.endpoints`; every other destination is answered `403`, recorded as an activity entry and audited `egress_refused` with the generation and the destination. It reads no tunnel content. Enforcement (the network namespace, the macOS profile) is the launcher's.
 
 A probe's environment is composed for the probe alone: the rows that name all job types and a `PATH` of the probed executable and its interpreter only.
+
+[[git-metadata]]
+=== Git Metadata
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
+
+The git metadata of a project is kept out of a worker's reach (link:../adr/runtime-job/019-git-metadata-digest-and-baseline.adoc[ADR 019]).
+`GitMetadataPaths.of(root)` returns the git directory and the `.git` link file of every linked worktree as values, a skip
+with its reason and a symbolic link as the refusal `path_traversal_rejected`; it runs no git process and uses no JGit.
+The composer names those paths as the worker's read-only set, which the launcher renders as `--read-only` and applies as
+a read-only mount (Linux) or a sandbox deny (macOS). A launcher that applies nothing answers a launch report without
+`git_metadata`, and the worker's record then states `unenforced` — the honest value, which no code path raises to
+`enforced` except the copy of a report's value.
+
+`GitMetadataDigest.of(root)` digests the parts, never their contents: the bytes of `<git directory>/config` and of every
+file it includes (`include.path` and `includeIf.*.path`, relative to the including file, followed to a fixed bound), every
+regular file of `<git directory>/hooks/` with its mode, and the link file plus the `gitdir`, `commondir` and
+`config.worktree` files of every linked worktree's administration directory. `HEAD`, the index, refs, logs, objects and
+the tracked source stay out, because a server `git` job changes them legitimately. The include scan is hand-written and no
+dependency is added; an existing input that cannot be read, an include cycle and a bound exceeded are the fail-closed part
+`unreadable`, so an unreadable tree is a difference and never a pass.
+
+`GitMetadataGuard` keeps one baseline per project: `record` takes it at the first worker spawn of a project in the runtime and keeps it, `verify` compares it after a worker's fate is recorded and in `start` before a `git` job's write-ahead record, and `rebaseline` is the operator's act that clears a false difference (for example after a legitimate build job changed the metadata). A later worker's spawn does not move the baseline, so a change made between two spawns is not baselined away. A tree that is unreadable when the baseline would be taken takes none: every comparison answers `Changed` with the fail-closed part `unreadable` until the operator's `rebaseline` accepts it, so such a project is never silently compared. A difference at a worker's end writes a `security` audit record `git_metadata_changed` (the project, the point
+`worker_end` or `git_job`, the job id and the parts, never their contents), a WARN record and one call of
+`GitMetadataChangeSink`, whose default records nothing. A difference before a `git` job refuses the job with
+`git_metadata_changed` and records it `refused`, so every `git` job of the project is refused while the baseline differs.
+The runtime never repairs a file. The sink's wiring to the plan's hold, the native variant's call of `verify` and the
+operator's act are the assembly's and the engine's.
+
+The fixture launcher `FakePmExec` applies nothing; its mode `REPORT_GIT_METADATA` writes a report that states `enforced`,
+so a test can prove the record copies a launcher's statement while the same launcher enforces none of it
+(link:../../src/test/java/de/planmarshall/runtime/job/GitMetadataJobTest.java[`GitMetadataJobTest`]).
+
+The check is a point-in-time comparison: a change a worker makes after `verify` and before the `git` process starts is
+outside it, and on a platform whose launcher applies no read-only set the comparison at the two points is the net. The
+launcher's enforcement, not the runtime's check, is what closes that window.
+
 
 [#_probe_jobs]
 == Probe Jobs
@@ -361,9 +399,9 @@ A probe (kind `probe`, `job_id` prefix `v`) runs a program found on the machine 
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/12-testing.adoc#PM-TEST-3[PM-TEST-3]
 
 link:{test}/FakePmExec.java[`FakePmExec`] is the test launcher of the job runtime, shared through the test JAR of `pm-runtime`: a `/bin/sh` script written to `<PM_MCP_HOME>/bin/pm-exec` of a temporary directory.
-Like the real launcher it accepts the confinement options `--write`, `--read` and `--deny-read`, ignores them, and then requires `-- <absolute executable> [args…]` (exit `64` otherwise), makes itself the leader of a new process group with `setsid` without changing its PID, writes one launch report line with its PID, the start instant and the confinement `unavailable`, and replaces itself with the target by `exec`.
+Like the real launcher it accepts the confinement options `--write`, `--read`, `--read-only` and `--deny-read`, ignores them, and then requires `-- <absolute executable> [args…]` (exit `64` otherwise), makes itself the leader of a new process group with `setsid` without changing its PID, writes one launch report line with its PID, the start instant and the confinement `unavailable`, and replaces itself with the target by `exec`.
 It applies no confinement and verifies nothing.
-`FakePmExec.Mode` selects the launcher failures: `NO_REPORT`, `EXIT_64`, `EXIT_126` and `EXIT_127`.
+`FakePmExec.Mode` selects the launcher failures and the report: `NO_REPORT`, `EXIT_64`, `EXIT_126`, `EXIT_127`, and the mode `REPORT_GIT_METADATA`, whose report states `git_metadata: enforced`.
 It runs on Linux only, so every test that starts it carries `@EnabledOnOs(OS.LINUX)`; `FakePmExec.tool(name)` names a tool of the base system by its absolute path, and `awaitLines` waits for a job log on the process instead of a fixed sleep.
 
 == Testing

@@ -23,8 +23,9 @@ import java.util.concurrent.TimeUnit;
  * {@code pm-runtime}: a {@code /bin/sh} script the test writes to {@code <PM_MCP_HOME>/bin/pm-exec} of a temporary
  * directory. It runs on Linux only, so every test that starts it carries {@code @EnabledOnOs(OS.LINUX)}.
  * <p>
- * Like the real launcher it accepts the confinement options {@code --write}, {@code --read} and {@code --deny-read},
- * ignores them, and then requires {@code -- <absolute executable> [args…]} (exit {@code 64} otherwise), makes
+ * Like the real launcher it accepts the confinement options {@code --write}, {@code --read}, {@code --read-only} and
+ * {@code --deny-read}, ignores them, and then requires {@code -- <absolute executable> [args…]} (exit {@code 64}
+ * otherwise), makes
  * itself the leader of a new process group without changing its PID ({@code setsid}, which leaves the PID alone because
  * the started process is no group leader), writes one launch report line to {@code stderr} with its PID, the start
  * instant and the confinement {@code unavailable}, and replaces itself with the target by {@code exec}. It applies no
@@ -45,11 +46,11 @@ public final class FakePmExec {
             #!/bin/sh
             # FakePmExec: the test launcher of the job runtime
             RAW_ARGS="$*"
-            while [ "$1" = "--write" ] || [ "$1" = "--read" ] || [ "$1" = "--deny-read" ]; do
+            while [ "$1" = "--write" ] || [ "$1" = "--read" ] || [ "$1" = "--read-only" ] || [ "$1" = "--deny-read" ]; do
               shift 2
             done
             if [ "$1" != "--" ]; then
-              echo "pm-exec: usage: pm-exec [--write PATH] [--read PATH] [--deny-read PATH] -- <executable> [args]" >&2
+              echo "pm-exec: usage: pm-exec [--write PATH] [--read PATH] [--read-only PATH] [--deny-read PATH] -- <executable> [args]" >&2
               exit 64
             fi
             shift
@@ -65,6 +66,12 @@ public final class FakePmExec {
             exec @SETSID@ /bin/sh -c 'printf "{\\"pid\\":%s,\\"process_started_at\\":\\"%s\\",\\"confinement\\":\
             \\"unavailable\\",\\"landlock_abi\\":null}\\n" "@PID@" "$(@DATE@ -u +%Y-%m-%dT%H:%M:%SZ)" >&2; \
             printf "ARGV:%s\\n" "$0" >&2; exec "$@"' "$RAW_ARGS" "$@"
+            """;
+
+    private static final String REPORT_GIT_METADATA_AND_EXEC = """
+            exec @SETSID@ /bin/sh -c 'printf "{\\"pid\\":%s,\\"process_started_at\\":\\"%s\\",\\"confinement\\":\
+            \\"unavailable\\",\\"landlock_abi\\":null,\\"git_metadata\\":\\"enforced\\"}\\n" "@PID@" \
+            "$(@DATE@ -u +%Y-%m-%dT%H:%M:%SZ)" >&2; exec "$@"' pm-exec "$@"
             """;
 
     private static final String EXEC = """
@@ -89,6 +96,8 @@ public final class FakePmExec {
         REPORT(0),
         /** {@link #REPORT}, and a second line naming the raw argument vector the runner passed. */
         REPORT_ARGV(0),
+        /** {@link #REPORT}, with a report that states the git metadata of the job's project was made unwritable. */
+        REPORT_GIT_METADATA(0),
         /** A new process group and the target, but no launch report. */
         NO_REPORT(0),
         /** Exit {@code 64} (usage) without a report and without starting the target. */
@@ -185,6 +194,8 @@ public final class FakePmExec {
             case REPORT -> REPORT_AND_EXEC.replace("@SETSID@", tool("setsid").toString())
                     .replace("@DATE@", tool("date").toString()).replace("@PID@", "\"$$\"");
             case REPORT_ARGV -> REPORT_ARGV_AND_EXEC.replace("@SETSID@", tool("setsid").toString())
+                    .replace("@DATE@", tool("date").toString()).replace("@PID@", "\"$$\"");
+            case REPORT_GIT_METADATA -> REPORT_GIT_METADATA_AND_EXEC.replace("@SETSID@", tool("setsid").toString())
                     .replace("@DATE@", tool("date").toString()).replace("@PID@", "\"$$\"");
             case NO_REPORT -> EXEC.replace("@SETSID@", tool("setsid").toString());
             case EXIT_64, EXIT_126, EXIT_127 -> FAIL.replace("@CODE@", Integer.toString(mode.exitCode()));

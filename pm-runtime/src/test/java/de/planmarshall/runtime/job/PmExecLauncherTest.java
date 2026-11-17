@@ -115,16 +115,18 @@ class PmExecLauncherTest {
             var launcher = new PmExecLauncher(home);
             var write = absolute();
             var read = absolute();
+            var readOnly = absolute();
             var denied = absolute();
             var executable = absolute();
             var confinement = new JobConfinement(List.of(Path.of(write)), List.of(Path.of(read)),
-                    List.of(Path.of(denied)));
+                    List.of(Path.of(readOnly)), List.of(Path.of(denied)));
             var launch = new Launch(work, List.of(executable), Map.of(), null, work.resolve("job.log"),
                     confinement);
 
             assertEquals(List.of(home.resolve("bin/pm-exec").toString(),
                     "--write", write,
                     "--read", read,
+                    "--read-only", readOnly,
                     "--deny-read", denied,
                     "--", executable), launcher.command(launch), "the options precede the separator");
         }

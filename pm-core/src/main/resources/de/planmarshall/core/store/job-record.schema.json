@@ -3,7 +3,7 @@
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/job-record.json",
   "title": "JobRecord",
   "type": "object",
-  "required": ["format_version", "job_id", "kind", "execution", "scope", "worker", "budget_key", "budget_seconds", "budget_derivation", "argv_digest", "status", "fate", "pid", "process_started_at", "confinement", "landlock_abi", "created_at", "spawned_at", "ended_at", "child_wall_ms", "exit_code", "signal", "outcome_row", "refusal_reason", "cancel_before_group", "self_report_contradiction", "clamped_values", "gate_facts"],
+    "required": ["format_version", "job_id", "kind", "execution", "scope", "worker", "budget_key", "budget_seconds", "budget_derivation", "argv_digest", "status", "fate", "pid", "process_started_at", "confinement", "landlock_abi", "git_metadata", "created_at", "spawned_at", "ended_at", "child_wall_ms", "exit_code", "signal", "outcome_row", "refusal_reason", "cancel_before_group", "self_report_contradiction", "clamped_values", "gate_facts"],
   "additionalProperties": false,
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
@@ -89,6 +89,7 @@
     "exit_code": { "type": ["integer", "null"] },
     "signal": { "type": ["string", "null"], "description": "Terminating signal, if any." },
     "landlock_abi": { "type": ["integer", "null"], "minimum": 2, "description": "Landlock ABI version of the ruleset applied to the job (Linux, confinement confined or partial(container_engine)); null when no ruleset was applied (partial(abi=1), seatbelt, unavailable, not_applicable)." },
+    "git_metadata": { "type": ["string", "null"], "enum": ["enforced", "unenforced", null], "description": "enforced when the launcher's report states the git directory and every link file are unwritable for the job; unenforced when it does not or no report states it; null for every other kind." },
     "outcome_row": { "type": ["integer", "null"], "minimum": 1, "maximum": 13, "description": "Row of the closed outcome derivation table (job-runtime.adoc#outcome-derivation) that decided the fate; null iff status is queued or running." },
     "refusal_reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$", "description": "The refusal reason (for example enrolment_tampered, build_config_changed, path_traversal_rejected, harness_not_enrolled, harness_update_unverified, harness_version_unsupported); non-null iff fate == refused." },
     "cancel_before_group": { "type": "boolean", "description": "true when a termination signal met ESRCH before the launcher called setpgid and was sent to the PID directly (job-runtime.adoc Process Termination, step 4)." },
@@ -191,7 +192,7 @@
     }
   },
   "allOf": [
-    { "if": { "properties": { "kind": { "const": "llm" } } }, "then": { "properties": { "worker": { "type": "object" }, "execution": { "const": "process" }, "scope": { "properties": { "type": { "enum": ["project", "machine"] } } } } }, "else": { "properties": { "worker": { "type": "null" } } } },
+    { "if": { "properties": { "kind": { "const": "llm" } } }, "then": { "properties": { "worker": { "type": "object" }, "execution": { "const": "process" }, "scope": { "properties": { "type": { "enum": ["project", "machine"] } } }, "git_metadata": { "type": "string" } } }, "else": { "properties": { "worker": { "type": "null" }, "git_metadata": { "type": "null" } } } },
     { "if": { "properties": { "kind": { "const": "probe" } } }, "then": { "properties": { "execution": { "const": "process" }, "scope": { "properties": { "type": { "enum": ["machine", "entry"] } } } } } }
   ]
 }
