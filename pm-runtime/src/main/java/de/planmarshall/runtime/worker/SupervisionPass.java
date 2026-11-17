@@ -88,23 +88,31 @@ public final class SupervisionPass {
         var now = environment.clock().instant();
         var jobs = JobRecordStore.ofProject(environment.base(), environment.projectId());
         for (var generation : supervisor.generations()) {
-            if (generation.terminal()) {
-                continue;
-            }
-            var record = jobs.read(generation.jobId());
-            if (record.isEmpty()) {
-                continue;
-            }
-            if (record.get().status().isSettled()) {
-                completeEnd(generation, now, jobs);
-                continue;
-            }
-            var task = generation.leasedTask();
-            if (task != null) {
-                observe(generation, task, record.get(), jobs);
-            }
+            advance(generation, now, jobs);
         }
         recycling.yieldIdleSlot();
+    }
+
+    /**
+     * Advances one generation of the registry: a terminal one is left alone, an ended job completes its end, and a
+     * running worker's log and process tree are read.
+     */
+    private void advance(WorkerGeneration generation, Instant now, JobRecordStore jobs) {
+        if (generation.terminal()) {
+            return;
+        }
+        var job = jobs.read(generation.jobId());
+        if (job.isEmpty()) {
+            return;
+        }
+        if (job.get().status().isSettled()) {
+            completeEnd(generation, now, jobs);
+            return;
+        }
+        var task = generation.leasedTask();
+        if (task != null) {
+            observe(generation, task, job.get(), jobs);
+        }
     }
 
     /**
