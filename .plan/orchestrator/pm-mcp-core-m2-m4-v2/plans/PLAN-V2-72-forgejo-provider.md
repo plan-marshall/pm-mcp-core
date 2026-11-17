@@ -55,15 +55,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/forgejo-provider.adoc` § What, Trace, Done When on `origin/main` at `4617865` (3 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/forgejo-provider.adoc at HEAD has 4 numbered Tasks, not 3 What bullets; spec Re-ground record names claim 0
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/forgejo-provider.adoc now has Tasks (4 numbered tasks), Trace, Done When; no What section and no three bullets
 - OBSERVED: the package file and its index row (`blocked`; depends on the CI contract of `pm-provider-ci` (no work package)) — read at `doc/plans/forgejo-provider.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README:120-124 row forgejo-provider is open, depends nothing, Milestone 6; not blocked on the CI contract; Re-ground record names claim 1
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc row forgejo-provider is open with dependency nothing; no longer blocked on a CI contract (pm-provider-ci exists with CiProvider.java)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: pm-providers/pom.xml:21 lists pm-provider-ci and root pom.xml:337-340 enforcer allows it, so the surface 'pm-provider-ci absent' is wrong; Re-ground record names claim 2
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: The package file now has four Tasks naming specification sections and a Where line, so the surface is derivable from the tasks, not from the Where line only
 - OBSERVED: the Module Structure Specification at plan-marshall-documentation `b8c61b3` lists `pm-provider-forgejo` as depending on `pm-provider-ci`, `pm-provider-http` and `pm-core`, and `pm-provider-http` as the shared HTTP base module — `doc/specification/module-structure.adoc` § module tree, § `pm-provider-forgejo`, § Dependency Rules
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Cites module-structure.adoc of plan-marshall-documentation at b8c61b3, another repository; no pm-provider-forgejo exists in pm-providers at HEAD
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: plan-marshall-documentation origin/main module-structure.adoc:119,181-183,577 lists pm-provider-forgejo depending on pm-provider-ci, pm-provider-http and pm-core, pm-provider-http the shared HTTP base
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure clause for the executing plan; use cases are agreed elsewhere and the index row is no longer blocked
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause: use cases agreed and which restructured packages shipped are run-time checks
 
 ## Expected Surface
 
@@ -160,6 +160,14 @@ Written by the `cleanup` verb after a read-only leaf compared every claim of thi
 Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
 
 - The Expected Surface is wrong: it says `pm-provider-ci` is absent and forbidden; the module exists and is allowed.
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): doc/plans/forgejo-provider.adoc now has Tasks (4 numbered tasks), Trace, Done When; no What section and no three bullets Correction: Cite the package file's Tasks (four tasks: CI contract, host detection, closed lists, credential key).
+- Claim 1 (contradicted): README.adoc row forgejo-provider is open with dependency nothing; no longer blocked on a CI contract (pm-provider-ci exists with CiProvider.java) Correction: The index row is open and depends on nothing; the CI contract of pm-provider-ci is built.
+- Claim 2 (contradicted): The package file now has four Tasks naming specification sections and a Where line, so the surface is derivable from the tasks, not from the Where line only Correction: Derive the Expected Surface from the four Tasks and the Where line, not the Where line alone.
 
 ## Hand-Off Command
 

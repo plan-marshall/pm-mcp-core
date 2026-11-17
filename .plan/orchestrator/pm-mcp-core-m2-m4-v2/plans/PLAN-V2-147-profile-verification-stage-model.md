@@ -66,15 +66,15 @@ Five deliverables, one commit each, in this order (the cut line, if the outline 
 All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: `VerificationRecord(int formatVersion, String clientId, String profileDigest, Instant verifiedAt, Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages)` (`pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java:46-47`), `STAGE_NAMES` is a `Set` of 12 names without `settings` (`:53`), `read` at `:150`; no writer.
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: VerificationRecord.java:46-47 eight components as cited; STAGE_NAMES :53-54 is a Set of 12 names without settings; no write method, only read
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: VerificationRecord.java :46-47 record with the eight stated components; STAGE_NAMES :53 is Set.of of 12 names without settings; read :150; no writer (only ProfileLoader :211 and others read it).
 - OBSERVED: the specification's stage table lists `settings` (`01-profile-schema.adoc:~379`) and the claim rules at `:462-467`; the closed forms of the record at `:461`.
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 01-profile-schema.adoc:379 settings row in the stage table; claim rules :462-467; closed forms of the record at :461
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 01-profile-schema.adoc stage table :355-410 has `settings` row :379; claim rules and closed-record bullets now :462-467 (record closed data :463, cited :461 drifted by 2).
 - OBSERVED: `ProfileStages` (`pm-core/.../profile/ProfileStages.java`): `usage` `:407`, `:425`; `EndpointVerification` `:689`; `IsolationResult(boolean, ...)` is hand-fed; `HarnessEventVerification.verify` is in `pm-runtime/.../launch/`; `running_total` appears only in `harness-profile-v1.schema.json:~302`.
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProfileStages usage :406,:424 and EndpointVerification :688 (one line drift); IsolationResult(boolean,..) :92 built by isolation() :258; running_total only in schema:305; runtime launch/HarnessEventVerification exists
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProfileStages: usage :406 and :424; record EndpointVerification :688; IsolationResult(boolean exclusive,...) :92 built by isolation(profile,boolean,boolean) :258; HarnessEventVerification in runtime/launch; running_total only in schema :305.
 - OBSERVED: the probe tasks (the "base task", the tool-call task, the multi-turn task, the decoy tasks) exist only as one-line prose in the stage table: their texts are PLAN-V2-148's.
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Stage table 01-profile-schema.adoc:368-388 holds the base task and decoy tasks as prose; no probe task text in pm-core or pm-runtime src/main for the harness stages
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Task texts of the CLI stages appear only as stage-table prose (01-profile-schema.adoc :355-410); in src/main only the endpoint stage takes baseTask/toolTask as parameters (EndpointVerification :94-101), not texts.
 - HYPOTHESIS: the closed `code` list of a stage is in the specification or in `VerificationRecord`'s outcome codes; verify-first by reading both; where a stage's codes are not listed anywhere the outline reports it and does not invent a list.
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: 01-profile-schema.adoc:461 says only 'closed list of outcome codes of its stage' with no list; VerificationRecord has no code member; the stage code lists are written nowhere
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: No closed per-stage code list exists: spec :463 only says `code` is a value of the closed list of outcome codes of its stage; three codes appear only in the example record :452-454; VerificationRecord keeps code as a free string (:356).
 
 ## Expected Surface
 
@@ -99,6 +99,12 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`
 
 - Claim 4 is contradicted: no stage outcome-code list exists in the specification or in `VerificationRecord`.
 - Claim 4 (the closed code list of a stage is in the specification or in VerificationRecord's outcome codes; verify-first by reading both; where a stage's co…) is contradicted at HEAD: 01-profile-schema.adoc:461 says only 'closed list of outcome codes of its stage' with no list; VerificationRecord has no code member; the stage code lists are written nowhere
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 4 (contradicted): No closed per-stage code list exists: spec :463 only says `code` is a value of the closed list of outcome codes of its stage; three codes appear only in the example record :452-454; VerificationRecord keeps code as a free string (:356). Correction: Say the closed per-stage code list is in neither the specification nor VerificationRecord (only 3 example codes in the example record); the outline must report this gap and not invent a list.
 
 ## Hand-Off Command
 
