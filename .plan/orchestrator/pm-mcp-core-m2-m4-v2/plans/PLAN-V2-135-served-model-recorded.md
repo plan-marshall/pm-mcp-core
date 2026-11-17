@@ -93,7 +93,7 @@ All read at `pm-mcp-core` main `6937efe4`; the `pm-mcp-clients` claims at its `o
 23. HYPOTHESIS: the builder of a record added by this plan (`ServedModels`, `ModelDiffers`, `ServedModelWatch` state) follows R20 `@Builder` for four or more components only; `ModelDiffers` has two and `ServedModels` one, so neither carries it — confirm at the outline.
 24. HYPOTHESIS: `PlanTokensTest` (`pm-workflow`), `UsageAggregateTest`, `ContinuationMarkParityTest` and `MetricsStoreTest` are the only callers that build a `MetricsRow` (searched `MetricsRow.builder` in `pm-*/src/test`: `MetricsStoreTest.java:105`, `UsageAggregateTest.java:98`, `PlanTokensTest.java:54`, `MetricsSchemaParityTest.java:61`); the compiler and the run settle the list at the outline.
 - Verify-first clause: before editing, list the open pull requests for one that touches `ProfileValidator`, `ProfileStages`, `UsagePointers`, `MetricsRow`, `MetricsCodec`, `ActivityEntry` or `SecretRedactor` (PLAN-V2-127 does the last), re-read the files at the head and the Dependencies below; a refutation of Claims 1 to 5 loops back to re-scope.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Open pull requests unreadable; ProfileValidator.java:913 still closes usage to USAGE_FIGURES; harness-profile-v1.schema.json:304 already lists model; PLAN-V2-127 spec exists
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural verify-first clause about open pull requests touching named classes; not settleable by reading
 
 ## Expected Surface
 
