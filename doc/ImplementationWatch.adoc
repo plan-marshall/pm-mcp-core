@@ -18,7 +18,7 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 |Document |Area |Items |Mirrors
 |link:implementation-watch/hypermedia-format.adoc[Hypermedia Format]
 |`HYP`
-|10
+|9
 |link:specification/hypermedia-format.adoc[Hypermedia Format & TOON Encoding Specification]
 
 |link:implementation-watch/workflow-dsl.adoc[Workflow DSL]
@@ -28,12 +28,12 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/phase-workflows.adoc[Phase Workflows]
 |`PHASE`
-|124
+|122
 |link:specification/phase-workflows.adoc[Phase Workflows & Finalize Specification]
 
 |link:implementation-watch/model-work.adoc[Model Work]
-|`DISP`
-|61
+|`DISP`, `CLI`
+|62
 |link:specification/model-work.adoc[Model Work Specification]
 
 |link:implementation-watch/domain-extensions.adoc[Domain Extensions]
@@ -48,12 +48,12 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/store-schemas.adoc[Store Schemas]
 |`STORE`
-|49
+|50
 |link:specification/store-schemas.adoc[Store Schemas Specification]
 
 |link:implementation-watch/job-runtime.adoc[Job Runtime]
 |`JOB`
-|43
+|41
 |link:specification/job-runtime.adoc[Job Runtime Specification]
 
 |link:implementation-watch/harness-profiles.adoc[Harness Profiles]
@@ -62,12 +62,12 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 |link:specification/harness-profiles.adoc[Harness Profiles Specification]
 
 |link:implementation-watch/runtime-lifecycle.adoc[Runtime Lifecycle]
-|`RUN`
+|`RUN`, `LIFE`
 |7
 |link:specification/runtime-lifecycle.adoc[Runtime Lifecycle Specification]
 
 |link:implementation-watch/credentials-and-enrolment.adoc[Credentials & Enrolment]
 |`CLI`
-|13
+|12
 |link:specification/credentials-and-enrolment.adoc[Credentials & Enrolment Specification]
 |===

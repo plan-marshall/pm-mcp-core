@@ -89,7 +89,8 @@ module matches only one of its domains, and `none` never holds. Options: (1) a m
 `plan-marshall`.
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
-Source:: `domain-extensions/01-four-axis-architecture.adoc:344`, `store-schemas/09-derived-facts-and-build-timings.adoc:197-201`.
+Source:: link:../specification/domain-extensions/01-four-axis-architecture.adoc#_declarative_domain_descriptor_schema_domain_id_json[Domain Extensions § Declarative Domain Descriptor Schema] (`when.build_system`),
+link:../specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-fact-kinds-discovery-calibration[Store Schemas § Derived Fact Kinds: `module_discovery`, `cost_calibration`] (`fact-module-discovery.schema.json`, the module record's `build_system`).
 
 [#PM-WATCH-EXT-37]
 === PM-WATCH-EXT-37: A missing or silent `asciidoctor` is never a clean document
@@ -454,16 +455,21 @@ matched control: an answered `reseed_build_map` rewrites it and lists the droppe
 Source:: design review.
 
 [#PM-WATCH-EXT-29]
-=== PM-WATCH-EXT-29: Integration variant and commit identity are never team or machine defaults
+=== PM-WATCH-EXT-29: Integration variant and commit identity are never team values
 
 Anchor:: link:../specification/domain-extensions/06-configuration.adoc#_tier_1_git_tracked_team_configuration_marshallconfig[Domain Extensions § Tier 1: Git-Tracked Team Configuration],
+link:../specification/domain-extensions/04-setup-state-machine.adoc#setup-integration-variants[Domain Extensions § Integration Variants],
 link:../specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator Local Configuration]
-Hazard:: `integrations` or `commit_identity` accepted from a git-tracked team file or from `machine-config.json`
-`project_defaults` lets a repository or a machine-wide default decide whose credentials act and who authors commits.
+Hazard:: `integrations` or `commit_identity` accepted from a git-tracked team file lets a repository decide whose
+credentials act and who authors commits; `integrations` accepted from `machine-config.json` `project_defaults`
+bypasses the machine's provider defaults (`providers`), the one machine-level home of a variant and a credential key.
 Guard:: Fixtures carrying the key paths `integrations.{git,github,gitlab}.variant` and `commit_identity` in
-`.marshall/config/project.json` and in `project_defaults`: each fails validation with `unknown_config_key` naming the
-file and the key path, and none of the values is taken: the effective variant is `native` with the source
-`compiled_default`, and `commit_identity` stays unset.
+`.marshall/config/project.json`, and `integrations` in `project_defaults`: each fails validation with
+`unknown_config_key` naming the file and the key path, and none of the values is taken: the effective variant is the
+one Integration Variants derives (the project's operator value, else the machine's provider default, else `cli` with
+an enrolled host tool and `native` without one), and `commit_identity` stays the project's or the machine's operator
+value. A fixture with `project_defaults.commit_identity` is accepted and serves as the commit author of a project that
+sets none.
 Source:: design review.
 
 [#PM-WATCH-EXT-30]

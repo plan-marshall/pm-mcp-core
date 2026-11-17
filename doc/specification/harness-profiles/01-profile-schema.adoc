@@ -131,7 +131,7 @@ harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisi
 
 [[headless-data-home]]*Per-worker data home*: `headless.data_home` is declared for a harness whose local state is one per-user store that all its processes share, so that a stalled worker cannot hold that store's lock against every other worker and against the operator's own sessions. `opencode` declares `{"variable": "XDG_DATA_HOME", "login_file": "opencode/auth.json"}`: every worker gets its own data directory below its job-private directory, with the harness's login file copied in, and the directory is removed when the job settles (link:../job-runtime/02-confinement-and-environment.adoc#worker-data-home[Job Runtime Specification, Per-Worker Data Home]). Profile validation refuses a `variable` that matches a credential pattern or that the job environment already sets. `claude` and `codex` declare `null`. _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-60[PM-WATCH-DISP-60]_
 
-[[headless-tool-result-limit]]*Tool-result limit*: `headless.tool_result_limit_chars` is the largest tool result the harness passes to its model whole. A harness that cuts a larger result keeps the full text where a worker restricted to the server's tools cannot read it, so the worker would lose the task's identifiers. The server therefore returns no tool result above the limit to a worker of that harness: identifiers and links come first, and the remaining content is named as parts below the limit, read through the harness's resource tools (link:../model-work/02-task-protocol.adoc#offer[Model Work Specification, Offer]; value and basis: link:../timeouts/03-retention-harness-config.adoc#tool-result-limit[Timeouts & Budgets Specification, Harness Tool-Result Limit]). `opencode` declares `32000`: its inline settings set the harness's own limit to `128000` bytes and lift its line limit out of reach (<<headless-inline-settings>>), and a quarter of the bytes is the character count no result of UTF-8 text can exceed; `claude` declares `null`. Profile validation refuses a non-null limit on a profile without `resource_tools`, and a limit above a quarter of a byte limit the profile's own inline settings set. _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-12[PM-WATCH-CLIENT-12]_
+[[headless-tool-result-limit]]*Tool-result limit*: `headless.tool_result_limit_chars` is the largest tool result the harness passes to its model whole, `null` for a harness that passes every result whole. The server returns no tool result above the limit to a worker of that harness; what it returns instead, and the value of each shipped profile with its basis, are defined in link:../timeouts/03-retention-harness-config.adoc#tool-result-limit[Timeouts & Budgets Specification, Harness Tool-Result Limit] (link:../model-work/02-task-protocol.adoc#offer[Model Work Specification, Offer]). Profile validation refuses a non-null limit on a profile without `resource_tools`, and a limit above a quarter of a byte limit the profile's own inline settings set. _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-12[PM-WATCH-CLIENT-12]_
 
 [[headless-inline-settings]]*Inline settings*: a harness that bounds a worker by mechanisms of its own (a timeout on a model request, the size at which it cuts a tool result, the compaction of its context, the form in which it offers MCP tools) would act on the worker beside the server, unseen in its output stream. `headless.inline_settings` sets these mechanisms for every worker of the harness, in the harness's own configuration keys, so that the server's supervision and recycling are the only ones acting on the worker and every bound the harness keeps is a declared one. The server merges the object into the inline configuration document of the launch; the agent's own permissions and the MCP configuration of the job relay are rendered by the server and are never part of it. `opencode` (2.x) declares _(provisional until its verification has run)_:
 
@@ -226,7 +226,7 @@ Rules of the block, checked by profile validation:
 * *Values of an ineligible harness*: while `eligible` is `false`, no other value of the block has an effect, and each is `null` unless it was measured on the harness; the extrapolated Antigravity values of the evaluation are entered only once they are measured.
 * *A worker that does not continue*: an `opencode` process stopped while a model request is open may never continue after it is resumed. Its inline settings bound that request (<<headless-inline-settings>>), so that the harness ends it and the worker exits before its silence limit; where it does not, the supervisor ends such a worker by silence at its silence limit and never earlier (link:../model-work/03-supervision-and-recycling.adoc#detection[Model Work Specification, Detection]), so the limitation costs one silence limit before the task is offered again; it does not affect eligibility.
 
-The relay and the server need no other harness value for workers: identity, role, and generation travel in the worker's environment, never in the profile (link:../../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime & Interaction Model Specification, Relay]).
+The relay and the server need no other harness value for workers: the worker's environment carries its job token and job id, from which the server knows its identity, role, and generation, never the profile (link:../job-runtime/02-confinement-and-environment.adoc#_job_environment_pm_sec_5[Job Runtime Specification, Job Environment]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime & Interaction Model Specification, Relay]).
 
 [#model-tiers]
 === Model Tiers & Models of a Harness
@@ -281,7 +281,7 @@ _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.
 A harness is shown where the harness itself is shown (the harness lists, a role's assignment) by its icon, never as the product's own mark, in a heading, or anywhere that suggests that its maker endorses `PM-MCP`.
 
 * *Two forms*: the profile's `icon` names either `source`, the URL of the maker's official icon file, or `bundled`, the name of an icon shipped in the binary, which only an icon whose maker gave written permission to ship it may use.
-* *Fetched by the runtime, never by the browser*: an icon of the form `source` is fetched by the runtime, once, from its URL, through the proxy settings of the runtime's outbound requests, on the operator's consent `fetch_icons`, asked in `harness.icons-consent` after the scan; with _no_ the monograms are shown and the step goes on. The fetched file (SVG or PNG, at most `256` KiB, an SVG stripped of scripts, external references, and event attributes) is stored in the machine store `<PM_MCP_BASE>/icons/<harness_id>.<ext>` (link:../store-schemas/12-machine-stores.adoc[Store Schemas Specification, Machine Stores]) and served to the web app from the runtime's own origin (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-security-headers[CLI, Coordination & Security Specification, Request Validation & Security Headers]). A browser never loads it from the maker's server, which would send the operator's address to that server on every view and break the content security policy.
+* *Fetched by the runtime, never by the browser*: an icon of the form `source` is fetched by the runtime, once, from its URL, through the proxy settings of the runtime's outbound requests, on the operator's consent `fetch_icons`, asked in `harness.icons-consent` after the scan, and only where the profile of a found harness declares an icon of the form `source` (otherwise the scan goes on without the question, link:../state-catalogue/14-machine-onboarding.adoc#state-harness.scan[State Catalogue, `harness.scan`], `found_no_icons`); with _no_ the monograms are shown and the step goes on. The fetched file (SVG or PNG, at most `256` KiB, an SVG stripped of scripts, external references, and event attributes) is stored in the machine store `<PM_MCP_BASE>/icons/<harness_id>.<ext>` (link:../store-schemas/12-machine-stores.adoc[Store Schemas Specification, Machine Stores]) and served to the web app from the runtime's own origin (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-security-headers[CLI, Coordination & Security Specification, Request Validation & Security Headers]). A browser never loads it from the maker's server, which would send the operator's address to that server on every view and break the content security policy.
 * *Monogram*: without a fetched or bundled icon, a harness is shown by a generated monogram, the initials of its `display_name` on a colour derived from its `harness_id` (the first bytes of its SHA-256 as a hue), the same in both clients. The monogram is the icon of every harness; a profile gains its `source` or `bundled` icon only once its maker's terms or a confirmation allow it. No shipped profile declares one; the bundling of makers' icons is a later improvement (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#L-21[Later Improvements, L-21]).
 
 [#token-usage]
@@ -421,16 +421,16 @@ apart (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Harness §
 ----
 {
   "format_version": 1,
-  "harness_id": "antigravity",
+  "harness_id": "claude",
   "profile_schema_version": 1,
   "profile_digest": "sha256:9f2c…",
   "verified_at": "2026-10-08T08:36:00Z",
   "tool": { "version": "0.4.0", "commit": "02ffcbd22b43de8d673b3b6abe77f755a1442398" },
   "harness": {
-    "executable": "agy",
-    "version": "1.3.1",
+    "executable": "claude",
+    "version": "2.1.3",
     "executable_sha256": "sha256:41d0…",
-    "models": ["gemini-3.8-flash-low"]
+    "models": ["claude-haiku-4-5"]
   },
   "platform": { "os": "linux", "arch": "x86_64", "confinement": "landlock", "landlock_abi": 8 },
   "stages": {
@@ -439,16 +439,18 @@ apart (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Harness §
     "launch":    { "status": "passed" },
     "events":    { "status": "passed", "results": { "text": "reported", "tool_call": "reported", "tool_result": "reported", "file_changed": "missing", "turn": "reported" } },
     "usage":     { "status": "passed", "results": { "input_tokens": "reported", "output_tokens": "reported", "cache_read": "not_applicable", "cache_creation": "not_applicable", "reasoning": "missing", "tool_uses": "reported" } },
+    "settings":  { "status": "not_run" },
     "egress":    { "status": "passed" },
     "isolation": { "status": "passed" },
     "classes":   { "status": "passed" },
     "limits":    { "status": "passed" },
     "paths":     { "status": "passed" },
+    "resumability": { "status": "not_run" },
     "faults":    { "status": "passed", "trials": 10 }
   },
   "values": [
-    { "pointer": "/headless/classes/zero_tool", "status": "measured", "code": "launch_without_tools_refused" },
-    { "pointer": "/headless/classes/writer/tool_set", "status": "measured", "code": "outside_call_succeeded" },
+    { "pointer": "/headless/classes/zero_tool", "status": "measured", "code": "no_tool_call_observed" },
+    { "pointer": "/headless/classes/writer/tool_set", "status": "measured", "code": "outside_call_refused" },
     { "pointer": "/detection/primary_signals", "status": "confirmed", "code": "added_for_commands_only" },
     { "pointer": "/worker/silence_grace_seconds", "status": "measured", "code": "stall_detected", "figures": { "min_ms": 50050, "max_ms": 50090, "trials": 10 } }
   ]

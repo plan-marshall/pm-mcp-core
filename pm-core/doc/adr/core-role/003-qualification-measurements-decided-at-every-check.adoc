@@ -55,8 +55,9 @@ The levels are read from `QualificationSettingsStore` at every lookup (`Recorded
 
 * The lookup must be given the effective corpus and the role's topic set; both are cheap reads of the shipped corpus.
 * A record with every item ungraded cannot satisfy the schema's one-topic-with-one-item minimum. A grading whose whole
-  form is ungraded is refused `no_graded_items` instead of writing a record the schema cannot hold (see
-  `PM-WATCH-DISP-58`, still open for the item score of a task that ends without an answer).
+  form is ungraded is refused `no_graded_items` instead of writing a record the schema cannot hold (the
+  item score of a task that ends without an answer:
+  link:../../../../doc/specification/model-work/01-roles-and-configuration.adoc#item-without-result[Model Work § An Item without an Answer]).
 * A changed margin or level needs no re-grading, only the next check.
 
 == Source

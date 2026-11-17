@@ -113,23 +113,18 @@ Source:: plan-marshall defect truthful-signals (quality-aspect) PLAN-211 D1, D4 
 === PM-WATCH-PHASE-3: Placeholders are not paths
 
 Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#_1_per_file_intent_marker_validation[Phase Workflows § Per-File Intent Marker Validation]
-Hazard:: Path admission took the placeholder `(none)` for a path and skewed the declared-vs-found figures.
-Guard:: `OutlineValidator` never admits `(none)` as a path: the line is rejected `unparsed` and the submission fails
-(`bullets_seen` differs from `bullets_parsed`); test.
-Fixture:: PLAN-PRQ-06 recomputed 27 declared / 24 found / 88.9% vs reported 28 / 24 / 85.7%.
-Source:: plan-marshall defect post-run-quality PLAN-PRQ-09 D4.
-
-[#PM-WATCH-PHASE-4]
-=== PM-WATCH-PHASE-4: OutlineValidator fixes keep matched controls
-
-Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase Workflows § Phase 3 Validation Rules & Outline Gate]
-Hazard:: Parser fixes regressed neighbouring outline shapes.
-Guard:: Tests: an unrefuted claim reads as before; a hyphenated bullet extracts its real path; a malformed bullet is
-rejected `unparsed` with its line number and the submission fails; indented and nested bullets are still accepted.
-Fixture:: outline of finding `eb52b1`: 39 bullets, 8 headings, 4 deliverables; 4 phantom paths entered the footprint
-(`none - this deliverable is read-only by construction` became a MUTATION entry; `site pin sweep names`; 2 in the
-read set), and 3 of 4 `Files to survey` bullets were dropped.
-Source:: plan-marshall defect truthful-signals PLAN-TRUTH-151 D3 and D8.
+Hazard:: Path admission took a placeholder for a path: `(none)` skewed the declared-vs-found figures, and a phrase such
+as `none - this deliverable is read-only by construction` entered the footprint as a mutation entry.
+Guard:: The outline record is validated against its schema and by `OutlineValidator`: a member of `affected_files`
+whose path is a placeholder (`(none)`, `none`, or a phrase that names no file) is refused at its JSON pointer and never
+enters the declared footprint; matched controls: a read-only deliverable with an empty `affected_files` passes, and a
+real path whose name contains a hyphen or a blank is kept as written; the declared-vs-found figures count accepted
+paths only.
+Fixture:: PLAN-PRQ-06 recomputed 27 declared / 24 found / 88.9% vs reported 28 / 24 / 85.7%; outline of finding
+`eb52b1`: 4 phantom paths entered the footprint (`none - this deliverable is read-only by construction` became a
+MUTATION entry; `site pin sweep names`; 2 in the read set).
+Source:: plan-marshall defect post-run-quality PLAN-PRQ-09 D4; plan-marshall defect truthful-signals PLAN-TRUTH-151 D3
+and D8.
 
 [#PM-WATCH-PHASE-5]
 === PM-WATCH-PHASE-5: The affected file of a symbol change is its defining module
@@ -296,9 +291,9 @@ Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc
 link:../specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]
 Hazard:: A land plan's remediation offers `fix` or `loop_back`, so the model authors changes on the user's landed
 work, or a land plan is recaptured and the user's change is overwritten.
-Guard:: Composition test: the shipped rule `land-lane` binds `actions = [retry]` at every policy call of a `land` plan
-and prunes `*/fix`, `*/loop_back` and `finalize.allocate-remediation` with `land_lane`.
-Scenario with a red gate: a `land` plan creates no `decide` task: the server takes `retry` within the retry budget, and exhaustion ends the unit `exhausted` and hands the branch back with the failure documented and the
+Guard:: The shipped rule `land-lane` binds `actions = [retry]` at every policy call of a `land` plan and prunes
+`*/fix`, `*/loop_back` and `finalize.allocate-remediation` with `land_lane` (`CompositionRuleEvaluatorTest` and
+`PlanInstanceComposerTest` of `pm-workflow`, the cases `land`). Open: a scenario with a red gate: a `land` plan creates no `decide` task: the server takes `retry` within the retry budget, and exhaustion ends the unit `exhausted` and hands the branch back with the failure documented and the
 capture ref retained (`capture_ref_retained`); no `recapture` link or state exists.
 Source:: design review.
 
@@ -407,13 +402,11 @@ Hazard:: A verification layer without a bound on its repetitions consumed 81% of
 all 17 loop-backs were exhausted without converging; adversarial re-reviews of fixes drew further rounds on the
 fixes' own gaps.
 Guard:: Every repeated model-invoking step is bounded by a count budget, never by a token limit; per-step token
-usage is recorded and reported; each loop-back iteration is
-recorded in `loop_backs[]` with `findings_raised` and `findings_self_seeded`, and the decision task's `facts` render
-the self-seeded share of the last iteration (a signal only; the `fix_budget` stays the loop's automatic bound). Every
-repeated remedy runs inside a remediation unit whose per-plan, per-class budgets bound it: a scenario test drives a
+usage is recorded and reported; the record of each loop-back iteration is PM-WATCH-PHASE-63's, and the fix budget
+stays the loop's automatic bound. Every repeated remedy runs inside a remediation unit whose per-plan, per-class budgets bound it: a scenario test drives a
 finding class until its budgets are spent and asserts that the unit returns `exhausted` and the plan enters the
-phase's re-planning call state (`execute.replan` or `finalize.replan`, trigger `ceiling`; a `land` plan takes the
-fallback `finalize.hand-back`) instead of looping, and that with the `ceiling` evidence already judged (or a
+phase's re-planning call state (`execute.replan` or `finalize.replan`, trigger `ceiling`; a `land` plan hands back
+through `land.handed-back`) instead of looping, and that with the `ceiling` evidence already judged (or a
 re-planning that decides `hand_back`) it enters `finalize.hand-back` (`handed_back`, gap `cause: exhausted` with the
 spent budget), with no operator question on the way.
 Fixture:: PLAN-TRUTH-089 (13.9M tokens, 81%, self-review ×19, 17 loop-backs); PLAN-PR-046 (6.77M tokens, 48.5%).
@@ -441,7 +434,7 @@ Source:: plan-marshall defects truthful-signals (quality-aspect) PLAN-208 D7, PL
 
 Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#dependency-delta[Phase Workflows § Dependency Delta Check (Pre-Merge)],
 link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#_5_added_dependencies_section[Phase Workflows § 5. `Added dependencies` Section],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12]
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
 Hazard:: A skill adopted a technique that silently required a new third-party dependency, which no one approved.
 Guard:: A dependency addition must appear in the solution outline that passes the server outline gate
 (`outline.gate`); the footprint reconciliation parses the build files the plan changed and reports every added
@@ -779,7 +772,7 @@ PLAN-219 D5.
 [#PM-WATCH-PHASE-27]
 === PM-WATCH-PHASE-27: Triggers inside a closed rate window extend it
 
-Anchor:: link:../specification/hypermedia-format/03-composite-wait-and-encoder.adoc#_deterministic_evaluation_immediate_short_circuit_matrix[Hypermedia Format § Deterministic Evaluation & Immediate Short-Circuit Matrix] (`rate_limited` routing),
+Anchor:: link:../specification/hypermedia-format/03-composite-wait-and-encoder.adoc#short-circuit-matrix[Hypermedia Format § Deterministic Evaluation & Immediate Short-Circuit Matrix] (`rate_limited` routing),
 link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#automatic-review[Phase Workflows § Automatic Review: Registry, Participation, Refusals & Ingestion],
 link:../specification/timeouts/01-job-budgets-and-waits.adoc#review-bot-windows[Timeouts & Budgets § Review-Bot Rate Windows]
 Hazard:: Six triggers over ~12 h and five waits produced nothing, because each trigger inside a closed window
@@ -943,9 +936,10 @@ Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descri
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14]
 Hazard:: An unavailable build oracle rendered 0; build time was published as 0 for a plan with 28 builds. The
 unmeasured-is-not-zero rule exists for tokens only.
-Guard:: `record-metrics` and every aggregate use an explicit `unavailable`/`unmeasured` state for each absent
+Guard:: A task row without token figures carries its `unmeasured_reason`, never zero tokens (`MetricsStoreTest` of
+`pm-core`). Open: `record-metrics` and every aggregate use an explicit `unavailable`/`unmeasured` state for each absent
 source; build totals derive from the change ledger `kind = "build"` `duration_ms`; a missing duration is
-`unmeasured`; test with a fixture ledger. A task row without token figures carries its `unmeasured_reason`, never zero tokens.
+`unmeasured`; test with a fixture ledger.
 Fixture:: 796 rows, `summed_rows 0` vs 37 logged builds; 28 builds totalling 3,975,160 ms (global logs: 123 calls,
 51.7% of script time). Per-step token evidence: 13 of 16 (PLAN-TRUTH-148) and 9 of 16 (PLAN-TRUTH-157) terminal
 steps had no evidence, which was read as inline execution.
@@ -994,7 +988,8 @@ Source:: plan-marshall defect post-run-quality PLAN-PRQ-03 D0.
 === PM-WATCH-PHASE-40: Every deferral writes an owed record
 
 Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue],
-link:../specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store]
+link:../specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-30[PM-WF-30]
 Hazard:: Deferred work had no owner and no persisted record.
 Guard:: Every deferral path writes an owed item of its kind at its named writer state or discharges inline: a failed
 ref removal (`cleanup`), the post-merge work of a plan handed back while still queued (`post_merge_cleanup`), a retained
@@ -1061,9 +1056,8 @@ Guard:: CI stub test (sandboxed provider) where the merge call reports success b
 workflow stays in its wait state and then reports ejected or timed out, never stamps merged. A merge-queue enqueue
 counts only on an observed read of this PR's own queue membership, never on the command's success or on the existence
 of a queue rule. The merge and enqueue calls carry the expected head SHA: a stub whose head moved between barrier and
-dispatch answers `head_moved`, and the plan re-enters `finalize.merge-gate` instead of merging. A queue entry whose
-position changes keeps the wait alive past twice the check-response timeout; an entry without observed progress for
-that long ends `timed_out` as a no-verdict outcome, never as `merged` or `ejected`.
+dispatch answers `head_moved`, and the plan re-enters `finalize.merge-gate` instead of merging. The bound of the
+queue wait is PM-WATCH-PHASE-78's.
 Fixture:: `ci pr merge` → `merged: true`, branch deleted, PR not merged; PR #1480: 11 checks green, 2 × 30-min
 windows merged nothing.
 Source:: plan-marshall defects orchestrator-refactor PLAN-10 D3; truthful-signals (quality-aspect) PLAN-220 D3.
@@ -1420,7 +1414,7 @@ Hazard:: A fallback that ends the plan at once skips the post-run band (no landi
 same fallback (a spent budget and a step-out) are indistinguishable in the record; begun steps stay open and later
 re-fire on an ended plan.
 Guard:: Scenario per cause (`exhausted`, `stepped_out`, `decided`, `infeasible`, `condition`, `provider_refused`,
-`merge_by_operator`, `local_only`, `files_not_applicable`, `deliverable_removed`): the transaction entering `plan.return` or `finalize.hand-back` records every
+`merge_by_operator`, `operator_path`, `local_only`, `files_not_applicable`, `deliverable_removed`): the transaction entering `plan.return` or `finalize.hand-back` records every
 begun, unsettled step `failed`, writes one gap record with its cause and the spent budget, the server's step-out
 cause, or the decision task's reason and evidence, and composes the post-run-only instance version (event
 `fallback`); the plan then runs the post-run band and ends only through `finalize.archive-plan` in `returned` or
@@ -1514,32 +1508,11 @@ the result in the specification and the requirement it touches, and deletes this
 Source:: `phase-workflows/05-finalize-review-metrics-descriptor.adoc:116-141`, `requirements/11-migration.adoc:63`,
 `:71`.
 
-[#PM-WATCH-PHASE-104]
-=== PM-WATCH-PHASE-104: Open: which rejections the caller-drift rate counts
-
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#migration-trigger-evaluation[Phase Workflows § Migration Trigger Evaluation] (caller-drift rate),
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5]
-Hazard:: Undecided: the requirement counts link calls rejected with `invalid_link_args` or `link_not_available` and
-repeated identical rejected calls; the specification's Caller-Drift Rate counts every rejection of the failure class
-`caller_drift`, which also holds `missing_param`, `undeclared_param`, `stale_entity`, `already_answered`,
-`phase_closed`, `operator_only`, `surface_overlap`, and the execution errors
-`invalid_arguments`, `section_not_found`, and `job_scope_mismatch`. Both are compared with the `plan-marshall`
-baseline of argument-shape failures per plan, so one implementation breaches the trigger on races and refusals the
-baseline never counted, the other misses argument-shape failures (`missing_param`, `undeclared_param`) the baseline
-does count. Options: (1) align the requirement to the specification (every `caller_drift` rejection); (2) align the
-specification to the requirement (the two reasons only); (3) both name the argument-shape subset of `caller_drift`
-(`invalid_link_args`, `missing_param`, `undeclared_param`, `invalid_arguments`, `link_not_available`) plus the repeated
-identical rejected calls as the rate, the full class staying a recorded metric. Recommendation: 3, only that subset
-is comparable with the baseline it is measured against.
-Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
-the result in the specification and the requirement it touches, and deletes this item.
-Source:: `requirements/11-migration.adoc:66`, `phase-workflows/05-finalize-review-metrics-descriptor.adoc:108`,
-`:136-140`, `mcp-tools/04-errors-and-testing.adoc:220`.
-
 [#PM-WATCH-PHASE-100]
 === PM-WATCH-PHASE-100: A self-review half that did not run never makes the step clean
 
-Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (`pre-submission-self-review`)
+Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (`pre-submission-self-review`),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-29[PM-WF-29]
 Hazard:: The step verdict is computed over the findings of both self-review tasks; when one task ended `infeasible` or
 `lost`, a verdict over the other half alone reads `clean_full`, so the step may close without the review it claims.
 Guard:: Table test over the two halves (`reviewed` with findings, `reviewed` clean, `not_run`) in both positions: a
@@ -1576,7 +1549,7 @@ accept that posture, override or unit can drop it. Recommendation: 2, it keeps `
 the decision in configuration.
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
-Source:: `phase-workflows/04-finalize-step-bands.adoc:192`, `phase-workflows/02-planning-lanes-phases-3-4.adoc:202`
+Source:: `phase-workflows/04-finalize-step-bands.adoc:186`, `phase-workflows/02-planning-lanes-phases-3-4.adoc:223`
 (Posture Resolution), `plan-marshall` `extension-api/standards/ext-point-lane-element.md:203-208`.
 
 [#PM-WATCH-PHASE-109]
@@ -1586,14 +1559,17 @@ Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#build
 Hazard:: The builder check tests whether someone who has only the intent record could build from it. Facts that
 carry the original input, the clarifications, or refine's own submission let the task answer its questions from
 what the record omits, and the check passes a record that a builder could not use.
-Guard:: A test composes the facts of `refine.builder-check` and asserts that they hold the intent record
-only, with no member of `request.md`'s original input or clarifications and no earlier submission.
+Guard:: The facts the builder check composes hold the intent record only, with no member of `request.md`'s original
+input or clarifications and no earlier submission (`BuilderCheckTest` of `pm-core`, _The facts carry the intent record
+only_). Open: a scenario over `refine.builder-check` asserts that the task the state creates receives exactly those
+facts, so the wiring adds nothing from the plan's other stores.
 Source:: Superpowers analysis of plan-marshall-documentation (the builder "will not be able to talk to the person").
 
 [#PM-WATCH-PHASE-112]
 === PM-WATCH-PHASE-112: Behaviour nobody asked for is listed, not passed
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#self-review-submission[Phase Workflows § Self-Review Submission] (`unclaimed`, `conflicts`)
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#self-review-submission[Phase Workflows § Self-Review Submission] (`unclaimed`, `conflicts`),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-29[PM-WF-29]
 Hazard:: An empty `unclaimed[]` is the cheapest answer and looks like a clean review. A review that reads only the
 criteria and the deliverables never sees what the change does beside them: a migration that deletes rows, a changed
 default, a new configuration property. A list whose entries carry no effect lets a data-destroying entry pass as a
@@ -1612,7 +1588,8 @@ Source:: Article analysis `fixing-over-engineering` of plan-marshall-documentati
 [#PM-WATCH-PHASE-113]
 === PM-WATCH-PHASE-113: A writer's own calls are stated, not left in the diff
 
-Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#own-calls[Phase Workflows § Own Calls of a Writer]
+Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#own-calls[Phase Workflows § Own Calls of a Writer],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-11[PM-WF-11]
 Hazard:: An empty `own_calls` list is the cheapest answer and reads like a task that settled nothing. A writer that
 replaces a dependency or bounds a buffer to make a measure look good states nothing, and the pull request shows a
 clean section. A call that chooses against an operator's decision slips through as an own call instead of a question,
@@ -1630,7 +1607,8 @@ message broker and removed a security token without saying so).
 [#PM-WATCH-PHASE-114]
 === PM-WATCH-PHASE-114: The change map is computed from both trees, never from a checkout
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#change-map[Phase Workflows § Change Map]
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#change-map[Phase Workflows § Change Map],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-30[PM-WF-30]
 Hazard:: The base side of the map needs the tree at `base_ref`. Checking it out in the worktree destroys the plan's
 uncommitted state; reading it through a second crawl that differs from the live crawl draws edges that do not exist
 or loses real ones, and a parse failure on one side shows a module as removed. A removed dependency that is drawn but
@@ -1669,7 +1647,8 @@ shared registry that no ticket names); plan-marshall's own fix is a landing chec
 [#PM-WATCH-PHASE-116]
 === PM-WATCH-PHASE-116: A fix is counted by what it cleared and what it introduced
 
-Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc#_findings_ledger_record_findings_jsonl[Store Schemas § Findings Ledger Record] (Fix Attribution)
+Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc#_findings_ledger_record_findings_jsonl[Store Schemas § Findings Ledger Record] (Fix Attribution),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-7[PM-WF-7]
 Hazard:: The fix attribution compares a finding with the fix's changed lines at the fix commit instead of mapping them
 forward to the finding's `raised_at_head`, so a later commit that shifts lines attributes the finding to the wrong fix or
 to none; or a round without a landed commit reports `0` introduced and is counted as a clean fix.
@@ -1683,7 +1662,8 @@ attribution).
 [#PM-WATCH-PHASE-117]
 === PM-WATCH-PHASE-117: Sweep localisation probes outside the plan's worktree and never decides
 
-Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#_whole_tree_verification_gates_triage_required_routing[Phase Workflows § Whole-Tree Verification Gates] (Culprit Localisation)
+Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#_whole_tree_verification_gates_triage_required_routing[Phase Workflows § Whole-Tree Verification Gates] (Culprit Localisation),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-7[PM-WF-7]
 Hazard:: The bisection checks out probe commits in the plan's own worktree and leaves it at an old commit, or a probe
 that ends without a verdict is read as green, so the culprit named is the wrong commit; or the localisation runs for a
 red the per-deliverable builds never covered and spends builds without information.
@@ -1716,7 +1696,8 @@ repository-wide).
 [#PM-WATCH-PHASE-121]
 === PM-WATCH-PHASE-121: A severity cap only lowers, and a reproduced claim names its run
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#security-audit-calibration[Phase Workflows § Security Audit Calibration]
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#security-audit-calibration[Phase Workflows § Security Audit Calibration],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-28[PM-WF-28]
 Hazard:: The cap is applied as an assignment, so a `minor` submission under a `major` cap is raised; or two applicable
 caps are applied in table order instead of taking the lowest; or `evidence_level: test_reproduced` is accepted from the
 model without a build job of the plan's run, which lifts the strongest cap on a claim nobody ran; or the removed-guard
@@ -1734,7 +1715,8 @@ restrictive wins and a cap never raises; its lineage of earlier fixes).
 [#PM-WATCH-PHASE-122]
 === PM-WATCH-PHASE-122: Hidden characters in a plan's added lines never reach the base branch unseen
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#added-line-scan[Phase Workflows § Added-Line Scan]
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#added-line-scan[Phase Workflows § Added-Line Scan],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
 Hazard:: The scan reads the working tree or the whole file instead of the lines added against `base_ref`, so an
 unchanged legacy line blocks every plan, or a line added by a finalize fix after Phase 6 entry is never scanned; or the
 emoji exception is matched by code point alone, so a lone zero-width joiner or variation selector passes; or the rule
@@ -1752,15 +1734,16 @@ copied by the model into each document it drafts, which then carries it on).
 [#PM-WATCH-PHASE-123]
 === PM-WATCH-PHASE-123: A credential a worker copied never leaves the machine in a commit or a provider text
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#added-line-scan[Phase Workflows § Added-Line Scan]
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#added-line-scan[Phase Workflows § Added-Line Scan],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-5[PM-CRED-5]
 Hazard:: The credential stage reads the tree difference `base_ref..HEAD` like the other stages, so a value one commit
 adds and a later fix removes passes while the push publishes the commit that holds it; or commit messages are not read;
 or the finding's summary, the audit record, or the refusal of a provider write repeats the value it found; or a
 hand-back before `create-pr` pushes the branch while the finding is open; or the outbound check runs on the text before
 the server adds its own sections, or not at all for a review reply.
 Guard:: Scenario over a plan with three commits: the first adds a `.env` line with a `ghp_` token of valid length, the
-second removes it, the third's message holds an `AKIA` key: two blocking `credential_shaped` findings, no push, and a
-fallback to the hand-back that takes the local form; neither the findings store, the audit log, nor the landing record
+second removes it, the third's message holds an `AKIA` key: two blocking `credential_shaped` findings, no push, and the plan
+waiting for the operator; the operator's end of the plan at its hand-back takes the local form; neither the findings store, the audit log, nor the landing record
 contains either value. A worker that writes a redaction-registry value into a pull-request body gets
 `credential_shaped_text` and no request is sent to the provider. Matched controls: the word `ghp_` in prose, a value of
 the pattern table's example set, and a PEM public key are no hits; an operator waiver of both findings lets the push
@@ -1786,7 +1769,8 @@ before the fix, which the agent may not rewrite).
 [#PM-WATCH-PHASE-125]
 === PM-WATCH-PHASE-125: Two readings stay independent and their union stays whole
 
-Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#second-code-reading[Phase Workflows § Second Code Reading]
+Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#second-code-reading[Phase Workflows § Second Code Reading],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-29[PM-WF-29]
 Hazard:: A warm worker or shared facts let the second reading see the first, so the two agree by copying; a filing step
 that merges findings by location drops a second defect on the same line; a duplicate counted as a yield of the second
 reading makes it look useful; one reading ending `lost` leaves the round reported clean.
@@ -1799,7 +1783,8 @@ Source:: Article analysis `review-like-my-team` of plan-marshall-documentation.
 [#PM-WATCH-PHASE-126]
 === PM-WATCH-PHASE-126: The size of the fixes is read from git and decides nothing
 
-Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc#_findings_ledger_record_findings_jsonl[Store Schemas § Findings Ledger Record] (Fix Size)
+Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc#_findings_ledger_record_findings_jsonl[Store Schemas § Findings Ledger Record] (Fix Size),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-7[PM-WF-7]
 Hazard:: A rebase replaces the fix commits, so a recorded commit id no longer resolves and the figure silently becomes `0`;
 the size before the fix is taken from the merge base to `HEAD` after the rebase and counts the base's own changes; a figure
 in the facts of a decision grows into a threshold that stops a plan for the size of a correct fix.
@@ -1813,7 +1798,7 @@ Source:: Article analysis `review-never-stops` of plan-marshall-documentation.
 === PM-WATCH-PHASE-127: A substituted dependency never reaches a build
 
 Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#dependency-delta-pre-build[Phase Workflows § Before Every Build of the Plan],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12]
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
 Hazard:: The check reads the last commit instead of the disk, so an uncommitted edit of a build file builds unchecked; the
 check is wired to `pm_build` only, so the plan's own verification build resolves the substituted package; a build file the
 parser cannot read refuses every build and stops a plan that only changed a comment.
@@ -1859,8 +1844,7 @@ Source:: Article analysis `review-playbook` of plan-marshall-documentation.
 
 Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-11[PM-WF-11]
-Hazard:: Repository content can steer a coding agent into a broad allow rule that later sessions reuse
-(arXiv:2610.22987, 58 of 100 synthetic cases reached a rule sufficient for the attacker's goal). A worker that writes
+Hazard:: Repository content can steer a coding agent into a broad allow rule that later sessions reuse. A worker that writes
 `.claude/settings.json`, a hook, an MCP configuration or a skill into the plan worktree lands it as an unplanned change,
 listed but never reviewed, and after the merge the operator's own harness sessions load it. The guard misses it when
 it matches paths of one harness only: OpenCode also reads `.claude/skills/` and `.agents/skills/`, so a path that one
@@ -1871,7 +1855,8 @@ Fixtures: a task that adds an allow rule to `.claude/settings.json` without decl
 and nothing is committed; the same for a skill under `.agents/skills/` on a project whose workers run on Claude Code.
 Matched controls: the same change declared in the outline is committed; a changed `CLAUDE.md` is recorded as an
 unplanned change only.
-Source:: Article analysis `obsidian-second-brain-approval-to-abuse` of plan-marshall-documentation.
+Source:: Article analysis `obsidian-second-brain-approval-to-abuse` of plan-marshall-documentation (arXiv:2610.22987:
+58 of 100 synthetic cases reached an allow rule sufficient for the attacker's goal).
 
 [#PM-WATCH-PHASE-131]
 === PM-WATCH-PHASE-131: CI configuration, editor auto-run files and a case variant are protected
@@ -1882,7 +1867,10 @@ Hazard:: The match compares the path bytes as git reports them, so on macOS a wo
 or `.GitHub/workflows/x.yml` changes the protected file through a case-insensitive file system while the footprint
 check sees an unprotected path; or the list is kept per harness and misses the forge files, so a workflow step that
 posts the repository's secrets runs at the push of the plan's branch, before any review.
-Guard:: Fixtures on a case-insensitive and a case-sensitive file system: an undeclared change to
+Guard:: The matcher compares a path ignoring case and after NFC normalisation, and a declaration lifts exactly the
+declared path, over the hook-definition family (`ProtectedPathsTest` of `pm-core`). Open: the forge CI and editor
+families, and the footprint check over them. Fixtures on a case-insensitive and a case-sensitive file system: an
+undeclared change to
 `.github/workflows/ci.yml`, `.gitlab-ci.yml`, `.vscode/tasks.json`, `.envrc`, and to `.CLAUDE/settings.json` and
 `.GITHUB/workflows/ci.yml` each raises `footprint_violation`, nothing is committed and nothing is pushed; a path in NFD
 form of a protected name is matched too. Matched controls: the same changes declared in the outline are committed; a

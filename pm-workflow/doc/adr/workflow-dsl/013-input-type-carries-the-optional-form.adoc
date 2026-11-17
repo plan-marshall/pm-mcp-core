@@ -50,4 +50,4 @@ either.
 
 * link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
 * link:../../../../doc/specification/identifiers/01-general-rules-and-registry.adoc#id-param-name[Identifiers Specification § Free parameter name]
-* link:../../developer/workflow-dsl.adoc#_the_unit_frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter]
+* link:../../developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter]

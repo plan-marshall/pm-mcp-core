@@ -89,7 +89,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 |`checks_visible`
 |network
 |whether the agent credential can read check runs of the repository (a fine-grained personal access token cannot read the Checks API); value `true` or `false`
-|`ci.checks` reports `completeness: incomplete` from the first read when `false` (commit statuses are still read); `setup.select-integration-variants` shows it to the operator
+|`ci.checks` reports `completeness: incomplete` from the first read when `false` (commit statuses are still read); `project.operator` shows it to the operator (link:../state-catalogue/15-project-onboarding.adoc#state-project.operator[State Catalogue Specification, `project.operator`])
 |none
 
 |`agent_identity`
@@ -101,7 +101,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 |`git_native_capability`
 |local
 |repository configuration and files of the enrolled root: hooks (a non-sample file in `.git/hooks/`, `core.hooksPath`, `.husky/`, `lefthook.yml`, `.pre-commit-config.yaml`), commit signing (`commit.gpgSign`, `tag.gpgSign`) and the network fact `signed_commits_required`, `.gitattributes` filter drivers including LFS, `.gitmodules` submodules, `extensions.objectFormat` (SHA-256), `extensions.partialClone`, `core.sparseCheckout`, split index, `extensions.worktreeConfig`, and a remote that is SSH-only (no HTTPS mapping for its host). Value `{native_supported, reasons[]}`, each reason naming the feature (`hooks`, `signing`, `filter_driver`, `lfs`, `submodules`, `sha256_object_format`, `partial_clone`, `sparse_checkout`, `split_index`, `worktree_config`, `ssh_only_remote`) and the path or key that shows it
-|`setup.select-integration-variants` (the native git variant is offered only while `native_supported`); every native git operation refuses with `capability_missing{reason}` naming the operator command that enrols the host tool and so selects the CLI variant, never falling back on its own; a newly found reason invalidates an effective native variant and the setup asks again
+|`project.operator` (the native git variant is offered only while `native_supported`); every native git operation refuses with `capability_missing{reason}` naming the operator command that enrols the host tool and so selects the CLI variant, never falling back on its own; a newly found reason invalidates an effective native variant and the setup asks again
 |none
 
 |`domain_activation`

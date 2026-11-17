@@ -12,7 +12,7 @@
 
 A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
 
-_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2]_
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2], link:{docs}/requirements/07-credentials.adoc#PM-CRED-1[PM-CRED-1], link:{docs}/requirements/07-credentials.adoc#PM-CRED-5[PM-CRED-5]_
 
 Package `de.planmarshall.provider.github` holds the native GitHub client of PM-MCP: GitHub App authentication, the fixed
 GraphQL documents for review threads and the merge queue, and the REST calls of the review path. It builds on the shared
@@ -40,7 +40,7 @@ uses REST. Every body travels in memory. The reads of the CI contract are REST t
 
 |link:{src}/InstallationTokens.java[`InstallationTokens`]
 |Mints GitHub App installation tokens through `POST /app/installations/{id}/access_tokens`, narrowed to one repository and
-a permission set, and holds them in memory only. A minted token is registered with the redaction registry and reused,
+a permission set, and holds them in memory only. A minted token is handed to the redaction seam the caller passes (a `Consumer<String>`) and reused,
 keyed by installation, repository and permission set, until `REUSE_MARGIN_SECONDS` (300 s) before its `expires_at`.
 
 |link:{src}/GitHubAppJwt.java[`GitHubAppJwt`]
@@ -80,7 +80,8 @@ link:../../../pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-re
 * *The private key is read per mint and never cached.* A rotated key is used on the next mint, and the key never reaches a
   log, an exception message or a result detail.
 * *A token lives in memory only.* It is never written to a store; the reuse map is dropped when the client closes. The
-  redaction registry covers a token that appears in a provider message.
+  redaction seam the caller passes receives every minted token; no registry behind it masks by value yet, so a token
+  in a provider message is masked by its shape (`SecretRedactor`).
 * *A token is narrowed.* Every operation names its permission set, so a client that only reads review threads cannot write
   a comment or enqueue a merge.
 * *A rate limit is an outcome.* The base reports `RATE_LIMITED` with its reset instant; the client never waits inside a

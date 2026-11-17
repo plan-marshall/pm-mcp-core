@@ -80,7 +80,7 @@ narrow, anchored patterns, and redact the npm error parser's message at its sour
 
 * Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-127-npm-parser-success-and-redaction.md[PLAN-V2-127]
 * Work package link:../../../../doc/plans/build-parsers-and-gate-honesty.adoc[`build-parsers-and-gate-honesty`]
-* Specification: link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#_a_workers_output_while_it_runs[Job Runtime § A Worker's Output While It Runs];
+* Specification: link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#worker-output[Job Runtime § A Worker's Output While It Runs];
   link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime § Unparseable Output Fallback]
 * Journal redaction: link:../core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR `core-queue/008`]
 * Excerpt redaction: link:004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR `core-build/004`]

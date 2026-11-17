@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `runtime-control`
 
 [horizontal]
-Roadmap item:: the drain, the upgrade by versioned directory (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Roadmap item:: the runtime's lifecycle acts in both clients: stop by its drain or at once, withdraw a drain, restart; the tasks _Update check_ and _Upgrade_ are the blocked row `runtime-update` of the link:README.adoc#packages[index] (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
 Where:: pm-runtime package `runtime.start` (the operator endpoints, stop, the withdrawable drain, restart, the update check, the upgrade); pm-core (the consent kind `check_updates`)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 

@@ -26,7 +26,8 @@ Every repository checkout of an enrolled project contains a `.marshall/` directo
 │   │   ├── build-map.json               # Seeded file-to-build route table
 │   │   ├── threat-model.adoc            # Optional threat model the security audit reads (Phase Workflows § Security Audit Calibration)
 │   │   └── *.pmwf                       # Only the units the team placed or changed; absent units resolve to the machine, then the default
-│   ├── recipes/                         # The project's recipes (git-tracked): each descriptor with its workflow <id>.pmwf
+│   ├── recipes/                         # The project's recipes (git-tracked, Domain Extensions § A Recipe Is a Workflow)
+│   │   └── <recipe_id>.json, .md, .pmwf # Recipe descriptor, its document, and its workflow (type recipe)
 │   ├── skills/                          # Project skill directory: team extension skills (git-tracked, MCP Tools § Skill Extensions)
 │   │   └── <name>/                      # One skill: SKILL.md and its supporting files, served as skill://pm/ext/<name>/
 │   ├── project-architecture/            # Architecture module enrichment (git-tracked)
@@ -81,16 +82,7 @@ A plan never moves (`PM-ARCH-5`). Its worktree is only a git checkout, created f
 [#linked-worktree-recognition]
 === Recognition of a Linked Worktree by the Path Confinement
 
-The path confinement of `PM-SEC-2` accepts a project path outside the enrolled repository root only inside a live linked git worktree of that root. The check reads the plain files git writes for a linked worktree and runs no git process. A directory of the live set counts as a linked worktree of the root only when all of the following hold:
-
-* *Pointer*: Its `.git` is a file that names the git directory of the worktree after the prefix `gitdir:`.
-* *Registration*: The canonical path of that git directory is a direct child of `<project_root>/.git/worktrees/`, and neither `<project_root>/.git` nor `<project_root>/.git/worktrees` is a symbolic link.
-* *Common Directory*: The `commondir` file of the git directory names `<project_root>/.git`.
-* *Back-Pointer*: The `gitdir` file of the git directory names the worktree back: the path it holds, resolved against the git directory when it is relative (the form git writes with `worktree.useRelativePaths`), is the `.git` file of that worktree.
-
-Each of the three files is a regular file, never a symbolic link, that is not empty and not larger than 8192 bytes. A path inside any other directory outside the root is refused with `path_traversal_rejected`. This holds for a directory whose git directory carries a fitting `commondir` file but lies outside `<project_root>/.git/worktrees/`, and for a second directory that points at the git directory of a registered worktree.
-
-A worktree directory moved by hand (with `mv`, not with `git worktree move`) keeps a `gitdir` record that names its old location. It is refused until `git worktree repair` has rewritten the record.
+The path confinement of `PM-SEC-2` accepts a project path outside the enrolled repository root only inside a live linked git worktree of that root, which it recognises from the plain pointer files git writes, without running git: the worktree's git directory is registered directly below `<project_root>/.git/worktrees/`, names `<project_root>/.git` as its common directory and names the worktree back in its `gitdir` record; every other path outside the root, a worktree moved by hand among them until `git worktree repair` has rewritten its record, is refused with `path_traversal_rejected` (link:../../../pm-core/doc/developer/core-store.adoc#_path_confinement[Scope Stores Developer Guide, Path Confinement]).
 
 [#shared-epic-worktree]
 === Shared Epic Worktree

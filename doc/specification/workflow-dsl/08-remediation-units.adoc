@@ -68,12 +68,12 @@ The budgets are call arguments of the phase units (the template values). The pla
 |`refine.remediate-qgate`, `outline.remediate-qgate`, `plan.remediate-qgate` (the `blocking` verdict of `<phase>.qgate`)
 |`remediation.qgate-findings`
 |0 / 3
-|`resolved`, `waived` -> the phase exit (waived findings dispositioned accepted-by-waiver); `fix_requested` -> `refine.analyze`, `plan.revise-tasks`, or in Phase 3 an `auto` router state that routes by lane to `outline.deep` or `outline.light-regate`, with `facts.qgate_findings`; `exhausted`, `stepped_out` -> `plan.return` (which forwards to `finalize.hand-back` when the plan branch holds commits beyond the base)
+|`resolved`, `waived` -> the phase exit (waived findings dispositioned accepted-by-waiver); `fix_requested` -> `refine.analyze`, `plan.revise-tasks`, or in Phase 3 the phase's exit `rework`, on which the plan unit calls the outline again at the authoring entry of the plan's lane (`outline.deep` or `outline.light-regate`), with `facts.qgate_findings`; `exhausted`, `stepped_out` -> the phase's exit `returned`, which the plan unit routes to `plan.return` (which forwards to `finalize.hand-back` when the plan branch holds commits beyond the base)
 
 |`execute.remediate-build` (`execute.deliverable-build`, `execute.verify-sweep`), `land.remediate-build` (`land.verify-sweep`), `finalize.remediate-build` (`finalize.pre-push-quality-gate`)
 |`remediation.build-failure`
 |1 / 3
-|`resolved` -> in Phase 5 the `auto` router state `execute.route-build-cause`, which continues by the persisted `remediation_cause` (`deliverable` -> `execute.envelope-ready`, `sweep` -> `execute.verify-sweep`), in the `land` lane `land.verify-sweep`, in Phase 6 `finalize.settle-commit`; `fix_requested` -> remediation task allocation, whose commit enters the router `execute.route-commit-cause`; `exhausted` -> `execute.replan` or `finalize.replan` (trigger `ceiling`; in the `land` lane `finalize.hand-back`), `stepped_out` -> `finalize.hand-back` (outcome `returned` when the branch holds no commit beyond the base)
+|`resolved` -> in Phase 5 the `auto` router state `execute.route-build-cause`, which continues by the persisted `remediation_cause` (`deliverable` -> `execute.envelope-ready`, `sweep` -> `execute.verify-sweep`), in the `land` lane `land.verify-sweep`, in Phase 6 `finalize.settle-commit`; `fix_requested` -> remediation task allocation, whose commit enters the router `execute.route-commit-cause`; `exhausted` -> `execute.replan` or `finalize.replan` (trigger `ceiling`; in the `land` lane `land.handed-back`, the lane's exit `hand_back`), `stepped_out` -> in Phase 5 the phase's exit `hand_back`, in the `land` lane `land.handed-back`, in Phase 6 `finalize.hand-back` (each reaching `finalize.hand-back`, outcome `returned` when the branch holds no commit beyond the base)
 
 |`finalize.remediate-ci` (`ci_failed` of the wait region and of `finalize.merge-evidence-wait`), `finalize.remediate-barrier-ci` (`ci_failed` of the pre-merge barrier; `actions=[retry,fix]`; `resolved`, `waived` -> `finalize.merge-gate`)
 |`remediation.ci-failure`
@@ -129,6 +129,7 @@ Every unit follows one state template; the unit's own states are named `remediat
 name: Remediate a CI Failure
 description: Decides and runs the remedy for a failing CI run within the budgets of its call.
 type: subworkflow
+icon: remediation.ci
 entry: remediate
 entry_description: The step's CI run failed; the call binds the budgets and the admitted actions.
 exit: resolved
@@ -258,7 +259,7 @@ The check of a project's units on every load decides, against the default unit o
 |Nested commits: a call of `git.commit_and_push` inside the unit routes `stepped_out`, and `done` without a commit, back to `budget-check` (a server step-out with `cause: condition` is exempt: it unwinds every frame to the phase's fallback without taking this transition); an in-branch fix is charged in the transaction in which its task submits the change (`fixed` or `no_change`), a fix that runs in the caller when the primitive that takes it requests it.
 
 |`INV-REM-5`
-|Callers: every call site in a plan-scope unit routes `exhausted` and `stepped_out` to the phase's fallback state (`plan.return` in Phases 1–4, which forwards committed work beyond the base to `finalize.hand-back`; `finalize.hand-back` afterwards), except that a call site in Phase 5 outside the `land` lane or in finalize before the merge routes `exhausted` to its phase's re-planning call state (`execute.replan`, `finalize.replan`, trigger `ceiling`, link:../phase-workflows/08-dynamic-re-planning.adoc#replan-existing-mechanisms[Phase Workflows Specification, Dynamic Re-Planning]), `waived` to the continuation completing the class's step `waived`, and `fix_requested` to an authoring or allocation state; every bound and every effective ceiling of every instance version is at most the compiled hard cap (retry 5, fix 5).
+|Callers: every call site in a plan-scope unit routes `exhausted` and `stepped_out` to the phase's fallback (Rule 6, xref:04-ast-node-model.adoc#static-verification-rules[Static AST Verification Rules]: the phase's exit `returned` in Phases 1–4, which the plan unit routes to `plan.return`, which forwards committed work beyond the base to `finalize.hand-back`; the exit `hand_back` in Phase 5 and the `land` lane; `finalize.hand-back` in Phase 6), except that a call site in Phase 5 outside the `land` lane or in finalize before the merge routes `exhausted` to its phase's re-planning call state (`execute.replan`, `finalize.replan`, trigger `ceiling`, link:../phase-workflows/08-dynamic-re-planning.adoc#replan-existing-mechanisms[Phase Workflows Specification, Dynamic Re-Planning]), `waived` to the continuation completing the class's step `waived`, and `fix_requested` to an authoring or allocation state; every bound and every effective ceiling of every instance version is at most the compiled hard cap (retry 5, fix 5).
 
 |`INV-REM-6`
 |Accounting: the counters are per plan and class, charged only by the unit's primitives, and never reset by re-entry, a new `HEAD`, a loop-back, or a re-composition.
