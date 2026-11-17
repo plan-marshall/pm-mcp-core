@@ -88,7 +88,11 @@ public final class SecretRedactor {
      */
     private static final Pattern INVISIBLE = Pattern.compile("[\\u00AD\\u200B\\u2060\\uFEFF]");
 
-    private static final String SEPARATOR = "((?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?)";
+    /** The separator head every assignment form shares: an optional quoted or backslash-quoted opening and the operator. */
+    private static final String SEPARATOR_HEAD = "(?:\\\\?[\"'])?\\s*[:=]\\s*";
+
+    /** The shared separator head with its own capturing group and an optional closing quote. */
+    private static final String SEPARATOR = "(" + SEPARATOR_HEAD + "(?:\\\\?[\"'])?)";
 
     private static final String VALUE = "([^\\s\"',;]{4,})";
 
@@ -317,19 +321,19 @@ public final class SecretRedactor {
      * closing quote, read through the escape pairs of {@link #QUOTED_LINE}.
      */
     private static Pattern quotedAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b((?:\\\\?[\"'])?\\s*[:=]\\s*)([\"'])"
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(" + SEPARATOR_HEAD + ")([\"'])"
                 + QUOTED_ASSIGNMENT_VALUE);
     }
 
     /** One unclosed quoted assignment: the label, the separator, the opening quote and the rest of its line. */
     private static Pattern unclosedQuotedAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b((?:\\\\?[\"'])?\\s*[:=]\\s*)([\"'])(?!"
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(" + SEPARATOR_HEAD + ")([\"'])(?!"
                 + QUOTED_ASSIGNMENT_VALUE + ")([^\\r\\n]*)");
     }
 
     /** One escaped-JSON assignment: the label, the separator, the escaped opening quote and the rest of its line. */
     private static Pattern escapedJsonAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b((?:\\\\?[\"'])?\\s*[:=]\\s*)(\\\\[\"'])([^\\r\\n]*)");
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(" + SEPARATOR_HEAD + ")(\\\\[\"'])([^\\r\\n]*)");
     }
 
     /**
