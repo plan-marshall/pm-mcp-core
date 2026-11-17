@@ -433,4 +433,22 @@ class SupervisorCallsTest {
                 () -> assertTrue(supervisor.generation(generation.generationId()).isPresent(),
                         "the running generation stays registered"));
     }
+
+    @Test
+    @DisplayName("an enrolment of another harness clears no role of this one")
+    void anEnrolmentOfAnotherHarnessClearsNothing() {
+        var guard = new StartFailureGuard(fixture.project, List::of, fixture.protocol, fixture.eventSink,
+                fixture.clock);
+        withGuard(guard);
+        var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
+        started(role);
+        for (var ignored = 0; ignored < StartFailureGuard.HOLD_THRESHOLD; ignored++) {
+            guard.startFailed(role.artifact().name(), role.harness(), "");
+        }
+
+        calls.harnessEnrolled("other-harness");
+
+        assertTrue(guard.holds(role.artifact().name(), role.harness()),
+                "another harness's enrolment clears no role of this one");
+    }
 }
