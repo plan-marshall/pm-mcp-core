@@ -22,9 +22,8 @@ import org.jspecify.annotations.Nullable;
  * has no confinement, the record's {@code profile_digest} is not the digest of the loaded document, or the record's
  * {@code egress} stage is recorded {@code unenforced} and the machine has not accepted unenforced egress.
  * <p>
- * The stage is {@code null} when no single stage decided the refusal; the reason then names the member that did: the
- * record (an absent record), the platform (another platform, no confinement) or the record's {@code profile_digest}
- * (another document).
+ * The stage is {@code null} when no single stage decided the refusal; the reason then identifies the deciding fact: the
+ * record (an absent record), the platform (another platform, no confinement) or the record's digest (another document).
  *
  * @param reason   why the claim was refused
  * @param stage    the stage that decided the refusal; {@code null} when no single stage is to blame

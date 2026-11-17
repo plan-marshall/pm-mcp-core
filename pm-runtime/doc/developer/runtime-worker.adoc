@@ -332,17 +332,21 @@ No value of a profile is believed because the profile says so:
   anywhere does not establish the profile's claims.
 * The record must be the one written for this document: its `profile_digest` is compared with the canonical-JSON digest
   of the loaded profile, so a record verified for another document of the same harness refuses.
+* The `egress` stage states unenforced egress in its `results` as `"enforcement": "unenforced"`, and states
+  `"enforced"` when it measured enforcement; a stage that states neither is the specification's plain `passed`. The
+  specification's closed-data sentence enumerates the results of `events` and `usage` only, so that spelling is ADR
+  015's contract until the verification runner's plan names the `egress` carrier in the specification.
 * The gate refuses a claimed profile with `RECORD_ABSENT`, `OTHER_PLATFORM`, `DIGEST_MISMATCH`, `NO_CONFINEMENT`,
   `CLAIM_STAGE_ABSENT`, `FAULTS_TRIALS_INSUFFICIENT`, `EGRESS_UNENFORCED`, `STAGE_FAILED` or `STAGE_NOT_RUN`. The stages
   the claim rests on are examined first, so the refusal names the stage that decided the claim where one exists, and the
-  reason names the member (`platform`, `profile_digest`) where no single stage decided it.
+  reason identifies the deciding fact (the platform, the record's digest) where no single stage decided it.
   link:{src}/EligibilityRefusal.java[`EligibilityRefusal`] carries the closed reason, the stage (when a stage decided it)
   and the profile's client id; link:{src}/EligibilityVerdict.java[`EligibilityVerdict`] has exactly two members,
   `Eligible` and `Refused`, so a caller cannot read a third state into it.
 * The refusal never depends on the order in which the record lists its stages, and none reads the host's clock: the
-  record's entries are examined in the order the claim names them. The confinement set is the member's Javadoc's and the
-  specification's, not the reader's — `VerificationRecord` takes any string — so every value outside `landlock` and
-  `sandbox`, `none` included, names no confinement.
+  claimed stages are examined in the order the claim names them, and every other recorded stage in its name's order. The
+  confinement set is the member's Javadoc's and the specification's, not the reader's — `VerificationRecord` takes any
+  string — so every value outside `landlock` and `sandbox`, `none` included, names no confinement.
 
 link:{src}/RuntimePlatform.java[`RuntimePlatform`] is the operating system and architecture in the record's spelling
 (`linux`, `darwin`; `x86_64`, `aarch64`), normalised from `os.name` and `os.arch`. It compares the record's `platform`

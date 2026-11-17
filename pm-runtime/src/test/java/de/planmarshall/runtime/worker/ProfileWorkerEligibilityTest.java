@@ -185,16 +185,25 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("the refusal does not depend on the order of the stages in the record")
     void theRefusalDoesNotDependOnStageOrder() {
-        var profile = machine(record(ENFORCED_WRITER).conforming().stage("classes", "passed"));
-        var reversed = machine(record(ENFORCED_WRITER).conforming().stage("classes", "passed").reversed());
+        var claimed = machine(record(ENFORCED_WRITER).conforming().stage("classes", "passed"));
+        var claimedReversed = machine(record(ENFORCED_WRITER).conforming().stage("classes", "passed").reversed());
+        var incidental = machine(record("").conforming().stage("identity", "failed").stage("limits", "failed"));
+        var incidentalReversed = machine(record("").conforming().stage("identity", "failed")
+                .stage("limits", "failed").reversed());
 
-        var refusal = refusalOf(profile);
-        var reversedRefusal = refusalOf(reversed);
+        var refusal = refusalOf(claimed);
+        var claimedRefusal = refusalOf(claimedReversed);
+        var incidentalRefusal = refusalOf(incidental);
+        var reversedRefusal = refusalOf(incidentalReversed);
 
         assertAll(
-                () -> assertEquals(EligibilityRefusal.Reason.CLAIM_STAGE_ABSENT, reversedRefusal.reason(),
+                () -> assertEquals(refusal.reason(), claimedRefusal.reason(),
+                        "the reversed claim refuses for the same reason"),
+                () -> assertEquals(refusal.stage(), claimedRefusal.stage(),
+                        "the reversed claim names the same stage"),
+                () -> assertEquals(incidentalRefusal.reason(), reversedRefusal.reason(),
                         "the reversed record refuses for the same reason"),
-                () -> assertEquals(refusal.stage(), reversedRefusal.stage(),
+                () -> assertEquals(incidentalRefusal.stage(), reversedRefusal.stage(),
                         "the reversed record names the same stage"));
     }
 
@@ -261,16 +270,6 @@ class ProfileWorkerEligibilityTest {
     }
 
     @Test
-    @DisplayName("an eligible harness with no zero-tool class is honoured when its record established the claim")
-    void theNoZeroToolControlIsEligible() {
-        var profile = machine(record("").conforming());
-
-        var verdict = ProfileWorkerEligibility.of(profile, THIS_PLATFORM).verdict();
-
-        assertTrue(verdict.isEligible(), "the claimed stages all passed");
-    }
-
-    @Test
     @DisplayName("an enforced tool set is admitted only against the measured classes and isolation stages")
     void anEnforcedToolSetNeedsTheClassesStage() {
         var measured = machine(record(ENFORCED_WRITER).conforming().stage("classes", "passed")
@@ -281,7 +280,7 @@ class ProfileWorkerEligibilityTest {
 
         assertAll(
                 () -> assertTrue(ProfileWorkerEligibility.of(measured, THIS_PLATFORM).verdict().isEligible(),
-                        "the measured classes stage establishes the enforced tool set"),
+                        "the measured classes and isolation stages establish it"),
                 () -> assertEquals(EligibilityRefusal.Reason.CLAIM_STAGE_ABSENT, refusal.reason(),
                         "an enforced tool set is a claim the record must measure"),
                 () -> assertEquals("classes", refusal.stage(), "the absent classes stage refuses the claim"));

@@ -51,10 +51,12 @@ record's digest, the confinement of an eligible claim, the claimed stages, then 
    binds a profile (`ProfileLoader`, `readVerified`); the gate repeats the comparison because it is a pure predicate over
    a profile value it did not load, and the record is untrusted input like the document.
 6. `egress` recorded `unenforced` is carried by the stage's `results` as `"enforcement": "unenforced"`: the stage status
-   set is closed, so the results map is the record's only carrier, and the stage runner of the verification writes it so
-   when egress cannot be enforced (the runner is not built here). A stage that states `enforcement` with any value other
-   than `enforced` is read as unenforced, the closed side; a stage that states none is the specification's plain
-   `passed`. Unenforced egress is `EGRESS_UNENFORCED` while the machine has not accepted it.
+   set is closed, so the results map is the record's only carrier. The specification's closed-data sentence enumerates the
+   results of `events` and `usage` only, while its own claim rule names an `egress` recorded `unenforced`; naming that
+   carrier in the specification belongs to the verification runner's plan, which writes the record, and this ADR is the
+   gate's side of the contract until it does. A stage that states `enforcement` with any value other than `enforced` is
+   read as unenforced, the closed side; a stage that states none is the specification's plain `passed`. Unenforced egress
+   is `EGRESS_UNENFORCED` while the machine has not accepted it.
 7. The acceptance of unenforced egress is an input value of the gate:
    `ProfileWorkerEligibility.of(profile, platform, unenforcedEgressAccepted)` and
    `evaluate(profile, platform, facts, unenforcedEgressAccepted)`, both defaulting to `false`, not accepted. The gate
@@ -62,7 +64,8 @@ record's digest, the confinement of an eligible claim, the claimed stages, then 
    and supplies the value at the start path.
 
 The refusal order is a function of the claim, never of the order in which the record lists its stages, and no refusal
-reads the host's clock: a record's stage entries are examined in the order the claim names them, then every other entry.
+reads the host's clock: a record's claimed stage entries are examined in the order the claim names them, and every other
+recorded stage in the order of its name.
 
 == Alternatives Considered
 
@@ -86,11 +89,13 @@ reads the host's clock: a record's stage entries are examined in the order the c
 * A record that passed its stages but ran nine trials, recorded no confinement, belongs to another document or states
   unenforced egress without an acceptance leaves the harness ineligible; a record with a plain `passed` egress stays
   eligible as before.
-* Every refusal names the stage that decided it, or the reason names the member (`platform`, `profile_digest`) when no
-  stage decided.
+* Every refusal names the stage that decided it, or the reason identifies the deciding fact (`platform`,
+  `profile_digest`) when no stage decided.
 * The stage runner of the verification must write `"enforcement": "unenforced"` into the `egress` stage's `results` when
   it cannot enforce egress, and `"enforced"` when it can; a runner that writes nothing leaves the stage's `passed` as the
-  specification's plain case.
+  specification's plain case. The specification's closed-data sentence and `VerificationRecord.Stage`'s own Javadoc
+  (which says `results` are empty for any stage but `events` and `usage`) become true together when the runner's plan
+  names the `egress` carrier there; this plan reads that class and does not edit it.
 * A later consent store supplies `unenforcedEgressAccepted` at the start path; until then the default refuses unenforced
   egress, which is the narrower reading and never widens what is honoured today.
 * The gate still has no production caller in this repository (`SupervisorEnvironment.EligibilityGate` is offered and the

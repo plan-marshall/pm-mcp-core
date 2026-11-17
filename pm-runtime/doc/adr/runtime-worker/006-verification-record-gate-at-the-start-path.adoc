@@ -58,7 +58,9 @@ runtime-worker/015).
 
 == Consequences
 
-* Every start consults the gate before the slot admission, so an ineligible harness claims no model slot.
+* Every start consults the gate before the slot admission, so an ineligible harness claims no model slot — once the
+  assembly wires the gate; this repository offers it through `SupervisorEnvironment.EligibilityGate` and does not yet
+  consult it (PLAN-V2-145 deliverable 3 names the owner).
 * The gate is pure and takes its platform as a value, so `RuntimePlatform` can be supplied by a test and the comparison
   runs on every host.
 * A record written elsewhere, or with a failing `faults` or `isolation` stage, leaves the harness ineligible; the two

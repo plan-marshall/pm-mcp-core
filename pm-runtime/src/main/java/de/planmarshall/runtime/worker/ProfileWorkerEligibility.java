@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
@@ -44,7 +45,15 @@ import de.planmarshall.core.role.RoleClass;
  * <p>
  * The specification's egress-acceptance half is an input value of the gate: whether the operator accepted unenforced
  * egress is a machine-level decision the egress owner holds, so the gate reads it as a plain boolean whose default is
- * "not accepted" (ADR runtime-worker/015). The gate builds neither the acceptance nor the record of it.
+ * "not accepted" (ADR runtime-worker/015). The gate builds neither the acceptance nor the record of it. A record states
+ * unenforced egress in the {@code egress} stage's {@code results} as {@code enforcement: unenforced}; the
+ * specification's closed-data sentence names the results of the stages {@code events} and {@code usage} only, and the
+ * spelling of the {@code egress} carrier is this gate's contract until the verification runner's plan writes it into
+ * the specification.
+ * <p>
+ * The refusal is a function of the claim alone: the claimed stages are examined in the order the claim names them, and
+ * every other recorded stage in its name's order, so a record's own stage order never changes the refusal, and no step
+ * reads the host's clock.
  * <p>
  * The class is the {@link SupervisorEnvironment.EligibilityGate} of the supervisor's start path and a value over the
  * profile it guards: {@link #evaluate(LoadedProfile, RuntimePlatform, HarnessProfile)} is the pure predicate, and
@@ -70,13 +79,14 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
     /** The confinements a verification record names; any other value, {@code none} included, establishes none. */
     private static final Set<String> CONFINEMENTS = Set.of("landlock", "sandbox");
 
-    /** The result under which the stage {@code egress} records whether it enforced egress. */
+    /** The result under which the stage {@code egress} records whether it enforced egress (ADR runtime-worker/015). */
     private static final String ENFORCEMENT_RESULT = "enforcement";
     private static final String ENFORCED = "enforced";
 
     private static final List<String> ELIGIBLE_STAGES = List.of(FAULTS_STAGE, PATHS_STAGE, EGRESS_STAGE);
-    private static final List<String> ZERO_TOOL_STAGES = List.of(CLASSES_STAGE, ISOLATION_STAGE);
-    private static final List<String> TOOL_SET_STAGES = List.of(CLASSES_STAGE, ISOLATION_STAGE);
+
+    /** The stages a class claim rests on: a {@code zero_tool} class and an enforced tool set alike. */
+    private static final List<String> CLASS_CLAIM_STAGES = List.of(CLASSES_STAGE, ISOLATION_STAGE);
 
     /** The stages an endpoint harness's verification records: its profile carries no worker, tool or session claim. */
     private static final List<String> ENDPOINT_STAGES = List.of("identity", "launch", CLASSES_STAGE, "limits");
@@ -218,11 +228,10 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
                 return EligibilityVerdict.refused(refusal.get());
             }
         }
-        for (var entry : verificationRecord.stages().entrySet()) {
-            if (claimedStages.contains(entry.getKey())) {
-                continue;
-            }
-            var refusal = refusalOf(entry.getValue(), entry.getKey(), profile, unenforcedEgressAccepted);
+        var incidentalStages = new TreeSet<>(verificationRecord.stages().keySet());
+        incidentalStages.removeAll(claimedStages);
+        for (var stage : incidentalStages) {
+            var refusal = refusalOf(verificationRecord.stages().get(stage), stage, profile, unenforcedEgressAccepted);
             if (refusal.isPresent()) {
                 return EligibilityVerdict.refused(refusal.get());
             }
@@ -242,11 +251,8 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
         if (facts.eligible()) {
             stages.addAll(ELIGIBLE_STAGES);
         }
-        if (facts.runs(RoleClass.ZERO_TOOL)) {
-            stages.addAll(ZERO_TOOL_STAGES);
-        }
-        if (enforcesAToolSet(facts)) {
-            TOOL_SET_STAGES.stream().filter(stage -> !stages.contains(stage)).forEach(stages::add);
+        if (facts.runs(RoleClass.ZERO_TOOL) || enforcesAToolSet(facts)) {
+            CLASS_CLAIM_STAGES.stream().filter(stage -> !stages.contains(stage)).forEach(stages::add);
         }
         return List.copyOf(stages);
     }
@@ -306,9 +312,10 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
 
     /**
      * @param stage the stage {@code egress}
-     * @return whether the stage records that egress could not be enforced. A stage that states an enforcement at all
-     *         and does not state {@code enforced} is read as unenforced, the closed side; a stage that states none is
-     *         read as the specification's plain {@code passed}.
+     * @return whether the stage records that egress could not be enforced. The record carries that in the stage's
+     *         {@code results} under {@code enforcement}; a stage that states an enforcement at all and does not state
+     *         {@code enforced} is read as unenforced, the closed side, and a stage that states none is read as the
+     *         specification's plain {@code passed}.
      */
     private static boolean unenforced(VerificationRecord.Stage stage) {
         return !ENFORCED.equals(stage.results().getOrDefault(ENFORCEMENT_RESULT, ENFORCED));
