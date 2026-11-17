@@ -24,9 +24,12 @@ decides.
 
 `ProfileWorkerEligibility` is the pure predicate the supervisor consults before every start. A shipped profile is
 honoured. A machine or project profile that makes no claim is honoured. A claiming profile is refused when it has no
-record, when the record was written on another platform, when a stage its claim rests on is absent from the record, or
-when any recorded stage is not `passed`. The stages the claim rests on are examined first, so the refusal names the
-stage that decided the claim where one exists.
+record, when the record was written on another platform, when the record's `profile_digest` is not the digest of the
+loaded document, when an eligible claim rests on a platform without a confinement, when a stage its claim rests on is
+absent from the record, when the `faults` stage ran fewer than ten trials, or when any recorded stage is not `passed`.
+The stages the claim rests on are examined first, so the refusal names the stage that decided the claim where one
+exists. The specification's stage, trial, confinement and digest rules and the acceptance of unenforced egress are ADR
+runtime-worker/015's; this ADR records where the gate lives and what a verdict is.
 
 The refusal is a value, not a boolean: `EligibilityRefusal` carries the closed reason, the stage that decided it (or
 `null`), and the profile's client id, and `ProfileWorkerEligibility.verdict()` exposes it. The supervisor's start path
@@ -38,9 +41,10 @@ The verifying-binary control is not part of this gate: it runs the installed bin
 predicate must not do, and it belongs to the verification that writes the record (ADR 007). The gate reads the record's
 `tool` member as part of the record it was given; the start path does not re-run the binary check on every start.
 
-The egress-acceptance half of the specification is deliberately not here: whether the operator accepts unenforced egress
-is a machine-level decision the egress owner holds, and this gate only requires the record's `egress` stage to be
-`passed`.
+The egress-acceptance half of the specification is an input value of the gate, not a member of it: whether the operator
+accepts unenforced egress is a machine-level decision the egress owner holds, so the gate takes it as a boolean whose
+default is not accepted and honours an `egress` stage recorded `unenforced` only when it is true (ADR
+runtime-worker/015).
 
 == Alternatives Considered
 

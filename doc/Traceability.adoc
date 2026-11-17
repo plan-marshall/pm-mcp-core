@@ -2151,9 +2151,12 @@ link:../pm-core/doc/adr/core-profile/016-the-long-context-thresholds-sit-beside-
 Implementation (the load-time gate and the three verification controls, as far as the library module `pm-runtime`
 carries them and not yet wired into the runtime `pm-mcpd`: the pure predicate the supervisor consults before every
 start, which honours a shipped profile and honours a machine or project profile's `worker.eligible: true`, non-null
-`zero_tool` or an `enforced` tool set only when the record's stages passed on the runtime's platform, and refuses a record
-written on another platform with the reason and the stage that decided it; and the probe workspace, the decoy servers and
-the verifying-binary check the record's stages attest): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProfileWorkerEligibility.java[ProfileWorkerEligibility],
+`zero_tool` or an `enforced` tool set only when the record's stages passed on the runtime's platform — the `paths` stage
+beside `faults` and `egress`, at least ten `faults` trials, a platform with a confinement, `isolation` for an enforced
+tool set, and an `egress` recorded `unenforced` only while the machine's acceptance holds (an input value that defaults
+to not accepted) — and refuses a record written on another platform or verified for another document, with the reason and
+the stage (or the member) that decided it; and the probe workspace, the decoy servers and the verifying-binary check the
+record's stages attest): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProfileWorkerEligibility.java[ProfileWorkerEligibility],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/EligibilityVerdict.java[EligibilityVerdict],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/EligibilityRefusal.java[EligibilityRefusal],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/RuntimePlatform.java[RuntimePlatform],
@@ -2168,6 +2171,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/VerifyingBinaryC
 
 Documentation: link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
 link:../pm-runtime/doc/adr/runtime-worker/006-verification-record-gate-at-the-start-path.adoc[ADR runtime-worker/006],
+link:../pm-runtime/doc/adr/runtime-worker/015-the-gate-checks-the-records-five-facts.adoc[ADR runtime-worker/015],
 link:../pm-runtime/doc/adr/runtime-worker/007-verification-controls-built-in-runtime-worker.adoc[ADR runtime-worker/007]
 
 == link:../../plan-marshall-documentation/doc/requirements/14-implementation.adoc[Implementation]

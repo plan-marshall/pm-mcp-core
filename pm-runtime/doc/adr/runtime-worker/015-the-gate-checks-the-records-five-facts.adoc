@@ -1,0 +1,108 @@
+= ADR 015: The Verification-Record Gate Checks the Specification's Five Facts
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-17
+
+== Context
+
+`ProfileWorkerEligibility` is the pure predicate the supervisor consults before every start; it decides whether a
+machine or project profile's claims may be believed on the platform the runtime runs on (ADR
+runtime-worker/006). It read the record's claimed stages as `passed` and compared the platform's operating system and
+architecture, and nothing else.
+
+The specification asks more of a record (link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#profile-verification[Harness
+Profiles § Profile Verification], "The candidate claims only what was measured" and "Runtime check on load"; § A Profile
+Is Untrusted Input, "Claims"): `worker.eligible` is `true` only when `faults` passed every fault with at least 10 trials
+on a platform with a confinement, `paths` passed, and `egress` passed or recorded `unenforced`; a `writer` or
+`read_only` class counts only with its base task and the `isolation` stage that measured an exclusive configuration; and
+the record binds the document it was measured as by `profile_digest`, "the canonical-JSON digest the profile had when it
+was verified".
+
+Three questions were open. Where the trial count and the confinement are read: the record's `faults` stage carries
+`trials` as an integer, and `platform.confinement` is a string the record reader admits without a closed set, so the
+closed values exist in the member's Javadoc and the specification only. How a record states unenforced egress: the stage
+status set is closed to `passed`, `failed` and `not_run`, so `unenforced` has no status to name it. And who supplies the
+operator's acceptance: the specification makes `egress: unenforced` honour a profile only while the acceptance holds for
+the machine, and no consent kind or acceptance record exists in this repository yet.
+
+== Decision
+
+The gate checks the five facts, each with a closed refusal reason, in this order: record absent, another platform, the
+record's digest, the confinement of an eligible claim, the claimed stages, then every other recorded stage.
+
+1. An eligible claim rests on `faults`, `paths` and `egress`; a record without `paths` is `CLAIM_STAGE_ABSENT` naming
+   `paths`.
+2. The `faults` stage must carry `trials` of at least 10; a stage without a count is refused as
+   `FAULTS_TRIALS_INSUFFICIENT`, never read as ten trials.
+3. `platform.confinement` must name `landlock` or `sandbox`. `none` is `NO_CONFINEMENT`, and — fail-closed — so is any
+   other value, because the record reader accepts any string and the closed set exists only in the member's Javadoc and
+   the specification. The check applies to the claim `worker.eligible`: the specification names a confinement for that
+   claim alone, and an endpoint harness records no `faults` stage.
+4. An `enforced` tool set on `writer` or `read_only` claims `classes` and `isolation`; the `isolation` stage is
+   `CLAIM_STAGE_ABSENT` when absent, as `classes` already was.
+5. `profile.digest()` — the canonical-JSON digest of the loaded document through `CanonicalJson.digest` — is compared
+   with the record's `profile_digest`; a difference is `DIGEST_MISMATCH`. The loader already compares the two when it
+   binds a profile (`ProfileLoader`, `readVerified`); the gate repeats the comparison because it is a pure predicate over
+   a profile value it did not load, and the record is untrusted input like the document.
+6. `egress` recorded `unenforced` is carried by the stage's `results` as `"enforcement": "unenforced"`: the stage status
+   set is closed, so the results map is the record's only carrier, and the stage runner of the verification writes it so
+   when egress cannot be enforced (the runner is not built here). A stage that states `enforcement` with any value other
+   than `enforced` is read as unenforced, the closed side; a stage that states none is the specification's plain
+   `passed`. Unenforced egress is `EGRESS_UNENFORCED` while the machine has not accepted it.
+7. The acceptance of unenforced egress is an input value of the gate:
+   `ProfileWorkerEligibility.of(profile, platform, unenforcedEgressAccepted)` and
+   `evaluate(profile, platform, facts, unenforcedEgressAccepted)`, both defaulting to `false`, not accepted. The gate
+   builds neither the consent kind `accept_unenforced_egress` nor the record of the acceptance; PLAN-V2-59 builds those
+   and supplies the value at the start path.
+
+The refusal order is a function of the claim, never of the order in which the record lists its stages, and no refusal
+reads the host's clock: a record's stage entries are examined in the order the claim names them, then every other entry.
+
+== Alternatives Considered
+
+1. *Leave the refusal as it was and amend the specification sentence* (`egress: unenforced` no longer honoured).
+   _Not taken_ — the operator chose the acceptance as an input instead (PLAN-V2-145 deliverable 1(e)): the specification
+   states the rule and the runtime can carry it as a value it does not yet receive.
+2. *A small consent port instead of a boolean parameter.* _Not taken for this plan_ — the port's shape belongs to the
+   consent store PLAN-V2-59 builds; a boolean parameter is the smallest seam that carries the decision and leaves the
+   wiring to that plan.
+3. *Trust the loader's digest comparison and not repeat it in the gate.* _Not taken_ — the gate is handed a
+   `LoadedProfile` value and must not assume its provenance; a profile assembled in memory, or a record replaced after
+   the load, would pass a gate that trusts the loader's earlier comparison.
+4. *Require the claimed stages only, without the trial count and the confinement.* _Not taken_ — the specification
+   names both as conditions of the eligible claim, and a record short of a trial is a refusal under the epic's
+   fail-closed constraint.
+5. *A closed status value `unenforced` in the record.* _Not taken_ — `VerificationRecord.Stage` keeps its three
+   statuses by contract, and this plan edits the gate and its tests, not the record reader.
+
+== Consequences
+
+* A record that passed its stages but ran nine trials, recorded no confinement, belongs to another document or states
+  unenforced egress without an acceptance leaves the harness ineligible; a record with a plain `passed` egress stays
+  eligible as before.
+* Every refusal names the stage that decided it, or the reason names the member (`platform`, `profile_digest`) when no
+  stage decided.
+* The stage runner of the verification must write `"enforcement": "unenforced"` into the `egress` stage's `results` when
+  it cannot enforce egress, and `"enforced"` when it can; a runner that writes nothing leaves the stage's `passed` as the
+  specification's plain case.
+* A later consent store supplies `unenforcedEgressAccepted` at the start path; until then the default refuses unenforced
+  egress, which is the narrower reading and never widens what is honoured today.
+* The gate still has no production caller in this repository (`SupervisorEnvironment.EligibilityGate` is offered and the
+  assembly wires it, not this repository); naming that is PLAN-V2-145 deliverable 3.
+
+== Source
+
+* Plan PLAN-V2-145, deliverable 1 (epic `pm-mcp-core-m2-m4-v2`, workstream WS-04).
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles §
+  Profile Verification] ("The candidate claims only what was measured", "Runtime check on load"),
+  link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#profile-hardening[§ A Profile Is Untrusted
+  Input] ("Claims").
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProfileWorkerEligibility.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/EligibilityRefusal.java`,
+  `pm-runtime/src/test/java/de/planmarshall/runtime/worker/ProfileWorkerEligibilityTest.java`.

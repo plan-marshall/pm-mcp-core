@@ -86,6 +86,31 @@ full output saved under `~/.local/share/opencode/tool-output/`); the worker's `p
 `{"task_id":"unknown"}`. Claude Code 2.1.291 completed all three sizes.
 Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gate 13.
 
+[#PM-WATCH-CLIENT-13]
+=== PM-WATCH-CLIENT-13: A profile that says eligible is believed without its record, on another platform, or for another document
+
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles § Profile Verification] (Runtime check on load),
+link:../specification/harness-profiles/01-profile-schema.adoc#profile-hardening[Harness Profiles § A Profile Is Untrusted Input] (Claims),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8]
+Hazard:: A profile that says `worker.eligible: true` is believed because it says so: the gate reads the record's stages
+without the `paths` stage the claim names, without the ten trials of the fault matrix and the confinement the platform
+must offer, with a `classes` stage standing in for the `isolation` stage an enforced tool set rests on, and without
+comparing the record's `profile_digest` with the document it is bound to — so a record verified for another document of
+the same harness, or written on an unconfined platform, admits a worker. Its egress half is the mirror image: an `egress`
+recorded `unenforced` is refused although the specification honours it while the operator's acceptance holds.
+Guard:: `ProfileWorkerEligibility` refuses each fact with a closed reason. Negative controls, each seen failing against
+the unchanged gate, in `ProfileWorkerEligibilityTest`: `aMissingPathsStageRefuses` (`CLAIM_STAGE_ABSENT` naming `paths`),
+`nineTrialsRefuse` and `aFaultsStageWithoutTrialsRefuses` (`FAULTS_TRIALS_INSUFFICIENT`), `noConfinementRefuses`
+(`NO_CONFINEMENT`), `anEnforcedToolSetWithoutIsolationRefuses` (`CLAIM_STAGE_ABSENT` naming `isolation`),
+`anotherDigestRefuses` (`DIGEST_MISMATCH`) and `unenforcedEgressWithoutAcceptanceRefuses` (`EGRESS_UNENFORCED`).
+Positive controls: `aConformingRecordIsEligible`, `acceptedUnenforcedEgressIsEligible` and
+`theRefusalDoesNotDependOnStageOrder`, the last stating that no refusal depends on the order the record lists its stages
+in. The acceptance of unenforced egress reaches the gate as an input value that defaults to not accepted (ADR
+runtime-worker/015), so the narrower reading holds until a consent store supplies it.
+Source:: the issues pass of 2026-11-14 (owner-register row Wa41, "the record's stage and platform gate had no owner"; the
+row named PLAN-V2-39, which shipped without it, and PLAN-V2-43 and 50, whose specs do not carry it); plan PLAN-V2-145
+deliverable 2 (epic `pm-mcp-core-m2-m4-v2`, workstream WS-04).
+
 [#PM-WATCH-CLIENT-17]
 === PM-WATCH-CLIENT-17: An inline setting the harness accepts is not one it applies
 
