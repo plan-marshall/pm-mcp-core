@@ -41,13 +41,15 @@ to the flag list, and the npm token keeps its exact length.
 The five items of this section are named R1 to R5, so that a reference to one of them cannot be read as one of the
 numbered `Decision` sections below.
 
-* *R1: URL user information.* `URL_USER_INFORMATION` and `URL_USER_INFORMATION_ENCODED` mask a password that holds a raw `/`, `?` or `#`, runs the password
-   to the last `@` of the token (a raw `@` inside it is masked with it), lets the user hold a raw `@` (the user runs to
-   the first colon), and accepts the percent-encoded separator `%3A%2F%2F`. The scheme, the user and the host stay
-   readable, and a percent-encoded password stays masked whole. The user is optional, so the empty-user form
-   `https://:secret@host` (Azure DevOps, git credential helpers) is masked too. The user still excludes whitespace, `/`,
-   `?`, `#` and `:`, so a query or fragment that carries a colon and an `@` before any user information (ADR 006's
-   control) stays readable.
+* *R1: URL user information.* One left-to-right scan per scheme separator (`://` and `%3A%2F%2F`) masks a password that
+   holds a raw `/`, `?` or `#`, runs the password to the last `@` of the token (a raw `@` inside it is masked with it),
+   lets the user hold a raw `@` (the user runs to the first colon), and accepts the percent-encoded separator `%3A%2F%2F`.
+   The scheme, the user and the host stay readable, and a percent-encoded password stays masked whole. The user is
+   optional, so the empty-user form `https://:secret@host` (Azure DevOps, git credential helpers) is masked too. The user
+   still excludes whitespace, `/`, `?`, `#` and `:`, so a query or fragment that carries a colon and an `@` before any
+   user information (ADR 006's control) stays readable. The scan is linear in the text: it visits each scheme start once
+   and looks a token's last `@` up once, so a line such as `x://y:x://y:…` without any `@` costs one pass (PLAN-V2-151,
+   which replaces the backtracking pattern this ADR had named as quadratic).
 * *R2: Credential flags.* The three flag patterns are case-insensitive; the closed list gains `auth-token`, `api-key`,
    `apikey`, `access-token`, `client-secret` and `otp`, and not `key`. An unquoted value runs to the next whitespace and
    may hold a `,`, a `;` or a quote; a quoted value keeps its escape pairs (read as an unrolled loop) and may run across one line end to
@@ -58,7 +60,9 @@ numbered `Decision` sections below.
 * *R3: Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. A
    PEM block or a PGP block (`-----BEGIN PGP PRIVATE KEY BLOCK-----` to its `END` line, label tail
    `PRIVATE KEY(?: BLOCK)?-----`) is masked by a single left-to-right scan, and a `BEGIN` without a later `END` keeps
-   its over-masking of the rest of the text.
+   its over-masking of the rest of the text. The key-block scan runs before the label passes (PLAN-V2-151): a block that
+   is itself the value of a labelled assignment (`PRIVATE_KEY="-----BEGIN …"`, `secret: -----BEGIN …`) is masked whole,
+   because the label pass would otherwise remove the `BEGIN` marker and leave the body and the `END` line readable.
 * *R4: The journal path strips escape sequences.* `SecretRedactor.redact(ActivityEntry)` strips the escape sequences of
    the text, the tool target and the link target through `BuildLogText.stripAnsi` — the expression the unparsed excerpt
    uses — before it redacts them, and applies each part's bound after the redaction as before. The label patterns are
@@ -68,9 +72,12 @@ numbered `Decision` sections below.
    through `SecretRedactor` and then cuts it to the stored length, so every parser that files a diagnostic — TAP, Jest,
    ESLint, TypeScript, Maven, Gradle, pyproject and npm — is covered by one seam, and a cut value cannot keep a prefix
    the redactor would have matched whole. `OpenRewriteLogParser` files its own `RewriteFinding` records rather than a
-   diagnostic and does not pass through the seam. `NpmErrorParser` keeps its own `storedRedacted`, which is idempotent
-   beside the seam. `Diagnostic` redacts its collected `stackTrace` in its constructor, so the TAP and Jest stack blocks
-   and the frames `StackTraceCollector` attaches are masked too. This supersedes the sentence of ADR 006 that those
+   diagnostic, so its message does not pass through this seam; its path and message are redacted in the `RewriteFinding`
+   constructor instead (PLAN-V2-151). `NpmErrorParser` keeps its own `storedRedacted`, which is idempotent
+   beside the seam. `Diagnostic` redacts its file and its collected `stackTrace` in its constructor and cuts the stack
+   trace to the stored length, so the TAP and Jest stack blocks and the frames `StackTraceCollector` attaches are masked
+   too, and a credentialed URL whose closing `@` lies beyond a line cut can no longer leave more than a stored message's
+   worth of a partial password (PLAN-V2-151). This supersedes the sentence of ADR 006 that those
    messages are built from dependency names and stay unchanged, and its carried decision that the other parsers'
    messages stay unredacted.
 
@@ -100,10 +107,16 @@ numbered `Decision` sections below.
   of the partial password as fits in that head is carried. It is bounded, not removed — the cut limits the length of
   the residue, and a message whose head holds the URL carries it. The line-bound clause of item 5 below states the
   order that produces it. The provider path has no such residue: `ProviderVerification` masks a user-information head
-  that its own cut leaves without the `@`;
+  that its own cut leaves without the `@`. A collected stack trace is cut to the same stored bound (PLAN-V2-151), so a
+  partial password that a line cut left in a stack frame is carried at most 500 characters, not once per frame;
 * a quoted assignment whose closing quote lies on the next line: the assignment form closes on its own line only, so
   such a value is read as unclosed and only the first line is masked; the continuation stays readable. A close on the
   next line is indistinguishable from the next label's quote, which the blocked-swallow rule refuses.
+* a credential label split by a zero-width joiner (`U+200C`, `U+200D`) or a bidi control: the class keeps those
+  characters, so one of them between the parts of a label keeps the label from matching. The operator kept the
+  characters on 2026-11-17 (PLAN-V2-151), because they carry meaning in Persian, Indic and right-to-left text and in
+  emoji sequences, and a split label with a joiner is not a realistic secret shape. The other invisible characters —
+  the soft hyphen, `U+200B`, `U+2060` and `U+FEFF` — are still removed before matching.
 
 === The quoted assignment value runs to its closing quote
 
@@ -119,15 +132,26 @@ indistinguishable from the next label's quote, and that residue is named in "Wha
 minimum therefore applies to unquoted values only. The false-positive costs: a short quoted value of an ordinary text is
 masked with its label, and a refused close masks the rest of its line.
 
+A separator accepts an optional backslash before its quote (PLAN-V2-151), so a JSON object embedded as a JSON string —
+`{\"password\":\"hunter2\"}`, where every quote is preceded by a backslash — is read as the quoted credential
+assignment it is and its value is masked to the end of its line. That is the whole escaped-JSON shape list: the
+escaped single-quoted value and the escaped credential flag are not shapes of their own (the operator's choice,
+PLAN-V2-151). The negative control: an escaped key outside the credential labels (`{\"tokenizer\":\"wordpiece\"}`) stays
+readable.
+
 === The matcher is Unicode-aware, and invisible characters are removed
 
 The label and separator classes match their Unicode forms (`\s`, `\S`, `\w` and `\b`), so a no-break space (`U+00A0`) or
-a narrow no-break space (`U+202F`) between a label and its separator is an ordinary space. The invisible formatting
-characters — the zero-width space and joiners (`U+200B` to `U+200D`), the bidi controls (`U+200E` to `U+200F`, `U+202A`
-to `U+202E`), the word joiner (`U+2060`), the soft hyphen (`U+00AD`) and the byte-order mark (`U+FEFF`) — are removed
-before the shapes are matched, so a label split by one of them (`pass<U+200B>word=value`) is matched and a stored text
-carries none of them. They are invisible, so removing one costs no evidence. The false-positive cost: a text that
-carries an invisible character loses it, and a quoted assignment whose first word is short is masked whole.
+a narrow no-break space (`U+202F`) between a label and its separator is an ordinary space. Four characters are removed
+before the shapes are matched (PLAN-V2-151): the zero-width space (`U+200B`), the word joiner (`U+2060`), the soft
+hyphen (`U+00AD`) and the byte-order mark (`U+FEFF`), so a label split by one of them
+(`pass<U+200B>word=value`) is matched and a stored text carries none of them; none of them is visible, so removing one
+costs no evidence. The zero-width joiners (`U+200C`, `U+200D`) and the bidi controls (`U+200E` to `U+200F`, `U+202A` to
+`U+202E`) stay in the text by the operator's decision, because they carry meaning in Persian, Indic and right-to-left
+text and in emoji sequences; the ADR sentence that removing one costs no evidence was false for them. The cost: a
+credential label split by a joiner or a bidi control is no longer matched, and a text that carries one of the four
+removed characters loses it. The further false-positive cost is a quoted assignment whose first word is short, which is
+masked whole.
 
 === Decision 1: the input is bounded on every path, and the key-block scan is linear
 
@@ -142,24 +166,22 @@ redaction:
   by the record's constructor), 1000 for a tool target and 128 for a link target, in `ActivityJournal.appendNext` and
   `ActivityRecorder.append` alike.
 
-On top of the bounds, the URL shape is two patterns applied in sequence, one per scheme separator (`://` and
-`%3A%2F%2F`), which keeps each within the regex complexity the quality gate allows. In each, the scheme and the user are
-possessive and the scheme starts only where no scheme character precedes it (`(?<![a-z0-9+.-])` instead of `\b`), which
-removes the rescan of a long `a.a.a…` run from every start; the password is a greedy `\S+` followed by `@`, so it runs
-to the last `@` of the token by giving characters back. That cost is not linear — a token without the closing `@` is
-scanned back once from each scheme start, quadratic in one line at worst — and the per-path line bound above is what
-bounds it. The quoted credential-flag value is an unrolled loop (a plain run, then escape pairs each followed by a plain
-run) whose repetitions are all possessive and hold no alternation, so it neither backtracks nor recurses per character
-on a long value. The key block is not a pattern that can rescan the text: it is a single left-to-right scan that finds a
-`BEGIN` marker, finds the next `END` marker after it once, masks the span and resumes after that `END`, so a text of
-many `BEGIN` markers without an `END` costs one pass. The former lazy `.*?` under `(?s)` scanned to the end of the text
-from every such marker: quadratic in the text, and not bounded by the per-line cut at all, because the match crosses
-line ends. `SecretRedactorTest` therefore bounds the cost with a wall-clock test: 400 000 characters of `BEGIN` markers
-without an `END` and a 3 700-marker input must redact within a stated bound that the former pattern exceeded, and a
-1 000 000-character quoted flag value must redact without a stack overflow. The URL shapes are measured without a clock:
-a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`, the same run followed by `://`, and the run `x://y:x://y:…`
-without any `@`, the shape that is scanned back from every scheme start) is redacted through `redactText` and its
-unchanged result asserted.
+On top of the bounds, the URL shape is one linear scan per scheme separator (`://` and `%3A%2F%2F`), run in sequence.
+Each scan visits every scheme start once, takes the user up to the next colon and looks a token's last `@` up once,
+keeping that answer for every scheme start of the same token, so a token without the closing `@` (`x://y:x://y:…`) costs
+one pass rather than a scan back from each start (PLAN-V2-151; this supersedes the quadratic construction and the
+per-path line bound that bounded it). The quoted credential-flag value is an unrolled loop (a plain run, then escape
+pairs each followed by a plain run) whose repetitions are all possessive and hold no alternation, so it neither
+backtracks nor recurses per character on a long value. The key block is not a pattern that can rescan the text: it is a
+single left-to-right scan that finds a `BEGIN` marker, finds the next `END` marker after it once, masks the span and
+resumes after that `END`, so a text of many `BEGIN` markers without an `END` costs one pass. The former lazy `.*?` under
+`(?s)` scanned to the end of the text from every such marker: quadratic in the text, and not bounded by the per-line cut
+at all, because the match crosses line ends. `SecretRedactorTest` therefore bounds the cost with wall-clock tests:
+400 000 characters of `BEGIN` markers without an `END`, a 3 700-marker input and a 1 000 000-character quoted flag value
+(a plain run and an escape-pair run) must redact within a stated bound, and the two URL shapes are measured with the same
+bound rather than by an equality check alone. `DiagnosticCollectorRedactionTest` adds the same measurement on the seam
+that stores a line and on the `Diagnostic` constructor: 2 000 lines of 8 192 characters of `x://y:x://y:…` (16.4 MB)
+must redact within a stated bound, which the quadratic scan exceeded by minutes.
 The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and the answer is cut at
 `BuildLogText.MAX_LINE_LENGTH` characters — never splitting a surrogate pair — before the redaction, which bounds that
 input; a user-information head or a provider-token head the cut leaves incomplete is masked there, so the bound removes
@@ -309,15 +331,20 @@ line cut was corrected to name the input size as its bound.
 * Remaining, outside this plan: `JobLog.MAX_BYTES` of `pm-runtime` still narrows its limit with
   `Math.toIntExact(LimitProperties.read(..))`, and so do the three limit reads of `pm-workflow`
   (`ProjectUnitLoader.MAX_UNIT_FILE_BYTES`, `UnitFrontmatterReader.MAX_FRONTMATTER_LINES` and `MAX_ECHO_LENGTH`); they
-  are an open follow-up for `readInt`. Every parser's stored message is redacted at `DiagnosticCollector.stored`, and a
-  diagnostic's collected stack trace at the `Diagnostic` constructor; `ProviderVerification`'s answer is cut at the line
-  bound before its redaction.
+  are an open follow-up for `readInt`. Every parser's stored message is redacted at `DiagnosticCollector.stored`; a
+  diagnostic's file and collected stack trace are redacted in the `Diagnostic` constructor, and the stack trace is cut to
+  the stored bound there; an OpenRewrite finding's path and message are redacted in `RewriteFinding`;
+  `ProviderVerification`'s answer is cut at the line bound before its redaction; and every `JobLog` read-out is redacted in
+  `pm-runtime` (PLAN-V2-151).
 * The plan carried nine deliverables against a soft cap of about six; the rationale is recorded in its outline, and no
   cut was made.
 
 == Source
 
 * Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-138-secret-redactor-hardening.md[PLAN-V2-138]
+* Amended by: PLAN-V2-151 (`secret-redactor-hardening-2`): the key-block scan before the label passes, the linear URL
+  scan, the escaped-JSON separator, the reduced invisible set, the file and stack-trace redaction, and the redaction of
+  every job-log read-out (ADR `core-build/010`).
 * Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers];
   link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime § Unparseable Output Fallback];
   link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_coverage_report_parsers[Job Runtime § Native Coverage Report Parsers]
