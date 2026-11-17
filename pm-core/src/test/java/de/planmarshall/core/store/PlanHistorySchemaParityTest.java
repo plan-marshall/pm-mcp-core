@@ -17,10 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
+import com.networknt.schema.Schema;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
@@ -40,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 import de.planmarshall.core.store.PlanHistoryLine.Event;
 
 /**
@@ -62,14 +60,13 @@ class PlanHistorySchemaParityTest {
 
     private static Map<?, ?> schema;
     private static Map<?, ?> properties;
-    private static JsonSchema validator;
+    private static Schema validator;
 
     @BeforeAll
     static void readSchema() {
         schema = SchemaResource.load(SCHEMA);
         properties = SchemaResource.object(schema.get("properties"));
-        validator = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
-                .getSchema(SchemaResource.text(SCHEMA));
+        validator = SchemaValidation.compile(SchemaResource.text(SCHEMA));
     }
 
     @Test
@@ -116,9 +113,9 @@ class PlanHistorySchemaParityTest {
         var full = text(line(event, lowerWord(), lowerWord()));
 
         assertAll(
-                () -> assertEquals(Set.of(), validator.validate(bare, InputFormat.JSON),
+                () -> assertEquals(List.of(), SchemaValidation.validate(validator, bare),
                         "A line without phase and outcome is valid"),
-                () -> assertEquals(Set.of(), validator.validate(full, InputFormat.JSON),
+                () -> assertEquals(List.of(), SchemaValidation.validate(validator, full),
                         "A line with phase and outcome is valid"));
     }
 
@@ -128,7 +125,7 @@ class PlanHistorySchemaParityTest {
         var written = text(line(Event.CALLED, lowerWord(), null));
         var extended = written.substring(0, written.length() - 1) + ",\"undeclared_" + lowerWord() + "\":1}";
 
-        assertFalse(validator.validate(extended, InputFormat.JSON).isEmpty(),
+        assertFalse(SchemaValidation.validate(validator, extended).isEmpty(),
                 "An undeclared member violates the schema");
     }
 

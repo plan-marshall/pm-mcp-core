@@ -18,9 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.net.URI;
@@ -28,7 +25,6 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -36,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import de.planmarshall.core.SchemaValidation;
 import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
 import de.planmarshall.core.role.corpus.ImportedItem.Origin;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
@@ -63,10 +60,9 @@ class ItemGeneratorTest {
      * @param document an imported item as written
      * @return the violations of {@code imported-item.schema.json}; empty for a valid item
      */
-    static Set<?> violations(byte[] document) {
-        var schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
-                .getSchema(CorpusSchemaResourcesTest.resource("imported-item.schema.json"));
-        return schema.validate(new String(document, UTF_8), InputFormat.JSON);
+    static List<?> violations(byte[] document) {
+        var schema = SchemaValidation.compile(CorpusSchemaResourcesTest.resource("imported-item.schema.json"));
+        return SchemaValidation.validate(schema, new String(document, UTF_8));
     }
 
     private static Map<String, String> fields() {
@@ -155,7 +151,7 @@ class ItemGeneratorTest {
         void valid() {
             var item = generate(overlay().rows().getFirst(), fields());
 
-            assertEquals(Set.of(), violations(ImportedItemCodec.write(item)),
+            assertEquals(List.of(), violations(ImportedItemCodec.write(item)),
                     "the generated item is valid against its schema");
         }
     }
@@ -189,7 +185,7 @@ class ItemGeneratorTest {
         void valid() {
             var item = generate(overlay().rows().get(1), fields());
 
-            assertEquals(Set.of(), violations(ImportedItemCodec.write(item)),
+            assertEquals(List.of(), violations(ImportedItemCodec.write(item)),
                     "the open item is valid against its schema");
         }
     }
@@ -313,7 +309,7 @@ class ItemGeneratorTest {
             assertAll(
                     () -> assertEquals(GROUP, item.group(), "the group is carried unchanged"),
                     () -> assertEquals(CONTAMINATION, item.contamination(), "the contamination note keeps its braces"),
-                    () -> assertEquals(Set.of(), violations(ImportedItemCodec.write(item)),
+                    () -> assertEquals(List.of(), violations(ImportedItemCodec.write(item)),
                             "the item with a brace is still valid"));
         }
 

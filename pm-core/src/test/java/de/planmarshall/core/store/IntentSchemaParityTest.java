@@ -17,9 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
@@ -30,6 +27,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 import de.planmarshall.core.store.IntentRecord.AdrRef;
 import de.planmarshall.core.store.IntentRecord.AdrRelation;
 import de.planmarshall.core.store.IntentRecord.AssumptionStatus;
@@ -181,11 +179,10 @@ class IntentSchemaParityTest {
     @Test
     @DisplayName("the written record validates against its file")
     void writtenRecordIsValid() {
-        var validator = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
-                .getSchema(SchemaResource.text(RECORD));
+        var validator = SchemaValidation.compile(SchemaResource.text(RECORD));
         var document = SchemaParity.text(recordDocument(writtenWithAdr()));
 
-        assertEquals(Set.of(), validator.validate(document, InputFormat.JSON),
+        assertEquals(List.of(), SchemaValidation.validate(validator, document),
                 "the written record should validate against its file");
     }
 

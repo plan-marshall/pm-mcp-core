@@ -18,10 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
@@ -43,6 +39,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.SchemaValidation;
 import de.planmarshall.core.role.corpus.ImportedItem.Grading;
 import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
 import de.planmarshall.core.role.corpus.ImportedItem.Review;
@@ -90,10 +87,9 @@ class CorpusSchemaResourcesTest {
         }
     }
 
-    private static Set<?> validate(String schemaName, byte[] document) {
-        JsonSchema schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
-                .getSchema(resource(schemaName));
-        return schema.validate(new String(document, UTF_8), InputFormat.JSON);
+    private static List<?> validate(String schemaName, byte[] document) {
+        var schema = SchemaValidation.compile(resource(schemaName));
+        return SchemaValidation.validate(schema, new String(document, UTF_8));
     }
 
     static SourceManifest manifest() {
@@ -147,7 +143,7 @@ class CorpusSchemaResourcesTest {
     @MethodSource("writtenDocuments")
     @DisplayName("a document a codec writes is valid against its schema resource")
     void writtenDocumentIsValid(String name, String schemaName, byte[] document) {
-        assertEquals(Set.of(), validate(schemaName, document), () -> "violations of " + new String(document, UTF_8));
+        assertEquals(List.of(), validate(schemaName, document), () -> "violations of " + new String(document, UTF_8));
     }
 
     @Nested

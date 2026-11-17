@@ -45,6 +45,7 @@ where reading alone settles a finding (the question-reader tests on `@TempDir`),
 records the leads (fixtures in `pm-core:tests`, `toBuilder` on `ProjectEnrolment`, the fakes in ADR 012).
 ** link:026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc[026 The Kept Hand-Written Test Doubles Are a Closed List]: the definition of a hand-written double, the scan and its exclusion of `testing/generators/`, the closed list of sound keeps K1 to K9 and F1 to F3 with the reasons S1 to S3, the converted population, and the unchanged published surface (`FakeBus`, `FakeSecretService`, `FakePmExec`, `TestBases`).
 ** link:027-condense-and-point-the-implemented-specification-parts.adoc[027 Reduce an Implemented Specification Part by Condensing and Pointing]: an implemented section keeps its heading and anchor and shrinks to the one statement plus the developer-guide link, no "Implemented by" or "Remaining:" paragraph is written, `doc/Traceability.adoc` holds the evidence, a watch item is deleted only when a named test covers its guard, and a reduction changes no `include::` line and no schema file.
+** link:028-the-json-schema-validator-is-on-the-3-line.adoc[028 The JSON Schema Validator Is on the 3.x Line]: the validator moves from 1.5.8 to 3.0.9, Jackson 3 joins the test classpath of `pm-core` alone, one shared helper `SchemaValidation` in the test tree carries the call, and the resolved Jackson 3 versions are the ones the library was released against (the one mediation is the parent chain's `slf4j-api` 2.0.18).
 
 `pm-core`:
 
