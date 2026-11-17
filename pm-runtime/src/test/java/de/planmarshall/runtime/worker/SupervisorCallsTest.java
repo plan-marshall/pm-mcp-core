@@ -217,12 +217,15 @@ class SupervisorCallsTest {
         var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
 
         var answer = calls.waitOpened(generation.generationId(), "", generation.configurationDigest());
+        var recycled = supervisor.generation(generation.generationId()).orElseThrow();
 
         assertAll(
                 () -> assertEquals(new WorkerCalls.WaitAnswer.End(), answer,
                         "the bound's idle answer ends the worker"),
                 () -> assertEquals(Optional.of(EndCause.RECYCLE), ending.requestedCause(generation.generationId()),
-                        "the answer recycles the generation through the end path"));
+                        "the answer recycles the generation through the end path"),
+                () -> assertEquals(1L, recycled.idleWakeups(),
+                        "the ending generation records the count its answer reached"));
     }
 
     @Test

@@ -18,7 +18,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.role.RoleClass;
@@ -39,6 +38,10 @@ import de.planmarshall.core.store.WorkerState;
  * {@link WorkerLifecycle} transition table, which refuses a transition the protocol does not have; a transition the
  * table does not have from the generation's current state leaves that state as it is, so a call that arrives while the
  * generation is already ending never throws at the transport.
+ * <p>
+ * Every method holds this instance's monitor, and {@link SupervisionPass} takes the same monitor while it completes an
+ * end, so a transport call and the terminal write never interleave: a call that read the generation before the end
+ * cannot write it afterwards.
  * <p>
  * The worker parameters and the role's class come from the caller, because the profile of a harness and the role set
  * belong to the assembly that builds this class: the parameters are the harness profile's {@code worker} and
@@ -76,7 +79,8 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized void callHeartbeat(String generationId, Instant at) {
-        var generation = known(generationId);
+        Objects.requireNonNull(at, "at");
+        var generation = known(generationId).orElse(null);
         if (generation == null) {
             return;
         }
@@ -96,7 +100,7 @@ public final class SupervisorCalls implements WorkerCalls {
     public synchronized WaitAnswer waitOpened(String generationId, String queueTaskId, String roleDigest) {
         Objects.requireNonNull(queueTaskId, "queueTaskId");
         Objects.requireNonNull(roleDigest, "roleDigest");
-        var generation = known(generationId);
+        var generation = known(generationId).orElse(null);
         if (generation == null) {
             return new WaitAnswer.End();
         }
@@ -136,8 +140,8 @@ public final class SupervisorCalls implements WorkerCalls {
         }
         if (queueTaskId.isBlank()) {
             var result = recycling.waitAgain(generation);
-            var waiting = waiting(generation).withIdleWakeups(result.idleWakeups());
-            supervisor.replaced(waiting);
+            var next = generation.leasedTask() == null ? waiting(generation) : generation;
+            supervisor.replaced(next.withIdleWakeups(result.idleWakeups()));
             return result.recycleCause() != null ? new WaitAnswer.End() : new WaitAnswer.WaitAgain();
         }
         roleDigests.put(generationId, roleDigest);
@@ -148,7 +152,7 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized void turnCompleted(String generationId, long contextTokens) {
-        var generation = known(generationId);
+        var generation = known(generationId).orElse(null);
         if (generation == null) {
             return;
         }
@@ -159,7 +163,8 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized void taskClosed(String generationId, String queueTaskId) {
-        var generation = known(generationId);
+        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        var generation = known(generationId).orElse(null);
         if (generation == null) {
             return;
         }
@@ -267,9 +272,12 @@ public final class SupervisorCalls implements WorkerCalls {
         }
     }
 
-    private @Nullable WorkerGeneration known(String generationId) {
-        var generation = supervisor.generation(generationId).orElse(null);
-        return generation == null || generation.terminal() ? null : generation;
+    /**
+     * @param generationId the worker's generation
+     * @return the registered generation, empty when this supervisor started none of that id or it already ended
+     */
+    private Optional<WorkerGeneration> known(String generationId) {
+        return supervisor.generation(generationId).filter(generation -> !generation.terminal());
     }
 
     private List<String> rolesOf(String clientId) {

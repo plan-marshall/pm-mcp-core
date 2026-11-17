@@ -402,6 +402,43 @@ class SupervisionPassTest {
                 () -> assertFalse(journal.entries(task).isEmpty(), "the attempt's end was appended before"));
     }
 
+    @Test
+    @DisplayName("every end cause maps onto the attempt end the journal records")
+    void everyEndCauseMapsOntoItsAttemptEnd() {
+        assertAll(
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.CLOSED,
+                        SupervisionPass.attemptEnd(EndCause.TASK_DONE, null), "a served task closes its attempt"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.CLOSED,
+                        SupervisionPass.attemptEnd(EndCause.RECYCLE, null), "a recycled worker closes its attempt"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.DRAIN,
+                        SupervisionPass.attemptEnd(EndCause.DRAIN, null), "a drain marks the attempt drained"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.PAUSED,
+                        SupervisionPass.attemptEnd(EndCause.PAUSE_AT_ONCE, null), "a pause marks the attempt paused"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.OFF_TRACK,
+                        SupervisionPass.attemptEnd(EndCause.OFF_TRACK, null), "an off-track end marks the attempt"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.START_FAILURE,
+                        SupervisionPass.attemptEnd(EndCause.START_FAILURE, null), "a start failure marks the attempt"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.WORKER_LOST,
+                        SupervisionPass.attemptEnd(EndCause.LOST, null), "a loss without a signal is a lost attempt"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.EXITED_WITHOUT_SUBMIT,
+                        SupervisionPass.attemptEnd(EndCause.LOST, signal(LossReason.EXIT)),
+                        "an exit loss ends the attempt without its submit"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.WORKER_LOST,
+                        SupervisionPass.attemptEnd(EndCause.LOST, signal(LossReason.ACK_MISSED)),
+                        "a missed acknowledgement is a lost attempt"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.WORKER_LOST,
+                        SupervisionPass.attemptEnd(EndCause.LOST, signal(LossReason.SILENCE)),
+                        "silence is a lost attempt"),
+                () -> assertEquals(QueueTaskRecord.AttemptEnd.WORKER_LOST,
+                        SupervisionPass.attemptEnd(null, null), "no requested end is the lost attempt"));
+    }
+
+    private static LossSignal signal(LossReason reason) {
+        return LossSignal.builder().reason(reason).generationId("l-0123456789abcdef")
+                .measuredAt(SupervisorTestFixture.NOW).deadline(SupervisorTestFixture.NOW).firstCallMade(true)
+                .leasedTask(null).build();
+    }
+
     private static HarnessEnrolment enrolment(Path executable) {
         return new HarnessEnrolment(SupervisorTestFixture.CLIENT, executable,
                 HarnessVerifier.digestExecutable(executable).orElseThrow(), "1.5.0", SupervisorTestFixture.NOW,

@@ -11,8 +11,10 @@ package de.planmarshall.runtime.worker;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
@@ -39,7 +41,8 @@ import de.planmarshall.runtime.job.JobLog;
  * A pass that finds nothing to do reads the job records and their logs and writes nothing; a log that is unreadable or
  * truncated appends nothing and is read again at the next pass (ADR {@code runtime-worker/011}). Every state change of
  * a generation is written through {@link WorkerSupervisor#replaced(WorkerGeneration)} and its {@link WorkerLifecycle}
- * transition table.
+ * transition table. {@link #run()} holds this instance's monitor and, while it completes an end, the monitor of
+ * {@link SupervisorCalls}, so the terminal write and a transport call are one writer at a time.
  *
  * @since 0.1
  */
@@ -53,6 +56,7 @@ public final class SupervisionPass {
     private final AgentStartedDetector detector;
     private final Function<WorkerGeneration, WorkerActivityPump> pumps;
     private final Map<String, WorkerActivityPump> active = new HashMap<>();
+    private final Set<String> finished = new HashSet<>();
 
     /**
      * @param supervisor the supervisor whose registry the pass advances
@@ -127,7 +131,12 @@ public final class SupervisionPass {
             return;
         }
         var pump = active.computeIfAbsent(generation.generationId(), ignored -> pumps.apply(generation));
-        pump.pump(task, generation.generationId(), new JobLog(jobs.logPath(generation.jobId())));
+        try {
+            pump.pump(task, generation.generationId(), new JobLog(jobs.logPath(generation.jobId())));
+        } catch (IllegalStateException _) {
+            // The task closed between the read of its facts and the append: the recorder refuses an unknown or closed
+            // task, and that refusal is a benign race of the pass, not a defect of the worker.
+        }
     }
 
     /**
@@ -137,13 +146,15 @@ public final class SupervisionPass {
      */
     private void completeEnd(WorkerGeneration generation, Instant now, JobRecordStore jobs) {
         var generationId = generation.generationId();
+        var task = generation.leasedTask();
+        if (task != null && !finished.contains(generationId)) {
+            // The log's tail is read before the monitor is taken: a pump writes the journal, not the generation, and the
+            // monitor must not hold the supervisor's timer thread for the length of a log read.
+            pump(generation, task, jobs);
+        }
         // One writer at a time: a transport call and this completion both write the generation, and a call that read it
         // before the terminal write must not land after it. The calls object is the monitor every call holds.
         synchronized (calls) {
-            var task = generation.leasedTask();
-            if (task != null) {
-                pump(generation, task, jobs);
-            }
             var detection = calls.detection(generation);
             var exit = detection.exit(now);
             exit.ifPresent(signal -> ending.end(generation, signal));
@@ -153,9 +164,15 @@ public final class SupervisionPass {
                 ending.end(generation, EndCause.START_FAILURE);
                 requested = ending.requestedCause(generationId).orElse(null);
             }
-            finishAttempt(generation, requested, loss);
+            if (!finished.contains(generationId)) {
+                // The attempt's end is appended once, before the terminal write, so a refused end cannot swallow it and a
+                // retried completion neither re-pumps the log nor appends a second one.
+                finishAttempt(generation, requested, loss);
+                finished.add(generationId);
+            }
             supervisor.replaced(ending.exited(generation));
             calls.forget(generationId);
+            finished.remove(generationId);
         }
     }
 
@@ -170,7 +187,11 @@ public final class SupervisionPass {
         if (task == null || pump == null || tasks.facts(task).isEmpty()) {
             return;
         }
-        pump.finish(task, generation.generationId(), attemptEnd(cause, loss));
+        try {
+            pump.finish(task, generation.generationId(), attemptEnd(cause, loss));
+        } catch (IllegalStateException _) {
+            // The same race as the pump's: a task that closed first has no journal entry to append.
+        }
     }
 
     /**
@@ -178,7 +199,7 @@ public final class SupervisionPass {
      * @param loss  the signal that settled its detection; {@code null} when it was not lost
      * @return how the attempt of the held task ended
      */
-    private static QueueTaskRecord.AttemptEnd attemptEnd(@Nullable EndCause cause, @Nullable LossSignal loss) {
+    static QueueTaskRecord.AttemptEnd attemptEnd(@Nullable EndCause cause, @Nullable LossSignal loss) {
         return switch (cause == null ? EndCause.LOST : cause) {
             case TASK_DONE, RECYCLE -> QueueTaskRecord.AttemptEnd.CLOSED;
             case DRAIN -> QueueTaskRecord.AttemptEnd.DRAIN;
