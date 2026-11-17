@@ -71,8 +71,9 @@ recorder refuses an unknown or closed task. The pass pumps once more before it c
 wrote before its exit reaches the journal. Once per pass the recycling yields an idle slot. At the end of a generation
 whose log was pumped, the pump appends the attempt's end, chosen from the end cause and the loss reason (`LOSS` → the
 reason's own attempt end, `PAUSE_AT_ONCE` → `paused`, `OFF_TRACK` → `off_track`, `START_FAILURE` → `start_failure`,
-`DRAIN` → `drain`, `TASK_DONE`/`RECYCLE` → `closed`; a `RECYCLE` of a generation that held its task for an answer ends
-the attempt `closed` too, which the sibling plan `continuation-hold-and-budget` will revisit with `suspended`).
+`DRAIN` → `drain`, `TASK_DONE`/`RECYCLE` → `closed`, and a loss with no signal → `worker_lost`; a `RECYCLE` of a
+generation that held its task for an answer ends the attempt `closed` too, which the sibling plan
+`continuation-hold-and-budget` will revisit with `suspended`).
 
 Both classes take what they cannot construct from the caller, because it belongs to the assembly: the role's class by
 its name, the profile's `WorkerParameters`, the pump of one generation (composed with the role's mapper and recorder),
@@ -114,32 +115,42 @@ to name it.
   ended worker therefore throws, the generation is never replaced terminal, and later passes throw again; the throw
   escapes `run()`, so the generations after it in registry order go unobserved and the idle yield never runs, and each
   retry repeats the end path's pre-write side effects (fence, token revocation, slot release) because the request was
-  already consumed, re-deriving the cause as `LOST`; the attempt's end is appended once before the throw and cannot be
-  appended again (the pump is gone), and the detection of the throwing generation, with its loss and digest, leaks while
-  the generations after it own no pump yet. The package's tests cannot see it because the fixture injects a mock writer — a
-  `WorkerStateWriter.over` over a settled record would show it. The trigger and the write order need a specification
-  amendment (a second exit observable, or a store-compatible terminal write), which this plan may not make: it is an owed
-  rest for the assembly or a follow-up plan, and it is the reason this pull request is not ready to merge.
+  already consumed, re-deriving the cause as `LOST`. The pass records a generation whose attempt end it appended, so a
+  retry neither re-pumps the log from offset zero nor appends a second attempt end; the detection of the throwing
+  generation, with its loss and digest, leaks while the generations after it own no pump yet. The package's tests cannot
+  see it because the fixture injects a mock writer — a `WorkerStateWriter.over` over a settled record would show it. The
+  trigger and the write order need a specification amendment (a second exit observable, or a store-compatible terminal
+  write), which this plan may not make: it is an owed rest for the assembly or a follow-up plan, and it is the reason
+  this pull request is not ready to merge.
 * **A second gap, recorded as an open item rather than decided here.** The pass derives the end cause from the detection
-  and the requested end alone (`LossDetection.exit` answers `EXIT` for every post-first-call exit), so a `fresh` worker
-  that submitted its task and exited is recorded `LOST`/`EXITED` with the attempt end `exited_without_submit`, and
+  and the requested end alone (`LossDetection.exit` answers `EXIT` for every post-first-call exit), so
   `EndCause.TASK_DONE` has no production caller: nothing ends a fresh generation on a closed task
-  (`WorkerRecycling.afterTaskClosed` returns empty for `FRESH`). The settled record does carry the discriminator
+  (`WorkerRecycling.afterTaskClosed` returns empty for `FRESH`). A `fresh` worker that dies while it still holds the lease
+  is therefore recorded `LOST`/`EXITED` with the attempt end `exited_without_submit`; one whose task the transport closed
+  first holds no lease, so the pass appends no attempt end at all. The settled record does carry the discriminator
   (`JobRecord.Fate`), so a mapping from a succeeded fate to `TASK_DONE` is possible — but it is a design decision this
   plan's deliverables do not name, so it is left to the specification and the orchestrator rather than invented here.
+* `harnessEnrolled` clears the guard of every role **the registry holds** on the harness, which is narrower than
+  Deliverable 1's "every role on the harness": the registry is the only role list `SupervisorCalls` has. A role whose
+  failed generations were retired, or whose guard a later construction rebuilds over a registry with none of its
+  generations, is not cleared by the enrolment.
 * The acknowledgement entry of the inbound port that ADR `runtime-worker/012` names — a `WorkerCalls` method that reaches
   `LossDetection.answerDelivered` — is still owed: `WorkerCalls` has no such method and this plan may not add one. It
   belongs with the sibling plan `continuation-hold-and-budget`, which extends `SupervisorCalls`.
 * The start-failure guard's `startFailed` count of an exit the pass observes is owed to a follow-up, and **not** to the
   transport or the assembly: the pass is the only reader of the settled job record, so nothing else can observe the exit,
   and `StartFailureGuard.startFailed` has no production caller. `StartGuard` names `firstCall`, `clear` and
-  `probeDeclined`, not the count, and this plan may not add a deliverable the specification does not name for it. Until a
-  follow-up wires it (through a widened seam or a spec amendment), the guard's hold can never be reached from a real start
-  failure, and the two seams this plan does wire act on a state nothing sets.
+  `probeDeclined`, not the count, and this plan may not add a deliverable the specification does not name for it. A live
+  guard therefore does not count such a failure; a guard **rebuilt** over the registry does, because the pass enters the
+  `START_FAILED` lifecycle state on that path and `StartFailureGuard.rebuild()` counts exactly those generations.
+* `LossDetection.called(Instant)` now has no caller: a call is either the first call or the acknowledgement, and the
+  acknowledgement records the call as well. The method stays because `LossDetection` is declared by another plan.
 * `AgentStartedDetector` keeps its process trees and its reported set per generation and forgets them only on a report.
   The pass makes it long-lived, so a `forget(generationId)` on a terminal generation is an owed follow-up; the same holds
-  for the pass's own pump map and the calls' detection, loss and digest maps, which only the pass's completion removes.
-* A pass over a supervisor with no generation, and over one whose only generations are terminal, writes nothing.
+  for the pass's own pump map, its finished-attempt set and the calls' detection, loss and digest maps, which only the
+  pass's completion removes.
+* A pass over a supervisor with no generation, and over one whose only generations are terminal, writes nothing; a
+  generation whose job record is absent is skipped for that pass, and stays skipped while the record stays absent.
 * An unreadable or truncated log appends nothing and is read again at the next pass (ADR `runtime-worker/011`), and a
   task whose facts are gone is not pumped at all; a job record the store refuses propagates, so a corrupt record is
   visible instead of silently skipped. A log that shrank below the pump's offset stays unreadable for that generation,
