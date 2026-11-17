@@ -39,6 +39,7 @@ import java.util.function.Function;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.queue.ActivityEntry.Egress;
 import de.planmarshall.core.queue.ActivityEntry.Kind;
 import de.planmarshall.core.queue.ActivityEntry.Link;
 import de.planmarshall.core.queue.ActivityEntry.LinkRelation;
@@ -80,6 +81,7 @@ public class ActivityEntryCodec {
     private static final String FIELD_LINK = "link";
     private static final String FIELD_QUESTION_ID = "question_id";
     private static final String FIELD_SIGNAL = "signal";
+    private static final String FIELD_EGRESS = "egress";
     private static final String FIELD_END = "end";
     private static final String FIELD_UNMAPPED_LINES = "unmapped_lines";
     private static final String FIELD_AT = "at";
@@ -89,11 +91,13 @@ public class ActivityEntryCodec {
     private static final String FIELD_FAILED = "failed";
     private static final String FIELD_REL = "rel";
     private static final String FIELD_ACTION = "action";
+    private static final String FIELD_DESTINATION = "destination";
 
     /** The members of the entry in the order of the schema. */
     static final List<String> FIELDS = List.of(FIELD_FORMAT_VERSION, FIELD_SEQ, FIELD_ATTEMPT, FIELD_SOURCE,
             FIELD_KIND, FIELD_TEXT, FIELD_TRUNCATED, FIELD_TOOL, FIELD_RESULT, FIELD_PATH, FIELD_STOP_REASON,
-            FIELD_USAGE, FIELD_LINK, FIELD_QUESTION_ID, FIELD_SIGNAL, FIELD_END, FIELD_UNMAPPED_LINES, FIELD_AT);
+            FIELD_USAGE, FIELD_LINK, FIELD_QUESTION_ID, FIELD_SIGNAL, FIELD_EGRESS, FIELD_END, FIELD_UNMAPPED_LINES,
+            FIELD_AT);
 
     /** The members every entry requires, in the order of the schema; {@code format_version} is checked first. */
     static final List<String> REQUIRED = List.of(FIELD_FORMAT_VERSION, FIELD_SEQ, FIELD_ATTEMPT, FIELD_SOURCE,
@@ -177,6 +181,13 @@ public class ActivityEntryCodec {
             generator.writeStringField(FIELD_ACTION, entry.signal().action().wireName());
             generator.writeEndObject();
         }
+        if (entry.egress() == null) {
+            generator.writeNullField(FIELD_EGRESS);
+        } else {
+            generator.writeObjectFieldStart(FIELD_EGRESS);
+            generator.writeStringField(FIELD_DESTINATION, entry.egress().destination());
+            generator.writeEndObject();
+        }
         writeNullable(generator, FIELD_END, entry.end());
         if (entry.unmappedLines() == null) {
             generator.writeNullField(FIELD_UNMAPPED_LINES);
@@ -224,6 +235,8 @@ public class ActivityEntryCodec {
                 case FIELD_QUESTION_ID -> builder.questionId(nullableString(parser, field).orElse(null));
                 case FIELD_SIGNAL -> builder.signal(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : readSignal(parser));
+                case FIELD_EGRESS -> builder.egress(parser.currentToken() == JsonToken.VALUE_NULL ? null
+                        : readEgress(parser));
                 case FIELD_END -> builder.end(nullableString(parser, field).orElse(null));
                 case FIELD_UNMAPPED_LINES -> builder.unmappedLines(parser.currentToken() == JsonToken.VALUE_NULL
                         ? null : Math.toIntExact(integer(parser, field)));
@@ -300,6 +313,25 @@ public class ActivityEntryCodec {
             return new Link(rel, target);
         } catch (IllegalArgumentException e) {
             throw unreadable(REFUSED_VALUE.formatted(FIELD_LINK, e.getMessage()), e);
+        }
+    }
+
+    private static Egress readEgress(JsonParser parser) throws IOException {
+        requireObject(parser, FIELD_EGRESS);
+        @Nullable String destination = null;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case FIELD_DESTINATION -> destination = string(parser, field);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, FIELD_EGRESS, FIELD_DESTINATION);
+        try {
+            return new Egress(destination);
+        } catch (IllegalArgumentException e) {
+            throw unreadable(REFUSED_VALUE.formatted(FIELD_EGRESS, e.getMessage()), e);
         }
     }
 

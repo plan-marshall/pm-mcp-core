@@ -254,5 +254,21 @@ class TaskQueueSchemaParityTest {
 
             assertValid(validator, ActivityEntryCodec.write(entry));
         }
+
+        @Test
+        @DisplayName("an egress entry is valid against the schema")
+        void egress() {
+            var validator = validator(SCHEMA);
+            var entry = ActivityEntry.builder()
+                    .seq(1)
+                    .attempt(1)
+                    .source(Source.SERVER)
+                    .kind(ActivityEntry.Kind.EGRESS)
+                    .egress(new ActivityEntry.Egress("example.test:443"))
+                    .at(QueueFixtures.AT)
+                    .build();
+
+            assertValid(validator, ActivityEntryCodec.write(entry));
+        }
     }
 }

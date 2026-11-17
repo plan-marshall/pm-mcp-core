@@ -287,6 +287,19 @@ class SubprocessJobRunnerTest {
 
     @Test
     @EnabledOnOs(OS.LINUX)
+    @DisplayName("a git job records no egress, only a worker does")
+    void gitJobRecordsNoEgress() {
+        var jobId = started(runner.start(git(30, "ok")));
+
+        var settled = settled(jobId);
+
+        assertAll("a git job records no egress",
+                () -> assertEquals(JobId.Kind.GIT, jobId.kind(), "the job is a git job"),
+                () -> assertNull(settled.egress(), "the record leaves the member null"));
+    }
+
+    @Test
+    @EnabledOnOs(OS.LINUX)
     @DisplayName("the launch carries the composed confinement to the launcher")
     void confinementIsPassedToTheLauncher() throws Exception {
         FakePmExec.install(home, FakePmExec.Mode.REPORT_ARGV);

@@ -43,6 +43,7 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.ClampedValue;
 import de.planmarshall.core.store.JobRecord.Confinement;
+import de.planmarshall.core.store.JobRecord.Egress;
 import de.planmarshall.core.store.JobRecord.Execution;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.GitMetadata;
@@ -88,6 +89,7 @@ public class JobRecordCodec {
     private static final String EXIT_CODE = "exit_code";
     private static final String SIGNAL = "signal";
     private static final String LANDLOCK_ABI = "landlock_abi";
+    private static final String EGRESS = "egress";
     private static final String GIT_METADATA = "git_metadata";
     private static final String OUTCOME_ROW = "outcome_row";
     private static final String REFUSAL_REASON = "refusal_reason";
@@ -109,7 +111,8 @@ public class JobRecordCodec {
     /** The members of the record, in the order of the schema. */
     static final List<String> MEMBERS = List.of(FIELD_FORMAT_VERSION, JOB_ID, KIND, EXECUTION, SCOPE, WORKER,
             BUDGET_KEY, BUDGET_SECONDS, BUDGET_DERIVATION, ARGV_DIGEST, STATUS, FATE, PID, PROCESS_STARTED_AT,
-            CONFINEMENT, CREATED_AT, SPAWNED_AT, ENDED_AT, CHILD_WALL_MS, EXIT_CODE, SIGNAL, LANDLOCK_ABI, GIT_METADATA,
+            CONFINEMENT, CREATED_AT, SPAWNED_AT, ENDED_AT, CHILD_WALL_MS, EXIT_CODE, SIGNAL, LANDLOCK_ABI, EGRESS,
+            GIT_METADATA,
             OUTCOME_ROW,
             REFUSAL_REASON, CANCEL_BEFORE_GROUP, SELF_REPORT_CONTRADICTION, CLAMPED_VALUES, GATE_FACTS);
 
@@ -156,6 +159,7 @@ public class JobRecordCodec {
             writeNullable(generator, EXIT_CODE, job.exitCode());
             writeNullable(generator, SIGNAL, job.signal());
             writeNullable(generator, LANDLOCK_ABI, job.landlockAbi() == null ? null : job.landlockAbi().longValue());
+            writeNullable(generator, EGRESS, job.egress() == null ? null : job.egress().wireName());
             writeNullable(generator, GIT_METADATA,
                     job.gitMetadata() == null ? null : job.gitMetadata().wireName());
             writeNullable(generator, OUTCOME_ROW, job.outcomeRow() == null ? null : job.outcomeRow().longValue());
@@ -219,6 +223,7 @@ public class JobRecordCodec {
                 case EXIT_CODE -> job.exitCode(nullableInteger(parser, field).orElse(null));
                 case SIGNAL -> job.signal(nullableString(parser, field).orElse(null));
                 case LANDLOCK_ABI -> job.landlockAbi(nullableInt(parser, field).orElse(null));
+                case EGRESS -> job.egress(isNull(parser) ? null : closed(parser, field, Egress::fromWireName));
                 case GIT_METADATA -> job.gitMetadata(
                         isNull(parser) ? null : closed(parser, field, GitMetadata::fromWireName));
                 case OUTCOME_ROW -> job.outcomeRow(nullableInt(parser, field).orElse(null));

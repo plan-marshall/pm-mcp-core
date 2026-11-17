@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.build.BuildLogText;
@@ -73,7 +74,8 @@ import de.planmarshall.core.build.BuildLogText;
  *
  * @since 0.1
  */
-public final class SecretRedactor {
+@UtilityClass
+public class SecretRedactor {
 
     /** The text that replaces a redacted value. */
     public static final String REDACTED = "[redacted]";
@@ -503,9 +505,6 @@ public final class SecretRedactor {
     /** The replacement prefix that keeps groups 1 to 3 and masks the group that follows them. */
     private static final String KEEP_THREE_GROUPS = "$1$2$3";
 
-    private SecretRedactor() {
-    }
-
     /**
      * @param value a text or a target about to be written
      * @return the value with every secret-shaped part replaced by {@link #REDACTED}; empty when {@code value} is
@@ -636,14 +635,16 @@ public final class SecretRedactor {
     /**
      * Redacts the parts of an activity entry that are written to the journal.
      * <p>
-     * The text, the tool target and the link target are stripped of their terminal escape sequences
+     * The text, the tool target, the link target and the egress destination are stripped of their terminal escape
+     * sequences
      * ({@link BuildLogText#stripAnsi(String)}, the expression the unparsed-evidence excerpt uses) before they are
      * redacted, so an escape sequence that splits a label from its value ({@code ESC[1mpassword ESC[0m=value}) cannot
      * hide the value from the label patterns. The stored journal text therefore carries no escape sequence. The bound of
      * each part is applied after the redaction.
      *
      * @param entry an activity entry as the runtime read it
-     * @return the entry with its text, tool target and link target stripped of escape sequences and redacted
+     * @return the entry with its text, tool target, link target and egress destination stripped of escape sequences and
+     *         redacted
      */
     public static ActivityEntry redact(ActivityEntry entry) {
         var masked = entry;
@@ -658,6 +659,10 @@ public final class SecretRedactor {
         if (entry.link() != null && entry.link().target() != null) {
             masked = masked.withLink(new ActivityEntry.Link(entry.link().rel(),
                     cutUtf16(stripAndRedact(entry.link().target()), 128).value()));
+        }
+        if (entry.egress() != null) {
+            masked = masked.withEgress(new ActivityEntry.Egress(
+                    cutUtf16(stripAndRedact(entry.egress().destination()), 259).value()));
         }
         return masked;
     }
