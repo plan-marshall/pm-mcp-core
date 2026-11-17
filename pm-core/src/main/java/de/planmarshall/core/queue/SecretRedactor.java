@@ -342,52 +342,92 @@ public final class SecretRedactor {
      */
     private static String redactUrlUserInformation(String value, String schemeSeparator) {
         var out = new StringBuilder(value.length());
+        var token = new UrlToken();
         var copied = 0;
-        var search = 0;
-        var tokenEnd = -1;
-        var tokenLastAt = -1;
-        while (true) {
-            var separator = indexOfSeparator(value, schemeSeparator, search);
-            if (separator < 0) {
-                break;
+        var separator = indexOfSeparator(value, schemeSeparator, 0);
+        while (separator >= 0) {
+            var match = urlUserInformationMatch(value, separator, schemeSeparator.length(), token);
+            var next = match == null ? separator + 1 : match.lastAt() + 1;
+            if (match != null) {
+                out.append(value, copied, match.secretStart()).append(REDACTED).append('@');
+                copied = next;
             }
-            var schemeStart = separator;
-            while (schemeStart > 0 && isSchemeCharacter(value.charAt(schemeStart - 1))) {
-                schemeStart--;
-            }
-            if (schemeStart == separator || !isSchemeStart(value.charAt(schemeStart))) {
-                search = separator + 1;
-                continue;
-            }
-            var userEnd = separator + schemeSeparator.length();
-            while (userEnd < value.length() && !isUrlUserStop(value.charAt(userEnd))) {
-                userEnd++;
-            }
-            if (userEnd >= value.length() || value.charAt(userEnd) != ':') {
-                search = separator + 1;
-                continue;
-            }
-            var secretStart = userEnd + 1;
-            if (tokenEnd < 0 || secretStart >= tokenEnd) {
-                tokenEnd = secretStart;
-                tokenLastAt = -1;
-                while (tokenEnd < value.length() && !isWhiteSpace(value.charAt(tokenEnd))) {
-                    if (value.charAt(tokenEnd) == '@') {
-                        tokenLastAt = tokenEnd;
-                    }
-                    tokenEnd++;
-                }
-            }
-            if (tokenLastAt <= secretStart) {
-                search = separator + 1;
-                continue;
-            }
-            out.append(value, copied, secretStart).append(REDACTED).append('@');
-            copied = tokenLastAt + 1;
-            search = copied;
-            tokenEnd = -1;
+            separator = indexOfSeparator(value, schemeSeparator, next);
         }
         return out.append(value, copied, value.length()).toString();
+    }
+
+    /**
+     * One user-information shape of a scheme separator, or {@code null} when the separator starts no such shape.
+     *
+     * @param value           the text to inspect
+     * @param separator       where the scheme separator starts
+     * @param separatorLength the length of the separator
+     * @param token           the token cache in use for this pass
+     * @return the shape's secret start and its token's last {@code @}, or {@code null}
+     */
+    private static @Nullable UrlMatch urlUserInformationMatch(String value, int separator, int separatorLength,
+            UrlToken token) {
+        if (schemeStart(value, separator) < 0) {
+            return null;
+        }
+        var secretStart = secretStart(value, separator + separatorLength);
+        if (secretStart < 0) {
+            return null;
+        }
+        var lastAt = token.lastAt(value, secretStart);
+        return lastAt <= secretStart ? null : new UrlMatch(secretStart, lastAt);
+    }
+
+    /** The start of the scheme before a separator, or {@code -1} when no letter starts one there. */
+    private static int schemeStart(String value, int separator) {
+        var start = separator;
+        while (start > 0 && isSchemeCharacter(value.charAt(start - 1))) {
+            start--;
+        }
+        return start < separator && isSchemeStart(value.charAt(start)) ? start : -1;
+    }
+
+    /** The start of the secret after a separator: past the user and its colon, or {@code -1} when there is no colon. */
+    private static int secretStart(String value, int from) {
+        var position = from;
+        while (position < value.length() && !isUrlUserStop(value.charAt(position))) {
+            position++;
+        }
+        return position < value.length() && value.charAt(position) == ':' ? position + 1 : -1;
+    }
+
+    /**
+     * One masked user-information shape.
+     *
+     * @param secretStart where the secret starts, just after the user's colon
+     * @param lastAt      the index of the token's last {@code @}
+     */
+    private record UrlMatch(int secretStart, int lastAt) {
+    }
+
+    /**
+     * The token a pass last measured, its end and its last {@code @}, so a later scheme start of the same token reads
+     * the answer instead of measuring the token again.
+     */
+    private static final class UrlToken {
+
+        private int end = -1;
+        private int lastAt = -1;
+
+        private int lastAt(String value, int secretStart) {
+            if (end < 0 || secretStart >= end) {
+                end = secretStart;
+                lastAt = -1;
+                while (end < value.length() && !isWhiteSpace(value.charAt(end))) {
+                    if (value.charAt(end) == '@') {
+                        lastAt = end;
+                    }
+                    end++;
+                }
+            }
+            return lastAt;
+        }
     }
 
     /** The next occurrence of a scheme separator, compared case-insensitively (the encoded form carries letters). */
