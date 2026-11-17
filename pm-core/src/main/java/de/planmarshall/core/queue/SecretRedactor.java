@@ -44,13 +44,20 @@ import de.planmarshall.core.build.BuildLogText;
  * The label, separator, URL and credential-flag patterns are Unicode-aware: their {@code \s}, {@code \S}, {@code \w} and
  * {@code \b} match their Unicode forms, so a no-break space cannot separate a label from its value, and a quoted
  * assignment value runs to its closing quote. The provider-token and npm-token shapes stay ASCII, as the wire formats
- * they encode are. The invisible formatting characters — the zero-width space and joiners, the bidi controls, the soft
- * hyphen and the byte-order mark — are removed before the shapes are matched, so one of them cannot split a label; none
- * of them is visible, so removing one costs no evidence.
+ * they encode are. The soft hyphen, the zero-width space, the word joiner and the byte-order mark are removed before the
+ * shapes are matched, so one of them cannot split a label; none of them is visible, so removing one costs no evidence.
+ * The zero-width joiners and the bidi controls stay in the text, because they carry meaning in Persian, Indic and
+ * right-to-left text and in emoji sequences.
+ * <p>
+ * A separator accepts an optional backslash before its quote, so a JSON object embedded as a JSON string
+ * ({@code {\"password\":\"secret\"}}) is read as the quoted credential assignment it is.
  * <p>
  * The replacement keeps the label so the reader knows what was removed: {@code "Authorization: Bearer …"} becomes
  * {@code "Authorization: Bearer [redacted]"}, {@code "https://user:secret@host"} keeps its scheme and user, and a key
- * block is replaced whole (an unclosed block masks from its {@code BEGIN} line to the end of the text).
+ * block is replaced whole (an unclosed block masks from its {@code BEGIN} line to the end of the text). The key-block
+ * scan runs before the label passes, so a block that is itself the value of a labelled assignment
+ * ({@code PRIVATE_KEY="-----BEGIN …"} or {@code secret: -----BEGIN …}) is masked whole instead of losing its
+ * {@code BEGIN} marker to the label pass, which would leave the body and the {@code END} line readable.
  * <p>
  * The residue: a PEM or PGP block whose {@code BEGIN} line lies before the excerpt window, so that the text starts
  * inside the block, is not masked, because nothing in the text marks the key body as one. The window is not widened to
@@ -68,14 +75,16 @@ public final class SecretRedactor {
     public static final String REDACTED = "[redacted]";
 
     /**
-     * The invisible characters removed before any shape is matched: the soft hyphen, the zero-width space, the
-     * zero-width joiners and marks, the bidi controls and the byte-order mark. A label split by one of them is still a
-     * label, and a stored text that carries them carries no evidence.
+     * The invisible characters removed before any shape is matched: the soft hyphen, the zero-width space, the word
+     * joiner and the byte-order mark. They carry no evidence, so removing one costs nothing. The zero-width joiners
+     * ({@code U+200C} and {@code U+200D}) and the bidi controls ({@code U+200E} to {@code U+200F} and {@code U+202A} to
+     * {@code U+202E}) stay: they carry meaning in Persian, Indic and right-to-left text and in emoji sequences (an
+     * operator decision, ADR {@code core-build/009}). The cost of keeping them: a label split by a joiner is no longer
+     * matched, and a split label with a joiner is not a realistic secret shape.
      */
-    private static final Pattern INVISIBLE =
-            Pattern.compile("[\\u00AD\\u200B-\\u200F\\u202A-\\u202E\\u2060\\uFEFF]");
+    private static final Pattern INVISIBLE = Pattern.compile("[\\u00AD\\u200B\\u2060\\uFEFF]");
 
-    private static final String SEPARATOR = "([\"']?\\s*[:=]\\s*[\"']?)";
+    private static final String SEPARATOR = "(\\\\?[\"']?\\s*[:=]\\s*\\\\?[\"']?)";
 
     private static final String VALUE = "([^\\s\"',;]{4,})";
 
@@ -139,7 +148,7 @@ public final class SecretRedactor {
     private static final Pattern NPM_ACCESS_TOKEN = Pattern.compile("\\b" + NPM_TOKEN_PREFIX + "[A-Za-z0-9]{36}\\b");
 
     /**
-     * The user-information form of a URL: {@code scheme://user:secret@host}. The pattern keeps the scheme and the user
+     * The user-information form of a URL: {@code scheme://user:secret@host}. The scan keeps the scheme and the user
      * readable and masks the secret, which runs from the first colon after the user to the last {@code @} of the token;
      * the host after that {@code @} stays readable when the token carries no later {@code @}. The secret is masked also
      * when
@@ -166,19 +175,12 @@ public final class SecretRedactor {
      * last {@code @}, because the secret runs to the last {@code @} of the token.</li>
      * </ul>
      * <p>
-     * The plain separator {@code ://} and the percent-encoded one are two patterns applied in sequence, so neither
-     * carries the alternation of both. The cost: the scheme and the user are possessive and the scheme starts only
-     * where no scheme character precedes it, while the secret is a greedy {@code \S+} that gives characters back until
-     * it reaches the last {@code @} of the token. A token without that {@code @} ({@code x://y:x://y:…}) is therefore
-     * scanned back once from each scheme start, which is quadratic in the length of one line at worst. The unparsed
-     * excerpt, the npm diagnostic and the journal cut the line at {@link BuildLogText#MAX_LINE_LENGTH} (or a smaller
-     * bound) before the redaction, and that cut bounds the cost there; {@code ProviderVerification} of
-     * {@code pm-runtime} cuts its provider answer at the same bound before the redaction.
+     * The scan is linear in the text: it finds the scheme starts once, takes the user up to the next colon and looks the
+     * token's last {@code @} up once per token, keeping that answer for the token a line holds, so a line such as
+     * {@code x://y:x://y:…} without any {@code @} costs one pass instead of a scan back from every scheme start. The
+     * plain and the percent-encoded separator are two passes in sequence, so neither carries the alternation of both.
      */
-    private static final Pattern URL_USER_INFORMATION = urlUserInformation("://");
-
-    /** The user-information form behind the percent-encoded scheme separator ({@code https%3A%2F%2Fuser:secret@host}). */
-    private static final Pattern URL_USER_INFORMATION_ENCODED = urlUserInformation("%3A%2F%2F");
+    private static final List<String> URL_SCHEME_SEPARATORS = List.of("://", "%3A%2F%2F");
 
     /**
      * A URL user-information head that a cut left without its closing {@code @}: the cut can fall between a URL's
@@ -301,20 +303,101 @@ public final class SecretRedactor {
      * closing quote, read through the escape pairs of {@link #QUOTED_LINE}.
      */
     private static Pattern quotedAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])"
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(\\\\?[\"']?\\s*[:=]\\s*)([\"'])"
                 + QUOTED_ASSIGNMENT_VALUE);
     }
 
     /** One unclosed quoted assignment: the label, the separator, the opening quote and the rest of its line. */
     private static Pattern unclosedQuotedAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])(?!"
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(\\\\?[\"']?\\s*[:=]\\s*)([\"'])(?!"
                 + QUOTED_ASSIGNMENT_VALUE + ")([^\\r\\n]*)");
     }
 
-    /** The user-information pattern behind one scheme separator: scheme and separator, an optional user, secret. */
-    private static Pattern urlUserInformation(String schemeSeparator) {
-        return Pattern.compile("(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+" + schemeSeparator
-                + ")(?:([^\\s/?#:]++))?:(\\S+)@");
+    /**
+     * Masks the user-information shapes of one scheme separator in one linear left-to-right pass.
+     * <p>
+     * Each scheme start is visited once: the scheme is the run of scheme characters before the separator whose first
+     * character is a letter, the user is the possessive run up to the next colon, and the secret is masked up to the last
+     * {@code @} of the token that starts after that colon. The last {@code @} of a token is looked up once and kept for
+     * every scheme start of the same token, so a token without an {@code @} costs one lookup rather than one per start.
+     *
+     * @param value           the text to redact
+     * @param schemeSeparator {@code ://} or the percent-encoded {@code %3A%2F%2F}
+     * @return the text with every user-information shape of that separator masked
+     */
+    private static String redactUrlUserInformation(String value, String schemeSeparator) {
+        var out = new StringBuilder(value.length());
+        var copied = 0;
+        var search = 0;
+        var tokenEnd = -1;
+        var tokenLastAt = -1;
+        while (true) {
+            var separator = value.indexOf(schemeSeparator, search);
+            if (separator < 0) {
+                break;
+            }
+            var schemeStart = separator;
+            while (schemeStart > 0 && isSchemeCharacter(value.charAt(schemeStart - 1))) {
+                schemeStart--;
+            }
+            if (schemeStart == separator || !isSchemeStart(value.charAt(schemeStart))) {
+                search = separator + 1;
+                continue;
+            }
+            var userEnd = separator + schemeSeparator.length();
+            while (userEnd < value.length() && !isUrlUserStop(value.charAt(userEnd))) {
+                userEnd++;
+            }
+            if (userEnd >= value.length() || value.charAt(userEnd) != ':') {
+                search = separator + 1;
+                continue;
+            }
+            var secretStart = userEnd + 1;
+            if (tokenEnd < 0 || secretStart >= tokenEnd) {
+                tokenEnd = secretStart;
+                while (tokenEnd < value.length() && !isWhiteSpace(value.charAt(tokenEnd))) {
+                    tokenEnd++;
+                }
+                tokenLastAt = value.lastIndexOf('@', tokenEnd - 1);
+            }
+            if (tokenLastAt <= secretStart) {
+                search = separator + 1;
+                continue;
+            }
+            out.append(value, copied, secretStart).append(REDACTED).append('@');
+            copied = tokenLastAt + 1;
+            search = copied;
+            tokenEnd = -1;
+        }
+        return out.append(value, copied, value.length()).toString();
+    }
+
+    /** Whether the character can be part of a URL scheme ({@code [a-z0-9+.-]}, its case-insensitive form). */
+    private static boolean isSchemeCharacter(char value) {
+        return isSchemeStart(value) || value >= '0' && value <= '9' || value == '+' || value == '.' || value == '-';
+    }
+
+    /** Whether the character can start a URL scheme ({@code [a-z]}, its case-insensitive form). */
+    private static boolean isSchemeStart(char value) {
+        return value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z';
+    }
+
+    /** Whether the character ends the user part of a URL's user information ({@code [\s/?#:]}). */
+    private static boolean isUrlUserStop(char value) {
+        return isWhiteSpace(value) || value == '/' || value == '?' || value == '#' || value == ':';
+    }
+
+    /**
+     * Whether the character is whitespace in the Unicode form the shapes' {@code \s} matches. It is the
+     * {@code White_Space} property, which is wider than {@link Character#isWhitespace(char)}: the no-break space
+     * ({@code U+00A0}) is whitespace for the shapes and for this scan alike.
+     */
+    private static boolean isWhiteSpace(char value) {
+        return switch (value) {
+            case '\t', '\n', '\u000B', '\f', '\r', ' ', '\u0085', '\u00A0', '\u1680', '\u2028', '\u2029', '\u202F',
+                    '\u205F', '\u3000' -> true;
+            default -> value >= '\u2000' && value <= '\u200A';
+        };
     }
 
     /** The replacement prefix that keeps groups 1 to 3 and masks the group that follows them. */
@@ -336,13 +419,16 @@ public final class SecretRedactor {
             return Optional.of(value);
         }
         var normalized = INVISIBLE.matcher(value).replaceAll("");
-        var masked = AUTH_HEADER.matcher(normalized)
+        // the key-block scan runs before every label pass: a block whose BEGIN marker is the value of a labelled
+        // assignment would otherwise lose that marker to the label pass, and the body and END line would stay readable
+        var masked = redactPrivateKeyBlocks(normalized);
+        masked = AUTH_HEADER.matcher(masked)
                 .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = BEARER.matcher(masked).replaceAll("$1" + Matcher.quoteReplacement(REDACTED));
         // a credentialed URL is masked before the assignment passes: an inner match must never remove the `@` that
         // makes the URL shape recognisable
-        for (var pattern : List.of(URL_USER_INFORMATION, URL_USER_INFORMATION_ENCODED)) {
-            masked = pattern.matcher(masked).replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED) + "@");
+        for (var separator : URL_SCHEME_SEPARATORS) {
+            masked = redactUrlUserInformation(masked, separator);
         }
         // the closed form first: an outer quoted value is masked whole before an inner label can be looked at
         for (var pattern : QUOTED_ASSIGNMENTS) {
@@ -365,7 +451,6 @@ public final class SecretRedactor {
                 .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = CREDENTIAL_FLAG.matcher(masked)
                 .replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
-        masked = redactPrivateKeyBlocks(masked);
         return Optional.of(masked);
     }
 

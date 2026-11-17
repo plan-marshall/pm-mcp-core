@@ -27,9 +27,9 @@ import de.planmarshall.core.queue.SecretRedactor;
  * {@link #stored(String)}, which redacts the credential shapes and then stores at most 500 characters of the message: the
  * redaction runs first, so a cut value cannot keep a prefix the redactor would have matched whole. Both parsers use this
  * one implementation, so the two identities cannot drift apart, and every parser that files a {@link Diagnostic} passes
- * its message through {@code stored} (the OpenRewrite log parser files its own {@code RewriteFinding} records instead);
- * the one model field the seam does not reach — the collected stack trace — is redacted in the {@link Diagnostic}
- * constructor.
+ * its message through {@code stored} (the OpenRewrite log parser files its own {@code RewriteFinding} records, which redact
+ * their path and message in their constructor); the collected stack trace reaches the same redaction and the same bound in
+ * the {@link Diagnostic} constructor, which redacts the file too.
  *
  * @since 0.1
  */
