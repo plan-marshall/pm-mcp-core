@@ -62,8 +62,10 @@ record and the listing skips it.
 One line of `tasks/activity/<queue_task_id>.jsonl`: what a worker did (the harness kinds `text`, `tool_call`,
 `tool_result`, `file_changed`, `turn`) or what the server recorded (`link`, `question`, `answer_ack`, `signal`,
 `egress`, `attempt_end`). An `egress` entry carries the `host:port` a worker's egress proxy refused in its
-`egress.destination`, at most 259 characters, at most one per distinct destination per attempt; the journal masks it
-like a link target (link:../adr/core-queue/010-the-refused-destination-is-an-activity-entry-kind.adoc[ADR 010]). The
+`egress.destination`, at most 259 characters; the journal masks it like a link target
+(link:../adr/core-queue/010-the-refused-destination-is-an-activity-entry-kind.adoc[ADR 010]). One entry per distinct
+destination per attempt is a requirement for the producer that is owed
+(link:../../../doc/plans/job-confinement-and-environment.adoc[the package file]), not a rule the codec enforces. The
 `usage` object belongs to another package and is kept as the raw JSON text it was read with.
 
 `ActivityJournal`::
@@ -223,8 +225,8 @@ The runtime writes the `agent_started` detection through `workflow.task`'s proto
 * A fenced generation's call is refused before the lease and every link check, after the job's own end; the fence
   outlives the runtime that wrote it.
 * *The null contract is the type*: every optional member of `ActivityEntry` — text, tool, result, path, stop reason,
-  usage, link, question id, signal, end and unmapped lines — and the target of a tool call and of a link is declared
-  `@Nullable`; a test for one of them is therefore live, not dead. `SecretRedactor.redactText` answers
+  usage, link, question id, signal, egress, end and unmapped lines — and the target of a tool call and of a link is
+  declared `@Nullable`; a test for one of them is therefore live, not dead. `SecretRedactor.redactText` answers
   `Optional<String>`: an absent value is `Optional.empty()`, never `null`.
 * A queue that does not exist is empty, never an error; a record that exists and does not parse is a `StoreRefusal`
   naming the file, never an empty record.

@@ -14,13 +14,16 @@ Accepted.
 The specification requires that every destination a worker's egress proxy refuses is recorded ("Every refused
 destination is an activity entry of the worker", link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[Job
 Runtime Specification, Worker Egress Proxy]). The activity kinds are a closed list, and the entry members are bound to
-their kinds, so the refusal needs a member of its own in that list. The producer (`WorkerEgressProxy`'s
-`Consumer<String> activity`) already hands the destination over; the journal has no kind to write it under.
+their kinds, so the refusal needs a member of its own in that list. The proxy (`WorkerEgressProxy`) already hands the
+destination to its `Consumer<String> activity` sink; no code turns that text into an entry yet, and the journal has no
+kind to write it under, so this decision defines the kind the future producer writes.
 
 Two operator decisions bound the shape. The operator decided on 2026-10-29 (decision 14 of 18, option 3) that this plan
 records the refusal and builds no enforcement; and on the same walk (decision 28, option 1) that "every refused
 destination" is read as every *distinct* destination per attempt, so a worker that keeps asking for one refused host
-writes one entry, not one per request.
+writes one entry, not one per request. That reading is a requirement for the future producer; neither the record nor
+the codec de-duplicates, and the producer is listed in the remainder of
+link:../../../../doc/plans/job-confinement-and-environment.adoc[the package file].
 
 == Decision
 
