@@ -1,0 +1,49 @@
+= ADR 025: The Composed Set Guards an Unresolved Callee and an Entry State
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-17
+
+== Context
+
+Two defects of the composed set were found by review of the plan instance (PM-IMPL-5):
+
+* a kept call whose request supplies no sub-unit for the callee was skipped silently — no file, no digest, no
+  refusal — so a version could verify against the compiled catalog while naming no executable callee;
+* a prune could remove a state that a unit's `entry` line binds to, leaving a composed file whose entry pointed at a
+  removed state.
+
+Both shipped in #236 (`ea2aeef5`) as a refusal in the composer and a guard in the pruner. The plan that follows the
+review restores the one test #236 removed with the old premise and records the ownership.
+
+== Decision
+
+* A kept call whose callee the request supplies no sub-unit for is refused `invariant_failed` with
+  `the call of '<id>' names no sub-unit of the request`. The composer owns the refusal.
+* `InstancePruner.Selection` keeps every state a template's entries bind to, whatever a rule or a lane prune names;
+  the prune is not recorded, because nothing was left out. The pruner owns the guard.
+* Neither guard changes a format; both are refusals and guards of the composition, not new fields.
+
+== Alternatives Considered
+
+1. *Let a call without a sub-unit verify against the compiled catalog.* Rejected: the version would name no file and no
+   digest for the callee, so a reader could not reconstruct what the plan runs.
+2. *Record a prune of an entry-bound state and let the entry dangle.* Rejected: a composed file must keep every entry
+   its frontmatter declares.
+
+== Consequences
+
+A request that omits a reached callee is refused before anything is verified, and a composed file never keeps an
+entry that points at a removed state. The guards are exercised by `PlanInstanceComposerTest`'s `unresolvedCallRefused`
+and `entryStatesSurviveAPrune`; the restored `prunedCallInsideAComposedUnit` covers the call-pruned-inside-a-unit
+case with a callee that is not entry-bound.
+
+== Source
+
+* Workflow DSL 09 § Versions & Composition Events; Store Schemas 14 § Plan Instance.
+* PLAN-V2-82, Deliverable 1; commit `ea2aeef5` (#236).

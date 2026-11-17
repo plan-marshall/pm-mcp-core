@@ -27,7 +27,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 `CompositionEvent`:: The closed set of the nine events (`start`, `outline`, `plan`, `config_adopted`, `waiver`, `override`, `fallback`, `empty_harvest`, `replan`), each with its `Trigger` (`server` or `operator`); `override`, the operator setting or changing one of the plan's own values, is an operator event.
 `PrunedElement`:: One element the composition left out: its `Kind` (`step`, `state`, `link`, `policy_action`, `call`), id, `PruneReason` and the source fact. A `call` is a call of a phase sub-workflow or of an axis variant, its id `<call_site>/<subworkflow_id>`.
 `PruneReason`:: The closed set of the fifteen prune reasons of the header schema, `no_code_delta`, `no_production_delta`, `other_lane`, `merge_by_operator` and `plan_default` among them.
-`PolicyCall`:: One call of a remediation unit in the kept states with its effective arguments.
+`PolicyCall`:: One call of a remediation unit in the kept states with its effective arguments and, for a call of a composed unit, the unit that holds it (`inUnit`; absent for a call of the plan unit).
 `BoundArgument`:: The effective value of one argument with its `Source`: the template (with its file), a composition rule, or the `raise` waiver (with its id).
 `WaivedGate`:: A gate a `met` waiver marks waived, with the waiver id.
 `HeaderSchemaCheck`:: Checks a header, as a `PlanInstanceHeader` or as the JSON of an `instance` line, against every constraint of the header schema; returns every `HeaderViolation`, never throws for a bad header. Each closed enumeration is read from its type, so the check and the type cannot part.
@@ -60,7 +60,7 @@ A header or a log line with a value outside them, such as the former `recipe_ove
 [horizontal]
 `CompositionRequest`:: Everything one composition reads, as values: plan id, event, plan template, the templates by digest, the sub-units (`SubUnit`: reference and tree), facts, configuration hash, the optional digests, the waivers in force, the position, the version in force, the Phase 5 verification steps and the Phase 6 steps with their order (`Step`). `start` has no previous version, every other event needs one. The event and the `post_run` fact of the facts agree: `fallback` needs `returned` or `handed_back`, `empty_harvest` needs `empty_harvest`, every other event, `override` among them, leaves the fact unset.
 `Waiver`:: A waiver in force: `met` marks its gate waived, `raise` names `<argument>:<policy>` and the new ceiling.
-`InstancePosition`:: The current state and the calling state of every call-stack frame.
+`InstancePosition`:: The unit and state the plan is in, and the calling unit and state of every call-stack frame (`UnitState`).
 `PlanInstanceComposer`:: `compose(request)` returns a `CompositionResult`. Constructed with the `VerificationContext`, the verified default units, the default finalize roster, the rules and a `Clock`.
 `CompositionResult`:: `Composed` with the `PlanInstance`, or `Refused` with a `Refusal` (`position_not_contained`, `invariant_failed`) and every violation as one line.
 `PlanInstance`:: One version: number, header, composed unit and its printed text, the content of `instance/plan.v<N>.pmwf`.
@@ -111,7 +111,7 @@ After the prunes of the rules come the states of the other lane (<<_lane_pruning
 The effective arguments of a policy call follow the precedence template, then the actions a prune removed, then the rule bindings, then the `raise` waivers; a binding or a raise only replaces an argument the call already binds, never adds one.
 A `met` waiver adds its gate to `waived_gates`.
 For every kept state the pruner also records the outcomes whose every transition led into a state pruned with a prune record (<<_outcomes_settled_by_a_prune>>).
-. *Position rule.* The kept states must contain the current state and every calling state of the call stack; otherwise the result is `Refused(position_not_contained)` with one line per missing state, and nothing else is checked.
+. *Position rule.* The kept states must contain, per unit, the current `(unit, state)` and every calling `(unit, state)` of the call stack; a state id is judged only in the unit the position names, so a state pruned from its own unit is refused even when another unit declares the same id. Otherwise the result is `Refused(position_not_contained)` with one line per missing pair, each naming the state and its unit, and nothing else is checked (<<_verification_and_the_position_rule>>).
 . *Header.* The version is the one after the version in force (`1` for `start`); the inputs name the templates, the sub-units the kept states reach through their calls (transitively), the adjudication unit `adjudicate.decisions` whenever the request supplies it, the rules' revision and digest, and the facts' digest.
 No call site calls `adjudicate.decisions`; the engine runs it for the decisions of the version, so it is listed with its digest and origin like every bound sub-unit, and the store keeps its verified text.
 The composed unit has the id `plan`, the version as revision and the header as its `instance` line.
@@ -265,7 +265,7 @@ It holds five flat arrays, all present and empty where nothing changed (link:../
 |The pruned elements of one version and not the other, in the shape of the header's `pruned[]` (`element`, `id`, `reason`, `source_fact`); an element whose reason or source fact changed is removed and added.
 
 |`ceilings_changed`
-|Each bound argument of a policy call whose value differs: `call_site`, `argument`, `previous` and `value`, `null` where a version does not bind the argument.
+|Each bound argument of a policy call whose value differs: `call_site`, `in_unit`, `argument`, `previous` and `value`, `null` where a version does not bind the argument. A call site is keyed by its unit and its state id, so two calls with the same state id in two units are two keys.
 
 |`gates_waived`, `gates_unwaived`
 |The waived gates of one version and not the other (`gate`, `waiver_id`).
@@ -289,7 +289,7 @@ A line of an attempt that composed no version writes no `diff_summary`.
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 A version is checked in full before anyone may write it (link:../adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR 001]), and a version that fails is a `CompositionResult.Refused` value, never an exception (link:../adr/workflow-plan/002-refused-composition-is-a-value.adoc[ADR 002]).
-State ids are stable across versions, so the position maps onto the new version unchanged; a version that drops the current state or a calling state of the call stack would strand the plan, so it is refused before the other checks.
+State ids are stable per unit across versions, so the position maps onto the new version unchanged; a version that drops the current `(unit, state)` or a calling `(unit, state)` of the call stack would strand the plan, so it is refused before the other checks (link:../adr/workflow-plan/024-the-position-is-a-pair-of-unit-and-state.adoc[ADR 024]).
 
 The reference of the compiled invariants is the set of verified default units passed to the constructor; the composed unit is checked against them as a project plan unit would be, with the lane of the version as the input of `CompiledInvariants.check`.
 
@@ -485,6 +485,12 @@ and a text whose digest differs from the header's are all refused — and writes
 composes the version. The three instance diagram forms list the composed files beside the pruned elements and the
 waived gates.
 
+Every policy call of a composed file's body is listed in the header with `in_unit` naming that file, after the plan
+unit's own calls, which carry no `in_unit`; the diff summary keys such a call by its unit and its state id
+(link:../adr/workflow-plan/026-a-composed-units-policy-calls-carry-their-unit.adoc[ADR 026]). A kept call whose callee
+the request supplies no sub-unit for is refused before the set is built, and a prune never removes a state an entry
+binds to (link:../adr/workflow-plan/025-the-composed-set-guards-an-unresolved-callee-and-an-entry-state.adoc[ADR 025]).
+
 link:../adr/workflow-plan/020-a-version-is-a-set-of-composed-files.adoc[ADR 020]: a version is a set of composed files,
 checked as one value.
 
@@ -508,5 +514,6 @@ link:../adr/workflow-plan/020-a-version-is-a-set-of-composed-files.adoc[ADR 020]
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]
 * Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[§ Composition Rules], link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[§ Plan Behaviour Axes]; link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance]; link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]; link:../../../doc/specification/identifiers/02-registry-stores-to-web.adoc#id-prune-reason[Identifier Registry § Prune reason]
-* Decisions: `pm-workflow/doc/adr/workflow-plan/` ADRs 001 to 020; ADR 011 is superseded by ADR 012; ADR 019 places the
-  phase set's composition, and the lane pruning over it, outside this package; ADR 020 delivers it as the set of composed files
+* Decisions: `pm-workflow/doc/adr/workflow-plan/` ADRs 001 to 027; ADR 011 is superseded by ADR 012; ADR 019 places the
+  phase set's composition, and the lane pruning over it, outside this package; ADR 020 delivers it as the set of composed files;
+  ADRs 024 to 027 record the per-unit position, the composed-set guards, the nested policy calls and the history read whole
