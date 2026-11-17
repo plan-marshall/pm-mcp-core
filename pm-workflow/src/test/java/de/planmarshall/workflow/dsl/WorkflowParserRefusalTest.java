@@ -601,10 +601,10 @@ class WorkflowParserRefusalTest {
 
             assertAll(
                     () -> assertEquals(rule, diagnostic.rule(), diagnostic::message),
-                    () -> assertEquals("inline.pmwf", diagnostic.resourceName()),
+                    () -> assertEquals("inline.pmwf", diagnostic.resourceName(), "the refusal names the inline unit"),
                     () -> assertEquals(line, diagnostic.line(), diagnostic::message),
-                    () -> assertTrue(diagnostic.column() >= 1),
-                    () -> assertFalse(diagnostic.message().isBlank()));
+                    () -> assertTrue(diagnostic.column() >= 1, "the refusal names no column below one"),
+                    () -> assertFalse(diagnostic.message().isBlank(), "the refusal states its reason"));
         }
     }
 
@@ -618,9 +618,10 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("empty.pmwf", "");
 
             assertAll(
-                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule()),
-                    () -> assertEquals(1, diagnostic.line()),
-                    () -> assertEquals(1, diagnostic.column()));
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(),
+                            "an empty source is refused as a frontmatter"),
+                    () -> assertEquals(1, diagnostic.line(), "the empty source is refused at line one"),
+                    () -> assertEquals(1, diagnostic.column(), "the empty source is refused at column one"));
         }
 
         @Test
@@ -630,10 +631,12 @@ class WorkflowParserRefusalTest {
                     "state demo.end terminal done success"));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule()),
-                    () -> assertEquals("bare.pmwf", diagnostic.resourceName()),
-                    () -> assertEquals(1, diagnostic.line()),
-                    () -> assertEquals(1, diagnostic.column()));
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(),
+                            "a unit without frontmatter is refused"),
+                    () -> assertEquals("bare.pmwf", diagnostic.resourceName(),
+                            "the refusal names the unit without frontmatter"),
+                    () -> assertEquals(1, diagnostic.line(), "the body is never read, at line one"),
+                    () -> assertEquals(1, diagnostic.column(), "the body is never read, at column one"));
         }
 
         @Test
@@ -642,9 +645,12 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("empty.pmwf", unit());
 
             assertAll(
-                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule()),
-                    () -> assertEquals(FRONTMATTER_LINES + 1, diagnostic.line()),
-                    () -> assertEquals(1, diagnostic.column()));
+                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule(),
+                            "an empty body is refused as a structure"),
+                    () -> assertEquals(FRONTMATTER_LINES + 1, diagnostic.line(),
+                            "the refusal points at the first body line"),
+                    () -> assertEquals(1, diagnostic.column(),
+                            "the first body line is refused at column one"));
         }
 
         @Test
@@ -653,8 +659,9 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("short.pmwf", unit(HEADER));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.MISSING_SCOPE, diagnostic.rule()),
-                    () -> assertEquals(33, diagnostic.column()));
+                    () -> assertEquals(RefusalRule.MISSING_SCOPE, diagnostic.rule(),
+                            "a unit that ends after its header names no scope"),
+                    () -> assertEquals(33, diagnostic.column(), "the refusal points just past the header"));
         }
 
         @Test
@@ -662,7 +669,7 @@ class WorkflowParserRefusalTest {
         void endOfLine() {
             var diagnostic = refuse("short.pmwf", unitWithBody("plan", "auto demo.run", "done ->"));
 
-            assertEquals(8, diagnostic.column());
+            assertEquals(8, diagnostic.column(), "the refusal points just past the arrow");
         }
 
         @Test
@@ -671,7 +678,7 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("dup.pmwf", withLinkParams("a: int, a: text"));
 
             assertAll(
-                    () -> assertEquals(23, diagnostic.column()),
+                    () -> assertEquals(23, diagnostic.column(), "the duplicate parameter is refused at its name"),
                     () -> assertTrue(diagnostic.message().contains("'a'"), diagnostic::message));
         }
 
@@ -704,7 +711,7 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("scope.pmwf", unit(HEADER, "scope team"));
 
             assertEquals("expected a scope (plan, epic, workspace, machine, entity or subworkflow) but found 'team'",
-                    diagnostic.message());
+                    diagnostic.message(), "the refusal lists the scope keywords");
         }
 
         @Test
@@ -715,10 +722,12 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("dup.pmwf", withInstance(instanceLine));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.INSTANCE_HEADER, diagnostic.rule()),
+                    () -> assertEquals(RefusalRule.INSTANCE_HEADER, diagnostic.rule(),
+                            "a repeated member is refused in the instance header"),
                     () -> assertEquals(instanceLine.lastIndexOf("\"event\"") + 1, diagnostic.column(),
                             diagnostic::message),
-                    () -> assertEquals("member 'event' of the instance header twice", diagnostic.message()));
+                    () -> assertEquals("member 'event' of the instance header twice", diagnostic.message(),
+                            "the refusal names the member it repeats"));
         }
 
         @Test
@@ -740,7 +749,8 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("syntax.pmwf", withInstance(instanceLine));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.INSTANCE_HEADER, diagnostic.rule()),
+                    () -> assertEquals(RefusalRule.INSTANCE_HEADER, diagnostic.rule(),
+                            "a late syntax error is refused in the header"),
                     () -> assertTrue(diagnostic.column() > instanceLine.indexOf("\"extra\""), diagnostic::message),
                     () -> assertTrue(diagnostic.column() > jsonColumn, diagnostic::message),
                     () -> assertTrue(diagnostic.column() <= instanceLine.length() + 1, diagnostic::message));
@@ -753,8 +763,10 @@ class WorkflowParserRefusalTest {
                     withHeaderMembers("\"plan_id\": \"p\", \"version\": 1, \"event\": \"plan\""));
 
             assertAll(
-                    () -> assertEquals("member 'inputs' of the instance header is missing", diagnostic.message()),
-                    () -> assertEquals("instance ".length() + 1, diagnostic.column()));
+                    () -> assertEquals("member 'inputs' of the instance header is missing", diagnostic.message(),
+                            "the refusal names the missing inputs member"),
+                    () -> assertEquals("instance ".length() + 1, diagnostic.column(),
+                            "the refusal points at the start of the JSON"));
         }
 
         @Test
@@ -763,9 +775,9 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("reserved.pmwf", unitWithBody("plan", "auto demo.run", "as -> demo.begin"));
 
             assertAll(
-                    () -> assertEquals(1, diagnostic.column()),
+                    () -> assertEquals(1, diagnostic.column(), "the reserved keyword is refused at its position"),
                     () -> assertEquals("'as' is a reserved keyword and cannot be an outcome name",
-                            diagnostic.message()));
+                            diagnostic.message(), "the refusal names the reserved keyword"));
         }
     }
 
@@ -776,16 +788,18 @@ class WorkflowParserRefusalTest {
         @Test
         @DisplayName("refuses JSON that is no object")
         void notAnObject() {
-            var refusal = assertThrows(IllegalArgumentException.class, () -> InstanceHeaderReader.read("[1]"));
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> InstanceHeaderReader.read("[1]"), "a JSON array is refused as no object");
 
-            assertEquals("the instance header is not a JSON object", refusal.getMessage());
+            assertEquals("the instance header is not a JSON object", refusal.getMessage(),
+                    "the refusal names the missing JSON object");
         }
 
         @Test
         @DisplayName("names the column where the line stops being JSON")
         void malformedColumn() {
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> InstanceHeaderReader.read("{\"plan_id\": }"));
+                    () -> InstanceHeaderReader.read("{\"plan_id\": }"), "malformed JSON is refused");
 
             assertAll(
                     () -> assertTrue(refusal.getMessage().startsWith("the instance header is not valid JSON: "),
@@ -806,16 +820,17 @@ class WorkflowParserRefusalTest {
             var inputs = header.inputs();
 
             assertAll(
-                    () -> assertEquals("p", header.planId()),
-                    () -> assertEquals(1, header.version()),
-                    () -> assertEquals("plan", header.event()),
-                    () -> assertEquals("c", inputs.configHash()),
+                    () -> assertEquals("p", header.planId(), "the plan id of the header is read"),
+                    () -> assertEquals(1, header.version(), "the header version is read"),
+                    () -> assertEquals("plan", header.event(), "the header event is read"),
+                    () -> assertEquals("c", inputs.configHash(), "the config hash of the inputs is read"),
                     () -> assertEquals(
                             List.of(new InstanceInputs.UnitRef("plan", null, "t", "project")),
-                            inputs.templates()),
-                    () -> assertEquals(List.of(), inputs.subUnits()),
-                    () -> assertEquals(new InstanceInputs.CompositionRules("r", "d"), inputs.compositionRules()),
-                    () -> assertEquals("f", inputs.planFactsDigest()),
+                            inputs.templates(), "the template reference is read"),
+                    () -> assertEquals(List.of(), inputs.subUnits(), "a header without sub-units reads none"),
+                    () -> assertEquals(new InstanceInputs.CompositionRules("r", "d"), inputs.compositionRules(),
+                            "the composition rules are read"),
+                    () -> assertEquals("f", inputs.planFactsDigest(), "the plan facts digest is read"),
                     () -> assertEquals("g", inputs.realizedFootprintDigest(), "a named footprint digest is read"),
                     () -> assertNull(inputs.changeType(), "an absent change type is read as null"),
                     () -> assertNull(inputs.providersDigest(), "an absent providers digest is read as null"),
@@ -829,7 +844,7 @@ class WorkflowParserRefusalTest {
             var json = "{" + INSTANCE_MEMBERS.replace(TEMPLATES, TEMPLATES + ", \"" + member + "\": 1") + "}";
 
             var refusal = assertThrows(InstanceHeaderReader.HeaderRefusal.class,
-                    () -> InstanceHeaderReader.read(json));
+                    () -> InstanceHeaderReader.read(json), "a mistyped optional member is refused");
 
             assertAll(
                     () -> assertEquals("member '" + path + "' of the instance header must be a string or null",
@@ -851,10 +866,11 @@ class WorkflowParserRefusalTest {
             var json = "{" + INSTANCE_MEMBERS.replace(TEMPLATES,
                     "\"templates\": [{\"unit\": \"plan\", \"digest\": 7, \"origin\": \"project\"}]") + "}";
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> InstanceHeaderReader.read(json));
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> InstanceHeaderReader.read(json), "a mistyped nested member is refused");
 
             assertEquals("member 'inputs.templates[0].digest' of the instance header must be a string",
-                    refusal.getMessage());
+                    refusal.getMessage(), "the refusal names the nested member path");
         }
 
         @Test
@@ -865,12 +881,13 @@ class WorkflowParserRefusalTest {
                     + "}";
 
             var refusal = assertThrows(InstanceHeaderReader.HeaderRefusal.class,
-                    () -> InstanceHeaderReader.read(json));
+                    () -> InstanceHeaderReader.read(json), "a nested duplicate member is refused");
 
             assertAll(
                     () -> assertEquals("member 'inputs.templates[0].extra[0].deep.a' of the instance header twice",
-                            refusal.getMessage()),
-                    () -> assertEquals(json.lastIndexOf("\"a\"") + 1, refusal.column().orElseThrow()));
+                            refusal.getMessage(), "the refusal names the nested duplicate member"),
+                    () -> assertEquals(json.lastIndexOf("\"a\"") + 1, refusal.column().orElseThrow(),
+                            "the refusal points at the repeated member"));
         }
     }
 }

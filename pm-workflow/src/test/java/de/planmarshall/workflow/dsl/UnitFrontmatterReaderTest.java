@@ -606,19 +606,27 @@ class UnitFrontmatterReaderTest {
             var attempts = frontmatter.inputs().get(1);
 
             assertAll(
-                    () -> assertEquals(List.of("project.review.currency"), frontmatter.readsConfig()),
-                    () -> assertEquals(List.of("push_remote"), frontmatter.readsFact()),
-                    () -> assertEquals(2, frontmatter.inputs().size()),
-                    () -> assertEquals("push_mode", pushMode.name()),
-                    () -> assertEquals(new InputType.Enumeration(List.of("push", "no_push")), pushMode.type()),
-                    () -> assertFalse(pushMode.optional()),
-                    () -> assertNull(pushMode.defaultValue()),
-                    () -> assertEquals("Whether the branch is pushed.", pushMode.description()),
-                    () -> assertEquals(new SourceLocation(RESOURCE, 10, 8), pushMode.location()),
-                    () -> assertEquals(new SourceLocation(RESOURCE, 13, 8), attempts.location()),
-                    () -> assertEquals(new InputType.IntRange(1, 5), attempts.type()),
-                    () -> assertEquals(new CallValue.IntValue(2), attempts.defaultValue()),
-                    () -> assertFalse(attempts.required()));
+                    () -> assertEquals(List.of("project.review.currency"), frontmatter.readsConfig(),
+                            "the reads_config value is read"),
+                    () -> assertEquals(List.of("push_remote"), frontmatter.readsFact(),
+                            "the reads_fact value is read"),
+                    () -> assertEquals(2, frontmatter.inputs().size(), "both inputs are read"),
+                    () -> assertEquals("push_mode", pushMode.name(), "the input name is read"),
+                    () -> assertEquals(new InputType.Enumeration(List.of("push", "no_push")), pushMode.type(),
+                            "the enum input type is read"),
+                    () -> assertFalse(pushMode.optional(), "the input is not optional"),
+                    () -> assertNull(pushMode.defaultValue(), "an input without default reads null"),
+                    () -> assertEquals("Whether the branch is pushed.", pushMode.description(),
+                            "the input description is read"),
+                    () -> assertEquals(new SourceLocation(RESOURCE, 10, 8), pushMode.location(),
+                            "the input carries its line and column"),
+                    () -> assertEquals(new SourceLocation(RESOURCE, 13, 8), attempts.location(),
+                            "the second input carries its location"),
+                    () -> assertEquals(new InputType.IntRange(1, 5), attempts.type(),
+                            "the int range of the input is read"),
+                    () -> assertEquals(new CallValue.IntValue(2), attempts.defaultValue(),
+                            "the integer default is read"),
+                    () -> assertFalse(attempts.required(), "an input with a default is not required"));
         }
 
         @Test
@@ -648,17 +656,22 @@ class UnitFrontmatterReaderTest {
 
             assertAll(
                     () -> assertEquals(List.of("project.review.currency", "local-config.mode"),
-                            result.frontmatter().readsConfig()),
+                            result.frontmatter().readsConfig(), "both reads_config values are read"),
                     () -> assertEquals(new InputType.Enumeration(List.of("strict", "Lenient")),
-                            inputs.get(0).type()),
-                    () -> assertEquals(new InputType.IntRange(null, null), inputs.get(1).type()),
-                    () -> assertEquals(new InputType.IntRange(0, 9), inputs.get(2).type()),
-                    () -> assertEquals(new InputType.EnumList(List.of("origin", "Mirror")), inputs.get(3).type()),
-                    () -> assertTrue(inputs.get(4).optional()),
-                    () -> assertFalse(inputs.get(4).required()),
-                    () -> assertEquals("project.review.retries", inputs.get(5).fallback()),
-                    () -> assertEquals(new CallValue.EnumList(List.of()), inputs.get(6).defaultValue()),
-                    () -> assertEquals(7, inputs.size()));
+                            inputs.get(0).type(), "the enum values keep their case"),
+                    () -> assertEquals(new InputType.IntRange(null, null), inputs.get(1).type(),
+                            "an unbounded int range reads null bounds"),
+                    () -> assertEquals(new InputType.IntRange(0, 9), inputs.get(2).type(),
+                            "an int range reads both of its bounds"),
+                    () -> assertEquals(new InputType.EnumList(List.of("origin", "Mirror")), inputs.get(3).type(),
+                            "the list of enums is read"),
+                    () -> assertTrue(inputs.get(4).optional(), "the optional form marks the input optional"),
+                    () -> assertFalse(inputs.get(4).required(), "the optional input is not required"),
+                    () -> assertEquals("project.review.retries", inputs.get(5).fallback(),
+                            "the fallback key is read"),
+                    () -> assertEquals(new CallValue.EnumList(List.of()), inputs.get(6).defaultValue(),
+                            "the empty list default is read"),
+                    () -> assertEquals(7, inputs.size(), "all seven inputs are read"));
         }
 
         @Test
@@ -827,7 +840,8 @@ class UnitFrontmatterReaderTest {
             var tooLong = refuse(unit(inserted("input: a", "input_type: int", "input_description: " + longest + "d")));
 
             assertAll(
-                    () -> assertEquals(longest, accepted.frontmatter().inputs().getFirst().description()),
+                    () -> assertEquals(longest, accepted.frontmatter().inputs().getFirst().description(),
+                            "the longest description is accepted"),
                     () -> assertRefused(tooLong, 12, 20));
         }
     }

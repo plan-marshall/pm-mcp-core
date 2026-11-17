@@ -228,12 +228,18 @@ class AstNodeModelTest {
             var copiedInputs = frontmatter.inputs();
 
             assertAll(
-                    () -> assertEquals(List.of("project.review.currency", "local-config.mode"), copiedReads),
-                    () -> assertEquals(List.of("push_remote"), copiedFacts),
-                    () -> assertEquals(List.of(pushMode), copiedInputs),
-                    () -> assertThrows(UnsupportedOperationException.class, copiedReads::clear),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> copiedFacts.add("other")),
-                    () -> assertThrows(UnsupportedOperationException.class, copiedInputs::clear));
+                    () -> assertEquals(List.of("project.review.currency", "local-config.mode"), copiedReads,
+                            "the frontmatter copies the reads_config values"),
+                    () -> assertEquals(List.of("push_remote"), copiedFacts,
+                            "the frontmatter copies the reads_fact value"),
+                    () -> assertEquals(List.of(pushMode), copiedInputs,
+                            "the frontmatter copies the declared inputs"),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedReads::clear,
+                            "the copied reads refuse a change"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> copiedFacts.add("other"),
+                            "the copied facts refuse a change"),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedInputs::clear,
+                            "the copied inputs refuse a change"));
         }
 
         @Test
