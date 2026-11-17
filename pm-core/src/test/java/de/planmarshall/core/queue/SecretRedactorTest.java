@@ -705,7 +705,7 @@ class SecretRedactorTest {
         var log = "--password \"" + "a".repeat(1_000_000) + "\"";
 
         var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(log),
-                "a million-character quoted value must redact within the bound");
+                "a million-character value must redact within the bound");
 
         assertEquals("--password \"" + SecretRedactor.REDACTED + "\"", redacted,
                 "the whole quoted value is masked");
