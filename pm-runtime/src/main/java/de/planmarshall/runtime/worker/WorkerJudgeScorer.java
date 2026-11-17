@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -73,10 +74,11 @@ public final class WorkerJudgeScorer implements JudgeScorer {
                 .zeroToolPrompt(prompt(prompt))
                 .build();
         var outcomes = supervisor.start(List.of(request));
-        if (outcomes.isEmpty() || !(outcomes.getFirst() instanceof StartOutcome.Started started)) {
+        if (outcomes.isEmpty()
+                || !(outcomes.getFirst() instanceof StartOutcome.Started(WorkerGeneration generation))) {
             return Optional.empty();
         }
-        return offers.offer(new ItemTaskOffers.Task(JUDGE_ROLE, started.generation().generationId(),
+        return offers.offer(new ItemTaskOffers.Task(JUDGE_ROLE, generation.generationId(),
                 judgeItem(prompt), role.form(), Checkout.CURRENT, null))
                 .flatMap(submitted -> grade(submitted.answer())
                         .map(score -> new JudgeScore(score, submitted.totalTokens(), submitted.durationMs())));
@@ -134,13 +136,13 @@ public final class WorkerJudgeScorer implements JudgeScorer {
     private static Optional<BigDecimal> grade(String answer) {
         try {
             var reference = JsonValue.parse(answer.getBytes(StandardCharsets.UTF_8));
-            if (reference instanceof JsonValue.JsonObject object
-                    && object.members().get("score") instanceof JsonValue.JsonNumber number
-                    && number.value().signum() >= 0 && number.value().compareTo(BigDecimal.ONE) <= 0) {
-                return Optional.of(number.value());
+            if (reference instanceof JsonValue.JsonObject(Map<String, JsonValue> members)
+                    && members.get("score") instanceof JsonValue.JsonNumber(BigDecimal value, boolean _)
+                    && value.signum() >= 0 && value.compareTo(BigDecimal.ONE) <= 0) {
+                return Optional.of(value);
             }
             // An answer that is not the judge-score object is no score: the item stays ungraded, as a lost judge task.
-        } catch (IllegalArgumentException malformed) {
+        } catch (IllegalArgumentException _) {
             // MalformedJson is an IllegalArgumentException: a model's prose is a failed judgment, never a failed run.
         }
         return Optional.empty();

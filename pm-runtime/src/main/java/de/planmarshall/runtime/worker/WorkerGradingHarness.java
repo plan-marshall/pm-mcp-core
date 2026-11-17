@@ -258,7 +258,8 @@ public final class WorkerGradingHarness implements GradingHarness {
         if (outcomes.isEmpty()) {
             return null;
         }
-        return outcomes.getFirst() instanceof StartOutcome.Started started ? started.generation().generationId() : null;
+        return outcomes.getFirst() instanceof StartOutcome.Started(WorkerGeneration generation)
+                ? generation.generationId() : null;
     }
 
     private static ContractEnvelope envelope(ImportedItem item) {
