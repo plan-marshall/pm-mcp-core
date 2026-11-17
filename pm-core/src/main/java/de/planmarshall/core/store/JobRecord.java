@@ -636,10 +636,11 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
     private static void requireKindRules(JobId.Kind kind, Execution execution, Scope scope, @Nullable String worker,
             @Nullable SelfReportContradiction contradiction, @Nullable String gateFacts, @Nullable Egress egress,
             @Nullable GitMetadata gitMetadata) {
+        Objects.requireNonNull(kind, "kind");
         if (kind == JobId.Kind.LLM) {
             requireWorker(execution, scope, worker, egress, gitMetadata);
         } else {
-            requireNoWorkerMembers(kind, worker, egress, gitMetadata);
+            requireNoWorkerMembers(kind.wireName(), worker, egress, gitMetadata);
         }
         if (kind == JobId.Kind.PROBE) {
             requireProbe(execution, scope);
@@ -667,18 +668,16 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         }
     }
 
-    private static void requireNoWorkerMembers(JobId.Kind kind, @Nullable String worker, @Nullable Egress egress,
+    private static void requireNoWorkerMembers(String kindName, @Nullable String worker, @Nullable Egress egress,
             @Nullable GitMetadata gitMetadata) {
         if (worker != null) {
-            throw new IllegalArgumentException("Only a worker carries a worker block, not a job of kind "
-                    + kind.wireName());
+            throw new IllegalArgumentException("Only a worker carries a worker block, not a job of kind " + kindName);
         }
         if (egress != null) {
-            throw new IllegalArgumentException("Only a worker records egress, not a job of kind " + kind.wireName());
+            throw new IllegalArgumentException("Only a worker records egress, not a job of kind " + kindName);
         }
         if (gitMetadata != null) {
-            throw new IllegalArgumentException("Only a worker records git_metadata, not a job of kind "
-                    + kind.wireName());
+            throw new IllegalArgumentException("Only a worker records git_metadata, not a job of kind " + kindName);
         }
     }
 
