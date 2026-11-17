@@ -70,8 +70,8 @@ import org.jspecify.annotations.Nullable;
  * The version is kept only if it passes every check, and is otherwise refused as a {@link CompositionResult.Refused}
  * value, the version in force staying:
  * <ol>
- * <li>the position rule: the version contains the current state and the calling state of every call-stack frame,
- * else {@code position_not_contained};</li>
+ * <li>the position rule: the version contains, per unit, the state the plan is in and the calling state of every
+ * call-stack frame, else {@code position_not_contained};</li>
  * <li>the header schema ({@link HeaderSchemaCheck}), the static verification Rules 1-12 ({@link WorkflowValidator},
  * over a catalog of the compiled units and the request's sub-units, without a released baseline; an outcome whose
  * transitions all led into a state pruned with a prune record is settled by the record, so Rule 2 counts it as
@@ -185,12 +185,14 @@ public final class PlanInstanceComposer {
                     composed.unresolved().stream()
                             .map("the call of '%s' names no sub-unit of the request"::formatted).toList());
         }
-        var positionStates = new LinkedHashSet<>(pruned.states().keySet());
-        positionStates.addAll(composed.positionStates());
+        var positionStates = new LinkedHashMap<String, Set<String>>();
+        positionStates.put(PLAN_UNIT, pruned.states().keySet());
+        positionStates.putAll(composed.positionStates());
         var missing = request.position().missingFrom(positionStates);
         if (!missing.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED, missing.stream()
-                    .map(state -> "position: version %d does not contain the state '%s'".formatted(version, state))
+                    .map(position -> "position: version %d does not contain the state '%s' of the unit '%s'"
+                            .formatted(version, position.state(), position.unit()))
                     .toList());
         }
         var header = PlanInstanceHeader.builder()
@@ -238,7 +240,7 @@ public final class PlanInstanceComposer {
      * states are positions.
      *
      * @return the composed units in the order of the request's sub-units, and every state of them and of the reached
-     *         digest-bound units
+     *         digest-bound units by the unit that declares it
      */
     private static Composed composedUnits(CompositionRequest request, Map<String, StateNode> keptStates,
             RuleEffects effects, List<PlanFacts.BoundVariant> boundVariants, PlanInstanceHeader.@Nullable Lane lane,
@@ -246,7 +248,7 @@ public final class PlanInstanceComposer {
         var byId = new LinkedHashMap<String, CompositionRequest.SubUnit>();
         request.subUnits().forEach(subUnit -> byId.put(subUnit.definition().id(), subUnit));
         var units = new LinkedHashMap<String, ComposedUnit>();
-        var states = new LinkedHashSet<String>();
+        var positionStates = new LinkedHashMap<String, Set<String>>();
         var bound = new LinkedHashSet<String>();
         var visited = new HashSet<String>();
         var unresolved = new LinkedHashSet<String>();
@@ -263,12 +265,12 @@ public final class PlanInstanceComposer {
                     var unit = composeUnit(subUnit.definition(), request, effects, boundVariants, lane, version);
                     units.put(id, unit.file());
                     prunes.addAll(unit.pruned());
-                    states.addAll(unit.file().definition().states().keySet());
+                    positionStates.put(id, unit.file().definition().states().keySet());
                     unit.file().definition().states().values()
                             .forEach(state -> callee(state).ifPresent(queue::add));
                 } else {
                     bound.add(id);
-                    states.addAll(subUnit.definition().states().keySet());
+                    positionStates.put(id, subUnit.definition().states().keySet());
                     subUnit.definition().states().values()
                             .forEach(state -> callee(state).ifPresent(queue::add));
                 }
@@ -278,7 +280,7 @@ public final class PlanInstanceComposer {
                 .filter(units::containsKey).distinct().map(units::get).toList();
         return Composed.builder()
                 .units(ordered)
-                .positionStates(states)
+                .positionStates(positionStates)
                 .subUnits(bound)
                 .pruned(prunes)
                 .unresolved(unresolved)
@@ -312,14 +314,15 @@ public final class PlanInstanceComposer {
      * The composed files of a version, the states its position rule reads and the digest-bound units its kept calls
      * reach.
      *
-     * @param units         the composed files, in the order of the request's sub-units
-     * @param positionStates every state of the composed files and of the reached digest-bound units
-     * @param subUnits      the ids of the digest-bound units the kept calls reach
-     * @param pruned        every element a composed unit's composition left out
-     * @param unresolved    the ids a kept call names that the request supplies no sub-unit for
+     * @param units          the composed files, in the order of the request's sub-units
+     * @param positionStates every state of the composed files and of the reached digest-bound units, by the unit that
+     *                       declares it
+     * @param subUnits       the ids of the digest-bound units the kept calls reach
+     * @param pruned         every element a composed unit's composition left out
+     * @param unresolved     the ids a kept call names that the request supplies no sub-unit for
      */
     @Builder
-    private record Composed(List<ComposedUnit> units, Set<String> positionStates, Set<String> subUnits,
+    private record Composed(List<ComposedUnit> units, Map<String, Set<String>> positionStates, Set<String> subUnits,
     List<PrunedElement> pruned, Set<String> unresolved) {
     }
 

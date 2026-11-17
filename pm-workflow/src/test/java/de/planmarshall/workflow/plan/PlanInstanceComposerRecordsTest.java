@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -34,7 +35,8 @@ class PlanInstanceComposerRecordsTest {
     void composedBuilderEqualsConstructor() throws Exception {
         var composedClass = Class.forName("de.planmarshall.workflow.plan.PlanInstanceComposer$Composed");
         var units = List.of();
-        var positionStates = Set.of(Generators.letterStrings(1, 8).next());
+        var positionStates = Map.of(Generators.letterStrings(1, 8).next(), Set.of(Generators.letterStrings(1, 8)
+                .next()));
         var subUnits = Set.of(Generators.letterStrings(1, 8).next());
         var pruned = List.of(PrunedElement.builder()
                 .element(Generators.enumValues(PrunedElement.Kind.class).next())
@@ -43,7 +45,7 @@ class PlanInstanceComposerRecordsTest {
                 .sourceFact(Generators.letterStrings(1, 8).next())
                 .build());
         var unresolved = Set.of(Generators.letterStrings(1, 8).next());
-        var constructor = composedClass.getDeclaredConstructor(List.class, Set.class, Set.class, List.class,
+        var constructor = composedClass.getDeclaredConstructor(List.class, Map.class, Set.class, List.class,
                 Set.class);
         constructor.setAccessible(true);
         var constructed = constructor.newInstance(units, positionStates, subUnits, pruned, unresolved);

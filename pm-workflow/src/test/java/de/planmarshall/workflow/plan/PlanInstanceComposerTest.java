@@ -774,7 +774,7 @@ class PlanInstanceComposerTest {
     @DisplayName("Lane routes")
     class LaneRoutes {
 
-        private static final InstancePosition AT_INIT = InstancePosition.at("init.begin");
+        private static final InstancePosition AT_INIT = InstancePosition.of("phase-1-init", "init.begin");
 
         private static PlanFacts factsOf(Lane lane) {
             return facts().lane(lane).build();
@@ -793,7 +793,8 @@ class PlanInstanceComposerTest {
         private static CompositionResult atOutline(Lane lane, String position,
                 List<InvariantFixtures.Mutation> mutations) {
             return PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.OUTLINE,
-                    factsOf(lane), mergedVersion1(lane), InstancePosition.at(position), mutations));
+                    factsOf(lane), mergedVersion1(lane), InstancePosition.of("phase-3-outline", position),
+                    mutations));
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -935,7 +936,7 @@ class PlanInstanceComposerTest {
     @DisplayName("Composed set")
     class ComposedSet {
 
-        private static final InstancePosition AT_INIT = InstancePosition.at("init.begin");
+        private static final InstancePosition AT_INIT = InstancePosition.of("phase-1-init", "init.begin");
 
         private static PlanInstance merged() {
             return composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
@@ -1184,21 +1185,58 @@ class PlanInstanceComposerTest {
                     CompositionEvent.START, facts().build(), null, AT_INIT, List.of())));
             var refused = refused(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
                     CompositionEvent.START, facts().build(), null,
-                    InstancePosition.at("replan.assess"), List.of())));
+                    InstancePosition.of("replan", "replan.assess"), List.of())));
 
             assertAll(
                     () -> assertTrue(instance.composed("phase-5-execute").isPresent(), instance.units()::toString),
                     () -> assertTrue(instance.header().inputs().subUnits().stream()
                                     .noneMatch(reference -> "replan".equals(reference.unit())),
                             instance.header().inputs().subUnits()::toString),
-                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
-                    () -> assertEquals(List.of("position: version 1 does not contain the state 'replan.assess'"),
-                            refused.violations()),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
+                            "the state of the pruned call is no position"),
+                    () -> assertEquals(List.of("position: version 1 does not contain the state 'replan.assess' of "
+                                    + "the unit 'replan'"),
+                            refused.violations(), "the refusal names the state and its unit"),
                     () -> assertTrue(instance.header().pruned().stream().anyMatch(pruned ->
                                     pruned.element() == PrunedElement.Kind.CALL
                                             && "execute.replan/replan".equals(pruned.id())
                                             && pruned.reason() == PruneReason.OTHER_LANE),
                             instance.header().pruned()::toString));
+        }
+
+        @Test
+        @DisplayName("the position rule reads each state in its own unit: a state only a composed unit declares is "
+                + "contained there and refused for the plan unit, and a call-stack frame is checked against its own unit")
+        void positionIsPerUnit() {
+            var inTheComposedUnit = composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null,
+                    InstancePosition.of("phase-6-finalize", "finalize.push-barrier"), List.of())));
+            var inThePlanUnit = refused(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null,
+                    InstancePosition.of("plan", "finalize.push-barrier"), List.of())));
+            var frameOfThePlanUnit = refused(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null,
+                    InstancePosition.of("phase-6-finalize", "finalize.push-barrier",
+                            List.of(new InstancePosition.UnitState("plan", "finalize.push-barrier"))), List.of())));
+
+            assertAll(
+                    () -> assertTrue(inTheComposedUnit.composed("phase-6-finalize").isPresent(),
+                            inTheComposedUnit.units()::toString),
+                    () -> assertTrue(inTheComposedUnit.composed("phase-6-finalize").orElseThrow().definition()
+                                    .states().containsKey("finalize.push-barrier"),
+                            "the composed unit declares the state"),
+                    () -> assertFalse(inTheComposedUnit.unit().states().containsKey("finalize.push-barrier"),
+                            "the plan unit declares no such state"),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, inThePlanUnit.refusal(),
+                            "a state of another unit is no position of the plan unit"),
+                    () -> assertEquals(List.of("position: version 1 does not contain the state "
+                                    + "'finalize.push-barrier' of the unit 'plan'"), inThePlanUnit.violations(),
+                            "the refusal names the state and the unit the position names"),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, frameOfThePlanUnit.refusal(),
+                            "a call-stack frame is judged in its own unit"),
+                    () -> assertEquals(List.of("position: version 1 does not contain the state "
+                                    + "'finalize.push-barrier' of the unit 'plan'"), frameOfThePlanUnit.violations(),
+                            "the refusal names the frame's own unit"));
         }
 
         @Test
@@ -1208,13 +1246,14 @@ class PlanInstanceComposerTest {
             var refused = refused(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
                     CompositionEvent.OUTLINE, facts().lane(Lane.DEEP).build(),
                     perLane(CompositionEvent.START, Lane.DEEP, "init.ready"),
-                    InstancePosition.at("phase-plan-light.begin"))));
+                    InstancePosition.of("phase-plan-light", "phase-plan-light.begin"))));
 
             assertAll(
                     () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
                             "a pruned call state is no position"),
                     () -> assertTrue(refused.violations().contains(
-                                    "position: version 2 does not contain the state 'phase-plan-light.begin'"),
+                                    "position: version 2 does not contain the state 'phase-plan-light.begin' of the "
+                                            + "unit 'phase-plan-light'"),
                             refused.violations()::toString));
         }
     }
@@ -1223,7 +1262,7 @@ class PlanInstanceComposerTest {
     @DisplayName("Refusals")
     class Refusals {
 
-        private static final InstancePosition AT_INIT = InstancePosition.at("init.begin");
+        private static final InstancePosition AT_INIT = InstancePosition.of("phase-1-init", "init.begin");
 
         /** The facts under which the shipped rule {@code merge-by-operator} prunes the merge execution. */
         private static PlanFacts mergePruned() {
@@ -1267,7 +1306,8 @@ class PlanInstanceComposerTest {
         void callStackStateMissing() {
             var refused = refused(composer().compose(request(CompositionEvent.WAIVER,
                     mergePruned(), version1(), List.of(),
-                    new InstancePosition("finalize.push-barrier", List.of("finalize.merge-dispatch")))));
+                    InstancePosition.of("plan", "finalize.push-barrier",
+                            List.of(new InstancePosition.UnitState("plan", "finalize.merge-dispatch"))))));
 
             assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
                     "a missing call stack state is refused");
