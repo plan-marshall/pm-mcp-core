@@ -348,7 +348,7 @@ class WorkflowPrinterTest {
                     () -> assertTrue(printed.contains("job llm change role implementer ask fresh"),
                             "the ask form is printed in the job line"),
                     () -> assertTrue(printed.contains("job llm change role implementer ask\n"),
-                            "the ask fresh form is printed on its line"));
+                            "the plain ask form is printed on its line"));
         }
 
         @Test

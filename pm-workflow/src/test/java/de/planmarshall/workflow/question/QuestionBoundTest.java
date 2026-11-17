@@ -141,7 +141,7 @@ class QuestionBoundTest {
                 () -> assertEquals(QuestionBound.MAX_ASKS, bound.remaining(planTask(taskId())),
                         "an untouched plan task keeps its three asks"),
                 () -> assertEquals(QuestionBound.MAX_ASKS - 1, bound.remaining(entry),
-                        "the entry has one ask left"));
+                        "the entry has two asks left"));
     }
 
     @Test

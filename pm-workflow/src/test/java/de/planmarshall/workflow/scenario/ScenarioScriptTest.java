@@ -557,7 +557,7 @@ class ScenarioScriptTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new AssertState(0, "completed"),
-                            "an unknown state is refused by the directive"),
+                            "a non-positive source line is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new AssertOutcome(1, "two words"),
                             "a two-word outcome is refused by the directive"),
                     () -> assertThrows(IllegalArgumentException.class,
