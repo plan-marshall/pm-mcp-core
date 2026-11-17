@@ -83,7 +83,7 @@ class OpenRewriteLogParserTest {
 
         assertAll("an invisible-only finding path",
                 () -> assertEquals(RewriteVerdict.PARSE_ERROR, result.verdict(), "the line is a parse error"),
-                () -> assertTrue(result.findings().isEmpty(), "no finding is filed"));
+                () -> assertTrue(result.findings().isEmpty(), "no finding is filed for the line"));
     }
 
     @Test
