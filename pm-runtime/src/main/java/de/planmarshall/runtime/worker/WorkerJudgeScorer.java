@@ -137,7 +137,7 @@ public final class WorkerJudgeScorer implements JudgeScorer {
         try {
             var reference = JsonValue.parse(answer.getBytes(StandardCharsets.UTF_8));
             if (reference instanceof JsonValue.JsonObject(Map<String, JsonValue> members)
-                    && members.get("score") instanceof JsonValue.JsonNumber(BigDecimal value, boolean _)
+                    && members.get("score") instanceof JsonValue.JsonNumber(BigDecimal value, _)
                     && value.signum() >= 0 && value.compareTo(BigDecimal.ONE) <= 0) {
                 return Optional.of(value);
             }
