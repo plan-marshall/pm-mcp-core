@@ -21,6 +21,8 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.queue.SecretRedactor;
+
 /**
  * The invariants of {@link Diagnostic}: the null contract of the location, the non-blank message and the copy that carries
  * a collected stack trace.
@@ -108,8 +110,7 @@ class DiagnosticTest {
 
     @Test
     @DisplayName("derives the wire names of the originals and its located state")
-    void derivesNames() {
-        var located = new Diagnostic("A.java", 1, 1, "text", Category.COMPILATION_ERROR, Severity.ERROR, null);
+    void derivesNames() {        var located = new Diagnostic("A.java", 1, 1, "text", Category.COMPILATION_ERROR, Severity.ERROR, null);
         var unlocated = new Diagnostic(null, null, null, "text", Category.UNRECOGNIZED, Severity.WARNING, null);
 
         assertAll(
@@ -117,5 +118,29 @@ class DiagnosticTest {
                 () -> assertEquals("error", located.severityName(), "The severity name is lower case"),
                 () -> assertTrue(located.isLocated(), "A file makes the diagnostic located"),
                 () -> assertFalse(unlocated.isLocated(), "No file leaves the diagnostic unlocated"));
+    }
+
+    @Test
+    @DisplayName("a credential in the file is redacted where the record stores it")
+    void redactsCredentialInFile() {
+        var diagnostic = new Diagnostic("https://deploy:s3cret@host/Foo.java", 1, 1, "text",
+                Category.COMPILATION_ERROR, Severity.ERROR, null);
+
+        assertEquals("https://deploy:" + SecretRedactor.REDACTED + "@host/Foo.java", diagnostic.file(),
+                "a credential in the file is masked");
+    }
+
+    @Test
+    @DisplayName("a collected stack trace is cut to the stored bound after redaction")
+    void cutsStackTraceToTheStoredBound() {
+        var head = "https://user:" + "p".repeat(9_000);
+        var diagnostic = new Diagnostic("A.java", 1, 1, "text", Category.TEST_FAILURE, Severity.ERROR,
+                head + "\nat probe.CoreTest.fails(CoreTest.java:10)");
+
+        assertAll(
+                () -> assertEquals(500, diagnostic.stackTrace().length(),
+                        "the stack trace is cut to the stored bound"),
+                () -> assertFalse(diagnostic.stackTrace().contains("probe.CoreTest.fails"),
+                        "the frame beyond the bound is cut away"));
     }
 }

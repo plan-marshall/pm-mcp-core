@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.config.LimitProperties;
+import de.planmarshall.core.queue.SecretRedactor;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.job.JobEvidence.LogState;
 import de.planmarshall.runtime.job.JobLog.Complete;
@@ -150,9 +151,21 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("redacts every line the incremental read hands out")
+        void redactsTheLinesItHandsOut() throws Exception {
+            append(report + "\n" + "token=abcd1234\n");
+
+            var lines = assertInstanceOf(Lines.class, log.readLines(0), "the read answers lines");
+
+            assertAll(
+                    () -> assertFalse(lines.lines().getFirst().contains("abcd1234"), "the line carries no secret"),
+                    () -> assertTrue(lines.lines().getFirst().contains(SecretRedactor.REDACTED),
+                            "the line keeps the redaction marker"));
+        }
+
+        @Test
         @DisplayName("is missing before the launcher created it, and truncated when shorter than the offset")
-        void missingAndTruncated() throws Exception {
-            var missing = assertInstanceOf(Unavailable.class, log.readLines(0), "a missing log is unavailable");
+        void missingAndTruncated() throws Exception {            var missing = assertInstanceOf(Unavailable.class, log.readLines(0), "a missing log is unavailable");
             var written = line() + "\n";
             append(written);
 
@@ -188,9 +201,22 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("redacts the job output it hands out (the read-out passes the redactor)")
+        void redactsTheJobOutput() throws Exception {
+            append(report + "\npassword=abcd1234\n");
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "a readable log is complete");
+            var reading = whole.reading();
+
+            assertAll(
+                    () -> assertFalse(reading.jobOutput().contains("abcd1234"), "the output carries no secret"),
+                    () -> assertTrue(reading.jobOutput().contains(SecretRedactor.REDACTED),
+                            "the output keeps the redaction marker"));
+        }
+
+        @Test
         @DisplayName("missing: the log does not exist")
-        void missing() {
-            var whole = assertInstanceOf(Unavailable.class, log.readWhole(0), "a missing log is unavailable");
+        void missing() {            var whole = assertInstanceOf(Unavailable.class, log.readWhole(0), "a missing log is unavailable");
 
             assertEquals(LogState.MISSING, whole.state(), "the ended log is missing");
         }

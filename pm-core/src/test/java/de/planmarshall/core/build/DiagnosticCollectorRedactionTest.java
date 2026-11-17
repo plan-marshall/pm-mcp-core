@@ -13,9 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -154,5 +157,42 @@ class DiagnosticCollectorRedactionTest {
         var build = GradleOutputParser.parse("/p/Foo.java:7: error: cannot find symbol " + CREDENTIAL + "\n");
 
         assertMessagesRedacted(build.diagnostics());
+    }
+
+    /** A wall-clock bound a linear scan meets and the former quadratic URL pattern exceeds by minutes. */
+    private static final Duration FLOOD_BOUND = Duration.ofSeconds(30);
+
+    private static List<String> hostileFlood() {
+        var line = "x://y:".repeat(BuildLogText.MAX_LINE_LENGTH / 6 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
+        var lines = new ArrayList<String>();
+        for (var index = 0; index < 2_000; index++) {
+            lines.add(line);
+        }
+        return List.copyOf(lines);
+    }
+
+    @Test
+    @DisplayName("a hostile URL flood redacts within the bound through the stored seam")
+    void hostileUrlFloodThroughTheStoredSeam() {
+        var flood = hostileFlood();
+
+        assertTimeoutPreemptively(FLOOD_BOUND, () -> flood.forEach(DiagnosticCollector::stored),
+                "the stored seam redacts the flood within the bound");
+
+        assertEquals(2_000, flood.size(), "the flood holds 2 000 lines");
+        assertEquals(BuildLogText.MAX_LINE_LENGTH, flood.getFirst().length(), "each flood line holds 8 192 characters");
+    }
+
+    @Test
+    @DisplayName("a hostile URL flood redacts within the bound through the Diagnostic constructor")
+    void hostileUrlFloodThroughTheDiagnosticConstructor() {
+        var stack = String.join("\n", hostileFlood());
+
+        assertTimeoutPreemptively(FLOOD_BOUND,
+                () -> new Diagnostic(null, null, null, "text", Category.OTHER, Severity.ERROR, stack),
+                "the constructor redacts the flood within the bound");
+
+        assertEquals(2_000 + 2_000 * BuildLogText.MAX_LINE_LENGTH - 1, stack.length(),
+                "the flood reaches the constructor whole");
     }
 }
