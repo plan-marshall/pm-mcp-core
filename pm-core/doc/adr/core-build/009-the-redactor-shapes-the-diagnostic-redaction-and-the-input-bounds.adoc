@@ -132,12 +132,13 @@ indistinguishable from the next label's quote, and that residue is named in "Wha
 minimum therefore applies to unquoted values only. The false-positive costs: a short quoted value of an ordinary text is
 masked with its label, and a refused close masks the rest of its line.
 
-A separator accepts an optional backslash before its quote (PLAN-V2-151), so a JSON object embedded as a JSON string —
-`{\"password\":\"hunter2\"}`, where every quote is preceded by a backslash — is read as the quoted credential
-assignment it is and its value is masked to the end of its line. That is the whole escaped-JSON shape list: the
-escaped single-quoted value and the escaped credential flag are not shapes of their own (the operator's choice,
-PLAN-V2-151). The negative control: an escaped key outside the credential labels (`{\"tokenizer\":\"wordpiece\"}`) stays
-readable.
+An escaped form reads the JSON object that is embedded as a JSON string (PLAN-V2-151): in
+`{\"password\":\"hunter2\"}` every quote is preceded by a backslash, so the escaped opening quote is taken with the
+separator and the rest of the line is masked, as the unclosed form does — neither sharp form can read it, because their
+opening quote is a bare one. A separator also accepts a backslash before a quote without accepting a bare backslash, so
+`password\=value` stays unread. That is the whole escaped-JSON shape list: the escaped single-quoted value and the
+escaped credential flag are not shapes of their own (the operator's choice, PLAN-V2-151). The negative control: an
+escaped key outside the credential labels (`{\"tokenizer\":\"wordpiece\"}`) stays readable.
 
 === The matcher is Unicode-aware, and invisible characters are removed
 
@@ -181,7 +182,7 @@ at all, because the match crosses line ends. `SecretRedactorTest` therefore boun
 (a plain run and an escape-pair run) must redact within a stated bound, and the two URL shapes are measured with the same
 bound rather than by an equality check alone. `DiagnosticCollectorRedactionTest` adds the same measurement on the seam
 that stores a line and on the `Diagnostic` constructor: 2 000 lines of 8 192 characters of `x://y:x://y:…` (16.4 MB)
-must redact within a stated bound, which the quadratic scan exceeded by minutes.
+must redact within a stated bound, which the quadratic scan did not meet.
 The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and the answer is cut at
 `BuildLogText.MAX_LINE_LENGTH` characters — never splitting a surrogate pair — before the redaction, which bounds that
 input; a user-information head or a provider-token head the cut leaves incomplete is masked there, so the bound removes
@@ -302,9 +303,11 @@ line cut was corrected to name the input size as its bound.
   is the documented token shape.
 * *Strip escape sequences inside the label patterns.* Every label pattern would carry an optional escape run between its
   parts, which multiplies their alternation; one strip before the redaction covers every pattern, a later one included.
-* *A linear construction of the URL pattern without the bounds.* It would bound one pattern and leave the others
-  exposed; the per-line bound covers every pattern whose match stays on one line, while the key-block shape — whose
-  match crosses line ends — is a linear scan instead, as Decision 1 states.
+* *Keep the per-line bound as the cost bound of the URL shape.* This ADR took it: the line cut bounds every pattern
+  whose match stays on one line. PLAN-V2-151 replaced the pattern with a linear scan instead, because the stored seam and
+  the `Diagnostic.stackTrace` path run the shape on lines and on a whole text, and a stack trace has no per-line cut
+  (ADR link:010-the-key-block-runs-first-and-the-record-redacts-its-read-outs.adoc[`core-build/010`]); the bound had
+  bounded the cost, not removed it.
 * *Compare the TAP plan with `# tests`.* Refused by the measured `node --test` log (Decision 3).
 * *Keep the head of a long line in the excerpt.* It would break the excerpt's contract that the end of a long last
   line — where a stack trace ends and a tool prints its verdict — is kept.

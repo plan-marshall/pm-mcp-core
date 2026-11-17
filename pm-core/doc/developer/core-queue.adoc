@@ -106,8 +106,8 @@ The replacement keeps the label, so a reader still sees what was removed, and re
 `Bearer`, `Basic` or `Token`
 |the value after the separator; a quoted value runs to its closing quote on its line, and a close that a word character
 follows — or that lies on the next line — is read as unclosed, masking the rest of the first line, so a first word
-shorter than four characters (`token="ab cd ef"`) is masked whole. A separator accepts a backslash before its quote, so
-a JSON object embedded as a JSON string (`{\"password\":\"hunter2\"}`) is masked as the quoted assignment it is
+shorter than four characters (`token="ab cd ef"`) is masked whole. An escaped form masks the rest of the line from the
+escaped opening quote, so a JSON object embedded as a JSON string (`{\"password\":\"hunter2\"}`) is masked too
 |a secret in a query parameter whose name is no listed label; and under an `Authorization:` header of another scheme
 (`Digest`, `Negotiate`) the scheme word is taken as the value and masked, while the credential after it stays readable.
 An unquoted value shorter than four characters stays readable: the minimum is deliberate and an accepted residue.
