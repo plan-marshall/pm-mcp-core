@@ -22,6 +22,7 @@ import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.role.RoleClass;
+import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.store.WorkerState;
 
 /**
@@ -81,19 +82,26 @@ public final class SupervisorCalls implements WorkerCalls {
         }
         var detection = detection(generation);
         if (detection.firstCallMade()) {
-            detection.called(at);
             // A call by a worker that holds an unacknowledged offer or launch is that acknowledgement: the deadline
-            // runs from the offer (or the first call) and only a call clears it, so a heartbeat settles it here.
+            // runs from the offer (or a fresh worker's first call) and only a call clears it. LossDetection.acknowledged
+            // records the call as well.
             detection.acknowledged(at);
         } else {
             detection.firstCall(at);
             supervisor.environment().startGuard().firstCall(generation.role(), generation.harness());
+            if (generation.form() != RoleForm.FRESH && generation.leasedTask() == null) {
+                // A warm worker's first call owes no acknowledgement: its deadline runs from the offer it is given,
+                // and a heartbeat before that offer must not make it silent a deadline later.
+                detection.acknowledged(at);
+            }
         }
         supervisor.replaced(acknowledging(generation));
     }
 
     @Override
     public synchronized WaitAnswer waitOpened(String generationId, String queueTaskId, String roleDigest) {
+        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(roleDigest, "roleDigest");
         var generation = known(generationId);
         if (generation == null) {
             return new WaitAnswer.End();
@@ -101,9 +109,12 @@ public final class SupervisorCalls implements WorkerCalls {
         var at = supervisor.environment().clock().instant();
         var detection = detection(generation);
         detection.waitOpened(at);
-        var answer = answerTo(generation, queueTaskId, roleDigest, at, detection);
-        detection.waitClosed(at);
-        return answer;
+        try {
+            return answerTo(generation, queueTaskId, roleDigest, at, detection);
+        } finally {
+            // The answer closes the wait: a held wait suppresses the silence signal, and the answer re-arms it.
+            detection.waitClosed(at);
+        }
     }
 
     /**
@@ -132,7 +143,7 @@ public final class SupervisorCalls implements WorkerCalls {
             supervisor.replaced(waiting(generation).withIdleWakeups(result.idleWakeups()));
             return new WaitAnswer.WaitAgain();
         }
-        roleDigests.put(generationId, Objects.requireNonNull(roleDigest, "roleDigest"));
+        roleDigests.put(generationId, roleDigest);
         detection.offered(queueTaskId, at);
         supervisor.replaced(offered(generation, queueTaskId));
         return new WaitAnswer.Offered(queueTaskId, roleDigest);
@@ -220,7 +231,10 @@ public final class SupervisorCalls implements WorkerCalls {
      */
     public synchronized void forget(String generationId) {
         Objects.requireNonNull(generationId, "generationId");
-        detections.remove(generationId);
+        var detection = detections.remove(generationId);
+        if (detection != null) {
+            detection.cancelled();
+        }
         losses.remove(generationId);
         roleDigests.remove(generationId);
     }

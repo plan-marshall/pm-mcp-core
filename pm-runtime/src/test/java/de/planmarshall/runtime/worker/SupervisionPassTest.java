@@ -344,8 +344,13 @@ class SupervisionPassTest {
     void aPassWithoutGenerationsWritesNothing() throws Exception {
         var journal = journal("empty");
         var idle = new WorkerSupervisor(environment);
-        var idleCalls = new SupervisorCalls(idle, ending, recycling, parameters, _ -> RoleClass.WRITER);
-        var pass = new SupervisionPass(idle, idleCalls, ending, recycling, tasks, silentDetector(), pumps(journal));
+        var idleEnding = new WorkerEnding(environment, () -> false, () -> {
+        });
+        var idleRecycling = new WorkerRecycling(environment, idleEnding, idle::generations,
+                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), parameters);
+        var idleCalls = new SupervisorCalls(idle, idleEnding, idleRecycling, parameters, _ -> RoleClass.WRITER);
+        var pass = new SupervisionPass(idle, idleCalls, idleEnding, idleRecycling, tasks, silentDetector(),
+                pumps(journal));
 
         pass.run();
 

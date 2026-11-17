@@ -59,6 +59,8 @@ class SupervisorCallsTest {
 
     private static final String TASK = "qt-0123456789abcdef";
 
+    private static final String DIGEST = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     @TempDir
     Path base;
 
@@ -133,7 +135,7 @@ class SupervisorCallsTest {
     @DisplayName("a call of an unknown generation is ignored and creates no detection")
     void anUnknownGenerationIsIgnored() {
         calls.callHeartbeat("unknown", fixture.clock.instant());
-        var answer = calls.waitOpened("unknown", "", null);
+        var answer = calls.waitOpened("unknown", "", DIGEST);
         fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
 
         assertAll(
@@ -251,6 +253,18 @@ class SupervisorCallsTest {
     }
 
     @Test
+    @DisplayName("a warm worker's first call arms no acknowledgement deadline")
+    void aWarmFirstCallArmsNoAcknowledgement() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        fixture.advance(Duration.ofSeconds(270));
+
+        assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
+                "a warm worker without an offer owes no acknowledgement");
+    }
+
+    @Test
     @DisplayName("an offer no call acknowledges is a missed acknowledgement at its deadline")
     void anUnacknowledgedOfferIsLost() {
         var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
@@ -275,11 +289,14 @@ class SupervisorCallsTest {
 
         calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
         var answer = calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
 
         assertAll(
                 () -> assertEquals(new WorkerCalls.WaitAnswer.End(), answer, "an ended generation is told to end"),
                 () -> assertNull(supervisor.generation(generation.generationId()).orElseThrow().leasedTask(),
                         "the ended generation leases nothing"),
+                () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
+                        "an ended generation is not ended a second time"),
                 () -> assertTrue(calls.loss(generation.generationId()).isEmpty(),
                         "no detection is created for the ended generation"));
     }

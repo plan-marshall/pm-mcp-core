@@ -13,8 +13,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.store.JobRecord;
@@ -144,22 +144,23 @@ public final class SupervisionPass {
         var detection = calls.detection(generation);
         var exit = detection.exit(now);
         exit.ifPresent(signal -> ending.end(generation, signal));
-        var loss = exit.or(() -> calls.loss(generationId));
-        var requested = ending.requestedCause(generationId);
-        if (requested.isEmpty() && detection.startFailure()) {
+        var loss = exit.or(() -> calls.loss(generationId)).orElse(null);
+        var requested = ending.requestedCause(generationId).orElse(null);
+        if (requested == null && detection.startFailure()) {
             ending.end(generation, EndCause.START_FAILURE);
-            requested = ending.requestedCause(generationId);
+            requested = ending.requestedCause(generationId).orElse(null);
         }
-        supervisor.replaced(ending.exited(generation));
         finishAttempt(generation, requested, loss);
+        supervisor.replaced(ending.exited(generation));
         calls.forget(generationId);
     }
 
     /**
      * Appends the attempt's end to the journal of the task the generation held, through the pump that read its log; a
-     * generation whose log was never pumped appends nothing, because the attempt has no journal in this run.
+     * generation whose log was never pumped appends nothing, because the attempt has no journal in this run. The append
+     * happens before the terminal state is written, so a store that refuses the end cannot swallow the journal entry.
      */
-    private void finishAttempt(WorkerGeneration generation, Optional<EndCause> cause, Optional<LossSignal> loss) {
+    private void finishAttempt(WorkerGeneration generation, @Nullable EndCause cause, @Nullable LossSignal loss) {
         var task = generation.leasedTask();
         var pump = active.remove(generation.generationId());
         if (task == null || pump == null || tasks.facts(task).isEmpty()) {
@@ -169,19 +170,18 @@ public final class SupervisionPass {
     }
 
     /**
-     * @param cause why the generation was ended; empty when the registry holds no requested end
-     * @param loss  the signal that settled its detection; empty when it was not lost
+     * @param cause why the generation was ended; {@code null} when the registry holds no requested end
+     * @param loss  the signal that settled its detection; {@code null} when it was not lost
      * @return how the attempt of the held task ended
      */
-    private static QueueTaskRecord.AttemptEnd attemptEnd(Optional<EndCause> cause, Optional<LossSignal> loss) {
-        return switch (cause.orElse(EndCause.LOST)) {
+    private static QueueTaskRecord.AttemptEnd attemptEnd(@Nullable EndCause cause, @Nullable LossSignal loss) {
+        return switch (cause == null ? EndCause.LOST : cause) {
             case TASK_DONE, RECYCLE -> QueueTaskRecord.AttemptEnd.CLOSED;
             case DRAIN -> QueueTaskRecord.AttemptEnd.DRAIN;
             case PAUSE_AT_ONCE -> QueueTaskRecord.AttemptEnd.PAUSED;
             case OFF_TRACK -> QueueTaskRecord.AttemptEnd.OFF_TRACK;
             case START_FAILURE -> QueueTaskRecord.AttemptEnd.START_FAILURE;
-            case LOST -> loss.map(signal -> signal.reason().attemptEnd())
-                    .orElse(QueueTaskRecord.AttemptEnd.WORKER_LOST);
+            case LOST -> loss == null ? QueueTaskRecord.AttemptEnd.WORKER_LOST : loss.reason().attemptEnd();
         };
     }
 }
