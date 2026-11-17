@@ -80,12 +80,13 @@ class QualificationServiceTest {
     @DisplayName("the two ports are the adapter's harness and judge scorer")
     void portsAreTheAdapters() {
         var role = fixture.role(RoleClass.READ_ONLY, RoleForm.FRESH, 1);
+        var judge = fixture.role(RoleClass.ZERO_TOOL, RoleForm.FRESH, 1);
         ItemTaskOffers offers = createMock(ItemTaskOffers.class);
         replay(offers);
 
         var harness = QualificationService.harness(role, fixture.supervisor(), offers, ItemWorktrees.none(),
                 fixture.workdir);
-        var scorer = QualificationService.scorer(role, fixture.supervisor(), offers);
+        var scorer = QualificationService.scorer(judge, fixture.supervisor(), offers);
 
         assertAll(
                 () -> assertInstanceOf(WorkerGradingHarness.class, harness, "the harness is the grading adapter"),

@@ -120,6 +120,21 @@ class WorkerGradingHarnessTest {
     }
 
     @Test
+    @DisplayName("an unanswered fresh offer leaves the warm worker of the run alone")
+    void anUnansweredFreshOfferDoesNotRotateTheWarmWorker() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 3);
+        var harness = harness(role, ItemWorktrees.none());
+        harness.answer(offered(item(FIRST, null), RoleForm.WARM));
+        submission = Optional.empty();
+
+        harness.answer(offered(item(SECOND, null), RoleForm.FRESH));
+
+        assertAll(
+                () -> assertEquals(2, fixture.starts.size(), "the fresh item starts its own worker"),
+                () -> assertTrue(fixture.cancels.isEmpty(), "the fresh answer's absence cancels nothing"));
+    }
+
+    @Test
     @DisplayName("a warm form serves the items in order with one worker")
     void warmServesOneWorker() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);

@@ -17,6 +17,7 @@ import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -124,6 +125,18 @@ class WorkerJudgeScorerTest {
                 () -> assertFalse(blind.contains("Reference:"), "the blind task carries none"),
                 () -> assertTrue(blind.contains("Is it right?"), "the blind task keeps the question"),
                 () -> assertTrue(blind.contains("the answer"), "the blind task keeps the answer"));
+    }
+
+    @Test
+    @DisplayName("a judge role that is not zero-tool is refused before any worker starts")
+    void aToolUsingJudgeRoleIsRefused() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
+
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new WorkerJudgeScorer(role, fixture.supervisor(), offers),
+                        "a tool-using role cannot be the judge"),
+                () -> assertTrue(fixture.starts.isEmpty(), "no worker starts for it"));
     }
 
     /**

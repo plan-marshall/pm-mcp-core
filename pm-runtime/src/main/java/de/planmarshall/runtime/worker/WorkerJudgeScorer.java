@@ -55,6 +55,10 @@ public final class WorkerJudgeScorer implements JudgeScorer {
      */
     public WorkerJudgeScorer(EffectiveRole role, WorkerSupervisor supervisor, ItemTaskOffers offers) {
         this.role = Objects.requireNonNull(role, "role");
+        if (!role.zeroTool()) {
+            throw new IllegalArgumentException("A judge role is zero-tool: " + role.artifact().name()
+                    + " is " + role.artifact().roleClass().wireName());
+        }
         this.supervisor = Objects.requireNonNull(supervisor, "supervisor");
         this.offers = Objects.requireNonNull(offers, "offers");
     }

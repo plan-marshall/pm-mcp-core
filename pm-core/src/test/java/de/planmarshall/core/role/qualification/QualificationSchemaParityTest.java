@@ -92,8 +92,16 @@ class QualificationSchemaParityTest {
         return SchemaResource.object(member(schema, name).get(ITEMS));
     }
 
-    private static Set<String> enumOf(Map<?, ?> schema, String name) {
-        return SchemaResource.array(member(schema, name).get("enum")).stream().filter(Objects::nonNull)
+    /**
+     * @param schema a schema document
+     * @return the members the file declares beyond its required ones, in schema order
+     */
+    private static List<String> optionalMembers(Map<?, ?> schema) {
+        var required = required(schema);
+        return memberNames(schema).stream().filter(name -> !required.contains(name)).toList();
+    }
+
+    private static Set<String> enumOf(Map<?, ?> schema, String name) {        return SchemaResource.array(member(schema, name).get("enum")).stream().filter(Objects::nonNull)
                 .map(String::valueOf).collect(Collectors.toUnmodifiableSet());
     }
 
@@ -175,11 +183,11 @@ class QualificationSchemaParityTest {
                             SchemaParity.memberDiffs(QualificationRecordCodec.TOPIC_MEMBERS,
                                     definition(schema, "topicResult")),
                             "the topic result declares no member the file lacks"),
-                    () -> assertEquals(List.of("file-only:" + JUDGE_CHECK_MEMBER),
+                    () -> assertEquals(optionalMembers(schema).stream().map(name -> "file-only:" + name).toList(),
                             SchemaParity.memberDiffs(QualificationRecordCodec.MEMBERS, schema),
-                            "the optional judge check is beyond the required set"),
-                    () -> assertEquals(QualificationRecordCodec.OPTIONAL_MEMBERS, List.of(JUDGE_CHECK_MEMBER),
-                            "the codec declares the optional member the file has"));
+                            "the optional members are those beyond the required set"),
+                    () -> assertEquals(QualificationRecordCodec.OPTIONAL_MEMBERS, optionalMembers(schema),
+                            "the codec declares the optional members the file has"));
         }
 
         @Test

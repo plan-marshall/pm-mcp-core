@@ -95,9 +95,8 @@ public final class WorkerGradingHarness implements GradingHarness {
         }
         var answer = offers.offer(new ItemTaskOffers.Task(role.artifact().name(), generation, offered.item(),
                 offered.form(), offered.checkout(), role.zeroTool() ? null : directory.get()));
-        if (answer.isEmpty()) {
-            // The task closed without an answer: the worker that served it is no witness for the next item, so it is
-            // asked to end instead of being trusted with one.
+        if (answer.isEmpty() && offered.form() == RoleForm.WARM) {
+            // The warm worker that served no answer is no witness for the next item: it is asked to end.
             rotate();
         }
         return answer.map(WorkerGradingHarness::answerOf);
@@ -133,6 +132,9 @@ public final class WorkerGradingHarness implements GradingHarness {
             rotate();
             return null;
         }
+        // The run no longer needs the worker it tracked: it is asked to end before its replacement starts, so no worker
+        // of this run outlives the harness's reference to it.
+        rotate();
         var generation = started(List.of(request(item, directory, RoleForm.WARM)));
         if (generation == null) {
             // The supervisor declined the start: the warm worker still serving the directory stays the one this run
@@ -215,38 +217,7 @@ public final class WorkerGradingHarness implements GradingHarness {
         if (role.form() == form) {
             return role;
         }
-        var artifact = role.artifact();
-        var other = RoleArtifact.builder()
-                .formatVersion(artifact.formatVersion())
-                .name(artifact.name())
-                .description(artifact.description())
-                .roleClass(artifact.roleClass())
-                .tools(artifact.tools())
-                .harness(artifact.harness())
-                .model(artifact.model())
-                .effort(artifact.effort())
-                .form(form)
-                .count(artifact.count())
-                .skills(artifact.skills())
-                .recycling(artifact.recycling())
-                .budgetFloorSeconds(artifact.budgetFloorSeconds())
-                .contextBudgetTokens(artifact.contextBudgetTokens())
-                .questions(artifact.questions())
-                .offTrack(artifact.offTrack())
-                .build();
-        return EffectiveRole.builder()
-                .artifact(other)
-                .harness(role.harness())
-                .model(role.model())
-                .effort(role.effort())
-                .skills(role.skills())
-                .harnessVersion(role.harnessVersion())
-                .weightsIdentity(role.weightsIdentity())
-                .questions(role.questions())
-                .offTrack(role.offTrack())
-                .contextBudgetTokens(role.contextBudgetTokens())
-                .idleWakeups(role.idleWakeups())
-                .build();
+        return role.toBuilder().artifact(role.artifact().toBuilder().form(form).build()).build();
     }
 
     /**
