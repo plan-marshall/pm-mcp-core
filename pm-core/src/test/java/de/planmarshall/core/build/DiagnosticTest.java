@@ -110,7 +110,8 @@ class DiagnosticTest {
 
     @Test
     @DisplayName("derives the wire names of the originals and its located state")
-    void derivesNames() {        var located = new Diagnostic("A.java", 1, 1, "text", Category.COMPILATION_ERROR, Severity.ERROR, null);
+    void derivesNames() {
+        var located = new Diagnostic("A.java", 1, 1, "text", Category.COMPILATION_ERROR, Severity.ERROR, null);
         var unlocated = new Diagnostic(null, null, null, "text", Category.UNRECOGNIZED, Severity.WARNING, null);
 
         assertAll(

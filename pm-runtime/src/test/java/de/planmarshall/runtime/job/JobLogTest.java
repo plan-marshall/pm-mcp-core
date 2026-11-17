@@ -165,7 +165,8 @@ class JobLogTest {
 
         @Test
         @DisplayName("is missing before the launcher created it, and truncated when shorter than the offset")
-        void missingAndTruncated() throws Exception {            var missing = assertInstanceOf(Unavailable.class, log.readLines(0), "a missing log is unavailable");
+        void missingAndTruncated() throws Exception {
+            var missing = assertInstanceOf(Unavailable.class, log.readLines(0), "a missing log is unavailable");
             var written = line() + "\n";
             append(written);
 
@@ -216,7 +217,8 @@ class JobLogTest {
 
         @Test
         @DisplayName("missing: the log does not exist")
-        void missing() {            var whole = assertInstanceOf(Unavailable.class, log.readWhole(0), "a missing log is unavailable");
+        void missing() {
+            var whole = assertInstanceOf(Unavailable.class, log.readWhole(0), "a missing log is unavailable");
 
             assertEquals(LogState.MISSING, whole.state(), "the ended log is missing");
         }

@@ -395,7 +395,7 @@ public final class SecretRedactor {
     private static boolean isWhiteSpace(char value) {
         return switch (value) {
             case '\t', '\n', '\u000B', '\f', '\r', ' ', '\u0085', '\u00A0', '\u1680', '\u2028', '\u2029', '\u202F',
-                    '\u205F', '\u3000' -> true;
+                '\u205F', '\u3000' -> true;
             default -> value >= '\u2000' && value <= '\u200A';
         };
     }
