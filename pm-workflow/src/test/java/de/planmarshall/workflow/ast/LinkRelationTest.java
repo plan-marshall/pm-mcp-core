@@ -40,22 +40,24 @@ class LinkRelationTest {
             "ABORT, SUBMIT, false"})
     @DisplayName("carries its default form and its allowed forms")
     void forms(LinkRelation relation, LinkForm defaultForm, boolean noopAllowed) {
-        assertEquals(defaultForm, relation.defaultForm());
+        assertEquals(defaultForm, relation.defaultForm(), "the relation keeps its default form");
         assertEquals(noopAllowed ? Set.of(LinkForm.NOOP, LinkForm.SUBMIT) : Set.of(LinkForm.SUBMIT),
-                relation.allowedForms());
+                relation.allowedForms(), "the relation keeps its allowed forms");
     }
 
     @ParameterizedTest
     @EnumSource(LinkRelation.class)
     @DisplayName("allows its own default form")
     void defaultIsAllowed(LinkRelation relation) {
-        assertTrue(relation.allowedForms().contains(relation.defaultForm()));
+        assertTrue(relation.allowedForms().contains(relation.defaultForm()),
+                "the default form is always allowed");
     }
 
     @Test
     @DisplayName("is closed at nine relations and two forms")
     void closed() {
-        assertEquals(9, LinkRelation.values().length);
-        assertEquals(List.of("SUBMIT", "NOOP"), Arrays.stream(LinkForm.values()).map(Enum::name).toList());
+        assertEquals(9, LinkRelation.values().length, "the relations are closed at nine");
+        assertEquals(List.of("SUBMIT", "NOOP"), Arrays.stream(LinkForm.values()).map(Enum::name).toList(),
+                "the forms are closed at two");
     }
 }

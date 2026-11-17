@@ -2,10 +2,10 @@
   "id": "PLAN-V2-122",
   "slug": "adoc-reading-retired",
   "workstream": "WS-12",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-122-adoc-reading-retired",
+  "pr": "#468",
+  "landing": "landings/PLAN-V2-122.md",
   "seq": 110
 }

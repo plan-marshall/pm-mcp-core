@@ -118,7 +118,8 @@ class UnitFrontmatterReaderTest {
     private static void assertRefused(Diagnostic diagnostic, int line, int column) {
         assertAll(
                 () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(), diagnostic::message),
-                () -> assertEquals(RESOURCE, diagnostic.resourceName()),
+                () -> assertEquals(RESOURCE, diagnostic.resourceName(),
+                        "the diagnostic names the resource"),
                 () -> assertEquals(line, diagnostic.line(), diagnostic::message),
                 () -> assertEquals(column, diagnostic.column(), diagnostic::message));
     }
@@ -134,22 +135,26 @@ class UnitFrontmatterReaderTest {
 
             var frontmatter = result.frontmatter();
             assertAll(
-                    () -> assertEquals("Commit and Push", frontmatter.name()),
+                    () -> assertEquals("Commit and Push", frontmatter.name(), "the frontmatter name is read"),
                     () -> assertEquals("Commits the changes of the plan's worktree and pushes its branch.",
-                            frontmatter.description()),
-                    () -> assertEquals(UnitType.SUBWORKFLOW, frontmatter.type()),
-                    () -> assertEquals("git.commit", frontmatter.icon()),
+                            frontmatter.description(), "the description is read"),
+                    () -> assertEquals(UnitType.SUBWORKFLOW, frontmatter.type(), "the unit type is read"),
+                    () -> assertEquals("git.commit", frontmatter.icon(), "the unit icon is read"),
                     () -> assertEquals(List.of(new InterfaceElement("commit",
                                     "The worktree holds the changes to commit, or is clean.")),
-                            frontmatter.entries()),
+                            frontmatter.entries(), "the entry is read with its description"),
                     () -> assertEquals(List.of(new InterfaceElement("done",
-                            "Commit and push are settled.")), frontmatter.exits()),
-                    () -> assertEquals(LocalDate.of(2026, 10, 14), frontmatter.modificationDate()),
-                    () -> assertEquals("1.0.0", frontmatter.version()),
-                    () -> assertEquals("plan-marshall", frontmatter.author()),
+                                    "Commit and push are settled.")), frontmatter.exits(),
+                            "the exit is read with its description"),
+                    () -> assertEquals(LocalDate.of(2026, 10, 14), frontmatter.modificationDate(),
+                            "the modification date is read"),
+                    () -> assertEquals("1.0.0", frontmatter.version(), "the unit version is read"),
+                    () -> assertEquals("plan-marshall", frontmatter.author(), "the frontmatter author is read"),
                     () -> assertNull(frontmatter.signature(), "an unsigned frontmatter reads a null signature"),
-                    () -> assertEquals(new SourceLocation(RESOURCE, 1, 1), frontmatter.location()),
-                    () -> assertEquals(APPENDED_LINE + 1, result.bodyLine()));
+                    () -> assertEquals(new SourceLocation(RESOURCE, 1, 1), frontmatter.location(),
+                            "the location is the first line"),
+                    () -> assertEquals(APPENDED_LINE + 1, result.bodyLine(),
+                            "the body starts one line after the frontmatter"));
         }
 
         @Test
@@ -164,9 +169,10 @@ class UnitFrontmatterReaderTest {
             var entries = read(source).frontmatter().entries();
 
             assertEquals(List.of(
-                    new InterfaceElement("post_run", "The run is over."),
-                    new InterfaceElement("hand_back", "The branch holds commits beyond the base."),
-                    new InterfaceElement("merge", "The plan is ready to merge.")), entries);
+                            new InterfaceElement("post_run", "The run is over."),
+                            new InterfaceElement("hand_back", "The branch holds commits beyond the base."),
+                            new InterfaceElement("merge", "The plan is ready to merge.")), entries,
+                    "the three entries keep their order");
         }
 
         @Test
@@ -186,9 +192,9 @@ class UnitFrontmatterReaderTest {
                     () -> assertEquals(List.of(new InterfaceElement("done", null),
                                     new InterfaceElement("failed", null)), described.exits(),
                             "an exit without description reads null"),
-                    () -> assertEquals(UnitType.WORKFLOW, bare.type()),
-                    () -> assertTrue(bare.entries().isEmpty()),
-                    () -> assertTrue(bare.exits().isEmpty()));
+                    () -> assertEquals(UnitType.WORKFLOW, bare.type(), "a unit without interface keeps its type"),
+                    () -> assertTrue(bare.entries().isEmpty(), "a unit without entries reads none"),
+                    () -> assertTrue(bare.exits().isEmpty(), "a unit without exits reads none"));
         }
 
         @Test
@@ -208,7 +214,8 @@ class UnitFrontmatterReaderTest {
 
             var frontmatter = read(source).frontmatter();
 
-            assertEquals("Reads \"a: b\" # and \\ alike", frontmatter.description());
+            assertEquals("Reads \"a: b\" # and \\ alike", frontmatter.description(),
+                    "the quoted value is unescaped");
         }
 
         @Test
@@ -218,7 +225,8 @@ class UnitFrontmatterReaderTest {
 
             var result = read(source);
 
-            assertEquals("Commit and Push", result.frontmatter().name());
+            assertEquals("Commit and Push", result.frontmatter().name(),
+                    "the frontmatter is read without its body");
         }
 
         @Test
@@ -230,7 +238,8 @@ class UnitFrontmatterReaderTest {
 
             var frontmatter = read(unit(reversed)).frontmatter();
 
-            assertEquals(read(unit(VALID)).frontmatter(), frontmatter);
+            assertEquals(read(unit(VALID)).frontmatter(), frontmatter,
+                    "the line order does not change the result");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -239,7 +248,7 @@ class UnitFrontmatterReaderTest {
         void readsEveryType(UnitType type) {
             var source = unit(replaced("type", "type: " + type.wireName()));
 
-            assertEquals(type, read(source).frontmatter().type());
+            assertEquals(type, read(source).frontmatter().type(), "the wire name reads the type");
         }
     }
 
@@ -352,8 +361,10 @@ class UnitFrontmatterReaderTest {
             var actual = read(crlf);
 
             assertAll(
-                    () -> assertEquals(expected.frontmatter(), actual.frontmatter()),
-                    () -> assertEquals(expected.bodyLine(), actual.bodyLine()));
+                    () -> assertEquals(expected.frontmatter(), actual.frontmatter(),
+                            "the CRLF frontmatter reads the same"),
+                    () -> assertEquals(expected.bodyLine(), actual.bodyLine(),
+                            "the CRLF body starts on the same line"));
         }
 
         @Test
@@ -546,7 +557,7 @@ class UnitFrontmatterReaderTest {
                 case "entry_description" -> frontmatter.entries().getFirst().description();
                 default -> frontmatter.exits().getFirst().description();
             };
-            assertEquals(value, actual);
+            assertEquals(value, actual, "the field reads the value it was given");
         }
     }
 
@@ -595,19 +606,27 @@ class UnitFrontmatterReaderTest {
             var attempts = frontmatter.inputs().get(1);
 
             assertAll(
-                    () -> assertEquals(List.of("project.review.currency"), frontmatter.readsConfig()),
-                    () -> assertEquals(List.of("push_remote"), frontmatter.readsFact()),
-                    () -> assertEquals(2, frontmatter.inputs().size()),
-                    () -> assertEquals("push_mode", pushMode.name()),
-                    () -> assertEquals(new InputType.Enumeration(List.of("push", "no_push")), pushMode.type()),
-                    () -> assertFalse(pushMode.optional()),
-                    () -> assertNull(pushMode.defaultValue()),
-                    () -> assertEquals("Whether the branch is pushed.", pushMode.description()),
-                    () -> assertEquals(new SourceLocation(RESOURCE, 10, 8), pushMode.location()),
-                    () -> assertEquals(new SourceLocation(RESOURCE, 13, 8), attempts.location()),
-                    () -> assertEquals(new InputType.IntRange(1, 5), attempts.type()),
-                    () -> assertEquals(new CallValue.IntValue(2), attempts.defaultValue()),
-                    () -> assertFalse(attempts.required()));
+                    () -> assertEquals(List.of("project.review.currency"), frontmatter.readsConfig(),
+                            "the reads_config value is read"),
+                    () -> assertEquals(List.of("push_remote"), frontmatter.readsFact(),
+                            "the reads_fact value is read"),
+                    () -> assertEquals(2, frontmatter.inputs().size(), "both inputs are read"),
+                    () -> assertEquals("push_mode", pushMode.name(), "the input name is read"),
+                    () -> assertEquals(new InputType.Enumeration(List.of("push", "no_push")), pushMode.type(),
+                            "the enum input type is read"),
+                    () -> assertFalse(pushMode.optional(), "the input is not optional"),
+                    () -> assertNull(pushMode.defaultValue(), "an input without default reads null"),
+                    () -> assertEquals("Whether the branch is pushed.", pushMode.description(),
+                            "the input description is read"),
+                    () -> assertEquals(new SourceLocation(RESOURCE, 10, 8), pushMode.location(),
+                            "the input carries its line and column"),
+                    () -> assertEquals(new SourceLocation(RESOURCE, 13, 8), attempts.location(),
+                            "the second input carries its location"),
+                    () -> assertEquals(new InputType.IntRange(1, 5), attempts.type(),
+                            "the int range of the input is read"),
+                    () -> assertEquals(new CallValue.IntValue(2), attempts.defaultValue(),
+                            "the integer default is read"),
+                    () -> assertFalse(attempts.required(), "an input with a default is not required"));
         }
 
         @Test
@@ -637,17 +656,22 @@ class UnitFrontmatterReaderTest {
 
             assertAll(
                     () -> assertEquals(List.of("project.review.currency", "local-config.mode"),
-                            result.frontmatter().readsConfig()),
+                            result.frontmatter().readsConfig(), "both reads_config values are read"),
                     () -> assertEquals(new InputType.Enumeration(List.of("strict", "Lenient")),
-                            inputs.get(0).type()),
-                    () -> assertEquals(new InputType.IntRange(null, null), inputs.get(1).type()),
-                    () -> assertEquals(new InputType.IntRange(0, 9), inputs.get(2).type()),
-                    () -> assertEquals(new InputType.EnumList(List.of("origin", "Mirror")), inputs.get(3).type()),
-                    () -> assertTrue(inputs.get(4).optional()),
-                    () -> assertFalse(inputs.get(4).required()),
-                    () -> assertEquals("project.review.retries", inputs.get(5).fallback()),
-                    () -> assertEquals(new CallValue.EnumList(List.of()), inputs.get(6).defaultValue()),
-                    () -> assertEquals(7, inputs.size()));
+                            inputs.get(0).type(), "the enum values keep their case"),
+                    () -> assertEquals(new InputType.IntRange(null, null), inputs.get(1).type(),
+                            "an unbounded int range reads null bounds"),
+                    () -> assertEquals(new InputType.IntRange(0, 9), inputs.get(2).type(),
+                            "an int range reads both of its bounds"),
+                    () -> assertEquals(new InputType.EnumList(List.of("origin", "Mirror")), inputs.get(3).type(),
+                            "the list of enums is read"),
+                    () -> assertTrue(inputs.get(4).optional(), "the optional form marks the input optional"),
+                    () -> assertFalse(inputs.get(4).required(), "the optional input is not required"),
+                    () -> assertEquals("project.review.retries", inputs.get(5).fallback(),
+                            "the fallback key is read"),
+                    () -> assertEquals(new CallValue.EnumList(List.of()), inputs.get(6).defaultValue(),
+                            "the empty list default is read"),
+                    () -> assertEquals(7, inputs.size(), "all seven inputs are read"));
         }
 
         @Test
@@ -816,7 +840,8 @@ class UnitFrontmatterReaderTest {
             var tooLong = refuse(unit(inserted("input: a", "input_type: int", "input_description: " + longest + "d")));
 
             assertAll(
-                    () -> assertEquals(longest, accepted.frontmatter().inputs().getFirst().description()),
+                    () -> assertEquals(longest, accepted.frontmatter().inputs().getFirst().description(),
+                            "the longest description is accepted"),
                     () -> assertRefused(tooLong, 12, 20));
         }
     }
@@ -842,8 +867,10 @@ class UnitFrontmatterReaderTest {
             var result = read(unit(lines));
 
             assertAll(
-                    () -> assertEquals(UnitFrontmatterReader.MAX_FRONTMATTER_LINES, lines.size() + 2),
-                    () -> assertEquals(UnitFrontmatterReader.MAX_FRONTMATTER_LINES + 1, result.bodyLine()));
+                    () -> assertEquals(UnitFrontmatterReader.MAX_FRONTMATTER_LINES, lines.size() + 2,
+                            "the frontmatter fills the line cap"),
+                    () -> assertEquals(UnitFrontmatterReader.MAX_FRONTMATTER_LINES + 1, result.bodyLine(),
+                            "the body starts after the cap"));
         }
 
         @Test
@@ -935,8 +962,10 @@ class UnitFrontmatterReaderTest {
             var result = read(source);
 
             assertAll(
-                    () -> assertEquals("Commit and Push", result.frontmatter().name()),
-                    () -> assertEquals(APPENDED_LINE + 1, result.bodyLine()));
+                    () -> assertEquals("Commit and Push", result.frontmatter().name(),
+                            "the body is never read"),
+                    () -> assertEquals(APPENDED_LINE + 1, result.bodyLine(),
+                            "the body line is still counted"));
         }
 
         @Test

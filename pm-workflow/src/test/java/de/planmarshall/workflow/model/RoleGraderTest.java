@@ -77,19 +77,25 @@ class RoleGraderTest {
             var plan = plan(fixtures, GraderFixtures.complete());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "a complete corpus grades into a record");
 
             var entry = graded.entry();
-            assertEquals(GraderFixtures.ROLE, entry.role());
-            assertEquals(plan.role().qualificationDigest(), entry.qualificationDigest());
-            assertEquals(GraderFixtures.CORPUS_REVISION, entry.corpusRevision());
-            assertEquals(List.of(), entry.missedSources());
-            assertEquals(0, entry.ungraded());
+            assertEquals(GraderFixtures.ROLE, entry.role(), "the record names the graded role");
+            assertEquals(plan.role().qualificationDigest(), entry.qualificationDigest(),
+                    "the record carries the plan's digest");
+            assertEquals(GraderFixtures.CORPUS_REVISION, entry.corpusRevision(),
+                    "the record names the corpus revision");
+            assertEquals(List.of(), entry.missedSources(), "a complete import misses no source");
+            assertEquals(0, entry.ungraded(), "no item of the complete corpus is ungraded");
             var fresh = entry.form(RoleForm.FRESH).orElseThrow();
-            assertEquals(new BigDecimal("100"), fresh.topics().get(Topic.OWN).agreement());
-            assertEquals(1, fresh.topics().get(Topic.OWN).items());
-            assertEquals(TokenTotal.measured(2_000), fresh.totalTokens());
-            assertEquals(List.of(RoleForm.FRESH, RoleForm.WARM), List.copyOf(entry.forms().keySet()));
+            assertEquals(new BigDecimal("100"), fresh.topics().get(Topic.OWN).agreement(),
+                    "the own topic agrees fully in the fresh form");
+            assertEquals(1, fresh.topics().get(Topic.OWN).items(), "the own topic holds one graded item");
+            assertEquals(TokenTotal.measured(2_000), fresh.totalTokens(),
+                    "the fresh form totals its measured tokens");
+            assertEquals(List.of(RoleForm.FRESH, RoleForm.WARM), List.copyOf(entry.forms().keySet()),
+                    "the record holds the fresh and warm forms");
         }
 
         @Test
@@ -101,8 +107,9 @@ class RoleGraderTest {
             fixtures.grader.grade(plan, GradingConsent.GRANTED);
             var stored = fixtures.store.lookup(GraderFixtures.ROLE);
 
-            assertTrue(stored.isPresent());
-            assertEquals(plan.role().qualificationDigest(), stored.orElseThrow().qualificationDigest());
+            assertTrue(stored.isPresent(), "the record is stored in the project set");
+            assertEquals(plan.role().qualificationDigest(), stored.orElseThrow().qualificationDigest(),
+                    "the stored record carries the digest");
         }
 
         @Test
@@ -113,9 +120,10 @@ class RoleGraderTest {
 
             var offer = fixtures.grader.offer(plan);
 
-            assertEquals(2, offer.items());
-            assertEquals(List.of(RoleForm.FRESH, RoleForm.WARM), offer.forms());
-            assertTrue(offer.expectedTokens() > 0);
+            assertEquals(2, offer.items(), "the offer covers both topic items");
+            assertEquals(List.of(RoleForm.FRESH, RoleForm.WARM), offer.forms(),
+                    "the offer names the fresh and warm forms");
+            assertTrue(offer.expectedTokens() > 0, "the offer expects measured tokens");
         }
 
         @Test
@@ -126,9 +134,11 @@ class RoleGraderTest {
             var plan = plan(fixtures, GraderFixtures.complete());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the defective warm answer grades a record");
 
-            assertEquals(new BigDecimal("100"), graded.entry().warmFreshGap());
+            assertEquals(new BigDecimal("100"), graded.entry().warmFreshGap(),
+                    "the warm-fresh gap reaches one hundred");
         }
 
         @Test
@@ -141,9 +151,11 @@ class RoleGraderTest {
                     GraderFixtures.complete());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the zero-tool screener grades a record");
 
-            assertFalse(graded.entry().form(RoleForm.WARM).isPresent());
+            assertFalse(graded.entry().form(RoleForm.WARM).isPresent(),
+                    "a zero-tool role records no warm form");
             assertNull(graded.entry().warmFreshGap(),
                     "a fresh-only grading has no warm-fresh gap");
             assertEquals(1, graded.entry().items().size(), "the default profile grades each item once");
@@ -161,11 +173,13 @@ class RoleGraderTest {
             var plan = plan(fixtures, GraderFixtures.complete());
 
             var declined = assertInstanceOf(GradingOutcome.Declined.class,
-                    fixtures.grader.grade(plan, GradingConsent.DECLINED));
+                    fixtures.grader.grade(plan, GradingConsent.DECLINED),
+                    "a declined run is owed, not performed");
 
-            assertTrue(declined.owed());
-            assertTrue(fixtures.harness.offered().isEmpty());
-            assertEquals(Optional.empty(), fixtures.store.lookup(GraderFixtures.ROLE));
+            assertTrue(declined.owed(), "the declined run stays owed");
+            assertTrue(fixtures.harness.offered().isEmpty(), "a declined run offers no item");
+            assertEquals(Optional.empty(), fixtures.store.lookup(GraderFixtures.ROLE),
+                    "a declined run writes no record");
         }
 
         @Test
@@ -175,11 +189,14 @@ class RoleGraderTest {
             var plan = plan(fixtures, GraderFixtures.failed());
 
             var refused = assertInstanceOf(GradingOutcome.Refused.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "a failed import refuses the grading");
 
-            assertEquals(GradingOutcome.Refused.CORPUS_IMPORT_FAILED, refused.reason());
-            assertTrue(fixtures.harness.offered().isEmpty());
-            assertEquals(Optional.empty(), fixtures.store.lookup(GraderFixtures.ROLE));
+            assertEquals(GradingOutcome.Refused.CORPUS_IMPORT_FAILED, refused.reason(),
+                    "the refusal names the failed import");
+            assertTrue(fixtures.harness.offered().isEmpty(), "a refused run offers no item");
+            assertEquals(Optional.empty(), fixtures.store.lookup(GraderFixtures.ROLE),
+                    "a refused run writes no record");
         }
 
         @Test
@@ -189,9 +206,11 @@ class RoleGraderTest {
             var plan = plan(fixtures, GraderFixtures.partial());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "a partial import still grades a record");
 
-            assertEquals(List.of("papers"), graded.entry().missedSources());
+            assertEquals(List.of("papers"), graded.entry().missedSources(),
+                    "the record names the missed corpus source");
         }
 
         @Test
@@ -202,11 +221,14 @@ class RoleGraderTest {
             var plan = plan(fixtures, GraderFixtures.complete());
 
             var refused = assertInstanceOf(GradingOutcome.Refused.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "a judge off the reference is refused");
 
-            assertEquals(GradingOutcome.Refused.JUDGE_UNCHECKED, refused.reason());
-            assertTrue(fixtures.harness.offered().isEmpty());
-            assertEquals(Optional.empty(), fixtures.store.lookup(GraderFixtures.ROLE));
+            assertEquals(GradingOutcome.Refused.JUDGE_UNCHECKED, refused.reason(),
+                    "the refusal names the unchecked judge");
+            assertTrue(fixtures.harness.offered().isEmpty(), "an unchecked judge offers no item");
+            assertEquals(Optional.empty(), fixtures.store.lookup(GraderFixtures.ROLE),
+                    "an unchecked judge writes no record");
         }
 
         @Test
@@ -221,9 +243,9 @@ class RoleGraderTest {
 
             fixtures.grader.grade(plan, GradingConsent.GRANTED);
 
-            assertEquals(writes, fixtures.judgeChecks.writes());
-            assertEquals(prompts, fixtures.judge.prompts().size());
-            assertEquals(4, fixtures.harness.offered().size());
+            assertEquals(writes, fixtures.judgeChecks.writes(), "the reused check writes nothing again");
+            assertEquals(prompts, fixtures.judge.prompts().size(), "the reused check asks the judge nothing");
+            assertEquals(4, fixtures.harness.offered().size(), "both items are offered in both forms");
         }
 
         @Test
@@ -236,9 +258,11 @@ class RoleGraderTest {
                     GraderFixtures.judgeConfiguration(judge), GraderFixtures.complete());
 
             var refused = assertInstanceOf(GradingOutcome.Refused.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "a judge on the graded model is refused");
 
-            assertEquals(GradingOutcome.Refused.SCORER_NOT_INDEPENDENT, refused.reason());
+            assertEquals(GradingOutcome.Refused.SCORER_NOT_INDEPENDENT, refused.reason(),
+                    "the refusal names the shared model");
         }
 
         @Test
@@ -251,9 +275,11 @@ class RoleGraderTest {
                     GraderFixtures.judgeConfiguration(judge), GraderFixtures.complete());
 
             var refused = assertInstanceOf(GradingOutcome.Refused.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "a judge on a declared sibling is refused");
 
-            assertEquals(GradingOutcome.Refused.SCORER_NOT_INDEPENDENT, refused.reason());
+            assertEquals(GradingOutcome.Refused.SCORER_NOT_INDEPENDENT, refused.reason(),
+                    "the refusal names the sibling model");
         }
 
         @Test
@@ -264,9 +290,11 @@ class RoleGraderTest {
                     GraderFixtures.complete());
 
             var refused = assertInstanceOf(GradingOutcome.Refused.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "a role without a topic is refused");
 
-            assertEquals(GradingOutcome.Refused.NO_TOPICS, refused.reason());
+            assertEquals(GradingOutcome.Refused.NO_TOPICS, refused.reason(),
+                    "the refusal names the missing topics");
         }
     }
 
@@ -285,7 +313,8 @@ class RoleGraderTest {
                     GraderFixtures.complete(), GradingProfile.single(), Optional.empty(), ItemCheckout.none());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the screener's item grades a record");
 
             assertEquals(1, fixtures.harness.offered().size(), "the screener's item is offered once");
             assertEquals(1, graded.entry().items().size(), "the record holds one run of the item");
@@ -303,7 +332,8 @@ class RoleGraderTest {
                     GraderFixtures.complete(), new GradingProfile(runs), Optional.empty(), ItemCheckout.none());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the requested runs grade a record");
 
             assertEquals(runs, fixtures.harness.offered().size(), "the item is offered the requested runs");
             assertEquals(runs, graded.entry().items().size(), "the record holds every requested run");
@@ -319,7 +349,8 @@ class RoleGraderTest {
             var plan = GraderFixtures.plan(GraderFixtures.role(), corpus(), fixtures.judgeConfiguration(),
                     GraderFixtures.complete(), new GradingProfile(runs), Optional.empty(), ItemCheckout.none());
 
-            assertInstanceOf(GradingOutcome.Graded.class, fixtures.grader.grade(plan, GradingConsent.GRANTED));
+            assertInstanceOf(GradingOutcome.Graded.class, fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "every form is offered the requested runs");
 
             assertEquals(2 * 2 * runs, fixtures.harness.offered().size(), "two items in two forms, each run");
         }
@@ -355,11 +386,12 @@ class RoleGraderTest {
                     Optional.empty(), commit -> commit.startsWith("c"));
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the checkout items grade a record");
 
             var fresh = graded.entry().items().stream().filter(item -> item.form() == RoleForm.FRESH).toList();
-            assertEquals(Checkout.ITEM_COMMIT, fresh.getFirst().checkout());
-            assertEquals(Checkout.CURRENT, fresh.get(1).checkout());
+            assertEquals(Checkout.ITEM_COMMIT, fresh.getFirst().checkout(), "the present commit grades its item");
+            assertEquals(Checkout.CURRENT, fresh.get(1).checkout(), "the missing commit grades in the checkout");
         }
 
         @Test
@@ -374,12 +406,14 @@ class RoleGraderTest {
             fixtures.judge.scores(prompt -> rubricPrompt(prompt, "review/rubric"));
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the rubric item records an ungraded run");
 
-            assertEquals(2, graded.entry().ungraded());
+            assertEquals(2, graded.entry().ungraded(), "both lost tasks stay ungraded");
             assertTrue(graded.entry().items().stream()
-                    .filter(item -> "review/rubric".equals(item.itemId()))
-                    .allMatch(item -> item.score().isUngraded() && item.totalTokens().measured()));
+                            .filter(item -> "review/rubric".equals(item.itemId()))
+                            .allMatch(item -> item.score().isUngraded() && item.totalTokens().measured()),
+                    "the rubric item keeps its tokens despite the loss");
         }
 
         @Test
@@ -390,9 +424,10 @@ class RoleGraderTest {
             var plan = plan(fixtures, GraderFixtures.complete());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "a lost answer still grades a record");
 
-            assertEquals(2, graded.entry().ungraded());
+            assertEquals(2, graded.entry().ungraded(), "both lost answers stay ungraded");
         }
 
         @Test
@@ -401,7 +436,8 @@ class RoleGraderTest {
             var fixtures = new Fixtures();
             var plan = plan(fixtures, GraderFixtures.complete());
             var first = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the first run grades every item");
             var previous = new QualificationRecord(first.entry().role(), first.entry().qualificationDigest(),
                     first.entry().configuration(), first.entry().corpusRevision(), first.entry().missedSources(),
                     first.entry().forms(), first.entry().warmFreshGap(), 0, first.entry().gradedAt(),
@@ -411,10 +447,11 @@ class RoleGraderTest {
                     GraderFixtures.complete(), GradingProfile.single(), Optional.of(previous), ItemCheckout.none());
 
             var second = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(rerun, GradingConsent.GRANTED));
+                    fixtures.grader.grade(rerun, GradingConsent.GRANTED),
+                    "the rerun grades a record again");
 
             assertTrue(fixtures.harness.offered().isEmpty(), "every item was already graded");
-            assertEquals(0, second.entry().ungraded());
+            assertEquals(0, second.entry().ungraded(), "the rerun leaves nothing ungraded");
         }
 
         @Test
@@ -426,9 +463,11 @@ class RoleGraderTest {
             var plan = plan(fixtures, GraderFixtures.complete());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the disjoint forms grade a record");
 
-            assertEquals(new BigDecimal("100"), graded.entry().warmFreshGap());
+            assertEquals(new BigDecimal("100"), graded.entry().warmFreshGap(),
+                    "the gap reaches one hundred without overlap");
         }
 
         @Test
@@ -443,7 +482,8 @@ class RoleGraderTest {
                     ItemCheckout.none());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the topped-up run grades a record");
 
             assertEquals(runs - 1, fixtures.harness.offered().size(), "only the missing runs are offered");
             assertEquals(runs, graded.entry().items().size(), "the record holds every requested run");
@@ -461,11 +501,13 @@ class RoleGraderTest {
             var rerun = GraderFixtures.plan(otherRole, corpus(), fixtures.judgeConfiguration(),
                     GraderFixtures.complete(), GradingProfile.single(), Optional.of(previous), ItemCheckout.none());
 
-            assertNotEquals(previous.qualificationDigest(), otherRole.qualificationDigest());
+            assertNotEquals(previous.qualificationDigest(), otherRole.qualificationDigest(),
+                    "a changed model changes the digest");
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
-                    fixtures.grader.grade(rerun, GradingConsent.GRANTED));
-            assertEquals(4, fixtures.harness.offered().size());
-            assertEquals(4, graded.entry().offered());
+                    fixtures.grader.grade(rerun, GradingConsent.GRANTED),
+                    "the changed digest grades a record");
+            assertEquals(4, fixtures.harness.offered().size(), "every item is offered again");
+            assertEquals(4, graded.entry().offered(), "the record counts four offered runs");
         }
     }
 

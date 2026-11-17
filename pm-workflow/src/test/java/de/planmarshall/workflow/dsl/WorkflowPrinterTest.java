@@ -343,15 +343,18 @@ class WorkflowPrinterTest {
                     .toList();
 
             assertAll(
-                    () -> assertEquals(List.of(StateBehavior.AskForm.ASK, StateBehavior.AskForm.ASK_FRESH), behaviors),
-                    () -> assertTrue(printed.contains("job llm change role implementer ask fresh")),
-                    () -> assertTrue(printed.contains("job llm change role implementer ask\n")));
+                    () -> assertEquals(List.of(StateBehavior.AskForm.ASK, StateBehavior.AskForm.ASK_FRESH), behaviors,
+                            "both ask forms are printed as parsed"),
+                    () -> assertTrue(printed.contains("job llm change role implementer ask fresh"),
+                            "the ask form is printed in the job line"),
+                    () -> assertTrue(printed.contains("job llm change role implementer ask\n"),
+                            "the plain ask form is printed on its line"));
         }
 
         @Test
         @DisplayName("runs over the seven valid fixtures")
         void fixturesPresent() {
-            assertEquals(7, validFixtures().size());
+            assertEquals(7, validFixtures().size(), "the suite lists seven valid fixtures");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -362,7 +365,7 @@ class WorkflowPrinterTest {
 
             var reparsed = parse("printed-" + resource, WorkflowPrinter.print(parsed));
 
-            assertEquals(strip(parsed), strip(reparsed));
+            assertEquals(strip(parsed), strip(reparsed), "the reparsed tree equals the parsed tree");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -373,7 +376,7 @@ class WorkflowPrinterTest {
 
             var reprinted = WorkflowPrinter.print(parse("printed-" + resource, printed));
 
-            assertEquals(printed, reprinted);
+            assertEquals(printed, reprinted, "the reprinted source is the printed source");
         }
 
         @Test
@@ -381,7 +384,7 @@ class WorkflowPrinterTest {
         void canonicalSource() {
             var definition = parse("canonical.pmwf", CANONICAL);
 
-            assertEquals(CANONICAL, WorkflowPrinter.print(definition));
+            assertEquals(CANONICAL, WorkflowPrinter.print(definition), "canonical source prints to itself");
         }
 
         @Test
@@ -434,7 +437,8 @@ class WorkflowPrinterTest {
 
             assertAll(
                     () -> assertTrue(printed.startsWith(THREE_ENTRIES_FRONTMATTER), printed),
-                    () -> assertEquals(strip(definition), strip(parse("printed-three-entries.pmwf", printed))));
+                    () -> assertEquals(strip(definition), strip(parse("printed-three-entries.pmwf", printed)),
+                            "the three entries read back to the same tree"));
         }
 
         @Test
@@ -468,11 +472,15 @@ class WorkflowPrinterTest {
             var printed = WorkflowPrinter.print(definition);
 
             assertAll(
-                    () -> assertEquals("name: \"-leading dash\"", lineStartingWith(printed, "name: ")),
+                    () -> assertEquals("name: \"-leading dash\"", lineStartingWith(printed, "name: "),
+                            "a leading dash is double-quoted"),
                     () -> assertEquals("description: \"Says: \\\"quoted\\\" and a \\\\ backslash.\"",
-                            lineStartingWith(printed, "description: ")),
-                    () -> assertEquals("signature: sig-1", lineStartingWith(printed, "signature: ")),
-                    () -> assertEquals(strip(definition), strip(parse("quoted.pmwf", printed))));
+                            lineStartingWith(printed, "description: "),
+                            "a quote and a backslash are escaped"),
+                    () -> assertEquals("signature: sig-1", lineStartingWith(printed, "signature: "),
+                            "the signature is printed verbatim"),
+                    () -> assertEquals(strip(definition), strip(parse("quoted.pmwf", printed)),
+                            "the quoted values read back unchanged"));
         }
 
         static Stream<String> valuesPlainRefuses() {
@@ -497,7 +505,8 @@ class WorkflowPrinterTest {
             assertAll(
                     () -> assertFalse(UnitFrontmatterReader.isPlain(value), "isPlain accepted: " + value),
                     () -> assertTrue(printed.contains("description: \""), printed),
-                    () -> assertEquals(value, reparsed.frontmatter().description()));
+                    () -> assertEquals(value, reparsed.frontmatter().description(),
+                            "the value reads back unchanged"));
         }
     }
 
@@ -542,8 +551,10 @@ class WorkflowPrinterTest {
             var printed = WorkflowPrinter.print(definition);
 
             assertAll(
-                    () -> assertEquals("guard " + expected, guardLine(printed)),
-                    () -> assertEquals(strip(definition), strip(parse("guard.pmwf", printed))));
+                    () -> assertEquals("guard " + expected, guardLine(printed),
+                            "the guard prints the needed parentheses"),
+                    () -> assertEquals(strip(definition), strip(parse("guard.pmwf", printed)),
+                            "the printed guard reads back equal"));
         }
     }
 
@@ -563,7 +574,8 @@ class WorkflowPrinterTest {
 
             assertAll(
                     () -> assertTrue(printed.lines().anyMatch(expected::equals), printed),
-                    () -> assertEquals(strip(definition), strip(parse("form.pmwf", printed))));
+                    () -> assertEquals(strip(definition), strip(parse("form.pmwf", printed)),
+                            "the printed link form reads back"));
         }
 
         @Test
@@ -575,8 +587,10 @@ class WorkflowPrinterTest {
             var lines = WorkflowPrinter.print(definition).lines().toList();
 
             assertAll(
-                    () -> assertEquals("workflow plan version 4 format 1", lines.get(FRONTMATTER_LINES)),
-                    () -> assertEquals("instance " + header.json(), lines.get(FRONTMATTER_LINES + 1)),
+                    () -> assertEquals("workflow plan version 4 format 1", lines.get(FRONTMATTER_LINES),
+                            "the workflow line follows the frontmatter"),
+                    () -> assertEquals("instance " + header.json(), lines.get(FRONTMATTER_LINES + 1),
+                            "the instance line comes second"),
                     () -> assertTrue(header.json().contains("\"inputs\":{"), header::json),
                     () -> assertEquals(header, parse("printed-instance.pmwf", String.join("\n", lines))
                             .instance(), "the printed instance line reads back equal"));
@@ -606,7 +620,8 @@ class WorkflowPrinterTest {
             var printed = WorkflowPrinter.print(definition);
 
             assertAll(
-                    () -> assertEquals("workflow plan version 3 format 1", lineStartingWith(printed, "workflow ")),
+                    () -> assertEquals("workflow plan version 3 format 1", lineStartingWith(printed, "workflow "),
+                            "the plan unit prints its workflow line"),
                     () -> assertTrue(printed.contains("    call git.no_args\n"), printed));
         }
 
@@ -635,15 +650,17 @@ class WorkflowPrinterTest {
 
             assertAll(
                     () -> assertEquals("workflow demo version 4 format 1 derived_from 3",
-                            lineStartingWith(printed, "workflow ")),
-                    () -> assertEquals(source, printed),
-                    () -> assertEquals(strip(definition), strip(parseProject("printed.pmwf", printed))));
+                            lineStartingWith(printed, "workflow "), "the derived_from revision is printed"),
+                    () -> assertEquals(source, printed, "the printed source is the source read"),
+                    () -> assertEquals(strip(definition), strip(parseProject("printed.pmwf", printed)),
+                            "the project unit reads back equal"));
         }
 
         @Test
         @DisplayName("rejects a null definition")
         void nullDefinition() {
-            assertThrows(NullPointerException.class, () -> WorkflowPrinter.print(null));
+            assertThrows(NullPointerException.class, () -> WorkflowPrinter.print(null),
+                    "a null definition is refused");
         }
     }
 }
