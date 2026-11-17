@@ -39,7 +39,7 @@ class WarmServingTest {
                 () -> assertTrue(WarmServing.mayShare(null, List.of("review-code/first")),
                         "no note names anything"),
                 () -> assertFalse(WarmServing.names(List.of(item("review-code/first", null)),
-                        item("review-code/second", null)),
+                                item("review-code/second", null)),
                         "two items without notes never name each other"));
     }
 

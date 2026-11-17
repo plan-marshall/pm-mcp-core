@@ -12,12 +12,12 @@ package de.planmarshall.runtime.worker;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.corpus.ImportedItem;
 import de.planmarshall.core.role.qualification.Checkout;
 import de.planmarshall.core.role.qualification.TokenTotal;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The port through which the grading adapter offers one corpus item as a task of the task protocol (Model Work § Grading).

@@ -9,7 +9,12 @@
  */
 package de.planmarshall.runtime.worker;
 
+import java.math.BigDecimal;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -72,7 +77,7 @@ public final class WorkerJudgeScorer implements JudgeScorer {
             return Optional.empty();
         }
         return offers.offer(new ItemTaskOffers.Task(JUDGE_ROLE, started.generation().generationId(),
-                        judgeItem(prompt), role.form(), Checkout.CURRENT, null))
+                judgeItem(prompt), role.form(), Checkout.CURRENT, null))
                 .map(submitted -> new JudgeScore(grade(submitted.answer()), submitted.totalTokens(),
                         submitted.durationMs()));
     }
@@ -99,11 +104,11 @@ public final class WorkerJudgeScorer implements JudgeScorer {
 
     private static ImportedItem judgeItem(JudgePrompt prompt) {
         var input = new ImportedItem.Input(prompt.question(), prompt.facts(), null,
-                JsonValue.parse("{\"type\":\"object\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                JsonValue.parse("{\"type\":\"object\"}".getBytes(StandardCharsets.UTF_8)));
         var target = new ImportedItem.Target(prompt.reference(), "", List.of(), List.of(), false);
         var grading = new ImportedItem.Grading(ImportedItem.GradingMethod.RUBRIC_PROPERTIES, null, null);
-        var provenance = new ImportedItem.Provenance(java.time.LocalDate.EPOCH,
-                new ImportedItem.Origin(java.net.URI.create("https://example.org/judge"),
+        var provenance = new ImportedItem.Provenance(LocalDate.EPOCH,
+                new ImportedItem.Origin(URI.create("https://example.org/judge"),
                         "%040x".formatted(0L), "judge/rows.csv", 1),
                 List.of("offered to the judge role"));
         var review = new ImportedItem.Review(ImportedItem.ReviewStatus.CONFIRMED, "corpus", null, "");
@@ -116,7 +121,7 @@ public final class WorkerJudgeScorer implements JudgeScorer {
      * @return the slug of the judge task, aligned with the item id pattern
      */
     private static String slug(String itemId) {
-        var slug = itemId.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9-]", "-").replaceAll("-+", "-");
+        var slug = itemId.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9-]", "-").replaceAll("-+", "-");
         slug = slug.replaceAll("^-", "");
         return slug.matches("[a-z0-9].*") ? slug : "item-" + slug;
     }
@@ -125,12 +130,12 @@ public final class WorkerJudgeScorer implements JudgeScorer {
      * @param answer the judge's structured answer
      * @return the score it states; zero when it states none, which the grading records as a failed judgment
      */
-    private static java.math.BigDecimal grade(String answer) {
-        var reference = JsonValue.parse(answer.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    private static BigDecimal grade(String answer) {
+        var reference = JsonValue.parse(answer.getBytes(StandardCharsets.UTF_8));
         if (reference instanceof JsonValue.JsonObject object
                 && object.members().get("score") instanceof JsonValue.JsonNumber number) {
             return number.value();
         }
-        return java.math.BigDecimal.ZERO;
+        return BigDecimal.ZERO;
     }
 }

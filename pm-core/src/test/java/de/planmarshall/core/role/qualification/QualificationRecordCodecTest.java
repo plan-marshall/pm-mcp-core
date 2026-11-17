@@ -219,7 +219,8 @@ class QualificationRecordCodecTest {
                 QualificationFixtures.GRADED_AT, List.of());
     }
 
-    private static QualificationRecord fullRecord() {        var itemId = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/clean-plan";
+    private static QualificationRecord fullRecord() {
+        var itemId = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/clean-plan";
         var itemAnswer = Generators.letterStrings(3, 10).next();
         var fresh = new QualificationRecord.FormResult(
                 Map.of(

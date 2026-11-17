@@ -13,7 +13,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.networknt.schema.Error;
 import com.networknt.schema.Schema;
@@ -21,7 +20,6 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -218,7 +216,7 @@ class QualificationSchemaParityTest {
                     () -> assertEquals(wireNames(Checkout.values(), Checkout::wireName), enumOf(item, "checkout"),
                             "the checkouts should equal the file's"),
                     () -> assertEquals(wireNames(QualificationRecord.JudgeCheckResult.values(),
-                                    QualificationRecord.JudgeCheckResult::wireName),
+                            QualificationRecord.JudgeCheckResult::wireName),
                             enumOf(schema, JUDGE_CHECK_MEMBER),
                             "the judge check results should equal the file's"));
         }

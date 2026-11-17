@@ -18,7 +18,7 @@ import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.verify;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -97,7 +97,7 @@ class WorkerGradingHarnessTest {
                         "the first task carries its own generation"),
                 () -> assertEquals(tasks.get(1).generationId(), fixture.starts.get(1).launch().generationId(),
                         "the second task carries its own generation"),
-                () -> assertFalse(tasks.get(0).generationId().equals(tasks.get(1).generationId()),
+                () -> assertNotEquals(tasks.get(0).generationId(), tasks.get(1).generationId(),
                         "two fresh items never share a worker"));
         verify(offers);
     }

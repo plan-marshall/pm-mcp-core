@@ -88,7 +88,7 @@ public final class WorkerGradingHarness implements GradingHarness {
             return Optional.empty();
         }
         return offers.offer(new ItemTaskOffers.Task(role.artifact().name(), generation, offered.item(),
-                        offered.form(), offered.checkout(), role.zeroTool() ? null : directory.get()))
+                offered.form(), offered.checkout(), role.zeroTool() ? null : directory.get()))
                 .map(WorkerGradingHarness::answerOf);
     }
 
