@@ -376,12 +376,12 @@ public final class SecretRedactor {
         if (schemeStart(value, separator) < 0) {
             return null;
         }
-        var userEnd = token.userStop(value, separator + separatorLength);
+        var userEnd = tokenUserStop(value, separator + separatorLength, token);
         if (userEnd >= value.length() || value.charAt(userEnd) != ':') {
             return null;
         }
         var secretStart = userEnd + 1;
-        var lastAt = token.lastAt(value, secretStart);
+        var lastAt = tokenLastAt(value, secretStart, token);
         return lastAt <= secretStart ? null : new UrlMatch(secretStart, lastAt);
     }
 
@@ -412,31 +412,32 @@ public final class SecretRedactor {
         private int end = -1;
         private int lastAt = -1;
         private int userStop = -1;
+    }
 
-        private int lastAt(String value, int secretStart) {
-            if (end < 0 || secretStart >= end) {
-                end = secretStart;
-                lastAt = -1;
-                while (end < value.length() && !isWhiteSpace(value.charAt(end))) {
-                    if (value.charAt(end) == '@') {
-                        lastAt = end;
-                    }
-                    end++;
+    /** The index of the token's last {@code @}, measured once per token. */
+    private static int tokenLastAt(String value, int secretStart, UrlToken token) {
+        if (token.end < 0 || secretStart >= token.end) {            token.end = secretStart;
+            token.lastAt = -1;
+            while (token.end < value.length() && !isWhiteSpace(value.charAt(token.end))) {
+                if (value.charAt(token.end) == '@') {
+                    token.lastAt = token.end;
                 }
+                token.end++;
             }
-            return lastAt;
         }
+        return token.lastAt;
+    }
 
-        private int userStop(String value, int from) {
-            if (userStop < from) {
-                var position = from;
-                while (position < value.length() && !isUrlUserStop(value.charAt(position))) {
-                    position++;
-                }
-                userStop = position;
+    /** The first user delimiter at or after {@code from}, measured once per token. */
+    private static int tokenUserStop(String value, int from, UrlToken token) {
+        if (token.userStop < from) {
+            var position = from;
+            while (position < value.length() && !isUrlUserStop(value.charAt(position))) {
+                position++;
             }
-            return userStop;
+            token.userStop = position;
         }
+        return token.userStop;
     }
 
     /** The next occurrence of a scheme separator, compared case-insensitively (the encoded form carries letters). */
