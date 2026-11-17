@@ -52,11 +52,17 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the package file `doc/plans/decision-quorum-and-calibration.adoc` (the bullet *The calibration record's tokens*: "its codec is owed here, in `core.role`") and its index row (`open`, depends on `decision-engine`, a staged plan: PLAN-V2-23) at `a8da4104`
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: decision-quorum-and-calibration.adoc is now a Tasks list (task 8 'record and its codec'); no 'codec is owed' bullet; README:264-267 row still open, depends decision-engine
 - OBSERVED: no decision calibration class exists: `grep -rli 'decision.calibration\|DecisionCalibration' --include=*.java pm-*/src` finds nothing; `pm-core/src/main/java/de/planmarshall/core/role/qualification/` holds `JudgeCheck`, `JudgeCheckCodec`, `JudgeCheckStore`, `QualificationRecord`, `QualificationRecordCodec`, `QualificationRecordStore`, `TokenTotal` among 27 files
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: No DecisionCalibration class in pm-*/src/main (only a Javadoc mention in TokenTotal.java:24); core/role/qualification now 28 files incl. package-info (was 27)
 - OBSERVED: `TokenTotal.java` line 27 `record TokenTotal(Long tokens, Long tokensIn, Long tokensOut)` with `UNMEASURED_MARK` at line 30 implements the pair-or-unmeasured rule of ADR core-store/048; `JudgeCheckCodec.java` line 174 builds it from the read members; `JudgeCheckStore.java` line 36 `FILE_NAME = "judge-check.json"` writes `qualification/judge-check.json` atomically
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Lines drifted: TokenTotal.java:32 (now public record), UNMEASURED_MARK:35, JudgeCheckCodec.java:185; JudgeCheckStore.java:36 FILE_NAME=judge-check.json unchanged
 - OBSERVED: the schema block is `doc/specification/store-schemas/16-task-queue.adoc` from line 314 (`decision-calibration-record`) with `$defs.roleConfig`; `doc/specification/model-work/10-decision-quorum.adoc` lines 205-210 define the declaration digest, the record path and the shipped calibration
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Block moved: 16-task-queue.adoc:74-83 now includes decision-calibration-record.schema.json (roleConfig at :50); path and digest now 10-decision-quorum.adoc:195-197
 - HYPOTHESIS: the store location is under the project role set like `judge-check.json` (`<set>/qualification/decisions/`) — confirm at `filesystem-layout` and at `JudgeCheckStore.java` line 49 (verify-at-outline)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: filesystem-layout/03-project-store.adoc:119 and 10-decision-quorum.adoc:195 put records at qualification/decisions/; JudgeCheckStore.java:47-49 resolves under qualification dir
 - Verify-first clause: before editing, list the open pull requests touching `core/role/qualification/` (PLAN-46 declares other `core/role` classes: `MachineConfiguration`, `ModelCatalogue`, `RoleAssignments`), re-read the schema block at the head and check whether `decision-engine` (PLAN-V2-23) has already added a calibration type; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Open pull requests are not readable from git at HEAD; only that no calibration type was added by decision-engine (no class matches) can be read
 
 ## Expected Surface
 
@@ -73,6 +79,13 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - Sequenced 2026-10-29 by the cross-check: shares `JudgeCheckCodec`, `QualificationRecordCodec` and `TokenTotal` (6 code entries) with PLAN-V2-56 (`qualification-token-split`); run after PLAN-V2-56 has merged.
 - Overlaps with: none with PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43 (PLAN-46 declares `core/role/MachineConfiguration`, `ModelCatalogue`, `RoleAssignments`, not `core/role/qualification/`). PLAN-V2-76 (`judgment-votes`, parked) declares `core/role/corpus/ImportedItem.java` and `core/store/` (directory): no shared class. PLAN-V2-23 (`decision-engine`) declares `workflow/decision/`, not `core.role`.
 - Adjacent to: `decision-engine` (PLAN-V2-23) and the blocked part of `decision-quorum-and-calibration`; `plan-marshall-mcp` `default-units-and-drift-tests` (the default unit files).
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+
+- Weakened premise: the store specification (`16-task-queue.adoc:79`) and ADR 018 say the decision calibration record has no codec of its own (`decision-calibration-record.schema.json` is a schema placement), and the package file no longer carries the "codec is owed" bullet; the plan's premise of a codec, a store and an inline schema block needs re-scoping at the outline.
+- Claim 0 (the package file doc/plans/decision-quorum-and-calibration.adoc (the bullet *The calibration record's tokens*: "its codec is owed here, in core.rol…) is contradicted at HEAD: decision-quorum-and-calibration.adoc is now a Tasks list (task 8 'record and its codec'); no 'codec is owed' bullet; README:264-267 row still open, depends decision-engine
 
 ## Hand-Off Command
 

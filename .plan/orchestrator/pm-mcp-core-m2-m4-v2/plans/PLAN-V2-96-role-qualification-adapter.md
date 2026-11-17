@@ -55,12 +55,19 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: `RoleGrader` and `QualificationCheck` are referenced only inside their packages (analysis of PLAN-34); `Checkout.ITEM_COMMIT` exists
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: RoleGrader and QualificationCheck are referenced in no main class outside workflow/model and core/role/qualification; Checkout.ITEM_COMMIT at Checkout.java:23
 - OBSERVED: ADR `core-role/004` leaves the adapter to the task-protocol adapter
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-core/doc/adr/core-role/004 lines 15-17 and 47-48: grading through ports, launch contract is the adapter's obligation, protocol wired by the adapter
 - HYPOTHESIS: PLAN-V2-31 delivers `WorkerSupervisor` calls the adapter can use; confirm at the outline
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: HEAD 3d453e6c (#472) adds SupervisorCalls.java, WorkerCalls.java and SupervisionPass.java in pm-runtime worker; fit for the adapter is for the outline to confirm
 - HYPOTHESIS: the planted `CN-<n>` item has a place in the corpus resources of `pm-core` (`core.role.corpus`); confirm at the outline
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis: core/role/corpus resources hold only three schema json files; CN- is only in spi/validation SelfReviewSubmission; a corpus item place is a design question
 - OBSERVED (2026-11-17, `handle-open` item 4, read at `origin/main` `58f53566`): `qualification-record.schema.json:64` requires `thin` on every topic result; `QualificationRecordCodec` writes none and refuses one; `QualificationSchemaParityTest` pins the violation naming `thin`; the package `qualification-evidence` is `open` at `doc/plans/README.adoc:78` and its file lists the three tasks of Deliverable 5; no other plan of the epic is staged for it (`landings/PLAN-V2-56.md`).
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: qualification-record.schema.json:64 requires thin; QualificationRecordCodec has no thin; QualificationSchemaParityTest:64 pins THIN; README.adoc:78 and qualification-evidence.adoc exist
 - HYPOTHESIS: the adapter of Deliverable 2 persists the record through `QualificationRecordCodec`; confirm at the outline (the spec above does not say; if it persists none, Deliverable 5 still stands because the codec is the one writer of the record and the specification states `thin` as required).
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about an adapter that does not exist yet; no adapter class at HEAD to read; codec remains the one writer
 - Verify-first clause: before editing, list the open pull requests for one that touches the packages of the Expected Surface and re-run the counting commands of the claims above at the head of `main` (a plan of the family may have landed since the audit); keep only what is still open; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Verify-first clause needs open pull requests and a re-run of counting commands; open pull requests are not readable from git
 
 ## Expected Surface
 

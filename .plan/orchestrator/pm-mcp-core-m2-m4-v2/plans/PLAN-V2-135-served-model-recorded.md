@@ -93,6 +93,7 @@ All read at `pm-mcp-core` main `6937efe4`; the `pm-mcp-clients` claims at its `o
 23. HYPOTHESIS: the builder of a record added by this plan (`ServedModels`, `ModelDiffers`, `ServedModelWatch` state) follows R20 `@Builder` for four or more components only; `ModelDiffers` has two and `ServedModels` one, so neither carries it — confirm at the outline.
 24. HYPOTHESIS: `PlanTokensTest` (`pm-workflow`), `UsageAggregateTest`, `ContinuationMarkParityTest` and `MetricsStoreTest` are the only callers that build a `MetricsRow` (searched `MetricsRow.builder` in `pm-*/src/test`: `MetricsStoreTest.java:105`, `UsageAggregateTest.java:98`, `PlanTokensTest.java:54`, `MetricsSchemaParityTest.java:61`); the compiler and the run settle the list at the outline.
 - Verify-first clause: before editing, list the open pull requests for one that touches `ProfileValidator`, `ProfileStages`, `UsagePointers`, `MetricsRow`, `MetricsCodec`, `ActivityEntry` or `SecretRedactor` (PLAN-V2-127 does the last), re-read the files at the head and the Dependencies below; a refutation of Claims 1 to 5 loops back to re-scope.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Open pull requests unreadable; ProfileValidator.java:913 still closes usage to USAGE_FIGURES; harness-profile-v1.schema.json:304 already lists model; PLAN-V2-127 spec exists
 
 ## Expected Surface
 
@@ -143,6 +144,12 @@ The shared-file rule of the orchestrator: a plan that shares a file with this on
 - Proposed order at emit: after the cross-repo pull request and after PLAN-V2-100, 108, 127, 129, 114, 125 and 126; PLAN-V2-59, 63, 68, 39, 71, 06 and 47 in the queue order (this plan takes the later position unless the operator says otherwise); PLAN-V2-119 before this plan.
 
 **Corrections of 2026-11-14 after the impact analysis of the specification pull requests #414, #417 and #419 (`landings/SPEC-PRS-2026-11-14.md`; BINDING over any contradicting older text of this spec).** **#417 inserted one line at `harness-profiles/01-profile-schema.adoc:306`** (the bullet `[[observed-file-changes]]`): every citation of this spec into that file at line 306 or later is one line later at the head (`:862`→`:863`, `:863`→`:864`, `:877`→`:878`, `:324`→`:325`, `:327`→`:328`, `:803`→`:804`, `:941`→`:942`, `:1026`→`:1027`); `store-schemas/16-task-queue.adoc:49` was reworded (a `file_changed` entry is also appended by the runtime; the `model_differs` statement is unaffected). The outline re-reads every line before it edits.
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+
+- The claim file held only the verify-first clause (index 0); `ProfileValidator.usage` still closes the block to the seven figures and the profile schema file already lists `usage.model`; no `served_models` or `model_differs` exists in main sources.
 
 ## Hand-Off Command
 

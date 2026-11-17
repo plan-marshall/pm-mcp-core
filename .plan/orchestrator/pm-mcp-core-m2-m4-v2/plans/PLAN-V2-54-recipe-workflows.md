@@ -51,13 +51,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/recipe-workflows.adoc` § What, Trace, Done When on `origin/main` at `4617865` (3 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/recipe-workflows.adoc was restructured by #286: 3 Tasks and Done When, no What section (task 3 names start.recipe-create, spec says recipe.create); the spec text is not the file's words and no section says so
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/recipe-workflows.adoc at HEAD has 3 Tasks and Done When, no What section, restructured by efecccba #286; spec's Re-ground record states it
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-V2-24 (`start-from-clients`)) — read at `doc/plans/recipe-workflows.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row 132 is open and depends on phase-sub-workflows and start-from-clients; both rows still listed
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:126-130 row is open and depends on phase-sub-workflows and start-from-clients; both packages still exist in doc/plans
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis for the trace matrix; ProjectUnitLoader and PlanInstanceComposer exist, core/recipe holds package-info plus recipe-descriptor-v1.schema.json but no RecipeDescriptor; core-recipe.adoc and its ADR dir absent
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about the Expected Surface; core/recipe/ holds only package-info.java and no RecipeDescriptor class exists at HEAD, nothing to confirm
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: composition-rules.json has 13 rules, none mentioning recipe; UnitType.RECIPE:34 and CompositionEvent.EMPTY_HARVEST:49 exist; no recipe_override; workflow-dsl ADRs now end at 011 (text said 008)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: recipe-workflows row is open not blocked and its two dependency packages are still listed; agreed use cases are not readable in this repository
 
 ## Expected Surface
 

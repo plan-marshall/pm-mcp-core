@@ -64,12 +64,19 @@ Three deliverables, one commit each, in this order (the third on the final shape
 All lines read at `32a711f9` (`origin/main`) through the landing analysis of PLAN-V2-39; the outline re-reads each before it acts.
 
 - OBSERVED: no icon class exists in `pm-runtime/src/main` or `pm-core/src/main` (`git ls-tree` finds none); the lane message of PLAN-V2-39 lines 61-66 state the store as not built.
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: git ls-tree 3d453e6c: no icon class in pm-core/src/main or pm-runtime/src/main (only pm-workflow dsl icon files); lane message in ledger not read
 - OBSERVED: `HarnessVerification.admit` (`HarnessVerification.java:100`) validates the draft with `ProfileValidator.validate` (`:106`) and returns a `JsonNode`; `Request` has eight components and no `@Builder` (`:72`).
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-core profile/HarnessVerification.java:100 admit returns JsonNode, ProfileValidator.validate at :106, Request record at :72 has 8 components, no @Builder
 - OBSERVED: `HarnessEnrolment.updated` (`HarnessEnrolment.java:96-114`) drops a report measured on another build and a DECLARED one alike.
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-runtime launch/HarnessEnrolment.java:110-115 updated() swaps any usageReport (also DECLARED) for NO_REPORT_FOR_A_NEW_BUILD when version or sha256 differ
 - OBSERVED: the schema file `harness-profile-v1.schema.json` requires `readable_paths` (`:356,420`) and no Java validates it (`HarnessProfileSchemaParityTest.java:49` pins it, owned by `job-confinement-and-environment`).
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: harness-profile-v1.schema.json:359,423 require readable_paths (lines moved); HarnessProfileSchemaParityTest.java:53 UNIMPLEMENTED_HEADLESS; no readable_paths in any src/main java
 - OBSERVED: `doc/plans/harness-renames.adoc` is `open` (milestone 4, no dependencies) and no staged plan owned it before 2026-11-17; the 28 main files above still carry the old spelling at `58f53566`; the package file names `JudgmentEndpoint`, which no longer exists.
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: doc/plans/harness-renames.adoc still in README:30; 29 main files in pm-core/pm-runtime carry clientId/client_id (28 earlier); JudgmentEndpoint absent from src, named at line 2 of its tasks
 - HYPOTHESIS: the JDK's StAX reader with DOCTYPE and external entities disabled is enough for an allow-list SVG filter; verify-first: write the negative controls against it before the filter. If it is not, stop and ask the operator (a dependency decision).
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: JDK StAX behaviour with DOCTYPE and external entities disabled is a runtime property, not readable in this repository; the filter does not exist yet
 - HYPOTHESIS: Store Schemas 12 § Harness Icon Store names the index members (`format_version`, entries); verify-first: read `doc/specification/store-schemas/12-machine-stores.adoc` and the schema file of the index (`icons/index.json`) at the head, which PLAN-V2-119 moved to files.
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: store-schemas/12-machine-stores.adoc:133-135 names icons/index.json with format_version and per-harness entries; no schema file of the index exists in the tree at HEAD
 
 ## Expected Surface
 

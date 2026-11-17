@@ -54,14 +54,23 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`open`, depends on nothing) — `doc/plans/build-parsers-and-gate-honesty.adoc` (What, Trace, Done When) and `doc/plans/README.adoc` at `origin/main` `a8da4104`; the package is cut into seven plans because its _What_ has six bullets with about twenty testable parts
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/build-parsers-and-gate-honesty.adoc at HEAD has 4 Tasks (gate honesty, adaptive timeout, failure evidence, changed lines), no What of six bullets; row still open and nothing
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/build/package-info.java` is the only file of the package `core.build` (15 lines, Javadoc naming `doc/specification/job-runtime/03-parsers-and-gates.adoc`) — read at `a8da4104`
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: core/build/ now holds about 43 files, parsers and coverage parsers (5de1f9bc #285, 99199666 #297, f97bc7f2 #336); package-info.java is 53 lines, not 15
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/BuildTimingsStore.java` line 73 `observe(String key, Duration duration, Residue residue, Instant observedAt)` and line 101 `escalate(String key, long budgetSeconds, long capSeconds)`; `BuildTimings.java` line 127 `KeyTimings(clean, poisoned, cold, escalationSeconds, …)` and line 182 `enum Residue { CLEAN, POISONED, COLD }` — the store is complete
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: BuildTimingsStore.java:73 observe and :104 escalate, BuildTimings.java:130 KeyTimings and :185 enum Residue; lines drifted by 3, content unchanged
 - OBSERVED: `grep -rn '\.observe(\|\.escalate(\|BuildTimings' pm-runtime/src/main pm-workflow/src/main` finds no caller of the store; `SettlementStep.java` line 62 names `TIMING_OBSERVATION` and `JobSettlement.java` lines 78-83 map it to `SettlementStep.notImplemented(name)` — nothing feeds the store
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: No caller of the store in pm-runtime/pm-workflow main; SettlementStep.java:62 TIMING_OBSERVATION; JobSettlement.java:117-118 maps it to notImplemented (moved from 78-83)
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/JobBudget.java` line 31 `record JobBudget(String key, long seconds, BudgetDerivation derivation)`; `JobRecord` and `JobRecordCodec` carry `budget_derivation` — the record side exists
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: JobBudget.java:31 record JobBudget(key, seconds, derivation); BudgetDerivation at core/store/JobRecord.java:388; JobRecordCodec.java:77 budget_derivation
 - OBSERVED: `pm-runtime/pom.xml` declares no dependency on a provider module (`grep provider` finds none), so the ignored-file count of `WorktreeShaDigest` (`pm-providers/pm-provider-git`) is not reachable from `runtime.job` without a seam
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-runtime/pom.xml has no provider dependency; WorktreeShaDigest sits in pm-provider-git but exposes no ignored-file count, it digests changed/deleted/untracked paths
 - HYPOTHESIS: the cold-start fact (a changed resolved-dependency set or a cleared cache) has no producer in the repository yet; the seam may stay without an implementation in this repository and be owed to the assembly — confirm at the trace matrix (verify-at-outline)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Residue and cold appear in main only in core/store BuildTimings and build-timings.schema.json; no cold-start producer exists in pm-runtime or pm-workflow main
 - HYPOTHESIS: the worker attempt durations (offer to attempt end, `end: closed`) are readable from `QueueTaskRecord`/`AttemptEnd` of `core.queue`/`core.store` without a new member — confirm at `AttemptEnd.java` (verify-at-outline)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: core/queue/QueueTaskRecord.java:347 nested enum AttemptEnd with CLOSED at 349; attempt record at :691 has offeredAt, endedAt, end; no AttemptEnd.java file
 - Verify-first clause: before editing, confirm that PLAN-V2-36 (`failed-unparsed-and-parser-wiring`) is merged (the settlement seam), list the open pull requests touching `runtime/job/` or `BuildTimingsStore`, and re-read the claims above at the head; a refutation loops back to re-scope.
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: PLAN-V2-36 merged as 99199666 #297 (landings/PLAN-V2-36.md); open pull requests touching runtime/job/ are not readable here
 
 ## Expected Surface
 
@@ -76,6 +85,14 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - Sequenced 2026-10-29 by the cross-check: shares `ProcessTreeTracker` and its tests with PLAN-V2-66 (`process-tree-sweep-pid-reuse`); run after PLAN-V2-66 has merged.
 - Overlaps with: code-disjoint from PLAN-V2-55 (`gate-baseline-separation`) (a different step class); no entry shared with PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43. `BuildTimingsStore.java`, `BuildTimings.java` are named by no live plan; PLAN-V2-42 (`runtime-metrics`) will implement the neighbouring `METRICS_ROW` step and may touch `SettlementStep.java`/`JobSettlement.java` (it does not declare them): the lane merges the base branch first.
 - Adjacent to: `plan-marshall-mcp` `pm-mcp-server` (registers the step and the seams); Timeouts & Budgets, whose blend formula and floors are not touched here.
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+
+- The build and coverage parsers have merged (#285, #297, #336), so `core/build/` is no longer a one-file package; nothing feeds `BuildTimingsStore` and nothing writes `BASELINE_RED` or `CHANGE_LEDGER_ROW` at HEAD.
+- Claim 0 (the package file and its index row (open, depends on nothing) — doc/plans/build-parsers-and-gate-honesty.adoc (What, Trace, Done When) and doc/pl…) is contradicted at HEAD: doc/plans/build-parsers-and-gate-honesty.adoc at HEAD has 4 Tasks (gate honesty, adaptive timeout, failure evidence, changed lines), no What of six bullets; row still open and nothing
+- Claim 1 (pm-core/src/main/java/de/planmarshall/core/build/package-info.java is the only file of the package core.build (15 lines, Javadoc naming doc/speci…) is contradicted at HEAD: core/build/ now holds about 43 files, parsers and coverage parsers (5de1f9bc #285, 99199666 #297, f97bc7f2 #336); package-info.java is 53 lines, not 15
 
 ## Hand-Off Command
 

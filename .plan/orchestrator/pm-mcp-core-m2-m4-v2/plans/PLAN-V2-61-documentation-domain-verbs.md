@@ -53,12 +53,19 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`open`, depends on nothing) — `doc/plans/domain-extensions-and-architecture.adoc` (What: seven bullets, Done When: six paragraphs) and `doc/plans/README.adoc` at `origin/main` `a8da4104`; the package is cut into seven plans because the seven bullets hold about thirty testable parts
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README:246-250 row open, depends nothing, holds; but package file now has 7 Tasks (no What) and Done When is 2 bullets (Watch, Tests), not six paragraphs
 - OBSERVED: the packages `core.domain`, `core.architecture` and `core.discovery` of `pm-core` hold only their `package-info.java` (15 lines each, Javadoc naming the specification part) at `a8da4104` — every class named in the plans of this package is new
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: core/domain, core/architecture, core/discovery hold only package-info.java at HEAD; now 18 lines each, not 15
 - OBSERVED: `doc/specification/domain-extensions/01-four-axis-architecture.adoc` lines 355-385: the verb table (`asciidoc.validate` job, `asciidoc.verify-links` compiled line-based checker "in `pm-core`; no job", `asciidoc.format` compiled house rules, tone and content a task of a documentation review role)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Verb table moved to 01-four-axis-architecture.adoc:195-218; asciidoc.verify-links 'Compiled line-based checker in pm-core; no job' at :207-208; format and tone rows same
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/ProjectEnrolment.java` line 219 `ASCIIDOCTOR("asciidoctor")` is a host tool kind of the enrolment; `pm-core/src/main/java/de/planmarshall/core/spi/validation/AsciiDocValidator.java` validates model-submitted AsciiDoc text (blank, control characters, unclosed blocks, title and section levels) and is not a link or format checker
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProjectEnrolment.java:222 ASCIIDOCTOR (was 219); AsciiDocValidator.java exists, Javadoc:21-23 lists blank, control char, unclosed block, title and level rules only
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/findings/Finding.java` line 80 is the provider-neutral finding record, with a source kind and provider; `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` holds only `package-info.java` (no primitive is registered in this repository yet: PLAN-V2-24, PLAN-V2-29, PLAN-V2-22 and PLAN-V2-64 declare that directory)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Finding.java:81 record Finding with FindingSourceKind source and provider; workflow/primitive/ holds only package-info.java at HEAD
 - HYPOTHESIS: the compiled verbs live in a new package of `pm-core` (`core.domain` or a sub-package of it, because the specification says "`pm-core`" for the checker and the verb ids belong to the `documentation` domain) — decide at the outline; the verb's finding shape is a mapping to `Finding` or a smaller value (verify-at-outline)
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about a future package layout decided at the outline; no code at HEAD to read
 - Verify-first clause: before editing, list the open pull requests touching `core/domain/` and `workflow/primitive/`, check whether the primitive registration exists by then, and re-read the verb table at the head; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure clause about open pull requests and future state; not readable from git at HEAD
 
 ## Expected Surface
 
@@ -71,6 +78,11 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing in code (it can start at once); it shares the new guide and ADR directory with PLAN-V2-09 (`domain-axes-and-descriptors`), whichever lands first creating them.
 - Overlaps with: `01-four-axis-architecture.adoc` and the guide with PLAN-V2-09 (`domain-axes-and-descriptors`) (different sections); the primitive directory `workflow/primitive/` with PLAN-V2-24, PLAN-V2-29, PLAN-V2-22, PLAN-V2-64 only if the lane registers the verbs here (expected: not, owed to the assembly). None with PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43.
 - Adjacent to: `plan-marshall-mcp` (verb registration, the documentation review role); the host-tool enrolment of PLAN-46 (`machine-onboarding-unit`) and `ProjectEnrolment`.
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+- Claim 0 (the package file and its index row (open, depends on nothing) — doc/plans/domain-extensions-and-architecture.adoc (What: seven bullets, Done When:…) is contradicted at HEAD: README:246-250 row open, depends nothing, holds; but package file now has 7 Tasks (no What) and Done When is 2 bullets (Watch, Tests), not six paragraphs
 
 ## Hand-Off Command
 

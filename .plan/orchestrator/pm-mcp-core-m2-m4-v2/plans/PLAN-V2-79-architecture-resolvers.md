@@ -53,12 +53,19 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`open`, depends on nothing) — `doc/plans/domain-extensions-and-architecture.adoc` (What: seven bullets, Done When: six paragraphs) and `doc/plans/README.adoc` at `origin/main` `a8da4104`; the package is cut into seven plans because the seven bullets hold about thirty testable parts
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc:246 row open, depends on nothing (holds), but domain-extensions-and-architecture.adoc now has 7 Tasks and Done When of Watch plus Tests, not What bullets and six paragraphs (#286)
 - OBSERVED: the packages `core.domain`, `core.architecture` and `core.discovery` of `pm-core` hold only their `package-info.java` (15 lines each, Javadoc naming the specification part) at `a8da4104` — every class named in the plans of this package is new
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: core/domain, core/architecture, core/discovery hold only package-info.java at 3d453e6c; length drifted from 15 to 18 lines (@NullMarked, #255)
 - OBSERVED: `doc/implementation-watch/domain-extensions.adoc` lines 46-64: PM-WATCH-EXT-3 (both slug forms) and PM-WATCH-EXT-4 (dropped references carry identity) name the `markdown` resolver of Axis C; `01-four-axis-architecture.adoc` lines 127-131 permit the nine classes
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: domain-extensions.adoc:45-63 PM-WATCH-EXT-3 and -4 (shifted from 46-64); 01-four-axis-architecture.adoc:127-131 permits nine edge resolvers
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/JobStarter.java` exists as the seam that starts a job from a primitive
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-core/src/main/java/de/planmarshall/core/spi/JobStarter.java:29 is public interface JobStarter, the engine port that starts a job
 - HYPOTHESIS: the resolvers read `DiscoveredModuleFacts` (declared dependencies) and the file tree, and need no process, except the project-script resolver; the edge rules of each (coordinates matched to reactor modules) are those of the originals in `plan-marshall` (`derivation_resolver_id` modules of `build-maven`, `build-npm`, `build-pyproject`, `pm-dev-python`, `pm-plugin-development`, `pm-documents`) — read at the pinned commit before the outline (verify-at-outline)
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about originals in the plan-marshall repository; DiscoveredModuleFacts does not exist in pm-*/src at HEAD
 - HYPOTHESIS: this plan's inclusion in the package is a reading of the specification, not of the package file — see the scope note of the First Instruction; the operator can drop it without affecting the other plans
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about the scope reading of the specification versus the package file; an operator decision, not readable in code
 - Verify-first clause: before editing, confirm that PLAN-V2-30 (`architecture-merges`) and PLAN-V2-14 (`module-discovery`) are merged, list the open pull requests touching `core/architecture/`, and read the originals at the head of the sibling checkout; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause; ledger queue rows PLAN-V2-30 and PLAN-V2-14 are parked and core/architecture, core/discovery are still package-info only at HEAD, so not met
 
 ## Expected Surface
 
@@ -72,6 +79,11 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-V2-30 (`architecture-merges`) (the Axis C contract) and PLAN-V2-14 (`module-discovery`) (the import scan and the dependency coordinates).
 - Overlaps with: code-disjoint from every plan except the two it follows; none with PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43 or the parked PLAN-V2-78.
 - Adjacent to: PLAN-V2-80 (`architecture-queries`) (the graph the resolvers feed); `plan-marshall-mcp` (registration of the resolvers).
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+- Claim 0 (the package file and its index row (open, depends on nothing) — doc/plans/domain-extensions-and-architecture.adoc (What: seven bullets, Done When:…) is contradicted at HEAD: README.adoc:246 row open, depends on nothing (holds), but domain-extensions-and-architecture.adoc now has 7 Tasks and Done When of Watch plus Tests, not What bullets and six paragraphs (#286)
 
 ## Hand-Off Command
 

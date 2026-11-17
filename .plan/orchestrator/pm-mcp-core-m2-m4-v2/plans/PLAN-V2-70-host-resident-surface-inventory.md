@@ -51,12 +51,19 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`open`, depends on nothing) — `doc/plans/client-profile-rendering.adoc` (What, Trace, Done When) and `doc/plans/README.adoc` at `origin/main` `a8da4104`
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: doc/plans/client-profile-rendering.adoc exists (4 Tasks, Trace, Done When); README:252-256 row open, depends nothing, Milestone 14
 - OBSERVED: `ClientProfileRenderer` does not exist: `grep -rn 'ClientProfileRenderer' pm-*/src` finds no class (the name appears in specification and watch text only); package `core.profile` holds `CanonicalJson`, `EndpointProfile`, `EnrolledHarness`, `JsonDocument`, `JsonNode`, `JsonPointer`, `LoadedProfile`, `ProfileLoader`, `ProfileRefusal`, `ProfileRules`, `ProfileSet`, `ProfileSetKind`, `ProfileSets`, `ProfileStages`, `ProfileValidator`, `ShippedProfiles`, `SupportedVersions`, `VerificationRecord`, `WorkerParameters`, `package-info` — listed with `ls` at `a8da4104`
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: No ClientProfileRenderer in pm-*/src; core/profile now also holds nine Harness* classes (HarnessScan, HarnessProbe, HarnessList and more) beyond the listed set
 - OBSERVED: `doc/specification/harness-profiles/02-placeholders.adoc` § Host-Resident Surface Inventory (from line 116 of the file) requires "the build derives and publishes" the inventory; `doc/implementation-watch/client-profiles.adoc` line 141 PM-WATCH-CLIENT-3 records the baseline fixture (157 components, 27,354 bytes, mean 174, median 119)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 02-placeholders.adoc:117-120 inventory 'build derives and publishes'; PM-WATCH-CLIENT-3 now harness-profiles.adoc:159 (file renamed): 157 components, 27,354 bytes, mean 174, median 119
 - OBSERVED: the profile schema has `skill_loading.schema_residency` (`resident`/`on_demand`) and `skills_extension` (true once the host's MCP Skills Extension support is verified; the bundle of such a host installs no shim skill) — `01-profile-schema.adoc` lines 124-138
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Schema moved from adoc to harness-profile-v1.schema.json:116-123 (schema_residency resident or on_demand, skills_extension); ProfileValidator.java:540-542 enforces both
 - HYPOTHESIS: the phrase "from the profile's own fixture" (Done When of the package) means a per-profile fixture of the served set; no such fixture exists in the repository (`grep -rn 'resident' pm-core/src/test` finds none) — the form of the fixture is decided at the outline, and if it needs the product's skill descriptions the production half is `plan-marshall-mcp`'s (verify-at-outline)
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about the meaning of 'profile's own fixture' decided at the outline; no fixture hit for 'resident' in pm-core/src/test, but the intent is not readable
 - HYPOTHESIS: the plan is mostly the other repositories' (the measured population and the published inventory): the in-repo share is the calculator and the enforcement; if the lane finds nothing it can verify without the product's content, it reports that and ends with the calculator and its tests only
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about the split of work with other repositories and the lane outcome; not readable at HEAD
 - Verify-first clause: before editing, read the roadmap item of Milestone 14 for what is already covered, list the open pull requests touching `core/profile/`, and check whether `plan-marshall-mcp` `worker-surface-tools` already defines the served-set fixture; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure clause: roadmap in the documentation repository, open pull requests and plan-marshall-mcp content are not readable here
 
 ## Expected Surface
 
@@ -71,6 +78,12 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - Sequenced 2026-10-29 by the cross-check: it shares `ProfileValidator` and `ProfileStages` with PLAN-V2-39, PLAN-V2-68 and PLAN-V2-71; run after PLAN-V2-39 (the group PLAN-V2-68, PLAN-V2-71, PLAN-V2-52, PLAN-V2-70 in that order).
 - Overlaps with: disjoint in code from PLAN-V2-52 (`client-profile-renderer`) and PLAN-V2-71 (`profile-skill-load-template-check`) and from PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43 (new classes only). `02-placeholders.adoc` and the package file are shared with PLAN-V2-52 (`client-profile-renderer`), in different sections.
 - Adjacent to: `plan-marshall-mcp` `worker-surface-tools` (the served set); `plan-marshall` (the PM-MIG-5 baseline measurement).
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+
+- The specification anchors moved: the schema is JSON now and the watch file is `harness-profiles.adoc`.
 
 ## Hand-Off Command
 

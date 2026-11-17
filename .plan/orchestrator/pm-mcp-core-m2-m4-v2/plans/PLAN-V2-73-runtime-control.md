@@ -59,13 +59,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/runtime-control.adoc` § What, Trace, Done When on `origin/main` at `4617865` (8 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/runtime-control.adoc at HEAD has 7 Tasks and no What section with 8 bullets (restructured by #286); the spec states no correction for it.
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: runtime-control.adoc at HEAD has 7 numbered Tasks (:15-21) and no What with 8 bullets; spec Re-ground record names claim 0
 - OBSERVED: the package file and its index row (`blocked`; depends on PLAN-30 (`supervisor`); PLAN-28 (`task-queue-and-protocol`); PLAN-46 (`machine-onboarding-unit`) (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)) — read at `doc/plans/runtime-control.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README row is blocked and depends on machine-onboarding-unit and the registry-credential question only (README 210-213); PLAN-28 and PLAN-30 shipped. Re-grounding Record Premises corrected states it.
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README:204-208 row blocked, depends only on the registry-credential open question; no supervisor, task-queue-and-protocol or machine-onboarding-unit; 10-26 record states it
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Surface inferred from the Where line is outline work; runtime/start drain classes exist and ConsentKind.CHECK_UPDATES exists, EX_TEMPFAIL is absent; fit of the whole surface cannot be settled by reading.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about how the Expected Surface was inferred, settled at the trace matrix; nothing to read at HEAD
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Row still blocked and registry-credential still open at documentation open-questions.adoc:14; UC-SYS-1 is AGREED; the spec carries a Parked note for exactly this. Open pull requests cannot be read here.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure clause for the executing plan (index no longer blocked, use cases agreed); the row is still blocked but the clause is not a fact
 
 ## Expected Surface
 
