@@ -2,10 +2,10 @@
   "id": "PLAN-V2-151",
   "slug": "secret-redactor-hardening-2",
   "workstream": "WS-07",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-151-secret-redactor-hardening-2",
+  "pr": "#475",
+  "landing": "landings/PLAN-V2-151.md",
   "seq": 139
 }
