@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -237,6 +238,7 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals("remediation.qgate-findings", call.unit(),
                             "the policy call names its unit"),
+                    () -> assertNull(call.inUnit(), "the plan unit's call carries no unit"),
                     () -> assertEquals(BoundArgument.fromTemplate(new CallValue.EnumList(List.of("retry", "fix",
                                     "loop_back")), TEMPLATE_FILE), call.args().get("actions"),
                             "the call binds actions from the template"),
@@ -1168,6 +1170,64 @@ class PlanInstanceComposerTest {
                             "a kept call without a sub-unit is refused"),
                     () -> assertEquals(List.of("the call of 'land' names no sub-unit of the request"),
                             refused.violations(), "the refusal names the missing sub-unit"));
+        }
+
+        @Test
+        @DisplayName("the header lists the policy calls of every composed phase with the unit that holds it, and the "
+                + "plan unit's own call carries no unit")
+        void nestedPolicyCallsInTheHeader() {
+            var instance = merged();
+            var composed = instance.header().policyCalls().stream()
+                    .filter(call -> call.inUnit() != null).toList();
+
+            assertAll(
+                    () -> assertEquals(List.of("execute.remediate", "outline.remediate", "plan.remediate",
+                                    "refine.remediate"),
+                            composed.stream().map(PolicyCall::callSite).sorted().toList(),
+                            "every remediation call of a composed phase is in the header"),
+                    () -> assertEquals(List.of("phase-2-refine", "phase-3-outline", "phase-4-plan", "phase-5-execute"),
+                            composed.stream().map(PolicyCall::inUnit).distinct().sorted().toList(),
+                            "each call names the composed unit that holds it"),
+                    () -> assertEquals(new CallValue.IntValue(3),
+                            composed.stream().filter(call -> "execute.remediate".equals(call.callSite()))
+                                    .findFirst().orElseThrow().args().get("fix_budget").value(),
+                            "the effective argument comes from the composed body"),
+                    () -> assertTrue(instance.header().policyCalls().stream()
+                                    .filter(call -> call.inUnit() == null).findFirst().isEmpty(),
+                            "the merged plan unit holds no policy call of its own"));
+        }
+
+        @Test
+        @DisplayName("every policy call of a composed file's body has a header entry with equal arguments")
+        void headerAndComposedBodyAgree() {
+            var instance = merged();
+            var bodyCalls = new ArrayList<String>();
+            var mismatches = new ArrayList<String>();
+            for (var unit : instance.units()) {
+                unit.definition().states().values().stream().filter(InstancePruner::isPolicyCall)
+                        .forEach(state -> {
+                            bodyCalls.add(unit.unit() + " " + state.id());
+                            var binding = ((StateBehavior.SubWorkflowCall) state.behavior()).paramBindings();
+                            var header = instance.header().policyCalls().stream()
+                                    .filter(call -> unit.unit().equals(call.inUnit())
+                                            && state.id().equals(call.callSite()))
+                                    .findFirst();
+                            if (header.isEmpty()) {
+                                mismatches.add(unit.unit() + " " + state.id() + ": no header entry");
+                                return;
+                            }
+                            binding.forEach((name, value) -> {
+                                var argument = header.get().args().get(name);
+                                if (argument == null || !value.equals(argument.value())) {
+                                    mismatches.add(unit.unit() + " " + state.id() + " " + name);
+                                }
+                            });
+                        });
+            }
+
+            assertAll(
+                    () -> assertFalse(bodyCalls.isEmpty(), "the composed files hold policy calls"),
+                    () -> assertTrue(mismatches.isEmpty(), mismatches::toString));
         }
 
         @Test

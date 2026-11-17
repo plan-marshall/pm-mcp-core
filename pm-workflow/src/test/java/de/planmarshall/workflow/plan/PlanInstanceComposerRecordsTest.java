@@ -37,6 +37,7 @@ class PlanInstanceComposerRecordsTest {
         var units = List.of();
         var positionStates = Map.of(Generators.letterStrings(1, 8).next(), Set.of(Generators.letterStrings(1, 8)
                 .next()));
+        var policyCalls = List.of();
         var subUnits = Set.of(Generators.letterStrings(1, 8).next());
         var pruned = List.of(PrunedElement.builder()
                 .element(Generators.enumValues(PrunedElement.Kind.class).next())
@@ -45,15 +46,16 @@ class PlanInstanceComposerRecordsTest {
                 .sourceFact(Generators.letterStrings(1, 8).next())
                 .build());
         var unresolved = Set.of(Generators.letterStrings(1, 8).next());
-        var constructor = composedClass.getDeclaredConstructor(List.class, Map.class, Set.class, List.class,
-                Set.class);
+        var constructor = composedClass.getDeclaredConstructor(List.class, Map.class, List.class, Set.class,
+                List.class, Set.class);
         constructor.setAccessible(true);
-        var constructed = constructor.newInstance(units, positionStates, subUnits, pruned, unresolved);
+        var constructed = constructor.newInstance(units, positionStates, policyCalls, subUnits, pruned, unresolved);
         var builderFactory = composedClass.getDeclaredMethod("builder");
         builderFactory.setAccessible(true);
         var builder = builderFactory.invoke(null);
         invokeSetter(builder, "units", units);
         invokeSetter(builder, "positionStates", positionStates);
+        invokeSetter(builder, "policyCalls", policyCalls);
         invokeSetter(builder, "subUnits", subUnits);
         invokeSetter(builder, "pruned", pruned);
         invokeSetter(builder, "unresolved", unresolved);

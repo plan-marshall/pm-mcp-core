@@ -16,8 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.plan.HeaderJson.ArrayNode;
@@ -65,6 +67,7 @@ public final class HeaderSchemaCheck {
     static final String BELOW_ONE = "must be at least 1";
     static final String NOT_DATE_TIME = "must be an RFC 3339 date-time the header reader can parse "
             + "(an offset within +-18:00, no leap second)";
+    static final String NOT_COMPOSED_UNIT = "must name a composed unit of the header's templates";
 
     /** The remediation policy units a policy call may name. */
     static final List<String> POLICY_UNITS = List.of("remediation.ci-failure", "remediation.review-findings",
@@ -112,6 +115,7 @@ public final class HeaderSchemaCheck {
             HeaderJson.REASON, HeaderJson.SOURCE_FACT);
     private static final List<String> CALL_REQUIRED = List.of(HeaderJson.CALL_SITE, HeaderJson.UNIT,
             HeaderJson.ARGS);
+    private static final List<String> CALL_OPTIONAL = List.of(HeaderJson.IN_UNIT);
     private static final List<String> ARGUMENT_REQUIRED = List.of(HeaderJson.VALUE, HeaderJson.SOURCE);
     private static final List<String> ARGUMENT_OPTIONAL = List.of(HeaderJson.FILE, HeaderJson.WAIVER_ID);
     private static final List<String> GATE_REQUIRED = List.of(HeaderJson.GATE, HeaderJson.WAIVER_ID);
@@ -147,6 +151,7 @@ public final class HeaderSchemaCheck {
 
     static List<HeaderViolation> check(Node root) {
         var out = new ArrayList<HeaderViolation>();
+        var composedUnits = composedUnits(root);
         object(root, "", out).ifPresent(members -> {
             declared(members, "", ROOT_REQUIRED, ROOT_OPTIONAL, out);
             member(members, "", HeaderJson.FORMAT_VERSION, (node, pointer) -> integer(node, pointer, out)
@@ -168,11 +173,29 @@ public final class HeaderSchemaCheck {
             member(members, "", HeaderJson.PRUNED,
                     (node, pointer) -> each(node, pointer, out, (element, at) -> pruned(element, at, out)));
             member(members, "", HeaderJson.POLICY_CALLS,
-                    (node, pointer) -> each(node, pointer, out, (element, at) -> policyCall(element, at, out)));
+                    (node, pointer) -> each(node, pointer, out,
+                            (element, at) -> policyCall(element, at, out, composedUnits)));
             member(members, "", HeaderJson.WAIVED_GATES,
                     (node, pointer) -> each(node, pointer, out, (element, at) -> waivedGate(element, at, out)));
         });
         return List.copyOf(out);
+    }
+
+    /**
+     * @param root the header tree
+     * @return the ids of the composed units the header's inputs name, the plan unit excluded; empty where the inputs
+     *         or the templates are absent or of another type, which the check reports on its own
+     */
+    private static Set<String> composedUnits(Node root) {
+        if (!(root instanceof ObjectNode(var members))
+                || !(members.get(HeaderJson.INPUTS) instanceof ObjectNode(var inputs))
+                || !(inputs.get(HeaderJson.TEMPLATES) instanceof ArrayNode(var templates))) {
+            return Set.of();
+        }
+        return templates.stream().filter(ObjectNode.class::isInstance).map(ObjectNode.class::cast)
+                .map(reference -> reference.members().get(HeaderJson.UNIT)).filter(StringNode.class::isInstance)
+                .map(StringNode.class::cast).map(StringNode::value)
+                .filter(unit -> !PlanInstanceComposer.PLAN_UNIT.equals(unit)).collect(Collectors.toSet());
     }
 
     /** A date-time is valid when it has the RFC 3339 shape and the header reader can parse it. */
@@ -244,11 +267,14 @@ public final class HeaderSchemaCheck {
         });
     }
 
-    private static void policyCall(Node node, String pointer, List<HeaderViolation> out) {
+    private static void policyCall(Node node, String pointer, List<HeaderViolation> out, Set<String> composedUnits) {
         object(node, pointer, out).ifPresent(members -> {
-            declared(members, pointer, CALL_REQUIRED, List.of(), out);
+            declared(members, pointer, CALL_REQUIRED, CALL_OPTIONAL, out);
             member(members, pointer, HeaderJson.CALL_SITE, (value, at) -> string(value, at, out));
             member(members, pointer, HeaderJson.UNIT, (value, at) -> enumerated(value, at, POLICY_UNITS, out));
+            member(members, pointer, HeaderJson.IN_UNIT, (value, at) -> string(value, at, out)
+                    .filter(unit -> !composedUnits.contains(unit))
+                    .ifPresent(unit -> out.add(new HeaderViolation(at, NOT_COMPOSED_UNIT))));
             member(members, pointer, HeaderJson.ARGS, (value, at) -> object(value, at, out)
                     .ifPresent(args -> args.forEach(
                             (name, argument) -> argument(argument, HeaderJson.child(at, name), out))));
