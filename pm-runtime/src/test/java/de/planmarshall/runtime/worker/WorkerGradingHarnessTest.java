@@ -103,6 +103,23 @@ class WorkerGradingHarnessTest {
     }
 
     @Test
+    @DisplayName("both forms of one role go through the one harness the engine holds")
+    void bothFormsThroughOneHarness() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2);
+        var harness = harness(role, ItemWorktrees.none());
+
+        var fresh = harness.answer(offered(item(FIRST, null), RoleForm.FRESH));
+        var warm = harness.answer(offered(item(SECOND, null), RoleForm.WARM));
+
+        assertAll(
+                () -> assertTrue(fresh.isPresent(), "the fresh item answers"),
+                () -> assertTrue(warm.isPresent(), "the warm item answers through the same harness"),
+                () -> assertEquals(2, fixture.starts.size(), "each form starts its worker"),
+                () -> assertEquals(RoleForm.WARM, fixture.starts.get(1).launch().form(),
+                        "the warm offer starts a warm worker"));
+    }
+
+    @Test
     @DisplayName("a warm form serves the items in order with one worker")
     void warmServesOneWorker() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
@@ -199,7 +216,7 @@ class WorkerGradingHarnessTest {
         ItemWorktrees worktrees = createMock(ItemWorktrees.class);
         expect(worktrees.checkout(anyObject(URI.class), anyString())).andReturn(Optional.of(worktree)).anyTimes();
         replay(worktrees);
-        var harness = harness(role, worktrees(worktree));
+        var harness = harness(role, worktrees);
 
         harness.answer(offered(item(FIRST, null), RoleForm.FRESH, Checkout.ITEM_COMMIT));
 

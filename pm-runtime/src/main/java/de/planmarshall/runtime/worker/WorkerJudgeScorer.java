@@ -78,8 +78,8 @@ public final class WorkerJudgeScorer implements JudgeScorer {
         }
         return offers.offer(new ItemTaskOffers.Task(JUDGE_ROLE, started.generation().generationId(),
                 judgeItem(prompt), role.form(), Checkout.CURRENT, null))
-                .map(submitted -> new JudgeScore(grade(submitted.answer()), submitted.totalTokens(),
-                        submitted.durationMs()));
+                .flatMap(submitted -> grade(submitted.answer())
+                        .map(score -> new JudgeScore(score, submitted.totalTokens(), submitted.durationMs())));
     }
 
     /**
@@ -128,14 +128,21 @@ public final class WorkerJudgeScorer implements JudgeScorer {
 
     /**
      * @param answer the judge's structured answer
-     * @return the score it states; zero when it states none, which the grading records as a failed judgment
+     * @return the score it states, within {@code 0} to {@code 1}; empty when it states none, which leaves the answer
+     *         unscored rather than aborting the run on a model's prose
      */
-    private static BigDecimal grade(String answer) {
-        var reference = JsonValue.parse(answer.getBytes(StandardCharsets.UTF_8));
-        if (reference instanceof JsonValue.JsonObject object
-                && object.members().get("score") instanceof JsonValue.JsonNumber number) {
-            return number.value();
+    private static Optional<BigDecimal> grade(String answer) {
+        try {
+            var reference = JsonValue.parse(answer.getBytes(StandardCharsets.UTF_8));
+            if (reference instanceof JsonValue.JsonObject object
+                    && object.members().get("score") instanceof JsonValue.JsonNumber number
+                    && number.value().signum() >= 0 && number.value().compareTo(BigDecimal.ONE) <= 0) {
+                return Optional.of(number.value());
+            }
+            // An answer that is not the judge-score object is no score: the item stays ungraded, as a lost judge task.
+        } catch (IllegalArgumentException malformed) {
+            // MalformedJson is an IllegalArgumentException: a model's prose is a failed judgment, never a failed run.
         }
-        return BigDecimal.ZERO;
+        return Optional.empty();
     }
 }

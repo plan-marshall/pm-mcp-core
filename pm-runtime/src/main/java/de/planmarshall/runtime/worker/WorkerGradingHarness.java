@@ -19,6 +19,7 @@ import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.EffectiveRole;
+import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleSkill;
 import de.planmarshall.core.role.corpus.ImportedItem;
@@ -36,9 +37,11 @@ import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
  * § Grading; § Launch Contract; ADR {@code core-role/004}).
  * <p>
  * A fresh form starts one supervisor worker per item. A warm form keeps one supervised worker for the items it serves in
- * order, and the contamination rule closes it: an item whose {@code contamination} note names an item the worker already
- * served — or whose note names the candidate — starts a new worker, and so does an item whose working directory differs
- * from the worker's, because a warm worker is fixed to one directory. The workspace of an item of the project's own
+ * order, and the contamination rule ends that worker's service: an item whose {@code contamination} note names an item the
+ * worker already served — or one whose note names the candidate — is never offered to it, and neither is one whose working
+ * directory differs, because a warm worker is fixed to one directory. Such an item gets a worker of its own where the
+ * role's {@code count} still admits one; where it does not, the worker this run no longer needs is asked to end and the
+ * item is left ungraded, never offered to the worker it may not share. The workspace of an item of the project's own
  * repository is a job-private detached worktree at its origin commit; a commit the {@link ItemWorktrees} port cannot
  * materialise leaves the item ungraded instead of running it in the checkout under a record that claims otherwise.
  * <p>
@@ -93,9 +96,9 @@ public final class WorkerGradingHarness implements GradingHarness {
         var answer = offers.offer(new ItemTaskOffers.Task(role.artifact().name(), generation, offered.item(),
                 offered.form(), offered.checkout(), role.zeroTool() ? null : directory.get()));
         if (answer.isEmpty()) {
-            // The task closed without an answer: the worker that served it is no witness for the next item.
-            warm = null;
-            warmServed.clear();
+            // The task closed without an answer: the worker that served it is no witness for the next item, so it is
+            // asked to end instead of being trusted with one.
+            rotate();
         }
         return answer.map(WorkerGradingHarness::answerOf);
     }
@@ -113,8 +116,7 @@ public final class WorkerGradingHarness implements GradingHarness {
     }
 
     private @Nullable String startFresh(ImportedItem item, Path directory) {
-        var request = request(item, directory, true);
-        return started(List.of(request));
+        return started(List.of(request(item, directory, RoleForm.FRESH)));
     }
 
     private @Nullable String startWarm(ImportedItem item, Path directory) {
@@ -125,19 +127,21 @@ public final class WorkerGradingHarness implements GradingHarness {
             warmServed.add(item);
             return warm.generationId();
         }
-        if (room() == 0) {
+        if (room() < 1) {
             // The role's count holds the workers this run already started: the next item cannot have one, so the item is
             // left ungraded and the worker this run no longer needs is asked to end.
             rotate();
             return null;
         }
-        var request = request(item, directory, false);
-        var generation = started(List.of(request));
+        var generation = started(List.of(request(item, directory, RoleForm.WARM)));
+        if (generation == null) {
+            // The supervisor declined the start: the warm worker still serving the directory stays the one this run
+            // knows, and the item is left ungraded rather than offered to it.
+            return null;
+        }
         warm = new WarmWorker(generation, directory);
         warmServed.clear();
-        if (generation != null) {
-            warmServed.add(item);
-        }
+        warmServed.add(item);
         return generation;
     }
 
@@ -182,19 +186,66 @@ public final class WorkerGradingHarness implements GradingHarness {
      * @param fresh     whether the start is a fresh worker's
      * @return the start request of the item's worker
      */
-    private WorkerStartRequest request(ImportedItem item, Path directory, boolean fresh) {
-        var zeroTool = role.zeroTool();
+    private WorkerStartRequest request(ImportedItem item, Path directory, RoleForm form) {
+        var graded = roleIn(form);
+        var zeroTool = graded.zeroTool();
         return WorkerStartRequest.builder()
-                .role(role)
+                .role(graded)
                 .workdirKind(zeroTool ? LaunchRequest.WorkdirKind.JOB_PRIVATE
                         : LaunchRequest.WorkdirKind.PROJECT_CHECKOUT)
                 .planId(null)
                 .workdir(zeroTool ? null : directory)
-                .envelope(fresh && !zeroTool ? envelope(item) : null)
+                .envelope(form == RoleForm.FRESH && !zeroTool ? envelope(item) : null)
                 .writesFreeText(false)
                 .stateSkills(List.of())
                 .domainSkills(domainSkills())
                 .zeroToolPrompt(zeroTool ? zeroToolPrompt(item) : "")
+                .build();
+    }
+
+    /**
+     * The grading engine offers both forms through one harness, while a role artifact declares one. The other form of the
+     * same configuration is that artifact in the other form: the launch differs only in the envelope and the supervised
+     * lifecycle, and neither is an artifact member.
+     *
+     * @param form the form the engine offers
+     * @return the role as that form
+     */
+    private EffectiveRole roleIn(RoleForm form) {
+        if (role.form() == form) {
+            return role;
+        }
+        var artifact = role.artifact();
+        var other = RoleArtifact.builder()
+                .formatVersion(artifact.formatVersion())
+                .name(artifact.name())
+                .description(artifact.description())
+                .roleClass(artifact.roleClass())
+                .tools(artifact.tools())
+                .harness(artifact.harness())
+                .model(artifact.model())
+                .effort(artifact.effort())
+                .form(form)
+                .count(artifact.count())
+                .skills(artifact.skills())
+                .recycling(artifact.recycling())
+                .budgetFloorSeconds(artifact.budgetFloorSeconds())
+                .contextBudgetTokens(artifact.contextBudgetTokens())
+                .questions(artifact.questions())
+                .offTrack(artifact.offTrack())
+                .build();
+        return EffectiveRole.builder()
+                .artifact(other)
+                .harness(role.harness())
+                .model(role.model())
+                .effort(role.effort())
+                .skills(role.skills())
+                .harnessVersion(role.harnessVersion())
+                .weightsIdentity(role.weightsIdentity())
+                .questions(role.questions())
+                .offTrack(role.offTrack())
+                .contextBudgetTokens(role.contextBudgetTokens())
+                .idleWakeups(role.idleWakeups())
                 .build();
     }
 

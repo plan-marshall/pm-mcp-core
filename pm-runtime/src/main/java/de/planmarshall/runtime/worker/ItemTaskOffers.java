@@ -12,6 +12,7 @@ package de.planmarshall.runtime.worker;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.RoleForm;
@@ -45,14 +46,14 @@ public interface ItemTaskOffers {
      * One item offered as a task to one generation.
      *
      * @param role         the role whose task it is
-     * @param generationId the generation the adapter started for the task; empty for a task offered to a warm
-     *                     generation that already runs
+     * @param generationId the generation the adapter started, or the running warm generation that serves the item
      * @param item         the corpus item the task asks
      * @param form         the form the item is graded in
      * @param checkout     where the item must run
      * @param workdir      the working directory the worker was launched in; {@code null} for a zero-tool worker
      * @since 0.1
      */
+    @Builder
     record Task(String role, String generationId, ImportedItem item, RoleForm form, Checkout checkout,
     @Nullable Path workdir) {
 

@@ -226,15 +226,30 @@ class QualificationSchemaParityTest {
         void documents() {
             var validator = validator(QUALIFICATION);
             var written = QualificationRecordCodec.write(sample());
+            var judged = QualificationRecordCodec.write(judged());
 
             assertAll(
                     () -> assertEquals(1, ((Number) member(schema(QUALIFICATION), "format_version").get("const"))
                             .intValue(), "the format version constant is one"),
                     () -> assertValid(validator, written),
+                    () -> assertValid(validator, judged),
                     () -> assertFalse(violations(validator, withoutMark(written)).isEmpty(),
                             "a document without the thin mark is invalid"),
                     () -> assertEquals(QualificationRecord.TopicResult.THIN_LIMIT, THIN_LIMIT,
                             "the compiled thin limit is the schema's"));
+        }
+
+        /**
+         * @return the sample record with a passed judge check, as a grading normally writes it
+         */
+        private static QualificationRecord judged() {
+            var base = sample();
+            return QualificationRecord.builder().role(base.role())
+                    .qualificationDigest(base.qualificationDigest()).configuration(base.configuration())
+                    .corpusRevision(base.corpusRevision()).missedSources(base.missedSources())
+                    .forms(base.forms()).warmFreshGap(base.warmFreshGap()).ungraded(base.ungraded())
+                    .judgeCheck(QualificationRecord.JudgeCheckResult.PASSED).gradedAt(base.gradedAt())
+                    .items(base.items()).build();
         }
 
         @Test

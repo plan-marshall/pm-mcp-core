@@ -65,6 +65,28 @@ class QualificationRecordCodecTest {
     }
 
     @Test
+    @DisplayName("a failed judge check round-trips beside the measurements")
+    void failedJudgeCheck() {
+        var base = fullRecord();
+        var failed = QualificationRecord.builder().role(base.role())
+                .qualificationDigest(base.qualificationDigest()).configuration(base.configuration())
+                .corpusRevision(base.corpusRevision()).missedSources(base.missedSources()).forms(base.forms())
+                .warmFreshGap(base.warmFreshGap()).ungraded(base.ungraded())
+                .judgeCheck(QualificationRecord.JudgeCheckResult.FAILED).gradedAt(base.gradedAt())
+                .items(base.items()).build();
+
+        var read = QualificationRecordCodec.read(directory.resolve("failed.json"),
+                QualificationRecordCodec.write(failed));
+
+        assertAll(
+                () -> assertEquals(QualificationRecord.JudgeCheckResult.FAILED, read.judgeCheck(),
+                        "the failed result is read back"),
+                () -> assertTrue(new String(QualificationRecordCodec.write(read), StandardCharsets.UTF_8)
+                        .contains("\"judge_check\":\"failed\""),
+                        "the failed result is written"));
+    }
+
+    @Test
     @DisplayName("a topic below the compiled item count is marked thin and one at it is not")
     void thinMark() {
         var below = recordWithTopicItems(QualificationRecord.TopicResult.THIN_LIMIT - 1);

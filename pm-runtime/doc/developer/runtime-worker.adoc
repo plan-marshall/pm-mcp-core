@@ -495,10 +495,13 @@ module cannot reach come in through ports.
   claim `item_commit`.
 
 The per-form behaviour is the specification's. A fresh form starts one supervisor worker per item with the item's contract
-envelope. A warm form keeps one supervised worker for the items it serves in order, and it is closed — a new worker starts
-— when the candidate's `contamination` note names an item the worker served, when a served item's note names the candidate,
-or when the candidate's working directory differs from the worker's. A `zero_tool` role runs each item in its job-private
-directory with the server-fixed prompt. A declined start answers empty, so no task is offered without a worker.
+envelope. A warm form keeps one supervised worker for the items it serves in order, and the contamination rule ends that
+worker's service: an item whose `contamination` note names an item the worker served, or one whose note names the
+candidate, is never offered to it, and neither is one whose working directory differs. Such an item gets a worker of its
+own where the role's `count` still admits one; where it does not, the worker the run no longer needs is asked to end and
+the item is left ungraded. A `zero_tool` role runs each item in its job-private directory with the server-fixed prompt. A
+declined start answers empty, so no task is offered without a worker. The engine offers both forms through one harness,
+while a role artifact declares one form: the adapter derives the other form of the same configuration for its start.
 
 `QualificationService` takes the assembly's `GradingEngine` — `offer` and `grade` — instead of a `RoleGrader`, because
 `pm-runtime` may not depend on `pm-workflow`; `pm-workflow` is where the engine and the record's measurements live.
