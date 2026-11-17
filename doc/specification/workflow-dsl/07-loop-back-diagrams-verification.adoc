@@ -222,6 +222,7 @@ Each measure is reported apart for `outcome` and `process` observations (<<outco
 
 * the total per version, with its spread over the runs;
 * the paired per-task difference: per task, the mean of its runs of one version minus the mean of its runs of the other;
+* for the tokens per accepted outcome (<<comparison-per-accepted>>): a task with no accepted outcome in one of the versions yields no paired per-task difference; such tasks are counted and reported apart (accepted with the one version only, with the other only, with neither), and the aggregate ratio of each version is reported with those counts;
 * the median of the paired per-task differences, with its interval, whose method and level the harness fixes and the report states;
 * the share of the total difference that the single task with the largest difference carries;
 * [[comparison-per-project]]where the tasks come from several projects: the direction of the paired difference per project, counted as the projects in which the new version is better, worse, or within the spread of its runs, beside the pooled figures and never in their place, because a mean over projects can hide one in which the version is worse.

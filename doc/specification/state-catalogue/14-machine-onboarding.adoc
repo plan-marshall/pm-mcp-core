@@ -180,7 +180,7 @@ Each aspect is a compiled sub-workflow of the machine scope (`scope subworkflow`
 |`machine`
 |`operator_wait`
 |`onboard.auto` (entry `consent`).
-|One consent for everything the automatic run does, listed in full: the consents of the harness scan, the icons, the login probes (with the token cost of the minimal headless call of a harness without an `auth_probe`), the model probes, the credential store check, the provider scan and verification, for this run only and never remembered, the bundles of the enrolled harnesses it applies at the user scope as `harness.bundle` preselects them (a change plan that removes or weakens an `enforcement` rule excepted, which waits for the operator in `harness.bundle`), and that it starts no role task. `yes`, `no`.
+|One consent for everything the automatic run does, listed in full: the consents of the harness scan, the icons, the login probes (with the token cost of the minimal headless call of a harness without an `auth_probe`), the model probes, the credential store check, the provider scan and verification, for this run only and never remembered, the bundles of the enrolled harnesses it applies at the user scope as `harness.bundle` preselects them (a change plan that removes or weakens an `enforcement` rule excepted, which waits for the operator in `harness.bundle`), and that it starts no role task. The run applies only the bundles this consent covers, those of the harnesses its harness scan finds; a harness found later (after `recheck` at `harness.none`) has its bundle offered at `harness.bundle` as an operator wait. `yes`, `no`.
 |`yes` -> `auto.run`; `no` -> `auto.declined`.
 |link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#auto[CLI, Coordination & Security Specification, Automatic Onboarding]
 
@@ -350,8 +350,8 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`machine`
 |`auto`
 |`harness.bundle` (`confirm`).
-|Applies each confirmed change plan, recomputed under `locks/install-records.lock` and refused where its target files changed since, and records it in `install-records.json`; one line per harness ending in ✓ or ✗ with its cause.
-|`applied` -> `harness.done`; `one_failed` -> `harness.bundle` (with the cause).
+|Applies each confirmed change plan, recomputed under `locks/install-records.lock` and refused where its target files changed since, and records it in `install-records.json`; one line per harness ending in ✓ or ✗ with its cause. The apply carries the digest of the change plan the operator confirmed: a recomputed plan whose digest differs is not applied and returns to `harness.bundle` with the new plan, and a removal or weakening of an `enforcement` rule is applied only when the confirmation lists that rule.
+|`applied` -> `harness.done`; `one_failed` -> `harness.bundle` (with the cause, or with the new plan of a plan that changed since its confirmation).
 |link:../store-schemas/12-machine-stores.adoc#machine-state-records[Store Schemas Specification, Machine State Records]
 
 |[[state-harness.add]]`harness.add`
