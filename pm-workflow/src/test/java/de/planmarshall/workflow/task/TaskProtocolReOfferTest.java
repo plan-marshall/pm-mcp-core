@@ -95,11 +95,16 @@ class TaskProtocolReOfferTest {
 
         var task = TaskFixtures.task(answer);
         assertAll(
-                () -> assertEquals(Status.OFFERED, task.status()),
-                () -> assertEquals(2, task.attempts().size()),
-                () -> assertEquals(AttemptEnd.WAITED_AGAIN, task.attempts().getFirst().end()),
-                () -> assertTrue(task.attempts().getFirst().counts()),
-                () -> assertEquals(1, task.spentReOffers()));
+                () -> assertEquals(Status.OFFERED, task.status(),
+                        "the re-offer leaves the task offered again"),
+                () -> assertEquals(2, task.attempts().size(),
+                        "the waited-again attempt adds a second attempt"),
+                () -> assertEquals(AttemptEnd.WAITED_AGAIN, task.attempts().getFirst().end(),
+                        "the first attempt ends as waited again"),
+                () -> assertTrue(task.attempts().getFirst().counts(),
+                        "the waited-again attempt counts against the budget"),
+                () -> assertEquals(1, task.spentReOffers(),
+                        "one re-offer of the budget is spent"));
     }
 
     @Test
@@ -122,12 +127,16 @@ class TaskProtocolReOfferTest {
 
         var task = queue.read("qt-0000000000000001").orElseThrow();
         assertAll(
-                () -> assertEquals(1, ended),
+                () -> assertEquals(1, ended,
+                        "the pause ends the acknowledged attempt"),
                 () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), whilePaused,
                         "a paused plan is answered no task"),
-                () -> assertInstanceOf(WaitAnswer.Offered.class, afterStart),
-                () -> assertEquals(AttemptEnd.PAUSED, task.attempts().getFirst().end()),
-                () -> assertEquals(0L, task.spentReOffers()));
+                () -> assertInstanceOf(WaitAnswer.Offered.class, afterStart,
+                        "the started plan is offered the task again"),
+                () -> assertEquals(AttemptEnd.PAUSED, task.attempts().getFirst().end(),
+                        "the attempt ends with the pause"),
+                () -> assertEquals(0L, task.spentReOffers(),
+                        "a pause spends none of the re-offer budget"));
     }
 
     @Test
@@ -140,9 +149,12 @@ class TaskProtocolReOfferTest {
 
         var task = harness.queue().read("qt-0000000000000001").orElseThrow();
         assertAll(
-                () -> assertEquals(Status.QUEUED, task.status()),
-                () -> assertNull(task.lease()),
-                () -> assertEquals(AttemptEnd.PAUSED, task.currentAttempt().orElseThrow().end()));
+                () -> assertEquals(Status.QUEUED, task.status(),
+                        "the paused task is queued again at once"),
+                () -> assertNull(task.lease(),
+                        "the pause releases the lease of the task"),
+                () -> assertEquals(AttemptEnd.PAUSED, task.currentAttempt().orElseThrow().end(),
+                        "the current attempt ends with the pause"));
     }
 
     @Test
@@ -154,16 +166,23 @@ class TaskProtocolReOfferTest {
         var reported = assertInstanceOf(CallResult.Accepted.class,
                 harness.protocol().offTrack(call,
                         new OffTrackSignal(SignalName.REPEATING, SignalAction.RESTART, MEASUREMENT, THRESHOLD),
-                        RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2)));
+                        RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2)),
+                "the off-track restart is accepted");
 
         var task = reported.task();
         assertAll(
-                () -> assertEquals(Status.QUEUED, task.status()),
-                () -> assertEquals(1, task.signals().size()),
-                () -> assertEquals(SignalName.REPEATING, task.signals().getFirst().signal()),
-                () -> assertEquals(MEASUREMENT, task.signals().getFirst().measurement()),
-                () -> assertEquals(AttemptEnd.OFF_TRACK, task.currentAttempt().orElseThrow().end()),
-                () -> assertEquals(1, task.spentReOffers()));
+                () -> assertEquals(Status.QUEUED, task.status(),
+                        "the off-track restart queues the task again"),
+                () -> assertEquals(1, task.signals().size(),
+                        "the restart records one signal on the task"),
+                () -> assertEquals(SignalName.REPEATING, task.signals().getFirst().signal(),
+                        "the recorded signal is the reported one"),
+                () -> assertEquals(MEASUREMENT, task.signals().getFirst().measurement(),
+                        "the signal keeps the reported measurement"),
+                () -> assertEquals(AttemptEnd.OFF_TRACK, task.currentAttempt().orElseThrow().end(),
+                        "the attempt ends off track"),
+                () -> assertEquals(1, task.spentReOffers(),
+                        "the restart spends one re-offer"));
     }
 
     @Test
@@ -175,12 +194,16 @@ class TaskProtocolReOfferTest {
         var reported = assertInstanceOf(CallResult.Accepted.class,
                 harness.protocol().offTrack(call,
                         new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.SHOW, MEASUREMENT, THRESHOLD),
-                        RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2)));
+                        RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2)),
+                "the show signal is accepted");
 
         assertAll(
-                () -> assertEquals(Status.EXECUTING, reported.task().status()),
-                () -> assertEquals(1, reported.task().signals().size()),
-                () -> assertNull(reported.task().currentAttempt().orElseThrow().end()));
+                () -> assertEquals(Status.EXECUTING, reported.task().status(),
+                        "a show leaves the task executing"),
+                () -> assertEquals(1, reported.task().signals().size(),
+                        "the show records one signal on the task"),
+                () -> assertNull(reported.task().currentAttempt().orElseThrow().end(),
+                        "a show ends no attempt of the task"));
     }
 
     @Test
@@ -195,12 +218,16 @@ class TaskProtocolReOfferTest {
         var refused = assertInstanceOf(CallResult.Refused.class,
                 harness.protocol().offTrack(call,
                         new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.RESTART, MEASUREMENT, THRESHOLD),
-                        RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(3)));
+                        RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(3)),
+                "the conflicting second call is refused");
 
         assertAll(
-                () -> assertEquals(TaskRefusal.INVALID_LINK_ARGS, refused.refusal()),
-                () -> assertEquals(SignalAction.SHOW, refused.task().signals().getFirst().action()),
-                () -> assertEquals(QueueTaskRecord.Status.EXECUTING, refused.task().status()));
+                () -> assertEquals(TaskRefusal.INVALID_LINK_ARGS, refused.refusal(),
+                        "the conflicting action is refused as bad link args"),
+                () -> assertEquals(SignalAction.SHOW, refused.task().signals().getFirst().action(),
+                        "the held signal keeps its first action"),
+                () -> assertEquals(QueueTaskRecord.Status.EXECUTING, refused.task().status(),
+                        "the refused call leaves the task executing"));
     }
 
     @Test
@@ -212,9 +239,11 @@ class TaskProtocolReOfferTest {
 
         harness.protocol().offTrack(call, signal, RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2));
         var second = assertInstanceOf(CallResult.Accepted.class,
-                harness.protocol().offTrack(call, signal, RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(3)));
+                harness.protocol().offTrack(call, signal, RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(3)),
+                "the repeated signal is still accepted");
 
-        assertEquals(1, second.task().signals().size());
+        assertEquals(1, second.task().signals().size(),
+                "a signal is held at most once per attempt");
     }
 
     @Test
@@ -226,20 +255,30 @@ class TaskProtocolReOfferTest {
                 call.queueTaskId(), 1, TaskFixtures.AT.plusSeconds(2));
 
         var reported = assertInstanceOf(CallResult.Accepted.class,
-                harness.protocol().agentStarted(call, event, RE_OFFER_BUDGET));
+                harness.protocol().agentStarted(call, event, RE_OFFER_BUDGET),
+                "the agent-started call is accepted");
 
         var task = reported.task();
         assertAll(
-                () -> assertEquals(Status.QUEUED, task.status()),
-                () -> assertEquals(SignalName.AGENT_STARTED, task.signals().getFirst().signal()),
-                () -> assertEquals(SignalAction.RESTART, task.signals().getFirst().action()),
-                () -> assertEquals(1, task.signals().getFirst().measurement()),
-                () -> assertEquals(1, task.signals().getFirst().threshold()),
-                () -> assertEquals(TaskFixtures.AT.plusSeconds(2), task.signals().getFirst().at()),
-                () -> assertEquals(AttemptEnd.OFF_TRACK, task.currentAttempt().orElseThrow().end()),
-                () -> assertEquals(1, harness.auditEvents().getValues().size()),
+                () -> assertEquals(Status.QUEUED, task.status(),
+                        "the agent restart queues the task again"),
+                () -> assertEquals(SignalName.AGENT_STARTED, task.signals().getFirst().signal(),
+                        "the signal is the agent-started detection"),
+                () -> assertEquals(SignalAction.RESTART, task.signals().getFirst().action(),
+                        "the agent-started signal restarts the worker"),
+                () -> assertEquals(1, task.signals().getFirst().measurement(),
+                        "the detection records a single measurement"),
+                () -> assertEquals(1, task.signals().getFirst().threshold(),
+                        "the detection records a threshold of one"),
+                () -> assertEquals(TaskFixtures.AT.plusSeconds(2), task.signals().getFirst().at(),
+                        "the signal carries the time of the detection"),
+                () -> assertEquals(AttemptEnd.OFF_TRACK, task.currentAttempt().orElseThrow().end(),
+                        "the agent-started attempt ends off track"),
+                () -> assertEquals(1, harness.auditEvents().getValues().size(),
+                        "the detection writes one security audit event"),
                 () -> assertEquals(EXECUTABLE,
-                        harness.auditEvents().getValues().getFirst().executable()));
+                        harness.auditEvents().getValues().getFirst().executable(),
+                        "the audit event names the started executable"));
     }
 
     @Test
@@ -251,14 +290,20 @@ class TaskProtocolReOfferTest {
         Continuation continuation = TaskFixtures.continuation();
 
         var suspended = assertInstanceOf(CallResult.Accepted.class,
-                harness.protocol().suspend(call, continuation, TaskFixtures.AT.plusSeconds(2)));
+                harness.protocol().suspend(call, continuation, TaskFixtures.AT.plusSeconds(2)),
+                "the suspension call is accepted");
 
         assertAll(
-                () -> assertEquals(Status.SUSPENDED, suspended.task().status()),
-                () -> assertEquals(continuation, suspended.task().continuation()),
-                () -> assertEquals(AttemptEnd.SUSPENDED, suspended.task().currentAttempt().orElseThrow().end()),
-                () -> assertEquals(0L, suspended.task().spentReOffers()),
-                () -> assertNull(suspended.task().lease()));
+                () -> assertEquals(Status.SUSPENDED, suspended.task().status(),
+                        "the suspension leaves the task suspended"),
+                () -> assertEquals(continuation, suspended.task().continuation(),
+                        "the suspension stores the continuation"),
+                () -> assertEquals(AttemptEnd.SUSPENDED, suspended.task().currentAttempt().orElseThrow().end(),
+                        "the current attempt ends as suspended"),
+                () -> assertEquals(0L, suspended.task().spentReOffers(),
+                        "a suspension spends no re-offer"),
+                () -> assertNull(suspended.task().lease(),
+                        "the suspension releases the lease"));
     }
 
     @Test
@@ -279,8 +324,10 @@ class TaskProtocolReOfferTest {
         var after = queue.read("qt-0000000000000001").orElseThrow();
         assertAll(
                 () -> assertNotNull(held.continuation(), "the hold stored a continuation to clear"),
-                () -> assertEquals(QueueTaskRecord.Status.QUEUED, after.status()),
-                () -> assertNull(after.continuation()));
+                () -> assertEquals(QueueTaskRecord.Status.QUEUED, after.status(),
+                        "the pause queues the held task again"),
+                () -> assertNull(after.continuation(),
+                        "the pause clears the stored continuation"));
     }
 
     @Test
@@ -304,10 +351,13 @@ class TaskProtocolReOfferTest {
                 TaskFixtures.planScope(), locks);
         var entries = journal.entries("qt-0000000000000001");
         assertAll(
-                () -> assertEquals(1, entries.size()),
-                () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind()),
+                () -> assertEquals(1, entries.size(),
+                        "the signal writes a single journal entry"),
+                () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind(),
+                        "the journal entry records a signal"),
                 () -> assertTrue(Files.exists(base.resolve(
-                        "projects/project-a/plans/plan-a/tasks/activity/qt-0000000000000001.jsonl"))));
+                                "projects/project-a/plans/plan-a/tasks/activity/qt-0000000000000001.jsonl")),
+                        "the journal file of the plan scope exists"));
     }
 
     @Test
@@ -352,10 +402,14 @@ class TaskProtocolReOfferTest {
         var entries = ActivityJournal.ofScope(base, "project-a", TaskFixtures.planScope(), locks)
                 .entries("qt-0000000000000001");
         assertAll(
-                () -> assertEquals(1, entries.size()),
-                () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind()),
-                () -> assertEquals(SignalName.AGENT_STARTED, entries.getFirst().signal().signal()),
-                () -> assertEquals(SignalAction.RESTART, entries.getFirst().signal().action()));
+                () -> assertEquals(1, entries.size(),
+                        "the detection writes a single journal entry"),
+                () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind(),
+                        "the journal entry records a signal"),
+                () -> assertEquals(SignalName.AGENT_STARTED, entries.getFirst().signal().signal(),
+                        "the recorded signal is the agent-started one"),
+                () -> assertEquals(SignalAction.RESTART, entries.getFirst().signal().action(),
+                        "the recorded action restarts the worker"));
     }
 
     @Test
@@ -365,11 +419,15 @@ class TaskProtocolReOfferTest {
         var call = acknowledged(harness);
 
         var reported = assertInstanceOf(CallResult.Accepted.class,
-                harness.protocol().report(call, AttemptEnd.WORKER_LOST, 0, TaskFixtures.AT.plusSeconds(2)));
+                harness.protocol().report(call, AttemptEnd.WORKER_LOST, 0, TaskFixtures.AT.plusSeconds(2)),
+                "the worker-lost report is accepted");
 
         assertAll(
-                () -> assertEquals(Status.CLOSED, reported.task().status()),
-                () -> assertEquals(QueueTaskRecord.Outcome.LOST, reported.task().outcome()),
-                () -> assertEquals(QueueTaskRecord.LostReason.ATTEMPTS_SPENT, reported.task().reason()));
+                () -> assertEquals(Status.CLOSED, reported.task().status(),
+                        "the spent budget closes the task"),
+                () -> assertEquals(QueueTaskRecord.Outcome.LOST, reported.task().outcome(),
+                        "the closed task is lost"),
+                () -> assertEquals(QueueTaskRecord.LostReason.ATTEMPTS_SPENT, reported.task().reason(),
+                        "the loss reason is the spent attempt budget"));
     }
 }

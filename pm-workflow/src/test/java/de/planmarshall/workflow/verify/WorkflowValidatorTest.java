@@ -416,7 +416,8 @@ class WorkflowValidatorTest {
             var accounted = Stream.of(CHECKLIST.stream().map(Check::rule), UNPLANTABLE.stream().map(Unpinned::rule),
                     SEAMS.stream().map(Unpinned::rule)).flatMap(stream -> stream).collect(Collectors.toSet());
 
-            assertEquals(Set.of(VerificationRule.values()), accounted);
+            assertEquals(Set.of(VerificationRule.values()), accounted,
+                    "every rule is accounted for somewhere");
         }
 
         @Test
@@ -447,7 +448,7 @@ class WorkflowValidatorTest {
             var expected = new TreeSet<>(List.of("every-construct.pmwf", "interface-entries-and-exits.pmwf"));
             Arrays.stream(UnitType.values()).map(type -> "type-" + type.wireName() + ".pmwf").forEach(expected::add);
 
-            assertEquals(expected, controls);
+            assertEquals(expected, controls, "the controls are exactly the expected files");
         }
     }
 
@@ -741,7 +742,8 @@ class WorkflowValidatorTest {
 
             assertEquals(count, found.size(), found::toString);
             found.forEach(violation -> assertAll(
-                    () -> assertEquals(VerificationRule.PARAMETER_EQUIVALENCE, violation.rule()),
+                    () -> assertEquals(VerificationRule.PARAMETER_EQUIVALENCE, violation.rule(),
+                            "the violation reports the parameter equivalence"),
                     () -> assertTrue(violation.message().contains(fragment), violation::message)));
         }
     }
@@ -765,7 +767,8 @@ class WorkflowValidatorTest {
             var found = violations(unit("workspace", states + DONE_TERMINAL));
 
             assertAll(description, () -> assertEquals(1, found.size(), found::toString),
-                    () -> assertEquals(VerificationRule.OUTCOME_COVERAGE, found.getFirst().rule()),
+                    () -> assertEquals(VerificationRule.OUTCOME_COVERAGE, found.getFirst().rule(),
+                            "the gap is reported as an outcome-coverage gap"),
                     () -> assertTrue(found.getFirst().message().contains(fragment), found::toString));
         }
 
@@ -781,7 +784,7 @@ class WorkflowValidatorTest {
             var found = validator.verify(withoutCancelled(), Map.of("verify.entry", Set.of("cancelled")))
                     .violations();
 
-            assertEquals(List.of(), found);
+            assertEquals(List.of(), found, "a prune record settles the cancelled outcome");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -791,7 +794,8 @@ class WorkflowValidatorTest {
             var found = validator.verify(withoutCancelled(), settled).violations();
 
             assertAll(description, () -> assertEquals(1, found.size(), found::toString),
-                    () -> assertEquals(VerificationRule.OUTCOME_COVERAGE, found.getFirst().rule()),
+                    () -> assertEquals(VerificationRule.OUTCOME_COVERAGE, found.getFirst().rule(),
+                            "the unrouted outcome is still refused"),
                     () -> assertTrue(found.getFirst().message().contains("'cancelled'"), found::toString));
         }
     }
@@ -821,7 +825,8 @@ class WorkflowValidatorTest {
                     state epic.aborted terminal aborted failure
                     """ + DONE_TERMINAL);
 
-            assertEquals(List.of(), violations(definition));
+            assertEquals(List.of(), violations(definition),
+                    "the abort terminals count as reachable");
         }
     }
 
@@ -862,7 +867,8 @@ class WorkflowValidatorTest {
             var found = violations(unit(scope, SELF_LINK));
 
             assertEquals(count == 0 ? List.of() : List.of("verify.rest EXIT_PATH"),
-                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
+                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList(),
+                    "a sub-workflow exits through the implicit step_out");
         }
 
         @ParameterizedTest(name = "lost declared: {0}")
@@ -878,7 +884,8 @@ class WorkflowValidatorTest {
             var found = violations(definition);
 
             assertEquals(count == 0 ? List.of() : List.of("verify.rest EXIT_PATH"),
-                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
+                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList(),
+                    "a task exits through the default lost route");
         }
 
         @ParameterizedTest(name = "done -> {0}")
@@ -901,7 +908,8 @@ class WorkflowValidatorTest {
             var found = violations(definition);
 
             assertEquals(count == 0 ? List.of() : List.of("verify.stuck EXIT_PATH"),
-                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
+                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList(),
+                    "a workspace state returns to the start state");
         }
 
         @Test
@@ -922,7 +930,8 @@ class WorkflowValidatorTest {
                     state plan.aborted terminal aborted failure
                     """ + DONE_TERMINAL);
 
-            assertEquals(List.of(), violations(definition));
+            assertEquals(List.of(), violations(definition),
+                    "the terminal states need no return path");
         }
     }
 
@@ -945,7 +954,8 @@ class WorkflowValidatorTest {
             var found = violations(definition);
 
             assertEquals(count == 0 ? List.of() : List.of("verify.entry LINK_ID_UNIQUE"),
-                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
+                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList(),
+                    "a declared step_out is refused in a sub-workflow");
         }
     }
 
@@ -965,7 +975,8 @@ class WorkflowValidatorTest {
                                 declined -> verify.done
                     """ + DONE_TERMINAL);
 
-            assertEquals(List.of(), violations(definition));
+            assertEquals(List.of(), violations(definition),
+                    "a submitting link cycle awaits an event");
         }
 
         @Test
@@ -987,10 +998,11 @@ class WorkflowValidatorTest {
 
             assertEquals(1, found.size(), found::toString);
             var violation = found.getFirst();
-            assertAll(() -> assertEquals(VerificationRule.CYCLE_AWAITED_EVENT, violation.rule()),
-                    () -> assertEquals("verify.entry", violation.stateId()),
+            assertAll(() -> assertEquals(VerificationRule.CYCLE_AWAITED_EVENT, violation.rule(),
+                            "the violation is the missing cycle measure"),
+                    () -> assertEquals("verify.entry", violation.stateId(), "the cycle starts at the entry state"),
                     () -> assertEquals("the engine-chained cycle 'verify.entry -> verify.second -> verify.entry' has"
-                            + " no cycle measure", violation.message()));
+                            + " no cycle measure", violation.message(), "the violation names the whole cycle"));
         }
     }
 
@@ -1027,7 +1039,8 @@ class WorkflowValidatorTest {
         @Test
         @DisplayName("Should accept a released name migrated to a state")
         void shouldAcceptMigrationToLiveState() {
-            assertEquals(List.of(), verify("migrate verify.old -> verify.entry\n"));
+            assertEquals(List.of(), verify("migrate verify.old -> verify.entry\n"),
+                    "a migrated released name is accepted");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -1042,9 +1055,11 @@ class WorkflowValidatorTest {
 
             assertEquals(1, found.size(), found::toString);
             var violation = found.getFirst();
-            assertAll(() -> assertEquals(VerificationRule.RELEASED_STATE, violation.rule()),
-                    () -> assertEquals("verify.old", violation.stateId()),
-                    () -> assertEquals(line, violation.location().line()),
+            assertAll(() -> assertEquals(VerificationRule.RELEASED_STATE, violation.rule(),
+                            "the violation is a dropped released state"),
+                    () -> assertEquals("verify.old", violation.stateId(), "the released state keeps its name"),
+                    () -> assertEquals(line, violation.location().line(),
+                            "the violation names the migration line"),
                     () -> assertTrue(violation.message().contains(fragment), violation::message));
         }
     }
@@ -1079,7 +1094,7 @@ class WorkflowValidatorTest {
             assertEquals(List.of("verify.entry PRIMITIVE_BINDING", "verify.orphan REACHABILITY",
                             "verify.orphan EXIT_PATH", "verify.orphan LINK_ID_UNIQUE",
                             "verify.retired RELEASED_STATE"),
-                    stateAndRule);
+                    stateAndRule, "the defects are ordered by state and then rule");
         }
 
         @Test
@@ -1088,11 +1103,16 @@ class WorkflowValidatorTest {
             var registry = TestPrimitives.registry();
             Map<String, Set<String>> noEntries = Map.of();
             var workspace = unit("workspace", DONE_TERMINAL);
-            assertAll(() -> assertThrows(NullPointerException.class, () -> new WorkflowValidator(null, RELEASED)),
-                    () -> assertThrows(NullPointerException.class, () -> new WorkflowValidator(registry, null)),
-                    () -> assertThrows(NullPointerException.class, () -> validator.verify(null)),
-                    () -> assertThrows(NullPointerException.class, () -> validator.verify(null, noEntries)),
-                    () -> assertThrows(NullPointerException.class, () -> validator.verify(workspace, null)));
+            assertAll(() -> assertThrows(NullPointerException.class, () -> new WorkflowValidator(null, RELEASED),
+                            "a null primitive registry is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new WorkflowValidator(registry, null),
+                            "a null released list is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> validator.verify(null),
+                            "a null unit is refused by the verifier"),
+                    () -> assertThrows(NullPointerException.class, () -> validator.verify(null, noEntries),
+                            "a null prune record map is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> validator.verify(workspace, null),
+                            "a null prune map at a unit is refused"));
         }
     }
 }

@@ -226,7 +226,8 @@ class EntityAddressingTest {
 
             assertAll(
                     () -> assertEquals(AddressResolution.BOOTSTRAP_PLAN,
-                            assertInstanceOf(Resolved.class, resolution).entityKind()),
+                            assertInstanceOf(Resolved.class, resolution, "the entry id resolves").entityKind(),
+                            "an entry id resolves to a plan bootstrap"),
                     () -> assertEquals(List.of(new EntryId(entryId)), fixtures.entryReads(),
                             "the resolver reads the named entry once"));
         }
@@ -295,7 +296,8 @@ class EntityAddressingTest {
         void stateWithoutTask() {
             var resolution = inWorkspace(CORE_ENRICHMENT, workspaceStatus(WORKSPACE_IDLE, Map.of()));
 
-            assertTrue(refused(Reason.SCOPE_NOT_FOUND, resolution).detail().contains(WORKSPACE_IDLE));
+            assertTrue(refused(Reason.SCOPE_NOT_FOUND, resolution).detail().contains(WORKSPACE_IDLE),
+                    "a state without a task refuses the entity");
         }
     }
 
@@ -322,7 +324,8 @@ class EntityAddressingTest {
 
             var resolution = inWorkspace(PLAN_ENTRY, reviewing());
 
-            assertTrue(refused(Reason.ENTRY_UNREADABLE, resolution).detail().contains(reason));
+            assertTrue(refused(Reason.ENTRY_UNREADABLE, resolution).detail().contains(reason),
+                    "an unreadable entry names its reader");
         }
 
         @Test
@@ -332,7 +335,8 @@ class EntityAddressingTest {
 
             var resolution = inWorkspace(PLAN_ENTRY, reviewing());
 
-            assertTrue(refused(Reason.ENTRY_UNREADABLE, resolution).detail().contains("lesson"));
+            assertTrue(refused(Reason.ENTRY_UNREADABLE, resolution).detail().contains("lesson"),
+                    "an unknown entry kind is unreadable");
         }
     }
 
@@ -355,13 +359,17 @@ class EntityAddressingTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> resolver.resolve(lessonAddress, planStatus, workspace)),
+                            () -> resolver.resolve(lessonAddress, planStatus, workspace),
+                            "a workspace address under a plan faults"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> resolver.resolve(otherPlanAddress, planStatus, planDefinition)),
+                            () -> resolver.resolve(otherPlanAddress, planStatus, planDefinition),
+                            "an address of another plan faults"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> inWorkspace(LESSON_TASK, missingState)),
+                            () -> inWorkspace(LESSON_TASK, missingState),
+                            "a state the unit lacks faults"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> unregistered.resolve(coreAddress, coreEnriching, workspace)));
+                            () -> unregistered.resolve(coreAddress, coreEnriching, workspace),
+                            "an unregistered entity kind faults"));
         }
 
         @Test
@@ -369,17 +377,23 @@ class EntityAddressingTest {
         void malformedAddress() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EntityAddress(JournalScopeType.LESSONS, null, LESSON_TASK)),
+                            () -> new EntityAddress(JournalScopeType.LESSONS, null, LESSON_TASK),
+                            "a lessons address without an id faults"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EntityAddress(JournalScopeType.PLAN, null, LESSON_TASK)),
+                            () -> new EntityAddress(JournalScopeType.PLAN, null, LESSON_TASK),
+                            "a plan address without an id faults"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EntityAddress(JournalScopeType.WORKSPACE, PLAN_ID, LESSON_TASK)),
+                            () -> new EntityAddress(JournalScopeType.WORKSPACE, PLAN_ID, LESSON_TASK),
+                            "a workspace address with an id faults"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> EntityAddress.plan(EntityAddress.NO_PLAN, LESSON_TASK)),
+                            () -> EntityAddress.plan(EntityAddress.NO_PLAN, LESSON_TASK),
+                            "a plan address under NO_PLAN faults"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> EntityAddress.fromArguments(null, null, LESSON_TASK)),
+                            () -> EntityAddress.fromArguments(null, null, LESSON_TASK),
+                            "arguments naming no scope fault"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> EntityAddress.fromArguments(PLAN_ID, EPIC_ID, LESSON_TASK)));
+                            () -> EntityAddress.fromArguments(PLAN_ID, EPIC_ID, LESSON_TASK),
+                            "arguments naming two scopes fault"));
         }
 
         @Test
@@ -404,9 +418,9 @@ class EntityAddressingTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Resolved(address, " ", null)),
+                            () -> new Resolved(address, " ", null), "a blank entity kind faults"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Refused(Reason.SCOPE_NOT_FOUND, " ")));
+                            () -> new Refused(Reason.SCOPE_NOT_FOUND, " "), "a blank refusal detail faults"));
         }
     }
 
@@ -426,6 +440,7 @@ class EntityAddressingTest {
     @DisplayName("The refusal reasons carry their wire names")
     void reasonWireNames() {
         assertEquals(List.of("invalid_arguments", "scope_not_found", "entry_unreadable"),
-                Stream.of(Reason.values()).map(Reason::wireName).toList());
+                Stream.of(Reason.values()).map(Reason::wireName).toList(),
+                "the reasons keep their wire names");
     }
 }

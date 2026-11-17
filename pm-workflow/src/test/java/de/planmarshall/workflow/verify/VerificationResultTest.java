@@ -50,41 +50,42 @@ class VerificationResultTest {
                 .collect(Collectors.toMap(rule -> rule, VerificationRule::specificationRule));
 
         assertEquals(Map.ofEntries(
-                Map.entry(VerificationRule.PRIMITIVE_BINDING, 1),
-                Map.entry(VerificationRule.PARAMETER_EQUIVALENCE, 1),
-                Map.entry(VerificationRule.ENTITY_KIND_BINDING, 1),
-                Map.entry(VerificationRule.ROLE_NAME_GRAMMAR, 1),
-                Map.entry(VerificationRule.SCHEMA_BINDING, 1),
-                Map.entry(VerificationRule.QUESTION_CLASS_BINDING, 1),
-                Map.entry(VerificationRule.CONFIG_KEY_BINDING, 1),
-                Map.entry(VerificationRule.FACT_KIND_BINDING, 1),
-                Map.entry(VerificationRule.INPUT_DECLARATION, 1),
-                Map.entry(VerificationRule.JOB_STARTING_OUTCOME, 1),
-                Map.entry(VerificationRule.OUTCOME_COVERAGE, 2),
-                Map.entry(VerificationRule.MODEL_JOB_OUTCOMES, 2),
-                Map.entry(VerificationRule.QUESTION_OUTCOMES, 2),
-                Map.entry(VerificationRule.STATE_ID_UNIQUE, 3),
-                Map.entry(VerificationRule.STATE_EXISTS, 3),
-                Map.entry(VerificationRule.REACHABILITY, 3),
-                Map.entry(VerificationRule.ABORT_TERMINAL_TARGETING, 3),
-                Map.entry(VerificationRule.TARGET_NOT_RESERVED, 3),
-                Map.entry(VerificationRule.EXIT_PATH, 3),
-                Map.entry(VerificationRule.LINK_ID_UNIQUE, 3),
-                Map.entry(VerificationRule.INTERFACE_START_OR_ENTRIES, 3),
-                Map.entry(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, 3),
-                Map.entry(VerificationRule.INTERFACE_EXIT_REACHED, 3),
-                Map.entry(VerificationRule.LEAF_TASK_CONSTRAINT, 4),
-                Map.entry(VerificationRule.RELEASED_STATE, 5),
-                Map.entry(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, 6),
-                Map.entry(VerificationRule.INTERFACE_CALLED_UNIT, 6),
-                Map.entry(VerificationRule.INTERFACE_CALL_ENTRY, 6),
-                Map.entry(VerificationRule.TYPE_FITS, 6),
-                Map.entry(VerificationRule.CALL_GRAPH_DAG, 7),
-                Map.entry(VerificationRule.GATE_PRODUCER_COVERAGE, 8),
-                Map.entry(VerificationRule.STEP_COMPLETION, 9),
-                Map.entry(VerificationRule.OPERATOR_LINKS_APART, 10),
-                Map.entry(VerificationRule.CYCLE_AWAITED_EVENT, 11),
-                Map.entry(VerificationRule.LINK_COMPATIBILITY, 12)), byRule);
+                        Map.entry(VerificationRule.PRIMITIVE_BINDING, 1),
+                        Map.entry(VerificationRule.PARAMETER_EQUIVALENCE, 1),
+                        Map.entry(VerificationRule.ENTITY_KIND_BINDING, 1),
+                        Map.entry(VerificationRule.ROLE_NAME_GRAMMAR, 1),
+                        Map.entry(VerificationRule.SCHEMA_BINDING, 1),
+                        Map.entry(VerificationRule.QUESTION_CLASS_BINDING, 1),
+                        Map.entry(VerificationRule.CONFIG_KEY_BINDING, 1),
+                        Map.entry(VerificationRule.FACT_KIND_BINDING, 1),
+                        Map.entry(VerificationRule.INPUT_DECLARATION, 1),
+                        Map.entry(VerificationRule.JOB_STARTING_OUTCOME, 1),
+                        Map.entry(VerificationRule.OUTCOME_COVERAGE, 2),
+                        Map.entry(VerificationRule.MODEL_JOB_OUTCOMES, 2),
+                        Map.entry(VerificationRule.QUESTION_OUTCOMES, 2),
+                        Map.entry(VerificationRule.STATE_ID_UNIQUE, 3),
+                        Map.entry(VerificationRule.STATE_EXISTS, 3),
+                        Map.entry(VerificationRule.REACHABILITY, 3),
+                        Map.entry(VerificationRule.ABORT_TERMINAL_TARGETING, 3),
+                        Map.entry(VerificationRule.TARGET_NOT_RESERVED, 3),
+                        Map.entry(VerificationRule.EXIT_PATH, 3),
+                        Map.entry(VerificationRule.LINK_ID_UNIQUE, 3),
+                        Map.entry(VerificationRule.INTERFACE_START_OR_ENTRIES, 3),
+                        Map.entry(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, 3),
+                        Map.entry(VerificationRule.INTERFACE_EXIT_REACHED, 3),
+                        Map.entry(VerificationRule.LEAF_TASK_CONSTRAINT, 4),
+                        Map.entry(VerificationRule.RELEASED_STATE, 5),
+                        Map.entry(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, 6),
+                        Map.entry(VerificationRule.INTERFACE_CALLED_UNIT, 6),
+                        Map.entry(VerificationRule.INTERFACE_CALL_ENTRY, 6),
+                        Map.entry(VerificationRule.TYPE_FITS, 6),
+                        Map.entry(VerificationRule.CALL_GRAPH_DAG, 7),
+                        Map.entry(VerificationRule.GATE_PRODUCER_COVERAGE, 8),
+                        Map.entry(VerificationRule.STEP_COMPLETION, 9),
+                        Map.entry(VerificationRule.OPERATOR_LINKS_APART, 10),
+                        Map.entry(VerificationRule.CYCLE_AWAITED_EVENT, 11),
+                        Map.entry(VerificationRule.LINK_COMPATIBILITY, 12)), byRule,
+                "every rule names its specification rule number");
     }
 
     @Test
@@ -99,10 +100,13 @@ class VerificationResultTest {
         source.clear();
         var violations = result.violations();
 
-        assertAll(() -> assertEquals(List.of(violation), violations),
-                () -> assertFalse(result.passed()),
-                () -> assertTrue(new VerificationResult(List.of()).passed()),
-                () -> assertThrows(UnsupportedOperationException.class, violations::clear));
+        assertAll(() -> assertEquals(List.of(violation), violations,
+                        "the result keeps a copy of the violation"),
+                () -> assertFalse(result.passed(), "a result with a violation does not pass"),
+                () -> assertTrue(new VerificationResult(List.of()).passed(),
+                        "a result without a violation passes"),
+                () -> assertThrows(UnsupportedOperationException.class, violations::clear,
+                        "the copy of the violations is unmodifiable"));
     }
 
     @Test
@@ -111,7 +115,8 @@ class VerificationResultTest {
         var components = Arrays.stream(VerificationResult.class.getRecordComponents())
                 .map(RecordComponent::getName).toList();
 
-        assertEquals(List.of("violations"), components);
+        assertEquals(List.of("violations"), components,
+                "the violations are the only record component");
     }
 
     @Test
@@ -120,8 +125,10 @@ class VerificationResultTest {
         var withNull = new ArrayList<Violation>();
         withNull.add(null);
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(null)),
-                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(withNull)));
+                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(null),
+                        "a result without a list is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(withNull),
+                        "a result with a null element is refused"));
     }
 
     @Test
@@ -131,10 +138,14 @@ class VerificationResultTest {
         var stateId = Generators.letterStrings(1, 8).next();
         var message = Generators.letterStrings(1, 8).next();
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new Violation(null, stateId, LOCATION, message)),
-                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, null, LOCATION, message)),
-                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, stateId, null, message)),
-                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, stateId, LOCATION, null)));
+                () -> assertThrows(NullPointerException.class, () -> new Violation(null, stateId, LOCATION, message),
+                        "a violation with no rule is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, null, LOCATION, message),
+                        "a violation with no state id is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, stateId, null, message),
+                        "a violation with no location is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, stateId, LOCATION, null),
+                        "a violation with no message is refused"));
     }
 
     @Test

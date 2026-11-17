@@ -98,7 +98,8 @@ class TaskProtocolRefusalTest {
         assertAll(
                 () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.PAUSED), answer,
                         "a held task of a paused plan waits"),
-                () -> assertEquals(1, harness.queue().read(call.queueTaskId()).orElseThrow().attempts().size()));
+                () -> assertEquals(1, harness.queue().read(call.queueTaskId()).orElseThrow().attempts().size(),
+                        "the paused plan keeps its one attempt"));
     }
 
     @Test
@@ -109,10 +110,12 @@ class TaskProtocolRefusalTest {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW,
-                                Double.NaN, threshold)),
+                                Double.NaN, threshold),
+                        "a non-finite measurement is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW, measurement,
-                                Double.POSITIVE_INFINITY)));
+                                Double.POSITIVE_INFINITY),
+                        "an infinite measurement is refused"));
     }
 
     @Test
@@ -126,7 +129,8 @@ class TaskProtocolRefusalTest {
         assertThrows(IllegalArgumentException.class,
                 () -> harness.protocol().offTrack(call,
                         new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW, measurement,
-                                threshold), -1, TaskFixtures.AT.plusSeconds(2)));
+                                threshold), -1, TaskFixtures.AT.plusSeconds(2)),
+                "a negative re-offer budget is refused");
     }
 
     @Test
@@ -138,9 +142,10 @@ class TaskProtocolRefusalTest {
 
         var refused = assertInstanceOf(CallResult.Refused.class,
                 harness.protocol().acknowledge(TaskFixtures.call(offered, TaskFixtures.GENERATION),
-                        TaskFixtures.AT.plusSeconds(1)));
+                        TaskFixtures.AT.plusSeconds(1)),
+                "a call after the job ended is refused");
 
-        assertEquals(TaskRefusal.JOB_ENDED, refused.refusal());
+        assertEquals(TaskRefusal.JOB_ENDED, refused.refusal(), "the refusal names the ended job");
     }
 
     @Test
@@ -153,12 +158,15 @@ class TaskProtocolRefusalTest {
         harness.protocol().deliverSkills(TaskFixtures.GENERATION, List.of(first));
 
         var refused = assertInstanceOf(CallResult.Refused.class,
-                harness.protocol().submit(call, List.of(first, second), TaskFixtures.AT.plusSeconds(2)));
+                harness.protocol().submit(call, List.of(first, second), TaskFixtures.AT.plusSeconds(2)),
+                "a submit with an undelivered skill is refused");
 
         assertAll(
-                () -> assertEquals(TaskRefusal.SKILLS_NOT_LOADED, refused.refusal()),
-                () -> assertEquals(Status.EXECUTING, refused.task().status()),
-                () -> assertEquals(List.of(second.uri()), refused.missingSkills()));
+                () -> assertEquals(TaskRefusal.SKILLS_NOT_LOADED, refused.refusal(),
+                        "the missing skill is refused"),
+                () -> assertEquals(Status.EXECUTING, refused.task().status(),
+                        "the refused task is still executing"),
+                () -> assertEquals(List.of(second.uri()), refused.missingSkills(), "the missing skill is listed"));
     }
 
     @Test
@@ -170,9 +178,10 @@ class TaskProtocolRefusalTest {
         harness.protocol().deliverSkills(TaskFixtures.GENERATION, List.of(skill));
 
         var accepted = assertInstanceOf(CallResult.Accepted.class,
-                harness.protocol().submit(call, List.of(skill), TaskFixtures.AT.plusSeconds(2)));
+                harness.protocol().submit(call, List.of(skill), TaskFixtures.AT.plusSeconds(2)),
+                "the submit after delivery is accepted");
 
-        assertEquals(Outcome.SUBMITTED, accepted.task().outcome());
+        assertEquals(Outcome.SUBMITTED, accepted.task().outcome(), "the delivered task closes submitted");
     }
 
     @Test
@@ -182,12 +191,15 @@ class TaskProtocolRefusalTest {
         var call = acknowledged(harness);
 
         var accepted = assertInstanceOf(CallResult.Accepted.class,
-                harness.protocol().infeasible(call, TaskFixtures.AT.plusSeconds(2)));
+                harness.protocol().infeasible(call, TaskFixtures.AT.plusSeconds(2)),
+                "the infeasible link is accepted");
 
         assertAll(
-                () -> assertEquals(Status.CLOSED, accepted.task().status()),
-                () -> assertEquals(Outcome.INFEASIBLE, accepted.task().outcome()),
-                () -> assertEquals(AttemptEnd.CLOSED, accepted.task().currentAttempt().orElseThrow().end()));
+                () -> assertEquals(Status.CLOSED, accepted.task().status(), "the infeasible link closes the task"),
+                () -> assertEquals(Outcome.INFEASIBLE, accepted.task().outcome(), "the task closes infeasible"),
+                () -> assertEquals(AttemptEnd.CLOSED,
+                        accepted.task().currentAttempt().orElseThrow().end(),
+                        "the attempt ends closed"));
     }
 
     @Test
@@ -198,15 +210,19 @@ class TaskProtocolRefusalTest {
         var budget = Generators.integers(1, 10).next();
 
         var paused = assertInstanceOf(CallResult.Refused.class,
-                harness.protocol().report(call, AttemptEnd.PAUSED, budget, TaskFixtures.AT.plusSeconds(2)));
+                harness.protocol().report(call, AttemptEnd.PAUSED, budget, TaskFixtures.AT.plusSeconds(2)),
+                "a pause end is not a report");
         var offTrack = assertInstanceOf(CallResult.Refused.class,
-                harness.protocol().report(call, AttemptEnd.OFF_TRACK, budget, TaskFixtures.AT.plusSeconds(3)));
+                harness.protocol().report(call, AttemptEnd.OFF_TRACK, budget, TaskFixtures.AT.plusSeconds(3)),
+                "an off-track end is not a report");
 
         assertAll(
-                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, paused.refusal()),
-                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, offTrack.refusal()),
+                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, paused.refusal(),
+                        "a pause is not a report end"),
+                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, offTrack.refusal(),
+                        "off-track is not a report"),
                 () -> assertEquals(Status.EXECUTING, harness.queue().read("qt-0000000000000001").orElseThrow()
-                        .status()));
+                        .status(), "the refused ends leave it executing"));
     }
 
     @Test
@@ -217,13 +233,16 @@ class TaskProtocolRefusalTest {
         harness.protocol().infeasible(call, TaskFixtures.AT.plusSeconds(2));
 
         var second = assertInstanceOf(CallResult.Refused.class,
-                harness.protocol().infeasible(call, TaskFixtures.AT.plusSeconds(3)));
+                harness.protocol().infeasible(call, TaskFixtures.AT.plusSeconds(3)),
+                "the second infeasible call is refused");
 
         assertAll(
-                () -> assertEquals(TaskRefusal.STALE_ENTITY, second.refusal()),
+                () -> assertEquals(TaskRefusal.STALE_ENTITY, second.refusal(),
+                        "a closed task is refused as stale"),
                 () -> assertEquals(Outcome.INFEASIBLE,
-                        harness.queue().read("qt-0000000000000001").orElseThrow().outcome()),
+                        harness.queue().read("qt-0000000000000001").orElseThrow().outcome(),
+                        "the task keeps the infeasible outcome"),
                 () -> assertEquals(1, harness.queue().records().stream()
-                        .filter(QueueTaskRecord::isClosed).count()));
+                        .filter(QueueTaskRecord::isClosed).count(), "exactly one close is recorded"));
     }
 }

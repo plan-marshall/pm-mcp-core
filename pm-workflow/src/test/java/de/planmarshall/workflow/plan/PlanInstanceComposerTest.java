@@ -94,7 +94,8 @@ class PlanInstanceComposerTest {
 
     private static StateBehavior.SubWorkflowCall remediationState(PlanInstance instance) {
         return assertInstanceOf(StateBehavior.SubWorkflowCall.class,
-                instance.unit().states().get(REMEDIATION_SITE).behavior());
+                instance.unit().states().get(REMEDIATION_SITE).behavior(),
+                "the remediation call site composes as a call state");
     }
 
     private static List<String> allSteps() {
@@ -108,7 +109,8 @@ class PlanInstanceComposerTest {
 
     private static String askingCallee(PlanInstance instance) {
         return assertInstanceOf(StateBehavior.SubWorkflowCall.class,
-                instance.unit().states().get(ASK_SITE).behavior()).subWorkflowId();
+                instance.unit().states().get(ASK_SITE).behavior(),
+                "the asking call site composes as a call state").subWorkflowId();
     }
 
     private static PrunedElement planDefault(String variant, String sourceFact) {
@@ -143,15 +145,20 @@ class PlanInstanceComposerTest {
             var header = instance.header();
 
             assertAll(
-                    () -> assertEquals(1, instance.version()),
-                    () -> assertEquals(CompositionEvent.START, header.event()),
-                    () -> assertEquals(PlanFixtures.PLAN_ID, header.planId()),
-                    () -> assertEquals(PlanFixtures.COMPOSED_AT, header.composedAt()),
+                    () -> assertEquals(1, instance.version(), "the first version is version 1"),
+                    () -> assertEquals(CompositionEvent.START, header.event(),
+                            "the start event composes the first version"),
+                    () -> assertEquals(PlanFixtures.PLAN_ID, header.planId(), "the header names the requested plan"),
+                    () -> assertEquals(PlanFixtures.COMPOSED_AT, header.composedAt(),
+                            "the header records the composition time"),
                     () -> assertEquals(Lane.DEEP, header.lane(), "version 1 carries the lane of the facts"),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(header)),
-                    () -> assertEquals(PlanInstanceComposer.PLAN_UNIT, instance.unit().id()),
-                    () -> assertEquals(1, instance.unit().version()),
-                    () -> assertEquals(PlanFixtures.template().states().keySet(), instance.unit().states().keySet()),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(header),
+                            "the composed header passes its schema"),
+                    () -> assertEquals(PlanInstanceComposer.PLAN_UNIT, instance.unit().id(),
+                            "the version composes the plan unit"),
+                    () -> assertEquals(1, instance.unit().version(), "the composed unit is version 1"),
+                    () -> assertEquals(PlanFixtures.template().states().keySet(), instance.unit().states().keySet(),
+                            "the composed states are the template's states"),
                     () -> assertEquals(HeaderJson.write(header),
                             Objects.requireNonNull(instance.unit().instance()).json(),
                             "the instance line carries the written header"));
@@ -163,9 +170,12 @@ class PlanInstanceComposerTest {
             var header = version1().header();
 
             assertAll(
-                    () -> assertEquals(List.of(), rulePrunes(header)),
-                    () -> assertEquals(allSteps(), header.steps().phase6()),
-                    () -> assertEquals(PlanFixtures.VERIFICATION_STEPS, header.steps().phase5Verification()));
+                    () -> assertEquals(List.of(), rulePrunes(header),
+                            "a selector naming nothing prunes nothing"),
+                    () -> assertEquals(allSteps(), header.steps().phase6(),
+                            "the phase 6 steps keep the declared order"),
+                    () -> assertEquals(PlanFixtures.VERIFICATION_STEPS, header.steps().phase5Verification(),
+                            "the verification steps are the shipped ones"));
         }
 
         @Test
@@ -180,11 +190,15 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(instance.text().contains("\ntype: instance\n"), instance.text()),
                     () -> assertTrue(instance.text().contains("\n---\nworkflow plan version 1 format 1\ninstance {"),
                             instance.text()),
-                    () -> assertEquals(instance.unit().states().keySet(), reparsed.states().keySet()),
-                    () -> assertEquals(UnitType.INSTANCE, reparsed.frontmatter().type()),
-                    () -> assertEquals(instance.unit().frontmatter().name(), reparsed.frontmatter().name()),
+                    () -> assertEquals(instance.unit().states().keySet(), reparsed.states().keySet(),
+                            "the reparsed states match the composed states"),
+                    () -> assertEquals(UnitType.INSTANCE, reparsed.frontmatter().type(),
+                            "the parsed frontmatter declares an instance unit"),
+                    () -> assertEquals(instance.unit().frontmatter().name(), reparsed.frontmatter().name(),
+                            "the reparsed unit keeps the template name"),
                     () -> assertEquals(instance.header().planId(),
-                            Objects.requireNonNull(reparsed.instance()).planId()));
+                            Objects.requireNonNull(reparsed.instance()).planId(),
+                            "the reparsed instance line keeps the plan id"));
         }
 
         @Test
@@ -196,14 +210,22 @@ class PlanInstanceComposerTest {
             var unit = version1().unit();
 
             assertAll(
-                    () -> assertEquals(UnitType.WORKFLOW, template.frontmatter().type()),
-                    () -> assertEquals(UnitType.INSTANCE, unit.frontmatter().type()),
-                    () -> assertEquals(template.frontmatter().name(), unit.frontmatter().name()),
-                    () -> assertEquals(template.frontmatter().description(), unit.frontmatter().description()),
-                    () -> assertEquals(template.frontmatter().author(), unit.frontmatter().author()),
-                    () -> assertEquals(template.frontmatter().version(), unit.frontmatter().version()),
-                    () -> assertEquals(template.startState(), unit.startState()),
-                    () -> assertEquals(template.entryBindings(), unit.entryBindings()));
+                    () -> assertEquals(UnitType.WORKFLOW, template.frontmatter().type(),
+                            "the template declares a workflow unit"),
+                    () -> assertEquals(UnitType.INSTANCE, unit.frontmatter().type(),
+                            "the composed unit declares an instance unit"),
+                    () -> assertEquals(template.frontmatter().name(), unit.frontmatter().name(),
+                            "the composed unit keeps the template name"),
+                    () -> assertEquals(template.frontmatter().description(), unit.frontmatter().description(),
+                            "the composed unit keeps the template description"),
+                    () -> assertEquals(template.frontmatter().author(), unit.frontmatter().author(),
+                            "the composed unit keeps the template author"),
+                    () -> assertEquals(template.frontmatter().version(), unit.frontmatter().version(),
+                            "the composed unit keeps the template version"),
+                    () -> assertEquals(template.startState(), unit.startState(),
+                            "the composed unit keeps the template start state"),
+                    () -> assertEquals(template.entryBindings(), unit.entryBindings(),
+                            "the composed unit keeps the template entry bindings"));
         }
 
         @Test
@@ -213,16 +235,22 @@ class PlanInstanceComposerTest {
             var call = remediationCall(instance);
 
             assertAll(
-                    () -> assertEquals("remediation.qgate-findings", call.unit()),
+                    () -> assertEquals("remediation.qgate-findings", call.unit(),
+                            "the policy call names its unit"),
                     () -> assertEquals(BoundArgument.fromTemplate(new CallValue.EnumList(List.of("retry", "fix",
-                            "loop_back")), TEMPLATE_FILE), call.args().get("actions")),
+                                    "loop_back")), TEMPLATE_FILE), call.args().get("actions"),
+                            "the call binds actions from the template"),
                     () -> assertEquals(BoundArgument.fromTemplate(new CallValue.IntValue(3), TEMPLATE_FILE),
-                            call.args().get("fix_budget")),
-                    () -> assertEquals(1, instance.header().policyCalls().size()),
+                            call.args().get("fix_budget"),
+                            "the call binds the fix budget from the template"),
+                    () -> assertEquals(1, instance.header().policyCalls().size(),
+                            "the version records one policy call"),
                     () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings"),
-                            instance.header().inputs().subUnits().stream().map(UnitReference::unit).toList()),
+                            instance.header().inputs().subUnits().stream().map(UnitReference::unit).toList(),
+                            "the sub-units name the calls they serve"),
                     () -> assertEquals(List.of("plan", QUESTIONS_ONLY),
-                            instance.header().inputs().templates().stream().map(UnitReference::unit).toList()));
+                            instance.header().inputs().templates().stream().map(UnitReference::unit).toList(),
+                            "the templates name the plan and the asked variant"));
         }
 
         @Test
@@ -238,18 +266,25 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings",
-                            DeclarationBounds.ADJUDICATION_UNIT), subUnits.stream().map(UnitReference::unit).toList()),
+                                    DeclarationBounds.ADJUDICATION_UNIT), subUnits.stream().map(UnitReference::unit).toList(),
+                            "the sub-units include the adjudication unit"),
                     () -> assertEquals(InvariantFixtures.ADJUDICATION_FILE, adjudication.file(),
                             "the adjudication unit names its file"),
-                    () -> assertEquals(PlanFacts.sha256(text), adjudication.digest()),
-                    () -> assertEquals(UnitOrigin.DEFAULT, adjudication.origin()),
-                    () -> assertEquals(DeclarationBounds.ADJUDICATION_UNIT, line.unit()),
-                    () -> assertEquals(PlanFacts.sha256(text), line.digest()),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())),
+                    () -> assertEquals(PlanFacts.sha256(text), adjudication.digest(),
+                            "the adjudication unit records its digest"),
+                    () -> assertEquals(UnitOrigin.DEFAULT, adjudication.origin(),
+                            "the adjudication unit keeps its origin"),
+                    () -> assertEquals(DeclarationBounds.ADJUDICATION_UNIT, line.unit(),
+                            "the instance line names the adjudication unit"),
+                    () -> assertEquals(PlanFacts.sha256(text), line.digest(),
+                            "the instance line records the unit digest"),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header()),
+                            "the header with the adjudication passes its schema"),
                     () -> assertFalse(instance.unit().states().values().stream()
-                            .map(StateNode::behavior)
-                            .anyMatch(behavior -> behavior instanceof StateBehavior.SubWorkflowCall call
-                                    && DeclarationBounds.ADJUDICATION_UNIT.equals(call.subWorkflowId()))));
+                                    .map(StateNode::behavior)
+                                    .anyMatch(behavior -> behavior instanceof StateBehavior.SubWorkflowCall call
+                                            && DeclarationBounds.ADJUDICATION_UNIT.equals(call.subWorkflowId())),
+                            "no call site calls the adjudication unit"));
         }
 
         @Test
@@ -258,7 +293,8 @@ class PlanInstanceComposerTest {
             var instance = version1();
 
             assertFalse(instance.header().inputs().subUnits().stream().map(UnitReference::unit)
-                    .anyMatch(DeclarationBounds.ADJUDICATION_UNIT::equals));
+                            .anyMatch(DeclarationBounds.ADJUDICATION_UNIT::equals),
+                    "a request without adjudication lists no such unit");
         }
     }
 
@@ -274,9 +310,9 @@ class PlanInstanceComposerTest {
                     AT_START)));
 
             assertAll(
-                    () -> assertEquals(2, instance.version()),
-                    () -> assertEquals(event, instance.header().event()),
-                    () -> assertEquals(2, instance.unit().version()));
+                    () -> assertEquals(2, instance.version(), "the next event composes version 2"),
+                    () -> assertEquals(event, instance.header().event(), "the header records the composing event"),
+                    () -> assertEquals(2, instance.unit().version(), "the composed unit advances to version 2"));
         }
 
         @Test
@@ -311,11 +347,12 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> request(CompositionEvent.START, facts,
-                            previous, List.of(), AT_START)),
+                            previous, List.of(), AT_START), "the start event refuses a previous version"),
                     () -> assertThrows(IllegalArgumentException.class, () -> request(CompositionEvent.PLAN, facts,
-                            null, List.of(), AT_START)),
+                            null, List.of(), AT_START), "a non-start event requires a previous version"),
                     () -> assertThrows(IllegalArgumentException.class, () -> request(otherPlan,
-                            CompositionEvent.PLAN, facts, previous, List.of(), AT_START)));
+                                    CompositionEvent.PLAN, facts, previous, List.of(), AT_START),
+                            "an event of another plan is refused"));
         }
 
         @ParameterizedTest(name = "{0} with {1}")
@@ -339,7 +376,8 @@ class PlanInstanceComposerTest {
             var facts = facts().postRun(postRun).build();
 
             var refused = assertThrows(IllegalArgumentException.class,
-                    () -> request(event, facts, previous, List.of(), AT_START));
+                    () -> request(event, facts, previous, List.of(), AT_START),
+                    "an event refuses a post_run it does not compose");
 
             assertAll(
                     () -> assertTrue(refused.getMessage().contains("'" + event.wireName() + "'"),
@@ -363,16 +401,19 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertEquals(List.of(
-                            new PrunedElement(Kind.POLICY_ACTION, REMEDIATION_SITE + "/fix", PruneReason.LAND_LANE,
-                                    "lane"),
-                            new PrunedElement(Kind.POLICY_ACTION, REMEDIATION_SITE + "/loop_back",
-                                    PruneReason.LAND_LANE, "lane"),
-                            new PrunedElement(Kind.STEP, "default:finalize-step-simplify", PruneReason.LAND_LANE,
-                                    "lane")), rulePrunes(instance.header())),
+                                    new PrunedElement(Kind.POLICY_ACTION, REMEDIATION_SITE + "/fix", PruneReason.LAND_LANE,
+                                            "lane"),
+                                    new PrunedElement(Kind.POLICY_ACTION, REMEDIATION_SITE + "/loop_back",
+                                            PruneReason.LAND_LANE, "lane"),
+                                    new PrunedElement(Kind.STEP, "default:finalize-step-simplify", PruneReason.LAND_LANE,
+                                            "lane")), rulePrunes(instance.header()),
+                            "land prunes the fix and loop-back actions"),
                     () -> assertEquals(BoundArgument.fromCompositionRule(new CallValue.EnumList(List.of("retry"))),
-                            remediationCall(instance).args().get("actions")),
+                            remediationCall(instance).args().get("actions"),
+                            "the land rule binds the call to retry"),
                     () -> assertEquals(new CallValue.EnumList(List.of("retry")),
-                            remediationState(instance).paramBindings().get("actions")));
+                            remediationState(instance).paramBindings().get("actions"),
+                            "the composed call binds actions to retry"));
         }
 
         @Test
@@ -381,7 +422,8 @@ class PlanInstanceComposerTest {
             var instance = version1();
 
             assertEquals(new CallValue.EnumList(List.of("retry", "fix", "loop_back")),
-                    remediationState(instance).paramBindings().get("actions"));
+                    remediationState(instance).paramBindings().get("actions"),
+                    "a request plan keeps fix among its actions");
         }
 
         @Test
@@ -393,13 +435,16 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(List.of("default:push", "default:create-pr", "default:ci-verify",
                                     "default:automatic-review", "default:analysis-roundtrip"),
-                            rulePrunes(instance.header()).stream().map(PrunedElement::id).toList()),
+                            rulePrunes(instance.header()).stream().map(PrunedElement::id).toList(),
+                            "the remote steps are pruned from the step list"),
                     () -> assertTrue(rulePrunes(instance.header()).stream()
-                            .allMatch(prune -> prune.reason() == PruneReason.LOCAL_ONLY)),
+                                    .allMatch(prune -> prune.reason() == PruneReason.LOCAL_ONLY),
+                            "every pruned step carries the local-only reason"),
                     () -> assertEquals(List.of("default:finalize-step-simplify", "default:pre-push-quality-gate",
                                     "default:branch-cleanup", "default:lessons-capture", "default:emit-landing",
                                     "default:archive-plan"),
-                            instance.header().steps().phase6()));
+                            instance.header().steps().phase6(),
+                            "the local gate and the post-run steps stay"));
         }
 
         @Test
@@ -410,12 +455,16 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertEquals(List.of("default:lessons-capture", "default:emit-landing",
-                            "default:archive-plan"), instance.header().steps().phase6()),
-                    () -> assertEquals(8, rulePrunes(instance.header()).size()),
+                                    "default:archive-plan"), instance.header().steps().phase6(),
+                            "the fallback keeps the post-run step band"),
+                    () -> assertEquals(8, rulePrunes(instance.header()).size(),
+                            "the post-run form prunes eight steps"),
                     () -> assertTrue(rulePrunes(instance.header()).stream().allMatch(prune ->
-                            prune.reason() == PruneReason.RETURNED && "post_run".equals(prune.sourceFact()))),
+                                    prune.reason() == PruneReason.RETURNED && "post_run".equals(prune.sourceFact())),
+                            "every pruned step names the post_run fact"),
                     () -> assertEquals(PlanFixtures.VERIFICATION_STEPS,
-                            instance.header().steps().phase5Verification()));
+                            instance.header().steps().phase5Verification(),
+                            "the verification steps survive the post-run prune"));
         }
 
         @Test
@@ -425,8 +474,9 @@ class PlanInstanceComposerTest {
                     .build())));
 
             assertEquals(List.of(PruneReason.LAND_LANE), instance.header().pruned().stream()
-                    .filter(prune -> "default:finalize-step-simplify".equals(prune.id()))
-                    .map(PrunedElement::reason).toList());
+                            .filter(prune -> "default:finalize-step-simplify".equals(prune.id()))
+                            .map(PrunedElement::reason).toList(),
+                    "the first rule's reason names a twice-pruned element");
         }
     }
 
@@ -443,11 +493,14 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertEquals(BoundArgument.fromWaiver(new CallValue.IntValue(raised), "W-1"),
-                            remediationCall(instance).args().get("fix_budget")),
+                            remediationCall(instance).args().get("fix_budget"),
+                            "the waiver binds the fix budget of its policy"),
                     () -> assertEquals(new CallValue.IntValue(raised),
-                            remediationState(instance).paramBindings().get("fix_budget")),
+                            remediationState(instance).paramBindings().get("fix_budget"),
+                            "the composed call binds the raised fix budget"),
                     () -> assertEquals(BoundArgument.fromTemplate(new CallValue.IntValue(1), TEMPLATE_FILE),
-                            remediationCall(instance).args().get("retry_budget")));
+                            remediationCall(instance).args().get("retry_budget"),
+                            "the call keeps the template retry budget"));
         }
 
         @Test
@@ -458,7 +511,8 @@ class PlanInstanceComposerTest {
                             Generators.integers(4, 5).next())), AT_START)));
 
             assertEquals(BoundArgument.fromTemplate(new CallValue.IntValue(3), TEMPLATE_FILE),
-                    remediationCall(instance).args().get("fix_budget"));
+                    remediationCall(instance).args().get("fix_budget"),
+                    "a raise of another policy binds nothing here");
         }
 
         @Test
@@ -467,7 +521,8 @@ class PlanInstanceComposerTest {
             var instance = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
                     version1(), List.of(Waiver.met("W-2", "ci_check:build")), AT_START)));
 
-            assertEquals(List.of(new WaivedGate("ci_check:build", "W-2")), instance.header().waivedGates());
+            assertEquals(List.of(new WaivedGate("ci_check:build", "W-2")), instance.header().waivedGates(),
+                    "a met waiver marks its gate waived");
         }
 
         @Test
@@ -476,12 +531,15 @@ class PlanInstanceComposerTest {
         void waiverShape() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "fix_budget:x",
-                            Waiver.Mode.RAISE, null)),
+                            Waiver.Mode.RAISE, null), "a raise without a ceiling is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "ci_check:build",
-                            Waiver.Mode.MET, Generators.integers(1, 10).next())),
+                                    Waiver.Mode.MET, Generators.integers(1, 10).next()),
+                            "a met waiver refuses a raised value"),
                     () -> assertNull(Waiver.met("W-1", "ci_check:build").value(), "a met waiver carries no value"),
-                    () -> assertEquals(Optional.of(Waiver.Mode.RAISE), Waiver.Mode.fromWireName("raise")),
-                    () -> assertEquals(Optional.empty(), Waiver.met("W-1", "ci_check:build").raisedUnit()));
+                    () -> assertEquals(Optional.of(Waiver.Mode.RAISE), Waiver.Mode.fromWireName("raise"),
+                            "the wire name raise maps to the raise mode"),
+                    () -> assertEquals(Optional.empty(), Waiver.met("W-1", "ci_check:build").raisedUnit(),
+                            "a met waiver carries no raised unit"));
         }
     }
 
@@ -506,14 +564,18 @@ class PlanInstanceComposerTest {
             var instance = composed(composerWithoutRules().compose(start(askingAtEveryLevel().build())));
 
             assertAll(
-                    () -> assertEquals(EVERY_PHASE, askingCallee(instance)),
+                    () -> assertEquals(EVERY_PHASE, askingCallee(instance),
+                            "the plan level binds the every-phase variant"),
                     () -> assertEquals(List.of(planDefault(KEY_POINTS, "plan.axes.asking"),
-                            planDefault(QUESTIONS_ONLY, "plan.axes.asking")), instance.header().pruned()),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())),
+                                    planDefault(QUESTIONS_ONLY, "plan.axes.asking")), instance.header().pruned(),
+                            "the unbound variants are pruned as plan defaults"),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header()),
+                            "the header with pruned variants passes its schema"),
                     () -> assertTrue(instance.header().inputs().templates().stream().map(UnitReference::unit)
-                            .toList().contains(EVERY_PHASE)),
+                            .toList().contains(EVERY_PHASE), "the bound variant is among the templates"),
                     () -> assertFalse(instance.header().inputs().templates().stream().map(UnitReference::unit)
-                            .anyMatch(unit -> KEY_POINTS.equals(unit) || QUESTIONS_ONLY.equals(unit))));
+                                    .anyMatch(unit -> KEY_POINTS.equals(unit) || QUESTIONS_ONLY.equals(unit)),
+                            "the other variants compose no template file"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -524,9 +586,11 @@ class PlanInstanceComposerTest {
             var source = level.wireName() + ".axes.asking";
 
             assertAll(
-                    () -> assertEquals(KEY_POINTS, askingCallee(instance)),
+                    () -> assertEquals(KEY_POINTS, askingCallee(instance),
+                            "the level alone binds the key-points variant"),
                     () -> assertEquals(List.of(planDefault(EVERY_PHASE, source), planDefault(QUESTIONS_ONLY, source)),
-                            instance.header().pruned()));
+                            instance.header().pruned(),
+                            "the other variants are pruned at the same level"));
         }
 
         @ParameterizedTest(name = "{0} waits after {1}")
@@ -544,9 +608,11 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertEquals(new CallValue.EnumList(expected),
-                            definition.declarations().get(DeclarationBounds.WAIT_AFTER).value()),
-                    () -> assertEquals(List.of(), DeclarationBounds.check(definition)),
-                    () -> assertEquals(variant, askingCallee(instance)));
+                            definition.declarations().get(DeclarationBounds.WAIT_AFTER).value(),
+                            "the shipped wait_after compiles as declared"),
+                    () -> assertEquals(List.of(), DeclarationBounds.check(definition),
+                            "the variant's declarations pass the bounds check"),
+                    () -> assertEquals(variant, askingCallee(instance), "the shipped variant itself is bound"));
         }
 
         @Test
@@ -556,9 +622,11 @@ class PlanInstanceComposerTest {
                     .axis(PlanFacts.Axis.ASKING, PlanFacts.Level.MACHINE, KEY_POINTS).build())));
 
             assertAll(
-                    () -> assertEquals(EVERY_PHASE, askingCallee(instance)),
+                    () -> assertEquals(EVERY_PHASE, askingCallee(instance),
+                            "the project value wins over the machine's"),
                     () -> assertEquals(List.of(planDefault(KEY_POINTS, "project.axes.asking"),
-                            planDefault(QUESTIONS_ONLY, "project.axes.asking")), instance.header().pruned()));
+                                    planDefault(QUESTIONS_ONLY, "project.axes.asking")), instance.header().pruned(),
+                            "the machine variant is pruned as a plan default"));
         }
 
         @Test
@@ -567,9 +635,11 @@ class PlanInstanceComposerTest {
             var instance = version1();
 
             assertAll(
-                    () -> assertEquals(QUESTIONS_ONLY, askingCallee(instance)),
+                    () -> assertEquals(QUESTIONS_ONLY, askingCallee(instance),
+                            "the shipped default binds the questions-only variant"),
                     () -> assertEquals(List.of(planDefault(EVERY_PHASE, "shipped.axes.asking"),
-                            planDefault(KEY_POINTS, "shipped.axes.asking")), instance.header().pruned()));
+                                    planDefault(KEY_POINTS, "shipped.axes.asking")), instance.header().pruned(),
+                            "the other shipped variants are pruned"));
         }
 
         @Test
@@ -579,12 +649,16 @@ class PlanInstanceComposerTest {
                     asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), version1(), List.of(), AT_START)));
 
             assertAll(
-                    () -> assertEquals(2, instance.version()),
-                    () -> assertEquals(CompositionEvent.OVERRIDE, instance.header().event()),
-                    () -> assertEquals(CompositionEvent.Trigger.OPERATOR, instance.header().event().trigger()),
-                    () -> assertEquals(EVERY_PHASE, askingCallee(instance)),
+                    () -> assertEquals(2, instance.version(), "the override composes version 2"),
+                    () -> assertEquals(CompositionEvent.OVERRIDE, instance.header().event(),
+                            "the header records the override event"),
+                    () -> assertEquals(CompositionEvent.Trigger.OPERATOR, instance.header().event().trigger(),
+                            "an override carries the operator trigger"),
+                    () -> assertEquals(EVERY_PHASE, askingCallee(instance),
+                            "the override binds the new every-phase variant"),
                     () -> assertEquals(List.of(planDefault(KEY_POINTS, "plan.axes.asking"),
-                            planDefault(QUESTIONS_ONLY, "plan.axes.asking")), instance.header().pruned()));
+                                    planDefault(QUESTIONS_ONLY, "plan.axes.asking")), instance.header().pruned(),
+                            "the replaced variants are pruned as defaults"));
         }
 
         @Test
@@ -594,7 +668,8 @@ class PlanInstanceComposerTest {
                     asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), version1(), List.of(), IN_MERGE_QUEUE)));
 
             assertAll(
-                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
+                            "the override is refused position_not_contained"),
                     () -> assertTrue(refused.violations().getFirst().contains("finalize.merge-queue-wait"),
                             refused.violations()::toString));
         }
@@ -606,9 +681,11 @@ class PlanInstanceComposerTest {
                     asking(PlanFacts.Level.PLAN, QUESTIONS_ONLY).build(), version1(), List.of(), IN_MERGE_QUEUE)));
 
             assertAll(
-                    () -> assertEquals(2, instance.version()),
-                    () -> assertTrue(instance.unit().states().containsKey("finalize.merge-queue-wait")),
-                    () -> assertEquals(List.of(), rulePrunes(instance.header())));
+                    () -> assertEquals(2, instance.version(), "the merging override composes version 2"),
+                    () -> assertTrue(instance.unit().states().containsKey("finalize.merge-queue-wait"),
+                            "the merge queue state survives the override"),
+                    () -> assertEquals(List.of(), rulePrunes(instance.header()),
+                            "the merging override prunes no rule"));
         }
 
         @Test
@@ -625,9 +702,12 @@ class PlanInstanceComposerTest {
             var without = version(facts().build());
 
             assertAll(
-                    () -> assertEquals(withFirst, withFirstAgain),
-                    () -> assertNotEquals(withFirst, withSecond),
-                    () -> assertNotEquals(withFirst, without));
+                    () -> assertEquals(withFirst, withFirstAgain,
+                            "the same overrides document keeps its digest"),
+                    () -> assertNotEquals(withFirst, withSecond,
+                            "a new revision changes the plan facts digest"),
+                    () -> assertNotEquals(withFirst, without,
+                            "a document without overrides has another digest"));
         }
 
         private static String version(PlanFacts facts) {
@@ -660,10 +740,14 @@ class PlanInstanceComposerTest {
                     () -> MERGE_EXECUTION.forEach(state -> assertFalse(instance.unit().states().containsKey(state),
                             state)),
                     () -> assertEquals(MERGE_EXECUTION.stream().map(state -> new PrunedElement(Kind.STATE, state,
-                            PruneReason.MERGE_BY_OPERATOR, "axes.asking")).toList(), rulePrunes(instance.header())),
+                                    PruneReason.MERGE_BY_OPERATOR, "axes.asking")).toList(),
+                            rulePrunes(instance.header()),
+                            "the merge execution is pruned by the operator rule"),
                     () -> assertTrue(instance.unit().states().keySet().containsAll(List.of("finalize.merge-gate",
-                            "finalize.merge-barrier", "finalize.hand-back"))),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
+                                    "finalize.merge-barrier", "finalize.hand-back")),
+                            "the merge barrier and hand-back stay composed"),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header()),
+                            "the variant with the merge pruned verifies"));
         }
 
         @Test
@@ -673,8 +757,10 @@ class PlanInstanceComposerTest {
                     .build())));
 
             assertAll(
-                    () -> assertTrue(instance.unit().states().keySet().containsAll(MERGE_EXECUTION)),
-                    () -> assertEquals(List.of(), rulePrunes(instance.header())));
+                    () -> assertTrue(instance.unit().states().keySet().containsAll(MERGE_EXECUTION),
+                            "a self-merging variant keeps the merge execution"),
+                    () -> assertEquals(List.of(), rulePrunes(instance.header()),
+                            "a self-merging variant prunes no state"));
         }
     }
 
@@ -718,8 +804,10 @@ class PlanInstanceComposerTest {
             var template = InvariantFixtures.passingUnits(UnitOrigin.PROJECT).get("plan");
 
             assertAll(
-                    () -> assertEquals(template.states().keySet(), instance.unit().states().keySet()),
-                    () -> assertEquals(List.of(), otherLane(instance.header())));
+                    () -> assertEquals(template.states().keySet(), instance.unit().states().keySet(),
+                            "the template's states survive at the start event"),
+                    () -> assertEquals(List.of(), otherLane(instance.header()),
+                            "the start event prunes nothing by lane"));
         }
 
         @Test
@@ -729,7 +817,8 @@ class PlanInstanceComposerTest {
                     List.of(InvariantFixtures.WITHOUT_RATCHET)));
 
             assertAll(
-                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
+                            "the light version without the ratchet is refused"),
                     () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'init.light-gate': the ratchet"
                             + " transition 'deep' -> 'init.deep-exit' of 'init.light-gate' is"
                             + " missing"), refused.violations()::toString));
@@ -742,7 +831,8 @@ class PlanInstanceComposerTest {
             var refused = refused(atStart(Lane.DEEP, List.of(InvariantFixtures.WITHOUT_RATCHET)));
 
             assertAll(
-                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
+                            "the start version without the ratchet is refused"),
                     () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'init.light-gate': the ratchet"
                             + " transition 'deep' -> 'init.deep-exit' of 'init.light-gate' is"
                             + " missing"), refused.violations()::toString));
@@ -755,7 +845,8 @@ class PlanInstanceComposerTest {
             var refused = refused(atOutline(Lane.DEEP, "outline.deep", List.of(InvariantFixtures.WITHOUT_RATCHET)));
 
             assertAll(
-                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
+                            "the deep version is refused for the opened route"),
                     () -> assertTrue(refused.violations().stream().anyMatch(violation -> violation.startsWith(
                             "INV-OUTLINE-2 in 'init.light-gate'")), refused.violations()::toString),
                     () -> assertFalse(refused.violations().stream()
@@ -797,18 +888,22 @@ class PlanInstanceComposerTest {
             var instance = outline(Lane.DEEP);
 
             assertAll(
-                    () -> assertEquals(CompositionEvent.OUTLINE, instance.header().event()),
+                    () -> assertEquals(CompositionEvent.OUTLINE, instance.header().event(),
+                            "the outline event composes the deep version"),
                     () -> assertEquals(List.of("init.light-gate", "outline.light", "outline.light-regate",
                                     "outline.light-review", "outline.light-approve", "phases.plan-light",
                                     "phases.execute-light"),
-                            otherLane(instance.header()).stream().map(PrunedElement::id).toList()),
+                            otherLane(instance.header()).stream().map(PrunedElement::id).toList(),
+                            "the deep version prunes every light call state"),
                     () -> assertTrue(instance.unit().states().keySet().containsAll(List.of("phases.plan",
-                            "phases.execute", "outline.deep", "refine.baseline-reconcile"))),
+                                    "phases.execute", "outline.deep", "refine.baseline-reconcile")),
+                            "the deep route keeps its own call states"),
                     () -> assertTrue(routes(instance, "phases.plan", "fix_requested", "outline.deep"),
                             "the deep plan call re-enters the deep authoring entry"),
                     () -> assertTrue(routes(instance, "phases.execute", "loop_back", "outline.deep"),
                             "the deep execute call re-enters the deep authoring entry"),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header()),
+                            "the deep per-lane version verifies"));
         }
 
         @Test
@@ -817,7 +912,8 @@ class PlanInstanceComposerTest {
             var instance = outline(Lane.LIGHT);
 
             assertAll(
-                    () -> assertEquals(List.of(), otherLane(instance.header())),
+                    () -> assertEquals(List.of(), otherLane(instance.header()),
+                            "the light version prunes no state by lane"),
                     () -> assertTrue(routes(instance, "phases.plan", "fix_requested", "outline.deep"),
                             "the deep call state keeps its own rework entry"),
                     () -> assertTrue(routes(instance, "phases.plan-light", "fix_requested", "outline.light-regate"),
@@ -826,7 +922,8 @@ class PlanInstanceComposerTest {
                             "the light execute call re-enters the light authoring entry"),
                     () -> assertTrue(routes(instance, "outline.light-review", "failed", "outline.light-regate"),
                             "the light review re-enters the light re-gate"),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header()),
+                            "the light per-lane version verifies"));
         }
     }
 
@@ -868,11 +965,13 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(composedUnits.size() > 2, composedUnits::toString),
                     () -> composedUnits.stream().skip(1).forEach(reference ->
                             assertEquals(reference.digest(), instance.composed(reference.unit()).orElseThrow()
-                                    .digest())),
-                    () -> assertEquals(instance.units().size(), composedUnits.size() - 1),
+                                    .digest(), "each composed file matches its header digest")),
+                    () -> assertEquals(instance.units().size(), composedUnits.size() - 1,
+                            "the header names every composed file"),
                     () -> instance.units().forEach(unit -> assertEquals(PlanFacts.sha256(unit.text()),
-                            unit.digest())),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
+                            unit.digest(), "each composed unit carries the digest of its text")),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header()),
+                            "the composed set passes the header schema"));
         }
 
         @Test
@@ -885,15 +984,21 @@ class PlanInstanceComposerTest {
             var template = InvariantFixtures.passingUnits(UnitOrigin.PROJECT).get(phase.unit());
 
             assertAll(
-                    () -> assertEquals(template.id(), phase.definition().id()),
-                    () -> assertEquals(template.scope(), phase.definition().scope()),
-                    () -> assertEquals(template.entryBindings(), phase.definition().entryBindings()),
-                    () -> assertEquals(template.frontmatter().entries(), phase.definition().frontmatter().entries()),
-                    () -> assertEquals(template.frontmatter().exits(), phase.definition().frontmatter().exits()),
-                    () -> assertEquals(UnitType.SUBWORKFLOW, phase.definition().frontmatter().type()),
-                    () -> assertEquals(1, phase.version()),
+                    () -> assertEquals(template.id(), phase.definition().id(),
+                            "the phase file keeps the template id"),
+                    () -> assertEquals(template.scope(), phase.definition().scope(),
+                            "the phase file keeps the template scope"),
+                    () -> assertEquals(template.entryBindings(), phase.definition().entryBindings(),
+                            "the phase file keeps the entry bindings"),
+                    () -> assertEquals(template.frontmatter().entries(), phase.definition().frontmatter().entries(),
+                            "the phase file keeps the template entries"),
+                    () -> assertEquals(template.frontmatter().exits(), phase.definition().frontmatter().exits(),
+                            "the phase file keeps the template exits"),
+                    () -> assertEquals(UnitType.SUBWORKFLOW, phase.definition().frontmatter().type(),
+                            "the phase file declares a sub-workflow unit"),
+                    () -> assertEquals(1, phase.version(), "the phase file repeats version 1"),
                     () -> assertNull(phase.definition().instance(), "a composed phase file has no instance line"),
-                    () -> assertTrue(phase.text().startsWith("---\n")),
+                    () -> assertTrue(phase.text().startsWith("---\n"), "the phase file opens with frontmatter"),
                     () -> assertTrue(phase.text().contains("version 1 format 1"), phase.text()));
         }
 
@@ -905,7 +1010,8 @@ class PlanInstanceComposerTest {
             var light = perLane(CompositionEvent.OUTLINE, Lane.LIGHT, "outline.light");
 
             assertAll(
-                    () -> assertFalse(deep.unit().states().containsKey("phases.plan-light")),
+                    () -> assertFalse(deep.unit().states().containsKey("phases.plan-light"),
+                            "a deep version drops the light call state"),
                     () -> assertTrue(deep.composed("phase-plan-light").isEmpty(), deep.units()::toString),
                     () -> assertTrue(deep.composed("phase-execute-light").isEmpty(), deep.units()::toString),
                     () -> assertTrue(deep.composed("phase-plan").isPresent(), deep.units()::toString),
@@ -927,10 +1033,14 @@ class PlanInstanceComposerTest {
                             deep.unit().states().keySet()::toString),
                     () -> assertTrue(light.unit().states().containsKey("refine.baseline-reconcile"),
                             light.unit().states().keySet()::toString),
-                    () -> assertTrue(deep.unit().states().containsKey("outline.deep")),
-                    () -> assertTrue(light.unit().states().containsKey("outline.deep")),
-                    () -> assertTrue(light.unit().states().containsKey("phases.execute-light")),
-                    () -> assertFalse(deep.unit().states().containsKey("phases.execute-light")));
+                    () -> assertTrue(deep.unit().states().containsKey("outline.deep"),
+                            "the deep version keeps the deep route"),
+                    () -> assertTrue(light.unit().states().containsKey("outline.deep"),
+                            "the light version keeps the deep route"),
+                    () -> assertTrue(light.unit().states().containsKey("phases.execute-light"),
+                            "the light version keeps its execute call"),
+                    () -> assertFalse(deep.unit().states().containsKey("phases.execute-light"),
+                            "the deep version prunes the light execute call"));
         }
 
         @Test
@@ -959,7 +1069,8 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(PlanProcessStates.State.NOT_IN_THIS_PLAN,
                             PlanProcessStates.derive(instance, List.of()).stream()
                                     .filter(node -> "execute.deliverable-build".equals(node.node())).findFirst()
-                                    .orElseThrow().state()));
+                                    .orElseThrow().state(),
+                            "the pruned nested state is not in this plan"));
         }
 
         @Test
@@ -1052,9 +1163,10 @@ class PlanInstanceComposerTest {
                     request.finalizeSteps())));
 
             assertAll(
-                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
+                            "a kept call without a sub-unit is refused"),
                     () -> assertEquals(List.of("the call of 'land' names no sub-unit of the request"),
-                            refused.violations()));
+                            refused.violations(), "the refusal names the missing sub-unit"));
         }
 
         @Test
@@ -1067,7 +1179,8 @@ class PlanInstanceComposerTest {
                     InstancePosition.at("phase-plan-light.begin"))));
 
             assertAll(
-                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
+                            "a pruned call state is no position"),
                     () -> assertTrue(refused.violations().contains(
                                     "position: version 2 does not contain the state 'phase-plan-light.begin'"),
                             refused.violations()::toString));
@@ -1109,8 +1222,10 @@ class PlanInstanceComposerTest {
                     InstancePosition.at("finalize.merge-dispatch"))));
 
             assertAll(
-                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
-                    () -> assertEquals("position_not_contained", refused.refusal().wireName()),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
+                            "the missing current state is refused"),
+                    () -> assertEquals("position_not_contained", refused.refusal().wireName(),
+                            "the refusal carries its wire name"),
                     () -> assertTrue(refused.violations().getFirst().contains("finalize.merge-dispatch"),
                             refused.violations()::toString));
         }
@@ -1122,7 +1237,8 @@ class PlanInstanceComposerTest {
                     mergePruned(), version1(), List.of(),
                     new InstancePosition("finalize.push-barrier", List.of("finalize.merge-dispatch")))));
 
-            assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal());
+            assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
+                    "a missing call stack state is refused");
         }
 
         @Test
@@ -1131,7 +1247,8 @@ class PlanInstanceComposerTest {
             var refused = refused(withoutRatchet(mergedInForce()));
 
             assertAll(
-                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
+                            "the broken compiled invariant is refused"),
                     () -> assertTrue(refused.violations().stream()
                                     .anyMatch(violation -> violation.startsWith("INV-INIT-2 in 'init.light-gate'")),
                             refused.violations()::toString));
@@ -1144,7 +1261,8 @@ class PlanInstanceComposerTest {
                     List.of(), AT_START)));
 
             assertAll(
-                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
+                            "a header breaking its schema is refused"),
                     () -> assertTrue(refused.violations().stream()
                                     .anyMatch(violation -> violation.startsWith("header '/plan_id'")),
                             refused.violations()::toString));
@@ -1159,7 +1277,7 @@ class PlanInstanceComposerTest {
             var next = composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(
                     CompositionEvent.WAIVER, facts().build(), inForce, AT_INIT, List.of())));
 
-            assertEquals(2, next.version());
+            assertEquals(2, next.version(), "a refusal leaves the version in force");
         }
     }
 

@@ -53,8 +53,10 @@ class RegistriesAndRecordsTest {
         var name = Generators.letterStrings(1, 8).next();
         var evaluation = Generators.letterStrings(1, 8).next();
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new EntityKind(null, null, evaluation)),
-                () -> assertThrows(NullPointerException.class, () -> new EntityKind(name, null, null))
+                () -> assertThrows(NullPointerException.class, () -> new EntityKind(null, null, evaluation),
+                        "a null entity kind name is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new EntityKind(name, null, null),
+                        "a null return-evaluation primitive is refused")
         );
     }
 
@@ -63,17 +65,19 @@ class RegistriesAndRecordsTest {
     void entityKindRegistry() {
         var defaults = EntityKindRegistry.defaults();
         assertAll(
-                () -> assertTrue(defaults.find("screen").isPresent()),
-                () -> assertTrue(defaults.find("task").isPresent()),
+                () -> assertTrue(defaults.find("screen").isPresent(), "the defaults register the screen kind"),
+                () -> assertTrue(defaults.find("task").isPresent(), "the defaults register the task kind"),
                 () -> assertFalse(defaults.find(TestPrimitives.CHANGE_KIND).isPresent(),
                         "the kind of the tests is no default"),
-                () -> assertTrue(defaults.find("decision").isPresent()),
-                () -> assertTrue(defaults.find("triage").isPresent()),
-                () -> assertTrue(defaults.find("simplify").isPresent()),
-                () -> assertTrue(defaults.find("lessons-review").isPresent()),
+                () -> assertTrue(defaults.find("decision").isPresent(), "the defaults register the decision kind"),
+                () -> assertTrue(defaults.find("triage").isPresent(), "the defaults register the triage kind"),
+                () -> assertTrue(defaults.find("simplify").isPresent(), "the defaults register the simplify kind"),
+                () -> assertTrue(defaults.find("lessons-review").isPresent(),
+                        "the defaults register the lessons-review kind"),
                 () -> assertFalse(defaults.find("review").isPresent(),
-                        "the lesson review kind is named lessons-review, review is no entity kind"),
-                () -> assertFalse(defaults.find("nonexistent").isPresent())
+                        "review is no entity kind, the kind is lessons-review"),
+                () -> assertFalse(defaults.find("nonexistent").isPresent(),
+                        "an unknown identifier resolves to no kind")
         );
 
         assertAll(
@@ -91,7 +95,8 @@ class RegistriesAndRecordsTest {
                 () -> assertEquals(Set.of("worker-task", "entity", "entity-multi"), defaults.entityUnits(),
                         "the units name no unit for screen"),
                 () -> assertEquals("lessons-review.evaluate",
-                        defaults.find("lessons-review").orElseThrow().returnEvaluationPrimitiveId())
+                        defaults.find("lessons-review").orElseThrow().returnEvaluationPrimitiveId(),
+                        "lessons-review evaluates through its own primitive")
         );
 
         var defaultIdentifiers = Set.of("screen", "task", "decision", "triage", "simplify", "lessons-review").stream()
@@ -106,12 +111,15 @@ class RegistriesAndRecordsTest {
         var customEvaluation = "eval-" + Generators.letterStrings(1, 8).next();
         var custom = new EntityKind(customName, null, customEvaluation);
         var updated = defaults.with(custom);
-        assertTrue(updated.find(customName).isPresent());
-        assertFalse(defaults.find(customName).isPresent());
+        assertTrue(updated.find(customName).isPresent(), "the registry with the custom kind finds it");
+        assertFalse(defaults.find(customName).isPresent(),
+                "the untouched defaults do not know the custom kind");
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> defaults.with(null)),
-                () -> assertThrows(NullPointerException.class, () -> new EntityKindRegistry(null))
+                () -> assertThrows(NullPointerException.class, () -> defaults.with(null),
+                        "the registry refuses a null entity kind"),
+                () -> assertThrows(NullPointerException.class, () -> new EntityKindRegistry(null),
+                        "a null entity kind list is refused")
         );
     }
 
@@ -122,10 +130,12 @@ class RegistriesAndRecordsTest {
         var outcomes = Set.of(Generators.letterStrings(1, 8).next());
         var name = Generators.letterStrings(1, 8).next();
         assertAll(
-                () -> assertEquals("init", qc.name()),
-                () -> assertEquals(Set.of("answered"), qc.outcomes()),
-                () -> assertThrows(NullPointerException.class, () -> new QuestionClass(null, outcomes)),
-                () -> assertThrows(NullPointerException.class, () -> new QuestionClass(name, null))
+                () -> assertEquals("init", qc.name(), "the question class keeps its name"),
+                () -> assertEquals(Set.of("answered"), qc.outcomes(), "the question class keeps its outcomes"),
+                () -> assertThrows(NullPointerException.class, () -> new QuestionClass(null, outcomes),
+                        "a null question class name is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new QuestionClass(name, null),
+                        "a null outcome set is refused")
         );
     }
 
@@ -134,34 +144,45 @@ class RegistriesAndRecordsTest {
     void questionClassRegistry() {
         var defaults = QuestionClassRegistry.defaults();
         assertAll(
-                () -> assertTrue(defaults.find("init").isPresent()),
-                () -> assertTrue(defaults.find("clarification").isPresent()),
-                () -> assertTrue(defaults.find("review").isPresent()),
-                () -> assertTrue(defaults.find("task").isPresent()),
-                () -> assertTrue(defaults.find("setup").isPresent()),
-                () -> assertTrue(defaults.find("ask").isPresent()),
-                () -> assertFalse(defaults.find("nonexistent").isPresent())
+                () -> assertTrue(defaults.find("init").isPresent(), "the defaults register the init class"),
+                () -> assertTrue(defaults.find("clarification").isPresent(),
+                        "the defaults register the clarification class"),
+                () -> assertTrue(defaults.find("review").isPresent(), "the defaults register the review class"),
+                () -> assertTrue(defaults.find("task").isPresent(), "the defaults register the task class"),
+                () -> assertTrue(defaults.find("setup").isPresent(), "the defaults register the setup class"),
+                () -> assertTrue(defaults.find("ask").isPresent(), "the defaults register the ask class"),
+                () -> assertFalse(defaults.find("nonexistent").isPresent(),
+                        "an unknown identifier resolves to no class")
         );
 
         assertAll(
-                () -> assertEquals(Set.of("answered"), defaults.find("init").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("answered"), defaults.find("clarification").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("approve", "revise"), defaults.find("review").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("answered"), defaults.find("task").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("answered"), defaults.find("setup").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("answered"), defaults.find("ask").orElseThrow().outcomes())
+                () -> assertEquals(Set.of("answered"), defaults.find("init").orElseThrow().outcomes(),
+                        "init answers with the answered outcome"),
+                () -> assertEquals(Set.of("answered"), defaults.find("clarification").orElseThrow().outcomes(),
+                        "clarification answers with the answered outcome"),
+                () -> assertEquals(Set.of("approve", "revise"), defaults.find("review").orElseThrow().outcomes(),
+                        "review offers approve and revise"),
+                () -> assertEquals(Set.of("answered"), defaults.find("task").orElseThrow().outcomes(),
+                        "task answers with the answered outcome"),
+                () -> assertEquals(Set.of("answered"), defaults.find("setup").orElseThrow().outcomes(),
+                        "setup answers with the answered outcome"),
+                () -> assertEquals(Set.of("answered"), defaults.find("ask").orElseThrow().outcomes(),
+                        "ask answers with the answered outcome")
         );
 
         var customName = "custom-" + Generators.letterStrings(1, 8).next();
         var custom = new QuestionClass(customName, Set.of("yes-" + Generators.letterStrings(1, 8).next(),
                 "no-" + Generators.letterStrings(1, 8).next()));
         var updated = defaults.with(custom);
-        assertTrue(updated.find(customName).isPresent());
-        assertFalse(defaults.find(customName).isPresent());
+        assertTrue(updated.find(customName).isPresent(), "the registry with the custom class finds it");
+        assertFalse(defaults.find(customName).isPresent(),
+                "the untouched defaults do not know the custom class");
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> defaults.with(null)),
-                () -> assertThrows(NullPointerException.class, () -> new QuestionClassRegistry(null))
+                () -> assertThrows(NullPointerException.class, () -> defaults.with(null),
+                        "the registry refuses a null question class"),
+                () -> assertThrows(NullPointerException.class, () -> new QuestionClassRegistry(null),
+                        "a null question class list is refused")
         );
     }
 
@@ -170,25 +191,36 @@ class RegistriesAndRecordsTest {
     void schemaRegistry() {
         var defaults = SchemaRegistry.defaults();
         assertAll(
-                () -> assertTrue(defaults.contains("question-envelope")),
-                () -> assertTrue(defaults.contains("question-answer")),
-                () -> assertTrue(defaults.contains("vote-answer")),
-                () -> assertTrue(defaults.contains("triage-groups")),
-                () -> assertTrue(defaults.contains("simplify-proposal")),
-                () -> assertTrue(defaults.contains("intent-record")),
-                () -> assertTrue(defaults.contains("outline-record")),
-                () -> assertTrue(defaults.contains("commit-result")),
-                () -> assertFalse(defaults.contains("unknown-" + Generators.letterStrings(1, 8).next()))
+                () -> assertTrue(defaults.contains("question-envelope"),
+                        "the defaults contain the question-envelope schema"),
+                () -> assertTrue(defaults.contains("question-answer"),
+                        "the defaults contain the question-answer schema"),
+                () -> assertTrue(defaults.contains("vote-answer"),
+                        "the defaults contain the vote-answer schema"),
+                () -> assertTrue(defaults.contains("triage-groups"),
+                        "the defaults contain the triage-groups schema"),
+                () -> assertTrue(defaults.contains("simplify-proposal"),
+                        "the defaults contain the simplify-proposal schema"),
+                () -> assertTrue(defaults.contains("intent-record"),
+                        "the defaults contain the intent-record schema"),
+                () -> assertTrue(defaults.contains("outline-record"),
+                        "the defaults contain the outline-record schema"),
+                () -> assertTrue(defaults.contains("commit-result"),
+                        "the defaults contain the commit-result schema"),
+                () -> assertFalse(defaults.contains("unknown-" + Generators.letterStrings(1, 8).next()),
+                        "an unknown schema name is not registered")
         );
 
         var schema = "new-" + Generators.letterStrings(1, 8).next();
         var updated = defaults.with(schema);
-        assertTrue(updated.contains(schema));
-        assertFalse(defaults.contains(schema));
+        assertTrue(updated.contains(schema), "the registry with the new schema contains it");
+        assertFalse(defaults.contains(schema), "the untouched defaults do not contain the new schema");
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> defaults.with(null)),
-                () -> assertThrows(NullPointerException.class, () -> new SchemaRegistry(null))
+                () -> assertThrows(NullPointerException.class, () -> defaults.with(null),
+                        "the registry refuses a null schema name"),
+                () -> assertThrows(NullPointerException.class, () -> new SchemaRegistry(null),
+                        "a null schema name list is refused")
         );
     }
 
@@ -197,9 +229,11 @@ class RegistriesAndRecordsTest {
     void workflowCatalog() {
         var empty = WorkflowCatalog.empty();
         assertAll(
-                () -> assertFalse(empty.find("missing-" + Generators.letterStrings(1, 8).next()).isPresent()),
-                () -> assertFalse(empty.contains("missing-" + Generators.letterStrings(1, 8).next())),
-                () -> assertTrue(empty.definitions().isEmpty())
+                () -> assertFalse(empty.find("missing-" + Generators.letterStrings(1, 8).next()).isPresent(),
+                        "an empty catalog finds no unit"),
+                () -> assertFalse(empty.contains("missing-" + Generators.letterStrings(1, 8).next()),
+                        "an empty catalog contains no unit"),
+                () -> assertTrue(empty.definitions().isEmpty(), "an empty catalog has no definitions")
         );
 
         var unit = VerifyFixtures.parseSource("catalog-unit.pmwf", """
@@ -221,10 +255,11 @@ class RegistriesAndRecordsTest {
                 """);
         var catalog = WorkflowCatalog.of(unit);
         assertAll(
-                () -> assertTrue(catalog.contains("catalog.test")),
-                () -> assertTrue(catalog.find("catalog.test").isPresent()),
-                () -> assertEquals(1, catalog.definitions().size()),
-                () -> assertThrows(NullPointerException.class, () -> new WorkflowCatalog(null))
+                () -> assertTrue(catalog.contains("catalog.test"), "the catalog contains the parsed unit"),
+                () -> assertTrue(catalog.find("catalog.test").isPresent(), "the catalog finds the parsed unit"),
+                () -> assertEquals(1, catalog.definitions().size(), "the catalog holds exactly one definition"),
+                () -> assertThrows(NullPointerException.class, () -> new WorkflowCatalog(null),
+                        "a null unit list is refused")
         );
     }
 
@@ -234,10 +269,10 @@ class RegistriesAndRecordsTest {
         var registry = TestPrimitives.registry();
         var released = List.of("verify.entry");
         var validator2 = new WorkflowValidator(registry, released);
-        assertNotNull(validator2);
+        assertNotNull(validator2, "the two-argument constructor builds a validator");
 
         var validator5 = new WorkflowValidator(registry, released, EntityKindRegistry.defaults(),
                 QuestionClassRegistry.defaults(), SchemaRegistry.defaults());
-        assertNotNull(validator5);
+        assertNotNull(validator5, "the five-argument constructor builds a validator");
     }
 }

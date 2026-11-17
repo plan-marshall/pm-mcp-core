@@ -81,8 +81,10 @@ class DeclarationBoundsTest {
         void shippedValuesPass() {
             assertAll(
                     () -> assertEquals(List.of(),
-                            check(ADJUDICATION_FILE, InvariantFixtures.read(ADJUDICATION_FILE))),
-                    () -> assertEquals(List.of(), check(REPLAN_FILE, InvariantFixtures.read(REPLAN_FILE))));
+                            check(ADJUDICATION_FILE, InvariantFixtures.read(ADJUDICATION_FILE)),
+                            "the shipped adjudication values pass"),
+                    () -> assertEquals(List.of(), check(REPLAN_FILE, InvariantFixtures.read(REPLAN_FILE)),
+                            "the shipped re-planning values pass"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -94,7 +96,8 @@ class DeclarationBoundsTest {
 
             assertAll(
                     () -> assertEquals(schema.stream().map(DeclarationBounds.Declaration::name).toList(),
-                            List.copyOf(unit.declarations().keySet())),
+                            List.copyOf(unit.declarations().keySet()),
+                            "the fixture declares every name of the schema"),
                     () -> schema.forEach(declaration -> assertAll(
                             () -> assertEquals(declaration.shipped(),
                                     unit.declarations().get(declaration.name()).value(), declaration::name),
@@ -105,8 +108,10 @@ class DeclarationBoundsTest {
         @DisplayName("a unit without a schema and without declarations passes")
         void unitWithoutSchema() {
             assertAll(
-                    () -> assertEquals(Optional.empty(), DeclarationBounds.schema("git.commit_and_push")),
-                    () -> assertEquals(List.of(), check(GIT_FILE, InvariantFixtures.read(GIT_FILE))));
+                    () -> assertEquals(Optional.empty(), DeclarationBounds.schema("git.commit_and_push"),
+                            "a unit without a schema has no entries"),
+                    () -> assertEquals(List.of(), check(GIT_FILE, InvariantFixtures.read(GIT_FILE)),
+                            "a unit without a schema has no findings"));
         }
     }
 
@@ -130,8 +135,10 @@ class DeclarationBoundsTest {
             assertAll(
                     () -> assertEquals(List.of(new Located(refusing.name(), file,
                                     InvariantFixtures.lineOf(source, refusing.anchor()))),
-                            findings.stream().map(Located::of).toList()),
-                    () -> assertEquals(DeclarationBounds.DECLARATION_INVALID, findings.getFirst().code()),
+                            findings.stream().map(Located::of).toList(),
+                            "the finding is located at the declaration line"),
+                    () -> assertEquals(DeclarationBounds.DECLARATION_INVALID, findings.getFirst().code(),
+                            "the finding code is declaration_invalid"),
                     () -> assertTrue(findings.getFirst().bound().contains(refusing.bound()),
                             () -> findings.getFirst().bound()));
         }
@@ -144,11 +151,12 @@ class DeclarationBoundsTest {
 
             var result = WorkflowParser.parse(refusing.mutation().file(), source, UnitOrigin.PROJECT);
 
-            var refused = assertInstanceOf(ParseResult.Refused.class, result);
+            var refused = assertInstanceOf(ParseResult.Refused.class, result, "the parser refuses this fixture");
             assertAll(
-                    () -> assertEquals(refusing.rule(), refused.diagnostic().rule()),
+                    () -> assertEquals(refusing.rule(), refused.diagnostic().rule(),
+                            "the refusal rule matches the fixture"),
                     () -> assertEquals(InvariantFixtures.lineOf(source, refusing.anchor()),
-                            refused.diagnostic().line()));
+                            refused.diagnostic().line(), "the refusal is located at the anchor line"));
         }
 
         @Test
@@ -164,7 +172,8 @@ class DeclarationBoundsTest {
             assertEquals(List.of(new Located("INV-ADJ-1", ADJUDICATION_FILE,
                             InvariantFixtures.lineOf(mutation.applied(), "declare vote_wait_seconds"))),
                     found.stream().map(violation -> new Located(violation.id().wireId(),
-                            violation.location().resourceName(), violation.location().line())).toList());
+                            violation.location().resourceName(), violation.location().line())).toList(),
+                    "the bound violation is located at the declaration");
         }
     }
 
@@ -207,8 +216,10 @@ class DeclarationBoundsTest {
 
             var parsed = assertInstanceOf(ParseResult.Parsed.class, result, result::toString);
             assertAll(
-                    () -> assertEquals(List.of(kind), List.copyOf(parsed.definition().decisions().keySet())),
-                    () -> assertTrue(new DeclarationBounds.DecisionKind().admits(new CallValue.EnumValue(kind))));
+                    () -> assertEquals(List.of(kind), List.copyOf(parsed.definition().decisions().keySet()),
+                            "the parser reads the decision kind"),
+                    () -> assertTrue(new DeclarationBounds.DecisionKind().admits(new CallValue.EnumValue(kind)),
+                            "the decision-kind bound admits the kind"));
         }
 
         @Test
@@ -219,15 +230,17 @@ class DeclarationBoundsTest {
             var result = parseDecide(kind);
 
             assertAll(kind,
-                    () -> assertInstanceOf(ParseResult.Refused.class, result),
-                    () -> assertFalse(new DeclarationBounds.DecisionKind().admits(new CallValue.EnumValue(kind))));
+                    () -> assertInstanceOf(ParseResult.Refused.class, result,
+                            "the parser refuses the kind outside the set"),
+                    () -> assertFalse(new DeclarationBounds.DecisionKind().admits(new CallValue.EnumValue(kind)),
+                            "the bound rejects the kind outside the set"));
         }
 
         @Test
         @DisplayName("the decision-kind bound names exactly the shared set, in its order")
         void boundNamesSharedSet() {
             assertEquals("enum[%s]".formatted(String.join("|", DecisionDeclaration.DECISION_KINDS)),
-                    new DeclarationBounds.DecisionKind().describe());
+                    new DeclarationBounds.DecisionKind().describe(), "the bound names the shared set in order");
         }
     }
 
@@ -340,7 +353,8 @@ class DeclarationBoundsTest {
 
             assertAll(variant,
                     () -> assertEquals(List.copyOf(shipped.keySet()),
-                            schema.stream().map(DeclarationBounds.Declaration::name).toList()),
+                            schema.stream().map(DeclarationBounds.Declaration::name).toList(),
+                            "the variant declares its schema names in order"),
                     () -> schema.forEach(declaration -> assertEquals(shipped.get(declaration.name()),
                             declaration.shipped(), declaration::name)),
                     () -> schema.forEach(declaration -> assertTrue(declaration.bound().admits(declaration.shipped()),
@@ -387,8 +401,10 @@ class DeclarationBoundsTest {
 
             assertAll(
                     () -> assertEquals(new CallValue.EnumList(List.of()),
-                            unit.declarations().get(DeclarationBounds.WAIT_AFTER).value()),
-                    () -> assertEquals(List.of(), DeclarationBounds.check(unit)));
+                            unit.declarations().get(DeclarationBounds.WAIT_AFTER).value(),
+                            "the empty wait_after is one empty list"),
+                    () -> assertEquals(List.of(), DeclarationBounds.check(unit),
+                            "the empty wait_after passes the bound"));
         }
 
         @Test
@@ -397,7 +413,8 @@ class DeclarationBoundsTest {
             var designed = everyPhase().replace("declare self_merge = false", "declare self_merge = true")
                     .replace("[init, refine, plan, execute]", "[outline]");
 
-            assertEquals(List.of(), check(VARIANT_FILE, designed));
+            assertEquals(List.of(), check(VARIANT_FILE, designed),
+                    "a designed choice of the enumeration passes");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -408,8 +425,11 @@ class DeclarationBoundsTest {
 
             assertAll(description,
                     () -> assertEquals(List.of(new Located(name, VARIANT_FILE,
-                            InvariantFixtures.lineOf(source, anchor))), findings.stream().map(Located::of).toList()),
-                    () -> assertEquals(boundText, findings.getFirst().bound()));
+                                    InvariantFixtures.lineOf(source, anchor))),
+                            findings.stream().map(Located::of).toList(),
+                            "the refusal is located at the declaration"),
+                    () -> assertEquals(boundText, findings.getFirst().bound(),
+                            "the finding names the bound of the variant"));
         }
 
         @Test
@@ -419,16 +439,26 @@ class DeclarationBoundsTest {
             var phases = new DeclarationBounds.EnumListOf(List.of("init", "refine"));
 
             assertAll(
-                    () -> assertEquals("enum[true|false]", choice.describe()),
-                    () -> assertTrue(choice.admits(new CallValue.EnumValue("false"))),
-                    () -> assertFalse(choice.admits(new CallValue.EnumValue(invalidValue()))),
-                    () -> assertFalse(choice.admits(new CallValue.EnumList(List.of("true")))),
-                    () -> assertFalse(choice.admits(new CallValue.IntValue(1))),
-                    () -> assertEquals("list<enum[init|refine]>", phases.describe()),
-                    () -> assertTrue(phases.admits(new CallValue.EnumList(List.of()))),
-                    () -> assertTrue(phases.admits(new CallValue.EnumList(List.of("refine", "init")))),
-                    () -> assertFalse(phases.admits(new CallValue.EnumList(List.of("init", "plan")))),
-                    () -> assertFalse(phases.admits(new CallValue.EnumValue("init"))));
+                    () -> assertEquals("enum[true|false]", choice.describe(),
+                            "the enumeration describes its two values"),
+                    () -> assertTrue(choice.admits(new CallValue.EnumValue("false")),
+                            "a value of the enumeration is admitted"),
+                    () -> assertFalse(choice.admits(new CallValue.EnumValue(invalidValue())),
+                            "a value outside the enumeration is rejected"),
+                    () -> assertFalse(choice.admits(new CallValue.EnumList(List.of("true"))),
+                            "a list is no value of the enumeration"),
+                    () -> assertFalse(choice.admits(new CallValue.IntValue(1)),
+                            "an integer is no value of the enumeration"),
+                    () -> assertEquals("list<enum[init|refine]>", phases.describe(),
+                            "the list bound describes its enumeration"),
+                    () -> assertTrue(phases.admits(new CallValue.EnumList(List.of())),
+                            "an empty list is admitted by the list bound"),
+                    () -> assertTrue(phases.admits(new CallValue.EnumList(List.of("refine", "init"))),
+                            "the list admits its values in any order"),
+                    () -> assertFalse(phases.admits(new CallValue.EnumList(List.of("init", "plan"))),
+                            "a list with a foreign value is rejected"),
+                    () -> assertFalse(phases.admits(new CallValue.EnumValue("init")),
+                            "a single value is no list of values"));
         }
     }
 
@@ -512,12 +542,14 @@ class DeclarationBoundsTest {
         var admittedList = new CallValue.EnumList(List.of(DecisionDeclaration.DECISION_KINDS.getFirst()));
 
         assertAll(
-                () -> assertEquals("int[60..1800]", range.describe()),
-                () -> assertFalse(range.admits(foreignEnum)),
-                () -> assertTrue(kind.describe().startsWith("enum[interpretation|")),
-                () -> assertFalse(kind.admits(new CallValue.IntValue(1))),
+                () -> assertEquals("int[60..1800]", range.describe(),
+                        "the range describes its two bounds"),
+                () -> assertFalse(range.admits(foreignEnum), "a value of another kind is rejected"),
+                () -> assertTrue(kind.describe().startsWith("enum[interpretation|"),
+                        "the kind bound names the decision kinds"),
+                () -> assertFalse(kind.admits(new CallValue.IntValue(1)), "an integer is no decision kind"),
                 () -> assertFalse(kind.admits(admittedList), "a list of decision kinds is not a decision kind"),
-                () -> assertFalse(kind.admits(foreignList)));
+                () -> assertFalse(kind.admits(foreignList), "a foreign list is no decision kind"));
     }
 
     @Test
@@ -531,11 +563,14 @@ class DeclarationBoundsTest {
         var findingMessage = Generators.letterStrings(1, 8).next();
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> DeclarationBounds.check(null)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new DeclarationBounds.Declaration(null, kind, scope)),
+                        () -> DeclarationBounds.check(null), "a null unit is refused by the check"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new DeclarationBounds.Finding(findingName, location, null, findingMessage)));
+                        () -> new DeclarationBounds.Declaration(null, kind, scope),
+                        "a null declaration name is refused"),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new DeclarationBounds.Finding(findingName, location, null, findingMessage),
+                        "a null finding location is refused"));
     }
 
     static List<BoundCase> refusingCases() {

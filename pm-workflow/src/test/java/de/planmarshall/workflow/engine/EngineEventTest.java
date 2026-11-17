@@ -99,11 +99,11 @@ class EngineEventTest {
             var status = atJob();
 
             assertAll(
-                    () -> assertEquals("execute.run", status.state()),
+                    () -> assertEquals("execute.run", status.state(), "the job state is execute.run"),
                     () -> assertEquals(new WorkflowStatus.ActiveJob("execute.run", SPAWNED),
-                            status.activeJobBinding().orElseThrow()),
+                            status.activeJobBinding().orElseThrow(), "the spawned job is bound to the state"),
                     () -> assertEquals(Map.of("test.fate", new WorkflowStatus.JobEntry(SPAWNED, "git", "queued",
-                            T0.plusSeconds(tick))), status.activeJobs()),
+                            T0.plusSeconds(tick))), status.activeJobs(), "the job entry is recorded as queued"),
                     () -> assertTrue(fixtures.jobRequests.getValues().isEmpty(),
                             "no job is started for a recorded state"));
         }
@@ -123,12 +123,14 @@ class EngineEventTest {
             var refused = startEngine.start(JournalScopeType.PLAN, PLAN_ID);
 
             assertAll(
-                    () -> assertEquals("b-0000000000000001", started.activeJobBinding().orElseThrow().jobId()),
+                    () -> assertEquals("b-0000000000000001", started.activeJobBinding().orElseThrow().jobId(),
+                            "the new job id is bound to the start"),
                     () -> assertEquals(new JobStarter.StartRequest(PLAN_ID, "execute.build", "test.fate"),
                             fixtures.jobRequests.getValues().getFirst(),
                             "the start request names the job state"),
-                    () -> assertEquals("handed_back", assertInstanceOf(EngineStep.Ended.class, refused)
-                            .status().state()));
+                    () -> assertEquals("handed_back", assertInstanceOf(EngineStep.Ended.class, refused,
+                                    "the refusal ends the unit").status().state(),
+                            "a refused start is handed back"));
         }
 
         @Test
@@ -138,9 +140,10 @@ class EngineEventTest {
 
             var status = resumed.status();
             assertAll(
-                    () -> assertEquals("execute.review", status.state()),
-                    () -> assertTrue(status.activeJobs().isEmpty()),
-                    () -> assertEquals("execute.review", status.activeJobBinding().orElseThrow().jobId()));
+                    () -> assertEquals("execute.review", status.state(), "the job settles into execute.review"),
+                    () -> assertTrue(status.activeJobs().isEmpty(), "the settled state holds no active job"),
+                    () -> assertEquals("execute.review", status.activeJobBinding().orElseThrow().jobId(),
+                            "the state binds itself as the job"));
         }
 
         @Test
@@ -152,9 +155,10 @@ class EngineEventTest {
             var settled = engine.advance(atJob, new EngineEvent.JobSettled(SPAWNED, "killed"));
 
             assertAll(
-                    () -> assertSame(atJob, waited.status()),
-                    () -> assertEquals("handed_back", assertInstanceOf(EngineStep.Ended.class, settled)
-                            .status().state()),
+                    () -> assertSame(atJob, waited.status(), "a recorded killed job is not resumed"),
+                    () -> assertEquals("handed_back", assertInstanceOf(EngineStep.Ended.class, settled,
+                                    "the killed job ends the unit").status().state(),
+                            "a killed job is handed back"),
                     () -> assertTrue(fixtures.jobRequests.getValues().isEmpty(),
                             "no job is started for a recorded state"));
         }
@@ -165,7 +169,8 @@ class EngineEventTest {
         void shouldRefuseForeignEvent(EngineEvent event) {
             var atJob = atJob();
 
-            assertThrows(IllegalArgumentException.class, () -> engine.advance(atJob, event));
+            assertThrows(IllegalArgumentException.class, () -> engine.advance(atJob, event),
+                    "a foreign event is refused");
         }
     }
 
@@ -179,13 +184,14 @@ class EngineEventTest {
             var status = atReview();
 
             assertAll(
-                    () -> assertEquals("execute.review", status.state()),
+                    () -> assertEquals("execute.review", status.state(), "the task state is execute.review"),
                     () -> assertEquals(Map.of("change", new WorkflowStatus.TaskEntry("qt-0000000000000001",
-                            "reviewer", "queued", null, null)), status.activeTasks()),
+                                    "reviewer", "queued", null, null)), status.activeTasks(),
+                            "one queue task is recorded"),
                     () -> assertEquals(1, fixtures.taskRequests.getValues().size(),
                             "one queue task is created for the state"),
                     () -> assertEquals(AwaitedEvent.TASK_SETTLED,
-                            engine.restingWait(status).orElseThrow().awaitedEvent()));
+                            engine.restingWait(status).orElseThrow().awaitedEvent(), "the state awaits the task"));
         }
 
         @Test
@@ -200,11 +206,13 @@ class EngineEventTest {
             var elapsed = new EngineEvent.TimeElapsed(T0);
 
             assertAll(
-                    () -> assertEquals("execute.ask", asked.status().state()),
-                    () -> assertTrue(asked.status().activeTasks().isEmpty()),
-                    () -> assertEquals("handed_back", lost.status().state()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atReview, otherEntity)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atReview, elapsed)));
+                    () -> assertEquals("execute.ask", asked.status().state(), "the approved task reaches execute.ask"),
+                    () -> assertTrue(asked.status().activeTasks().isEmpty(), "the settled tasks are cleared"),
+                    () -> assertEquals("handed_back", lost.status().state(), "a lost task is handed back"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atReview, otherEntity),
+                            "another entity's task is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atReview, elapsed),
+                            "an elapsed time event is refused"));
         }
 
         @Test
@@ -217,7 +225,8 @@ class EngineEventTest {
                             lost -> handed_back
                     """));
 
-            assertThrows(IllegalStateException.class, () -> fanOut.start(JournalScopeType.PLAN, PLAN_ID));
+            assertThrows(IllegalStateException.class, () -> fanOut.start(JournalScopeType.PLAN, PLAN_ID),
+                    "a fan-out task state is refused");
         }
     }
 
@@ -231,9 +240,9 @@ class EngineEventTest {
             var status = atBackoff();
 
             assertAll(
-                    () -> assertEquals("execute.backoff", status.state()),
+                    () -> assertEquals("execute.backoff", status.state(), "the question resumes into execute.backoff"),
                     () -> assertEquals(new WorkflowStatus.ActiveJob("execute.backoff", "execute.backoff"),
-                            status.activeJobBinding().orElseThrow()));
+                            status.activeJobBinding().orElseThrow(), "the backoff job stays bound"));
         }
 
         @Test
@@ -243,14 +252,16 @@ class EngineEventTest {
             var event = new EngineEvent.QuestionResolved("Q-001", "answered");
 
             fixtures.answerQuestion(new QuestionRead.Open());
-            var open = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event));
+            var open = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event),
+                    "an open question is refused");
             var declined = "not-" + Generators.letterStrings(1, 8).next();
             fixtures.answerQuestion(new QuestionRead.Resolved(declined));
-            var other = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event));
+            var other = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event),
+                    "another resolution is refused");
 
             assertAll(
-                    () -> assertTrue(open.getMessage().contains("still open")),
-                    () -> assertTrue(other.getMessage().contains(declined)));
+                    () -> assertTrue(open.getMessage().contains("still open"), "the refusal names the open record"),
+                    () -> assertTrue(other.getMessage().contains(declined), "the refusal names the other outcome"));
         }
 
         @Test
@@ -262,14 +273,16 @@ class EngineEventTest {
 
             var raised = engine.advance(atQuestion, new EngineEvent.QuestionResolved("Q-001", "answered"));
 
-            var condition = assertInstanceOf(EngineStep.ConditionRaised.class, raised);
+            var condition = assertInstanceOf(EngineStep.ConditionRaised.class, raised,
+                    "the advance raises a condition");
             assertAll(
-                    () -> assertEquals("precondition_unmet", condition.kind()),
+                    () -> assertEquals("precondition_unmet", condition.kind(), "the condition is precondition_unmet"),
                     () -> assertEquals("{\"question_id\":\"Q-001\",\"reason\":\"" + reason + "\"}",
-                            condition.facts()),
-                    () -> assertEquals("execute.ask", condition.status().state()),
+                            condition.facts(), "the facts name the question and reason"),
+                    () -> assertEquals("execute.ask", condition.status().state(), "the state stays at execute.ask"),
                     () -> assertSame(condition.status(), engine.advance(condition.status(),
-                            new EngineEvent.QuestionResolved("Q-001", "answered")).status()));
+                                    new EngineEvent.QuestionResolved("Q-001", "answered")).status(),
+                            "the unreadable record raises again"));
         }
     }
 
@@ -288,10 +301,14 @@ class EngineEventTest {
             var resolved = new EngineEvent.QuestionResolved("Q-001", "answered");
 
             assertAll(
-                    () -> assertEquals(AwaitedEvent.TIME, engine.restingWait(atBackoff).orElseThrow().awaitedEvent()),
-                    () -> assertEquals("completed", assertInstanceOf(EngineStep.Ended.class, ended).status().state()),
-                    () -> assertEquals(1, fixtures.backoff.calls()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atBackoff, resolved)));
+                    () -> assertEquals(AwaitedEvent.TIME, engine.restingWait(atBackoff).orElseThrow().awaitedEvent(),
+                            "the backoff state waits for time"),
+                    () -> assertEquals("completed", assertInstanceOf(EngineStep.Ended.class, ended,
+                                    "the elapsed time ends the unit").status().state(),
+                            "the waited job completes the unit"),
+                    () -> assertEquals(1, fixtures.backoff.calls(), "the backoff primitive ran once"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atBackoff, resolved),
+                            "a question event is refused in a time wait"));
         }
 
         @Test
@@ -301,8 +318,9 @@ class EngineEventTest {
             var ended = engine.advance(atBackoff(), elapsed).status();
 
             assertAll(
-                    () -> assertTrue(engine.restingWait(ended).isEmpty()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(ended, elapsed)));
+                    () -> assertTrue(engine.restingWait(ended).isEmpty(), "an ended status reports no wait"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(ended, elapsed),
+                            "an ended status refuses further events"));
         }
     }
 
@@ -319,20 +337,28 @@ class EngineEventTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.JobSettled("x-0000000000000001", "succeeded")),
+                            () -> new EngineEvent.JobSettled("x-0000000000000001", "succeeded"),
+                            "a malformed job id is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.JobSettled(SPAWNED, "vanished")),
+                            () -> new EngineEvent.JobSettled(SPAWNED, "vanished"),
+                            "an unknown job outcome is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.TasksSettled(noTasks, "approved")),
+                            () -> new EngineEvent.TasksSettled(noTasks, "approved"),
+                            "an empty task map is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.TasksSettled(unknownTaskOutcome, "approved")),
+                            () -> new EngineEvent.TasksSettled(unknownTaskOutcome, "approved"),
+                            "an unknown task outcome is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.TasksSettled(submitted, " ")),
+                            () -> new EngineEvent.TasksSettled(submitted, " "),
+                            "a blank task outcome is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.QuestionResolved("Q-1", "answered")),
+                            () -> new EngineEvent.QuestionResolved("Q-1", "answered"),
+                            "a malformed question id is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.QuestionResolved("Q-001", "")),
-                    () -> assertThrows(NullPointerException.class, () -> new EngineEvent.TimeElapsed(null)));
+                            () -> new EngineEvent.QuestionResolved("Q-001", ""),
+                            "an empty question answer is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new EngineEvent.TimeElapsed(null),
+                            "a null event time is refused"));
         }
     }
 }

@@ -86,12 +86,13 @@ class DiffSummaryTest {
             var removed = DiffSummary.between(after, before);
 
             assertAll(
-                    () -> assertEquals(expected, added.prunedAdded()),
-                    () -> assertEquals(List.of(), added.prunedRemoved()),
-                    () -> assertEquals(List.of(), removed.prunedAdded()),
-                    () -> assertEquals(expected, removed.prunedRemoved()),
-                    () -> assertEquals(List.of(), added.ceilingsChanged()),
-                    () -> assertEquals(List.of(), added.gatesWaived()));
+                    () -> assertEquals(expected, added.prunedAdded(), "the added prunes are the local-only steps"),
+                    () -> assertEquals(List.of(), added.prunedRemoved(), "the added version removes no prune"),
+                    () -> assertEquals(List.of(), removed.prunedAdded(), "the turned version adds no prune"),
+                    () -> assertEquals(expected, removed.prunedRemoved(),
+                            "the turned version removes the local-only steps"),
+                    () -> assertEquals(List.of(), added.ceilingsChanged(), "a prune changes no ceiling"),
+                    () -> assertEquals(List.of(), added.gatesWaived(), "a prune waives no gate"));
         }
 
         @Test
@@ -107,8 +108,8 @@ class DiffSummaryTest {
                     () -> assertEquals(List.of(new CeilingChange(REMEDIATION_SITE, "fix_budget",
                                     new CallValue.IntValue(3), new CallValue.IntValue(raised))),
                             summary.ceilingsChanged(), "the raise changes the fix budget ceiling"),
-                    () -> assertEquals(List.of(), summary.prunedAdded()),
-                    () -> assertEquals(List.of(), summary.gatesWaived()));
+                    () -> assertEquals(List.of(), summary.prunedAdded(), "a raise prunes no step"),
+                    () -> assertEquals(List.of(), summary.gatesWaived(), "a raise waives no gate"));
         }
 
         @Test
@@ -122,10 +123,10 @@ class DiffSummaryTest {
             var unwaived = DiffSummary.between(after, before);
 
             assertAll(
-                    () -> assertEquals(List.of(gate), waived.gatesWaived()),
-                    () -> assertEquals(List.of(), waived.gatesUnwaived()),
-                    () -> assertEquals(List.of(), unwaived.gatesWaived()),
-                    () -> assertEquals(List.of(gate), unwaived.gatesUnwaived()));
+                    () -> assertEquals(List.of(gate), waived.gatesWaived(), "a met waiver waives its gate"),
+                    () -> assertEquals(List.of(), waived.gatesUnwaived(), "a met waiver unwaives nothing"),
+                    () -> assertEquals(List.of(), unwaived.gatesWaived(), "the turned version waives no gate"),
+                    () -> assertEquals(List.of(gate), unwaived.gatesUnwaived(), "the turned version unwaives the gate"));
         }
 
         @Test
@@ -135,7 +136,8 @@ class DiffSummaryTest {
 
             var summary = DiffSummary.between(header, waiverVersion(List.of()).header());
 
-            assertEquals(new DiffSummary(List.of(), List.of(), List.of(), List.of(), List.of()), summary);
+            assertEquals(new DiffSummary(List.of(), List.of(), List.of(), List.of(), List.of()), summary,
+                    "two unchanged versions give five empty arrays");
         }
 
         @Test
@@ -150,8 +152,9 @@ class DiffSummaryTest {
             var summary = DiffSummary.between(withStep, withOtherReason);
 
             assertAll(
-                    () -> assertEquals(List.of(otherReason), summary.prunedAdded()),
-                    () -> assertEquals(List.of(step), summary.prunedRemoved()));
+                    () -> assertEquals(List.of(otherReason), summary.prunedAdded(), "a changed reason adds the element"),
+                    () -> assertEquals(List.of(step), summary.prunedRemoved(),
+                            "a changed reason removes the element"));
         }
 
         @Test
@@ -178,12 +181,13 @@ class DiffSummaryTest {
 
             assertAll(
                     () -> assertTrue(with.policyCalls().stream().anyMatch(call -> REMEDIATION_SITE.equals(call.callSite())),
-                            "the fixture version binds the policy call of the remediation site"),
+                            "the fixture binds the remediation policy call"),
                     () -> assertFalse(expectedAdded.isEmpty(), "the fixture policy calls bind arguments"),
-                    () -> assertEquals(expectedAdded, added.ceilingsChanged()),
-                    () -> assertEquals(expectedRemoved, removed.ceilingsChanged()),
-                    () -> assertEquals(List.of(), added.prunedAdded()),
-                    () -> assertEquals(List.of(), removed.gatesWaived()));
+                    () -> assertEquals(expectedAdded, added.ceilingsChanged(), "the added call binds every argument"),
+                    () -> assertEquals(expectedRemoved, removed.ceilingsChanged(),
+                            "the removed call unbinds every argument"),
+                    () -> assertEquals(List.of(), added.prunedAdded(), "the added call prunes no step"),
+                    () -> assertEquals(List.of(), removed.gatesWaived(), "the removed call waives no gate"));
         }
 
         private static PlanInstanceHeader header(PlanInstanceHeader template, List<PrunedElement> pruned) {
@@ -234,7 +238,8 @@ class DiffSummaryTest {
             var three = new CallValue.IntValue(3);
 
             var refused = assertThrows(IllegalArgumentException.class,
-                    () -> new CeilingChange(REMEDIATION_SITE, "fix_budget", three, three));
+                    () -> new CeilingChange(REMEDIATION_SITE, "fix_budget", three, three),
+                    "a ceiling that changes nothing is refused");
 
             assertTrue(refused.getMessage().contains("fix_budget"), refused.getMessage());
         }
@@ -243,7 +248,8 @@ class DiffSummaryTest {
         @DisplayName("a ceiling that binds the argument in neither version is refused")
         void unboundOnBothSides() {
             var refused = assertThrows(IllegalArgumentException.class,
-                    () -> new CeilingChange(REMEDIATION_SITE, "fix_budget", null, null));
+                    () -> new CeilingChange(REMEDIATION_SITE, "fix_budget", null, null),
+                    "a ceiling unbound on both sides is refused");
 
             assertTrue(refused.getMessage().contains("did not change"), refused.getMessage());
         }

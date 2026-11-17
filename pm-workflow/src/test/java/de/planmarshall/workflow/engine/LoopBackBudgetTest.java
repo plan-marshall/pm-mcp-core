@@ -46,7 +46,7 @@ class LoopBackBudgetTest {
     private final WorkflowStatus plan = planStatus(EXECUTE, "execute.replan");
 
     private static WorkflowStatus granted(Charge charge) {
-        return assertInstanceOf(Charge.Granted.class, charge).status();
+        return assertInstanceOf(Charge.Granted.class, charge, "the charge is granted").status();
     }
 
     @Nested
@@ -61,9 +61,9 @@ class LoopBackBudgetTest {
             var retried = granted(LoopBackBudget.policyRetry(second, "review-findings", 2));
 
             assertAll(
-                    () -> assertEquals(1, first.loopBackIteration()),
-                    () -> assertEquals(2, second.loopBackIteration()),
-                    () -> assertEquals(2, retried.loopBackIteration()));
+                    () -> assertEquals(1, first.loopBackIteration(), "the first loop-back advances to one"),
+                    () -> assertEquals(2, second.loopBackIteration(), "the second loop-back advances to two"),
+                    () -> assertEquals(2, retried.loopBackIteration(), "a retry keeps the iteration"));
         }
 
         @Test
@@ -71,12 +71,14 @@ class LoopBackBudgetTest {
         void shouldKeepIterationWhenExhausted() {
             var spent = plan.toBuilder().loopBackIteration(4).outlineLoopBacks(1).build();
 
-            var exhausted = assertInstanceOf(Charge.Exhausted.class, LoopBackBudget.outlineLoopBack(spent));
+            var exhausted = assertInstanceOf(Charge.Exhausted.class, LoopBackBudget.outlineLoopBack(spent),
+                    "a spent budget yields an exhausted charge");
 
             assertAll(
-                    () -> assertEquals(LoopBackBudget.EXHAUSTED, exhausted.outcome()),
-                    () -> assertEquals(1, exhausted.used()),
-                    () -> assertEquals(4, spent.loopBackIteration()));
+                    () -> assertEquals(LoopBackBudget.EXHAUSTED, exhausted.outcome(),
+                            "the charge reports exhaustion"),
+                    () -> assertEquals(1, exhausted.used(), "one outline loop-back was spent"),
+                    () -> assertEquals(4, spent.loopBackIteration(), "a spent budget keeps the iteration"));
         }
     }
 
@@ -92,8 +94,9 @@ class LoopBackBudgetTest {
             var second = LoopBackBudget.outlineLoopBack(once);
 
             assertAll(
-                    () -> assertEquals(1, once.outlineLoopBacks()),
-                    () -> assertEquals(new Charge.Exhausted(1, LoopBackBudget.OUTLINE_LOOP_BACK_BUDGET), second));
+                    () -> assertEquals(1, once.outlineLoopBacks(), "the first loop-back is counted"),
+                    () -> assertEquals(new Charge.Exhausted(1, LoopBackBudget.OUTLINE_LOOP_BACK_BUDGET), second,
+                            "the second loop-back is exhausted"));
         }
 
         @Test
@@ -101,7 +104,8 @@ class LoopBackBudgetTest {
         void shouldGrantUnderRaisedBudget() {
             var once = granted(LoopBackBudget.outlineLoopBack(plan));
 
-            assertEquals(2, granted(LoopBackBudget.outlineLoopBack(once, 2)).outlineLoopBacks());
+            assertEquals(2, granted(LoopBackBudget.outlineLoopBack(once, 2)).outlineLoopBacks(),
+                    "a raised budget grants a second loop-back");
         }
     }
 
@@ -118,11 +122,16 @@ class LoopBackBudgetTest {
 
             var ci = other.policyCounters().get("ci-failure");
             assertAll(
-                    () -> assertEquals(1, ci.fixUsed()),
-                    () -> assertEquals(1, ci.retryUsed()),
-                    () -> assertEquals(1, other.policyCounters().get("build-failure").fixUsed()),
-                    () -> assertEquals(new Charge.Exhausted(1, 1), LoopBackBudget.policyLoopBack(other, "ci-failure", 1)),
-                    () -> assertEquals(new Charge.Exhausted(1, 1), LoopBackBudget.policyRetry(other, "ci-failure", 1)));
+                    () -> assertEquals(1, ci.fixUsed(), "the policy fix is counted once"),
+                    () -> assertEquals(1, ci.retryUsed(), "the policy retry is counted once"),
+                    () -> assertEquals(1, other.policyCounters().get("build-failure").fixUsed(),
+                            "the other class counts its own fix"),
+                    () -> assertEquals(new Charge.Exhausted(1, 1),
+                            LoopBackBudget.policyLoopBack(other, "ci-failure", 1),
+                            "the exhausted policy refuses another loop-back"),
+                    () -> assertEquals(new Charge.Exhausted(1, 1),
+                            LoopBackBudget.policyRetry(other, "ci-failure", 1),
+                            "the exhausted policy refuses another retry"));
         }
 
         @Test
@@ -146,10 +155,12 @@ class LoopBackBudgetTest {
             var ended = engine.advance(charged);
 
             assertAll(
-                    () -> assertEquals("completed", ended.status().state()),
-                    () -> assertEquals(2, fixtures.mark.calls()),
-                    () -> assertEquals(charged.policyCounters(), ended.status().policyCounters()),
-                    () -> assertEquals(1, ended.status().loopBackIteration()));
+                    () -> assertEquals("completed", ended.status().state(), "the re-entered call completes"),
+                    () -> assertEquals(2, fixtures.mark.calls(), "the callee ran on both entries"),
+                    () -> assertEquals(charged.policyCounters(), ended.status().policyCounters(),
+                            "the counters survive the re-entry"),
+                    () -> assertEquals(1, ended.status().loopBackIteration(),
+                            "the iteration survives the re-entry"));
         }
     }
 
@@ -165,22 +176,26 @@ class LoopBackBudgetTest {
                     .phase("epic").build();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> LoopBackBudget.outlineLoopBack(epic)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> LoopBackBudget.outlineLoopBack(epic),
+                            "another scope than a plan is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> LoopBackBudget.policyLoopBack(plan, "unknown-class", 1)),
+                            () -> LoopBackBudget.policyLoopBack(plan, "unknown-class", 1),
+                            "an unknown policy class is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> LoopBackBudget.policyRetry(plan, "ci-failure", -1)),
-                    () -> assertThrows(NullPointerException.class, () -> new Charge.Granted(null)),
-                    () -> assertEquals(Map.of(), plan.policyCounters()));
+                            () -> LoopBackBudget.policyRetry(plan, "ci-failure", -1),
+                            "a negative budget is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new Charge.Granted(null),
+                            "a grant without a status is refused"),
+                    () -> assertEquals(Map.of(), plan.policyCounters(), "a refusal leaves the counters untouched"));
         }
 
         @Test
         @DisplayName("Should refuse the retired policy class spend for a loop-back, a retry and the counters")
         void shouldRefuseSpend() {
             var loopBack = assertThrows(IllegalArgumentException.class,
-                    () -> LoopBackBudget.policyLoopBack(plan, "spend", 1));
+                    () -> LoopBackBudget.policyLoopBack(plan, "spend", 1), "the retired class is refused");
             var retry = assertThrows(IllegalArgumentException.class,
-                    () -> LoopBackBudget.policyRetry(plan, "spend", 1));
+                    () -> LoopBackBudget.policyRetry(plan, "spend", 1), "the retired class is refused for a retry");
             var builder = plan.toBuilder()
                     .policyCounters(Map.of("spend", new WorkflowStatus.PolicyCounter(0, 0, null, null)));
 
@@ -188,7 +203,8 @@ class LoopBackBudgetTest {
                     () -> assertTrue(loopBack.getMessage().contains("no remediation policy class"),
                             loopBack.getMessage()),
                     () -> assertTrue(retry.getMessage().contains("no remediation policy class"), retry.getMessage()),
-                    () -> assertThrows(IllegalArgumentException.class, builder::build));
+                    () -> assertThrows(IllegalArgumentException.class, builder::build,
+                            "a stored spend counter is refused"));
         }
     }
 }

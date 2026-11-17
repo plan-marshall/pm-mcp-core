@@ -90,26 +90,29 @@ class CompositionRuleEvaluatorTest {
             var effects = evaluate(facts().lane(Lane.LAND).build());
 
             assertEquals(new RuleEffects(
-                    List.of(state("finalize.allocate-remediation", PruneReason.LAND_LANE, "lane"),
-                            new PrunedElement(Kind.POLICY_ACTION, "*/fix", PruneReason.LAND_LANE, "lane"),
-                            new PrunedElement(Kind.POLICY_ACTION, "*/loop_back", PruneReason.LAND_LANE, "lane"),
-                            step("default:finalize-step-simplify", PruneReason.LAND_LANE, "lane")),
-                    List.of(new CompositionRule.Binding("*", "actions",
-                            new CallValue.EnumList(List.of("retry"))))), effects);
+                            List.of(state("finalize.allocate-remediation", PruneReason.LAND_LANE, "lane"),
+                                    new PrunedElement(Kind.POLICY_ACTION, "*/fix", PruneReason.LAND_LANE, "lane"),
+                                    new PrunedElement(Kind.POLICY_ACTION, "*/loop_back", PruneReason.LAND_LANE, "lane"),
+                                    step("default:finalize-step-simplify", PruneReason.LAND_LANE, "lane")),
+                            List.of(new CompositionRule.Binding("*", "actions",
+                                    new CallValue.EnumList(List.of("retry"))))), effects,
+                    "the land lane binds every remediation call to retry");
         }
 
         @Test
         @DisplayName("adopt prunes create-pr, since the adopted pull request exists")
         void adopt() {
             assertEquals(new RuleEffects(List.of(step("default:create-pr", PruneReason.ADOPT, "lane")), List.of()),
-                    evaluate(facts().lane(Lane.ADOPT).build()));
+                    evaluate(facts().lane(Lane.ADOPT).build()),
+                    "adopt prunes create-pr since the pull request exists");
         }
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(value = Lane.class, names = {"LIGHT", "DEEP"})
         @DisplayName("a request plan binds nothing and prunes nothing for its lane, so fix stays among its actions")
         void requestPlanControl(Lane lane) {
-            assertEquals(NOTHING, evaluate(facts().lane(lane).build()));
+            assertEquals(NOTHING, evaluate(facts().lane(lane).build()),
+                    "a request plan binds and prunes nothing for its lane");
         }
     }
 
@@ -129,11 +132,13 @@ class CompositionRuleEvaluatorTest {
                                     step("default:ci-verify", PruneReason.LOCAL_ONLY, "derived.push_remote"),
                                     step("default:automatic-review", PruneReason.LOCAL_ONLY, "derived.push_remote"),
                                     step("default:analysis-roundtrip", PruneReason.LOCAL_ONLY, "derived.push_remote")),
-                            effects.prunes()),
+                            effects.prunes(), "an empty push remote prunes every remote-bound step"),
                     () -> assertTrue(effects.prunes().stream().map(PrunedElement::id)
-                            .noneMatch(id -> "default:pre-push-quality-gate".equals(id)
-                                    || "default:pre-submission-self-review".equals(id))),
-                    () -> assertEquals(List.of(), effects.bindings()));
+                                    .noneMatch(id -> "default:pre-push-quality-gate".equals(id)
+                                            || "default:pre-submission-self-review".equals(id)),
+                            "the two local quality gates survive an empty push remote"),
+                    () -> assertEquals(List.of(), effects.bindings(),
+                            "an empty push remote binds nothing at all"));
         }
 
         @Test
@@ -141,8 +146,10 @@ class CompositionRuleEvaluatorTest {
         void localOnlyControl() {
             assertAll(
                     () -> assertEquals(NOTHING, evaluate(facts().configuration("derived.push_remote",
-                            Generators.letterStrings(1, 12).next()).build())),
-                    () -> assertEquals(NOTHING, evaluate(facts().build())));
+                            Generators.letterStrings(1, 12).next()).build()),
+                            "a known push remote prunes nothing at all"),
+                    () -> assertEquals(NOTHING, evaluate(facts().build()),
+                            "an underivable push remote prunes nothing either"));
         }
     }
 
@@ -162,7 +169,8 @@ class CompositionRuleEvaluatorTest {
                             step("default:lessons-capture", PruneReason.POSTURE, "posture"),
                             step("default:adr-propose", PruneReason.POSTURE, "posture"),
                             step("default:plan-retrospective", PruneReason.POSTURE, "posture")),
-                    evaluate(facts().posture(Posture.MINIMAL).build()).prunes());
+                    evaluate(facts().posture(Posture.MINIMAL).build()).prunes(),
+                    "minimal prunes the standard, full and off-default steps");
         }
 
         @Test
@@ -172,7 +180,8 @@ class CompositionRuleEvaluatorTest {
                             step("default:finalize-step-security-audit", PruneReason.POSTURE, "posture"),
                             step("default:adr-propose", PruneReason.POSTURE, "posture"),
                             step("default:plan-retrospective", PruneReason.POSTURE, "posture")),
-                    evaluate(facts().posture(Posture.STANDARD).build()).prunes());
+                    evaluate(facts().posture(Posture.STANDARD).build()).prunes(),
+                    "standard prunes the full audit and off-default steps");
         }
 
         @Test
@@ -181,13 +190,14 @@ class CompositionRuleEvaluatorTest {
             assertEquals(List.of(
                             step("default:adr-propose", PruneReason.POSTURE, "posture"),
                             step("default:plan-retrospective", PruneReason.POSTURE, "posture")),
-                    evaluate(facts().posture(Posture.FULL).build()).prunes());
+                    evaluate(facts().posture(Posture.FULL).build()).prunes(),
+                    "full prunes only the steps that are off by default");
         }
 
         @Test
         @DisplayName("an unknown posture prunes nothing")
         void unknown() {
-            assertEquals(NOTHING, evaluate(facts().build()));
+            assertEquals(NOTHING, evaluate(facts().build()), "an unknown posture prunes nothing at all");
         }
     }
 
@@ -200,14 +210,15 @@ class CompositionRuleEvaluatorTest {
         void providerUnconfigured() {
             assertEquals(new RuleEffects(List.of(step("default:analysis-roundtrip",
                             PruneReason.PROVIDER_UNCONFIGURED, SONAR)), List.of()),
-                    evaluate(PlanFacts.builder().build()));
+                    evaluate(PlanFacts.builder().build()), "a missing analysis provider prunes the analysis roundtrip");
         }
 
         @Test
         @DisplayName("a configured analysis provider keeps the analysis roundtrip")
         void providerConfiguredControl() {
             assertEquals(NOTHING, evaluate(PlanFacts.builder().configuration(SONAR,
-                    Generators.letterStrings(1, 12).next()).build()));
+                    Generators.letterStrings(1, 12).next()).build()),
+                    "a configured analysis provider keeps the analysis roundtrip");
         }
 
         @Test
@@ -217,7 +228,7 @@ class CompositionRuleEvaluatorTest {
                             step("default:finalize-step-simplify", PruneReason.FOOTPRINT_DISJOINT, "footprint"),
                             step("default:adr-propose", PruneReason.FOOTPRINT_DISJOINT, "footprint")), List.of()),
                     evaluate(facts().footprint(List.of("doc/guide.adoc", "README.md", ".github/project.yml"))
-                            .build()));
+                            .build()), "a footprint without code prunes simplify and the ADR");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -227,15 +238,18 @@ class CompositionRuleEvaluatorTest {
                 "image/Containerfile"})
         @DisplayName("a footprint with one code or build path keeps simplify and the ADR proposal")
         void footprintWithCodeControl(String codePath) {
-            assertEquals(NOTHING, evaluate(facts().footprint(List.of("doc/guide.adoc", codePath)).build()));
+            assertEquals(NOTHING, evaluate(facts().footprint(List.of("doc/guide.adoc", codePath)).build()),
+                    "a footprint with one code path keeps simplify and ADRs");
         }
 
         @Test
         @DisplayName("an empty or unknown footprint is indeterminate and keeps every step")
         void footprintIndeterminateControl() {
             assertAll(
-                    () -> assertEquals(NOTHING, evaluate(facts().footprint(List.of()).build())),
-                    () -> assertEquals(NOTHING, evaluate(facts().build())));
+                    () -> assertEquals(NOTHING, evaluate(facts().footprint(List.of()).build()),
+                            "an empty footprint is indeterminate and prunes nothing"),
+                    () -> assertEquals(NOTHING, evaluate(facts().build()),
+                            "an unknown footprint prunes nothing either"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -244,14 +258,16 @@ class CompositionRuleEvaluatorTest {
         void changeTypeExempt(String changeType) {
             assertEquals(new RuleEffects(List.of(step("default:finalize-step-simplify",
                             PruneReason.CHANGE_TYPE_EXEMPT, "change_type")), List.of()),
-                    evaluate(facts().changeType(changeType).build()));
+                    evaluate(facts().changeType(changeType).build()),
+                    "a report change type exempts the plan from simplify");
         }
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"feature", "enhancement", "bug_fix", "tech_debt"})
         @DisplayName("a code change type keeps simplify")
         void codeChangeTypeControl(String changeType) {
-            assertEquals(NOTHING, evaluate(facts().changeType(changeType).build()));
+            assertEquals(NOTHING, evaluate(facts().changeType(changeType).build()),
+                    "a code change type keeps the simplify step");
         }
 
     }
@@ -275,16 +291,18 @@ class CompositionRuleEvaluatorTest {
                             state("finalize.merge-dispatch", PruneReason.MERGE_BY_OPERATOR, "axes.asking"),
                             state("finalize.merge-queue-wait", PruneReason.MERGE_BY_OPERATOR, "axes.asking"),
                             state("finalize.merge-queue-exit", PruneReason.MERGE_BY_OPERATOR, "axes.asking")), List.of()),
-                    evaluate(selfMerge("false").build()));
+                    evaluate(selfMerge("false").build()),
+                    "self_merge false prunes the merge dispatch and queue wait");
         }
 
         @Test
         @DisplayName("an asking variant that merges by itself, or whose declarations are unknown, keeps it")
         void selfMergeTrueControl() {
             assertAll(
-                    () -> assertEquals(NOTHING, evaluate(selfMerge("true").build())),
+                    () -> assertEquals(NOTHING, evaluate(selfMerge("true").build()),
+                            "self_merge true keeps the merge execution"),
                     () -> assertEquals(NOTHING, evaluate(facts().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PROJECT,
-                            VARIANT).build())));
+                            VARIANT).build()), "unknown self_merge declarations keep the merge"));
         }
     }
 
@@ -297,7 +315,8 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("prune every step below order 900 with the reason of the form")
         void postRun(String form, PruneReason reason) {
             assertEquals(new RuleEffects(List.of(step("order<900", reason, "post_run")), List.of()),
-                    evaluate(facts().postRun(form).build()));
+                    evaluate(facts().postRun(form).build()),
+                    "a post-run form prunes every step below order 900");
         }
     }
 
@@ -312,7 +331,8 @@ class CompositionRuleEvaluatorTest {
                     .changeType("analysis").build());
 
             assertEquals(List.of("lane", "lane", "lane", "lane", "posture", "posture", SONAR, "change_type"),
-                    effects.prunes().stream().map(PrunedElement::sourceFact).toList());
+                    effects.prunes().stream().map(PrunedElement::sourceFact).toList(),
+                    "the prunes of several rules come in rule order");
         }
 
         @Test
@@ -325,9 +345,11 @@ class CompositionRuleEvaluatorTest {
             assertAll(
                     () -> assertEquals(List.of(step("default:analysis-roundtrip", PruneReason.PROVIDER_UNCONFIGURED,
                                     SONAR)),
-                            CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder().build()).prunes()),
+                            CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder().build()).prunes(),
+                            "an unset provider key holds the unset condition"),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                            .configuration(SONAR, Generators.letterStrings(1, 12).next()).build())));
+                                    .configuration(SONAR, Generators.letterStrings(1, 12).next()).build()),
+                            "a set provider key does not hold the unset condition"));
         }
 
         @Test
@@ -339,15 +361,19 @@ class CompositionRuleEvaluatorTest {
 
             assertAll(
                     () -> assertEquals(1, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                            .footprint(List.of("doc/a.adoc", "README.md")).build()).prunes().size()),
+                                    .footprint(List.of("doc/a.adoc", "README.md")).build()).prunes().size(),
+                            "a disjoint footprint prunes exactly one step"),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                            .footprint(List.of("doc/a.adoc", "src/main/java/A.java")).build())),
+                                    .footprint(List.of("doc/a.adoc", "src/main/java/A.java")).build()),
+                            "a footprint matching a glob is not disjoint"),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                            .footprint(List.of("pom.xml")).build())),
+                                    .footprint(List.of("pom.xml")).build()),
+                            "a footprint matching pom.xml is not disjoint"),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                            .footprint(List.of()).build())),
+                                    .footprint(List.of()).build()),
+                            "an empty footprint is never disjoint"),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                            .build())));
+                            .build()), "an unknown footprint is never disjoint"));
         }
 
         @Test
@@ -356,10 +382,14 @@ class CompositionRuleEvaluatorTest {
             var pattern = CompositionRule.Disjoint.compile("doc/*.ado?");
 
             assertAll(
-                    () -> assertTrue(pattern.matcher("doc/a.adoc").matches()),
-                    () -> assertFalse(pattern.matcher("doc/sub/a.adoc").matches()),
-                    () -> assertFalse(pattern.matcher("doc/a.ad").matches()),
-                    () -> assertTrue(CompositionRule.Disjoint.compile("a+b.txt").matcher("a+b.txt").matches()));
+                    () -> assertTrue(pattern.matcher("doc/a.adoc").matches(),
+                            "a single star matches within one directory"),
+                    () -> assertFalse(pattern.matcher("doc/sub/a.adoc").matches(),
+                            "a single star never crosses a directory"),
+                    () -> assertFalse(pattern.matcher("doc/a.ad").matches(),
+                            "a pattern needing one more character does not match"),
+                    () -> assertTrue(CompositionRule.Disjoint.compile("a+b.txt").matcher("a+b.txt").matches(),
+                            "a plus sign in a pattern is a literal"));
         }
 
         @Test
@@ -368,17 +398,22 @@ class CompositionRuleEvaluatorTest {
             var facts = PlanFacts.builder().posture(Posture.STANDARD).footprint(List.of()).build();
 
             assertAll(
-                    () -> assertTrue(new CompositionRule.In("posture", List.of("standard")).holds(facts)),
-                    () -> assertFalse(new CompositionRule.In("posture", List.of("full")).holds(facts)),
-                    () -> assertTrue(new CompositionRule.Empty("footprint").holds(facts)),
-                    () -> assertFalse(new CompositionRule.Empty("lane").holds(facts)),
-                    () -> assertFalse(new CompositionRule.Equals("footprint", "").holds(facts)));
+                    () -> assertTrue(new CompositionRule.In("posture", List.of("standard")).holds(facts),
+                            "the in condition holds for a listed value"),
+                    () -> assertFalse(new CompositionRule.In("posture", List.of("full")).holds(facts),
+                            "the in condition fails for an unlisted value"),
+                    () -> assertTrue(new CompositionRule.Empty("footprint").holds(facts),
+                            "the empty condition holds for an empty list"),
+                    () -> assertFalse(new CompositionRule.Empty("lane").holds(facts),
+                            "the empty condition fails for a set value"),
+                    () -> assertFalse(new CompositionRule.Equals("footprint", "").holds(facts),
+                            "equals fails for a list, even an empty one"));
         }
 
         private static CompositionRules rules(String rule) {
             return assertInstanceOf(CompositionRules.Loaded.class, CompositionRules.parse(
                     ("{\"format_version\": 1, \"revision\": \"t1\", \"rules\": [" + rule + "]}").getBytes(
-                            StandardCharsets.UTF_8))).rules();
+                            StandardCharsets.UTF_8)), "the parsed shipped rules are a loaded catalogue").rules();
         }
     }
 
@@ -402,7 +437,7 @@ class CompositionRuleEvaluatorTest {
                     {"format_version": 1, "revision": "t1", "rules": [{"id": "r", "when": {"fact": "%s", %s},
                      "then": {"prune": [{"element": "state", "id": "finalize.merge-dispatch",
                        "reason": "merge_by_operator"}]}}]}""".formatted(fact, condition)
-                    .getBytes(StandardCharsets.UTF_8))).rules();
+                    .getBytes(StandardCharsets.UTF_8)), "the parsed rule set is a loaded catalogue").rules();
         }
 
         private static Map<String, CallValue> asking(List<String> waitAfter, String selfMerge) {
@@ -417,7 +452,8 @@ class CompositionRuleEvaluatorTest {
                     .declarations(EVERY_PHASE, asking(List.of("init"), "false")).build();
 
             assertEquals(List.of(state("finalize.merge-dispatch", PruneReason.MERGE_BY_OPERATOR, "axes.asking")),
-                    CompositionRuleEvaluator.evaluate(SELF_MERGE, facts).prunes());
+                    CompositionRuleEvaluator.evaluate(SELF_MERGE, facts).prunes(),
+                    "a declaration of the bound variant makes the rule hold");
         }
 
         @Test
@@ -431,9 +467,12 @@ class CompositionRuleEvaluatorTest {
                     .build();
 
             assertAll(
-                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(SELF_MERGE, merging)),
-                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(SELF_MERGE, unknown)),
-                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(SELF_MERGE, otherBound)));
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(SELF_MERGE, merging),
+                            "a variant that merges itself does not fire the rule"),
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(SELF_MERGE, unknown),
+                            "an unknown declaration does not fire the rule"),
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(SELF_MERGE, otherBound),
+                            "an unbound declaration does not fire the rule"));
         }
 
         @Test
@@ -447,8 +486,10 @@ class CompositionRuleEvaluatorTest {
 
             assertAll(
                     () -> assertEquals(List.of(state("finalize.merge-dispatch", PruneReason.MERGE_BY_OPERATOR,
-                            "axes.asking")), CompositionRuleEvaluator.evaluate(rules, project).prunes()),
-                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, machine)));
+                                    "axes.asking")), CompositionRuleEvaluator.evaluate(rules, project).prunes(),
+                            "the nearest level's variant is the one the rule reads"),
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, machine),
+                            "a farther level's variant does not fire the rule"));
         }
 
         @Test
@@ -459,10 +500,14 @@ class CompositionRuleEvaluatorTest {
             var some = PlanFacts.builder().declarations(QUESTIONS_ONLY, asking(List.of("plan"), "true")).build();
 
             assertAll(
-                    () -> assertEquals(1, CompositionRuleEvaluator.evaluate(rules, none).prunes().size()),
-                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, some)),
-                    () -> assertEquals(Optional.of(List.of("plan")), some.list("axes.asking.wait_after")),
-                    () -> assertEquals(Optional.empty(), some.text("axes.asking.wait_after")));
+                    () -> assertEquals(1, CompositionRuleEvaluator.evaluate(rules, none).prunes().size(),
+                            "an empty wait_after fires the empty rule once"),
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, some),
+                            "a non-empty wait_after does not fire the rule"),
+                    () -> assertEquals(Optional.of(List.of("plan")), some.list("axes.asking.wait_after"),
+                            "a non-empty wait_after is read as a list"),
+                    () -> assertEquals(Optional.empty(), some.text("axes.asking.wait_after"),
+                            "a list declaration has no single text value"));
         }
 
         @Test
@@ -473,13 +518,19 @@ class CompositionRuleEvaluatorTest {
 
             assertAll(
                     () -> assertEquals(new PlanFacts.BoundVariant(PlanFacts.Axis.ASKING, QUESTIONS_ONLY,
-                            PlanFacts.Level.PLAN), facts.bound(PlanFacts.Axis.ASKING)),
-                    () -> assertEquals("plan.axes.asking", facts.bound(PlanFacts.Axis.ASKING).sourceFact()),
+                                    PlanFacts.Level.PLAN), facts.bound(PlanFacts.Axis.ASKING),
+                            "the nearest level's variant is the bound one"),
+                    () -> assertEquals("plan.axes.asking", facts.bound(PlanFacts.Axis.ASKING).sourceFact(),
+                            "the source fact names the plan level of the axis"),
                     () -> assertEquals(new PlanFacts.BoundVariant(PlanFacts.Axis.METHOD, "method.tests-after",
-                            PlanFacts.Level.SHIPPED), facts.bound(PlanFacts.Axis.METHOD)),
-                    () -> assertEquals(Optional.of("landing.pull-request"), facts.text("axes.landing")),
-                    () -> assertEquals(Optional.empty(), facts.text("axes.method.order")),
-                    () -> assertEquals(Optional.empty(), facts.text("axes.weather")));
+                                    PlanFacts.Level.SHIPPED), facts.bound(PlanFacts.Axis.METHOD),
+                            "a method axis without a binding falls back to shipped"),
+                    () -> assertEquals(Optional.of("landing.pull-request"), facts.text("axes.landing"),
+                            "the shipped plan default of the axis is read"),
+                    () -> assertEquals(Optional.empty(), facts.text("axes.method.order"),
+                            "no declaration is bound for the method order"),
+                    () -> assertEquals(Optional.empty(), facts.text("axes.weather"),
+                            "an axis that does not exist has no value"));
         }
 
         @Test
@@ -492,9 +543,12 @@ class CompositionRuleEvaluatorTest {
             var noVariant = PlanFacts.builder().declarations("replan", Map.of());
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, foreignVariant::build),
-                    () -> assertThrows(IllegalArgumentException.class, shippedLevel::build),
-                    () -> assertThrows(IllegalArgumentException.class, noVariant::build));
+                    () -> assertThrows(IllegalArgumentException.class, foreignVariant::build,
+                            "a value that is no variant of its axis is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, shippedLevel::build,
+                            "the shipped level may not bind a variant"),
+                    () -> assertThrows(IllegalArgumentException.class, noVariant::build,
+                            "a unit that is no variant of its axis is refused"));
         }
 
         @Test
@@ -505,11 +559,14 @@ class CompositionRuleEvaluatorTest {
 
             assertAll(
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().axis(PlanFacts.Axis.METHOD,
-                            PlanFacts.Level.MACHINE, "method.test-first").build().digest()),
+                                    PlanFacts.Level.MACHINE, "method.test-first").build().digest(),
+                            "a changed level of an axis changes the digest"),
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().axis(PlanFacts.Axis.METHOD,
-                            PlanFacts.Level.PROJECT, "method.test-first").overrides("{}").build().digest()),
+                                    PlanFacts.Level.PROJECT, "method.test-first").overrides("{}").build().digest(),
+                            "the overrides of a fact change its digest"),
                     () -> assertEquals(facts.digest(), facts.withDeclarations("method.test-first",
-                            Map.of("order", new CallValue.EnumValue("tests_first"))).digest()));
+                                    Map.of("order", new CallValue.EnumValue("tests_first"))).digest(),
+                            "the declarations of a fact leave its digest unchanged"));
         }
     }
 
@@ -527,16 +584,26 @@ class CompositionRuleEvaluatorTest {
                     .build();
 
             assertAll(
-                    () -> assertEquals(Optional.of("deep"), facts.text("lane")),
-                    () -> assertEquals(Optional.of("full"), facts.text("posture")),
-                    () -> assertEquals(Optional.of("feature"), facts.text("change_type")),
-                    () -> assertEquals(Optional.empty(), facts.text("recipe_id")),
-                    () -> assertEquals(Optional.of("returned"), facts.text("post_run")),
-                    () -> assertEquals(Optional.empty(), facts.text("footprint")),
-                    () -> assertEquals(Optional.of(List.of(path)), facts.list("footprint")),
-                    () -> assertEquals(Optional.empty(), facts.list("lane")),
-                    () -> assertEquals(Optional.of(remote), facts.text("derived.push_remote")),
-                    () -> assertEquals(Optional.empty(), facts.text(SONAR)));
+                    () -> assertEquals(Optional.of("deep"), facts.text("lane"),
+                            "the lane is read back as its text value"),
+                    () -> assertEquals(Optional.of("full"), facts.text("posture"),
+                            "the posture is read back as its text value"),
+                    () -> assertEquals(Optional.of("feature"), facts.text("change_type"),
+                            "the change type is read back as its text value"),
+                    () -> assertEquals(Optional.empty(), facts.text("recipe_id"),
+                            "an unset recipe id has no text value"),
+                    () -> assertEquals(Optional.of("returned"), facts.text("post_run"),
+                            "the post-run form is read back as text"),
+                    () -> assertEquals(Optional.empty(), facts.text("footprint"),
+                            "a list fact has no single text value"),
+                    () -> assertEquals(Optional.of(List.of(path)), facts.list("footprint"),
+                            "the footprint is read back as its path list"),
+                    () -> assertEquals(Optional.empty(), facts.list("lane"),
+                            "a text fact has no list value"),
+                    () -> assertEquals(Optional.of(remote), facts.text("derived.push_remote"),
+                            "a configured remote is read back as its text"),
+                    () -> assertEquals(Optional.empty(), facts.text(SONAR),
+                            "an unconfigured provider has no text value"));
         }
 
         @Test
@@ -551,14 +618,17 @@ class CompositionRuleEvaluatorTest {
 
             assertAll(
                     () -> assertTrue(facts.digest().matches("[0-9a-f]{64}"), facts.digest()),
-                    () -> assertEquals(facts.digest(), same.digest()),
+                    () -> assertEquals(facts.digest(), same.digest(), "equal facts have the same digest"),
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().lane(Lane.LIGHT)
-                            .steps(List.of("default:push")).tasks(List.of(task)).build().digest()),
+                                    .steps(List.of("default:push")).tasks(List.of(task)).build().digest(),
+                            "a different lane changes the digest"),
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().lane(Lane.DEEP)
-                            .steps(List.of("default:push")).tasks(List.of(otherTask)).build().digest()),
+                                    .steps(List.of("default:push")).tasks(List.of(otherTask)).build().digest(),
+                            "a different task changes the digest"),
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().lane(Lane.DEEP)
-                            .steps(List.of("default:push")).tasks(List.of(task))
-                            .configuration("derived.push_remote", "").build().digest()));
+                                    .steps(List.of("default:push")).tasks(List.of(task))
+                                    .configuration("derived.push_remote", "").build().digest(),
+                            "a changed configuration changes the digest"));
         }
 
         @Test
