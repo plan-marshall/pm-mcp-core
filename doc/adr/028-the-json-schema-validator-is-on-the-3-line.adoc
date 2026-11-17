@@ -48,7 +48,7 @@ coordinates, and the classes the tests rely on — `SchemaRegistry`, `Schema`, `
   (`pm-core/src/test/java/de/planmarshall/core/SchemaValidation.java`): `compile(String)` builds a schema from schema
   text through a cached `SchemaRegistry` with draft 2020-12 as the default dialect, and `validate(Schema, String)`
   returns the `List` of `Error` items. The fourteen schema tests — the nine of the work package plus the five the head
-  added — call it, and so does the one test that consumes their helper, `CorpusImportTest` (B5, operator "b use
+  added — call it, and so does the one test that consumes `ItemGeneratorTest.violations`, `CorpusImportTest` (B5, operator "b use
   helper"; the orchestrator had recommended the edit per class). The helper is in
   the test tree and deliberately not in the published `pm-core:tests` artifact, which carries the generator package,
   the assertion-message scanner and `SchemaResource` (ADR link:012-generator-artifacts.adoc[012]): the library's types
@@ -101,8 +101,9 @@ because B1 requires a stop on a managed downgrade, and accepted 3.0.9 as resolve
 
 The enforcer executions of the root POM (`bannedDependencies`, and the parent's `RequireSameVersions` and convergence
 rules) pass with the Jackson 3 artifacts present. `BuildGuardsIT` and its fixture projects below `src/guard-controls`
-are untouched. `pm-workflow`, `pm-runtime` and `pm-provider-github` resolve no Jackson 3 artifact and no validator: their
-classpaths are unchanged.
+are untouched. A `dependency:tree` of every other module — `pm-workflow`, `pm-runtime` and the six provider modules
+(`pm-provider-ci`, `pm-provider-git`, `pm-provider-github`, `pm-provider-gitlab`, `pm-provider-http`,
+`pm-provider-sonar`) — resolves no Jackson 3 artifact and no validator: their classpaths are unchanged.
 
 == Alternatives Considered
 
@@ -125,16 +126,22 @@ classpaths are unchanged.
 * A later 3.x or 4.x bump is the property plus, if the entry points move again, `SchemaValidation` alone.
 * The schema files, the specification blocks, the codecs and the expected values are unchanged: a difference in what the
   library accepts is a finding to report, never a reason to edit a schema.
-* The negative controls of the fourteen classes remain the proof that the validator really ran: in a scratch run at
+* The negative controls of the classes that have one remain the proof that the validator really ran: in a scratch run at
   `6722c78a` the helper was made to compile `{}` instead of the loaded schema text — the schema the validator sees is
-  replaced by the empty schema, every document is accepted — and the run failed 24 times, every failure a negative
-  control or a validator-rejects test, one or more per class (`ConsentSchemaParityTest.rejectingUndeclaredMember`,
-  `ModelCatalogueSchemaParityTest.rejectingUndeclaredMember`, `RoleAssignmentsSchemaParityTest.rejectingUndeclaredMember`,
-  `AnalysisResultSchemaTest.validatorRejectsUndeclaredMember`, `LeaseOwnerSchemaParityTest.rejectingMissingHolder`,
-  `PlanHistorySchemaParityTest.undeclaredMemberIsViolation`, `QualificationSchemaParityTest.documents`, the four controls
-  of `CorpusSchemaResourcesTest`, and the thirteen of `RoleArtifactSchemaParityTest`). The log is
-  `/home/oliver/.plan-marshall/marshalld/job-logs/4968752424e84057b4f81631a0d98b95.log` of that commit; the mutation
-  was reverted and never committed, so a positive check cannot hide a validator that stopped validating.
+  replaced by the empty schema, every document is accepted — and the run failed 27 times
+  (`Tests run: 150, Failures: 27`), every failure a negative control of its class:
+  `AnalysisResultSchemaTest.validatorRejectsUndeclaredMember`,
+  `ConsentSchemaParityTest.rejectingUndeclaredMember`,
+  `ModelCatalogueSchemaParityTest.rejectingUndeclaredMember`,
+  `RoleAssignmentsSchemaParityTest.rejectingUndeclaredMember`,
+  `PlanHistorySchemaParityTest.undeclaredMemberIsViolation`,
+  `LeaseOwnerSchemaParityTest.rejectingMissingHolder`, three in `EndpointProfileSchemaParityTest`,
+  `QualificationSchemaParityTest.documents`, the four controls of `CorpusSchemaResourcesTest` and the thirteen of
+  `RoleArtifactSchemaParityTest`. The four classes without a validator negative control (`TaskQueueSchemaParityTest`,
+  `ItemGeneratorTest`, `AuditSchemaParityTest`, `IntentSchemaParityTest`) keep the positive checks that fail if the
+  validator rejects a valid document. The log is
+  `.plan/local/plans/NO_PLAN/build-results/pm-core/maven-2026-11-17-075749.log`; the mutation was reverted and never
+  committed, so a positive check cannot hide a validator that stopped validating.
 * The four ADRs that name the library were read and are unchanged, because their sentences still hold: ADR
   link:016-schemas-are-files-of-the-implementing-module.adoc[016] (its Consequences sentence "`networknt` stays a
   test-scope dependency of `pm-core`", which the edits of PLAN-V2-122 moved to lines 71 and 72), ADR
