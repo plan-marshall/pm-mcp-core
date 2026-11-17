@@ -155,18 +155,20 @@ class ScenarioScriptTest {
                     """);
 
             assertAll(
-                    () -> assertEquals("every-directive", script.name()),
+                    () -> assertEquals("every-directive", script.name(),
+                            "the script keeps the name of its scenario"),
                     () -> assertEquals(List.of(new Worker(2, "reviewer", List.of("submitted", "lost"))),
-                            script.workers()),
+                            script.workers(), "the worker directive reads with its line"),
                     () -> assertEquals(List.of(
-                            new Start(5, JournalScopeType.PLAN, "plan-a"),
-                            new AssertState(6, "execute.review"),
-                            new CompleteJob(7, "b-00000000000000a1", "succeeded"),
-                            new AssertTaskOutcome(8, "reviewer", "submitted"),
-                            new AnswerQuestion(9, "Q-003", "web", "approve"),
-                            new OperatorDo(10, "choose", "cli", Map.of("note", "go")),
-                            new AssertState(11, "completed"),
-                            new AssertOutcome(12, "completed")), script.directives()));
+                                    new Start(5, JournalScopeType.PLAN, "plan-a"),
+                                    new AssertState(6, "execute.review"),
+                                    new CompleteJob(7, "b-00000000000000a1", "succeeded"),
+                                    new AssertTaskOutcome(8, "reviewer", "submitted"),
+                                    new AnswerQuestion(9, "Q-003", "web", "approve"),
+                                    new OperatorDo(10, "choose", "cli", Map.of("note", "go")),
+                                    new AssertState(11, "completed"),
+                                    new AssertOutcome(12, "completed")), script.directives(),
+                            "every supported directive reads with its line"));
         }
 
         @Test
@@ -183,8 +185,9 @@ class ScenarioScriptTest {
 
             assertAll(
                     () -> assertEquals(List.of(new Start(2, JournalScopeType.WORKSPACE, null)),
-                            workspace.directives()),
-                    () -> assertEquals(List.of(new Start(2, JournalScopeType.EPIC, "epic-a")), epic.directives()));
+                            workspace.directives(), "a workspace start carries no scope id"),
+                    () -> assertEquals(List.of(new Start(2, JournalScopeType.EPIC, "epic-a")), epic.directives(),
+                            "an epic start names its epic scope"));
         }
 
         @Test
@@ -196,7 +199,7 @@ class ScenarioScriptTest {
                     """);
 
             assertEquals(new AnswerQuestion(2, "Q-001", "web", "appr\"ove#1"),
-                    script.directives().getFirst());
+                    script.directives().getFirst(), "the quoted hash stays inside the branch key");
         }
 
         @Test
@@ -210,7 +213,8 @@ class ScenarioScriptTest {
                     """;
             var crlf = lf.replace("\n", "\r\n");
 
-            assertEquals(ScenarioScript.read(lf), ScenarioScript.read(crlf));
+            assertEquals(ScenarioScript.read(lf), ScenarioScript.read(crlf),
+                    "the CRLF twin reads like the LF script");
         }
 
         @Test
@@ -225,8 +229,9 @@ class ScenarioScriptTest {
 
             assertAll(
                     () -> assertEquals(Optional.of(new Worker(3, "author", List.of("infeasible", "asked"))),
-                            script.worker("author")),
-                    () -> assertEquals(Optional.empty(), script.worker("planner")));
+                            script.worker("author"), "the worker of role author reads with its line"),
+                    () -> assertEquals(Optional.empty(), script.worker("planner"),
+                            "no worker is found for a role not declared"));
         }
     }
 
@@ -245,7 +250,7 @@ class ScenarioScriptTest {
                     worker_do reviewer submit:change {"consultation_ids":"qt-0000000000000002,qt-0000000000000003"}
                     worker_do reviewer infeasible
                     worker_do reviewer consult:architect {"question":"is it safe?"}
-                    """));
+                    """), "the protocol worker script reads without a refusal");
 
             assertAll(
                     () -> assertEquals(List.of(
@@ -275,7 +280,7 @@ class ScenarioScriptTest {
                     worker_do reviewer submit:change {}
                     worker_do reviewer ack {}
                     assert_refused stale_entity
-                    """));
+                    """), "the supervision script reads without a refusal");
 
             assertAll(
                     () -> assertEquals(List.of(
@@ -304,7 +309,7 @@ class ScenarioScriptTest {
                     kill_relay reviewer
                     stall_worker reviewer 30
                     restart_runtime
-                    """));
+                    """), "the fault directives read without a refusal");
 
             assertAll(
                     () -> assertEquals(List.of(
@@ -331,12 +336,12 @@ class ScenarioScriptTest {
             var kill = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario no-wait-fault
                     kill_worker reviewer
-                    """));
+                    """), "a fault without its wait is refused");
             var stall = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario no-wait-stall
                     stall_worker reviewer 30
                     worker_wait reviewer
-                    """));
+                    """), "a later wait does not redeem the fault");
 
             assertAll(
                     () -> assertEquals("line 2: kill_worker names the role reviewer, which the script never declares "
@@ -353,7 +358,8 @@ class ScenarioScriptTest {
             assertAll(
                     () -> assertEquals(ScenarioDirective.REFUSALS, reasons,
                             "the refusal set is derived from the enum"),
-                    () -> reasons.forEach(reason -> assertDoesNotThrow(() -> new AssertRefused(1, reason))),
+                    () -> reasons.forEach(reason -> assertDoesNotThrow(() -> new AssertRefused(1, reason),
+                            "every refusal of the enum is accepted")),
                     () -> assertThrows(IllegalArgumentException.class, () -> new AssertRefused(1, "vanished"),
                             "a word outside the enum is refused"));
         }
@@ -364,43 +370,43 @@ class ScenarioScriptTest {
             var call = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario no-wait
                     worker_do reviewer ack {}
-                    """));
+                    """), "a call before its wait is refused");
             var roleless = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario no-wait-roleless
                     worker_do ack {}
-                    """));
+                    """), "a role-less call before any wait is refused");
             var late = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario wait-later
                     worker_do reviewer ack {}
                     worker_wait reviewer
-                    """));
+                    """), "a call before a later wait is refused");
             var state = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario no-wait-state
                     assert_worker_state reviewer offered
-                    """));
+                    """), "an assertion before its wait is refused");
             var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario no-call
                     worker_wait reviewer
                     assert_refused stale_entity
-                    """));
+                    """), "assert_refused without a call is refused");
             var serviceCall = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario answer-then-refused
                     worker_wait reviewer
                     worker_do reviewer submit:answer {"answer":"yes"}
                     assert_refused stale_entity
-                    """));
+                    """), "assert_refused after an answer is refused");
             var both = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario both-forms
                     worker reviewer submitted
                     worker_wait reviewer
-                    """));
+                    """), "a role declared in both forms is refused");
             var apart = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario refusal-then-assertion
                     worker_wait reviewer
                     worker_do reviewer submit:change {}
                     assert_state execute.review
                     assert_refused link_not_available
-                    """));
+                    """), "an intervening assertion breaks the adjacency");
 
             assertAll(
                     () -> assertEquals("line 2: worker_do names the role reviewer, which the script never declares with "
@@ -435,7 +441,8 @@ class ScenarioScriptTest {
             var text = thirdLine(directive + " reviewer");
             var expected = "line 3: '%s' is not supported by this harness yet".formatted(directive);
 
-            var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read(text));
+            var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read(text),
+                    "a directive the harness does not run is refused");
 
             assertAll(
                     () -> assertTrue(refused.getMessage().startsWith(expected), refused.getMessage()),
@@ -449,13 +456,20 @@ class ScenarioScriptTest {
             assertAll(
                     () -> assertTrue(ScenarioScript.REFUSED.values().stream().noneMatch(String::isBlank),
                             ScenarioScript.REFUSED.toString()),
-                    () -> assertEquals("plan-instance", ScenarioScript.REFUSED.get("assert_instance_version")),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_wait")),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_do")),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_worker_state")),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_refused")),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("kill_worker")),
-                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("restart_runtime")));
+                    () -> assertEquals("plan-instance", ScenarioScript.REFUSED.get("assert_instance_version"),
+                            "the refused directive names its work package"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_wait"),
+                            "worker_wait left the refused set"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_do"),
+                            "worker_do left the refused set"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_worker_state"),
+                            "assert_worker_state left the refused set"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("assert_refused"),
+                            "assert_refused left the refused set"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("kill_worker"),
+                            "kill_worker left the refused set"),
+                    () -> assertFalse(ScenarioScript.REFUSED.containsKey("restart_runtime"),
+                            "restart_runtime left the refused set"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -465,7 +479,8 @@ class ScenarioScriptTest {
             var directive = line.split(" ")[0];
             var text = thirdLine(line);
 
-            var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read(text));
+            var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read(text),
+                    "an unknown directive is refused by name");
 
             assertAll(
                     () -> assertTrue(refused.getMessage().startsWith("line 3: "), refused.getMessage()),
@@ -479,7 +494,8 @@ class ScenarioScriptTest {
         void shouldRefuseMalformedLine(String line, String reason) {
             var text = thirdLine(line);
 
-            var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read(text));
+            var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read(text),
+                    "a malformed line is refused with its reason");
 
             assertAll(
                     () -> assertTrue(refused.getMessage().startsWith("line 3: "), refused.getMessage()),
@@ -497,12 +513,13 @@ class ScenarioScriptTest {
             var noScenario = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     # only a comment
                     start plan plan-a
-                    """));
-            var empty = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("# nothing\n"));
+                    """), "a script without its scenario line is refused");
+            var empty = assertThrows(IllegalArgumentException.class,
+                    () -> ScenarioScript.read("# nothing\n"), "an empty script is refused for its missing name");
 
             assertAll(
                     () -> assertEquals("line 2: a script starts with scenario <name>, not with 'start'",
-                            noScenario.getMessage()),
+                            noScenario.getMessage(), "the refusal names the missing scenario line"),
                     () -> assertTrue(empty.getMessage().contains("names no scenario"), empty.getMessage()));
         }
 
@@ -512,23 +529,25 @@ class ScenarioScriptTest {
             var badName = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario Happy_Path
                     start plan plan-a
-                    """));
+                    """), "a scenario name outside the pattern is refused");
             var twice = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario twice
                     worker reviewer submitted
                     worker reviewer lost
                     start plan plan-a
-                    """));
+                    """), "a worker role declared twice is refused");
             var noStep = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read("""
                     scenario idle
                     worker reviewer submitted
-                    """));
+                    """), "a scenario without a step is refused");
 
             assertAll(
                     () -> assertTrue(badName.getMessage().startsWith("line 1: the scenario name does not match"),
                             badName.getMessage()),
-                    () -> assertEquals("line 3: the worker of role reviewer is declared twice", twice.getMessage()),
-                    () -> assertEquals("the scenario idle names no step", noStep.getMessage()));
+                    () -> assertEquals("line 3: the worker of role reviewer is declared twice", twice.getMessage(),
+                            "the refusal names the twice-declared role"),
+                    () -> assertEquals("the scenario idle names no step", noStep.getMessage(),
+                            "the refusal names the missing step"));
         }
 
         @Test
@@ -537,16 +556,22 @@ class ScenarioScriptTest {
             var noOutcomes = List.<String>of();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new AssertState(0, "completed")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new AssertOutcome(1, "two words")),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new AssertState(0, "completed"),
+                            "a non-positive source line is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new AssertOutcome(1, "two words"),
+                            "a two-word outcome is refused by the directive"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Start(1, JournalScopeType.PLAN, null)),
+                            () -> new Start(1, JournalScopeType.PLAN, null),
+                            "a plan start without a scope id is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Start(1, JournalScopeType.WORKSPACE, "w-1")),
+                            () -> new Start(1, JournalScopeType.WORKSPACE, "w-1"),
+                            "a workspace start with a scope id is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Worker(1, "reviewer", noOutcomes)),
+                            () -> new Worker(1, "reviewer", noOutcomes),
+                            "a worker without task outcomes is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new AnswerQuestion(1, "Q-001", " ", "approve")));
+                            () -> new AnswerQuestion(1, "Q-001", " ", "approve"),
+                            "an answer with a blank channel is refused"));
         }
     }
 }

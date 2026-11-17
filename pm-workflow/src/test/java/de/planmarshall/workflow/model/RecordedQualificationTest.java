@@ -60,7 +60,8 @@ class RecordedQualificationTest {
         var lookup = lookup(80, 5, fresh(90, 90), List.of());
 
         assertEquals(Optional.of(RoleForm.FRESH),
-                lookup.qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH));
+                lookup.qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH),
+                "a fresh record at the level qualifies");
     }
 
     @Test
@@ -73,8 +74,8 @@ class RecordedQualificationTest {
         var atNinety = lookup(90, 5, qualification, List.of())
                 .qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH);
 
-        assertEquals(Optional.of(RoleForm.FRESH), atEighty);
-        assertEquals(Optional.empty(), atNinety);
+        assertEquals(Optional.of(RoleForm.FRESH), atEighty, "the changed level still qualifies fresh");
+        assertEquals(Optional.empty(), atNinety, "the raised level refuses the record");
     }
 
     @Test
@@ -82,7 +83,9 @@ class RecordedQualificationTest {
     void stale() {
         var lookup = lookup(80, 5, fresh(90, 90), List.of());
 
-        assertEquals(Optional.empty(), lookup.qualifiedForm(GraderFixtures.ROLE, "b".repeat(64), RoleForm.FRESH));
+        assertEquals(Optional.empty(),
+                lookup.qualifiedForm(GraderFixtures.ROLE, "b".repeat(64), RoleForm.FRESH),
+                "another digest or revision qualifies nothing");
     }
 
     @Test
@@ -91,7 +94,9 @@ class RecordedQualificationTest {
         var lookup = new RecordedQualification(role -> Optional.empty(), settings(80, 5), () -> corpus(),
                 this::topics, GraderFixtures.CORPUS_REVISION);
 
-        assertEquals(Optional.empty(), lookup.qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH));
+        assertEquals(Optional.empty(),
+                lookup.qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH),
+                "a role without a record qualifies nothing");
     }
 
     @Test
@@ -102,11 +107,14 @@ class RecordedQualificationTest {
         var tooWideGap = warm(90, 89, 9);
 
         assertEquals(Optional.of(RoleForm.WARM),
-                lookup(80, 5, warmRecord, List.of()).qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.WARM));
+                lookup(80, 5, warmRecord, List.of()).qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.WARM),
+                "a qualifying warm record runs warm");
         assertEquals(Optional.of(RoleForm.FRESH),
-                lookup(80, 5, belowLevel, List.of()).qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.WARM));
+                lookup(80, 5, belowLevel, List.of()).qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.WARM),
+                "a warm record below the level runs fresh");
         assertEquals(Optional.of(RoleForm.FRESH),
-                lookup(80, 5, tooWideGap, List.of()).qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.WARM));
+                lookup(80, 5, tooWideGap, List.of()).qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.WARM),
+                "a gap above the allowed gap runs fresh");
     }
 
     @Test
@@ -118,7 +126,8 @@ class RecordedQualificationTest {
         var lookup = new RecordedQualification(QualificationRecords.firstOf(store), settings(80, 5),
                 RecordedQualificationTest::corpus, this::topics, GraderFixtures.CORPUS_REVISION);
 
-        assertTrue(lookup.qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH).isPresent());
+        assertTrue(lookup.qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH).isPresent(),
+                "the project set's record qualifies");
     }
 
     private RecordedQualification lookup(int level, int gap, QualificationRecord entry, List<ImportedItem> items) {

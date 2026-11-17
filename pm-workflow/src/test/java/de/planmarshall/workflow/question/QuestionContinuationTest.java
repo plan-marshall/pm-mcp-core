@@ -51,11 +51,12 @@ class QuestionContinuationTest {
                 bounds(holdSeconds, resumeSeconds), AT);
 
         assertAll(
-                () -> assertEquals(QuestionContinuation.Form.HOLD, decision.form()),
-                () -> assertTrue(decision.holds()),
-                () -> assertEquals(AT.plusSeconds(holdSeconds), decision.holdUntil()),
-                () -> assertNull(decision.resumeUntil()),
-                () -> assertNull(decision.fallbackReason()));
+                () -> assertEquals(QuestionContinuation.Form.HOLD, decision.form(), "a role that may hold holds"),
+                () -> assertTrue(decision.holds(), "the decision holds the task"),
+                () -> assertEquals(AT.plusSeconds(holdSeconds), decision.holdUntil(),
+                        "the hold ends at the role's hold limit"),
+                () -> assertNull(decision.resumeUntil(), "a hold names no resume deadline"),
+                () -> assertNull(decision.fallbackReason(), "a hold names no fallback reason"));
     }
 
     @Test
@@ -64,7 +65,7 @@ class QuestionContinuationTest {
         var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false,
                 bounds(Generators.integers(1, 3600).next(), Generators.integers(1, 7200).next()), AT);
 
-        assertEquals(QuestionContinuation.Form.HOLD, decision.form());
+        assertEquals(QuestionContinuation.Form.HOLD, decision.form(), "the hold precedes the resume");
     }
 
     @Test
@@ -74,10 +75,12 @@ class QuestionContinuationTest {
         var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(0, resumeSeconds), AT);
 
         assertAll(
-                () -> assertEquals(QuestionContinuation.Form.RESUME, decision.form()),
-                () -> assertTrue(decision.resumes()),
-                () -> assertEquals(AT.plusSeconds(resumeSeconds), decision.resumeUntil()),
-                () -> assertNull(decision.holdUntil()));
+                () -> assertEquals(QuestionContinuation.Form.RESUME, decision.form(),
+                        "a role that may only resume suspends"),
+                () -> assertTrue(decision.resumes(), "the decision resumes the task"),
+                () -> assertEquals(AT.plusSeconds(resumeSeconds), decision.resumeUntil(),
+                        "the resume ends at the role's resume limit"),
+                () -> assertNull(decision.holdUntil(), "a resume names no hold deadline"));
     }
 
     @Test
@@ -87,8 +90,10 @@ class QuestionContinuationTest {
                 bounds(Generators.integers(1, 3600).next(), Generators.integers(1, 7200).next()), AT);
 
         assertAll(
-                () -> assertEquals(QuestionContinuation.Form.FALLBACK, decision.form()),
-                () -> assertEquals(FallbackReason.NOT_ALLOWED, decision.fallbackReason()));
+                () -> assertEquals(QuestionContinuation.Form.FALLBACK, decision.form(),
+                        "an ask fresh state falls back"),
+                () -> assertEquals(FallbackReason.NOT_ALLOWED, decision.fallbackReason(),
+                        "the fallback is not allowed"));
     }
 
     @Test
@@ -97,7 +102,8 @@ class QuestionContinuationTest {
         var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK_FRESH, true,
                 bounds(Generators.integers(1, 3600).next(), Generators.integers(1, 7200).next()), AT);
 
-        assertEquals(QuestionContinuation.Form.HOLD, decision.form());
+        assertEquals(QuestionContinuation.Form.HOLD, decision.form(),
+                "an envelope task holds whatever it declares");
     }
 
     @Test
@@ -107,8 +113,10 @@ class QuestionContinuationTest {
         var unverifiedHarness = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(0, 0), AT);
 
         assertAll(
-                () -> assertEquals(FallbackReason.NOT_ALLOWED, withoutQuestions.fallbackReason()),
-                () -> assertEquals(FallbackReason.NOT_ALLOWED, unverifiedHarness.fallbackReason()));
+                () -> assertEquals(FallbackReason.NOT_ALLOWED, withoutQuestions.fallbackReason(),
+                        "a role without questions falls back"),
+                () -> assertEquals(FallbackReason.NOT_ALLOWED, unverifiedHarness.fallbackReason(),
+                        "an unverified harness falls back"));
     }
 
     @Test
@@ -121,8 +129,10 @@ class QuestionContinuationTest {
                 AT.plusSeconds(holdSeconds));
 
         assertAll(
-                () -> assertEquals(QuestionContinuation.Form.RESUME, resumed.form()),
-                () -> assertEquals(FallbackReason.HOLD_EXPIRED, expired.fallbackReason()));
+                () -> assertEquals(QuestionContinuation.Form.RESUME, resumed.form(),
+                        "after a hold the task resumes"),
+                () -> assertEquals(FallbackReason.HOLD_EXPIRED, expired.fallbackReason(),
+                        "an expired hold reports HOLD_EXPIRED"));
     }
 
     @Test
@@ -131,7 +141,8 @@ class QuestionContinuationTest {
         var bounds = bounds(Generators.integers(1, 3600).next(), 0);
 
         assertThrows(IllegalArgumentException.class,
-                () -> QuestionContinuation.decide(StateBehavior.AskForm.NONE, false, bounds, AT));
+                () -> QuestionContinuation.decide(StateBehavior.AskForm.NONE, false, bounds, AT),
+                "a state without an ask link is refused");
     }
 
     @Test
@@ -140,8 +151,9 @@ class QuestionContinuationTest {
         var decision = QuestionContinuation.fallback(FallbackReason.RESUME_EXPIRED);
 
         assertAll(
-                () -> assertTrue(decision.recordForm().isEmpty()),
-                () -> assertEquals(FallbackReason.RESUME_EXPIRED, decision.fallbackReason()));
+                () -> assertTrue(decision.recordForm().isEmpty(), "a fallback names no record form"),
+                () -> assertEquals(FallbackReason.RESUME_EXPIRED, decision.fallbackReason(),
+                        "the fallback names RESUME_EXPIRED"));
     }
 
     @Test
@@ -153,7 +165,9 @@ class QuestionContinuationTest {
                 bounds(0, Generators.integers(1, 7200).next()), AT);
 
         assertAll(
-                () -> assertEquals(QueueTaskRecord.ContinuationForm.HOLD, hold.recordForm().orElseThrow()),
-                () -> assertEquals(QueueTaskRecord.ContinuationForm.RESUME, resume.recordForm().orElseThrow()));
+                () -> assertEquals(QueueTaskRecord.ContinuationForm.HOLD, hold.recordForm().orElseThrow(),
+                        "a hold names the HOLD record form"),
+                () -> assertEquals(QueueTaskRecord.ContinuationForm.RESUME, resume.recordForm().orElseThrow(),
+                        "a resume names the RESUME record form"));
     }
 }

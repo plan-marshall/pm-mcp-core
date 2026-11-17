@@ -285,10 +285,12 @@ class EnvelopePackerTest {
 
             assertAll("A missing collection",
                     () -> assertEquals("skillUris", assertThrows(NullPointerException.class, withoutSkills::build,
-                            "Missing skills are refused").getMessage()),
+                                    "Missing skills are refused").getMessage(),
+                            "The refusal names the missing skills"),
                     () -> assertEquals("dependsOnTaskIds",
                             assertThrows(NullPointerException.class, withoutDependencies::build,
-                                    "Missing dependencies are refused").getMessage()));
+                                    "Missing dependencies are refused").getMessage(),
+                            "The refusal names the missing dependencies"));
         }
     }
 

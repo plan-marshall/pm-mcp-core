@@ -2,10 +2,10 @@
   "id": "PLAN-V2-49",
   "slug": "scenario-worker-faults",
   "workstream": "WS-02",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-49-scenario-worker-faults",
+  "pr": "#464",
+  "landing": "landings/PLAN-V2-49.md",
   "seq": 49
 }

@@ -53,9 +53,11 @@ class SetupGateTest {
         var onboarding = MachineOnboarding.fromStatus(machineStatus("onboard.harnesses", "\"first_run\""));
 
         assertAll(
-                () -> assertFalse(onboarding.firstRunCompleted()),
-                () -> assertEquals(List.of("harnesses", "models"), onboarding.pendingSteps()),
-                () -> assertEquals("harnesses", onboarding.missingStep().orElseThrow()));
+                () -> assertFalse(onboarding.firstRunCompleted(), "The first run has not completed yet"),
+                () -> assertEquals(List.of("harnesses", "models"), onboarding.pendingSteps(),
+                        "The open steps are reported in order"),
+                () -> assertEquals("harnesses", onboarding.missingStep().orElseThrow(),
+                        "The first pending step is the missing one"));
     }
 
     @Test
@@ -67,10 +69,12 @@ class SetupGateTest {
                 SetupGate.Act.START_PROJECT_ONBOARDING)) {
             var refused = assertInstanceOf(SetupGate.Refused.class, SetupGate.decide(act, onboarding), act::name);
             assertAll(
-                    () -> assertEquals(SetupGate.MACHINE_NOT_ONBOARDED, refused.reason()),
-                    () -> assertEquals(409, refused.httpStatus()),
-                    () -> assertEquals("harnesses", refused.missingStep()),
-                    () -> assertEquals(List.of("web", "cli"), refused.clients()));
+                    () -> assertEquals(SetupGate.MACHINE_NOT_ONBOARDED, refused.reason(),
+                            "The refusal reports machine_not_onboarded"),
+                    () -> assertEquals(409, refused.httpStatus(), "The refusal maps to HTTP 409"),
+                    () -> assertEquals("harnesses", refused.missingStep(), "The refusal names the missing step"),
+                    () -> assertEquals(List.of("web", "cli"), refused.clients(),
+                            "The refusal names the available clients"));
         }
     }
 
@@ -81,9 +85,11 @@ class SetupGateTest {
 
         assertAll(
                 () -> assertInstanceOf(SetupGate.Admitted.class,
-                        SetupGate.decide(SetupGate.Act.ONBOARDING_STEP, onboarding)),
+                        SetupGate.decide(SetupGate.Act.ONBOARDING_STEP, onboarding),
+                        "An onboarding step stays open before completion"),
                 () -> assertInstanceOf(SetupGate.Admitted.class,
-                        SetupGate.decide(SetupGate.Act.OPERATOR_VERB, onboarding)));
+                        SetupGate.decide(SetupGate.Act.OPERATOR_VERB, onboarding),
+                        "An operator verb stays open before completion"));
     }
 
     @Test
@@ -91,13 +97,15 @@ class SetupGateTest {
     void missingStepActIsRefused() {
         var onboarding = MachineOnboarding.fromStatus(machineStatus("onboard.harnesses", "\"first_run\""));
 
-        var refused = assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep("models", onboarding));
+        var refused = assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep("models", onboarding),
+                "An act needing a missing step is refused");
 
         assertAll(
-                () -> assertEquals(SetupGate.ONBOARDING_INCOMPLETE, refused.reason()),
-                () -> assertEquals(409, refused.httpStatus()),
-                () -> assertEquals("models", refused.missingStep()),
-                () -> assertEquals(List.of("web", "cli"), refused.clients()));
+                () -> assertEquals(SetupGate.ONBOARDING_INCOMPLETE, refused.reason(),
+                        "The refusal reports onboarding_incomplete"),
+                () -> assertEquals(409, refused.httpStatus(), "The incomplete refusal maps to HTTP 409"),
+                () -> assertEquals("models", refused.missingStep(), "The refusal names the pending step"),
+                () -> assertEquals(List.of("web", "cli"), refused.clients(), "The refusal names the clients"));
     }
 
     @Test
@@ -106,14 +114,18 @@ class SetupGateTest {
         var onboarding = MachineOnboarding.fromStatus(machineStatus("onboard.completed", null));
 
         assertAll(
-                () -> assertTrue(onboarding.firstRunCompleted()),
+                () -> assertTrue(onboarding.firstRunCompleted(), "The completed first run is recognised"),
                 () -> assertInstanceOf(SetupGate.Admitted.class,
-                        SetupGate.decide(SetupGate.Act.START_PLAN, onboarding)),
+                        SetupGate.decide(SetupGate.Act.START_PLAN, onboarding),
+                        "A start plan is admitted after completion"),
                 () -> assertInstanceOf(SetupGate.Admitted.class,
-                        SetupGate.decide(SetupGate.Act.START_EPIC, onboarding)),
+                        SetupGate.decide(SetupGate.Act.START_EPIC, onboarding),
+                        "A start epic is admitted after completion"),
                 () -> assertInstanceOf(SetupGate.Admitted.class,
-                        SetupGate.decide(SetupGate.Act.START_PROJECT_ONBOARDING, onboarding)),
-                () -> assertInstanceOf(SetupGate.Admitted.class, SetupGate.decideStep("models", onboarding)));
+                        SetupGate.decide(SetupGate.Act.START_PROJECT_ONBOARDING, onboarding),
+                        "A project onboarding is admitted after completion"),
+                () -> assertInstanceOf(SetupGate.Admitted.class, SetupGate.decideStep("models", onboarding),
+                        "A step act is admitted after completion"));
     }
 
     @Test
@@ -121,7 +133,8 @@ class SetupGateTest {
     void doneStepIsAdmitted() {
         var onboarding = MachineOnboarding.fromStatus(machineStatus("onboard.harnesses", "\"first_run\""));
 
-        assertInstanceOf(SetupGate.Admitted.class, SetupGate.decideStep("language", onboarding));
+        assertInstanceOf(SetupGate.Admitted.class, SetupGate.decideStep("language", onboarding),
+                "An act whose step is done is admitted");
     }
 
     @Test
@@ -132,8 +145,10 @@ class SetupGateTest {
 
         var unknownStep = "unknown-" + Generators.letterStrings(1, 8).next();
         assertAll(
-                () -> assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep(unknownStep, withList)),
-                () -> assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep("language", withoutList)));
+                () -> assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep(unknownStep, withList),
+                        "An unknown step is refused"),
+                () -> assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep("language", withoutList),
+                        "An act without a step list is refused"));
     }
 
     @Test
@@ -142,9 +157,10 @@ class SetupGateTest {
         var onboarding = MachineOnboarding.fromStatus(machineStatus("language.choose", "\"reconfigure\""));
 
         assertAll(
-                () -> assertTrue(onboarding.firstRunCompleted()),
+                () -> assertTrue(onboarding.firstRunCompleted(), "A reconfigure run counts as completed"),
                 () -> assertInstanceOf(SetupGate.Admitted.class,
-                        SetupGate.decide(SetupGate.Act.START_PLAN, onboarding)));
+                        SetupGate.decide(SetupGate.Act.START_PLAN, onboarding),
+                        "A start plan stays open during reconfigure"));
     }
 
     @Test
@@ -155,7 +171,8 @@ class SetupGateTest {
                 .scopeId("scope-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT))
                 .build();
 
-        assertThrows(IllegalArgumentException.class, () -> MachineOnboarding.fromStatus(plan));
+        assertThrows(IllegalArgumentException.class, () -> MachineOnboarding.fromStatus(plan),
+                "A status from a foreign scope is refused");
     }
 
     private static WorkflowStatus machineStatusWithoutSteps(String state, String onboardRun) {
