@@ -972,3 +972,18 @@ head before `accept` with a reason; `remove` drops it. Matched controls: the sam
 authored, and a pull request by another author that changes only `src/` files, proceed on a clean verdict.
 Source:: Article analysis `ai-dfir-toolkit` of plan-marshall-documentation (the rules-file backdoor and a poisoned
 repository configuration among its case studies).
+
+[#PM-WATCH-DISP-76]
+=== PM-WATCH-DISP-76: The fit step estimates tokens from bytes at a measured ratio, never characters ÷ 4
+
+Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#model-caller[Model Work § The Model Caller]
+Hazard:: The estimate counts Java `char` units or divides characters by four, estimates the input without the launch
+prompt, or takes a model's ratio from a task whose turn input is mostly the harness's start context; an input estimated
+to fit then exceeds the context the harness has, the harness rejects it as a runtime failure instead of
+`input_too_large`, or an endpoint that cuts its prompt cuts the input the step guarantees is never cut.
+Guard:: Unit tests of the estimator over fixtures with recorded token counts of the worker models: a URL-heavy web page
+in Markdown, a text with umlauts and CJK characters, and a JSON diff; each estimate at the provisional ratio is at least
+the recorded count, and characters ÷ 4 is below it for the page. A scenario test whose launch prompt and input together
+exceed the budget while the input alone fits closes the task `input_too_large` before any request. Matched control: an
+input estimated below the budget is queued and sent whole.
+Source:: Article analysis `lightpanda-agent-bill` of plan-marshall-documentation.
