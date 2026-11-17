@@ -89,15 +89,24 @@ class FinalizeStepDescriptorTest {
             var item = Generators.letterStrings(1, 5).next();
 
             assertAll(
-                    () -> assertThrows(UnsupportedOperationException.class, () -> presets.add(item)),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> verdictInputs.add(item)),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> reads.add(item)),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> destroys.add(item)),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> recordsFacts.add(item)),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> requires.add(item)),
-                    () -> assertThrows(UnsupportedOperationException.class, configurable::clear),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> requiresPromptFields.add(item)),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> filesFindings.add(item)));
+                    () -> assertThrows(UnsupportedOperationException.class, () -> presets.add(item),
+                            "adding to the presets is refused"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> verdictInputs.add(item),
+                            "adding to the verdict inputs is refused"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> reads.add(item),
+                            "adding to the reads is refused"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> destroys.add(item),
+                            "adding to the destroys is refused"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> recordsFacts.add(item),
+                            "adding to the recorded facts is refused"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> requires.add(item),
+                            "adding to the requires is refused"),
+                    () -> assertThrows(UnsupportedOperationException.class, configurable::clear,
+                            "clearing the configurable keys is refused"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> requiresPromptFields.add(item),
+                            "adding to the prompt fields is refused"),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> filesFindings.add(item),
+                            "adding to the finding sources is refused"));
         }
 
         @Test
@@ -107,11 +116,11 @@ class FinalizeStepDescriptorTest {
 
             // The full fixture's step id, order, preset, lane and configurable key are the contract read here.
             assertAll(
-                    () -> assertEquals("default:automatic-review", descriptor.name(), "the name is kept"),
-                    () -> assertEquals(30, descriptor.order(), "the order is kept"),
+                    () -> assertEquals("default:automatic-review", descriptor.name(), "the descriptor keeps the name"),
+                    () -> assertEquals(30, descriptor.order(), "the descriptor keeps the order"),
                     () -> assertEquals(InputScope.DECLARED, descriptor.inputScope(), "the input scope is kept"),
                     () -> assertEquals(new Lane(LaneClass.ADVERSARIAL, "standard", null, "M"), descriptor.lane(),
-                            "the lane is kept"),
+                            "the descriptor keeps the lane"),
                     () -> assertEquals(List.of(new ConfigurableKey("required_bots", "coderabbit", "the bots")),
                             descriptor.configurable(), "the configurable keys are kept"),
                     () -> assertEquals("untested paths", descriptor.cannotReach(), "the unreachable defect is kept"));
@@ -121,11 +130,13 @@ class FinalizeStepDescriptorTest {
         @DisplayName("carries the order constants of the pipeline bands")
         void orderConstants() {
             assertAll(
-                    () -> assertEquals(10, FinalizeStepDescriptor.PRE_PUSH_QUALITY_GATE_ORDER),
-                    () -> assertEquals(11, FinalizeStepDescriptor.PUSH_ORDER),
-                    () -> assertEquals(70, FinalizeStepDescriptor.MERGE_GATE_ORDER),
-                    () -> assertEquals(900, FinalizeStepDescriptor.POST_RUN_MIN_ORDER),
-                    () -> assertEquals(1100, FinalizeStepDescriptor.TERMINUS_ARCHIVE_ORDER));
+                    () -> assertEquals(10, FinalizeStepDescriptor.PRE_PUSH_QUALITY_GATE_ORDER,
+                            "the pre-push quality gate order"),
+                    () -> assertEquals(11, FinalizeStepDescriptor.PUSH_ORDER, "the push step sits at order eleven"),
+                    () -> assertEquals(70, FinalizeStepDescriptor.MERGE_GATE_ORDER, "the merge gate step order"),
+                    () -> assertEquals(900, FinalizeStepDescriptor.POST_RUN_MIN_ORDER, "the post-run minimum order"),
+                    () -> assertEquals(1100, FinalizeStepDescriptor.TERMINUS_ARCHIVE_ORDER,
+                            "the terminus archive step order"));
         }
     }
 

@@ -35,8 +35,8 @@ class ChangeTypeTest {
             "VERIFICATION, verification, 6"})
     @DisplayName("carries its wire name and its priority")
     void values(ChangeType type, String wireName, int priorityOrder) {
-        assertEquals(wireName, type.wireName());
-        assertEquals(priorityOrder, type.priorityOrder());
+        assertEquals(wireName, type.wireName(), "the change type keeps its wire name");
+        assertEquals(priorityOrder, type.priorityOrder(), "the change type keeps its priority");
     }
 
     @Test
@@ -45,6 +45,7 @@ class ChangeTypeTest {
         var priorities = Arrays.stream(ChangeType.values()).sorted(Comparator.comparingInt(ChangeType::priorityOrder))
                 .map(ChangeType::priorityOrder).toList();
 
-        assertEquals(List.of(1, 2, 3, 4, 5, 6), priorities);
+        assertEquals(List.of(1, 2, 3, 4, 5, 6), priorities,
+                "the priorities run from one to six without a gap");
     }
 }

@@ -97,11 +97,13 @@ class ProjectStepBindingTest {
                 .filter(finding -> finding.kind() == UnitFinding.Kind.PROJECT_STEP_UNBOUND).toList();
         assertAll(name,
                 () -> assertEquals(1, unbound.size(), result.findings()::toString),
-                () -> assertEquals(UnitFinding.PROJECT_STEP_UNBOUND, unbound.getFirst().code()),
-                () -> assertEquals(file, unbound.getFirst().file()),
-                () -> assertEquals(line, unbound.getFirst().line()),
+                () -> assertEquals(UnitFinding.PROJECT_STEP_UNBOUND, unbound.getFirst().code(),
+                        "the finding is project_step_unbound"),
+                () -> assertEquals(file, unbound.getFirst().file(), "the finding names the disagreeing file"),
+                () -> assertEquals(line, unbound.getFirst().line(), "the finding names the disagreeing line"),
                 () -> assertTrue(unbound.getFirst().message().contains(PROJECT_STEP), unbound.getFirst()::message),
-                () -> assertEquals(UnitLoadResult.CONFIG_INVALID, result.refusal().orElseThrow().code()));
+                () -> assertEquals(UnitLoadResult.CONFIG_INVALID, result.refusal().orElseThrow().code(),
+                        "the unbound step refuses the lifecycle"));
     }
 
     @Test
@@ -113,7 +115,8 @@ class ProjectStepBindingTest {
 
         assertAll(
                 () -> assertTrue(result.isVerified(), result.findings()::toString),
-                () -> assertTrue(result.units().containsKey(Phase.PLAN_UNIT)));
+                () -> assertTrue(result.units().containsKey(Phase.PLAN_UNIT),
+                        "the agreeing triple loads the plan unit"));
     }
 
     @Test

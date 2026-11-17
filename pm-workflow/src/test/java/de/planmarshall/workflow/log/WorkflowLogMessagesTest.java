@@ -59,7 +59,8 @@ class WorkflowLogMessagesTest {
 
         assertFalse(records.isEmpty(), level);
         for (LogRecord logRecord : records) {
-            assertEquals(WorkflowLogMessages.PREFIX, logRecord.getPrefix());
+            assertEquals(WorkflowLogMessages.PREFIX, logRecord.getPrefix(),
+                    "Every record carries the holder prefix");
             assertTrue(logRecord.getIdentifier() >= first && logRecord.getIdentifier() <= last,
                     logRecord.resolveIdentifierString());
         }
@@ -89,15 +90,17 @@ class WorkflowLogMessagesTest {
         var holder = Class.forName(WorkflowLogMessages.class.getName() + "$" + level);
         var logRecord = (LogRecord) holder.getField(name).get(null);
 
-        assertEquals(WorkflowLogMessages.PREFIX, logRecord.getPrefix());
-        assertEquals(identifier, logRecord.getIdentifier());
-        assertEquals(template, logRecord.getTemplate());
+        assertEquals(WorkflowLogMessages.PREFIX, logRecord.getPrefix(),
+                "The message prefix is the holder prefix");
+        assertEquals(identifier, logRecord.getIdentifier(), "The message keeps its identifier");
+        assertEquals(template, logRecord.getTemplate(), "The message keeps its template");
     }
 
     @Test
     @DisplayName("the prefix is not the prefix of the holder of pm-core")
     void prefixOwn() {
-        assertNotEquals(CoreLogMessages.PREFIX, WorkflowLogMessages.PREFIX);
+        assertNotEquals(CoreLogMessages.PREFIX, WorkflowLogMessages.PREFIX,
+                "The prefix differs from the core holder");
     }
 
     @Test

@@ -70,9 +70,9 @@ class AnswersTest {
 
         assertAll(
                 () -> assertEquals(AnswerFact.COLUMNS, List.of("question_id", "plan_task_id", "question_text", "branch_key", "label",
-                        "text", "kind")),
+                        "text", "kind"), "The fact columns keep their order"),
                 () -> assertEquals(List.of(askedQuestionId, askedTaskId, questionText, key, label, text, "chosen"),
-                        row));
+                        row, "The cells follow the specification columns"));
     }
 
     @Test
@@ -82,9 +82,9 @@ class AnswersTest {
                 Generators.letterStrings(1, 20).next(), null, AnswerFact.Kind.INTERPRETED).cells();
 
         assertAll(
-                () -> assertEquals("", row.get(1)),
-                () -> assertEquals("", row.get(5)),
-                () -> assertEquals("interpreted", row.get(6)));
+                () -> assertEquals("", row.get(1), "A missing plan task renders empty"),
+                () -> assertEquals("", row.get(5), "A missing text renders empty"),
+                () -> assertEquals("interpreted", row.get(6), "The interpreted kind is rendered"));
     }
 
     @Test
@@ -95,10 +95,12 @@ class AnswersTest {
         var answers = Answers.empty().plus(first).plus(second);
 
         assertAll(
-                () -> assertFalse(answers.isEmpty()),
-                () -> assertEquals(2, answers.rows().size()),
-                () -> assertEquals(first.questionId(), answers.rows().getFirst().getFirst()),
-                () -> assertEquals(second.questionId(), answers.rows().get(1).getFirst()));
+                () -> assertFalse(answers.isEmpty(), "The table holds at least one answer"),
+                () -> assertEquals(2, answers.rows().size(), "The table holds both answers"),
+                () -> assertEquals(first.questionId(), answers.rows().getFirst().getFirst(),
+                        "The first answer leads the table"),
+                () -> assertEquals(second.questionId(), answers.rows().get(1).getFirst(),
+                        "The second answer follows"));
     }
 
     @Test
@@ -122,8 +124,8 @@ class AnswersTest {
         var later = Answers.empty().plus(fact(questionId(500_000, 999_999), null));
 
         assertAll(
-                () -> assertEquals(2, earlier.plusAll(later).rows().size()),
-                () -> assertTrue(Answers.empty().isEmpty()));
+                () -> assertEquals(2, earlier.plusAll(later).rows().size(), "Merging keeps both answers"),
+                () -> assertTrue(Answers.empty().isEmpty(), "An empty answers table stays empty"));
     }
 
     @Test
@@ -132,19 +134,24 @@ class AnswersTest {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new AnswerFact("Q-7", null, "Which?", "option_a", "A", null,
-                                AnswerFact.Kind.CHOSEN)),
+                                AnswerFact.Kind.CHOSEN),
+                        "A question id outside the form is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new AnswerFact("Q-007", "task-3", "Which?", "option_a", "A", null,
-                                AnswerFact.Kind.CHOSEN)),
+                                AnswerFact.Kind.CHOSEN),
+                        "A plan task id outside the form is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new AnswerFact("Q-007", null, " ", "option_a", "A", null,
-                                AnswerFact.Kind.CHOSEN)),
+                                AnswerFact.Kind.CHOSEN),
+                        "A blank question text is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new AnswerFact("Q-007", null, "Which?", "Option A", "A", null,
-                                AnswerFact.Kind.CHOSEN)),
+                                AnswerFact.Kind.CHOSEN),
+                        "A branch key with a space is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new AnswerFact("Q-007", null, "Which?", "option_a+", "A", null,
-                                AnswerFact.Kind.CHOSEN)));
+                                AnswerFact.Kind.CHOSEN),
+                        "A branch key with a plus sign is refused"));
     }
 
     @Test
@@ -160,15 +167,18 @@ class AnswersTest {
                 () -> assertEquals(several,
                         new AnswerFact(questionId(), null, Generators.letterStrings(1, 40).next(), several,
                                 Generators.letterStrings(1, 20).next(), null,
-                                AnswerFact.Kind.CHOSEN).branchKey()),
+                                AnswerFact.Kind.CHOSEN).branchKey(),
+                        "A several answer keeps its branch keys"),
                 // "value" and "own" are the two reserved branch keys of the specification
                 () -> assertEquals("value",
                         new AnswerFact(questionId(), null, Generators.letterStrings(1, 40).next(), "value",
                                 Generators.letterStrings(1, 20).next(), null,
-                                AnswerFact.Kind.CHOSEN).branchKey()),
+                                AnswerFact.Kind.CHOSEN).branchKey(),
+                        "The reserved value key is kept"),
                 () -> assertEquals("own",
                         new AnswerFact(questionId(), null, Generators.letterStrings(1, 40).next(), "own",
                                 Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 40).next(),
-                                AnswerFact.Kind.OWN_OPTION).branchKey()));
+                                AnswerFact.Kind.OWN_OPTION).branchKey(),
+                        "The reserved own key is kept"));
     }
 }

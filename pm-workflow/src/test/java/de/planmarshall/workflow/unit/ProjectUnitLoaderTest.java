@@ -95,15 +95,18 @@ class ProjectUnitLoaderTest {
         var finding = UnitFixtures.find(result.findings(), kind, code);
         var refusal = result.refusal();
         assertAll("refused load",
-                () -> assertFalse(result.isVerified()),
+                () -> assertFalse(result.isVerified(), "a refused load is never verified"),
                 () -> assertEquals(Map.of(), result.units(), "a refused load carries no unit, no default either"),
                 () -> assertTrue(finding.isPresent(), () -> "%s %s expected in %s".formatted(kind, code,
                         result.findings())),
-                () -> assertEquals(file, finding.orElseThrow().file()),
+                () -> assertEquals(file, finding.orElseThrow().file(), "the finding names the file it refuses"),
                 () -> assertEquals(line, finding.orElseThrow().line(), finding.orElseThrow()::message),
-                () -> assertEquals(UnitLoadResult.CONFIG_INVALID, refusal.orElseThrow().code()),
-                () -> assertEquals(result.findings().getFirst().file(), refusal.orElseThrow().file()),
-                () -> assertEquals(result.findings().getFirst().line(), refusal.orElseThrow().line()),
+                () -> assertEquals(UnitLoadResult.CONFIG_INVALID, refusal.orElseThrow().code(),
+                        "the lifecycle refusal carries config_invalid"),
+                () -> assertEquals(result.findings().getFirst().file(), refusal.orElseThrow().file(),
+                        "the refusal names the file of its first finding"),
+                () -> assertEquals(result.findings().getFirst().line(), refusal.orElseThrow().line(),
+                        "the refusal names the line of its first finding"),
                 () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.PROJECT_UNIT_REFUSED.resolveIdentifierString()),
                 () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, file),
@@ -126,8 +129,9 @@ class ProjectUnitLoaderTest {
                                     "phase-4-plan", "phase-5-execute", "land", "phase-6-finalize",
                                     "adjudicate.decisions", "replan", "git.commit_and_push",
                                     "remediation.qgate-findings"),
-                            List.copyOf(result.units().keySet())),
-                    () -> assertEquals(Optional.empty(), result.refusal()),
+                            List.copyOf(result.units().keySet()),
+                            "every project unit is loaded, the plan unit first"),
+                    () -> assertEquals(Optional.empty(), result.refusal(), "a verified load refuses nothing"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.PROJECT_UNITS_VERIFIED.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO, projectId),
@@ -142,10 +146,13 @@ class ProjectUnitLoaderTest {
 
             assertAll(
                     () -> units.values().forEach(unit -> assertEquals(UnitOrigin.PROJECT, unit.origin(), unit::id)),
-                    () -> assertEquals(configPath("plan.pmwf"), plan.location().resourceName()),
-                    () -> assertEquals(configPath("init.pmwf"), units.get("phase-1-init").location().resourceName()),
+                    () -> assertEquals(configPath("plan.pmwf"), plan.location().resourceName(),
+                            "the plan unit is read from plan.pmwf"),
+                    () -> assertEquals(configPath("init.pmwf"), units.get("phase-1-init").location().resourceName(),
+                            "a phase unit is read from its own file"),
                     () -> assertEquals(configPath(InvariantFixtures.REPLAN_FILE),
-                            units.get("replan").location().resourceName()));
+                            units.get("replan").location().resourceName(),
+                            "the re-planning unit is read from its own file"));
         }
     }
 
@@ -178,7 +185,8 @@ class ProjectUnitLoaderTest {
             assertAll(
                     () -> assertTrue(result.isVerified(), result.findings()::toString),
                     () -> assertEquals(UnitFixtures.OTHER_PERSON_AUTHOR,
-                            result.units().get("replan").frontmatter().author()));
+                            result.units().get("replan").frontmatter().author(),
+                            "a person as the author is accepted"));
         }
 
         static Stream<Arguments> reservedForms() {
@@ -232,7 +240,8 @@ class ProjectUnitLoaderTest {
 
             assertAll(
                     () -> assertTrue(result.isVerified(), result.findings()::toString),
-                    () -> assertEquals(author, result.units().get("replan").frontmatter().author()));
+                    () -> assertEquals(author, result.units().get("replan").frontmatter().author(),
+                            "an author resembling the reserved one loads"));
         }
     }
 
@@ -261,7 +270,8 @@ class ProjectUnitLoaderTest {
 
             assertAll(
                     () -> assertEquals(ProjectUnitLoader.MAX_UNIT_FILE_BYTES,
-                            Files.size(project.resolve(configPath(REPLAN)))),
+                            Files.size(project.resolve(configPath(REPLAN))),
+                            "the unit file is exactly at the size cap"),
                     () -> assertTrue(result.isVerified(), result.findings()::toString));
         }
 
@@ -279,7 +289,8 @@ class ProjectUnitLoaderTest {
             assertAll(
                     () -> assertTrue(finding.message().contains(Integer.toString(ProjectUnitLoader.MAX_UNIT_FILE_BYTES)),
                             finding::message),
-                    () -> assertEquals(bytes, Files.size(project.resolve(configPath(REPLAN)))));
+                    () -> assertEquals(bytes, Files.size(project.resolve(configPath(REPLAN))),
+                            "the unit file is written above the size cap"));
         }
 
         static Stream<Arguments> aboveTheCap() {
@@ -303,7 +314,7 @@ class ProjectUnitLoaderTest {
             var result = UnitFixtures.load(projectId, project, List.of(), Set.of());
 
             assertAll(
-                    () -> assertFalse(result.isVerified()),
+                    () -> assertFalse(result.isVerified(), "the frontmatter past the line cap is refused"),
                     () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.PARSE,
                             RefusalRule.FRONTMATTER.name()).isPresent(), result.findings()::toString),
                     () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE,
@@ -354,7 +365,8 @@ class ProjectUnitLoaderTest {
             var parsed = WorkflowParser.parse(file, workflowDefault.apply(InvariantFixtures.read(file)),
                     UnitOrigin.DEFAULT);
             var defaults = new LinkedHashMap<>(UnitFixtures.defaultUnits());
-            defaults.put("replan", assertInstanceOf(ParseResult.Parsed.class, parsed).definition());
+            defaults.put("replan", assertInstanceOf(ParseResult.Parsed.class, parsed,
+                    "the default re-planning unit parses").definition());
             var loader = new ProjectUnitLoader(UnitFixtures.context(), defaults, InvariantFixtures.defaultRoster(),
                     UnitFixtures.UNIT_FILES);
 
@@ -367,10 +379,12 @@ class ProjectUnitLoaderTest {
                             && finding.message().contains(expected))
                     .toList();
             assertAll(
-                    () -> assertFalse(result.isVerified()),
+                    () -> assertFalse(result.isVerified(), "the type replacement is refused"),
                     () -> assertEquals(1, matching.size(), result.findings()::toString),
-                    () -> assertEquals(configPath(file), matching.getFirst().file()),
-                    () -> assertEquals(mutation.lineOf("workflow replan"), matching.getFirst().line()));
+                    () -> assertEquals(configPath(file), matching.getFirst().file(),
+                            "the finding names the re-planning unit file"),
+                    () -> assertEquals(mutation.lineOf("workflow replan"), matching.getFirst().line(),
+                            "the finding names the line of the type header"));
         }
 
         @Test
@@ -384,7 +398,7 @@ class ProjectUnitLoaderTest {
             assertTrue(result.findings().stream().anyMatch(finding -> finding.kind() == UnitFinding.Kind.RULE
                             && configPath(mutation.file()).equals(finding.file()) && finding.line() == line),
                     result.findings()::toString);
-            assertFalse(result.isVerified());
+            assertFalse(result.isVerified(), "the rule violation refuses the lifecycle");
         }
 
         @Test
@@ -402,7 +416,7 @@ class ProjectUnitLoaderTest {
                                     other -> other.kind() == UnitFinding.Kind.INVARIANT
                                             && configPath(mutation.file()).equals(other.file())
                                             && other.line() == finding.line()),
-                            "the invariant check does not report the declaration finding again"));
+                            "the invariant check does not repeat the finding"));
         }
 
         @Test
@@ -477,7 +491,8 @@ class ProjectUnitLoaderTest {
             var finding = assertRefused(result, UnitFinding.Kind.PARSE, RefusalRule.STRUCTURE.name(),
                     configPath(mutation.file()), mutation.lineOf("workflow replan"));
             assertAll(
-                    () -> assertEquals(1, ProjectUnitLoader.COMPILED_FORMAT_VERSION),
+                    () -> assertEquals(1, ProjectUnitLoader.COMPILED_FORMAT_VERSION,
+                            "the compiled format is the first one"),
                     () -> assertTrue(finding.message().contains("'0'"), finding::message));
         }
 
@@ -519,7 +534,8 @@ class ProjectUnitLoaderTest {
 
             assertRefused(result, UnitFinding.Kind.MISSING, UnitFinding.UNIT_MISSING,
                     configPath(InvariantFixtures.REPLAN_FILE), 0);
-            assertFalse(result.units().containsKey("replan"));
+            assertFalse(result.units().containsKey("replan"),
+                    "a missing unit is never replaced by its default");
         }
 
         @Test
@@ -556,7 +572,7 @@ class ProjectUnitLoaderTest {
             var result = UnitFixtures.load(projectId, project, List.of(), Set.of());
 
             assertAll(
-                    () -> assertFalse(result.isVerified()),
+                    () -> assertFalse(result.isVerified(), "the indented opening delimiter is refused"),
                     () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.PARSE,
                             RefusalRule.FRONTMATTER.name()).isPresent(), result.findings()::toString),
                     () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE,
@@ -594,17 +610,25 @@ class ProjectUnitLoaderTest {
         var files = UnitFixtures.UNIT_FILES;
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> loader.load(null, roots, List.of(), Set.of())),
-                () -> assertThrows(NullPointerException.class, () -> loader.load(projectId, null, List.of(), Set.of())),
-                () -> assertThrows(NullPointerException.class, () -> loader.load(projectId, roots, null, Set.of())),
-                () -> assertThrows(NullPointerException.class, () -> loader.load(projectId, roots, List.of(), null)),
+                () -> assertThrows(NullPointerException.class, () -> loader.load(null, roots, List.of(), Set.of()),
+                        "a null project id is refused"),
+                () -> assertThrows(NullPointerException.class, () -> loader.load(projectId, null, List.of(), Set.of()),
+                        "null roots are refused"),
+                () -> assertThrows(NullPointerException.class, () -> loader.load(projectId, roots, null, Set.of()),
+                        "a null unit list is refused"),
+                () -> assertThrows(NullPointerException.class, () -> loader.load(projectId, roots, List.of(), null),
+                        "a null bound step set is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new ProjectUnitLoader(null, defaults, roster, files)),
+                        () -> new ProjectUnitLoader(null, defaults, roster, files),
+                        "a null class loader is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new ProjectUnitLoader(context, null, roster, files)),
+                        () -> new ProjectUnitLoader(context, null, roster, files),
+                        "null default units are refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new ProjectUnitLoader(context, defaults, null, files)),
+                        () -> new ProjectUnitLoader(context, defaults, null, files),
+                        "a null roster is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new ProjectUnitLoader(context, defaults, roster, null)));
+                        () -> new ProjectUnitLoader(context, defaults, roster, null),
+                        "a null unit file list is refused"));
     }
 }

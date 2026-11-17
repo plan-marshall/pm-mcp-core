@@ -88,29 +88,38 @@ class ConsultationServiceTest {
 
         var answered = assertInstanceOf(ConsultationOutcome.Answered.class,
                 service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
-                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
+                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT),
+                "the first answer is accepted");
         var second = assertInstanceOf(ConsultationOutcome.Refused.class,
                 service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
-                        Generators.letterStrings(3, 20).next(), ConsultationFixtures.AT.plusSeconds(1)));
+                        Generators.letterStrings(3, 20).next(), ConsultationFixtures.AT.plusSeconds(1)),
+                "a second answer is refused");
 
         var fact = answered.facts().getFirst();
         var consultation = queue.read(opened.consultationId()).orElseThrow();
         var links = service.links(answered.askingTask(), List.of(ConsultationFixtures.REVIEWER));
         var reconciled = service.reconcile(ConsultationFixtures.AT.plusSeconds(1), Duration.ofSeconds(60));
         assertAll(
-                () -> assertEquals(ConsultationStatus.ANSWERED, fact.status()),
-                () -> assertEquals(ConsultationFixtures.ANSWER, fact.answer()),
-                () -> assertEquals(Status.EXECUTING, answered.askingTask().status()),
-                () -> assertEquals(DeliveredTo.WAIT, answered.askingTask().consultations().getFirst().deliveredTo()),
-                () -> assertNotNull(answered.askingTask().consultations().getFirst().deliveredAt()),
+                () -> assertEquals(ConsultationStatus.ANSWERED, fact.status(),
+                        "the fact reports the answered status"),
+                () -> assertEquals(ConsultationFixtures.ANSWER, fact.answer(), "the fact carries the answer"),
+                () -> assertEquals(Status.EXECUTING, answered.askingTask().status(), "the asker keeps executing"),
+                () -> assertEquals(DeliveredTo.WAIT, answered.askingTask().consultations().getFirst().deliveredTo(),
+                        "the consultation is delivered to the wait"),
+                () -> assertNotNull(answered.askingTask().consultations().getFirst().deliveredAt(),
+                        "the delivery carries its timestamp"),
                 () -> assertEquals(List.of(ConsultationFixtures.REVIEWER),
-                        links.stream().map(ConsultationLink::role).toList()),
-                () -> assertEquals(0, reconciled),
+                        links.stream().map(ConsultationLink::role).toList(),
+                        "the consulted role is the only link"),
+                () -> assertEquals(0, reconciled, "nothing is reconciled while executing"),
                 () -> assertEquals(DeliveredTo.WAIT, queue.read(ConsultationFixtures.ASKER).orElseThrow()
-                        .consultations().getFirst().deliveredTo()),
-                () -> assertEquals(ConsultationRefusal.STALE_ENTITY, second.refusal()),
-                () -> assertEquals(Status.CLOSED, consultation.status()),
-                () -> assertEquals(Outcome.SUBMITTED, consultation.outcome()));
+                                .consultations().getFirst().deliveredTo(),
+                        "the stored asker keeps the wait delivery"),
+                () -> assertEquals(ConsultationRefusal.STALE_ENTITY, second.refusal(),
+                        "the second answer reports a stale entity"),
+                () -> assertEquals(Status.CLOSED, consultation.status(), "the consultation is closed"),
+                () -> assertEquals(Outcome.SUBMITTED, consultation.outcome(),
+                        "the consultation records the submit"));
     }
 
     @Test
@@ -122,29 +131,38 @@ class ConsultationServiceTest {
 
         var answered = assertInstanceOf(ConsultationOutcome.Answered.class,
                 service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
-                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT.plusSeconds(1)));
+                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT.plusSeconds(1)),
+                "the answer to the fenced asker is accepted");
         var successor = assertInstanceOf(WaitAnswer.Offered.class, protocol.wait(
-                new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
-                        ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
-                ConsultationFixtures.AT.plusSeconds(2)));
+                        new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
+                                ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
+                        ConsultationFixtures.AT.plusSeconds(2)),
+                "the successor is offered the answer");
         var acknowledged = assertInstanceOf(CallResult.Accepted.class, protocol.acknowledge(
-                new TaskCall(ConsultationFixtures.ASKER, ConsultationFixtures.SUCCESSOR_GENERATION),
-                ConsultationFixtures.AT.plusSeconds(3)));
+                        new TaskCall(ConsultationFixtures.ASKER, ConsultationFixtures.SUCCESSOR_GENERATION),
+                        ConsultationFixtures.AT.plusSeconds(3)),
+                "the successor acknowledges the answer");
         var links = service.links(acknowledged.task(),
                 List.of(ConsultationFixtures.REVIEWER, ConsultationFixtures.SECOND_REVIEWER));
 
         var delivered = answered.askingTask().consultations().getFirst();
         var offered = successor.task();
         assertAll(
-                () -> assertEquals(DeliveredTo.FACTS, delivered.deliveredTo()),
-                () -> assertEquals(ConsultationStatus.ANSWERED, delivered.status()),
-                () -> assertEquals(Status.QUEUED, answered.askingTask().status()),
-                () -> assertEquals(1, offered.consultations().size()),
-                () -> assertEquals(ConsultationStatus.ANSWERED, offered.consultations().getFirst().status()),
-                () -> assertEquals(ConsultationFixtures.ANSWER, offered.consultations().getFirst().answer()),
-                () -> assertEquals(1, service.facts(ConsultationFixtures.ASKER).size()),
+                () -> assertEquals(DeliveredTo.FACTS, delivered.deliveredTo(), "the answer is delivered as facts"),
+                () -> assertEquals(ConsultationStatus.ANSWERED, delivered.status(),
+                        "the delivered consultation is answered"),
+                () -> assertEquals(Status.QUEUED, answered.askingTask().status(),
+                        "the fenced asker is queued again"),
+                () -> assertEquals(1, offered.consultations().size(), "the successor holds one consultation"),
+                () -> assertEquals(ConsultationStatus.ANSWERED, offered.consultations().getFirst().status(),
+                        "the successor's consultation is answered"),
+                () -> assertEquals(ConsultationFixtures.ANSWER, offered.consultations().getFirst().answer(),
+                        "the successor sees the answer"),
+                () -> assertEquals(1, service.facts(ConsultationFixtures.ASKER).size(),
+                        "the fenced asker has one fact"),
                 () -> assertEquals(List.of(ConsultationFixtures.SECOND_REVIEWER),
-                        links.stream().map(ConsultationLink::role).toList()));
+                        links.stream().map(ConsultationLink::role).toList(),
+                        "only the second reviewer is linked"));
     }
 
     @Test
@@ -156,7 +174,8 @@ class ConsultationServiceTest {
             serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, role);
             assertInstanceOf(ConsultationOutcome.Answered.class,
                     service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
-                            ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
+                            ConsultationFixtures.ANSWER, ConsultationFixtures.AT),
+                    "each of the three answers is accepted");
         }
 
         var fourthRole = "fourth-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
@@ -164,12 +183,14 @@ class ConsultationServiceTest {
         var links = service.links(asker, List.of(ConsultationFixtures.REVIEWER, ConsultationFixtures.SECOND_REVIEWER,
                 ConsultationFixtures.THIRD_REVIEWER, fourthRole));
         var fourth = assertInstanceOf(ConsultationOutcome.Refused.class,
-                service.open(ConsultationFixtures.request(fourthRole, RoleClass.READ_ONLY)));
+                service.open(ConsultationFixtures.request(fourthRole, RoleClass.READ_ONLY)),
+                "a fourth consultation is refused");
 
         assertAll(
-                () -> assertEquals(3, asker.consultations().size()),
-                () -> assertTrue(links.isEmpty()),
-                () -> assertEquals(ConsultationRefusal.CONSULTATION_BOUND_SPENT, fourth.refusal()));
+                () -> assertEquals(3, asker.consultations().size(), "the asker keeps three consultations"),
+                () -> assertTrue(links.isEmpty(), "a fourth link is not offered"),
+                () -> assertEquals(ConsultationRefusal.CONSULTATION_BOUND_SPENT, fourth.refusal(),
+                        "the bound is reported spent"));
     }
 
     @Test
@@ -179,24 +200,30 @@ class ConsultationServiceTest {
         serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
 
         var lost = assertInstanceOf(ConsultationOutcome.Answered.class,
-                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT));
+                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT),
+                "a lost consultation is delivered");
         var second = assertInstanceOf(ConsultationOutcome.Refused.class,
                 service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE,
-                        ConsultationFixtures.AT.plusSeconds(1)));
+                        ConsultationFixtures.AT.plusSeconds(1)),
+                "a second lost report is refused");
 
         var fact = lost.facts().getFirst();
         var consultation = queue.read(opened.consultationId()).orElseThrow();
         assertAll(
-                () -> assertEquals(ConsultationStatus.UNAVAILABLE, fact.status()),
-                () -> assertEquals("unavailable", fact.wireStatus()),
-                () -> assertNull(fact.answer()),
-                () -> assertEquals(DeliveredTo.WAIT, lost.askingTask().consultations().getFirst().deliveredTo()),
-                () -> assertEquals(Status.EXECUTING, lost.askingTask().status()),
-                () -> assertEquals(Outcome.LOST, consultation.outcome()),
-                () -> assertEquals(LostReason.ROLE_UNAVAILABLE, consultation.reason()),
-                () -> assertEquals(ConsultationRefusal.STALE_ENTITY, second.refusal()),
+                () -> assertEquals(ConsultationStatus.UNAVAILABLE, fact.status(),
+                        "the fact reports the unavailable status"),
+                () -> assertEquals("unavailable", fact.wireStatus(), "the wire status is unavailable"),
+                () -> assertNull(fact.answer(), "an unavailable fact carries no answer"),
+                () -> assertEquals(DeliveredTo.WAIT, lost.askingTask().consultations().getFirst().deliveredTo(),
+                        "the lost consultation is delivered to the wait"),
+                () -> assertEquals(Status.EXECUTING, lost.askingTask().status(), "the asker keeps executing"),
+                () -> assertEquals(Outcome.LOST, consultation.outcome(), "the consultation records the loss"),
+                () -> assertEquals(LostReason.ROLE_UNAVAILABLE, consultation.reason(), "the loss keeps its reason"),
+                () -> assertEquals(ConsultationRefusal.STALE_ENTITY, second.refusal(),
+                        "the second loss reports a stale entity"),
                 () -> assertInstanceOf(SubmitValidation.Accepted.class,
-                        service.validateSubmit(ConsultationFixtures.ASKER, List.of(opened.consultationId()))));
+                        service.validateSubmit(ConsultationFixtures.ASKER, List.of(opened.consultationId())),
+                        "the delivered consultation validates the submit"));
     }
 
     @Test
@@ -206,28 +233,37 @@ class ConsultationServiceTest {
         serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
         assertInstanceOf(ConsultationOutcome.Answered.class,
                 service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
-                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
+                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT),
+                "the consultation is answered before the submit");
 
         var missing = assertInstanceOf(SubmitValidation.Refused.class,
-                service.validateSubmit(ConsultationFixtures.ASKER, List.of()));
+                service.validateSubmit(ConsultationFixtures.ASKER, List.of()),
+                "a submit without the id is refused");
         var unknown = assertInstanceOf(SubmitValidation.Refused.class, service.validateSubmit(
-                ConsultationFixtures.ASKER, List.of(opened.consultationId(), UNKNOWN_CONSULTATION)));
+                        ConsultationFixtures.ASKER, List.of(opened.consultationId(), UNKNOWN_CONSULTATION)),
+                "a submit naming an unknown id is refused");
         var accepted = assertInstanceOf(SubmitValidation.Accepted.class,
-                service.validateSubmit(ConsultationFixtures.ASKER, List.of(opened.consultationId())));
+                service.validateSubmit(ConsultationFixtures.ASKER, List.of(opened.consultationId())),
+                "a submit naming the delivered id is accepted");
 
         var second = opened(ConsultationFixtures.SECOND_REVIEWER);
         serve(second.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.SECOND_REVIEWER);
         assertInstanceOf(ConsultationOutcome.Answered.class,
                 service.answer(second.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
-                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
+                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT),
+                "the second consultation is answered");
         var omitsSecond = assertInstanceOf(SubmitValidation.Refused.class,
-                service.validateSubmit(ConsultationFixtures.ASKER, List.of(opened.consultationId())));
+                service.validateSubmit(ConsultationFixtures.ASKER, List.of(opened.consultationId())),
+                "a submit omitting the second id is refused");
 
         assertAll(
-                () -> assertTrue(missing.detail().contains(opened.consultationId())),
-                () -> assertTrue(unknown.detail().contains(UNKNOWN_CONSULTATION)),
-                () -> assertNotNull(accepted),
-                () -> assertTrue(omitsSecond.detail().contains(second.consultationId())));
+                () -> assertTrue(missing.detail().contains(opened.consultationId()),
+                        "the refusal names the missing id"),
+                () -> assertTrue(unknown.detail().contains(UNKNOWN_CONSULTATION),
+                        "the refusal names the unknown id"),
+                () -> assertNotNull(accepted, "the accepted submit is not null"),
+                () -> assertTrue(omitsSecond.detail().contains(second.consultationId()),
+                        "the refusal names the omitted id"));
     }
 
     @Test
@@ -240,13 +276,16 @@ class ConsultationServiceTest {
                 List.of(ConsultationFixtures.REVIEWER, ConsultationFixtures.SECOND_REVIEWER));
         var second = assertInstanceOf(ConsultationOutcome.Refused.class,
                 service.open(ConsultationFixtures.request(ConsultationFixtures.ASKER,
-                        ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.SECOND_REVIEWER)));
+                        ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.SECOND_REVIEWER)),
+                "a second consultation while one is open is refused");
 
         assertAll(
-                () -> assertTrue(links.isEmpty()),
-                () -> assertEquals(Status.CONSULTING, asker.status()),
-                () -> assertEquals(ConsultationRefusal.CONSULTATION_OPEN, second.refusal()),
-                () -> assertEquals(opened.consultationId(), asker.consultations().getFirst().consultationId()));
+                () -> assertTrue(links.isEmpty(), "no link is offered while consulting"),
+                () -> assertEquals(Status.CONSULTING, asker.status(), "the asker is consulting"),
+                () -> assertEquals(ConsultationRefusal.CONSULTATION_OPEN, second.refusal(),
+                        "the refusal names the open consultation"),
+                () -> assertEquals(opened.consultationId(), asker.consultations().getFirst().consultationId(),
+                        "the asker carries the opened consultation"));
     }
 
     @Test
@@ -261,12 +300,15 @@ class ConsultationServiceTest {
                 service.open(new ConsultationRequest(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
                         ConsultationFixtures.SECOND_REVIEWER, RoleClass.READ_ONLY, false,
                         List.of(ConsultationFixtures.SECOND_REVIEWER), ConsultationFixtures.QUESTION,
-                        ConsultationFixtures.AT)));
+                        ConsultationFixtures.AT)),
+                "a nested consultation is refused");
 
         assertAll(
-                () -> assertEquals(Status.EXECUTING, consultation.status()),
-                () -> assertTrue(links.isEmpty()),
-                () -> assertEquals(ConsultationRefusal.CONSULTATION_DEPTH, nested.refusal()));
+                () -> assertEquals(Status.EXECUTING, consultation.status(),
+                        "the consultation task keeps executing"),
+                () -> assertTrue(links.isEmpty(), "a consultation task offers no link"),
+                () -> assertEquals(ConsultationRefusal.CONSULTATION_DEPTH, nested.refusal(),
+                        "the refusal names the depth bound"));
     }
 
     @Test
@@ -280,22 +322,30 @@ class ConsultationServiceTest {
                 List.of(ConsultationFixtures.REVIEWER), "x".repeat(4_001), ConsultationFixtures.AT);
         var zeroTool = ConsultationFixtures.request(ConsultationFixtures.REVIEWER, RoleClass.ZERO_TOOL);
 
-        var empty = assertInstanceOf(ConsultationOutcome.Refused.class, service.open(emptyQuestion));
-        var tooLong = assertInstanceOf(ConsultationOutcome.Refused.class, service.open(longQuestion));
-        var noProtocol = assertInstanceOf(ConsultationOutcome.Refused.class, service.open(zeroTool));
+        var empty = assertInstanceOf(ConsultationOutcome.Refused.class, service.open(emptyQuestion),
+                "an empty question is refused");
+        var tooLong = assertInstanceOf(ConsultationOutcome.Refused.class, service.open(longQuestion),
+                "a question over 4000 characters is refused");
+        var noProtocol = assertInstanceOf(ConsultationOutcome.Refused.class, service.open(zeroTool),
+                "a zero tool role is refused");
 
         var opened = opened(ConsultationFixtures.REVIEWER);
         serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
         var emptyAnswer = assertInstanceOf(ConsultationOutcome.Refused.class,
                 service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, "",
-                        ConsultationFixtures.AT));
+                        ConsultationFixtures.AT),
+                "an empty answer is refused");
 
         assertAll(
-                () -> assertEquals(ConsultationRefusal.INVALID_LINK_ARGS, empty.refusal()),
-                () -> assertEquals(ConsultationRefusal.INVALID_LINK_ARGS, tooLong.refusal()),
-                () -> assertEquals(ConsultationRefusal.CLASS_MISMATCH, noProtocol.refusal()),
-                () -> assertEquals(ConsultationRefusal.INVALID_LINK_ARGS, emptyAnswer.refusal()),
-                () -> assertEquals(2, queue.records().size()));
+                () -> assertEquals(ConsultationRefusal.INVALID_LINK_ARGS, empty.refusal(),
+                        "the empty question reports invalid arguments"),
+                () -> assertEquals(ConsultationRefusal.INVALID_LINK_ARGS, tooLong.refusal(),
+                        "the long question reports invalid arguments"),
+                () -> assertEquals(ConsultationRefusal.CLASS_MISMATCH, noProtocol.refusal(),
+                        "the zero tool role reports a class mismatch"),
+                () -> assertEquals(ConsultationRefusal.INVALID_LINK_ARGS, emptyAnswer.refusal(),
+                        "the empty answer reports invalid arguments"),
+                () -> assertEquals(2, queue.records().size(), "the queue holds the asker and the opened task"));
     }
 
     @Test
@@ -307,13 +357,17 @@ class ConsultationServiceTest {
 
         var refused = assertInstanceOf(ConsultationOutcome.Refused.class,
                 service.answer("qt-00000000000000aa", ConsultationFixtures.CONSULTED_GENERATION,
-                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
+                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT),
+                "an answer for a task without the consultation is refused");
 
         assertAll(
-                () -> assertEquals(ConsultationRefusal.JOB_SCOPE_MISMATCH, refused.refusal()),
+                () -> assertEquals(ConsultationRefusal.JOB_SCOPE_MISMATCH, refused.refusal(),
+                        "the refusal names the job scope mismatch"),
                 () -> assertEquals(Status.EXECUTING,
-                        queue.read("qt-00000000000000aa").orElseThrow().status()),
-                () -> assertTrue(service.facts(ConsultationFixtures.ASKER).isEmpty()));
+                        queue.read("qt-00000000000000aa").orElseThrow().status(),
+                        "the consultation task keeps executing"),
+                () -> assertTrue(service.facts(ConsultationFixtures.ASKER).isEmpty(),
+                        "the asker receives no fact"));
     }
 
     @Test
@@ -323,29 +377,35 @@ class ConsultationServiceTest {
         serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
         assertInstanceOf(ConsultationOutcome.Answered.class,
                 service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
-                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
+                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT),
+                "the answer is recorded before the fence");
         protocol.fence(ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT.plusSeconds(1));
         var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(2), Duration.ofSeconds(60));
 
         var successor = assertInstanceOf(WaitAnswer.Offered.class, protocol.wait(
-                new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
-                        ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
-                ConsultationFixtures.AT.plusSeconds(2)));
+                        new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
+                                ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
+                        ConsultationFixtures.AT.plusSeconds(2)),
+                "the successor is offered the recorded answer");
         var acknowledged = assertInstanceOf(CallResult.Accepted.class, protocol.acknowledge(
-                new TaskCall(ConsultationFixtures.ASKER, ConsultationFixtures.SUCCESSOR_GENERATION),
-                ConsultationFixtures.AT.plusSeconds(3)));
+                        new TaskCall(ConsultationFixtures.ASKER, ConsultationFixtures.SUCCESSOR_GENERATION),
+                        ConsultationFixtures.AT.plusSeconds(3)),
+                "the successor acknowledges the recorded answer");
         var links = service.links(acknowledged.task(),
                 List.of(ConsultationFixtures.REVIEWER, ConsultationFixtures.SECOND_REVIEWER));
         var recorded = queue.read(ConsultationFixtures.ASKER).orElseThrow().consultations().getFirst();
 
         assertAll(
-                () -> assertEquals(1, repaired),
-                () -> assertEquals(DeliveredTo.FACTS, recorded.deliveredTo()),
-                () -> assertEquals(1, successor.task().consultations().size()),
+                () -> assertEquals(1, repaired, "one delivery is repaired"),
+                () -> assertEquals(DeliveredTo.FACTS, recorded.deliveredTo(), "the answer is delivered as facts"),
+                () -> assertEquals(1, successor.task().consultations().size(),
+                        "the successor holds one consultation"),
                 () -> assertEquals(ConsultationFixtures.ANSWER,
-                        successor.task().consultations().getFirst().answer()),
+                        successor.task().consultations().getFirst().answer(),
+                        "the successor sees the recorded answer"),
                 () -> assertEquals(List.of(ConsultationFixtures.SECOND_REVIEWER),
-                        links.stream().map(ConsultationLink::role).toList()));
+                        links.stream().map(ConsultationLink::role).toList(),
+                        "only the second reviewer is linked"));
     }
 
     @Test
@@ -355,22 +415,27 @@ class ConsultationServiceTest {
         serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
         protocol.fence(ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT);
         assertInstanceOf(ConsultationOutcome.Answered.class,
-                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT));
+                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT),
+                "A lost consultation is delivered as answered");
 
         var successor = assertInstanceOf(WaitAnswer.Offered.class, protocol.wait(
-                new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
-                        ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
-                ConsultationFixtures.AT.plusSeconds(1)));
+                        new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
+                                ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
+                        ConsultationFixtures.AT.plusSeconds(1)),
+                "the successor is offered the unavailable consultation");
         var acknowledged = assertInstanceOf(CallResult.Accepted.class, protocol.acknowledge(
-                new TaskCall(ConsultationFixtures.ASKER, ConsultationFixtures.SUCCESSOR_GENERATION),
-                ConsultationFixtures.AT.plusSeconds(2)));
+                        new TaskCall(ConsultationFixtures.ASKER, ConsultationFixtures.SUCCESSOR_GENERATION),
+                        ConsultationFixtures.AT.plusSeconds(2)),
+                "the successor acknowledges the consultation");
         var links = service.links(acknowledged.task(), List.of(ConsultationFixtures.REVIEWER));
 
         assertAll(
                 () -> assertEquals(ConsultationStatus.UNAVAILABLE,
-                        successor.task().consultations().getFirst().status()),
+                        successor.task().consultations().getFirst().status(),
+                        "the successor sees the unavailable consultation"),
                 () -> assertEquals(List.of(ConsultationFixtures.REVIEWER),
-                        links.stream().map(ConsultationLink::role).toList()));
+                        links.stream().map(ConsultationLink::role).toList(),
+                        "the role stays open for a fresh consultation"));
     }
 
     @Test
@@ -380,12 +445,16 @@ class ConsultationServiceTest {
         serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
         var call = new TaskCall(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION);
 
-        var submit = assertInstanceOf(CallResult.Refused.class, protocol.submit(call, ConsultationFixtures.AT));
-        var infeasible = assertInstanceOf(CallResult.Refused.class, protocol.infeasible(call, ConsultationFixtures.AT));
+        var submit = assertInstanceOf(CallResult.Refused.class, protocol.submit(call, ConsultationFixtures.AT),
+                "a consultation task refuses submit");
+        var infeasible = assertInstanceOf(CallResult.Refused.class, protocol.infeasible(call, ConsultationFixtures.AT),
+                "a consultation task refuses infeasible");
 
         assertAll(
-                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, submit.refusal()),
-                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, infeasible.refusal()));
+                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, submit.refusal(),
+                        "the submit names the missing link"),
+                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, infeasible.refusal(),
+                        "the infeasible names the missing link"));
     }
 
     @Test
@@ -393,11 +462,13 @@ class ConsultationServiceTest {
     void undeclaredRoleRefused() {
         var refused = assertInstanceOf(ConsultationOutcome.Refused.class,
                 service.open(ConsultationFixtures.request(ConsultationFixtures.REVIEWER,
-                        List.of(ConsultationFixtures.SECOND_REVIEWER))));
+                        List.of(ConsultationFixtures.SECOND_REVIEWER))),
+                "a role the state does not declare is refused");
 
         assertAll(
-                () -> assertEquals(ConsultationRefusal.LINK_NOT_AVAILABLE, refused.refusal()),
-                () -> assertEquals(1, queue.records().size()));
+                () -> assertEquals(ConsultationRefusal.LINK_NOT_AVAILABLE, refused.refusal(),
+                        "the refusal names the missing link"),
+                () -> assertEquals(1, queue.records().size(), "only the asker is recorded"));
     }
 
     @Test
@@ -406,17 +477,19 @@ class ConsultationServiceTest {
         var opened = opened(ConsultationFixtures.REVIEWER);
         serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
         assertInstanceOf(CallResult.Accepted.class, protocol.report(
-                new TaskCall(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION),
-                AttemptEnd.WITHDRAWN, 3, ConsultationFixtures.AT));
+                        new TaskCall(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION),
+                        AttemptEnd.WITHDRAWN, 3, ConsultationFixtures.AT),
+                "the consultation is withdrawn outside the service");
 
         var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(1), Duration.ofSeconds(60));
         var fact = service.facts(ConsultationFixtures.ASKER).getFirst();
 
         assertAll(
-                () -> assertEquals(1, repaired),
-                () -> assertEquals(ConsultationStatus.UNAVAILABLE, fact.status()),
+                () -> assertEquals(1, repaired, "one consultation is repaired"),
+                () -> assertEquals(ConsultationStatus.UNAVAILABLE, fact.status(),
+                        "the repaired consultation is unavailable"),
                 () -> assertEquals(0, service.reconcile(ConsultationFixtures.AT.plusSeconds(2),
-                        Duration.ofSeconds(60))));
+                        Duration.ofSeconds(60)), "a second reconcile repairs nothing"));
     }
 
     @Test
@@ -432,13 +505,15 @@ class ConsultationServiceTest {
         var asker = queue.read(ConsultationFixtures.ASKER).orElseThrow();
 
         assertAll(
-                () -> assertEquals(0, early),
-                () -> assertEquals(1, repaired),
-                () -> assertEquals(ConsultationStatus.UNAVAILABLE, asker.consultations().getFirst().status()),
-                () -> assertEquals(DeliveredTo.WAIT, asker.consultations().getFirst().deliveredTo()),
-                () -> assertEquals(Status.EXECUTING, asker.status()),
+                () -> assertEquals(0, early, "the grace period repairs nothing"),
+                () -> assertEquals(1, repaired, "the consultation is repaired after the grace"),
+                () -> assertEquals(ConsultationStatus.UNAVAILABLE, asker.consultations().getFirst().status(),
+                        "the orphaned consultation is unavailable"),
+                () -> assertEquals(DeliveredTo.WAIT, asker.consultations().getFirst().deliveredTo(),
+                        "the orphaned consultation stays at the wait"),
+                () -> assertEquals(Status.EXECUTING, asker.status(), "the asker keeps executing"),
                 () -> assertEquals(0, service.reconcile(ConsultationFixtures.AT.plusSeconds(62),
-                        Duration.ofSeconds(60))));
+                        Duration.ofSeconds(60)), "a second reconcile repairs nothing"));
     }
 
     @Test
@@ -447,26 +522,30 @@ class ConsultationServiceTest {
         var opened = opened(ConsultationFixtures.REVIEWER);
         serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
         assertInstanceOf(ConsultationOutcome.Answered.class,
-                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT));
+                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT),
+                "the lost consultation is recorded for the wait");
         protocol.fence(ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT.plusSeconds(1));
 
         var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(2), Duration.ofSeconds(60));
         var entry = queue.read(ConsultationFixtures.ASKER).orElseThrow().consultations().getFirst();
 
         assertAll(
-                () -> assertEquals(1, repaired),
-                () -> assertEquals(ConsultationStatus.UNAVAILABLE, entry.status()),
-                () -> assertEquals(DeliveredTo.FACTS, entry.deliveredTo()),
-                () -> assertNull(entry.answer()));
+                () -> assertEquals(1, repaired, "one delivery is repaired"),
+                () -> assertEquals(ConsultationStatus.UNAVAILABLE, entry.status(),
+                        "the repaired entry is unavailable"),
+                () -> assertEquals(DeliveredTo.FACTS, entry.deliveredTo(), "the entry is delivered as facts"),
+                () -> assertNull(entry.answer(), "the lost entry carries no answer"));
     }
 
     @Test
     @DisplayName("the consultation task carries the caller's form downgrade")
     void consultationTaskCarriesTheCallersFormDowngrade() {
         var opened = assertInstanceOf(ConsultationOutcome.Opened.class,
-                service.open(ConsultationFixtures.requestWithDowngrade(ConsultationFixtures.REVIEWER)));
+                service.open(ConsultationFixtures.requestWithDowngrade(ConsultationFixtures.REVIEWER)),
+                "the consultation opens with the downgrade");
 
-        assertTrue(queue.read(opened.consultationId()).orElseThrow().formDowngraded());
+        assertTrue(queue.read(opened.consultationId()).orElseThrow().formDowngraded(),
+                "the consultation task carries the downgrade");
     }
 
     @Test
@@ -483,16 +562,19 @@ class ConsultationServiceTest {
         var request = ConsultationFixtures.request(ConsultationFixtures.ASKER,
                 ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.REVIEWER);
 
-        assertThrows(UncheckedIOException.class, () -> failing.open(request));
+        assertThrows(UncheckedIOException.class, () -> failing.open(request),
+                "the creation failure propagates");
         var asker = queue.read(ConsultationFixtures.ASKER).orElseThrow();
         var repaired = failing.reconcile(ConsultationFixtures.AT.plusSeconds(61), Duration.ofSeconds(60));
 
         assertAll(
-                () -> assertEquals(Status.CONSULTING, asker.status()),
-                () -> assertEquals(ConsultationStatus.OPEN, asker.consultations().getFirst().status()),
-                () -> assertEquals(1, repaired),
+                () -> assertEquals(Status.CONSULTING, asker.status(), "the asker keeps consulting"),
+                () -> assertEquals(ConsultationStatus.OPEN, asker.consultations().getFirst().status(),
+                        "the consultation entry stays open"),
+                () -> assertEquals(1, repaired, "the reconciliation repairs the entry"),
                 () -> assertEquals(ConsultationStatus.UNAVAILABLE,
-                        queue.read(ConsultationFixtures.ASKER).orElseThrow().consultations().getFirst().status()));
+                        queue.read(ConsultationFixtures.ASKER).orElseThrow().consultations().getFirst().status(),
+                        "the repaired entry is unavailable"));
     }
 
     private ConsultationOutcome.Opened opened(String role) {
@@ -505,9 +587,12 @@ class ConsultationServiceTest {
     private void serve(String consultationId, String generation, String role) {
         var answer = protocol.wait(new WaitRequest(generation, role, ConsultationFixtures.DIGEST,
                 ConsultationFixtures.DIGEST, 3), ConsultationFixtures.AT);
-        var offered = assertInstanceOf(WaitAnswer.Offered.class, answer);
-        assertEquals(consultationId, offered.task().queueTaskId());
+        var offered = assertInstanceOf(WaitAnswer.Offered.class, answer,
+                "the consulted generation is offered the answer");
+        assertEquals(consultationId, offered.task().queueTaskId(),
+                "the offered task carries the consultation id");
         assertInstanceOf(CallResult.Accepted.class,
-                protocol.acknowledge(new TaskCall(consultationId, generation), ConsultationFixtures.AT));
+                protocol.acknowledge(new TaskCall(consultationId, generation), ConsultationFixtures.AT),
+                "the consulted generation acknowledges the task");
     }
 }
