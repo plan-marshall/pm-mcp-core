@@ -416,7 +416,8 @@ public final class SecretRedactor {
 
     /** The index of the token's last {@code @}, measured once per token. */
     private static int tokenLastAt(String value, int secretStart, UrlToken token) {
-        if (token.end < 0 || secretStart >= token.end) {            token.end = secretStart;
+        if (token.end < 0 || secretStart >= token.end) {
+            token.end = secretStart;
             token.lastAt = -1;
             while (token.end < value.length() && !isWhiteSpace(value.charAt(token.end))) {
                 if (value.charAt(token.end) == '@') {
