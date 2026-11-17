@@ -17,9 +17,14 @@ import org.jspecify.annotations.Nullable;
  * the closed reason, the stage that failed when a stage decided the refusal, and the profile the verdict is about.
  * <p>
  * The reason set is closed and each reason names the fact the record did not establish: the record is absent, a stage
- * failed, a stage did not run, the record was written on another operating system or architecture, or the stage the
- * claim rests on was never recorded at all. The stage is {@code null} when no single stage decided the refusal (an
- * absent record, another platform).
+ * failed, a stage did not run, the record was written on another operating system or architecture, the stage the claim
+ * rests on was never recorded at all, the record's {@code faults} stage ran fewer than ten trials, the record's platform
+ * has no confinement, the record's {@code profile_digest} is not the digest of the loaded document, or the record's
+ * {@code egress} stage is recorded {@code unenforced} and the machine has not accepted unenforced egress.
+ * <p>
+ * The stage is {@code null} when no single stage decided the refusal; the reason then names the member that did: the
+ * record (an absent record), the platform (another platform, no confinement) or the record's {@code profile_digest}
+ * (another document).
  *
  * @param reason   why the claim was refused
  * @param stage    the stage that decided the refusal; {@code null} when no single stage is to blame
@@ -44,7 +49,19 @@ public record EligibilityRefusal(Reason reason, @Nullable String stage, String c
         OTHER_PLATFORM("other_platform"),
 
         /** A stage the claim rests on is absent from the record altogether. */
-        CLAIM_STAGE_ABSENT("claim_stage_absent");
+        CLAIM_STAGE_ABSENT("claim_stage_absent"),
+
+        /** The {@code faults} stage of the record ran fewer than ten trials, or recorded none at all. */
+        FAULTS_TRIALS_INSUFFICIENT("faults_trials_insufficient"),
+
+        /** The record's platform names no confinement. */
+        NO_CONFINEMENT("no_confinement"),
+
+        /** The record's {@code profile_digest} is not the digest of the profile document it is bound to. */
+        DIGEST_MISMATCH("digest_mismatch"),
+
+        /** The record's {@code egress} stage is recorded {@code unenforced} and the machine has not accepted it. */
+        EGRESS_UNENFORCED("egress_unenforced");
 
         private final String wireName;
 
