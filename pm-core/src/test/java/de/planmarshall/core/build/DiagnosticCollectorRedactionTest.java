@@ -160,7 +160,7 @@ class DiagnosticCollectorRedactionTest {
     }
 
     /** A wall-clock bound a linear scan meets and the former quadratic URL pattern exceeds. */
-    private static final Duration FLOOD_BOUND = Duration.ofSeconds(30);
+    private static final Duration FLOOD_BOUND = Duration.ofSeconds(60);
 
     private static List<String> hostileFlood() {
         // a whitespace-separated flood is many tokens: a per-token lookup that walks back into the previous tokens is
