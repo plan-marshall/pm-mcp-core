@@ -1,0 +1,63 @@
+= ADR 001: The Automatic Run's Vocabulary and Its Router
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-16
+
+== Context
+
+CLI & Security § Automatic Onboarding defines `auto.result`: one item per value the run decided, each with the aspect, the
+key, the value, a reason from a closed list and the check line that confirmed it; the items the run could not decide are
+those the operator was asked. State Catalogue § Machine Onboarding defines who walks the aspects: the first run and the
+automatic run take them in a fixed order, a `change` on the result calls one aspect as a later run
+(`onboard_run: reconfigure`) and its return leads back to the result, and a later run opened from the settings returns
+there.
+
+The units (`onboarding.pmwf`, the aspect sub-workflows, `auto.consent`, `auto.result`) are resources of
+`plan-marshall-mcp`. `pm-workflow` held no vocabulary for a proposal or a result, so nothing in this repository could state
+what the run decided or where it goes next.
+
+== Decision
+
+* The new package `workflow.onboarding` carries the engine half:
+  `OnboardRun` (`first_run`, `auto`, `reconfigure`),
+  `ProposalReason` (the closed reason list with its `onboard.auto.reason.<reason>` message key),
+  `OnboardingProposal` (the item) and `AutoOnboardingResult` (the decided values and the items that were asked).
+* The closed aspect list and its order live in `core.config` (`OnboardingAspect`), not in this package: `pm-workflow`
+  names an aspect in the run's result and its routing, and `pm-runtime` names the same aspects in the machine's settings
+  links, while neither module may depend on the other. One enum serves both, so the list cannot drift.
+* `OnboardingRouter` answers the routing as a value: `returned(run, aspect, openedFrom)` names the next aspect or the state
+  the run ends in, and `change(result, aspect)` opens one aspect as a later run. A later run must name where it was opened
+  from, because only that decides whether it returns to the settings or to the result; the run value alone cannot carry it.
+* `change` refuses an aspect the result carries no item of: a change needs a value to change, and a result that never
+  recorded the aspect is a defect of the run, not an empty change.
+* The router reads no store and writes nothing; the units that emit the routes are the assembly's.
+
+== Alternatives Considered
+
+1. *A wider run enum (`RECONFIGURE_FROM_SETTINGS`, `RECONFIGURE_FROM_RESULT`).* _Not taken_: `onboard_run` is a closed list
+   of the specification; adding values would change the DSL for a fact that belongs to the call stack, not the run.
+2. *The whole vocabulary in `pm-core` beside the stores.* _Not taken for the result and the reasons_: they are the shape of
+   a workflow's result, and `pm-workflow` is where workflow results live. _Taken only for the aspect list_, which two
+   modules must read and which is not a value of the result alone.
+3. *Leaving the routing to the units.* _Not taken_: the routing is the one part of the run that is deterministic and
+   provable here; leaving it in `plan-marshall-mcp` would leave the branches untestable in this repository.
+
+== Consequences
+
+* The automatic run's result and the change-on-result path are provable over fixtures here
+  (`OnboardingResultTest`, `OnboardingContractReplayTest`), and the units are named owed.
+* A result item with reason `asked` is the only undecided item; every other reason is a decision the run made.
+
+== Source
+
+* Plan PLAN-V2-153, deliverable 2 (D2, D7)
+* `plan-marshall-documentation` CLI & Security § Automatic Onboarding; State Catalogue § Machine Onboarding
+* `pm-workflow/src/main/java/de/planmarshall/workflow/onboarding/package-info.java` and the package's classes
+  (`OnboardingRouter`, `AutoOnboardingResult`, `OnboardingProposal`, `ProposalReason`, `OnboardRun`), and
+  `pm-core/src/main/java/de/planmarshall/core/config/OnboardingAspect.java`

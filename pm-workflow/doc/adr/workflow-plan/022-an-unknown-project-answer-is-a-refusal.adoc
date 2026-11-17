@@ -1,0 +1,55 @@
+= ADR 022: An Unknown Project Answer Is a Refusal
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-16
+
+== Context
+
+Workflow DSL § Plan Behaviour Axes, item 3 refuses a landing variant where the project answers that it cannot support it.
+The two answers come from the project's stores and its provider: whether it has a provider that opens a pull request, and
+whether the provider reports the base branch as protected. A lookup of either can fail — a provider that cannot be
+reached, an unauthenticated credential, a repository whose protection the provider does not report.
+
+The value that carried the two answers, `LandingVariantValidation.Project`, held two booleans. A caller whose lookup failed
+had only `false` to report, which reads as "no provider" and "not protected"; `landing.main` therefore passed on a base
+branch whose protection nobody had been able to read. The landing analysis of PLAN-V2-43 recorded this as L3-2.
+
+== Decision
+
+* `Project` carries two nullable `Boolean`s: `null` is a lookup that answered nothing, never a "no".
+* `Project.known(provider, protectedBranch)` carries the answers, `Project.unknown()` the failed ones, and `answered()`
+  tells them apart.
+* `validate` refuses a variant that needs a failed lookup, with a reason naming the lookup (`the project's provider
+  lookup, which failed`), so an unknown answer can never be read as a permissive one.
+* `landing.files` needs no lookup and still fits an unknown project: the check refuses only where the variant depends on
+  the question that was not answered.
+
+== Alternatives Considered
+
+1. *`Optional<Boolean>` components.* _Not taken_: `Optional` is not a record component in this repository's coding rules;
+   a nullable component is the documented form of a state that may be absent.
+2. *A tri-state enum per question (`YES`, `NO`, `UNKNOWN`).* _Not taken_: two enums for two booleans double the value's
+   vocabulary and the mapping in every caller, while the nullable boolean says the same and is the form the record already
+   had.
+3. *Keeping the booleans and documenting that a caller must not pass `false` for a failed lookup.* _Not taken_: that is
+   the fail-open the item exists to close; a caller cannot be trusted to encode "I do not know" as a value the type does
+   not admit.
+
+== Consequences
+
+* A caller that could not look the project up passes `Project.unknown()`; the composition refuses the variant with a
+  reason that names the failed lookup, and the operator sees why the plan did not start.
+* `LandingVariantValidationTest` covers the two failed lookups and the control that `landing.files` fits anyway.
+
+== Source
+
+* Plan PLAN-V2-153, deliverable 4 (D11), carrying L3-2 of the landing of PLAN-V2-43
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL § Plan Behaviour Axes, item
+  3]
+* `pm-workflow/src/main/java/de/planmarshall/workflow/plan/LandingVariantValidation.java`

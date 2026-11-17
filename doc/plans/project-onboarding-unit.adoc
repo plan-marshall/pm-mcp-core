@@ -20,7 +20,7 @@ The specification sections named are the single statement of what each task buil
 . *The project's values over the machine's*, with the revision rule: link:../specification/store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas § Project Values over Machine Values]; link:../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#concurrent-changes[CLI & Security § Concurrent Changes of a Setting].
 . *The projects of the machine*: link:../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#project-explorer[Runtime Model § The Projects of the Machine]; link:../specification/store-schemas/12-machine-stores.adoc#explorer-store[Store Schemas § The Operator's Projects].
 
-Left out: the later runs `reconcile` and `aspect:<name>` (the reconcile path of the `project-setup` workflow, no work package yet); the release of a project (link:epic-resource-and-release.adoc[`epic-resource-and-release`]); the consent store and the landing variants (link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]); the cleanup's reader (link:cleanup.adoc[`cleanup`]).
+Left out: the later runs `reconcile` and `aspect:<name>` (the reconcile path of the `project-setup` workflow, no work package yet); the release of a project (link:epic-resource-and-release.adoc[`epic-resource-and-release`]); the consent store and the landing variants (link:../Traceability.adoc#PM-WF-25[Traceability PM-WF-25]); the cleanup's reader (link:cleanup.adoc[`cleanup`]).
 
 == Trace
 

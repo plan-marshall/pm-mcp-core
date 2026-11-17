@@ -21,7 +21,7 @@ The specification sections named are the single statement of what each task buil
 . *The question bound*: link:../specification/model-work/06-envelopes-questions-deadlines.adoc#question-bound[Model Work § Question Bound]; link:../specification/timeouts/01-job-budgets-and-waits.adoc#question-bound[Timeouts & Budgets § Question bound].
 . *The stage `resumability`* of the profile verification with the probe task of `plan-marshall-mcp` / `question-loop-verification`: link:../specification/harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles § Profile Verification].
 
-Left out: the parsing of `headless.resumability` (link:../../pm-core/doc/developer/core-profile.adoc[`core.profile`]); running the stage in the onboarding (link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]); the measured values (link:client-profile-measured-values.adoc[`client-profile-measured-values`]).
+Left out: the parsing of `headless.resumability` (link:../../pm-core/doc/developer/core-profile.adoc[`core.profile`]); running the stage in the onboarding (the onboarding unit of `plan-marshall-mcp`, not this repository); the measured values (link:client-profile-measured-values.adoc[`client-profile-measured-values`]).
 
 == Trace
 

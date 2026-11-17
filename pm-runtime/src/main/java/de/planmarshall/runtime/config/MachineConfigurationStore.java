@@ -28,9 +28,9 @@ import de.planmarshall.core.store.StoreSnapshot;
 /**
  * The writer and reader of the machine's settings of {@code machine-config.json} that this package owns (Store Schemas §
  * Machine Configuration Store): the provider defaults ({@code providers}), how a start takes its documents
- * ({@code sources.documents_mode}) and the durations of the one cleanup ({@code cleanup}). The provider step of the
- * machine's onboarding and its later runs write the defaults, the machine's settings write the other two, all under
- * {@code locks/machine-config.lock}.
+ * ({@code sources.documents_mode}), the durations of the one cleanup ({@code cleanup}) and the machine's default of each
+ * plan behaviour axis ({@code plan_defaults}). The provider step of the machine's onboarding and its later runs write the
+ * defaults, the machine's settings write the other three, all under {@code locks/machine-config.lock}.
  * <p>
  * A write is one short transaction on the lock: it reads the document again, checks the caller's revision, replaces that
  * one member — every other member of the operator's document survives, among them {@code credentials.store}, which only
@@ -60,12 +60,14 @@ public final class MachineConfigurationStore {
      *                      document records none, which is the value the schema applies
      * @param cleanup       the machine's {@code cleanup} durations; {@link CleanupDurations#defaults()} where the
      *                      document records none, which is the value the schema applies
+     * @param planDefaults  the machine's {@code plan_defaults}; {@link PlanDefaults#shipped()} where the document records
+     *                      none, which is the value the schema applies
      * @param revision      the {@code revision} of the document; {@value #NO_DOCUMENT} when it does not exist
      * @since 0.1
      */
     @Builder
     public record Snapshot(ProviderDefaults providers, DocumentsMode documentsMode, CleanupDurations cleanup,
-    long revision) {
+    PlanDefaults planDefaults, long revision) {
     }
 
     /**
@@ -111,9 +113,10 @@ public final class MachineConfigurationStore {
                 .map(document -> MachineConfigurationCodec.read(storeFile.store(), document))
                 .map(read -> new Snapshot(read.providers(),
                         read.documentsMode() == null ? DocumentsMode.DEFAULT : read.documentsMode(),
-                        read.cleanup() == null ? CleanupDurations.defaults() : read.cleanup(), read.revision()))
+                        read.cleanup() == null ? CleanupDurations.defaults() : read.cleanup(),
+                        read.planDefaults() == null ? PlanDefaults.shipped() : read.planDefaults(), read.revision()))
                 .orElseGet(() -> new Snapshot(ProviderDefaults.none(), DocumentsMode.DEFAULT,
-                        CleanupDurations.defaults(), NO_DOCUMENT));
+                        CleanupDurations.defaults(), PlanDefaults.shipped(), NO_DOCUMENT));
     }
 
     /**
@@ -177,6 +180,28 @@ public final class MachineConfigurationStore {
                 bytes -> bytes == null
                         ? MachineConfigurationCodec.createCleanup(durations)
                         : MachineConfigurationCodec.writeCleanup(storeFile.store(), bytes, durations,
+                        revision + 1));
+    }
+
+    /**
+     * Records the machine's default of each plan behaviour axis, {@code plan_defaults}, and increments the revision.
+     *
+     * @param defaults the plan defaults the machine's settings recorded
+     * @param revision the revision the caller read
+     * @throws SettingsConflict       if the document holds another revision than {@code revision}
+     * @throws StoreRefusal           if the document is unreadable or in another format version
+     * @throws UncheckedIOException   if the document cannot be read or written
+     * @throws InternalFaultException if the lock of the document must not be acquired by the transaction
+     */
+    public void writePlanDefaults(PlanDefaults defaults, long revision) {
+        Objects.requireNonNull(defaults, "defaults");
+        transact(revision,
+                current -> current == null || current.planDefaults() == null
+                        ? PlanDefaults.shipped()
+                        : current.planDefaults(),
+                bytes -> bytes == null
+                        ? MachineConfigurationCodec.createPlanDefaults(defaults)
+                        : MachineConfigurationCodec.writePlanDefaults(storeFile.store(), bytes, defaults,
                         revision + 1));
     }
 
