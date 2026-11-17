@@ -637,36 +637,55 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
             @Nullable SelfReportContradiction contradiction, @Nullable String gateFacts, @Nullable Egress egress,
             @Nullable GitMetadata gitMetadata) {
         if (kind == JobId.Kind.LLM) {
-            if (worker == null || execution != Execution.PROCESS
-                    || !Set.of(Scope.Type.PROJECT, Scope.Type.MACHINE).contains(scope.type())) {
-                throw new IllegalArgumentException(
-                        "A worker carries its worker block, runs as a process and belongs to a project or the machine");
-            }
-            if (egress == null) {
-                throw new IllegalArgumentException("A worker records whether its egress is enforced");
-            }
-            if (gitMetadata == null) {
-                throw new IllegalArgumentException("A worker records whether its git metadata is unwritable");
-            }
-        } else if (worker != null) {
-            throw new IllegalArgumentException("Only a worker carries a worker block, not a job of kind "
-                    + kind.wireName());
-        } else if (egress != null) {
-            throw new IllegalArgumentException("Only a worker records egress, not a job of kind " + kind.wireName());
-        } else if (gitMetadata != null) {
-            throw new IllegalArgumentException("Only a worker records git_metadata, not a job of kind "
-                    + kind.wireName());
+            requireWorker(execution, scope, worker, egress, gitMetadata);
+        } else {
+            requireNoWorkerMembers(kind, worker, egress, gitMetadata);
         }
-        if (kind == JobId.Kind.PROBE && (execution != Execution.PROCESS
-                || !Set.of(Scope.Type.MACHINE, Scope.Type.ENTRY).contains(scope.type()))) {
-            throw new IllegalArgumentException(
-                    "A probe runs as a process and belongs to the machine or an onboarding entry");
+        if (kind == JobId.Kind.PROBE) {
+            requireProbe(execution, scope);
         }
         if (contradiction != null && kind != JobId.Kind.PROJECT_SCRIPT) {
             throw new IllegalArgumentException("Only a project script job records a self-report contradiction");
         }
         if (gateFacts != null && kind != JobId.Kind.BUILD) {
             throw new IllegalArgumentException("Only a build job records gate facts");
+        }
+    }
+
+    private static void requireWorker(Execution execution, Scope scope, @Nullable String worker, @Nullable Egress egress,
+            @Nullable GitMetadata gitMetadata) {
+        if (worker == null || execution != Execution.PROCESS
+                || !Set.of(Scope.Type.PROJECT, Scope.Type.MACHINE).contains(scope.type())) {
+            throw new IllegalArgumentException(
+                    "A worker carries its worker block, runs as a process and belongs to a project or the machine");
+        }
+        if (egress == null) {
+            throw new IllegalArgumentException("A worker records whether its egress is enforced");
+        }
+        if (gitMetadata == null) {
+            throw new IllegalArgumentException("A worker records whether its git metadata is unwritable");
+        }
+    }
+
+    private static void requireNoWorkerMembers(JobId.Kind kind, @Nullable String worker, @Nullable Egress egress,
+            @Nullable GitMetadata gitMetadata) {
+        if (worker != null) {
+            throw new IllegalArgumentException("Only a worker carries a worker block, not a job of kind "
+                    + kind.wireName());
+        }
+        if (egress != null) {
+            throw new IllegalArgumentException("Only a worker records egress, not a job of kind " + kind.wireName());
+        }
+        if (gitMetadata != null) {
+            throw new IllegalArgumentException("Only a worker records git_metadata, not a job of kind "
+                    + kind.wireName());
+        }
+    }
+
+    private static void requireProbe(Execution execution, Scope scope) {
+        if (execution != Execution.PROCESS || !Set.of(Scope.Type.MACHINE, Scope.Type.ENTRY).contains(scope.type())) {
+            throw new IllegalArgumentException(
+                    "A probe runs as a process and belongs to the machine or an onboarding entry");
         }
     }
 

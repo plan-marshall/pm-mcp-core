@@ -322,9 +322,10 @@ public class ActivityEntryCodec {
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_DESTINATION -> destination = string(parser, field);
-                default -> throw undeclared(field);
+            if (FIELD_DESTINATION.equals(field)) {
+                destination = string(parser, field);
+            } else {
+                throw undeclared(field);
             }
         }
         requireFields(seen, FIELD_EGRESS, FIELD_DESTINATION);

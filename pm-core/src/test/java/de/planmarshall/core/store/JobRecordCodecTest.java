@@ -450,6 +450,8 @@ class JobRecordCodecTest {
             var projectScope = new Scope(Scope.Type.PROJECT, null);
             var machineScope = new Scope(Scope.Type.MACHINE, null);
             var contradiction = new SelfReportContradiction("passed", null, "failed");
+            var workerWithEgress = workerAhead(worker, projectScope, "{}");
+            var buildRecord = queued(BUILD_ID, PLAN_SCOPE);
 
             assertAll("the kind decides the worker block and the scope",
                     () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(worker, projectScope),
@@ -458,11 +460,10 @@ class JobRecordCodecTest {
                             "a worker does not belong to a plan scope"),
                     () -> assertDoesNotThrow(() -> workerAhead(worker, projectScope, "{}"),
                             "a worker belongs to a project scope"),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> workerAhead(worker, projectScope, "{}").withEgress(null),
+                    () -> assertThrows(IllegalArgumentException.class, () -> workerWithEgress.withEgress(null),
                             "a worker records whether its egress is enforced"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> queued(BUILD_ID, PLAN_SCOPE).withEgress(Egress.UNENFORCED),
+                            () -> buildRecord.withEgress(Egress.UNENFORCED),
                             "only a worker records egress"),
                     () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(probe, PLAN_SCOPE),
                             "a probe is no plain write-ahead job"),

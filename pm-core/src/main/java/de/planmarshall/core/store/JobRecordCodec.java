@@ -194,6 +194,8 @@ public class JobRecordCodec {
         });
     }
 
+    @SuppressWarnings({"java:S3776", "java:S1479"})
+    // the closed-schema member table is one flat switch in schema order by design: one case per member, no nesting
     private static JobRecord readDocument(JsonParser parser, byte[] document) throws IOException {
         var job = JobRecord.builder();
         JobId.@Nullable Kind kind = null;

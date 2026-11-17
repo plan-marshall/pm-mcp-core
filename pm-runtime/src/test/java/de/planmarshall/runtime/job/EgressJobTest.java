@@ -16,7 +16,7 @@ import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -155,7 +155,7 @@ class EgressJobTest {
         var settled = runner.awaitSettled(jobId, SETTLE_TIMEOUT).orElseThrow();
 
         assertAll("the post-spawn replace derives from the record",
-                () -> assertTrue(settled.pid() != null, "the settled record carries the post-spawn PID"),
+                () -> assertNotNull(settled.pid(), "the settled record carries the post-spawn PID"),
                 () -> assertEquals(Egress.UNENFORCED, settled.egress(),
                         "the record that carries the PID keeps the member"));
     }
