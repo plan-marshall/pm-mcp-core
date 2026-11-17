@@ -9,10 +9,12 @@
  */
 package de.planmarshall.core.queue;
 
+import java.util.BitSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.build.BuildLogText;
@@ -60,8 +62,10 @@ import de.planmarshall.core.build.BuildLogText;
  * {@code BEGIN} marker to the label pass, which would leave the body and the {@code END} line readable.
  * <p>
  * The residue: a PEM or PGP block whose {@code BEGIN} line lies before the excerpt window, so that the text starts
- * inside the block, is not masked, because nothing in the text marks the key body as one. The window is not widened to
- * reach the marker. The redactor is idempotent: redacting redacted text changes nothing.
+ * inside the block, is not masked by {@link #redactText(String)}, because nothing in the text marks the key body as one.
+ * The window is not widened to reach the marker. A windowed read that carries the block's {@code END} line can mask its
+ * interior prefix through that {@code END} ({@link #redactKeyBlockTail(String)}); a window that carries neither marker
+ * cannot be recognised and stays readable. The redactor is idempotent: redacting redacted text changes nothing.
  * <p>
  * On the journal path ({@link #redact(ActivityEntry)}) the terminal escape sequences are stripped before the shapes are
  * matched, so a colour code between a label and its value does not hide the value; {@link #redactText(String)} leaves
@@ -184,10 +188,11 @@ public final class SecretRedactor {
 
     /**
      * A URL user-information head that a cut left without its closing {@code @}: the cut can fall between a URL's
-     * password and its {@code @}, and the ordinary URL shape then does not match, so the secret is masked here.
+     * password and its {@code @}, and the ordinary URL shape then does not match, so the secret is masked here. The
+     * scheme separators are the ones {@link #URL_SCHEME_SEPARATORS} runs the scan for, so a new separator cannot miss
+     * this cut-tail rule.
      */
-    private static final Pattern CUT_URL_HEAD = Pattern.compile(
-            "(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?:://|%3A%2F%2F))([^\\s/?#:]*+):(\\S+)$");
+    private static final Pattern CUT_URL_HEAD = cutUrlHead();
 
     /**
      * A provider-token or npm-token head that a cut left incomplete: built from the same prefixes as
@@ -371,10 +376,11 @@ public final class SecretRedactor {
         if (schemeStart(value, separator) < 0) {
             return null;
         }
-        var secretStart = secretStart(value, separator + separatorLength);
-        if (secretStart < 0) {
+        var userEnd = token.userStop(value, separator + separatorLength);
+        if (userEnd >= value.length() || value.charAt(userEnd) != ':') {
             return null;
         }
+        var secretStart = userEnd + 1;
         var lastAt = token.lastAt(value, secretStart);
         return lastAt <= secretStart ? null : new UrlMatch(secretStart, lastAt);
     }
@@ -388,15 +394,6 @@ public final class SecretRedactor {
         return start < separator && isSchemeStart(value.charAt(start)) ? start : -1;
     }
 
-    /** The start of the secret after a separator: past the user and its colon, or {@code -1} when there is no colon. */
-    private static int secretStart(String value, int from) {
-        var position = from;
-        while (position < value.length() && !isUrlUserStop(value.charAt(position))) {
-            position++;
-        }
-        return position < value.length() && value.charAt(position) == ':' ? position + 1 : -1;
-    }
-
     /**
      * One masked user-information shape.
      *
@@ -407,13 +404,14 @@ public final class SecretRedactor {
     }
 
     /**
-     * The token a pass last measured, its end and its last {@code @}, so a later scheme start of the same token reads
-     * the answer instead of measuring the token again.
+     * The token a pass last measured — its end, its last {@code @} and the first user delimiter — so a later scheme
+     * start of the same token reads the answers instead of scanning the token again.
      */
     private static final class UrlToken {
 
         private int end = -1;
         private int lastAt = -1;
+        private int userStop = -1;
 
         private int lastAt(String value, int secretStart) {
             if (end < 0 || secretStart >= end) {
@@ -427,6 +425,17 @@ public final class SecretRedactor {
                 }
             }
             return lastAt;
+        }
+
+        private int userStop(String value, int from) {
+            if (userStop < from) {
+                var position = from;
+                while (position < value.length() && !isUrlUserStop(value.charAt(position))) {
+                    position++;
+                }
+                userStop = position;
+            }
+            return userStop;
         }
     }
 
@@ -456,16 +465,24 @@ public final class SecretRedactor {
     }
 
     /**
-     * Whether the character is whitespace in the Unicode form the shapes' {@code \s} matches. It is the
-     * {@code White_Space} property, which is wider than {@link Character#isWhitespace(char)}: the no-break space
-     * ({@code U+00A0}) is whitespace for the shapes and for this scan alike.
+     * Whether the character is whitespace in the Unicode form the shapes' {@code \s} matches. The set is read from the
+     * matching engine once, so a Unicode update reaches this scan with the patterns instead of leaving a hand-kept list
+     * behind. It is the {@code White_Space} property, which is wider than {@link Character#isWhitespace(char)}: the
+     * no-break space ({@code U+00A0}) is whitespace for the shapes and for this scan alike.
      */
+    private static final BitSet WHITE_SPACE = whiteSpace();
+
+    private static BitSet whiteSpace() {
+        var matcher = Pattern.compile("\\s", Pattern.UNICODE_CHARACTER_CLASS).matcher("");
+        var set = new BitSet();
+        for (var code = 0; code <= Character.MAX_VALUE; code++) {
+            set.set(code, matcher.reset(String.valueOf((char) code)).matches());
+        }
+        return set;
+    }
+
     private static boolean isWhiteSpace(char value) {
-        return switch (value) {
-            case '\t', '\n', '\u000B', '\f', '\r', ' ', '\u0085', '\u00A0', '\u1680', '\u2028', '\u2029', '\u202F',
-                '\u205F', '\u3000' -> true;
-            default -> value >= '\u2000' && value <= '\u200A';
-        };
+        return WHITE_SPACE.get(value);
     }
 
     /** The replacement prefix that keeps groups 1 to 3 and masks the group that follows them. */
@@ -534,6 +551,36 @@ public final class SecretRedactor {
      */
     public static String redactCutUrlHead(String text) {
         return CUT_URL_HEAD.matcher(text).replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED));
+    }
+
+    /** The cut-head pattern of the scheme separators the scan runs, so a new separator cannot miss this rule. */
+    private static Pattern cutUrlHead() {
+        var separators = URL_SCHEME_SEPARATORS.stream().map(Pattern::quote).collect(Collectors.joining("|"));
+        return Pattern.compile(
+                "(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?:" + separators + "))([^\\s/?#:]*+):(\\S+)$");
+    }
+
+    /**
+     * Masks the interior of a key block whose {@code BEGIN} line lies before a windowed read and whose {@code END} line
+     * the window carries: the window starts inside the body, so {@link #redactPrivateKeyBlocks} has no marker to find.
+     * <p>
+     * A window that carries neither a {@code BEGIN} nor the block's {@code END} cannot be recognised and stays readable;
+     * that is the residue the class documentation names for a block that starts before the text. A text whose own
+     * {@code BEGIN} precedes its {@code END} is left to the ordinary scan.
+     *
+     * @param text a windowed read of a text, as a job-log read hands it on
+     * @return the text with an interior block prefix masked, or the text unchanged
+     */
+    public static String redactKeyBlockTail(String text) {
+        var end = PEM_END.matcher(text);
+        if (!end.find()) {
+            return text;
+        }
+        var begin = PEM_BEGIN.matcher(text);
+        if (begin.find() && begin.start() <= end.start()) {
+            return text;
+        }
+        return REDACTED + text.substring(end.end());
     }
 
     /**

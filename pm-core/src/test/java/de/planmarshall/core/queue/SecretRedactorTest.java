@@ -10,7 +10,6 @@
 package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -700,16 +699,29 @@ class SecretRedactorTest {
     }
 
     @Test
-    @DisplayName("a 1 000 000-character quoted flag value is masked without a stack overflow")
+    @DisplayName("a 1 000 000-character quoted flag value is masked within the bound")
     void quotedFlagValueOfOneMillionCharacters() {
         // the quoted value is one plain run: a per-character recursion would overflow the stack here
         var log = "--password \"" + "a".repeat(1_000_000) + "\"";
 
-        var redacted = assertDoesNotThrow(() -> redactValue(log),
-                "a million-character quoted value must not overflow the stack");
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(log),
+                "a million-character quoted value must redact within the bound");
 
         assertEquals("--password \"" + SecretRedactor.REDACTED + "\"", redacted,
                 "the whole quoted value is masked");
+    }
+
+    @Test
+    @DisplayName("an encoded-separator run without a colon is masked within the bound")
+    void encodedSeparatorRunWithoutColonIsLinear() {
+        // x%3A%2F%2F_ repeated has a valid scheme boundary at each start and no user delimiter in the text: the user scan
+        // must not walk the whole suffix again for every start
+        var run = "x%3A%2F%2F_".repeat(100_000);
+
+        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(run),
+                "the encoded no-colon run redacts within the bound");
+
+        assertEquals(run, redacted, "a run without a colon stays as it is");
     }
 
     @Test

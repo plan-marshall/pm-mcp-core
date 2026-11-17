@@ -42,10 +42,11 @@ import de.planmarshall.runtime.job.JobEvidence.LogState;
  * exception.
  * <p>
  * Every read-out passes the redactor: {@link #readLines(long)} redacts the lines it answers and {@link #readWhole(long)}
- * the reading it hands on — the job's output and the reason it carries no report — the whole read after its size cap and
- * both before the text leaves this class, so a credential the job printed reaches neither a parser nor a model (Job
- * Runtime § Pipeline and Subprocesses, the redaction of every read-out). A key block that spans lines is masked as one
- * block, so the answered line set holds it as one masked line rather than the file's line count.
+ * the reading it hands on — the job's output, the reason it carries no report and an {@link Unavailable} detail — the
+ * whole read after its size cap and both before the text leaves this class, so a credential the job printed reaches
+ * neither a parser nor a model (Job Runtime § Pipeline and Subprocesses, the redaction of every read-out). A key block a
+ * window carries only in part is masked from the window's start through its {@code END} line when that {@code END} is in
+ * the window; a window that lies entirely inside the body and carries no marker of its own is the named residue.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process-Group Creation via
  * the {@code pm-exec} Launcher, launch report; Outcome Derivation, row 5).
@@ -133,7 +134,8 @@ public record JobLog(Path path) {
      * The log could not serve the read.
      *
      * @param state  why: {@link LogState#MISSING}, {@link LogState#TRUNCATED} or {@link LogState#UNREADABLE}
-     * @param detail what was observed
+     * @param detail what was observed; its credential shapes are redacted here, so a path or an exception message cannot
+     *               carry a secret out
      * @since 0.1
      */
     public record Unavailable(LogState state, String detail) implements Read, Whole {
@@ -148,6 +150,7 @@ public record JobLog(Path path) {
             if (state == LogState.READABLE) {
                 throw new IllegalArgumentException("A readable log is available");
             }
+            detail = SecretRedactor.redactText(detail).orElseThrow();
         }
     }
 
@@ -233,7 +236,7 @@ public record JobLog(Path path) {
 
     /** Redacts a read-out before the text leaves this class; the whole read reaches it after its size cap. */
     private static String redacted(String text) {
-        return SecretRedactor.redactText(text).orElseThrow();
+        return SecretRedactor.redactText(SecretRedactor.redactKeyBlockTail(text)).orElseThrow();
     }
 
     /** Redacts the two texts of a whole read: the job's output and the reason it carries no report. */
