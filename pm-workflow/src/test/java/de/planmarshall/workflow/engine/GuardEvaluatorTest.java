@@ -110,8 +110,10 @@ class GuardEvaluatorTest {
             var facts = new Facts(left, right);
 
             assertAll(
-                    () -> assertEquals(and, GuardEvaluator.evaluate(new GuardExpr.And(WORKTREE, FINDINGS), facts)),
-                    () -> assertEquals(or, GuardEvaluator.evaluate(new GuardExpr.Or(WORKTREE, FINDINGS), facts)));
+                    () -> assertEquals(and, GuardEvaluator.evaluate(new GuardExpr.And(WORKTREE, FINDINGS), facts),
+                            "and follows the deciding operand"),
+                    () -> assertEquals(or, GuardEvaluator.evaluate(new GuardExpr.Or(WORKTREE, FINDINGS), facts),
+                            "or follows the deciding operand"));
         }
 
         @Test
@@ -119,11 +121,11 @@ class GuardEvaluatorTest {
         void shouldNegate() {
             assertAll(
                     () -> assertEquals(NOT_HELD, GuardEvaluator.evaluate(new GuardExpr.Not(WORKTREE),
-                            new Facts(HELD, HELD))),
+                            new Facts(HELD, HELD)), "not inverts a held guard"),
                     () -> assertEquals(HELD, GuardEvaluator.evaluate(new GuardExpr.Not(WORKTREE),
-                            new Facts(NOT_HELD, HELD))),
+                            new Facts(NOT_HELD, HELD)), "not inverts a not-held guard"),
                     () -> assertEquals(UNDECIDED, GuardEvaluator.evaluate(new GuardExpr.Not(WORKTREE),
-                            new Facts(UNDECIDED, HELD))));
+                            new Facts(UNDECIDED, HELD)), "not keeps the undecided value"));
         }
 
         @Test
@@ -133,13 +135,16 @@ class GuardEvaluatorTest {
             var unknownPredicate = new GuardExpr.CustomPredicate("test.unknown");
 
             assertAll(
-                    () -> assertEquals(HELD, GuardEvaluator.evaluate(WORKTREE, facts)),
-                    () -> assertEquals(NOT_HELD, GuardEvaluator.evaluate(FINDINGS, facts)),
-                    () -> assertEquals(UNDECIDED, GuardEvaluator.evaluate(new GuardExpr.AllTasksCompleted(), facts)),
+                    () -> assertEquals(HELD, GuardEvaluator.evaluate(WORKTREE, facts), "the atom reads its own fact"),
+                    () -> assertEquals(NOT_HELD, GuardEvaluator.evaluate(FINDINGS, facts),
+                            "the findings atom reads its own fact"),
+                    () -> assertEquals(UNDECIDED, GuardEvaluator.evaluate(new GuardExpr.AllTasksCompleted(), facts),
+                            "an undecided task fact stays undecided"),
                     () -> assertEquals(NOT_HELD, GuardEvaluator.evaluate(new GuardExpr.CustomPredicate("test.ready"),
-                            facts)),
+                            facts), "a predicate reads its registered fact"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> GuardEvaluator.evaluate(unknownPredicate, facts)));
+                            () -> GuardEvaluator.evaluate(unknownPredicate, facts),
+                            "an unregistered predicate faults"));
         }
     }
 
@@ -192,12 +197,15 @@ class GuardEvaluatorTest {
             var raised = new GuardEvaluator(fixtures.clock).raiseUndecided(status, links, facts).orElseThrow();
 
             assertAll(
-                    () -> assertEquals(EngineStep.GUARD_INDETERMINATE, raised.kind()),
+                    () -> assertEquals(EngineStep.GUARD_INDETERMINATE, raised.kind(), "the raise is indeterminate"),
                     () -> assertEquals("{\"guard\":\"(in_worktree or has_open_findings) and not predicate:test.ready\","
-                            + "\"link\":\"guarded\",\"reason\":\"worktree unreadable\"}", raised.facts()),
-                    () -> assertEquals(raisedAt, raised.status().condition().orElseThrow().raisedAt()),
-                    () -> assertEquals(status.state(), raised.status().state()),
-                    () -> assertEquals(status.callStack(), raised.status().callStack()));
+                            + "\"link\":\"guarded\",\"reason\":\"worktree unreadable\"}", raised.facts(),
+                            "the condition names the guard, link and reason"),
+                    () -> assertEquals(raisedAt, raised.status().condition().orElseThrow().raisedAt(),
+                            "the condition carries the raise instant"),
+                    () -> assertEquals(status.state(), raised.status().state(), "the raise keeps the state"),
+                    () -> assertEquals(status.callStack(), raised.status().callStack(),
+                            "the raise keeps the call stack"));
         }
 
         @ParameterizedTest(name = "in_worktree {0}")
@@ -207,7 +215,8 @@ class GuardEvaluatorTest {
             var status = planStatus(EngineFixtures.EXECUTE, "session.choose");
             var facts = new Facts(worktree, NOT_HELD, HELD, Map.of("test.ready", NOT_HELD));
 
-            assertTrue(new GuardEvaluator(fixtures.clock).raiseUndecided(status, links, facts).isEmpty());
+            assertTrue(new GuardEvaluator(fixtures.clock).raiseUndecided(status, links, facts).isEmpty(),
+                    "a decided guard raises no condition");
         }
     }
 
@@ -226,13 +235,15 @@ class GuardEvaluatorTest {
             var notPushed = new ResultGuard("pushed", true);
 
             assertAll(
-                    () -> assertTrue(GuardEvaluator.holds(pushed, Map.of("pushed", true))),
-                    () -> assertFalse(GuardEvaluator.holds(pushed, Map.of("pushed", false))),
+                    () -> assertTrue(GuardEvaluator.holds(pushed, Map.of("pushed", true)), "true holds the guard"),
+                    () -> assertFalse(GuardEvaluator.holds(pushed, Map.of("pushed", false)), "false does not hold it"),
                     () -> assertTrue(GuardEvaluator.holds(pushed,
-                            Map.of("pushed", Generators.letterStrings(1, 8).next()))),
-                    () -> assertFalse(GuardEvaluator.holds(pushed, Map.of())),
-                    () -> assertTrue(GuardEvaluator.holds(notPushed, Map.of())),
-                    () -> assertFalse(GuardEvaluator.holds(notPushed, Map.of("pushed", true))));
+                                    Map.of("pushed", Generators.letterStrings(1, 8).next())),
+                            "any present value holds the guard"),
+                    () -> assertFalse(GuardEvaluator.holds(pushed, Map.of()), "an absent field does not hold it"),
+                    () -> assertTrue(GuardEvaluator.holds(notPushed, Map.of()), "not holds an absent field"),
+                    () -> assertFalse(GuardEvaluator.holds(notPushed, Map.of("pushed", true)),
+                            "not rejects a present field"));
         }
     }
 }

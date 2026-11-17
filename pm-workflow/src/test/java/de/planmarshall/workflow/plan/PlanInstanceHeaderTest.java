@@ -187,7 +187,7 @@ class PlanInstanceHeaderTest {
                     + "\"posture\":null,\"pruned\":[],\"steps\":{\"phase_5_verification\":[],\"phase_6\":[]},"
                     + "\"version\":1,\"waived_gates\":[]}";
 
-            assertEquals(expected, HeaderJson.write(minimalHeader()));
+            assertEquals(expected, HeaderJson.write(minimalHeader()), "the minimal header writes the canonical line");
         }
 
         @Test
@@ -210,7 +210,7 @@ class PlanInstanceHeaderTest {
             assertAll(
                     () -> assertTrue(json.contains("\"source_fact\":\"Größe\""), json),
                     () -> assertTrue(new String(json.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8)
-                            .contains("Größe")));
+                            .contains("Größe"), "a character outside ASCII survives UTF-8"));
         }
 
         @Test
@@ -225,9 +225,10 @@ class PlanInstanceHeaderTest {
             var reread = HeaderJson.write(HeaderJson.read(first));
 
             assertAll(
-                    () -> assertEquals(first, second),
-                    () -> assertEquals(first, reread),
-                    () -> assertArrayEquals(sha256(first), sha256(reread)));
+                    () -> assertEquals(first, second, "writing twice yields the same line"),
+                    () -> assertEquals(first, reread, "the reread header writes the same line"),
+                    () -> assertArrayEquals(sha256(first), sha256(reread),
+                            "the reread header has the same digest"));
         }
 
         @Test
@@ -242,7 +243,8 @@ class PlanInstanceHeaderTest {
                     header.pruned(), List.of(PolicyCall.of(call.callSite(), call.unit(), reversed)),
                     header.waivedGates());
 
-            assertEquals(HeaderJson.write(header), HeaderJson.write(rebuilt));
+            assertEquals(HeaderJson.write(header), HeaderJson.write(rebuilt),
+                    "argument order changes no written byte");
         }
     }
 
@@ -257,7 +259,8 @@ class PlanInstanceHeaderTest {
             var header = PlanInstanceHeaderTest.fullHeader(planId, Generators.integers(1, 100_000).next(),
                     Generators.letterStrings(1, 30).next());
 
-            assertEquals(header, HeaderJson.read(HeaderJson.write(header)));
+            assertEquals(header, HeaderJson.read(HeaderJson.write(header)),
+                    "a full header reads back equal after writing");
         }
 
         @Test
@@ -294,8 +297,10 @@ class PlanInstanceHeaderTest {
         @DisplayName("the written header satisfies every constraint of the schema")
         void writtenHeaderIsValid() {
             assertAll(
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(fullHeader("plan-24", 1, "lane"))),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(PlanInstanceHeaderTest.minimalHeader())));
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(fullHeader("plan-24", 1, "lane")),
+                            "the full header breaks no schema constraint"),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(PlanInstanceHeaderTest.minimalHeader()),
+                            "the minimal header breaks no constraint"));
         }
 
         @Test
@@ -306,7 +311,8 @@ class PlanInstanceHeaderTest {
                     .replace("\"change_type\":null,", "")
                     .replace("2026-10-14T08:05:00Z", "2026-10-14t10:05:00+02:00");
 
-            assertEquals(PlanInstanceHeaderTest.minimalHeader(), HeaderJson.read(json));
+            assertEquals(PlanInstanceHeaderTest.minimalHeader(), HeaderJson.read(json),
+                    "absent members read like null values");
         }
     }
 
@@ -318,7 +324,8 @@ class PlanInstanceHeaderTest {
         @ValueSource(strings = {"not json", "{} {}", ""})
         @DisplayName("a line that is no single JSON value is refused")
         void malformed(String json) {
-            assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+            assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                    "a line of no single JSON value is refused");
         }
 
         @Test
@@ -327,7 +334,8 @@ class PlanInstanceHeaderTest {
             var json = HeaderJson.write(PlanInstanceHeaderTest.minimalHeader()).replace("\"plan-24\"",
                     "\"Plan_24\"");
 
-            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                    "a header breaking the schema is refused");
 
             assertTrue(refused.getMessage().contains("/plan_id"), refused.getMessage());
         }
@@ -337,7 +345,8 @@ class PlanInstanceHeaderTest {
         void nonLiteralValue() {
             var json = HeaderJson.write(fullHeader("plan-24", 1, "lane")).replace("\"value\":4", "\"value\":{}");
 
-            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                    "an argument that is no DSL literal is refused");
 
             assertTrue(refused.getMessage().contains("fix_budget"), refused.getMessage());
         }
@@ -349,7 +358,8 @@ class PlanInstanceHeaderTest {
             var json = HeaderJson.write(PlanInstanceHeaderTest.minimalHeader()).replace("2026-10-14T08:05:00Z",
                     composedAt);
 
-            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                    "an unparsable composed_at is refused");
 
             assertTrue(refused.getMessage().contains("/composed_at"), refused.getMessage());
         }
@@ -360,7 +370,8 @@ class PlanInstanceHeaderTest {
             var json = HeaderJson.write(PlanInstanceHeaderTest.minimalHeader()).replace("\"version\":1",
                     "\"version\":3000000000");
 
-            assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+            assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                    "a version beyond the int range is refused");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -371,7 +382,9 @@ class PlanInstanceHeaderTest {
                     "\"version\":" + version);
 
             var refused = assertTimeoutPreemptively(Duration.ofSeconds(5),
-                    () -> assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json)));
+                    () -> assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                            "a huge version is refused as out of range"),
+                    "a huge version is refused within five seconds");
 
             assertTrue(refused.getMessage().startsWith("Instance header refused: 'version' is out of range: "),
                     refused.getMessage());
@@ -384,7 +397,8 @@ class PlanInstanceHeaderTest {
             var json = HeaderJson.write(PlanInstanceHeaderTest.minimalHeader()).replace("\"version\":1",
                     "\"version\":" + version);
 
-            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                    "an exponent too large to strip is refused");
 
             assertTrue(refused.getMessage().startsWith("Instance header refused: "), refused.getMessage());
         }
@@ -395,7 +409,8 @@ class PlanInstanceHeaderTest {
             var json = HeaderJson.write(fullHeader("plan-24", 1, "lane")).replace("\"value\":4",
                     "\"value\":1000e2147483647");
 
-            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                    "a policy argument out of range is refused");
 
             assertTrue(refused.getMessage().startsWith("Instance header refused: 'fix_budget' is out of range: "),
                     refused.getMessage());
@@ -411,9 +426,10 @@ class PlanInstanceHeaderTest {
             var header = HeaderJson.read(json);
 
             assertAll(
-                    () -> assertEquals(100, header.version()),
+                    () -> assertEquals(100, header.version(), "a version with trailing zeros reads as 100"),
                     () -> assertEquals(new CallValue.IntValue(100),
-                            header.policyCalls().getFirst().args().get("fix_budget").value()));
+                            header.policyCalls().getFirst().args().get("fix_budget").value(),
+                            "an integral argument value reads as 100"));
         }
 
         @Test
@@ -423,9 +439,12 @@ class PlanInstanceHeaderTest {
                     "\"value\":1e999999999");
 
             var refused = assertTimeoutPreemptively(Duration.ofSeconds(5),
-                    () -> assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json)));
+                    () -> assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                            "a huge argument is refused as out of range"),
+                    "a huge argument is refused within five seconds");
 
-            assertEquals("Instance header refused: 'fix_budget' is out of range: 1E+999999999", refused.getMessage());
+            assertEquals("Instance header refused: 'fix_budget' is out of range: 1E+999999999", refused.getMessage(),
+                    "the huge argument is named as out of range");
         }
 
         @Test
@@ -437,9 +456,10 @@ class PlanInstanceHeaderTest {
             var header = HeaderJson.read(json);
 
             assertAll(
-                    () -> assertEquals(Integer.MAX_VALUE, header.version()),
+                    () -> assertEquals(Integer.MAX_VALUE, header.version(), "the largest int reads back unchanged"),
                     () -> assertEquals(new CallValue.IntValue(4),
-                            header.policyCalls().getFirst().args().get("fix_budget").value()));
+                            header.policyCalls().getFirst().args().get("fix_budget").value(),
+                            "an integral argument with an exponent reads back"));
         }
     }
 
@@ -653,15 +673,17 @@ class PlanInstanceHeaderTest {
             var header = fullHeader("plan-24", 1, "lane");
 
             assertAll(
-                    () -> assertThrows(UnsupportedOperationException.class, () -> header.pruned().clear()),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> header.pruned().clear(),
+                            "the pruned list of the header is a copy"),
                     () -> assertThrows(UnsupportedOperationException.class, () -> header.inputs().templates()
-                            .clear()),
+                            .clear(), "the template list of the header is a copy"),
                     () -> assertThrows(UnsupportedOperationException.class, () -> header.steps().phase6()
-                            .clear()),
+                            .clear(), "the phase 6 list of the header is a copy"),
                     () -> assertThrows(UnsupportedOperationException.class, () -> header.policyCalls().getFirst()
-                            .args().clear()),
+                            .args().clear(), "the argument map of a call is a copy"),
                     () -> assertEquals(List.of("actions", "fix_budget", "mode", "retry_budget"),
-                            List.copyOf(header.policyCalls().getFirst().args().keySet())));
+                            List.copyOf(header.policyCalls().getFirst().args().keySet()),
+                            "the argument names read back in order"));
         }
 
         @Test
@@ -670,20 +692,25 @@ class PlanInstanceHeaderTest {
         void nullRefused() {
             assertAll(
                     () -> assertThrows(NullPointerException.class, () -> new PrunedElement(null, "id",
-                            PruneReason.ADOPT, "lane")),
-                    () -> assertThrows(NullPointerException.class, () -> new WaivedGate("gate", null)),
+                            PruneReason.ADOPT, "lane"), "a pruned element without its kind is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new WaivedGate("gate", null),
+                            "a waived gate without its waiver id is refused"),
                     () -> assertThrows(NullPointerException.class, () -> new UnitReference("unit", null, null,
-                            UnitOrigin.DEFAULT)),
+                            UnitOrigin.DEFAULT), "a unit reference without its digest is refused"),
                     () -> assertThrows(NullPointerException.class, () -> new BoundArgument(null,
-                            BoundArgument.Source.WAIVER, null, null)),
+                                    BoundArgument.Source.WAIVER, null, null),
+                            "a bound argument without its value is refused"),
                     () -> assertThrows(NullPointerException.class, () -> new PolicyCall("site", null,
-                            new TreeMap<>())),
-                    () -> assertThrows(NullPointerException.class, () -> new HeaderViolation(null, "reason")),
+                            new TreeMap<>()), "a policy call without its unit is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new HeaderViolation(null, "reason"),
+                            "a header violation without its pointer is refused"),
                     () -> assertThrows(NullPointerException.class, () -> new PlanInstanceHeader("plan-24", 1,
-                            null, COMPOSED_AT, minimalHeader().inputs(), null, null,
-                            minimalHeader().steps(), List.of(), List.of(), List.of())),
+                                    null, COMPOSED_AT, minimalHeader().inputs(), null, null,
+                                    minimalHeader().steps(), List.of(), List.of(), List.of()),
+                            "a header without its event is refused"),
                     () -> assertThrows(NullPointerException.class, () -> new CompositionInputs(null, List.of(),
-                            List.of(), "r", DIGEST_A, DIGEST_B, null, null, null)));
+                                    List.of(), "r", DIGEST_A, DIGEST_B, null, null, null),
+                            "composition inputs without a config hash are refused"));
         }
     }
 }

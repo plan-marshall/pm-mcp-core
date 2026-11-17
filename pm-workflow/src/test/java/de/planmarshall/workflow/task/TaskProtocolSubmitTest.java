@@ -62,18 +62,24 @@ class TaskProtocolSubmitTest {
                 protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT)));
 
         var acknowledged = assertInstanceOf(CallResult.Accepted.class,
-                protocol.acknowledge(call, TaskFixtures.AT.plusSeconds(1)));
+                protocol.acknowledge(call, TaskFixtures.AT.plusSeconds(1)),
+                "the acknowledgement of the offer is accepted");
         var first = assertInstanceOf(CallResult.Accepted.class,
-                protocol.submit(call, TaskFixtures.AT.plusSeconds(2)));
+                protocol.submit(call, TaskFixtures.AT.plusSeconds(2)),
+                "the first submit of the generation is accepted");
         var second = assertInstanceOf(CallResult.Refused.class,
-                protocol.submit(call, TaskFixtures.AT.plusSeconds(3)));
+                protocol.submit(call, TaskFixtures.AT.plusSeconds(3)),
+                "the second submit of the generation is refused");
 
         assertAll(
-                () -> assertEquals(Status.EXECUTING, acknowledged.task().status()),
-                () -> assertEquals(Status.CLOSED, first.task().status()),
-                () -> assertEquals(Outcome.SUBMITTED, first.task().outcome()),
-                () -> assertEquals(AttemptEnd.CLOSED, first.task().currentAttempt().orElseThrow().end()),
-                () -> assertEquals(TaskRefusal.STALE_ENTITY, second.refusal()));
+                () -> assertEquals(Status.EXECUTING, acknowledged.task().status(), "the acknowledged task executes"),
+                () -> assertEquals(Status.CLOSED, first.task().status(), "the first submit closes the task"),
+                () -> assertEquals(Outcome.SUBMITTED, first.task().outcome(),
+                        "the submitted outcome is recorded"),
+                () -> assertEquals(AttemptEnd.CLOSED,
+                        first.task().currentAttempt().orElseThrow().end(), "the attempt ends closed"),
+                () -> assertEquals(TaskRefusal.STALE_ENTITY, second.refusal(),
+                        "the second submit is refused stale"));
     }
 
     @Test
@@ -86,9 +92,11 @@ class TaskProtocolSubmitTest {
         var task = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT));
 
         var refused = assertInstanceOf(CallResult.Refused.class,
-                protocol.acknowledge(TaskFixtures.call(task, TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(1)));
+                protocol.acknowledge(TaskFixtures.call(task, TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(1)),
+                "a call of another generation is refused");
 
-        assertEquals(TaskRefusal.JOB_SCOPE_MISMATCH, refused.refusal());
+        assertEquals(TaskRefusal.JOB_SCOPE_MISMATCH, refused.refusal(),
+                "an unheld entity is a job scope mismatch");
     }
 
     @Test
@@ -109,13 +117,17 @@ class TaskProtocolSubmitTest {
                 TaskFixtures.AT.plusSeconds(4));
         var successorSubmit = assertInstanceOf(CallResult.Accepted.class,
                 protocol.submit(TaskFixtures.call(successorOffer, TaskFixtures.SUCCESSOR),
-                        TaskFixtures.AT.plusSeconds(5)));
+                        TaskFixtures.AT.plusSeconds(5)),
+                "the successor generation submits the task");
         var late = assertInstanceOf(CallResult.Refused.class,
-                protocol.submit(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(6)));
+                protocol.submit(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(6)),
+                "the late call of the old generation is refused");
 
         assertAll(
-                () -> assertEquals(Outcome.SUBMITTED, successorSubmit.task().outcome()),
-                () -> assertEquals(TaskRefusal.GENERATION_FENCED, late.refusal()));
+                () -> assertEquals(Outcome.SUBMITTED, successorSubmit.task().outcome(),
+                        "the successor run closes submitted"),
+                () -> assertEquals(TaskRefusal.GENERATION_FENCED, late.refusal(),
+                        "the late call is refused fenced"));
     }
 
     @Test
@@ -133,8 +145,9 @@ class TaskProtocolSubmitTest {
         assertAll(
                 () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), other,
                         "another generation is answered no task"),
-                () -> assertInstanceOf(WaitAnswer.Offered.class, same),
-                () -> assertEquals(1, queue.records().getFirst().attempts().size()));
+                () -> assertInstanceOf(WaitAnswer.Offered.class, same, "the same generation is offered again"),
+                () -> assertEquals(1, queue.records().getFirst().attempts().size(),
+                        "the lease keeps one attempt"));
     }
 
     /**
@@ -204,11 +217,13 @@ class TaskProtocolSubmitTest {
                 protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT)));
 
         var refused = assertInstanceOf(CallResult.Refused.class,
-                protocol.submit(call, TaskFixtures.AT.plusSeconds(1)));
+                protocol.submit(call, TaskFixtures.AT.plusSeconds(1)),
+                "the acknowledged link is required before submit");
 
         assertAll(
-                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, refused.refusal()),
-                () -> assertEquals(Status.OFFERED, queue.records().getFirst().status()));
+                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, refused.refusal(),
+                        "the refusal names the missing link"),
+                () -> assertEquals(Status.OFFERED, queue.records().getFirst().status(), "the task is still offered"));
     }
 
     @Test
@@ -225,9 +240,11 @@ class TaskProtocolSubmitTest {
 
         var refused = assertInstanceOf(CallResult.Refused.class,
                 protocol.submit(new TaskCall(call.queueTaskId(), TaskFixtures.SUCCESSOR),
-                        TaskFixtures.AT.plusSeconds(3)));
+                        TaskFixtures.AT.plusSeconds(3)),
+                "a submit for an unheld generation is refused");
 
-        assertEquals(TaskRefusal.JOB_SCOPE_MISMATCH, refused.refusal());
+        assertEquals(TaskRefusal.JOB_SCOPE_MISMATCH, refused.refusal(),
+                "the refusal is a job scope mismatch");
     }
 
     @Test
@@ -243,11 +260,14 @@ class TaskProtocolSubmitTest {
         protocol.acknowledge(call, TaskFixtures.AT.plusSeconds(1));
 
         var reported = assertInstanceOf(CallResult.Accepted.class,
-                protocol.report(call, AttemptEnd.WORKER_LOST, 0, TaskFixtures.AT.plusSeconds(2)));
+                protocol.report(call, AttemptEnd.WORKER_LOST, 0, TaskFixtures.AT.plusSeconds(2)),
+                "the spent-budget report is accepted");
 
         assertAll(
-                () -> assertEquals(Status.CLOSED, reported.task().status()),
-                () -> assertEquals(Outcome.LOST, reported.task().outcome()),
-                () -> assertEquals(LostReason.ATTEMPTS_SPENT, reported.task().reason()));
+                () -> assertEquals(Status.CLOSED, reported.task().status(), "the spent budget closes the task"),
+                () -> assertEquals(Outcome.LOST, reported.task().outcome(),
+                        "the task closes with the lost outcome"),
+                () -> assertEquals(LostReason.ATTEMPTS_SPENT, reported.task().reason(),
+                        "the loss is a spent budget"));
     }
 }

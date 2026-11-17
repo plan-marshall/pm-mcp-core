@@ -206,7 +206,7 @@ class EngineResumeTest {
             assertTrue(restarted.fixtures().jobRequests.getValues().isEmpty(),
                     "no job started again at " + index);
         }
-        assertEquals(expected.getLast(), read());
+        assertEquals(expected.getLast(), read(), "the store ends where the run ended");
     }
 
     @Test
@@ -218,12 +218,15 @@ class EngineResumeTest {
         var stored = read();
 
         assertAll(
-                () -> assertEquals("work.run", stored.state()),
-                () -> assertEquals(first.callStack(), stored.callStack()),
-                () -> assertEquals("sub.worker", stored.callStack().getFirst().subworkflowId()),
-                () -> assertEquals("main", stored.callStack().getFirst().entry()),
-                () -> assertEquals("execute.invoke", stored.callStack().getFirst().callerStateId()),
-                () -> assertEquals("b-0000000000000001", stored.activeJobBinding().orElseThrow().jobId()));
+                () -> assertEquals("work.run", stored.state(), "the store holds the resting state"),
+                () -> assertEquals(first.callStack(), stored.callStack(), "the call stack survives the stop"),
+                () -> assertEquals("sub.worker", stored.callStack().getFirst().subworkflowId(),
+                        "the frame names the sub-workflow"),
+                () -> assertEquals("main", stored.callStack().getFirst().entry(), "the frame keeps its entry"),
+                () -> assertEquals("execute.invoke", stored.callStack().getFirst().callerStateId(),
+                        "the frame names its caller state"),
+                () -> assertEquals("b-0000000000000001", stored.activeJobBinding().orElseThrow().jobId(),
+                        "the bound job is still recorded"));
     }
 
     @Test
@@ -239,11 +242,11 @@ class EngineResumeTest {
                 new WorkflowStatusStore(scope), transaction));
 
         assertAll(
-                () -> assertEquals("main", stored.callStack().getFirst().entry()),
-                () -> assertEquals(stored.callStack(), waited.status().callStack()),
-                () -> assertEquals("execute.review", returned.status().state()),
-                () -> assertTrue(returned.status().callStack().isEmpty()),
-                () -> assertEquals(returned.status(), read()));
+                () -> assertEquals("main", stored.callStack().getFirst().entry(), "the stored frame keeps its entry"),
+                () -> assertEquals(stored.callStack(), waited.status().callStack(), "the rest keeps the call stack"),
+                () -> assertEquals("execute.review", returned.status().state(), "the return lands in the caller"),
+                () -> assertTrue(returned.status().callStack().isEmpty(), "the returned frame is popped"),
+                () -> assertEquals(returned.status(), read(), "the stored status matches the returned one"));
     }
 
     @Test
@@ -262,7 +265,9 @@ class EngineResumeTest {
             var waited = restarted.engine().advance(stored, new WorkflowStatusStore(scope), transaction);
 
             assertAll(
-                    () -> assertEquals(stored, assertInstanceOf(EngineStep.Resting.class, waited).status()),
+                    () -> assertEquals(stored,
+                            assertInstanceOf(EngineStep.Resting.class, waited, "the restart still rests").status(),
+                            "the stored status is unchanged"),
                     () -> assertTrue(restarted.fixtures().jobRequests.getValues().isEmpty(),
                             "the unchanged advance starts no job"),
                     () -> assertThrows(IllegalStateException.class, transaction::commit,

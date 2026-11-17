@@ -53,10 +53,11 @@ class TaskProtocolInterleavingTest {
         var closed = run(seed, base);
 
         assertAll(
-                () -> assertEquals(1, closed.size()),
-                () -> assertEquals(Outcome.SUBMITTED, closed.getFirst().outcome()),
+                () -> assertEquals(1, closed.size(), "exactly one task is closed"),
+                () -> assertEquals(Outcome.SUBMITTED, closed.getFirst().outcome(), "the run closes with submitted"),
                 () -> assertEquals(1, closed.getFirst().attempts().stream()
-                        .filter(attempt -> attempt.end() == AttemptEnd.CLOSED).count()));
+                                .filter(attempt -> attempt.end() == AttemptEnd.CLOSED).count(),
+                        "exactly one attempt ends closed"));
     }
 
     @Test

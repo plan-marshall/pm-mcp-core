@@ -86,14 +86,17 @@ class PlanProcessStatesTest {
                 line(3, Event.ENTERED, "phases.plan", null)));
 
         assertAll(
-                () -> assertEquals(State.DONE, node(states, "init.ready").state()),
+                () -> assertEquals(State.DONE, node(states, "init.ready").state(), "a state entered and left is done"),
                 () -> assertEquals("deep", node(states, "init.ready").outcome(), "the left state names its outcome"),
                 () -> assertNull(node(states, "init.ready").reason(), "a kept state carries no prune reason"),
-                () -> assertEquals(State.RUNNING, node(states, "phases.plan").state()),
+                () -> assertEquals(State.RUNNING, node(states, "phases.plan").state(),
+                        "a state entered and kept is running"),
                 () -> assertNull(node(states, "phases.plan").outcome(), "a running state carries no outcome"),
-                () -> assertEquals(State.PLANNED, node(states, "phases.execute").state()),
+                () -> assertEquals(State.PLANNED, node(states, "phases.execute").state(),
+                        "a state never entered is planned"),
                 () -> assertNull(node(states, "phases.execute").outcome(), "a planned state carries no outcome"),
-                () -> assertEquals(State.NOT_IN_THIS_PLAN, node(states, "phases.plan-light").state()),
+                () -> assertEquals(State.NOT_IN_THIS_PLAN, node(states, "phases.plan-light").state(),
+                        "a pruned phase call is not in this plan"),
                 () -> assertEquals("other_lane", node(states, "phases.plan-light").reason(),
                         "a pruned call names its prune reason"),
                 () -> assertNull(node(states, "phases.plan-light").outcome(), "a pruned call carries no outcome"),
@@ -108,7 +111,8 @@ class PlanProcessStatesTest {
         var states = PlanProcessStates.derive(instance, List.of(
                 line(1, Event.ENTERED, "outline.light-approve", null)));
 
-        assertEquals(State.WAITING_FOR_OPERATOR, node(states, "outline.light-approve").state());
+        assertEquals(State.WAITING_FOR_OPERATOR, node(states, "outline.light-approve").state(),
+                "a question wait waits for the operator");
     }
 
     @Test
@@ -128,7 +132,8 @@ class PlanProcessStatesTest {
                 PlanHistoryLine.of(1, Event.ENTERED, "setup.choose", List.of(), "phase-1-init", null,
                         unit.version(), T0)));
 
-        assertEquals(State.WAITING_FOR_OPERATOR, node(states, "setup.choose").state());
+        assertEquals(State.WAITING_FOR_OPERATOR, node(states, "setup.choose").state(),
+                "a resting link state waits for the operator");
     }
 
     @Test
@@ -144,11 +149,13 @@ class PlanProcessStatesTest {
                 line(5, Event.ENTERED, "handed_back", null)));
 
         assertAll(
-                () -> assertEquals(State.FAILED, node(states, "handed_back").state()),
+                () -> assertEquals(State.FAILED, node(states, "handed_back").state(),
+                        "a failure terminal state is failed"),
                 () -> assertEquals("handed_back", node(states, "handed_back").outcome(),
                         "the failed terminal names its outcome"),
-                () -> assertEquals(State.DONE, node(states, "phases.plan").state()),
-                () -> assertEquals(State.NOT_TAKEN, node(states, "phases.execute").state()));
+                () -> assertEquals(State.DONE, node(states, "phases.plan").state(), "the left plan state is done"),
+                () -> assertEquals(State.NOT_TAKEN, node(states, "phases.execute").state(),
+                        "a state after the end is not taken"));
     }
 
     @Test
@@ -167,7 +174,8 @@ class PlanProcessStatesTest {
             committed(scope, transaction -> history.append(transaction, lines));
 
             var reread = new PlanHistory(scope).read().records();
-            assertEquals(PlanProcessStates.derive(instance, lines), PlanProcessStates.derive(instance, reread));
+            assertEquals(PlanProcessStates.derive(instance, lines), PlanProcessStates.derive(instance, reread),
+                    "the restart derives the same states");
         } finally {
             deleteRecursively(base);
         }

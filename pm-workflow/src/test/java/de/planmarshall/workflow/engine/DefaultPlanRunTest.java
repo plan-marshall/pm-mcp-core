@@ -224,7 +224,8 @@ class DefaultPlanRunTest {
             case QUESTION_ANSWER -> questionResolved(state);
             case TIME -> new EngineEvent.TimeElapsed(fixtures.clock.tick(Duration.ofMinutes(1)));
             case OPERATOR_ACT -> new EngineEvent.OperatorAct(wait.stateId(), assertInstanceOf(
-                    StateBehavior.InteractiveLinks.class, state.behavior()).links().getFirst().idPattern());
+                    StateBehavior.InteractiveLinks.class, state.behavior(), "an operator wait offers links")
+                    .links().getFirst().idPattern());
             default -> fail("the state " + wait.stateId() + " awaits " + wait.awaitedEvent());
         };
     }
@@ -237,7 +238,7 @@ class DefaultPlanRunTest {
 
     /** @return the settlement of the state's tasks, evaluated by the return evaluation of its entity kind */
     private EngineEvent tasksSettled(RestingWait wait, StateNode state, WorkflowStatus status) {
-        var job = assertInstanceOf(StateBehavior.ModelJob.class, state.behavior());
+        var job = assertInstanceOf(StateBehavior.ModelJob.class, state.behavior(), "the state runs a model job");
         var kind = InvariantFixtures.entityKinds().find(job.entityKind()).orElseThrow();
         var outcomes = new LinkedHashMap<String, String>();
         wait.taskEntities().forEach(entity -> outcomes.put(entity, "submitted"));
@@ -247,8 +248,8 @@ class DefaultPlanRunTest {
 
     /** @return the resolution of the question with the first outcome its state routes */
     private EngineEvent questionResolved(StateNode state) {
-        var outcome = assertInstanceOf(StateBehavior.QuestionWait.class, state.behavior()).transitions().getFirst()
-                .outcomeName();
+        var outcome = assertInstanceOf(StateBehavior.QuestionWait.class, state.behavior(),
+                "the state waits on a question").transitions().getFirst().outcomeName();
         fixtures.answerQuestion(new QuestionRead.Resolved(outcome));
         return new EngineEvent.QuestionResolved("Q-001", outcome);
     }

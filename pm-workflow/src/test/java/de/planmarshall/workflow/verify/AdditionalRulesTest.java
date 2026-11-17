@@ -92,7 +92,8 @@ class AdditionalRulesTest {
                                 "the state 'verify.entry' is not reachable from the start state 'verify.missing'"),
                         new RuleStateMessage(VerificationRule.STATE_EXISTS, "verify.missing",
                                 "the start state 'verify.missing' does not exist in the unit")),
-                found(def));
+                found(def),
+                "a missing start state is refused and nothing is reachable");
     }
 
     @Test
@@ -116,7 +117,8 @@ class AdditionalRulesTest {
                                         + " declares a text"),
                         new RuleStateMessage(VerificationRule.SCHEMA_BINDING, "verify.entry",
                                 "the schema 'unregistered-schema' of the parameter 'note' is not registered")),
-                found(def));
+                found(def),
+                "an unregistered link schema is refused as a free parameter");
     }
 
     @Test
@@ -135,7 +137,8 @@ class AdditionalRulesTest {
 
         assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
                 "the return-evaluation primitive 'missing.eval' of the entity kind 'custom' is not registered"),
-                found(customVal, def));
+                found(customVal, def),
+                "a kind with an unregistered primitive is reported");
     }
 
     @Test
@@ -155,7 +158,8 @@ class AdditionalRulesTest {
 
         assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
                 "the state 'verify.entry' declares 'ask' on the entity kind 'screen', which has no entity unit"),
-                found(customVal, def));
+                found(customVal, def),
+                "an ask on a kind without an entity unit is refused");
     }
 
     @Test
@@ -170,7 +174,8 @@ class AdditionalRulesTest {
 
         assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
                 "the primitive 'test.missing' of the each clause is not registered"),
-                found(def));
+                found(def),
+                "an each clause naming an unregistered primitive is refused");
     }
 
     @Test
@@ -187,7 +192,8 @@ class AdditionalRulesTest {
                 "the form 'role each' is admitted only in the unit 'adjudicate.decisions', but found in"
                         + " 'verify.inline'",
                 "the state 'verify.entry' declares 'ask' on a 'role each' state"),
-                found(def));
+                found(def),
+                "role each outside its unit and an ask on it are refused");
     }
 
     @Test
@@ -204,7 +210,8 @@ class AdditionalRulesTest {
                 "the form 'role each' is admitted only in the unit 'adjudicate.decisions', but found in"
                         + " 'verify.inline'",
                 "the state 'verify.entry' declares 'ask' on a 'role each' state"),
-                found(def));
+                found(def),
+                "ask fresh on role each is refused beside the form itself");
     }
 
     @Test
@@ -221,7 +228,8 @@ class AdditionalRulesTest {
         assertEquals(violationsOf(VerificationRule.ROLE_NAME_GRAMMAR, "verify.entry",
                 "the consulted role 'too-long-role-name-that-exceeds-maximum-allowed-length-thirty-two' of the"
                         + " state 'verify.entry' does not match the role-name grammar"),
-                found(def));
+                found(def),
+                "a consulted role outside the role-name grammar is refused");
     }
 
     @Test
@@ -242,7 +250,8 @@ class AdditionalRulesTest {
         assertEquals(violationsOf(VerificationRule.JOB_STARTING_OUTCOME, "verify.entry",
                 "the job-starting outcome 'enqueued' of the primitive 'test.enqueue' targets 'verify.nonjob',"
                         + " which is not a job state"),
-                found(def));
+                found(def),
+                "a job-starting outcome targeting a non-job state is refused");
     }
 
     @Test
@@ -264,7 +273,8 @@ class AdditionalRulesTest {
         assertEquals(violationsOf(VerificationRule.JOB_STARTING_OUTCOME, "verify.entry",
                 "the outcome 'skipped' of the primitive 'test.enqueue' does not start a job, but targets the"
                         + " job state 'verify.targetjob'"),
-                found(def));
+                found(def),
+                "a non-job outcome targeting a job state is refused");
     }
 
     @Test
@@ -283,7 +293,8 @@ class AdditionalRulesTest {
                 "the state 'verify.entry' routes the outcome 'bogus', which the return-evaluation primitive"
                         + " 'test.evaluate-change' does not have",
                 "the state 'verify.entry' does not route the reserved outcome 'lost'"),
-                found(def));
+                found(def),
+                "duplicate, unknown and missing lost outcomes refused");
     }
 
     /** A unit of the given scope whose one state calls {@code callee}; it is read only as a caller, never verified. */
@@ -354,16 +365,19 @@ class AdditionalRulesTest {
     @Test
     @DisplayName("MODEL_JOB_OUTCOMES and EXIT_PATH: a sub-workflow reached only from plan units takes the default lost route (ADR 025)")
     void lostOmittedUnderPlanUnitsOnly() {
-        assertEquals(List.of(), foundWithCallers(caller("verify.plan-a", "plan", "verify.reviewed")));
+        assertEquals(List.of(), foundWithCallers(caller("verify.plan-a", "plan", "verify.reviewed")),
+                "a sole plan caller leaves the sub-workflow free of findings");
         assertEquals(List.of(), foundWithCallers(caller("verify.plan-a", "plan", "verify.middle"),
                 caller("verify.plan-b", "plan", "verify.reviewed"),
-                caller("verify.middle", "subworkflow", "verify.reviewed")));
+                caller("verify.middle", "subworkflow", "verify.reviewed")),
+                "plan callers through a sub-workflow raise no finding either");
     }
 
     @Test
     @DisplayName("MODEL_JOB_OUTCOMES and EXIT_PATH: a sub-workflow with a caller chain outside the plan units routes lost (ADR 025)")
     void lostOmittedOutsidePlanUnitsOnly() {
-        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(), "no caller");
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(),
+                "a sub-workflow with no caller routes lost itself");
         assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.plan-a", "plan", "verify.reviewed"),
                 caller("verify.epic-a", "epic", "verify.reviewed")), "a direct epic caller");
         assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.plan-a", "plan", "verify.middle"),
@@ -372,7 +386,7 @@ class AdditionalRulesTest {
         assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.middle", "subworkflow", "verify.reviewed")),
                 "a sub-workflow caller without a caller of its own");
         assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.entity-a", "entity", "verify.reviewed")),
-                "an entity caller");
+                "an entity caller routes lost rather than defaulting it");
     }
 
     @Test
@@ -393,7 +407,8 @@ class AdditionalRulesTest {
                         + " 'review' does not have",
                 "the question state 'verify.entry' does not route the outcome 'revise' of the question class"
                         + " 'review'"),
-                found(def));
+                found(def),
+                "duplicate, unknown and missing question outcomes refused");
     }
 
     @Test
@@ -427,7 +442,8 @@ class AdditionalRulesTest {
                 "the link 'proceed' has form 'submit' but declares no parameters",
                 "the link 'again' has form 'noop' but declares parameters",
                 "the link 'appeal' of relation ESCALATE must name 'request_waiver'"),
-                found(def));
+                found(def),
+                "engine-owned relation plus inadmissible link forms refused");
     }
 
     @Test
@@ -447,7 +463,8 @@ class AdditionalRulesTest {
         assertEquals(violationsOf(VerificationRule.ABORT_TERMINAL_TARGETING, "verify.entry",
                 "the abort terminal 'plan.aborted' must not be targeted by any declared transition",
                 "the abort terminal 'epic.aborted' may only be targeted by 'abort_landed' of 'epic.next-work'"),
-                found(def));
+                found(def),
+                "targeting both abort terminals by a transition is refused");
     }
 
     @Test
@@ -489,7 +506,8 @@ class AdditionalRulesTest {
                                         + "declared link clause"),
                         new RuleStateMessage(VerificationRule.LEAF_TASK_CONSTRAINT, "verify.model",
                                 "a worker unit must not contain a model job state")),
-                found(workerDef));
+                found(workerDef),
+                "a worker unit's model job and declared links are all refused");
 
         var consultDef = VerifyFixtures.parseSource("consultation.pmwf", """
                 ---
@@ -527,7 +545,8 @@ class AdditionalRulesTest {
                                 "a consultation task must not offer a consult link"),
                         new RuleStateMessage(VerificationRule.LEAF_TASK_CONSTRAINT, "verify.target",
                                 "a consultation task must not consult further roles")),
-                found(consultDef));
+                found(consultDef),
+                "consulting links on a consultation task are refused");
     }
 
     @Test
@@ -558,7 +577,8 @@ class AdditionalRulesTest {
                 """);
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
                 "the resting link state 'verify.entry' of a sub-workflow must declare a skill"),
-                found(subwfDef));
+                found(subwfDef),
+                "a resting link of a sub-workflow needs a declared skill");
     }
 
     private static final String PLAN_RETURN = """
@@ -576,7 +596,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
                 "the called sub-workflow 'missing.subwf' is not registered"),
-                found(unregisteredDef));
+                found(unregisteredDef),
+                "a call to an unregistered sub-workflow is refused");
 
         var callWsDef = unit("plan", """
                 state verify.entry
@@ -592,7 +613,8 @@ class AdditionalRulesTest {
                         new RuleStateMessage(VerificationRule.INTERFACE_CALLED_UNIT, "verify.entry",
                                 "the call targets 'test.workspace-unit', which declares no entry; a unit without"
                                         + " entries is never called")),
-                found(callWsDef));
+                found(callWsDef),
+                "a call to a workspace unit with its exit contract is refused");
     }
 
     @Test
@@ -605,7 +627,7 @@ class AdditionalRulesTest {
                         waived -> verify.done
                         stepped_out -> plan.return
                 """ + PLAN_RETURN + DONE_TERMINAL);
-        assertEquals(List.of(), violations(routed));
+        assertEquals(List.of(), violations(routed), "a call routing every declared exit verifies clean");
 
         var unrouted = unit("plan", """
                 state verify.entry
@@ -615,7 +637,8 @@ class AdditionalRulesTest {
                 """ + PLAN_RETURN + DONE_TERMINAL);
         assertEquals(callContract("verify.entry",
                 "the call does not route the exit outcome 'waived' of 'remediation.test-waiver'"),
-                found(unrouted));
+                found(unrouted),
+                "a call that skips a declared exit outcome is refused");
     }
 
     @Test
@@ -635,7 +658,8 @@ class AdditionalRulesTest {
                 "the list value 'invalid_target' of input 'targets' is not in the allowed enum values"
                         + " [origin, mirror] of 'git.commit_and_push'",
                 "the input binding 'extra' names an undeclared input of 'git.commit_and_push'"),
-                found(def));
+                found(def),
+                "enum, integer, list and unknown input bindings are refused");
     }
 
     @Test
@@ -667,7 +691,8 @@ class AdditionalRulesTest {
                 "the call does not route the exit outcome 'stepped_out' of 'git.commit_and_push'",
                 "the call omits the required input 'push' of 'git.commit_and_push'",
                 "the call omits the required input 'targets' of 'git.commit_and_push'"),
-                found(def));
+                found(def),
+                "a call omitting inputs and exit outcomes is refused");
     }
 
     @Test
@@ -683,7 +708,8 @@ class AdditionalRulesTest {
 
         assertEquals(List.of(new RuleStateMessage(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
                         "the call does not route the exit outcome 'stepped_out' of 'test.depth5'")),
-                found.stream().map(RuleStateMessage::of).toList());
+                found.stream().map(RuleStateMessage::of).toList(),
+                "a call to a sub-workflow owes the stepped_out outcome");
     }
 
     @Test
@@ -698,7 +724,7 @@ class AdditionalRulesTest {
                 state plan.return terminal returned failure
                 """ + DONE_TERMINAL);
 
-        assertEquals(List.of(), violations(def));
+        assertEquals(List.of(), violations(def), "routing stepped_out to a plan fallback verifies clean");
     }
 
     @Test
@@ -714,7 +740,8 @@ class AdditionalRulesTest {
 
         assertEquals(List.of(new RuleStateMessage(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
                         "the call does not route the exit outcome 'stepped_out' of 'git.commit_and_push'")),
-                found.stream().map(RuleStateMessage::of).toList());
+                found.stream().map(RuleStateMessage::of).toList(),
+                "a stepping-out callee leaves the stepped_out route owed");
     }
 
     @Test
@@ -737,7 +764,8 @@ class AdditionalRulesTest {
 
         assertEquals(violationsOf(VerificationRule.QUESTION_CLASS_BINDING, "verify.entry",
                 "the question class 'ask' of the state 'verify.entry' is not registered"),
-                found(customVal, def));
+                found(customVal, def),
+                "an unregistered question class on a state is refused");
     }
 
     @Test
@@ -749,7 +777,7 @@ class AdditionalRulesTest {
                         approve -> verify.done
                         revise -> verify.done
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(passing));
+        assertEquals(List.of(), violations(passing), "a bijective review question state verifies clean");
 
         var missing = unit("workspace", """
                 state verify.entry
@@ -759,7 +787,8 @@ class AdditionalRulesTest {
         assertEquals(violationsOf(VerificationRule.QUESTION_OUTCOMES, "verify.entry",
                 "the question state 'verify.entry' does not route the outcome 'revise' of the question class"
                         + " 'review'"),
-                found(missing));
+                found(missing),
+                "a review question skipping the revise outcome is refused");
     }
 
     private static List<RuleStateMessage> stepCompletion(String stateId, String... messages) {
@@ -789,7 +818,8 @@ class AdditionalRulesTest {
                                 "the step 'step:x' is completed as waived on a transition that is not the 'waived' outcome of a call to a remediation unit"),
                         new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.second",
                                 "the step 'step:x' is completed twice in one firing from 'verify.entry'")),
-                found(def));
+                found(def),
+                "a duplicate completion and a stray waiver are refused");
     }
 
     @Test
@@ -807,7 +837,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
         assertEquals(stepCompletion("verify.entry",
                 "the step 'step:y' is completed as done on an outcome of class FAILURE, which is not SUCCESS"),
-                found(classDef));
+                found(classDef),
+                "a done completion on a FAILURE outcome is refused");
 
         var unknownDef = unit("plan", """
                 state verify.entry
@@ -820,7 +851,8 @@ class AdditionalRulesTest {
                                 "the primitive 'test.missing' of the auto is not registered"),
                         new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.entry",
                                 "the step 'step:z' is completed on the outcome 'done', whose class cannot be established")),
-                found(unknownDef));
+                found(unknownDef),
+                "an unregistered auto and an unclassed completion are refused");
     }
 
     @Test
@@ -861,7 +893,7 @@ class AdditionalRulesTest {
                 state verify.stepped-out terminal stepped_out stepped_out
                 """);
 
-        assertEquals(List.of(), violations(def));
+        assertEquals(List.of(), violations(def), "task, call and stepped_out outcomes admit completions");
     }
 
     @Test
@@ -879,7 +911,8 @@ class AdditionalRulesTest {
         assertEquals(stepCompletion("verify.entry",
                 "the step 'verify:q' is completed on the outcome 'approve', whose class cannot be established",
                 "the step 'verify:q' is completed on the outcome 'revise', whose class cannot be established"),
-                found(def));
+                found(def),
+                "question outcomes have no class, so completions are refused");
     }
 
     @Test
@@ -895,7 +928,8 @@ class AdditionalRulesTest {
 
         assertEquals(stepCompletion("verify.entry",
                 "the step 'step:s' is not completed on a firing path from 'verify.entry' that ends with the outcome 'skipped' into 'verify.done'"),
-                found(def));
+                found(def),
+                "a firing path completing no step is refused");
     }
 
     @Test
@@ -909,7 +943,7 @@ class AdditionalRulesTest {
                         fix_requested -> verify.done
                 """ + DONE_TERMINAL);
 
-        assertEquals(List.of(), violations(def));
+        assertEquals(List.of(), violations(def), "an unsettled outcome ends the firing without a completion");
     }
 
     @Test
@@ -924,7 +958,7 @@ class AdditionalRulesTest {
 
                 state plan.return terminal returned failure
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(passing));
+        assertEquals(List.of(), violations(passing), "entering an implicit-failed state completes the open step");
 
         var completing = unit("plan", """
                 state verify.entry
@@ -938,7 +972,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
         assertEquals(stepCompletion("verify.entry",
                 "the step 'step:s' is completed on the transition into 'plan.return', whose entry records the open firing as failed"),
-                found(completing));
+                found(completing),
+                "a completion on the failed-entry transition is refused");
     }
 
     @Test
@@ -957,7 +992,8 @@ class AdditionalRulesTest {
 
         assertEquals(stepCompletion("verify.entry",
                 "the step 'step:s' is completed as skipped on an outcome of class FAILURE"),
-                found(def));
+                found(def),
+                "a skipped completion on a FAILURE outcome is refused");
     }
 
     @Test
@@ -975,7 +1011,7 @@ class AdditionalRulesTest {
                 state plan.return terminal returned failure
                 """ + DONE_TERMINAL);
 
-        assertEquals(List.of(), violations(def));
+        assertEquals(List.of(), violations(def), "a waiver on a remediation call's waived outcome passes");
     }
 
     @Test
@@ -993,7 +1029,8 @@ class AdditionalRulesTest {
 
         assertEquals(stepCompletion("verify.entry",
                 "the step 'step:s' is completed as waived on a transition that is not the 'waived' outcome of a call to a remediation unit"),
-                found(def));
+                found(def),
+                "a waiver outside a remediation call is refused");
     }
 
     @Test
@@ -1021,7 +1058,7 @@ class AdditionalRulesTest {
                             completes step:two as skipped
                 """ + DONE_TERMINAL);
 
-        assertEquals(List.of(), violations(def));
+        assertEquals(List.of(), violations(def), "a hub whose unit names a step list verifies clean");
     }
 
     @Test
@@ -1037,7 +1074,8 @@ class AdditionalRulesTest {
 
         assertEquals(stepCompletion("verify.entry",
                 "the cycle measure STEP_LIST of the state 'verify.entry' is admitted only on the dispatch hub of a unit with a step list, but the unit 'verify.inline' completes no step"),
-                found(def));
+                found(def),
+                "a hub of a unit without a step list is refused");
     }
 
     @Test
@@ -1061,7 +1099,7 @@ class AdditionalRulesTest {
                         cancelled -> verify.entry
                 """ + DONE_TERMINAL);
 
-        assertEquals(List.of(), violations(def));
+        assertEquals(List.of(), violations(def), "an epic archive path that commits and lands verifies clean");
     }
 
     @Test
@@ -1077,7 +1115,8 @@ class AdditionalRulesTest {
         assertEquals(stepCompletion("verify.entry",
                 "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only on an archive path that commits, but no cycle through it passes a call of 'git.commit_and_push'",
                 "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only on an archive path that lands, but no cycle through it passes a job state"),
-                found(def));
+                found(def),
+                "an archive path that neither commits nor lands is refused");
     }
 
     @Test
@@ -1109,7 +1148,8 @@ class AdditionalRulesTest {
 
         assertEquals(stepCompletion("verify.entry",
                 "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only on an archive path that commits, but no cycle through it passes a call of 'git.commit_and_push'"),
-                found(def));
+                found(def),
+                "a commit off every cycle through the archive state is void");
     }
 
     @Test
@@ -1141,7 +1181,8 @@ class AdditionalRulesTest {
 
         assertEquals(stepCompletion("verify.entry",
                 "the cycle measure STEP_LIST of the state 'verify.entry' requires every pass to settle one step, but a pass that leaves it with the outcome 'first' settles more than one"),
-                found(def));
+                found(def),
+                "a pass settling two steps at the hub is refused");
     }
 
     @Test
@@ -1179,7 +1220,7 @@ class AdditionalRulesTest {
                 "the cycle measure STEP_LIST of the state 'verify.entry' requires every pass to settle one step once, but a pass that leaves it with the outcome 'first' completes the step 'step:x' twice"));
         expected.addAll(stepCompletion("verify.again",
                 "the step 'step:x' is completed twice in one firing from 'verify.one'"));
-        assertEquals(expected, found(def));
+        assertEquals(expected, found(def), "a pass settling one step twice is refused beside its firing");
     }
 
     @Test
@@ -1210,7 +1251,8 @@ class AdditionalRulesTest {
 
         assertEquals(stepCompletion("verify.entry",
                 "the cycle measure STEP_LIST of the state 'verify.entry' requires every pass to settle one step once, but a pass that leaves it with the outcome 'first' completes the step 'step:x' twice"),
-                found(def));
+                found(def),
+                "settling one step twice without an opening is refused");
     }
 
     @Test
@@ -1238,7 +1280,7 @@ class AdditionalRulesTest {
                 state plan.return terminal returned failure
                 """ + DONE_TERMINAL);
 
-        assertEquals(List.of(), violations(def));
+        assertEquals(List.of(), violations(def), "a hand-back or a leaving path is no pass at all");
     }
 
     @Test
@@ -1253,7 +1295,8 @@ class AdditionalRulesTest {
 
         assertEquals(stepCompletion("verify.entry",
                 "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only in an epic unit, but the unit has scope PLAN"),
-                found(def));
+                found(def),
+                "archive steps outside an epic unit are refused");
     }
 
     @Test
@@ -1266,7 +1309,7 @@ class AdditionalRulesTest {
                         exhausted -> verify.done
                 """ + DONE_TERMINAL);
 
-        assertEquals(List.of(), violations(def));
+        assertEquals(List.of(), violations(def), "an exhaustion outcome leaving the cycle verifies clean");
     }
 
     @Test
@@ -1281,7 +1324,8 @@ class AdditionalRulesTest {
 
         assertEquals(stepCompletion("verify.entry",
                 "the exhaustion transition 'exhausted' of the attempt cap of the state 'verify.entry' does not leave the cycle"),
-                found(def));
+                found(def),
+                "an exhaustion transition staying in the cycle is refused");
     }
 
     private static List<RuleStateMessage> callContract(String stateId, String... messages) {
@@ -1307,7 +1351,8 @@ class AdditionalRulesTest {
 
         assertEquals(callContract("verify.entry",
                 "the call routes 'stepped_out' to 'verify.done', which is a terminal state of class SUCCESS"),
-                found(def));
+                found(def),
+                "stepped_out routed to a success terminal is refused");
     }
 
     @Test
@@ -1321,7 +1366,7 @@ class AdditionalRulesTest {
 
                 state finalize.hand-back terminal handed_back failure
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(handBack));
+        assertEquals(List.of(), violations(handBack), "a plan unit routing stepped_out to hand-back verifies clean");
 
         var failureTerminal = unit("plan", """
                 state verify.entry
@@ -1333,7 +1378,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
         assertEquals(callContract("verify.entry",
                 "the call routes 'stepped_out' to 'verify.failed', which is not the phase's fallback state 'plan.return' or 'finalize.hand-back'"),
-                found(failureTerminal));
+                found(failureTerminal),
+                "stepped_out away from the phase fallback state is refused");
     }
 
     @Test
@@ -1351,7 +1397,7 @@ class AdditionalRulesTest {
                         failed -> verify.done
                         cancelled -> verify.done
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(resting));
+        assertEquals(List.of(), violations(resting), "an epic unit routing stepped_out to a resting state passes");
 
         var chained = unit("epic", """
                 state verify.entry
@@ -1366,7 +1412,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
         assertEquals(callContract("verify.entry",
                 "the call routes 'stepped_out' to 'verify.retry', which is not a resting state of the unit"),
-                found(chained));
+                found(chained),
+                "stepped_out to a chained epic state is refused");
     }
 
     @Test
@@ -1378,7 +1425,7 @@ class AdditionalRulesTest {
                         done -> verify.done
                         stepped_out -> verify.stepped-out
                 """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
-        assertEquals(List.of(), violations(continuing));
+        assertEquals(List.of(), violations(continuing), "a sub-workflow continuing the step-out verifies clean");
 
         var chained = unit("subworkflow", """
                 state verify.entry
@@ -1393,7 +1440,8 @@ class AdditionalRulesTest {
                 """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
         assertEquals(callContract("verify.entry",
                 "the call routes 'stepped_out' to 'verify.retry', which is neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out"),
-                found(chained));
+                found(chained),
+                "stepped_out to a chained sub-workflow state is refused");
     }
 
     /**
@@ -1444,12 +1492,13 @@ class AdditionalRulesTest {
     void steppedOutInRemediationUnit() {
         var budgetCheck = remediationUnit("remediation.inline", "remediation-inline.budget-check",
                 TestPrimitives.CHECK_BUDGETS);
-        assertEquals(List.of(), violations(budgetCheck));
+        assertEquals(List.of(), violations(budgetCheck), "a remediation unit routing to its budget re-check passes");
 
         var unmarked = remediationUnit("remediation.inline", "verify.recheck", TestPrimitives.PREPARE);
         assertEquals(callContract("verify.entry",
                 "the call routes 'stepped_out' to 'verify.recheck', " + NOT_THE_BUDGET_RE_CHECK),
-                found(unmarked));
+                found(unmarked),
+                "a re-check without the budget-check marking is refused");
     }
 
     @Test
@@ -1459,13 +1508,15 @@ class AdditionalRulesTest {
                 TestPrimitives.PREPARE);
         assertEquals(callContract("verify.entry",
                 "the call routes 'stepped_out' to 'remediation-inline.budget-check', " + NOT_THE_BUDGET_RE_CHECK),
-                found(wrongPrimitive));
+                found(wrongPrimitive),
+                "a budget-check id with another primitive is refused");
 
         var wrongId = remediationUnit("remediation.inline", "remediation-inline.recheck",
                 TestPrimitives.CHECK_BUDGETS);
         assertEquals(callContract("verify.entry",
                 "the call routes 'stepped_out' to 'remediation-inline.recheck', " + NOT_THE_BUDGET_RE_CHECK),
-                found(wrongId));
+                found(wrongId),
+                "a budget-check primitive under another id is refused");
     }
 
     @Test
@@ -1476,7 +1527,8 @@ class AdditionalRulesTest {
         assertEquals(callContract("verify.entry",
                 "the call routes 'stepped_out' to 'remediation-inline.budget-check', which is neither a terminal of"
                         + " class STEPPED_OUT or FAILURE nor a link state that continues the step-out"),
-                found(def));
+                found(def),
+                "a budget re-check outside a remediation unit is refused");
     }
 
     @Test
@@ -1493,7 +1545,8 @@ class AdditionalRulesTest {
 
         assertEquals(callContract("verify.out",
                 "the terminal 'verify.out' declares the outcome 'stepped_out' with the class FAILURE; only a terminal of class STEPPED_OUT declares it"),
-                found(def));
+                found(def),
+                "a FAILURE terminal declaring stepped_out is refused");
     }
 
     @Test
@@ -1509,7 +1562,8 @@ class AdditionalRulesTest {
 
         assertEquals(callContract("verify.entry",
                 "the call routes the exit outcome 'done' of 'git.commit_and_push' once under a result guard; a guarded 'done' is admitted only as the complementary pair"),
-                found(def));
+                found(def),
+                "a single guarded done without its complement is refused");
     }
 
     @Test
@@ -1525,7 +1579,8 @@ class AdditionalRulesTest {
 
         assertEquals(callContract("verify.entry",
                 "a result guard is admitted only on the outcome 'done' of a call, but found on the outcome 'done' of the state 'verify.entry', which is no call"),
-                found(def));
+                found(def),
+                "a result guard on a link outcome that is no call is refused");
     }
 
     @Test
@@ -1543,7 +1598,8 @@ class AdditionalRulesTest {
 
         assertEquals(callContract("verify.entry",
                 "the call guards the outcome 'done' on the result of 'test.depth5', which declares no result schema"),
-                found(def));
+                found(def),
+                "a guard on a callee without a result schema is refused");
     }
 
     @Test
@@ -1557,7 +1613,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
         assertEquals(List.of(new RuleStateMessage(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
                         "the entity unit 'test.no-such-unit' of the entity kind 'unresolved' is not registered")),
-                found(unresolved));
+                found(unresolved),
+                "an entity unit missing from the catalog is refused");
 
         var resolved = unit("plan", """
                 state verify.entry
@@ -1565,7 +1622,7 @@ class AdditionalRulesTest {
                         approved -> verify.done
                         lost -> verify.done
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(resolved));
+        assertEquals(List.of(), violations(resolved), "a registered entity unit resolves without any finding");
     }
 
     @Test
@@ -1577,7 +1634,7 @@ class AdditionalRulesTest {
                         do test.proceed
                             done -> verify.done
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(plan));
+        assertEquals(List.of(), violations(plan), "an operator wait in a plan unit verifies clean");
 
         var epic = unit("epic", """
                 state verify.entry
@@ -1585,7 +1642,7 @@ class AdditionalRulesTest {
                         do test.proceed
                             done -> verify.done
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(epic));
+        assertEquals(List.of(), violations(epic), "an operator wait in an epic unit verifies clean");
 
         var workspace = unit("workspace", """
                 state verify.entry
@@ -1593,7 +1650,7 @@ class AdditionalRulesTest {
                         do test.proceed
                             done -> verify.entry
                 """);
-        assertEquals(List.of(), violations(workspace));
+        assertEquals(List.of(), violations(workspace), "an operator wait in a workspace unit verifies clean");
 
         var worker = VerifyFixtures.parseSource("worker.pmwf", """
                 ---
@@ -1621,7 +1678,8 @@ class AdditionalRulesTest {
                         "the resting link state 'verify.entry' declares links in the worker unit 'worker-task'; "
                                 + "a model acts only through the links of its task entity, never through a declared link "
                                 + "clause")),
-                found(worker));
+                found(worker),
+                "a worker unit declaring a resting link is refused");
     }
 
     @Test
@@ -1632,7 +1690,7 @@ class AdditionalRulesTest {
                     question ask
                         answered -> verify.entry
                 """);
-        assertEquals(List.of(), violations(looping));
+        assertEquals(List.of(), violations(looping), "a question state awaiting its answer counts as a cycle");
     }
 
     @Test
@@ -1644,7 +1702,7 @@ class AdditionalRulesTest {
                         retry -> verify.entry
                         exhausted -> verify.done
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(measured));
+        assertEquals(List.of(), violations(measured), "an engine-chained cycle with a measure verifies clean");
 
         var unmeasured = unit("plan", """
                 state verify.entry
@@ -1654,6 +1712,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
         assertEquals(List.of(new RuleStateMessage(VerificationRule.CYCLE_AWAITED_EVENT, "verify.entry",
                         "the engine-chained cycle 'verify.entry -> verify.entry' has no cycle measure")),
-                found(unmeasured));
+                found(unmeasured),
+                "an engine-chained cycle without a measure is refused");
     }
 }

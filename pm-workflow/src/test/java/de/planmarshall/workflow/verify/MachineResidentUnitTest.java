@@ -49,8 +49,9 @@ class MachineResidentUnitTest {
                             done -> onboard.entry
                 """);
 
-        assertEquals(WorkflowScope.MACHINE, unit.scope());
-        assertEquals(List.of(), validator.verify(unit).violations());
+        assertEquals(WorkflowScope.MACHINE, unit.scope(), "the unit is a machine scope unit");
+        assertEquals(List.of(), validator.verify(unit).violations(),
+                "the resident machine unit passes the verifier");
     }
 
     @Test
