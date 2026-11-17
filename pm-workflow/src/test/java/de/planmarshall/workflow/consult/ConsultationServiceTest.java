@@ -587,11 +587,12 @@ class ConsultationServiceTest {
     private void serve(String consultationId, String generation, String role) {
         var answer = protocol.wait(new WaitRequest(generation, role, ConsultationFixtures.DIGEST,
                 ConsultationFixtures.DIGEST, 3), ConsultationFixtures.AT);
-        var offered = assertInstanceOf(WaitAnswer.Offered.class, answer, "The successor is offered the answer");
+        var offered = assertInstanceOf(WaitAnswer.Offered.class, answer,
+                "the consulted generation is offered the answer");
         assertEquals(consultationId, offered.task().queueTaskId(),
-                "The offered task carries the consultation id");
+                "the offered task carries the consultation id");
         assertInstanceOf(CallResult.Accepted.class,
                 protocol.acknowledge(new TaskCall(consultationId, generation), ConsultationFixtures.AT),
-                "The successor acknowledges the offered task");
+                "the consulted generation acknowledges the task");
     }
 }

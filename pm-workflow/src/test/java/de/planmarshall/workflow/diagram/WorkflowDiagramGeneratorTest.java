@@ -155,10 +155,10 @@ class WorkflowDiagramGeneratorTest {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> WorkflowDiagramGenerator.renderMermaid(FIXTURE, unknown),
-                            "an unknown active state is refused"),
+                            "the mermaid view refuses an unknown active state"),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> WorkflowDiagramGenerator.renderAscii(FIXTURE, unknown),
-                            "an unknown active state is refused"));
+                            "the ascii view refuses an unknown active state"));
         }
 
         @Test
