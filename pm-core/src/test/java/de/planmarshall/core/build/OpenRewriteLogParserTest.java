@@ -74,6 +74,19 @@ class OpenRewriteLogParserTest {
     }
 
     @Test
+    @DisplayName("a finding path that is invisible only is a parse error, not a failed parse")
+    void invisibleOnlyFindingPathIsAParseError() {
+        var log = String.join("\n", "--- rewrite:run (compile)",
+                "CUI_REWRITE-100: Finding detected at \u200B:3:4 by org.example.Recipe: text");
+
+        var result = OpenRewriteLogParser.parse(log, true);
+
+        assertAll("an invisible-only finding path",
+                () -> assertEquals(RewriteVerdict.PARSE_ERROR, result.verdict(), "the line is a parse error"),
+                () -> assertTrue(result.findings().isEmpty(), "no finding is filed"));
+    }
+
+    @Test
     @DisplayName("the finding path and its message are redacted at the record")
     void findingPathAndMessageRedacted() {
         var log = String.join("\n", "--- rewrite:run (compile)",

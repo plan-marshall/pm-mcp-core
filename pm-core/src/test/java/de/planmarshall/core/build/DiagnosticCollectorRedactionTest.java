@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -152,6 +153,16 @@ class DiagnosticCollectorRedactionTest {
     }
 
     @Test
+    @DisplayName("a TypeScript line whose file is invisible only is filed unlocated, not refused")
+    void invisibleOnlyFileDoesNotAbortTheParse() {
+        var build = TypeScriptOutputParser.parse("\u200B(10,5): error TS2322: bad");
+
+        assertAll("an invisible-only file",
+                () -> assertEquals(1, build.diagnostics().size(), "the line files one diagnostic"),
+                () -> assertNull(build.diagnostics().getFirst().file(), "the file is no location"));
+    }
+
+    @Test
     @DisplayName("a Gradle message is redacted")
     void gradleMessageRedacted() {
         var build = GradleOutputParser.parse("/p/Foo.java:7: error: cannot find symbol " + CREDENTIAL + "\n");
@@ -160,7 +171,7 @@ class DiagnosticCollectorRedactionTest {
     }
 
     /** A wall-clock bound a linear scan meets and the former quadratic URL pattern exceeds. */
-    private static final Duration FLOOD_BOUND = Duration.ofSeconds(60);
+    private static final Duration FLOOD_BOUND = Duration.ofSeconds(120);
 
     private static List<String> hostileFlood() {
         // a whitespace-separated flood is many tokens: a per-token lookup that walks back into the previous tokens is

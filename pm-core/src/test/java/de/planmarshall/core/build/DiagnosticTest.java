@@ -132,6 +132,17 @@ class DiagnosticTest {
     }
 
     @Test
+    @DisplayName("a file that is nothing visible after redaction is no location")
+    void dropsAnInvisibleOnlyFile() {
+        var diagnostic = new Diagnostic("\u200B", 4, 2, "text", Category.OTHER, Severity.ERROR, null);
+
+        assertAll(
+                () -> assertNull(diagnostic.file(), "the invisible-only file is no file"),
+                () -> assertNull(diagnostic.line(), "the line is dropped with the file"),
+                () -> assertNull(diagnostic.column(), "the column is dropped with the file"));
+    }
+
+    @Test
     @DisplayName("a collected stack trace is cut to the stored bound after redaction")
     void cutsStackTraceToTheStoredBound() {
         var head = "password=abcd1234 https://user:" + "p".repeat(9_000);

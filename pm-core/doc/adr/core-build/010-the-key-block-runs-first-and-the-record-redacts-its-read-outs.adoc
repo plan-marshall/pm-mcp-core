@@ -64,6 +64,9 @@ and canonical constructor passes through the seam, so no producer can store an u
   same single pass and only its position in the sequence changed.
 * `RewriteFinding.path` and `.message` and `Diagnostic.file` carry no credential shape; a path or message without one is
   byte-identical to before, so the ported fixtures are unchanged.
+* A `Diagnostic` whose file holds nothing visible after the redaction is filed unlocated, and an `OpenRewriteLogParser`
+  finding whose path does is a `PARSE_ERROR`; neither aborts the parse of the log, because one redacted location must not
+  cost the whole build's evidence.
 * `Diagnostic.stackTrace` is at most 500 characters. A stack longer than that loses its tail; the TAP, Jest and Maven
   fixtures of the ported corpus are shorter and keep their frames, and a new test that expects a longer stack must not
   rely on it.
