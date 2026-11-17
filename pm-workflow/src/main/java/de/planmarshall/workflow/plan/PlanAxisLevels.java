@@ -88,10 +88,10 @@ public final class PlanAxisLevels {
      */
     public Optional<Posture> posture() {
         for (var level : LEVELS) {
-            var recorded = levelValues(level).get(POSTURE_KEY);
-            if (recorded != null) {
-                return Optional.of(Posture.fromWireName(recorded)
-                        .orElseThrow(() -> new IllegalStateException("an unvalidated posture: " + recorded)));
+            var posture = levelValues(level).get(POSTURE_KEY);
+            if (posture != null) {
+                return Optional.of(Posture.fromWireName(posture)
+                        .orElseThrow(() -> new IllegalStateException("an unvalidated posture: " + posture)));
             }
         }
         return Optional.empty();

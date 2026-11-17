@@ -121,7 +121,7 @@ public class OnboardingRouter {
         }
 
         static Route aspect(OnboardingAspect aspect, OnboardRun run) {
-            return new Route(Target.ASPECT, Objects.requireNonNull(aspect, "aspect"),
+            return new Route(Target.ASPECT, Objects.requireNonNull(aspect, ASPECT),
                     Objects.requireNonNull(run, "run"));
         }
 
@@ -140,7 +140,7 @@ public class OnboardingRouter {
      * @throws IllegalArgumentException if the result carries no item of the aspect, so there is nothing to change
      */
     public static Route change(AutoOnboardingResult result, OnboardingAspect aspect) {
-        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(result, RESULT);
         Objects.requireNonNull(aspect, ASPECT);
         if (result.of(aspect).isEmpty()) {
             throw new IllegalArgumentException(
