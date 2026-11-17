@@ -16,10 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
+import com.networknt.schema.Schema;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
@@ -32,6 +29,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 
 /**
  * {@link LeaseCodec} keeps parity with the schema of Store Schemas § Machine Lease Stores for the owner of a lease: a
@@ -104,12 +102,12 @@ class LeaseOwnerSchemaParityTest {
         writtenOwner().forEach((name, value) -> owner.put(String.valueOf(name), value));
         owner.remove("holder_instance");
 
-        assertFalse(validator().validate(SchemaParity.text(owner), InputFormat.JSON).isEmpty(),
+        assertFalse(SchemaValidation.validate(validator(), SchemaParity.text(owner)).isEmpty(),
                 "an owner without its holder should be refused");
     }
 
-    private static JsonSchema validator() {
-        return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(SchemaResource.text(SCHEMA));
+    private static Schema validator() {
+        return SchemaValidation.compile(SchemaResource.text(SCHEMA));
     }
 
     /** @return the owner object of a lease store document, written by the codec and parsed again */

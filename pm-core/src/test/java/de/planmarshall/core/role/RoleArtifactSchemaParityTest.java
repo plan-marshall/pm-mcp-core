@@ -17,10 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
+import com.networknt.schema.Schema;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,6 +34,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 
 /**
  * {@link RoleArtifact} and its reader {@link RoleArtifactValidator} keep parity with the schema of Model Work § Role
@@ -130,7 +128,7 @@ class RoleArtifactSchemaParityTest {
         var document = document(members);
 
         assertAll(
-                () -> assertFalse(validator().validate(document, InputFormat.JSON).isEmpty(),
+                () -> assertFalse(SchemaValidation.validate(validator(), document).isEmpty(),
                         "The file refuses the absent member"),
                 () -> assertThrows(RoleRefusal.class, () -> read(document),
                         "The reader refuses the absent member"));
@@ -148,7 +146,7 @@ class RoleArtifactSchemaParityTest {
         var document = document(members);
 
         assertAll(
-                () -> assertEquals(Set.of(), validator().validate(document, InputFormat.JSON),
+                () -> assertEquals(List.of(), SchemaValidation.validate(validator(), document),
                         "The file accepts the absent optional member"),
                 () -> assertDoesNotThrow(() -> read(document), "The reader accepts the absent optional member"));
     }
@@ -159,7 +157,7 @@ class RoleArtifactSchemaParityTest {
         var document = document(VALUES);
 
         assertAll(
-                () -> assertEquals(Set.of(), validator().validate(document, InputFormat.JSON),
+                () -> assertEquals(List.of(), SchemaValidation.validate(validator(), document),
                         "The file accepts the unchanged document"),
                 () -> assertDoesNotThrow(() -> read(document), "The reader accepts the unchanged document"));
     }
@@ -170,7 +168,7 @@ class RoleArtifactSchemaParityTest {
         var document = document(VALUES).replaceFirst("\\{", "{\"undeclared\": 1,");
 
         assertAll(
-                () -> assertFalse(validator().validate(document, InputFormat.JSON).isEmpty(),
+                () -> assertFalse(SchemaValidation.validate(validator(), document).isEmpty(),
                         "The file refuses the undeclared member"),
                 () -> assertThrows(RoleRefusal.class, () -> read(document),
                         "The reader refuses the undeclared member"));
@@ -241,8 +239,8 @@ class RoleArtifactSchemaParityTest {
         return mapped.replaceAll("([A-Z])", "_$1").toLowerCase(Locale.ROOT);
     }
 
-    private static JsonSchema validator() {
-        return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(SchemaResource.text(SCHEMA));
+    private static Schema validator() {
+        return SchemaValidation.compile(SchemaResource.text(SCHEMA));
     }
 
     private static List<String> names(Iterable<?> values) {

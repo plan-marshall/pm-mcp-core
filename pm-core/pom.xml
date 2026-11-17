@@ -17,8 +17,9 @@
         <!-- Enabled by the integration-tests profile -->
         <skipITs>true</skipITs>
         <maven.jar.plugin.automatic.module.name>de.planmarshall.core</maven.jar.plugin.automatic.module.name>
-        <!-- Not managed by the parent; the JSON Schema validator (draft 2020-12) of the schema tests -->
-        <version.json-schema-validator>1.5.8</version.json-schema-validator>
+        <!-- The JSON Schema validator (draft 2020-12) the schema tests validate the codecs' documents with; not
+             managed by the parent. -->
+        <version.json-schema-validator>3.0.9</version.json-schema-validator>
         <!-- The checkout of plan-marshall-mcp whose corpus the validator test reads; override with -Dpm.product.root -->
         <pm.product.root>${maven.multiModuleProjectDirectory}/../plan-marshall-mcp</pm.product.root>
     </properties>

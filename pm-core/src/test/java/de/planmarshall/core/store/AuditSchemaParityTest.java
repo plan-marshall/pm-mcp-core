@@ -14,10 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
+import com.networknt.schema.Schema;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
@@ -35,6 +32,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 import de.planmarshall.core.store.AuditRecord.Category;
 import de.planmarshall.core.store.AuditRecord.Outcome;
 import de.planmarshall.core.store.AuditRecord.Scope;
@@ -93,19 +91,18 @@ class AuditSchemaParityTest {
     }
 
     /** Reads the schema file, so an absent resource fails the test before any assertion runs. */
-    private static JsonSchema validator(String resource) {
-        return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
-                .getSchema(SchemaResource.text(resource));
+    private static Schema validator(String resource) {
+        return SchemaValidation.compile(SchemaResource.text(resource));
     }
 
-    private static void assertValid(JsonSchema validator, byte[] document) {
+    private static void assertValid(Schema validator, byte[] document) {
         assertValid(validator, document, "the written document is valid");
     }
 
-    private static void assertValid(JsonSchema validator, byte[] document, String message) {
+    private static void assertValid(Schema validator, byte[] document, String message) {
         var written = new String(document, UTF_8);
 
-        assertEquals(Set.of(), validator.validate(written, InputFormat.JSON),
+        assertEquals(List.of(), SchemaValidation.validate(validator, written),
                 () -> message + ": violations of " + written);
     }
 

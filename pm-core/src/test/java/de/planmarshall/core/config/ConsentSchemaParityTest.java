@@ -14,10 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.networknt.schema.InputFormat;
-import com.networknt.schema.JsonSchema;
-import com.networknt.schema.JsonSchemaFactory;
-import com.networknt.schema.SpecVersion;
+import com.networknt.schema.Schema;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
@@ -25,11 +22,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.SchemaValidation;
 
 /**
  * {@link ConsentCodec} keeps parity with the schema of Store Schemas § Consent Before Acting: an empty store carries
@@ -110,7 +107,7 @@ class ConsentSchemaParityTest {
                 recorded, Consent.Channel.CLI, null);
         var written = ConsentCodec.write(List.of(machine, scripts), 2);
 
-        assertEquals(Set.of(), validator().validate(new String(written, UTF_8), InputFormat.JSON),
+        assertEquals(List.of(), SchemaValidation.validate(validator(), new String(written, UTF_8)),
                 () -> "The written store is valid: " + new String(written, UTF_8));
     }
 
@@ -120,12 +117,12 @@ class ConsentSchemaParityTest {
         var written = new String(ConsentCodec.write(List.of(), 0), UTF_8);
         var extended = written.substring(0, written.length() - 1) + ",\"undeclared_member\":1}";
 
-        assertFalse(validator().validate(extended, InputFormat.JSON).isEmpty(),
+        assertFalse(SchemaValidation.validate(validator(), extended).isEmpty(),
                 "an undeclared store member should be refused");
     }
 
-    private static JsonSchema validator() {
-        return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(SchemaResource.text(SCHEMA));
+    private static Schema validator() {
+        return SchemaValidation.compile(SchemaResource.text(SCHEMA));
     }
 
     private static Map<?, ?> document(byte[] written) {

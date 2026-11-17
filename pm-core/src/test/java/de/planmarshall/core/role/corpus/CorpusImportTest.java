@@ -214,7 +214,7 @@ class CorpusImportTest {
     private ImportedItem item(String relative) throws IOException {
         var file = items().resolve(relative);
         var document = Files.readAllBytes(file);
-        assertEquals(Set.of(), ItemGeneratorTest.violations(document), () -> new String(document, UTF_8));
+        assertEquals(List.of(), ItemGeneratorTest.violations(document), () -> new String(document, UTF_8));
         return ImportedItemCodec.read(file, document);
     }
 
