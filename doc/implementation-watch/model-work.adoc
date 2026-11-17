@@ -986,4 +986,5 @@ in Markdown, a text with umlauts and CJK characters, and a JSON diff; each estim
 the recorded count, and characters ÷ 4 is below it for the page. A scenario test whose launch prompt and input together
 exceed the budget while the input alone fits closes the task `input_too_large` before any request. Matched control: an
 input estimated below the budget is queued and sent whole.
-Source:: Article analysis `lightpanda-agent-bill` of plan-marshall-documentation.
+Source:: Article analysis `lightpanda-agent-bill` of plan-marshall-documentation: characters ÷ 4 undercounted the tokens of
+real web pages by 1.4 to 2.2 times.

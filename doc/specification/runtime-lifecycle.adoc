@@ -35,6 +35,6 @@ Implemented in (link:../../../plan-marshall-documentation/doc/specification/modu
 
 == Parts
 
-* link:runtime-lifecycle/01-startup-recovery-drain.adoc[Startup, Recovery & Drain] — the startup sequence, per-project recovery with the fencing of worker generations and the requeue of leased tasks, the periodic sweep, and the runtime's lifecycle: drain, stop, restart, and upgrade
-* link:runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc[Pausing a Plan & Stalled Plans] — pausing and starting a plan, and stalled plans as a hold
+* link:runtime-lifecycle/01-startup-recovery-drain.adoc[Startup, Recovery & Drain] — the startup sequence, per-project recovery with the fencing of worker generations and the requeue of leased tasks, the periodic sweep, and the runtime's lifecycle: drain, stop, restart, and upgrade, with the service unit and their verification
+* link:runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc[Pausing a Plan & Stalled Plans] — pausing and starting a plan, and stalled plans as a hold, with their verification
 * link:runtime-lifecycle/03-runtime-metrics.adoc[The Runtime's Metrics] — the metrics the runtime keeps and how they are read

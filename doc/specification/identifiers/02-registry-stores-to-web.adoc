@@ -179,9 +179,9 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 
 |[[id-server-id]]`server_id`
 |`^[a-z][a-z0-9]{0,15}$`, 1–16.
-|operator (`upstream_mcp.servers` of the project's `local-config.json`, through the operator's act `pm-operator upstream allow` or its form in the web app)
-|Project allowlist
-|Immutable while allowlisted
+|operator (`upstream_mcp.servers` of `machine-config.json`, through the operator's act `pm-operator upstream add` or its form in the web app, link:../store-schemas/12-machine-stores.adoc#upstream-servers[Store Schemas, Upstream MCP Servers]); a project's `upstream_mcp` names only a configured one
+|Machine
+|Immutable while configured
 |Provenance `upstream_mcp:<server_id>`, credential key `mcp-<server_id>` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools]
 
 |[[id-event-name]]Event name
@@ -227,7 +227,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |`spec_section` of the epic queue row link:../store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row[Store Schemas, Epic Queue Row]; link:../model-work/08-epic-coordination.adoc[Model Work, Epic Coordination]; `pm://epic/{epic_id}/spec/{section}` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc#_normative_resource_uri_templates[MCP Tools, Resource URIs]
 
 |[[id-resource-uri]]Resource URI (`pm://…`)
-|The templates of link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc#_normative_resource_uri_templates[MCP Tools, Normative Resource URI Templates]; every placeholder takes the grammar of its identifier here (`{plan_id}`, `{epic_id}`, `{task_id}`, `{job_id}`, `{message_id}`, `{module_id}`, `{evidence_id}`), `{version}` is a plan instance version, `{section}` is a section anchor of the epic specification (<<id-spec-section>>), `{rel_path}` and `{path}` are repository-relative paths, and `{csv}` is a comma-separated list of `module_id` values. At most 1024.
+|The templates of link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc#_normative_resource_uri_templates[MCP Tools, Normative Resource URI Templates]; every placeholder takes the grammar of its identifier here (`{plan_id}`, `{epic_id}`, `{task_id}`, `{job_id}`, `{message_id}`, `{module_id}`, `{evidence_id}`, `{chat_id}`, `{entry_id}`, `{source_id}`, `{queue_task_id}`), `{version}` is a plan instance version, `{section}` is a section anchor of the epic specification (<<id-spec-section>>), `{rel_path}` and `{path}` are repository-relative paths, `{csv}` is a comma-separated list of `module_id` values, and `{part}` is a positive integer (the number of a part of a cut tool result). The query parameters: `before` is a `turn_id` (<<id-turn-id>>), `since` an RFC 3339 UTC time, `q` a text query of 1–200 characters, `module` a `module_id`, and `kind` one of `lesson`, `adr`, `decision`. At most 1024.
 |server
 |Project
 |Stable while its entity exists; no aliases

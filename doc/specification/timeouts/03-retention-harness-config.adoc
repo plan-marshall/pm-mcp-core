@@ -103,7 +103,7 @@ Work history is the operator's and goes only on the operator's word, through one
 
 |[[outbound-http-timeouts]]Outbound HTTPS and upstream MCP call timeouts
 |Connect `10`, read `60` for every `cui-http` call (Sonar REST, credential verification, upstream MCP servers, which are remote HTTPS servers only). Requests of native `git` and `ci` operations use the same values as the xref:01-job-budgets-and-waits.adoc#http-request-timeout[Http request timeout]. An operator `proxy` (`machine-config.json`) changes the route of these calls, never their timeouts.
-|Per upstream server in the project's `local-config.json` (`upstream_mcp.servers.<server_id>.connect_timeout_seconds`, `read_timeout_seconds`); fixed for Sonar and credential verification
+|Per upstream server in the machine's server list (`machine-config.json` `upstream_mcp.servers.<server_id>.connect_timeout_seconds`, `read_timeout_seconds`, link:../store-schemas/12-machine-stores.adoc#upstream-servers[Store Schemas, Upstream MCP Servers]); fixed for Sonar and credential verification
 |minimum `1`
 |outbound calls
 |A Sonar step records the call as `indeterminate` (never clean); a server-side upstream call ends `upstream_timeout`, which its workflow step routes; a credential verification reports `unverified`.
@@ -184,7 +184,7 @@ Two compiled size bounds and one per-harness limit shape what a worker receives 
 |link:../model-work/07-untrusted-text-screening.adoc[Model Work Specification, Screener]
 
 |[[bytes-per-token]]Bytes per token
-|Provisional `2` UTF-8 bytes per token for every model; a model's own value is the smallest ratio measured over its tasks of a `zero_tool` role: the bytes the server composed in-band (launch prompt and input) over the input tokens of the task's one turn (cache read and cache creation included) less the `start_context` of the class and model (link:../harness-profiles/01-profile-schema.adoc#start-context[Harness Profiles, Start Context]). Characters are never counted and divided by a fixed factor: characters ÷ 4 undercounted the tokens of real web pages by 1.4 to 2.2 times (link:../../../../plan-marshall-documentation/doc/articles/lightpanda-agent-bill.adoc[the analysis of the Lightpanda agent-bill article]).
+|Provisional `2` UTF-8 bytes per token for every model; a model's own value is the smallest ratio measured over its tasks of a `zero_tool` role: the bytes the server composed in-band (launch prompt and input) over the input tokens of the task's one turn (cache read and cache creation included) less the `start_context` of the class and model (link:../harness-profiles/01-profile-schema.adoc#start-context[Harness Profiles, Start Context]). Characters are never counted and divided by a fixed factor, because a fixed number of characters per token undercounts the tokens of real web pages (link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-76[PM-WATCH-DISP-76]).
 |fixed (per model once measured)
 |at most `2` until the model is measured
 |The token estimate of the model caller's fit step for a `zero_tool` role, and the calibration of the two compiled bounds above
