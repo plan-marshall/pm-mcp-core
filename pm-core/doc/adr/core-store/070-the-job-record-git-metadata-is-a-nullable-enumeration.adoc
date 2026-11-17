@@ -1,0 +1,49 @@
+= ADR 070: The Job Record's git_metadata Is a Nullable Enumeration
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-16
+
+== Context
+
+The launch report of `pm-exec` states, for a worker, whether the git directory of its project and the `.git` link file of
+every linked worktree are unwritable for it (link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc#git-metadata[Job Runtime Specification, Git Metadata]).
+The job record must carry that statement, and it must never say `enforced` before a launcher's report does. The
+specification names only `unenforced`; a partial state ("git directory mounted, a link file missed") would need a third
+value that no launcher reports.
+
+== Decision
+
+`JobRecord.GitMetadata` is a nested enumeration with the two wire names `enforced` and `unenforced`, each with
+`wireName()` and `fromWireName` in the pattern of `Confinement`. The record carries it as a `@Nullable GitMetadata
+gitMetadata` component, non-null exactly for kind `llm` (`requireKindRules`), `null` for every other kind; the rule makes
+the property required in the schema file and `string` in the `llm` branch of its first `allOf` entry, `null` in the
+`else` branch. `JobRecordCodec` writes the nullable member and reads it strictly: a record without the member is refused
+like every missing member. `SubprocessJobRunner.newRecord` sets `unenforced` for a worker and `null` otherwise; the
+post-spawn record copies the report's value, or leaves `unenforced` when the report names none.
+
+== Alternatives Considered
+
+A boolean was rejected: it loses the wire vocabulary the launcher and the record share, and a later third state would
+change the type. A value for every kind as `confinement` has it was rejected: a `git` job and a build wrapper change the
+git metadata legitimately, so the member has no meaning for them, and the specification makes the statement a worker's.
+A member of the `worker` block was rejected: the codec keeps that block verbatim, so the runtime could not type, validate
+or compare the value.
+
+== Consequences
+
+`format_version` stays 1 (R13): the member replaces version 1 in place, and no reader for an older record is written. The
+schema-parity test pins the property, its place in `required` and the enumeration, and the codec test pins the round trip
+and the strict read. `JobRecord.builder()` call sites that build a worker record must name the member; the compile finds
+them. The `FakePmExec` mode `REPORT_GIT_METADATA` is the fixture that proves a report's value is copied.
+
+== Source
+
+PLAN-V2-134, `doc/plans/job-confinement-and-environment.adoc`;
+`doc/specification/store-schemas/10-job-and-lesson-records.adoc#job-record`;
+`doc/specification/job-runtime/02-confinement-and-environment.adoc#git-metadata`.

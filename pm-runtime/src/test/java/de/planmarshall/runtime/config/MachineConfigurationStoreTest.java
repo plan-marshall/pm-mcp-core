@@ -43,7 +43,7 @@ import de.planmarshall.core.store.StoreRefusal;
  * The member names, the format version, the provider, variant and credential-store wire names and the schema defaults
  * are the specified document format. The revisions, the limits, the credential keys and the free text of the members
  * the store copies through are generated; the free text keeps a dash, a dot and a space, because it goes through a
- * parse and a write of the document.
+ * parse and a write of the document. {@code plan_defaults} carries a schema value, because the codec owns that member.
  */
 @EnableGeneratorController
 @DisplayName("Machine configuration store")
@@ -59,7 +59,7 @@ class MachineConfigurationStoreTest {
     private final int maxBuildSlots = Generators.integers(1, 16).next();
     private final int lspIdleTimeout = Generators.integers(60, 86_400).next();
     private final String harness = freeText();
-    private final String landing = freeText();
+    private final String landing = "landing.main";
     private final String githubKey = credentialKey();
     private final Instant verifiedAt = Instant.ofEpochSecond(
             Generators.longs(1_600_000_000L, 1_900_000_000L).next());

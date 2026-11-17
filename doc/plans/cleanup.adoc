@@ -22,7 +22,7 @@ The specification sections named are the single statement of what each task buil
 . *The endpoints, verbs and events*: § One Cleanup; operator acts, no workflow unit: link:../specification/state-catalogue/01-conventions-generic-conditions.adoc#operator-flows[State Catalogue § Operator Flows That Are Not Workflow Units].
 . *Recurring waivers* counted over the audit log: § One Cleanup.
 
-Left out: the pending entry records by age (link:start-source-intake.adoc[`start-source-intake`]); the report journal and its kind (link:operator-reports.adoc[`operator-reports`]); the system view's figures (link:runtime-metrics.adoc[`runtime-metrics`]); the machine's and the project's settings (link:machine-onboarding-unit.adoc[`machine-onboarding-unit`], link:project-onboarding-unit.adoc[`project-onboarding-unit`]); the audit trail and the entity addressing (`audit-trail`, `entity-addressing`, done).
+Left out: the pending entry records by age (link:start-source-intake.adoc[`start-source-intake`]); the report journal and its kind (link:operator-reports.adoc[`operator-reports`]); the system view's figures (link:runtime-metrics.adoc[`runtime-metrics`]); the machine's settings and the project's (link:project-onboarding-unit.adoc[`project-onboarding-unit`]); the audit trail and the entity addressing (`audit-trail`, `entity-addressing`, done).
 
 == Trace
 

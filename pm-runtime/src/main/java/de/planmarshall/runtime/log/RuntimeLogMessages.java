@@ -1204,6 +1204,32 @@ public final class RuntimeLogMessages {
                 .identifier(146)
                 .template("The credential store move of the aspect failed: %s")
                 .build();
+
+        /**
+         * Logged when a project's git metadata differs from its baseline (PM-WATCH-JOB-48): names the project, the point
+         * of the comparison ({@code worker_end} or {@code git_job}) and how many parts differ, never a part's contents.
+         * A difference at a worker's end is recorded, audited and reported; a difference before a {@code git} job
+         * refuses that job with {@code git_metadata_changed}.
+         * <p>
+         * The component is {@code SubprocessJobRunner}.
+         */
+        public static final LogRecord GIT_METADATA_CHANGED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(147)
+                .template("Git metadata of project '%s' changed at %s: %s part(s) differ")
+                .build();
+
+        /**
+         * Logged when the security audit record or the change sink of a git metadata difference failed: names the
+         * project and the failure, never a part's contents. The refusal of the job still stands.
+         * <p>
+         * The component is {@code SubprocessJobRunner}.
+         */
+        public static final LogRecord GIT_METADATA_CHANGE_NOT_REPORTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(148)
+                .template("The git metadata change of project '%s' could not be reported: %s")
+                .build();
     }
 
     /** ERROR level messages. */

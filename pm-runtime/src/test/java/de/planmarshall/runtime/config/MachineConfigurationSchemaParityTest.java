@@ -12,6 +12,7 @@ package de.planmarshall.runtime.config;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -164,6 +165,40 @@ class MachineConfigurationSchemaParityTest {
                 () -> assertEquals(CleanupDurations.DEFAULT_REMIND_DAYS,
                         ((Number) reminder.get("default")).intValue(),
                         "the default reminder interval is the schema's"));
+    }
+
+    @Test
+    @DisplayName("the plan defaults and their variants are the schema's")
+    void planDefaults() {
+        var schema = SchemaResource.load(SCHEMA);
+        var defaults = SchemaResource.object(SchemaResource.object(schema.get("properties")).get("plan_defaults"));
+        var properties = SchemaResource.object(defaults.get("properties"));
+        var created = document(MachineConfigurationCodec.createPlanDefaults(PlanDefaults.shipped()));
+        var written = SchemaResource.object(created.get("plan_defaults"));
+
+        assertAll(
+                () -> assertEquals(names(PlanDefaults.KEYS), names(properties.keySet()),
+                        "the plan default keys are the schema's"),
+                () -> assertEquals(PlanDefaults.LANDING_VARIANTS,
+                        names(SchemaResource.array(SchemaResource.object(properties.get("landing")).get("enum"))),
+                        "the landing variants are the schema's"),
+                () -> assertEquals(PlanDefaults.METHOD_VARIANTS,
+                        names(SchemaResource.array(SchemaResource.object(properties.get("method")).get("enum"))),
+                        "the method variants are the schema's"),
+                () -> assertEquals(PlanDefaults.ASKING_VARIANTS,
+                        names(SchemaResource.array(SchemaResource.object(properties.get("asking")).get("enum"))),
+                        "the asking variants are the schema's"),
+                () -> assertEquals(PlanDefaults.POSTURES,
+                        names(SchemaResource.array(SchemaResource.object(properties.get("posture")).get("enum"))),
+                        "the postures are the schema's"),
+                () -> assertEquals(PlanDefaults.shipped().landing(), written.get("landing"),
+                        "the shipped landing is the member the codec writes"),
+                () -> assertEquals(PlanDefaults.shipped().method(), written.get("method"),
+                        "the shipped method is the member the codec writes"),
+                () -> assertEquals(PlanDefaults.shipped().asking(), written.get("asking"),
+                        "the shipped asking is the member the codec writes"),
+                () -> assertFalse(written.containsKey("posture"),
+                        "a shipped posture stays absent, as the schema's optional one"));
     }
 
     /**

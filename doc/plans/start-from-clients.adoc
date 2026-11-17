@@ -21,7 +21,7 @@ The specification sections named are the single statement of what each task buil
 . *Room for the choice Chat* at `start.sources` and `start-epic.sources`, the entry's `chat/` kept: § Starting from the Clients.
 . *Asked when needed*: posture and base branch in `init.options`, and `epic.parallelization_scope` as the project's operator value: link:../specification/state-catalogue/09-bootstrap-and-lessons.adoc#options-when-needed[§ Asked When Needed]; link:../specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator Local Configuration].
 
-Left out: the rate limits, documents copy or move, the source directory, the screening, failing closed and the claimed lesson (link:start-source-intake.adoc[`start-source-intake`]); the landing variants (link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]); the chat (link:chat.adoc[`chat`]); _Next plan_ (link:epic-resource-and-release.adoc[`epic-resource-and-release`]).
+Left out: the rate limits, documents copy or move, the source directory, the screening, failing closed and the claimed lesson (link:start-source-intake.adoc[`start-source-intake`]); the landing variants (link:../Traceability.adoc#PM-WF-25[Traceability PM-WF-25]); the chat (link:chat.adoc[`chat`]); _Next plan_ (link:epic-resource-and-release.adoc[`epic-resource-and-release`]).
 
 == Trace
 

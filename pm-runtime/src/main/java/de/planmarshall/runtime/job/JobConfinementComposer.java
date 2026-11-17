@@ -41,6 +41,12 @@ import de.planmarshall.core.store.ProjectEnrolment;
  * container-engine opt-in, the container engine's sockets. The job-private directory of a worker or a probe and the
  * runtime socket of a worker are named as explicit read paths, because they lie inside the denied base directory.
  * <p>
+ * A worker's confinement names the project's git directory and the {@code .git} link file of every linked worktree that
+ * lies inside the write set as read-only paths ({@link GitMetadataPaths}), so a launcher that can apply the set leaves
+ * the git metadata unwritable for the worker; every other kind keeps the set empty, because a {@code git} job and a
+ * build wrapper write the git directory legitimately. A linked worktree outside every write-set entry needs no read-only
+ * entry; the digest covers it.
+ * <p>
  * The composer builds the values; the launcher {@code pm-exec} applies them. A platform without a ruleset records
  * {@code confinement: unavailable}, which this type neither claims nor suppresses.
  * <p>
@@ -164,6 +170,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         write.add(systemTemp);
         write.add(deviceRoot);
         var read = new ArrayList<Path>();
+        var readOnly = new ArrayList<Path>();
         var jobPrivate = jobPrivate(jobId);
         switch (jobId.kind()) {
             case BUILD, PROJECT_SCRIPT -> addDaemonStore(write, enrolment);
@@ -178,13 +185,14 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
                 write.add(jobPrivate.resolve(DATA));
                 read.add(jobPrivate);
                 read.add(base.resolve(RUNTIME_SOCKET));
+                readOnly.addAll(gitMetadataInside(projectRoot, write));
             }
             case PROBE -> {
                 write.addAll(harnessWritablePaths);
                 read.add(jobPrivate);
             }
         }
-        return new JobConfinement(write, read, denied(enrolment));
+        return new JobConfinement(write, read, readOnly, denied(enrolment));
     }
 
     /**
@@ -260,7 +268,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
             ensureOwnerDirectory(data);
             write.add(data);
         }
-        return new JobConfinement(write, List.of(jobPrivate), denied(null));
+        return new JobConfinement(write, List.of(jobPrivate), List.of(), denied(null));
     }
 
     /** Creates a directory only its owner may enter, as the job-private directories are created. */
@@ -276,6 +284,19 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     /** @return the job-private directory of a job */
     public Path jobPrivate(JobId jobId) {
         return base.resolve(RUN_JOBS).resolve(jobId.value());
+    }
+
+    /**
+     * The git metadata paths of a project that lie inside the write set, which is the part the launcher must make
+     * read-only. A linked worktree outside the root is read-only too when one of the write-set entries contains it (the
+     * system temporary directory, for example); the rest is covered by the digest.
+     */
+    private static List<Path> gitMetadataInside(Path projectRoot, List<Path> writeSet) {
+        var root = projectRoot.toAbsolutePath().normalize();
+        var normalizedWriteSet = writeSet.stream().map(path -> path.toAbsolutePath().normalize()).toList();
+        return GitMetadataPaths.of(root).paths().stream()
+                .filter(path -> path.startsWith(root)
+                        || normalizedWriteSet.stream().anyMatch(path::startsWith)).toList();
     }
 
     /**

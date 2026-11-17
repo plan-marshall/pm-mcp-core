@@ -24,6 +24,7 @@ All packages lie below `de.planmarshall.workflow`. Each line is the first senten
 * `hypermedia`: the hypermedia state engine: the representation of the current state, its link forms and link grammar, and the composite wait.
 * `log`: the log messages of the module, `WorkflowLogMessages` with the prefix `PM_WORKFLOW`.
 * `model`: the one model caller: it reads the artifact of the role a model state names and turns the step into queue tasks.
+* `onboarding`: the engine half of the machine's automatic onboarding and of its aspects.
 * `plan`: the composition of a plan instance from the workflow units and the configuration of its project.
 * `primitive`: the plan-domain primitives, which implement the SPI of `pm-core`.
 * `question`: the question records, their adjudication and their deadlines.
@@ -66,6 +67,7 @@ artifact.
 * link:doc/developer/workflow-envelope.adoc[Task Envelopes (`workflow.envelope`)]
 * link:doc/developer/workflow-finalize.adoc[Finalize Steps (`workflow.finalize`)]
 * link:doc/developer/workflow-log.adoc[Log Messages (`workflow.log`)]
+* link:doc/developer/workflow-onboarding.adoc[Machine Onboarding (`workflow.onboarding`)]
 * link:doc/developer/workflow-scenario.adoc[Scenario Replay Harness (`workflow.scenario`)]
 * link:doc/developer/workflow-setup.adoc[Setup Gate (`workflow.setup`)]
 * link:doc/developer/workflow-unit.adoc[Workflow Unit Loaders (`workflow.unit`)]

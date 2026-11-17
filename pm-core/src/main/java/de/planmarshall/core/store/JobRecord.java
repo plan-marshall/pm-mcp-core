@@ -76,6 +76,8 @@ import org.jspecify.annotations.Nullable;
  * @param signal                  the terminating signal; {@code null} when none
  * @param landlockAbi             the Landlock ABI version of the applied ruleset, at least 2; {@code null} when none was
  *                                applied
+ * @param gitMetadata             whether the git metadata of the project is unwritable for the job; {@code null} for
+ *                                every kind but a worker
  * @param outcomeRow              the row 1 to 13 of the outcome derivation that decided the fate; {@code null} while
  *                                the job is queued or running
  * @param refusalReason           the refusal reason; set exactly for the fate {@code refused}
@@ -92,7 +94,8 @@ public record JobRecord(JobId jobId, Execution execution, Scope scope, @Nullable
 String budgetKey, long budgetSeconds, BudgetDerivation budgetDerivation, @Nullable String argvDigest,
 Status status, @Nullable Fate fate, @Nullable Long pid, @Nullable Instant processStartedAt, Confinement confinement,
 Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Nullable Long childWallMs,
-@Nullable Long exitCode, @Nullable String signal, @Nullable Integer landlockAbi, @Nullable Integer outcomeRow,
+@Nullable Long exitCode, @Nullable String signal, @Nullable Integer landlockAbi,
+@Nullable GitMetadata gitMetadata, @Nullable Integer outcomeRow,
 @Nullable String refusalReason, boolean cancelBeforeGroup,
 @Nullable SelfReportContradiction selfReportContradiction, List<ClampedValue> clampedValues,
 @Nullable String gateFacts) {
@@ -265,6 +268,39 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
          * @return the value of that name; empty if no value has it
          */
         public static Optional<Confinement> fromWireName(String wireName) {
+            return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
+        }
+    }
+
+    /**
+     * Whether the git metadata of a project is unwritable for a job (PM-SEC-5, PM-WATCH-JOB-48), as the launch report
+     * of {@code pm-exec} states it. The value is {@code unenforced} until a report says otherwise; the runtime never
+     * records {@code enforced} on its own.
+     *
+     * @since 0.1
+     */
+    public enum GitMetadata {
+        /** The launcher states that the git directory and every link file are unwritable for the job. */
+        ENFORCED("enforced"),
+        /** The launcher states nothing, or its report does not state that the git metadata is unwritable. */
+        UNENFORCED("unenforced");
+
+        private final String wireName;
+
+        GitMetadata(String wireName) {
+            this.wireName = wireName;
+        }
+
+        /** @return the name of the value in a record */
+        public String wireName() {
+            return wireName;
+        }
+
+        /**
+         * @param wireName the name of a value in a record
+         * @return the value of that name; empty if no value has it
+         */
+        public static Optional<GitMetadata> fromWireName(String wireName) {
             return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
         }
     }
@@ -504,7 +540,7 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         requireForms(argvDigest, pid, landlockAbi, refusalReason, childWallMs);
         requireRawObject(worker, "worker");
         requireRawObject(gateFacts, "gate_facts");
-        requireKindRules(jobId.kind(), execution, scope, worker, selfReportContradiction, gateFacts);
+        requireKindRules(jobId.kind(), execution, scope, worker, selfReportContradiction, gateFacts, gitMetadata);
         requireSettlement(status, fate, outcomeRow, refusalReason);
         requireProcessFields(execution, argvDigest, pid, processStartedAt, spawnedAt, exitCode, signal, confinement);
         if ((pid == null) != (processStartedAt == null)) {
@@ -562,15 +598,22 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
     }
 
     private static void requireKindRules(JobId.Kind kind, Execution execution, Scope scope, @Nullable String worker,
-            @Nullable SelfReportContradiction contradiction, @Nullable String gateFacts) {
+            @Nullable SelfReportContradiction contradiction, @Nullable String gateFacts,
+            @Nullable GitMetadata gitMetadata) {
         if (kind == JobId.Kind.LLM) {
             if (worker == null || execution != Execution.PROCESS
                     || !Set.of(Scope.Type.PROJECT, Scope.Type.MACHINE).contains(scope.type())) {
                 throw new IllegalArgumentException(
                         "A worker carries its worker block, runs as a process and belongs to a project or the machine");
             }
+            if (gitMetadata == null) {
+                throw new IllegalArgumentException("A worker records whether its git metadata is unwritable");
+            }
         } else if (worker != null) {
             throw new IllegalArgumentException("Only a worker carries a worker block, not a job of kind "
+                    + kind.wireName());
+        } else if (gitMetadata != null) {
+            throw new IllegalArgumentException("Only a worker records git_metadata, not a job of kind "
                     + kind.wireName());
         }
         if (kind == JobId.Kind.PROBE && (execution != Execution.PROCESS

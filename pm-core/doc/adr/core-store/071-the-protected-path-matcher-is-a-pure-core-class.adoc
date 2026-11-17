@@ -1,0 +1,49 @@
+= ADR 071: The Protected-Path Matcher Is a Pure Core Class
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-16
+
+== Context
+
+A tracked hook definition that a plan changes without declaring it runs at the next commit: in a `git` job of the CLI
+variant with the operator's identity, and in the operator's own commits once merged. The specification makes the hook
+definitions protected paths and states the matching rule once, at the repository root, ignoring case and after Unicode
+NFC normalization (link:../../../../doc/specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows Specification, Protected Paths]).
+The boundary check that refuses the next commit job is `git.stage-and-commit`'s, which does not exist in this repository
+yet (`PLAN-V2-20`'s `FootprintBoundary`).
+
+== Decision
+
+`ProtectedPaths` is a pure class of `pm-core` `core.store`, beside `PathConfinement`. Its `of(paths, declaredFiles)`
+returns the protected paths in the order given, and `isProtected(path, declaredFiles)` answers for one path. It matches
+`.husky/**`, `.githooks/**`, `lefthook.yml`, `.lefthook.yml`, `lefthook-local.yml` and `.pre-commit-config.yaml` at the
+repository root, ignoring case and after NFC normalization; a path the plan's `declared_files` names is not reported, and
+the declaration lifts exactly that path, never its family. The class reads no file and performs no repository operation.
+
+== Alternatives Considered
+
+Putting the matcher in `pm-workflow` was rejected: the boundary check is the provider's, and `pm-core` is the module every
+provider may depend on. Matching the pattern anywhere in the tree was rejected: git runs the tracked hook configuration
+from the repository root, and a nested `lefthook.yml` of a monorepo package is not run by git. Matching case-sensitively
+was rejected: a case-insensitive file system (the default on macOS) opens `.HUSKY/pre-commit` as the protected
+`.husky/pre-commit`, so the two must be the same path.
+
+== Consequences
+
+The other families of the paragraph (`.marshall/**`, harness configuration, forge CI, editor files) are added as rows by
+the plan that implements `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`; this class adds none of them. The wiring into the
+refusal is not this package's: the plan that implements `PLAN-V2-20` calls `ProtectedPaths` from `FootprintBoundary` with
+the reason `footprint_violation`. Until then the matcher is a tested library class with no caller, reported as a hand-off
+in the landing of PLAN-V2-134.
+
+== Source
+
+PLAN-V2-134, `doc/plans/job-confinement-and-environment.adoc`;
+`doc/specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths`;
+`doc/specification/job-runtime/02-confinement-and-environment.adoc#git-metadata`.

@@ -45,10 +45,10 @@ import de.planmarshall.core.store.StrictJson;
  * Reads and writes {@code <PM_MCP_BASE>/machine-config.json} (Store Schemas § Machine Configuration Store).
  * <p>
  * The document belongs to the operator and holds far more than the machine's provider defaults, so this codec never
- * rewrites the whole file from its own model: it reads {@code providers}, {@code sources.documents_mode} and
- * {@code cleanup} in place, and a write replaces that one member, keeps every other member — {@code credentials}, the
- * concurrency limits, the languages, the plan defaults — copied through untouched, and writes the revision the caller
- * names. The members the file requires and this codec does not own ({@code max_build_slots},
+ * rewrites the whole file from its own model: it reads {@code providers}, {@code sources.documents_mode},
+ * {@code cleanup} and {@code plan_defaults} in place, and a write replaces that one member, keeps every other member —
+ * {@code credentials}, the concurrency limits, the languages — copied through untouched, and writes the revision the
+ * caller names. The members the file requires and this codec does not own ({@code max_build_slots},
  * {@code lsp_idle_timeout_seconds}) are written at their schema defaults when the document is created.
  *
  * @since 0.1
@@ -75,6 +75,11 @@ public class MachineConfigurationCodec {
     private static final String FIELD_SOURCES = "sources";
     private static final String FIELD_DOCUMENTS_MODE = "documents_mode";
     private static final String FIELD_CLEANUP = "cleanup";
+    private static final String FIELD_PLAN_DEFAULTS = "plan_defaults";
+    private static final String FIELD_LANDING = "landing";
+    private static final String FIELD_METHOD = "method";
+    private static final String FIELD_ASKING = "asking";
+    private static final String FIELD_POSTURE = "posture";
     private static final String FIELD_PLANS_AFTER_DAYS = "plans_after_days";
     private static final String FIELD_EPICS_AFTER_DAYS = "epics_after_days";
     private static final String FIELD_LOGS_AFTER_DAYS = "logs_after_days";
@@ -114,12 +119,14 @@ public class MachineConfigurationCodec {
      * @param cleanup       the durations of the one cleanup, each member at the value the document sets or at the schema
      *                      default where it does not; {@code null} where the document records no {@code cleanup} member
      *                      and {@link CleanupDurations#defaults()} applies
+     * @param planDefaults  the machine's default of each plan behaviour axis; {@code null} where the document records no
+     *                      {@code plan_defaults} member and {@link PlanDefaults#shipped()} applies
      * @param revision      the {@code revision} of the document
      * @since 0.1
      */
     @Builder
     public record Document(ProviderDefaults providers, @Nullable DocumentsMode documentsMode,
-    @Nullable CleanupDurations cleanup, long revision) {
+    @Nullable CleanupDurations cleanup, @Nullable PlanDefaults planDefaults, long revision) {
     }
 
     /**
@@ -134,7 +141,8 @@ public class MachineConfigurationCodec {
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
         var pass = new Pass(file, Replacement.NONE);
         pass.run(document);
-        return new Document(pass.providers, pass.documentsMode, pass.cleanup, pass.readRevision);
+        return new Document(pass.providers, pass.documentsMode, pass.cleanup, pass.planDefaults,
+                pass.readRevision);
     }
 
     /**
@@ -152,7 +160,7 @@ public class MachineConfigurationCodec {
         Objects.requireNonNull(document, ARG_DOCUMENT);
         Objects.requireNonNull(providers, FIELD_PROVIDERS);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
-        var pass = new Pass(file, new Replacement(providers, null, null, revision));
+        var pass = new Pass(file, new Replacement(providers, null, null, null, revision));
         pass.run(document);
         return pass.rewritten;
     }
@@ -173,7 +181,7 @@ public class MachineConfigurationCodec {
         Objects.requireNonNull(document, ARG_DOCUMENT);
         Objects.requireNonNull(mode, FIELD_DOCUMENTS_MODE);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
-        var pass = new Pass(file, new Replacement(null, mode, null, revision));
+        var pass = new Pass(file, new Replacement(null, mode, null, null, revision));
         pass.run(document);
         return pass.rewritten;
     }
@@ -193,7 +201,28 @@ public class MachineConfigurationCodec {
         Objects.requireNonNull(document, ARG_DOCUMENT);
         Objects.requireNonNull(durations, FIELD_CLEANUP);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
-        var pass = new Pass(file, new Replacement(null, null, durations, revision));
+        var pass = new Pass(file, new Replacement(null, null, durations, null, revision));
+        pass.run(document);
+        return pass.rewritten;
+    }
+
+    /**
+     * Replaces the machine's default of each plan behaviour axis, keeps every other member and writes the given
+     * revision.
+     *
+     * @param file      the document's file, named by a refusal
+     * @param document  the document, UTF-8 encoded
+     * @param defaults  the plan defaults to record
+     * @param revision  the revision to write
+     * @return the rewritten document, UTF-8 encoded
+     * @throws StoreRefusal if the document declares another format version or is unreadable
+     */
+    public static byte[] writePlanDefaults(Path file, byte[] document, PlanDefaults defaults, long revision) {
+        Objects.requireNonNull(file, ARG_FILE);
+        Objects.requireNonNull(document, ARG_DOCUMENT);
+        Objects.requireNonNull(defaults, FIELD_PLAN_DEFAULTS);
+        StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
+        var pass = new Pass(file, new Replacement(null, null, null, defaults, revision));
         pass.run(document);
         return pass.rewritten;
     }
@@ -204,7 +233,7 @@ public class MachineConfigurationCodec {
      */
     public static byte[] create(ProviderDefaults providers) {
         Objects.requireNonNull(providers, FIELD_PROVIDERS);
-        return create(new Replacement(providers, null, null, 1));
+        return create(new Replacement(providers, null, null, null, 1));
     }
 
     /**
@@ -213,7 +242,7 @@ public class MachineConfigurationCodec {
      */
     public static byte[] createDocumentsMode(DocumentsMode mode) {
         Objects.requireNonNull(mode, FIELD_DOCUMENTS_MODE);
-        return create(new Replacement(null, mode, null, 1));
+        return create(new Replacement(null, mode, null, null, 1));
     }
 
     /**
@@ -222,7 +251,16 @@ public class MachineConfigurationCodec {
      */
     public static byte[] createCleanup(CleanupDurations durations) {
         Objects.requireNonNull(durations, FIELD_CLEANUP);
-        return create(new Replacement(null, null, durations, 1));
+        return create(new Replacement(null, null, durations, null, 1));
+    }
+
+    /**
+     * @param defaults the plan defaults of the new document
+     * @return a machine configuration document at revision 1 holding only the required members and the plan defaults
+     */
+    public static byte[] createPlanDefaults(PlanDefaults defaults) {
+        Objects.requireNonNull(defaults, FIELD_PLAN_DEFAULTS);
+        return create(new Replacement(null, null, null, defaults, 1));
     }
 
     private static byte[] create(Replacement replacement) {
@@ -241,6 +279,9 @@ public class MachineConfigurationCodec {
             }
             if (replacement.cleanup() != null) {
                 writeCleanup(generator, replacement.cleanup());
+            }
+            if (replacement.planDefaults() != null) {
+                writePlanDefaults(generator, replacement.planDefaults());
             }
             generator.writeEndObject();
         } catch (IOException e) {
@@ -287,6 +328,17 @@ public class MachineConfigurationCodec {
         }
     }
 
+    private static void writePlanDefaults(JsonGenerator generator, PlanDefaults defaults) throws IOException {
+        generator.writeObjectFieldStart(FIELD_PLAN_DEFAULTS);
+        generator.writeStringField(FIELD_LANDING, defaults.landing());
+        generator.writeStringField(FIELD_METHOD, defaults.method());
+        generator.writeStringField(FIELD_ASKING, defaults.asking());
+        if (defaults.posture() != null) {
+            generator.writeStringField(FIELD_POSTURE, defaults.posture());
+        }
+        generator.writeEndObject();
+    }
+
     private static void writeProvider(JsonGenerator generator, Provider provider, ProviderDefault def)
             throws IOException {
         generator.writeObjectFieldStart(provider.wireName());
@@ -322,16 +374,17 @@ public class MachineConfigurationCodec {
     /**
      * The one member a write replaces, and the revision it writes; exactly one of the members is set.
      *
-     * @param providers the provider defaults to write, or {@code null}
-     * @param mode      the documents mode to write, or {@code null}
-     * @param cleanup   the cleanup durations to write, or {@code null}
-     * @param revision  the revision to write
+     * @param providers    the provider defaults to write, or {@code null}
+     * @param mode         the documents mode to write, or {@code null}
+     * @param cleanup      the cleanup durations to write, or {@code null}
+     * @param planDefaults the plan defaults to write, or {@code null}
+     * @param revision     the revision to write
      */
     @Builder
     private record Replacement(@Nullable ProviderDefaults providers, @Nullable DocumentsMode mode,
-    @Nullable CleanupDurations cleanup, long revision) {
+    @Nullable CleanupDurations cleanup, @Nullable PlanDefaults planDefaults, long revision) {
 
-        static final Replacement NONE = new Replacement(null, null, null, -1);
+        static final Replacement NONE = new Replacement(null, null, null, null, -1);
     }
 
     /** One pass over the document: it reads what this codec owns and, when a write is asked for, composes the new one. */
@@ -341,10 +394,12 @@ public class MachineConfigurationCodec {
         private final @Nullable ProviderDefaults replacement;
         private final @Nullable DocumentsMode replacementMode;
         private final @Nullable CleanupDurations replacementCleanup;
+        private final @Nullable PlanDefaults replacementPlanDefaults;
         private final long writeRevision;
         private ProviderDefaults providers = ProviderDefaults.none();
         private @Nullable DocumentsMode documentsMode;
         private @Nullable CleanupDurations cleanup;
+        private @Nullable PlanDefaults planDefaults;
         private long readRevision;
         private byte @Nullable [] rewritten = null;
 
@@ -353,11 +408,13 @@ public class MachineConfigurationCodec {
             this.replacement = replacement.providers();
             this.replacementMode = replacement.mode();
             this.replacementCleanup = replacement.cleanup();
+            this.replacementPlanDefaults = replacement.planDefaults();
             this.writeRevision = replacement.revision();
         }
 
         private boolean writing() {
-            return replacement != null || replacementMode != null || replacementCleanup != null;
+            return replacement != null || replacementMode != null || replacementCleanup != null
+                    || replacementPlanDefaults != null;
         }
 
         void run(byte[] document) {
@@ -377,6 +434,7 @@ public class MachineConfigurationCodec {
                             case FIELD_PROVIDERS -> copyProviders(parser, generator);
                             case FIELD_SOURCES -> copySources(parser, generator);
                             case FIELD_CLEANUP -> copyCleanup(parser, generator);
+                            case FIELD_PLAN_DEFAULTS -> copyPlanDefaults(parser, generator);
                             case FIELD_MAX_BUILD_SLOTS -> copyBoundedInteger(parser, generator, field,
                                     MIN_BUILD_SLOTS, MAX_BUILD_SLOTS);
                             case FIELD_LSP_IDLE_TIMEOUT_SECONDS -> copyBoundedInteger(parser, generator, field,
@@ -410,6 +468,9 @@ public class MachineConfigurationCodec {
             }
             if (replacementCleanup != null && !seen.contains(FIELD_CLEANUP)) {
                 writeCleanup(generator, replacementCleanup);
+            }
+            if (replacementPlanDefaults != null && !seen.contains(FIELD_PLAN_DEFAULTS)) {
+                writePlanDefaults(generator, replacementPlanDefaults);
             }
         }
 
@@ -524,6 +585,58 @@ public class MachineConfigurationCodec {
                 generator.writeNumberField(FIELD_REMIND_AFTER_DAYS, remind);
             }
             generator.writeEndObject();
+        }
+
+        /**
+         * Reads the machine's plan defaults and writes the member back: the replacement where a write asks for one, the
+         * members read otherwise — a member the document does not set stays unset, so the schema default keeps applying.
+         * A document without the member reads as none, and the schema default applies.
+         */
+        private void copyPlanDefaults(JsonParser parser, JsonGenerator generator) throws IOException {
+            requireObject(parser, FIELD_PLAN_DEFAULTS);
+            var seen = new HashSet<String>();
+            @Nullable String landing = null;
+            @Nullable String method = null;
+            @Nullable String asking = null;
+            @Nullable String posture = null;
+            while (parser.nextToken() == JsonToken.FIELD_NAME) {
+                var field = nextField(parser, seen);
+                switch (field) {
+                    case FIELD_LANDING -> landing = planDefaultValue(parser, field, PlanDefaults.LANDING_VARIANTS);
+                    case FIELD_METHOD -> method = planDefaultValue(parser, field, PlanDefaults.METHOD_VARIANTS);
+                    case FIELD_ASKING -> asking = planDefaultValue(parser, field, PlanDefaults.ASKING_VARIANTS);
+                    case FIELD_POSTURE -> posture = planDefaultValue(parser, field, PlanDefaults.POSTURES);
+                    default -> throw undeclared(field);
+                }
+            }
+            planDefaults = PlanDefaults.of(landing, method, asking, posture);
+            if (replacementPlanDefaults != null) {
+                writePlanDefaults(generator, replacementPlanDefaults);
+                return;
+            }
+            generator.writeObjectFieldStart(FIELD_PLAN_DEFAULTS);
+            if (landing != null) {
+                generator.writeStringField(FIELD_LANDING, landing);
+            }
+            if (method != null) {
+                generator.writeStringField(FIELD_METHOD, method);
+            }
+            if (asking != null) {
+                generator.writeStringField(FIELD_ASKING, asking);
+            }
+            if (posture != null) {
+                generator.writeStringField(FIELD_POSTURE, posture);
+            }
+            generator.writeEndObject();
+        }
+
+        private static String planDefaultValue(JsonParser parser, String field, List<String> admitted)
+                throws IOException {
+            var value = string(parser, field);
+            if (!admitted.contains(value)) {
+                throw unreadable("'%s' is no value of '%s', one of %s".formatted(value, field, admitted));
+            }
+            return value;
         }
 
         /**
