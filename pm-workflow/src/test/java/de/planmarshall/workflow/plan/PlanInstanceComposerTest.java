@@ -1170,6 +1170,38 @@ class PlanInstanceComposerTest {
         }
 
         @Test
+        @DisplayName("a call pruned inside a composed phase reaches nothing: its callee is composed as no file and its "
+                + "states are no position of the version")
+        void prunedCallInsideAComposedUnit() {
+            var rules = ((CompositionRules.Loaded) CompositionRules.parse("""
+                    {"format_version": 1, "revision": "t1", "rules": [
+                      {"id": "prune-replan-call",
+                       "when": {"fact": "lane", "equals": "deep"},
+                       "then": {"prune": [{"element": "call", "id": "execute.replan/replan",
+                                           "reason": "other_lane"}]}}]}
+                    """.getBytes(StandardCharsets.UTF_8))).rules();
+            var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null, AT_INIT, List.of())));
+            var refused = refused(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null,
+                    InstancePosition.at("replan.assess"), List.of())));
+
+            assertAll(
+                    () -> assertTrue(instance.composed("phase-5-execute").isPresent(), instance.units()::toString),
+                    () -> assertTrue(instance.header().inputs().subUnits().stream()
+                                    .noneMatch(reference -> "replan".equals(reference.unit())),
+                            instance.header().inputs().subUnits()::toString),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
+                    () -> assertEquals(List.of("position: version 1 does not contain the state 'replan.assess'"),
+                            refused.violations()),
+                    () -> assertTrue(instance.header().pruned().stream().anyMatch(pruned ->
+                                    pruned.element() == PrunedElement.Kind.CALL
+                                            && "execute.replan/replan".equals(pruned.id())
+                                            && pruned.reason() == PruneReason.OTHER_LANE),
+                            instance.header().pruned()::toString));
+        }
+
+        @Test
         @DisplayName("a state only a pruned call reaches is no position of the version, so a version that no longer "
                 + "contains the current state is refused position_not_contained")
         void positionOverTheSet() {
