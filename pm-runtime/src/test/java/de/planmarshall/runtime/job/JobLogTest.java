@@ -179,6 +179,21 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("masks a key-block window whose END line carries an invisible character")
+        void masksAKeyBlockWindowWithAnInvisibleEnd() throws Exception {
+            // U+200B inside PRIVATE: the window's invisible characters are removed before the marker is searched
+            append(report + "\n-----END PRI\u200BVATE KEY-----\nnext line\n");
+
+            var lines = assertInstanceOf(Lines.class, log.readLines(0), "the read answers lines");
+
+            var text = String.join("\n", lines.lines());
+            assertAll(
+                    () -> assertFalse(text.contains("PRIVATE KEY-----"), "the split marker is masked"),
+                    () -> assertTrue(text.contains(SecretRedactor.REDACTED), "the window keeps the marker"),
+                    () -> assertTrue(text.contains("next line"), "the text after the END stays readable"));
+        }
+
+        @Test
         @DisplayName("is missing before the launcher created it, and truncated when shorter than the offset")
         void missingAndTruncated() throws Exception {
             var missing = assertInstanceOf(Unavailable.class, log.readLines(0), "a missing log is unavailable");

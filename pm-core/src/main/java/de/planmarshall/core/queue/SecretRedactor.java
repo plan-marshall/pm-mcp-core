@@ -568,21 +568,23 @@ public final class SecretRedactor {
      * <p>
      * A window that carries neither a {@code BEGIN} nor the block's {@code END} cannot be recognised and stays readable;
      * that is the residue the class documentation names for a block that starts before the text. A text whose own
-     * {@code BEGIN} precedes its {@code END} is left to the ordinary scan.
+     * {@code BEGIN} precedes its {@code END} is left to the ordinary scan. The window's invisible characters are removed
+     * first, so a marker split by one is still found.
      *
      * @param text a windowed read of a text, as a job-log read hands it on
      * @return the text with an interior block prefix masked, or the text unchanged
      */
     public static String redactKeyBlockTail(String text) {
-        var end = PEM_END.matcher(text);
+        var normalized = INVISIBLE.matcher(text).replaceAll("");
+        var end = PEM_END.matcher(normalized);
         if (!end.find()) {
-            return text;
+            return normalized;
         }
-        var begin = PEM_BEGIN.matcher(text);
+        var begin = PEM_BEGIN.matcher(normalized);
         if (begin.find() && begin.start() <= end.start()) {
-            return text;
+            return normalized;
         }
-        return REDACTED + text.substring(end.end());
+        return REDACTED + normalized.substring(end.end());
     }
 
     /**
