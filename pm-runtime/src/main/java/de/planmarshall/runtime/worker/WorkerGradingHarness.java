@@ -51,6 +51,7 @@ public final class WorkerGradingHarness implements GradingHarness {
 
     private final EffectiveRole role;
     private final WorkerSupervisor supervisor;
+    private final WorkerEnding ending;
     private final ItemTaskOffers offers;
     private final ItemWorktrees worktrees;
     private final Path projectCheckout;
@@ -60,15 +61,17 @@ public final class WorkerGradingHarness implements GradingHarness {
     /**
      * @param role            the graded configuration
      * @param supervisor      the supervisor that starts its workers
+     * @param ending          the one end path a rotated warm worker leaves through
      * @param offers          the port that offers an item's task to the task protocol
      * @param worktrees       the port that materialises an item's origin commit
      * @param projectCheckout the enrolled project checkout
      * @throws NullPointerException if an argument is {@code null}
      */
-    public WorkerGradingHarness(EffectiveRole role, WorkerSupervisor supervisor, ItemTaskOffers offers,
-            ItemWorktrees worktrees, Path projectCheckout) {
+    public WorkerGradingHarness(EffectiveRole role, WorkerSupervisor supervisor, WorkerEnding ending,
+            ItemTaskOffers offers, ItemWorktrees worktrees, Path projectCheckout) {
         this.role = Objects.requireNonNull(role, "role");
         this.supervisor = Objects.requireNonNull(supervisor, "supervisor");
+        this.ending = Objects.requireNonNull(ending, "ending");
         this.offers = Objects.requireNonNull(offers, "offers");
         this.worktrees = Objects.requireNonNull(worktrees, "worktrees");
         this.projectCheckout = Objects.requireNonNull(projectCheckout, "projectCheckout");
@@ -87,9 +90,14 @@ public final class WorkerGradingHarness implements GradingHarness {
         if (generation == null) {
             return Optional.empty();
         }
-        return offers.offer(new ItemTaskOffers.Task(role.artifact().name(), generation, offered.item(),
-                offered.form(), offered.checkout(), role.zeroTool() ? null : directory.get()))
-                .map(WorkerGradingHarness::answerOf);
+        var answer = offers.offer(new ItemTaskOffers.Task(role.artifact().name(), generation, offered.item(),
+                offered.form(), offered.checkout(), role.zeroTool() ? null : directory.get()));
+        if (answer.isEmpty()) {
+            // The task closed without an answer: the worker that served it is no witness for the next item.
+            warm = null;
+            warmServed.clear();
+        }
+        return answer.map(WorkerGradingHarness::answerOf);
     }
 
     /**
@@ -110,11 +118,18 @@ public final class WorkerGradingHarness implements GradingHarness {
     }
 
     private @Nullable String startWarm(ImportedItem item, Path directory) {
-        if (warm != null && warm.generationId() != null && warm.directory().equals(directory)
+        if (warm != null && warm.generationId() != null && running(warm.generationId())
+                && warm.directory().equals(directory)
                 && WarmServing.mayShare(item.contamination(), ids(warmServed))
                 && !WarmServing.names(warmServed, item)) {
             warmServed.add(item);
             return warm.generationId();
+        }
+        if (room() == 0) {
+            // The role's count holds the workers this run already started: the next item cannot have one, so the item is
+            // left ungraded and the worker this run no longer needs is asked to end.
+            rotate();
+            return null;
         }
         var request = request(item, directory, false);
         var generation = started(List.of(request));
@@ -124,6 +139,41 @@ public final class WorkerGradingHarness implements GradingHarness {
             warmServed.add(item);
         }
         return generation;
+    }
+
+    /**
+     * @return how many workers the role's {@code count} still admits beside the ones this run started
+     */
+    private long room() {
+        var running = supervisor.generations().stream()
+                .filter(generation -> generation.role().equals(role.artifact().name()))
+                .filter(generation -> generation.form() == RoleForm.WARM)
+                .filter(generation -> !generation.terminal())
+                .count();
+        return role.artifact().count() - running;
+    }
+
+    /**
+     * Asks the warm worker the next item may not share to end, so a later item of the run can start its replacement once
+     * the worker has exited.
+     */
+    private void rotate() {
+        if (warm == null || warm.generationId() == null) {
+            return;
+        }
+        supervisor.generation(warm.generationId())
+                .filter(generation -> !generation.terminal())
+                .ifPresent(generation -> ending.forceEnd(generation, EndCause.RECYCLE));
+        warm = null;
+        warmServed.clear();
+    }
+
+    /**
+     * @param generationId a generation this harness started
+     * @return {@code true} while the supervisor still holds it in a non-terminal state
+     */
+    private boolean running(String generationId) {
+        return supervisor.generation(generationId).filter(generation -> !generation.terminal()).isPresent();
     }
 
     /**

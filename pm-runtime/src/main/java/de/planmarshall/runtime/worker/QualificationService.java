@@ -56,7 +56,16 @@ public final class QualificationService {
      */
     public static GradingHarness harness(EffectiveRole role, WorkerSupervisor supervisor, ItemTaskOffers offers,
             ItemWorktrees worktrees, Path projectCheckout) {
-        return new WorkerGradingHarness(role, supervisor, offers, worktrees, projectCheckout);
+        return new WorkerGradingHarness(role, supervisor, ending(supervisor), offers, worktrees, projectCheckout);
+    }
+
+    /**
+     * @param supervisor the supervisor whose workers a rotation ends
+     * @return the one end path a rotated warm worker leaves through; a grading run queues no plan work of its own
+     */
+    private static WorkerEnding ending(WorkerSupervisor supervisor) {
+        return new WorkerEnding(supervisor.environment(), () -> false, () -> {
+        });
     }
 
     /**

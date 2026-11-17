@@ -34,6 +34,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.corpus.ImportedItem;
@@ -82,8 +83,7 @@ class WorkerGradingHarnessTest {
     @DisplayName("a fresh form starts one worker per item and offers each as its own task")
     void freshStartsOneWorkerPerItem() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 4);
-        var harness = new WorkerGradingHarness(role, fixture.supervisor(), offers, ItemWorktrees.none(),
-                fixture.workdir);
+        var harness = harness(role, ItemWorktrees.none());
 
         var first = harness.answer(offered(item(FIRST, null), RoleForm.FRESH));
         var second = harness.answer(offered(item(SECOND, null), RoleForm.FRESH));
@@ -106,8 +106,7 @@ class WorkerGradingHarnessTest {
     @DisplayName("a warm form serves the items in order with one worker")
     void warmServesOneWorker() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
-        var harness = new WorkerGradingHarness(role, fixture.supervisor(), offers, ItemWorktrees.none(),
-                fixture.workdir);
+        var harness = harness(role, ItemWorktrees.none());
 
         harness.answer(offered(item(FIRST, null), RoleForm.WARM));
         harness.answer(offered(item(SECOND, null), RoleForm.WARM));
@@ -120,18 +119,76 @@ class WorkerGradingHarnessTest {
     }
 
     @Test
-    @DisplayName("a contamination note closes the warm worker and opens another")
-    void contaminationClosesTheWarmWorker() {
+    @DisplayName("a contaminated item never shares the warm worker and is left ungraded in one directory")
+    void contaminationBlocksTheSharedDirectory() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 2);
-        var harness = new WorkerGradingHarness(role, fixture.supervisor(), offers, worktrees(), fixture.workdir);
+        var harness = harness(role, worktrees(base.resolve("one-worktree")));
 
-        harness.answer(offered(item(FIRST, "contaminated by " + SECOND), RoleForm.WARM, Checkout.ITEM_COMMIT));
+        harness.answer(offered(item(FIRST, null), RoleForm.WARM, Checkout.ITEM_COMMIT));
+        var second = harness.answer(offered(item(SECOND, "contaminated by " + FIRST), RoleForm.WARM,
+                Checkout.ITEM_COMMIT));
+
+        assertAll(
+                () -> assertTrue(second.isEmpty(), "the item may not be served by the worker it names"),
+                () -> assertEquals(1, fixture.starts.size(), "one directory holds one warm worker"),
+                () -> assertEquals(1, tasks.size(), "no task is offered to the worker it may not share"),
+                () -> assertEquals(FIRST, tasks.getFirst().item().id(), "the one task is the uncontaminated item"));
+    }
+
+    @Test
+    @DisplayName("a contaminated item starts its own worker in another directory")
+    void contaminationStartsAnotherWorker() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 2);
+        var first = base.resolve("first-worktree");
+        var second = base.resolve("second-worktree");
+        ItemWorktrees worktrees = createMock(ItemWorktrees.class);
+        expect(worktrees.checkout(anyObject(URI.class), anyString()))
+                .andReturn(Optional.of(first))
+                .andReturn(Optional.of(second))
+                .anyTimes();
+        replay(worktrees);
+        var harness = harness(role, worktrees);
+
+        harness.answer(offered(item(FIRST, null), RoleForm.WARM, Checkout.ITEM_COMMIT));
+        harness.answer(offered(item(SECOND, "contaminated by " + FIRST), RoleForm.WARM, Checkout.ITEM_COMMIT));
+
+        assertAll(
+                () -> assertEquals(2, fixture.starts.size(), "the contaminated item starts its own worker"),
+                () -> assertEquals(2, tasks.stream().map(ItemTaskOffers.Task::generationId).distinct().count(),
+                        "the two items never share a generation"));
+        verify(worktrees);
+    }
+
+    @Test
+    @DisplayName("a warm role whose count is spent asks its worker to end and leaves the item ungraded")
+    void contaminationRotatesTheOnlyWorker() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
+        var harness = harness(role, worktrees(base.resolve("one-worktree")));
+
+        var first = harness.answer(offered(item(FIRST, "contaminated by " + SECOND), RoleForm.WARM,
+                Checkout.ITEM_COMMIT));
+        var second = harness.answer(offered(item(SECOND, null), RoleForm.WARM, Checkout.ITEM_COMMIT));
+
+        assertAll(
+                () -> assertTrue(first.isPresent(), "the first item answers"),
+                () -> assertTrue(second.isEmpty(), "the item with no admitted worker is left ungraded"),
+                () -> assertEquals(1, fixture.starts.size(), "the spent count admits no second worker"),
+                () -> assertEquals(1, fixture.cancels.size(), "the worker the run no longer needs is asked to end"));
+    }
+
+    @Test
+    @DisplayName("an item without a contamination note keeps the warm worker")
+    void sameDirectoryWithoutNoteKeepsTheWorker() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 2);
+        var harness = harness(role, worktrees(base.resolve("one-worktree")));
+
+        harness.answer(offered(item(FIRST, null), RoleForm.WARM, Checkout.ITEM_COMMIT));
         harness.answer(offered(item(SECOND, null), RoleForm.WARM, Checkout.ITEM_COMMIT));
 
         assertAll(
-                () -> assertEquals(2, fixture.starts.size(), "the named item starts its own worker"),
-                () -> assertEquals(2, tasks.stream().map(ItemTaskOffers.Task::generationId).distinct().count(),
-                        "the two items never share a generation"));
+                () -> assertEquals(1, fixture.starts.size(), "the same directory admits no second worker"),
+                () -> assertEquals(1, tasks.stream().map(ItemTaskOffers.Task::generationId).distinct().count(),
+                        "both items are served by the one worker"));
     }
 
     @Test
@@ -142,7 +199,7 @@ class WorkerGradingHarnessTest {
         ItemWorktrees worktrees = createMock(ItemWorktrees.class);
         expect(worktrees.checkout(anyObject(URI.class), anyString())).andReturn(Optional.of(worktree)).anyTimes();
         replay(worktrees);
-        var harness = new WorkerGradingHarness(role, fixture.supervisor(), offers, worktrees, fixture.workdir);
+        var harness = harness(role, worktrees(worktree));
 
         harness.answer(offered(item(FIRST, null), RoleForm.FRESH, Checkout.ITEM_COMMIT));
 
@@ -158,8 +215,7 @@ class WorkerGradingHarnessTest {
     @DisplayName("an origin commit that cannot be materialised leaves the item ungraded")
     void unavailableWorktreeLeavesTheItemUngraded() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
-        var harness = new WorkerGradingHarness(role, fixture.supervisor(), offers, ItemWorktrees.none(),
-                fixture.workdir);
+        var harness = harness(role, ItemWorktrees.none());
 
         var answer = harness.answer(offered(item(FIRST, null), RoleForm.FRESH, Checkout.ITEM_COMMIT));
 
@@ -174,8 +230,7 @@ class WorkerGradingHarnessTest {
     void declinedStartLeavesTheItemUngraded() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         fixture.grant = false;
-        var harness = new WorkerGradingHarness(role, fixture.supervisor(), offers, ItemWorktrees.none(),
-                fixture.workdir);
+        var harness = harness(role, ItemWorktrees.none());
 
         var answer = harness.answer(offered(item(FIRST, null), RoleForm.FRESH));
 
@@ -189,8 +244,7 @@ class WorkerGradingHarnessTest {
     void zeroToolRunsInThePrivateDirectory() {
         var role = fixture.role(RoleClass.ZERO_TOOL, RoleForm.FRESH, 1);
         var item = item(FIRST, null);
-        var harness = new WorkerGradingHarness(role, fixture.supervisor(), offers, ItemWorktrees.none(),
-                fixture.workdir);
+        var harness = harness(role, ItemWorktrees.none());
 
         harness.answer(offered(item, RoleForm.FRESH));
 
@@ -203,12 +257,18 @@ class WorkerGradingHarnessTest {
                         "a zero-tool worker runs in its job-private directory"));
     }
 
-    private ItemWorktrees worktrees() {
+    private ItemWorktrees worktrees(Path worktree) {
         ItemWorktrees worktrees = createMock(ItemWorktrees.class);
-        expect(worktrees.checkout(anyObject(URI.class), anyString())).andAnswer(() -> Optional.of(
-                base.resolve("wt").resolve((String) getCurrentArguments()[1]))).anyTimes();
+        expect(worktrees.checkout(anyObject(URI.class), anyString())).andReturn(Optional.of(worktree)).anyTimes();
         replay(worktrees);
         return worktrees;
+    }
+
+    private WorkerGradingHarness harness(EffectiveRole role, ItemWorktrees worktrees) {
+        var supervisor = fixture.supervisor();
+        return new WorkerGradingHarness(role, supervisor,
+                new WorkerEnding(supervisor.environment(), () -> false, () -> {
+                }), offers, worktrees, fixture.workdir);
     }
 
     private static GradingHarness.Offered offered(ImportedItem item, RoleForm form) {

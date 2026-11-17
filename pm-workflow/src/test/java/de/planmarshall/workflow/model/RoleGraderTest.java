@@ -247,6 +247,21 @@ class RoleGraderTest {
         }
 
         @Test
+        @DisplayName("a stored passing check is no result when the corpus holds no judge item")
+        void judgeCheckAbsentDespiteAStoredPass() {
+            var fixtures = new Fixtures();
+            var judge = new JudgeConfiguration(GraderFixtures.judge(), Set.of(), List.of());
+            var plan = GraderFixtures.plan(GraderFixtures.role(), corpus(), judge, GraderFixtures.complete());
+            fixtures.judgeChecks.holds(GraderFixtures.passingJudgeCheck());
+
+            var graded = assertInstanceOf(GradingOutcome.Graded.class,
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the stored record does not stand in for a check");
+
+            assertNull(graded.entry().judgeCheck(), "no item means no recorded check");
+        }
+
+        @Test
         @DisplayName("a valid judge check record is reused instead of running the check again")
         void judgeCheckReused() {
             var fixtures = new Fixtures();

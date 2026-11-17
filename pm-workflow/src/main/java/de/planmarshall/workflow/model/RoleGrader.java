@@ -165,15 +165,16 @@ public final class RoleGrader {
      * @return the check's result; {@code null} where no check ran
      */
     private QualificationRecord.@Nullable JudgeCheckResult judgeCheck(GradingPlan plan) {
+        if (plan.judge().items().isEmpty()) {
+            // The corpus holds no judge item: no check can run, so no result is recorded, whatever a stored record holds.
+            return null;
+        }
         var judge = plan.judge().role();
         var digest = judge.qualificationDigest();
         var stored = judgeChecks.lookup().orElse(null);
         var verdict = stored == null ? null : JudgeCheck.Verdict.of(stored, digest, plan.corpusRevision());
         if (verdict != null && verdict.passes()) {
             return QualificationRecord.JudgeCheckResult.PASSED;
-        }
-        if (plan.judge().items().isEmpty()) {
-            return null;
         }
         var checkRecord = instrumentCheck.run(judge, plan.judge().items(), plan.corpusRevision());
         judgeChecks.write(checkRecord);
