@@ -422,7 +422,8 @@ id is the answered absence: `pm_wait` takes no argument, so the transport names 
 queue-task id is never blank. Its answer closes the wait on the detection, because a held wait suppresses the silence
 signal and the answer re-arms it. A heartbeat beyond the first call settles an outstanding acknowledgement through
 `LossDetection.acknowledged`: the acknowledgement deadline runs from the offer (or a fresh worker's first call), and only
-a call clears it. `planPaused` forces every generation of the plan at once, `harnessEnrolled` clears the start-failure
+a call clears it; a warm worker's first call arms none, because it owes no acknowledgement before an offer. `planPaused`
+forces every generation of the plan at once, `harnessEnrolled` clears the start-failure
 guard of every role the registry holds on the harness, and the first call of a worker clears that guard — the clear the
 specification requires, which the `StartGuard` seam names as `firstCall`. A call of a generation that already ended is
 ignored like a call of an unknown one.
@@ -440,9 +441,12 @@ the reason the cause and the loss signal name.
 `JobRecordStore.writeWorker`, which refuses a settled record ("its worker state is no longer written"). The settlement
 writes the fate and carries the worker block the record held, so the store's contract requires that write to happen before
 the fate — while the fate is what tells the pass the exit happened. Against the landed writer the first pass over an ended
-worker throws and its generation never becomes terminal; the package's tests cannot see it because the fixture mocks the
-writer. The trigger and the write order need a specification amendment, which this plan may not make: it is owed to the
-assembly or to a follow-up plan, and it keeps this pull request from being ready to merge.
+worker throws and its generation never becomes terminal; the throw escapes `run()`, so the generations after it in
+registry order go unobserved and the idle yield never runs, each retry repeats the end path's pre-write side effects
+(fence, token revocation, slot release) and re-derives the cause as `LOST`, and the detections and pumps of those
+generations leak. The package's tests cannot see it because the fixture mocks the writer — a `WorkerStateWriter.over` over
+a settled record would. The trigger and the write order need a specification amendment, which this plan may not make: it
+is owed to the assembly or to a follow-up plan, and it keeps this pull request from being ready to merge.
 
 What the package still owes, and to whom: the transport that implements `WorkerProtocol` and forwards `SupervisorCalls`,
 the scheduling of `SupervisionPass.run()` and the construction of the pump, the recorder and the mapper per role (all
@@ -451,7 +455,9 @@ stage written into the verification record and the harness enrolment (the machin
 boundary of the `over_size` and `outside_footprint` signals (the assembly's adapter of the `WorkerTaskActivity` port) and
 the plan cleanup that adopts `ActivityJournal.archiveInto` and `delete`. The supervisor's start-failure count of an exit
 the pass observes is part of that: `StartGuard` names the clear, not the count, and `AgentStartedDetector` needs a
-`forget` for a terminal generation, which the pass makes long-lived. The work packages `worker-activity` and
+`forget` for a terminal generation, which the pass makes long-lived. So does the acknowledgement entry ADR
+`runtime-worker/012` names — a `WorkerCalls` method that reaches `LossDetection.answerDelivered` — which the sibling plan
+`continuation-hold-and-budget` adds when it extends `SupervisorCalls`. The work packages `worker-activity` and
 `question-continuation` stay open.
 
 The landed-contract decision and its two seams are ADR 002's; the protocol adapter is ADR 009's; the one writer block is

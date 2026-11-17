@@ -47,7 +47,9 @@ A call by a worker that holds an unacknowledged offer or launch is the acknowled
 acknowledgement deadline waits for, so a heartbeat beyond the first call settles it through
 `LossDetection.acknowledged`. Without that mapping the deadline an offer arms would never be cleared and every worker of
 a harness whose `ack_deadline_seconds` is short (the shipped `claude` value is 15) would be declared lost 15 seconds after
-its offer.
+its offer. `LossDetection.firstCall` arms that deadline too, which the specification scopes to a fresh worker and to an
+offer; a warm worker's first call therefore settles it at once when the generation holds no lease, or a worker sitting in
+a legal bounded wait would be lost a deadline later.
 
 A wait's `queueTaskId` is the candidate task the transport would offer, and a blank one is the answered absence: the
 `pm_wait` tool takes no argument and the server decides the offer, so the transport names what it holds and the
@@ -105,10 +107,17 @@ to name it.
   settled and carries its fate; its worker state is no longer written`). The settlement writes the fate and carries the
   worker block the record held, so the store's contract requires the end path's write to happen *before* the fate — and
   the fate is what tells the pass the exit happened. Against the landed `WorkerStateWriter.over` the first pass over an
-  ended worker therefore throws, the generation is never replaced terminal, and later passes throw again; the package's
-  tests cannot see it, because the fixture injects a mock writer. The trigger and the write order need a specification
-  amendment (a second exit observable, or a store-compatible terminal write), which this plan may not make: it is an
-  owed rest for the assembly or a follow-up plan, and it is the reason this pull request is not ready to merge.
+  ended worker therefore throws, the generation is never replaced terminal, and later passes throw again; the throw
+  escapes `run()`, so the generations after it in registry order go unobserved and the idle yield never runs, and each
+  retry repeats the end path's pre-write side effects (fence, token revocation, slot release) because the request was
+  already consumed, re-deriving the cause as `LOST`. The detections and pumps of those generations leak with it. The
+  package's tests cannot see it because the fixture injects a mock writer — a `WorkerStateWriter.over` over a settled
+  record would show it. The trigger and the write order need a specification amendment (a second exit observable, or a
+  store-compatible terminal write), which this plan may not make: it is an owed rest for the assembly or a follow-up
+  plan, and it is the reason this pull request is not ready to merge.
+* The acknowledgement entry of the inbound port that ADR `runtime-worker/012` names — a `WorkerCalls` method that reaches
+  `LossDetection.answerDelivered` — is still owed: `WorkerCalls` has no such method and this plan may not add one. It
+  belongs with the sibling plan `continuation-hold-and-budget`, which extends `SupervisorCalls`.
 * The start-failure guard's `startFailed` count of an exit the pass observes stays with the transport and the
   assembly: `StartGuard` names `firstCall`, `clear` and `probeDeclined`, not the count, and this plan may not add a
   deliverable the specification does not name for it.
