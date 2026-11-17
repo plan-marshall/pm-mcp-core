@@ -48,7 +48,8 @@ coordinates, and the classes the tests rely on — `SchemaRegistry`, `Schema`, `
   (`pm-core/src/test/java/de/planmarshall/core/SchemaValidation.java`): `compile(String)` builds a schema from schema
   text through a cached `SchemaRegistry` with draft 2020-12 as the default dialect, and `validate(Schema, String)`
   returns the `List` of `Error` items. The fourteen schema tests — the nine of the work package plus the five the head
-  added — call it (B5, operator "b use helper"; the orchestrator had recommended the edit per class). The helper is in
+  added — call it, and so does the one test that consumes their helper, `CorpusImportTest` (B5, operator "b use
+  helper"; the orchestrator had recommended the edit per class). The helper is in
   the test tree and deliberately not in the published `pm-core:tests` artifact, which carries the generator package,
   the assertion-message scanner and `SchemaResource` (ADR link:012-generator-artifacts.adoc[012]): the library's types
   are not handed to a consumer.
@@ -124,12 +125,19 @@ classpaths are unchanged.
 * A later 3.x or 4.x bump is the property plus, if the entry points move again, `SchemaValidation` alone.
 * The schema files, the specification blocks, the codecs and the expected values are unchanged: a difference in what the
   library accepts is a finding to report, never a reason to edit a schema.
-* The negative controls of the fourteen classes remain the proof that the validator really ran: with the schema replaced
-  by `{}` in a scratch run they fail, so a positive check that passes vacuously cannot hide a validator that stopped
-  validating.
+* The negative controls of the fourteen classes remain the proof that the validator really ran: in a scratch run at
+  `6722c78a` the helper was made to compile `{}` instead of the loaded schema text — the schema the validator sees is
+  replaced by the empty schema, every document is accepted — and the run failed 24 times, every failure a negative
+  control or a validator-rejects test, one or more per class (`ConsentSchemaParityTest.rejectingUndeclaredMember`,
+  `ModelCatalogueSchemaParityTest.rejectingUndeclaredMember`, `RoleAssignmentsSchemaParityTest.rejectingUndeclaredMember`,
+  `AnalysisResultSchemaTest.validatorRejectsUndeclaredMember`, `LeaseOwnerSchemaParityTest.rejectingMissingHolder`,
+  `PlanHistorySchemaParityTest.undeclaredMemberIsViolation`, `QualificationSchemaParityTest.documents`, the four controls
+  of `CorpusSchemaResourcesTest`, and the thirteen of `RoleArtifactSchemaParityTest`). The log is
+  `/home/oliver/.plan-marshall/marshalld/job-logs/4968752424e84057b4f81631a0d98b95.log` of that commit; the mutation
+  was reverted and never committed, so a positive check cannot hide a validator that stopped validating.
 * The four ADRs that name the library were read and are unchanged, because their sentences still hold: ADR
-  link:016-schemas-are-files-of-the-implementing-module.adoc[016] (line 63, "`networknt` stays a test-scope dependency
-  of `pm-core`"), ADR
+  link:016-schemas-are-files-of-the-implementing-module.adoc[016] (its Consequences sentence "`networknt` stays a
+  test-scope dependency of `pm-core`", which the edits of PLAN-V2-122 moved to lines 71 and 72), ADR
   link:../../pm-core/doc/adr/core-analysis/001-analysis-result-record-with-strict-canonical-codec.adoc[core-analysis/001]
   (line 34, "pinned by the property `version.json-schema-validator`"), ADR
   link:../../pm-core/doc/adr/core-profile/001-hand-written-closed-validator-over-jackson-core.adoc[core-profile/001]
