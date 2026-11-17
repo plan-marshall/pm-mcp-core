@@ -604,7 +604,7 @@ and `gate_facts`, a number or a string for a `ClampedValue`'s `configured`; trai
 the whole store on read. The record carries
 its own vocabularies: `Execution` (`process`, `in_process`), `Status` (`queued`, `refused`, `running`, `ended`),
 `Fate`, `Confinement`, the owning `Scope` (`plan`, `epic`, `workspace`, `project`, `machine`, `entry`), the
-`BudgetDerivation`, a `SelfReportContradiction` and the `ClampedValue` rows. A worker's record carries `git_metadata` (`enforced` or `unenforced`, non-null exactly for kind `llm`, link:../adr/core-store/070-the-job-record-git-metadata-is-a-nullable-enumeration.adoc[ADR 070]); every other kind keeps it `null`. `isSpawnRecorded()` is true once the record
+`BudgetDerivation`, a `SelfReportContradiction` and the `ClampedValue` rows. A worker's record carries `egress` (`enforced` or `unenforced`, non-null exactly for kind `llm`, link:../adr/core-store/072-the-job-record-egress-is-a-nullable-enumeration.adoc[ADR 072]): `enforced` only when a launch report states that the platform makes the worker's egress proxy its only route out, `unenforced` until then, and no code path writes `enforced` on its own. A worker's record carries `git_metadata` (`enforced` or `unenforced`, non-null exactly for kind `llm`, link:../adr/core-store/070-the-job-record-git-metadata-is-a-nullable-enumeration.adoc[ADR 070]); every other kind keeps both `null`. `isSpawnRecorded()` is true once the record
 carries the PID: only from then on does the job count as running.
 `JobRecordCodec`:: Reads and writes the record over `StrictJson`: `format_version` first, every member once, only the
 declared members, every required member, one JSON type per member, the closed values; the `kind` must be the kind the

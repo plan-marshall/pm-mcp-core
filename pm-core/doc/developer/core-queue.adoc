@@ -61,7 +61,10 @@ record and the listing skips it.
 `ActivityEntry` and `ActivityEntryCodec`::
 One line of `tasks/activity/<queue_task_id>.jsonl`: what a worker did (the harness kinds `text`, `tool_call`,
 `tool_result`, `file_changed`, `turn`) or what the server recorded (`link`, `question`, `answer_ack`, `signal`,
-`attempt_end`). The `usage` object belongs to another package and is kept as the raw JSON text it was read with.
+`egress`, `attempt_end`). An `egress` entry carries the `host:port` a worker's egress proxy refused in its
+`egress.destination`, at most 259 characters, at most one per distinct destination per attempt; the journal masks it
+like a link target (link:../adr/core-queue/010-the-refused-destination-is-an-activity-entry-kind.adoc[ADR 010]). The
+`usage` object belongs to another package and is kept as the raw JSON text it was read with.
 
 `ActivityJournal`::
 The journal of a scope: `plans/<plan_id>/tasks/activity/`, `epics/<epic_id>/tasks/activity/`,
@@ -87,7 +90,7 @@ answers `Optional<ActivityEventMapping>`: a profile whose `headless.events` is `
 `null` value, because every production package is `@NullMarked`.
 
 ADR number 009 of this package is retired: it decided the navigation figures, which the work package
-`deferred-code-removal` deleted with the record. The next ADR of `core-queue` takes 010.
+`deferred-code-removal` deleted with the record. The next ADR of `core-queue` takes 011.
 
 [#redactor-shapes]
 == The Redactor's Shapes and What Stays Readable

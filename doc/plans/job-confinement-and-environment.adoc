@@ -21,13 +21,30 @@ The specification sections named are the single statement of what each task buil
 . *Probe jobs*: link:../specification/job-runtime/02-confinement-and-environment.adoc#probe-jobs[§ Probe Jobs].
 . *macOS confinement*: link:../specification/job-runtime/02-confinement-and-environment.adoc#macos-confinement[§ macOS Confinement].
 . *The worker egress proxy*, its name matching and its eligibility rule: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[§ Worker Egress Proxy]; link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-name-resolution[§ Name Resolution]; the `egress` stage of § Profile Verification.
-. *The job record's `confinement`, `seccomp` and `egress`*, in `JobRecord` and its schema together: link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record].
+. *The job record's `confinement` and `seccomp`*, in `JobRecord` and its schema together: link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record].
 . *The git metadata of a worker*: the read-only set, the `git_metadata` member of the launch report and of the job record, the digest with its two comparison points and the refusal `git_metadata_changed` are implemented in this repository; the read-only mount on Linux and the sandbox deny of writes on macOS are owed in `pm-mcp-clients` (`pm-exec`, the package `exec-hardening`): link:../specification/job-runtime/02-confinement-and-environment.adoc#git-metadata[§ Git Metadata].
 . *The confinement self-check*: link:../specification/job-runtime/02-confinement-and-environment.adoc#confinement-self-check[§ Confinement Self-Check].
 . *The git identity check* in both variants: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#git-identities[Job Runtime § Git Identities].
 . *The concept _Job Confinement_* in link:../../../plan-marshall-documentation/doc/concepts/[`doc/concepts/`] of `plan-marshall-documentation`, written from the sections above (the open network of `build` jobs until Milestone 6 builds link:../specification/job-runtime/02-confinement-and-environment.adoc#build-egress[Build Egress & Build Read Set]).
 
 Left out: the `pm-exec` packages `exec-listed-read-set` and `exec-hardening` of `pm-mcp-clients`.
+
+== Remaining outside this repository
+
+The plan PLAN-V2-59 delivered the in-repository share: the job record's `egress` member and the `egress` activity entry
+(link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record],
+link:../specification/store-schemas/16-task-queue.adoc#activity-journal[§ Activity Journal]). What the Done-when above
+still demands lives elsewhere:
+
+* *The enforcement*: the Landlock and Seatbelt network rule, the worker network namespace and the egress tunnel, in
+  `pm-exec` (`pm-mcp-clients`), with the Linux child-subreaper package the epic already owes there.
+* *The launch report member* that states `egress: enforced`, the same `pm-exec` contract; until it exists no record may
+  say `enforced`, so every worker's record states `unenforced`
+  (link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[§ Worker Egress Proxy]).
+* *The CLI git variant* of the enforcement, verified absent in `pm-mcp-clients`.
+
+The decisions behind the two delivered parts are link:../../pm-core/doc/adr/core-store/072-the-job-record-egress-is-a-nullable-enumeration.adoc[ADR core-store/072]
+and link:../../pm-core/doc/adr/core-queue/010-the-refused-destination-is-an-activity-entry-kind.adoc[ADR core-queue/010].
 
 == Trace
 
