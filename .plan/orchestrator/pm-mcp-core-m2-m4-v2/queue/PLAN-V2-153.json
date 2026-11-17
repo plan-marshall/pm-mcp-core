@@ -2,10 +2,10 @@
   "id": "PLAN-V2-153",
   "slug": "machine-onboarding-remainder",
   "workstream": "WS-04",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-153-machine-onboarding-remainder",
+  "pr": "#470",
+  "landing": "landings/PLAN-V2-153.md",
   "seq": 141
 }

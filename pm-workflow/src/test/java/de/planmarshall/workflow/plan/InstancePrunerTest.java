@@ -112,7 +112,7 @@ class InstancePrunerTest {
         var pruned = prune(linkTemplate(), new RuleEffects(List.of(link), List.of()), null);
 
         var kept = assertInstanceOf(StateBehavior.InteractiveLinks.class,
-                pruned.states().get("setup.wait").behavior());
+                pruned.states().get("setup.wait").behavior(), "the kept state holds interactive links");
         assertAll(
                 () -> assertEquals(List.of(link), pruned.pruned(), "the link is listed once"),
                 () -> assertEquals(List.of("keep_going"),
@@ -125,14 +125,16 @@ class InstancePrunerTest {
         var template = planTemplate();
         var lanes = Stream.of(null, PlanInstanceHeader.Lane.LAND, PlanInstanceHeader.Lane.ADOPT);
 
-        assertAll(lanes.map(lane -> () -> assertNoPrune(template, lane)));
+        assertAll("an absent or non-pruning lane drops no state",
+                lanes.map(lane -> () -> assertNoPrune(template, lane)));
     }
 
     private static void assertNoPrune(WorkflowDefinition template, PlanInstanceHeader.@Nullable Lane lane) {
         var pruned = prune(template, NOTHING, lane);
 
         assertAll("lane " + lane,
-                () -> assertEquals(template.states().keySet(), pruned.states().keySet(), "no state is dropped"),
-                () -> assertEquals(List.of(), pruned.pruned(), "no prune is listed"));
+                () -> assertEquals(template.states().keySet(), pruned.states().keySet(),
+                        "no state of the template is dropped"),
+                () -> assertEquals(List.of(), pruned.pruned(), "no prune is listed for this lane"));
     }
 }

@@ -101,8 +101,9 @@ class DefaultUnitLoaderTest {
                                     "phase-4-plan", "phase-5-execute", "land", "phase-6-finalize",
                                     "adjudicate.decisions", "replan", "git.commit_and_push",
                                     "remediation.qgate-findings"),
-                            List.copyOf(result.units().keySet())),
-                    () -> assertEquals(Optional.empty(), result.refusal()),
+                            List.copyOf(result.units().keySet()),
+                            "every default unit is loaded, the plan unit first"),
+                    () -> assertEquals(Optional.empty(), result.refusal(), "a verified load refuses nothing"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR, DefaultUnitLoader.class));
         }
 
@@ -114,11 +115,13 @@ class DefaultUnitLoaderTest {
 
             assertAll(
                     () -> units.values().forEach(unit -> assertEquals(UnitOrigin.DEFAULT, unit.origin(), unit::id)),
-                    () -> assertEquals(InvariantFixtures.ROOT + "plan.pmwf", plan.location().resourceName()),
+                    () -> assertEquals(InvariantFixtures.ROOT + "plan.pmwf", plan.location().resourceName(),
+                            "the plan unit is read from the product root"),
                     () -> assertEquals("phases.init", plan.startState(), "the plan unit starts at phases.init"),
                     () -> assertEquals(InvariantFixtures.ROOT + "init.pmwf",
-                            units.get("phase-1-init").location().resourceName()),
-                    () -> assertEquals(Map.of(), plan.derivedFrom()));
+                            units.get("phase-1-init").location().resourceName(),
+                            "a phase unit is read from the product root"),
+                    () -> assertEquals(Map.of(), plan.derivedFrom(), "a default unit derives from no unit"));
         }
 
         @Test
@@ -136,7 +139,8 @@ class DefaultUnitLoaderTest {
         @Test
         @DisplayName("no unit lies below the root workflows/ of the product on the test classpath")
         void productRootUnread() {
-            assertNull(DefaultUnitLoaderTest.class.getClassLoader().getResource("workflows/"));
+            assertNull(DefaultUnitLoaderTest.class.getClassLoader().getResource("workflows/"),
+                    "the product root workflows/ is not on the classpath");
         }
     }
 
@@ -157,8 +161,9 @@ class DefaultUnitLoaderTest {
             assertAll(
                     () -> assertEquals(List.of(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_MISSING,
                                     resource, 0, "the default unit '%s' is not on the classpath".formatted(resource))),
-                            result.findings()),
-                    () -> assertEquals(Map.of(), result.units()),
+                            result.findings(),
+                            "the missing unit is the only finding"),
+                    () -> assertEquals(Map.of(), result.units(), "a refused default unit loads nothing"),
                     () -> assertRefusalLogged(resource));
         }
 
@@ -172,10 +177,11 @@ class DefaultUnitLoaderTest {
             var finding = UnitFixtures.find(result.findings(), UnitFinding.Kind.PARSE, RefusalRule.STRUCTURE.name());
             assertAll(
                     () -> assertTrue(finding.isPresent(), result.findings()::toString),
-                    () -> assertEquals(resource, finding.orElseThrow().file()),
+                    () -> assertEquals(resource, finding.orElseThrow().file(),
+                            "the finding names the refused resource"),
                     () -> assertEquals(UnitFixtures.UNPARSABLE.lineOf("workflow replan revision"),
-                            finding.orElseThrow().line()),
-                    () -> assertEquals(Map.of(), result.units()),
+                            finding.orElseThrow().line(), "the finding names the refused line"),
+                    () -> assertEquals(Map.of(), result.units(), "a refused default unit loads nothing"),
                     () -> assertRefusalLogged(resource));
         }
 
@@ -188,7 +194,7 @@ class DefaultUnitLoaderTest {
             var result = loadWritten(UnitFixtures.UNIT_FILES, UnitFixtures.RULE_VIOLATION);
 
             assertAll(
-                    () -> assertFalse(result.isVerified()),
+                    () -> assertFalse(result.isVerified(), "the rule violation refuses the load"),
                     () -> assertTrue(result.findings().stream().allMatch(
                             finding -> finding.kind() == UnitFinding.Kind.RULE), result.findings()::toString),
                     () -> assertTrue(result.findings().stream().anyMatch(
@@ -208,11 +214,13 @@ class DefaultUnitLoaderTest {
             var finding = UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID);
             assertAll(
                     () -> assertTrue(finding.isPresent(), result.findings()::toString),
-                    () -> assertEquals(resource, finding.orElseThrow().file()),
-                    () -> assertEquals(mutation.lineOf("workflow adjudicate.decisions"), finding.orElseThrow().line()),
+                    () -> assertEquals(resource, finding.orElseThrow().file(),
+                            "the finding names the duplicate resource"),
+                    () -> assertEquals(mutation.lineOf("workflow adjudicate.decisions"), finding.orElseThrow().line(),
+                            "the finding names the duplicate header line"),
                     () -> assertTrue(finding.orElseThrow().message()
                             .contains(TEMP_ROOT + InvariantFixtures.ADJUDICATION_FILE), finding.orElseThrow()::message),
-                    () -> assertEquals(Map.of(), result.units()),
+                    () -> assertEquals(Map.of(), result.units(), "a duplicate identifier loads no unit"),
                     () -> assertRefusalLogged(resource));
         }
 
@@ -227,11 +235,13 @@ class DefaultUnitLoaderTest {
             var finding = UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID);
             assertAll(
                     () -> assertTrue(finding.isPresent(), result.findings()::toString),
-                    () -> assertEquals(resource, finding.orElseThrow().file()),
-                    () -> assertEquals(mutation.lineOf(UnitFixtures.PLAN_HEADER), finding.orElseThrow().line()),
+                    () -> assertEquals(resource, finding.orElseThrow().file(),
+                            "the finding names the plan-id resource"),
+                    () -> assertEquals(mutation.lineOf(UnitFixtures.PLAN_HEADER), finding.orElseThrow().line(),
+                            "the finding names the plan header line"),
                     () -> assertTrue(finding.orElseThrow().message().contains(TEMP_ROOT + "plan.pmwf"),
                             finding.orElseThrow()::message),
-                    () -> assertEquals(Map.of(), result.units()),
+                    () -> assertEquals(Map.of(), result.units(), "the plan id stands in for no unit"),
                     () -> assertRefusalLogged(resource));
         }
 
@@ -246,9 +256,11 @@ class DefaultUnitLoaderTest {
 
             assertAll(
                     () -> assertEquals(List.of(VerificationRule.RELEASED_STATE.name()),
-                            result.findings().stream().map(UnitFinding::code).toList()),
+                            result.findings().stream().map(UnitFinding::code).toList(),
+                            "a dropped released state is the only finding"),
                     () -> assertEquals(InvariantFixtures.ROOT + InvariantFixtures.REPLAN_FILE,
-                            result.findings().getFirst().file()),
+                            result.findings().getFirst().file(),
+                            "the finding names the re-planning unit file"),
                     () -> assertRefusalLogged(InvariantFixtures.ROOT + InvariantFixtures.REPLAN_FILE));
         }
 
@@ -262,9 +274,11 @@ class DefaultUnitLoaderTest {
 
             assertAll(
                     () -> assertEquals(List.of(TEMP_ROOT + "refine.pmwf", TEMP_ROOT + "plan.pmwf"),
-                            result.findings().stream().map(UnitFinding::file).toList()),
-                    () -> assertEquals(UnitFinding.Kind.MISSING, result.findings().getFirst().kind()),
-                    () -> assertEquals(Map.of(), result.units()));
+                            result.findings().stream().map(UnitFinding::file).toList(),
+                            "the missing phase file is found first"),
+                    () -> assertEquals(UnitFinding.Kind.MISSING, result.findings().getFirst().kind(),
+                            "the missing phase file is reported as missing"),
+                    () -> assertEquals(Map.of(), result.units(), "a missing phase file loads no unit"));
         }
     }
 
@@ -277,14 +291,19 @@ class DefaultUnitLoaderTest {
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> new DefaultUnitLoader(null, InvariantFixtures.ROOT, files, context, Map.of())),
+                        () -> new DefaultUnitLoader(null, InvariantFixtures.ROOT, files, context, Map.of()),
+                        "a null class loader is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new DefaultUnitLoader(loader, null, files, context, Map.of())),
+                        () -> new DefaultUnitLoader(loader, null, files, context, Map.of()),
+                        "a null classpath root is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new DefaultUnitLoader(loader, InvariantFixtures.ROOT, null, context, Map.of())),
+                        () -> new DefaultUnitLoader(loader, InvariantFixtures.ROOT, null, context, Map.of()),
+                        "a null unit file list is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new DefaultUnitLoader(loader, InvariantFixtures.ROOT, files, null, Map.of())),
+                        () -> new DefaultUnitLoader(loader, InvariantFixtures.ROOT, files, null, Map.of()),
+                        "a null verification context is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new DefaultUnitLoader(loader, InvariantFixtures.ROOT, files, context, null)));
+                        () -> new DefaultUnitLoader(loader, InvariantFixtures.ROOT, files, context, null),
+                        "a null released state map is refused"));
     }
 }

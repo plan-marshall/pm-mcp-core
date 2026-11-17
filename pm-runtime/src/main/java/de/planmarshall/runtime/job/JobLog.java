@@ -22,6 +22,7 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.LimitProperties;
+import de.planmarshall.core.queue.SecretRedactor;
 import de.planmarshall.runtime.job.JobEvidence.LogState;
 
 /**
@@ -39,6 +40,13 @@ import de.planmarshall.runtime.job.JobEvidence.LogState;
  * the file does not exist, {@link LogState#TRUNCATED} when it is shorter than what the runtime already read from it,
  * {@link LogState#UNREADABLE} when it exists and cannot be read. Such a read is a value ({@link Unavailable}), never an
  * exception.
+ * <p>
+ * Every read-out passes the redactor: {@link #readLines(long)} redacts the lines it answers and {@link #readWhole(long)}
+ * the reading it hands on — the job's output, the reason it carries no report and an {@link Unavailable} detail — the
+ * whole read after its size cap and both before the text leaves this class, so a credential the job printed reaches
+ * neither a parser nor a model (Job Runtime § Pipeline and Subprocesses, the redaction of every read-out). A key block a
+ * window carries only in part is masked from the window's start through its {@code END} line when that {@code END} is in
+ * the window; a window that lies entirely inside the body and carries no marker of its own is the named residue.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process-Group Creation via
  * the {@code pm-exec} Launcher, launch report; Outcome Derivation, row 5).
@@ -126,7 +134,8 @@ public record JobLog(Path path) {
      * The log could not serve the read.
      *
      * @param state  why: {@link LogState#MISSING}, {@link LogState#TRUNCATED} or {@link LogState#UNREADABLE}
-     * @param detail what was observed
+     * @param detail what was observed; its credential shapes are redacted here, so a path or an exception message cannot
+     *               carry a secret out
      * @since 0.1
      */
     public record Unavailable(LogState state, String detail) implements Read, Whole {
@@ -141,6 +150,7 @@ public record JobLog(Path path) {
             if (state == LogState.READABLE) {
                 throw new IllegalArgumentException("A readable log is available");
             }
+            detail = SecretRedactor.redactText(detail).orElseThrow();
         }
     }
 
@@ -175,9 +185,9 @@ public record JobLog(Path path) {
         var text = new String(bytes, 0, end + 1, StandardCharsets.UTF_8);
         var nextOffset = offset + end + 1;
         if (offset == 0 && LaunchReport.read(text) instanceof LaunchReport.Reported(var report, var output)) {
-            return new Lines(output.lines().toList(), nextOffset, report);
+            return new Lines(redactedLines(output), nextOffset, report);
         }
-        return new Lines(text.lines().toList(), nextOffset, null);
+        return new Lines(redactedLines(text), nextOffset, null);
     }
 
     /**
@@ -212,7 +222,7 @@ public record JobLog(Path path) {
             if (remaining < size) {
                 return truncated(remaining, size);
             }
-            return new Complete(LaunchReport.read(text), size);
+            return new Complete(redacted(LaunchReport.read(text)), size);
         } catch (NoSuchFileException _) {
             return missing();
         } catch (IOException e) {
@@ -222,6 +232,26 @@ public record JobLog(Path path) {
 
     private static String whole(FileChannel channel, long size) throws IOException {
         return new String(read(channel, 0, size), StandardCharsets.UTF_8);
+    }
+
+    /** Redacts a read-out before the text leaves this class; the whole read reaches it after its size cap. */
+    private static String redacted(String text) {
+        return SecretRedactor.redactText(SecretRedactor.redactKeyBlockTail(text)).orElseThrow();
+    }
+
+    /** Redacts the two texts of a whole read: the job's output and the reason it carries no report. */
+    private static LaunchReport.Reading redacted(LaunchReport.Reading reading) {
+        return switch (reading) {
+            case LaunchReport.Reported(var report, var jobOutput) ->
+                new LaunchReport.Reported(report, redacted(jobOutput));
+            case LaunchReport.Unreported(var detail, var jobOutput) ->
+                new LaunchReport.Unreported(redacted(detail), redacted(jobOutput));
+        };
+    }
+
+    /** The complete lines of a redacted read-out. */
+    private static List<String> redactedLines(String text) {
+        return redacted(text).lines().toList();
     }
 
     /** The first line and the last {@link #MAX_BYTES} bytes of a log longer than the cap. */

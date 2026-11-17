@@ -114,13 +114,14 @@ class FinalizePipelineValidatorTest {
         @Test
         @DisplayName("passes every rule")
         void passes() {
-            assertEquals(List.of(), FinalizePipelineValidator.validate(passingRoster()));
+            assertEquals(List.of(), FinalizePipelineValidator.validate(passingRoster()),
+                    "the passing roster breaks no rule");
         }
 
         @Test
         @DisplayName("passes an empty roster")
         void emptyRoster() {
-            assertEquals(List.of(), FinalizePipelineValidator.validate(List.of()));
+            assertEquals(List.of(), FinalizePipelineValidator.validate(List.of()), "an empty roster breaks no rule");
         }
 
         @Test
@@ -128,7 +129,8 @@ class FinalizePipelineValidatorTest {
         void consumerAfterRecordMetrics() {
             var roster = withStep(BREAKDOWN, FinalizeFixtures.Step::recordsFacts);
 
-            assertEquals(List.of(), FinalizePipelineValidator.validate(roster));
+            assertEquals(List.of(), FinalizePipelineValidator.validate(roster),
+                    "a metrics consumer after record-metrics passes");
         }
 
         @Test
@@ -137,16 +139,19 @@ class FinalizePipelineValidatorTest {
             var artifact = "artifact-" + Generators.letterStrings(3, 12).next();
             var roster = withAdded(step(generatedStepName(), 50).reads(artifact).destroys(artifact).build());
 
-            assertEquals(List.of(), FinalizePipelineValidator.validate(roster));
+            assertEquals(List.of(), FinalizePipelineValidator.validate(roster),
+                    "a step that reads and destroys itself passes");
         }
 
         @Test
         @DisplayName("refuses a missing roster")
         void nullRoster() {
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> FinalizePipelineValidator.validate(null)),
+                    () -> assertThrows(NullPointerException.class, () -> FinalizePipelineValidator.validate(null),
+                            "a null roster is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> FinalizePipelineValidator.findingSources(null)));
+                            () -> FinalizePipelineValidator.findingSources(null),
+                            "a null finding-source roster is refused"));
         }
     }
 
@@ -188,7 +193,8 @@ class FinalizePipelineValidatorTest {
 
             assertEquals(List.of("default:simplify/ANCHOR_AND_FACT_CONTRACT",
                             BREAKDOWN + "/SOURCE_MUTATION_BEFORE_MERGE_GATE", BREAKDOWN + "/POST_RUN_REVIEW_BAND"),
-                    violations.stream().map(violation -> violation.stepName() + "/" + violation.rule()).toList());
+                    violations.stream().map(violation -> violation.stepName() + "/" + violation.rule()).toList(),
+                    "every violation is reported in order");
         }
     }
 
@@ -214,14 +220,15 @@ class FinalizePipelineValidatorTest {
                     .map(PipelineRule::specificationRule)
                     .collect(Collectors.toSet());
 
-            assertEquals(Set.of(6, 7, 8), hooked);
+            assertEquals(Set.of(6, 7, 8), hooked, "only rules six, seven and eight are hooked");
         }
 
         @Test
         @DisplayName("numbers the rules 1 to 8, once each")
         void numbering() {
             assertEquals(List.of(1, 2, 3, 4, 5, 6, 7, 8),
-                    Arrays.stream(PipelineRule.values()).map(PipelineRule::specificationRule).toList());
+                    Arrays.stream(PipelineRule.values()).map(PipelineRule::specificationRule).toList(),
+                    "the rules are numbered one to eight");
         }
     }
 
@@ -237,9 +244,11 @@ class FinalizePipelineValidatorTest {
             var sources = FinalizePipelineValidator.findingSources(roster);
 
             assertAll(
-                    () -> assertEquals(Set.of("default:automatic-review", SONAR), sources),
+                    () -> assertEquals(Set.of("default:automatic-review", SONAR), sources,
+                            "the finding sources are the filing steps"),
                     () -> assertEquals(roster.stream().filter(step -> !step.filesFindings().isEmpty())
-                            .map(FinalizeStepDescriptor::name).collect(Collectors.toSet()), sources));
+                                    .map(FinalizeStepDescriptor::name).collect(Collectors.toSet()), sources,
+                            "every filing step is a finding source"));
         }
 
         @Test
@@ -247,7 +256,8 @@ class FinalizePipelineValidatorTest {
         void none() {
             var roster = List.of(step("default:push", 11).build());
 
-            assertTrue(FinalizePipelineValidator.findingSources(roster).isEmpty());
+            assertTrue(FinalizePipelineValidator.findingSources(roster).isEmpty(),
+                    "a roster without filing steps has no source");
         }
     }
 }

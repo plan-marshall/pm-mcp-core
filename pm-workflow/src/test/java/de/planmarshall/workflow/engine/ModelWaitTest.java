@@ -55,13 +55,13 @@ class ModelWaitTest {
         var wait = WaitSelection.select(connection(false), null, ModelCall.PM_WAIT, WaitSettings.defaults(),
                 clock);
 
-        var bounded = assertInstanceOf(ModelWait.Bounded.class, wait);
-        assertEquals(T0, bounded.startedAt());
-        assertEquals(BOUNDED, bounded.window());
-        assertEquals(T0.plus(BOUNDED), bounded.answerAt());
-        assertFalse(bounded.answersAt(bounded.answerAt().minusMillis(1)));
-        assertTrue(bounded.answersAt(bounded.answerAt()));
-        assertTrue(bounded.progressFrames().isEmpty());
+        var bounded = assertInstanceOf(ModelWait.Bounded.class, wait, "the selection yields a bounded wait");
+        assertEquals(T0, bounded.startedAt(), "the bounded wait starts at the clock now");
+        assertEquals(BOUNDED, bounded.window(), "the bounded wait uses the connection window");
+        assertEquals(T0.plus(BOUNDED), bounded.answerAt(), "the bounded wait answers at the window end");
+        assertFalse(bounded.answersAt(bounded.answerAt().minusMillis(1)), "one millisecond before is not enough");
+        assertTrue(bounded.answersAt(bounded.answerAt()), "the answer instant is inside the window");
+        assertTrue(bounded.progressFrames().isEmpty(), "a bounded wait emits no progress frame");
     }
 
     @Test
@@ -69,16 +69,18 @@ class ModelWaitTest {
         var settings = WaitSettings.defaults();
         var wait = WaitSelection.select(connection(true), TOKEN, ModelCall.PM_BUILD, settings, clock);
 
-        var progress = assertInstanceOf(ModelWait.Progress.class, wait);
-        assertEquals(T0.plus(settings.progressWaitMax()), progress.answerAt());
+        var progress = assertInstanceOf(ModelWait.Progress.class, wait, "the selection yields a progress wait");
+        assertEquals(T0.plus(settings.progressWaitMax()), progress.answerAt(),
+                "the progress wait answers at its maximum");
         var frames = progress.progressFrames();
-        assertFalse(frames.isEmpty());
+        assertFalse(frames.isEmpty(), "a progress wait emits frames");
         var points = new ArrayList<Instant>();
         points.add(progress.startedAt());
         points.addAll(frames);
         points.add(progress.answerAt());
         assertGapsAtMost(points, settings.progressInterval());
-        assertEquals(settings.progressInterval(), Duration.between(progress.startedAt(), frames.getFirst()));
+        assertEquals(settings.progressInterval(), Duration.between(progress.startedAt(), frames.getFirst()),
+                "the first frame comes after one interval");
     }
 
     @ParameterizedTest(name = "progress_resets_timeout={0}, token={1} selects {2}")
@@ -90,8 +92,11 @@ class ModelWaitTest {
 
         switch (expected) {
             case "PROGRESS" -> assertEquals(WaitSettings.defaults().progressWaitMax(),
-                    assertInstanceOf(ModelWait.Progress.class, wait).window());
-            case "BOUNDED" -> assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class, wait).window());
+                    assertInstanceOf(ModelWait.Progress.class, wait, "the wait is a progress wait").window(),
+                    "a token selects the progress wait");
+            case "BOUNDED" -> assertEquals(BOUNDED,
+                    assertInstanceOf(ModelWait.Bounded.class, wait, "the wait is a bounded wait").window(),
+                    "no token selects the bounded wait");
             default -> throw new IllegalArgumentException("no such wait kind: " + expected);
         }
     }
@@ -101,10 +106,11 @@ class ModelWaitTest {
         var settings = WaitSettings.defaults();
         var wait = WaitSelection.select(connection(true), TOKEN, ModelCall.PM_WAIT, settings, clock);
 
-        var progress = assertInstanceOf(ModelWait.Progress.class, wait);
-        assertEquals(BOUNDED, progress.window());
-        assertEquals(T0.plus(BOUNDED), progress.answerAt());
-        assertEquals(BOUNDED.dividedBy(settings.progressInterval()) - 1, progress.progressFrames().size());
+        var progress = assertInstanceOf(ModelWait.Progress.class, wait, "a pm wait qualifies for progress");
+        assertEquals(BOUNDED, progress.window(), "a pm wait keeps the bounded window");
+        assertEquals(T0.plus(BOUNDED), progress.answerAt(), "the pm wait answers at the window end");
+        assertEquals(BOUNDED.dividedBy(settings.progressInterval()) - 1, progress.progressFrames().size(),
+                "the frames split the window by interval");
         assertGapsAtMost(pointsOf(progress), settings.progressInterval());
     }
 
@@ -112,14 +118,21 @@ class ModelWaitTest {
     void shouldSelectTheSameWaitsForAPmWaitInAllFourCombinations() {
         var settings = WaitSettings.defaults();
         var progress = assertInstanceOf(ModelWait.Progress.class,
-                WaitSelection.select(connection(true), TOKEN, ModelCall.PM_WAIT, settings, clock));
-        assertEquals(BOUNDED, progress.window());
+                WaitSelection.select(connection(true), TOKEN, ModelCall.PM_WAIT, settings, clock),
+                "a pm wait qualifies for progress");
+        assertEquals(BOUNDED, progress.window(), "a pm wait keeps the bounded window");
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(connection(true), null, ModelCall.PM_WAIT, settings, clock)).window());
+                        WaitSelection.select(connection(true), null, ModelCall.PM_WAIT, settings, clock),
+                        "the wait without a token is bounded").window(),
+                "without a token the pm wait is bounded");
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(connection(false), TOKEN, ModelCall.PM_WAIT, settings, clock)).window());
+                        WaitSelection.select(connection(false), TOKEN, ModelCall.PM_WAIT, settings, clock),
+                        "the wait without a reset is bounded").window(),
+                "without a reset the pm wait is bounded");
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(connection(false), null, ModelCall.PM_WAIT, settings, clock)).window());
+                        WaitSelection.select(connection(false), null, ModelCall.PM_WAIT, settings, clock),
+                        "the wait without either is bounded").window(),
+                "without token or reset it is bounded");
     }
 
     @Test
@@ -128,18 +141,20 @@ class ModelWaitTest {
         var longInterval = new WaitSettings(Duration.ofSeconds(1800), Duration.ofSeconds(60));
 
         var pmWait = assertInstanceOf(ModelWait.Progress.class,
-                WaitSelection.select(shortConnection, TOKEN, ModelCall.PM_WAIT, longInterval, clock));
-        assertEquals(Duration.ofSeconds(15), pmWait.window());
-        assertEquals(Duration.ofMillis(7_500), pmWait.interval());
-        assertFalse(pmWait.progressFrames().isEmpty());
+                WaitSelection.select(shortConnection, TOKEN, ModelCall.PM_WAIT, longInterval, clock),
+                "a short window still allows progress");
+        assertEquals(Duration.ofSeconds(15), pmWait.window(), "the progress wait takes the short window");
+        assertEquals(Duration.ofMillis(7_500), pmWait.interval(), "the interval is halved to fit the window");
+        assertFalse(pmWait.progressFrames().isEmpty(), "the halved interval still emits frames");
         assertGapsAtMost(pointsOf(pmWait), pmWait.interval());
 
         var pmBuild = assertInstanceOf(ModelWait.Progress.class, WaitSelection.select(connection(true),
-                TOKEN, ModelCall.PM_BUILD,
-                new WaitSettings(Duration.ofSeconds(60), Duration.ofSeconds(60)), clock));
-        assertEquals(Duration.ofSeconds(60), pmBuild.window());
-        assertEquals(Duration.ofSeconds(30), pmBuild.interval());
-        assertFalse(pmBuild.progressFrames().isEmpty());
+                        TOKEN, ModelCall.PM_BUILD,
+                        new WaitSettings(Duration.ofSeconds(60), Duration.ofSeconds(60)), clock),
+                "a short pm build wait carries progress");
+        assertEquals(Duration.ofSeconds(60), pmBuild.window(), "the pm build wait keeps its window");
+        assertEquals(Duration.ofSeconds(30), pmBuild.interval(), "the interval shrinks to fit the window");
+        assertFalse(pmBuild.progressFrames().isEmpty(), "the pm build wait emits frames");
         assertGapsAtMost(pointsOf(pmBuild), pmBuild.interval());
     }
 
@@ -195,12 +210,18 @@ class ModelWaitTest {
         var shortestInterval = Duration.ofSeconds(1);
         var largest = Duration.ofSeconds(7200);
         var longestInterval = Duration.ofSeconds(60);
-        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(tooSmall, interval));
-        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(tooLarge, interval));
-        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(standard, subSecond));
-        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(standard, tooLongInterval));
-        assertDoesNotThrow(() -> new WaitSettings(smallest, shortestInterval));
-        assertDoesNotThrow(() -> new WaitSettings(largest, longestInterval));
+        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(tooSmall, interval),
+                "a window below the minimum is refused");
+        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(tooLarge, interval),
+                "a window above the maximum is refused");
+        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(standard, subSecond),
+                "an interval below one second is refused");
+        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(standard, tooLongInterval),
+                "an interval above the maximum is refused");
+        assertDoesNotThrow(() -> new WaitSettings(smallest, shortestInterval),
+                "the smallest settings are accepted");
+        assertDoesNotThrow(() -> new WaitSettings(largest, longestInterval),
+                "the largest settings are accepted");
     }
 
     @Test
@@ -210,10 +231,13 @@ class ModelWaitTest {
         var equal = Duration.ofSeconds(60);
         var shorter = Duration.ofSeconds(59);
         assertThrows(IllegalArgumentException.class,
-                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, window, subSecond));
+                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, window, subSecond),
+                "an interval below one second is refused");
         assertThrows(IllegalArgumentException.class,
-                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, window, equal));
-        assertDoesNotThrow(() -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, window, shorter));
+                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, window, equal),
+                "an interval equal to the window is refused");
+        assertDoesNotThrow(() -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, window, shorter),
+                "an interval below the window is accepted");
     }
 
     private static ConnectionSettings connection(boolean progressResetsTimeout) {

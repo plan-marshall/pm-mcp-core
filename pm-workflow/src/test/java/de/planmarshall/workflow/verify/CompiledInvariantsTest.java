@@ -118,13 +118,14 @@ class CompiledInvariantsTest {
             var found = InvariantFixtures.invariants().check(unit, rules,
                     pipelineOf(unit, InvariantFixtures.defaultRoster()), UNKNOWN_LANE);
 
-            assertEquals(List.of(), found);
+            assertEquals(List.of(), found, "the passing unit violates no invariant");
         }
 
         @Test
         @DisplayName("the default roster of the tests passes the finalize pipeline validator")
         void defaultRosterPasses() {
-            assertEquals(List.of(), FinalizePipelineValidator.validate(InvariantFixtures.defaultRoster()));
+            assertEquals(List.of(), FinalizePipelineValidator.validate(InvariantFixtures.defaultRoster()),
+                    "the default roster passes the finalize pipeline");
         }
 
         @Test
@@ -132,8 +133,9 @@ class CompiledInvariantsTest {
                 + " sub-workflows")
         void unitSet() {
             assertEquals(List.of(PLAN_UNIT, "phase-1-init", "phase-2-refine", "phase-3-outline", "phase-4-plan",
-                    "phase-5-execute", "land", "phase-6-finalize", "adjudicate.decisions", "replan",
-                    "git.commit_and_push", "remediation.qgate-findings"), unitIds());
+                            "phase-5-execute", "land", "phase-6-finalize", "adjudicate.decisions", "replan",
+                            "git.commit_and_push", "remediation.qgate-findings"), unitIds(),
+                    "the twelve passing units of the fixture set");
         }
 
         @Test
@@ -149,7 +151,7 @@ class CompiledInvariantsTest {
                     .toList();
 
             assertAll(
-                    () -> assertEquals(Phase.unitIds(), phases),
+                    () -> assertEquals(Phase.unitIds(), phases, "the plan unit calls every phase in order"),
                     () -> assertEquals("phases.init", plan.startState(), "the plan unit starts at phases.init"));
         }
 
@@ -160,10 +162,14 @@ class CompiledInvariantsTest {
             var entry = InvariantFixtures.defaultUnits().get("phase-4-plan");
 
             assertAll(
-                    () -> assertEquals(Optional.of(Phase.PLAN), Phase.ofUnit(entry.id())),
-                    () -> assertEquals(Optional.empty(), Phase.ofUnit(PLAN_UNIT)),
-                    () -> assertEquals(Optional.of(Phase.EXECUTE), Phase.ofCallState("phases.execute")),
-                    () -> assertEquals(Optional.of(Phase.FINALIZE), Phase.ofCallState("phases.finalize")));
+                    () -> assertEquals(Optional.of(Phase.PLAN), Phase.ofUnit(entry.id()),
+                            "the plan phase unit is phase plan"),
+                    () -> assertEquals(Optional.empty(), Phase.ofUnit(PLAN_UNIT),
+                            "the plan unit itself declares no phase"),
+                    () -> assertEquals(Optional.of(Phase.EXECUTE), Phase.ofCallState("phases.execute"),
+                            "the execute call state names phase execute"),
+                    () -> assertEquals(Optional.of(Phase.FINALIZE), Phase.ofCallState("phases.finalize"),
+                            "the finalize call state names phase finalize"));
         }
     }
 
@@ -180,10 +186,13 @@ class CompiledInvariantsTest {
 
             assertAll(
                     () -> assertEquals(Set.of("retry_budget", "fix_budget", "waiver_wait_seconds"),
-                            CompiledInvariants.remediationBudgetParameters()),
-                    () -> assertEquals(declared, CompiledInvariants.remediationBudgetParameters()),
+                            CompiledInvariants.remediationBudgetParameters(),
+                            "the three budget parameters of the contract"),
+                    () -> assertEquals(declared, CompiledInvariants.remediationBudgetParameters(),
+                            "the declared inputs are exactly those parameters"),
                     () -> assertEquals(RemediationInvariants.BUDGET_CAPS.keySet(),
-                            CompiledInvariants.remediationBudgetParameters()));
+                            CompiledInvariants.remediationBudgetParameters(),
+                            "the caps of the remediation contract are the parameters"));
         }
 
         @Test
@@ -192,7 +201,8 @@ class CompiledInvariantsTest {
             var parameters = CompiledInvariants.remediationBudgetParameters();
             var budget = Generators.letterStrings(1, 8).next();
 
-            assertThrows(UnsupportedOperationException.class, () -> parameters.add(budget));
+            assertThrows(UnsupportedOperationException.class, () -> parameters.add(budget),
+                    "the budget parameters cannot be changed by a caller");
         }
     }
 
@@ -225,13 +235,15 @@ class CompiledInvariantsTest {
         @Test
         @DisplayName("every invariant has a refusing case")
         void everyInvariantHasRefusingCase() {
-            assertEquals(EnumSet.allOf(InvariantId.class), EnumSet.copyOf(CASES.keySet()));
+            assertEquals(EnumSet.allOf(InvariantId.class), EnumSet.copyOf(CASES.keySet()),
+                    "every invariant has one refusing case");
         }
 
         @Test
         @DisplayName("every invariant has a check")
         void everyInvariantHasCheck() {
-            assertEquals(EnumSet.allOf(InvariantId.class), CompiledInvariants.checkedIds());
+            assertEquals(EnumSet.allOf(InvariantId.class), CompiledInvariants.checkedIds(),
+                    "every invariant has a compiled check");
         }
 
         @Test
@@ -262,7 +274,8 @@ class CompiledInvariantsTest {
 
             assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, "unknown.pmwf",
                             InvariantFixtures.lineOf(source, "workflow test.unknown"))),
-                    found.stream().map(InvariantLocation::of).toList());
+                    found.stream().map(InvariantLocation::of).toList(),
+                    "the unit without a default fails at its header");
         }
 
         @Test
@@ -278,8 +291,9 @@ class CompiledInvariantsTest {
                     .map(index -> index < 0 ? order.size() : index).toList();
 
             assertAll(
-                    () -> assertFalse(found.isEmpty()),
-                    () -> assertEquals(positions.stream().sorted().toList(), positions));
+                    () -> assertFalse(found.isEmpty(), "the mutation produces at least one violation"),
+                    () -> assertEquals(positions.stream().sorted().toList(), positions,
+                            "the violations follow declaration order of states"));
         }
     }
 
@@ -322,7 +336,8 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> InvariantFixtures.LIGHT_ROUTE.forEach(state -> assertFalse(units.values().stream()
                             .anyMatch(unit -> unit.states().containsKey(state)), state)),
-                    () -> assertEquals(List.of(), lightLane(units, lane)));
+                    () -> assertEquals(List.of(), lightLane(units, lane),
+                            "a lane owing no ratchet needs no light route"));
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -333,7 +348,7 @@ class CompiledInvariantsTest {
             var found = lightLane(withoutLightRoute(), lane);
 
             assertEquals(List.of(AT_HEADER, AT_HEADER, AT_HEADER, AT_HEADER), found,
-                    "the two transitions of init.light-gate and the two of outline.light-regate");
+                    "each light gate owes two ratchet transitions");
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -347,7 +362,8 @@ class CompiledInvariantsTest {
                     List.of(InvariantFixtures.WITHOUT_RATCHET)), lane);
 
             assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, INIT_FILE,
-                    InvariantFixtures.lineOf(mutation.applied(), "state init.light-gate"))), found);
+                            InvariantFixtures.lineOf(mutation.applied(), "state init.light-gate"))), found,
+                    "the light gate without the ratchet is refused");
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -355,7 +371,8 @@ class CompiledInvariantsTest {
         @DisplayName("a unit whose light gate lacks the ratchet passes for a lane that owes no ratchet")
         void withoutRatchetPassesWhereNoneOwed(String lane) {
             assertEquals(List.of(), lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT,
-                    List.of(InvariantFixtures.WITHOUT_RATCHET)), lane));
+                    List.of(InvariantFixtures.WITHOUT_RATCHET)), lane),
+                    "a lane owing no ratchet needs no light gate ratchet");
         }
 
         @Test
@@ -365,9 +382,10 @@ class CompiledInvariantsTest {
             var result = InvariantFixtures.validator().verify(withoutLightRoute().get("phase-1-init"));
 
             assertEquals(List.of("the state 'init.ready' does not route the outcome 'light' of the primitive"
-                    + " 'test.lane'"), result.violations().stream()
-                    .filter(violation -> violation.rule() == VerificationRule.OUTCOME_COVERAGE)
-                    .map(Violation::message).toList());
+                            + " 'test.lane'"), result.violations().stream()
+                            .filter(violation -> violation.rule() == VerificationRule.OUTCOME_COVERAGE)
+                            .map(Violation::message).toList(),
+                    "the removed light route leaves the light exit unsettled");
         }
 
         @Test
@@ -377,7 +395,8 @@ class CompiledInvariantsTest {
                     Map.of(InitInvariants.READY, Set.of(InitInvariants.LANE_LIGHT)));
 
             assertEquals(List.of(), result.violations().stream()
-                    .filter(violation -> violation.rule() == VerificationRule.OUTCOME_COVERAGE).toList());
+                            .filter(violation -> violation.rule() == VerificationRule.OUTCOME_COVERAGE).toList(),
+                    "a prune record settles the light exit of init.ready");
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -389,7 +408,8 @@ class CompiledInvariantsTest {
             var found = lightLane(refusing.units(), lane);
 
             assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, refusing.anchorFile(),
-                    InvariantFixtures.lineOf(refusing.anchorText(), refusing.anchor()))), found);
+                            InvariantFixtures.lineOf(refusing.anchorText(), refusing.anchor()))), found,
+                    "the path clauses hold for every lane that owns no ratchet");
         }
     }
 
@@ -439,7 +459,8 @@ class CompiledInvariantsTest {
                     () -> assertEquals(1, matching.size(), found::toString),
                     () -> assertEquals(new InvariantLocation(InvariantId.INV_GEN_1, mutation.file(),
                                     InvariantFixtures.lineOf(mutation.applied(), "workflow " + unit.id())),
-                            InvariantLocation.of(matching.getFirst())));
+                            InvariantLocation.of(matching.getFirst()),
+                            "the type difference is located at the unit header"));
         }
 
         @Test
@@ -447,7 +468,8 @@ class CompiledInvariantsTest {
         void passesIdentical() {
             var unit = InvariantFixtures.units(InvariantFixtures.sources(), UnitOrigin.PROJECT).get("replan");
 
-            assertEquals(List.of(), generalOne(unit));
+            assertEquals(List.of(), generalOne(unit),
+                    "the interface of the default unit is matched");
         }
 
         /** @return the fixture sources with the plan unit's frontmatter declaring the given type */
@@ -487,10 +509,13 @@ class CompiledInvariantsTest {
 
             assertAll(
                     () -> assertEquals(List.of("the type 'instance' differs from the type '%s' of the default unit"
-                            .formatted(templateType)), found.stream().map(InvariantViolation::message).toList()),
+                                    .formatted(templateType)),
+                            found.stream().map(InvariantViolation::message).toList(),
+                            "the replacement names both types"),
                     () -> assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, PLAN_FILE,
                                     InvariantFixtures.lineOf(InvariantFixtures.read(PLAN_FILE), PLAN_HEADER))),
-                            found.stream().map(InvariantLocation::of).toList()));
+                            found.stream().map(InvariantLocation::of).toList(),
+                            "the type difference is reported at the plan header"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -498,7 +523,8 @@ class CompiledInvariantsTest {
         @DisplayName("a composed plan instance of a workflow or recipe template passes the type comparison of"
                 + " INV-GEN-1")
         void passesComposedInstance(String templateType) {
-            assertEquals(List.of(), typeViolations(templateType, CompiledInvariants.Subject.COMPOSED_INSTANCE));
+            assertEquals(List.of(), typeViolations(templateType, CompiledInvariants.Subject.COMPOSED_INSTANCE),
+                    "a composed instance passes the type comparison");
         }
 
         @Test
@@ -534,7 +560,7 @@ class CompiledInvariantsTest {
                     "        done -> finalize.merge\n        spend_overrun -> finalize.hand-back\n");
 
             assertEquals(List.of(), found.stream().filter(violation -> violation.id() == InvariantId.INV_FIN_5)
-                    .toList());
+                    .toList(), "the hand-back route needs no remediation call");
         }
 
         @Test
@@ -547,7 +573,7 @@ class CompiledInvariantsTest {
 
             assertEquals(List.of(), found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_5)
                     .map(InvariantViolation::message).filter(message -> message.contains("routes 'exhausted'"))
-                    .toList());
+                    .toList(), "the spend call may route exhausted to re-planning");
         }
 
         @Test
@@ -585,9 +611,10 @@ class CompiledInvariantsTest {
                                     "the unit does not declare the input 'fix_budget'",
                                     "the unit does not declare the input 'actions'"),
                             found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_1)
-                                    .map(InvariantViolation::message).collect(Collectors.toSet())),
+                                    .map(InvariantViolation::message).collect(Collectors.toSet()),
+                            "the unit declares none of the three budget inputs"),
                     () -> assertFalse(found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_7)
-                            .toList().isEmpty(), "the unit is no longer exempt from the full template of INV-REM-7"));
+                            .toList().isEmpty(), "the unit is no longer exempt from the INV-REM-7 template"));
         }
     }
 
@@ -603,7 +630,7 @@ class CompiledInvariantsTest {
 
             assertAll(
                     () -> assertEquals(EnumSet.of(InvariantId.INV_GEN_2, InvariantId.INV_GEN_4, InvariantId.INV_REM_6),
-                            hooked),
+                            hooked, "the three runtime hooks of the invariants"),
                     () -> hooked.forEach(id -> assertFalse(id.namedHook().orElseThrow().isBlank(), id::wireId)));
         }
 
@@ -611,26 +638,33 @@ class CompiledInvariantsTest {
         @EnumSource(InvariantId.class)
         @DisplayName("every invariant is found by its wire identifier")
         void wireIdentifier(InvariantId id) {
-            assertEquals(Optional.of(id), InvariantId.ofWireId(id.wireId()));
+            assertEquals(Optional.of(id), InvariantId.ofWireId(id.wireId()),
+                    "the wire identifier resolves to its invariant");
         }
 
         @Test
         @DisplayName("the list holds the thirty invariants of the specification")
         void thirtyInvariants() {
             assertAll(
-                    () -> assertEquals(30, InvariantId.values().length),
-                    () -> assertEquals(Optional.empty(), InvariantId.ofWireId("INV-GEN-6")));
+                    () -> assertEquals(30, InvariantId.values().length, "the specification lists thirty invariants"),
+                    () -> assertEquals(Optional.empty(), InvariantId.ofWireId("INV-GEN-6"),
+                            "INV-GEN-6 is no wire identifier"));
         }
 
         @Test
         @DisplayName("a unit pattern matches a unit, every unit or a namespace")
         void unitPatterns() {
             assertAll(
-                    () -> assertTrue(InvariantId.INV_GEN_1.appliesTo("replan")),
-                    () -> assertTrue(InvariantId.INV_REM_1.appliesTo("remediation.ci-failure")),
-                    () -> assertFalse(InvariantId.INV_REM_1.appliesTo("replan")),
-                    () -> assertTrue(InvariantId.INV_EXEC_1.appliesTo(PLAN_UNIT)),
-                    () -> assertFalse(InvariantId.INV_EXEC_1.appliesTo("git.commit_and_push")));
+                    () -> assertTrue(InvariantId.INV_GEN_1.appliesTo("replan"),
+                            "a unit pattern matches the unit replan"),
+                    () -> assertTrue(InvariantId.INV_REM_1.appliesTo("remediation.ci-failure"),
+                            "a unit pattern matches a namespace"),
+                    () -> assertFalse(InvariantId.INV_REM_1.appliesTo("replan"),
+                            "the pattern of a namespace does not match a unit"),
+                    () -> assertTrue(InvariantId.INV_EXEC_1.appliesTo(PLAN_UNIT),
+                            "an execute invariant applies to the plan unit"),
+                    () -> assertFalse(InvariantId.INV_EXEC_1.appliesTo("git.commit_and_push"),
+                            "an execute invariant does not apply elsewhere"));
         }
     }
 
@@ -806,16 +840,18 @@ class CompiledInvariantsTest {
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> invariants.check(null, rules, List.of(), UNKNOWN_LANE)),
+                        () -> invariants.check(null, rules, List.of(), UNKNOWN_LANE), "a null unit is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> invariants.check(unit, null, List.of(), UNKNOWN_LANE)),
+                        () -> invariants.check(unit, null, List.of(), UNKNOWN_LANE),
+                        "a null rule result is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> invariants.check(unit, rules, null, UNKNOWN_LANE)),
+                        () -> invariants.check(unit, rules, null, UNKNOWN_LANE),
+                        "a null pipeline result is refused"),
                 () -> assertDoesNotThrow(() -> invariants.check(unit, rules, List.of(), null),
                         "a null lane is accepted as the unknown lane"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new CompiledInvariants(registry, noUnits, null, subject)),
+                        () -> new CompiledInvariants(registry, noUnits, null, subject), "a null roster is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new CompiledInvariants(registry, noUnits, roster, null)));
+                        () -> new CompiledInvariants(registry, noUnits, roster, null), "a null subject is refused"));
     }
 }

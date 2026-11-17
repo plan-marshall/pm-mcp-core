@@ -144,8 +144,8 @@ with `headless.resumability.resume.argv` in place of the start of a new session 
 
 The tool set of a worker is exactly its role artifact's `tools`: the `PM-MCP` tools and the harness tools by their names on the role's harness, each by exact name, never by a pattern. The class bounds what the artifact may name, which the role set's validation checks (`tool_not_permitted`, xref:01-roles-and-configuration.adoc#role-validation[Roles & Configuration, Validation]): the harness tools of the class (<<harness-selection>>) and these `PM-MCP` tools:
 
-* *`writer`*: `pm_wait`, `pm_state`, `pm_do`, `pm_skill`, `pm_skill_file`, `pm_build`, and `pm_lsp`.
-* *`read_only`*: `pm_wait`, `pm_state`, `pm_do`, `pm_skill`, `pm_skill_file`, and `pm_lsp` limited to its read operations: `rename` is refused with `invalid_arguments`. `pm_build` is not in the set.
+* *`writer`*: `pm_wait`, `pm_state`, `pm_do`, `pm_skills`, `pm_skill`, `pm_skill_file`, `pm_build`, and `pm_lsp`.
+* *`read_only`*: `pm_wait`, `pm_state`, `pm_do`, `pm_skills`, `pm_skill`, `pm_skill_file`, and `pm_lsp` limited to its read operations: `rename` is refused with `invalid_arguments`. `pm_build` is not in the set.
 * *`zero_tool`*: none.
 
 A chat's worker runs with the `read_only` set whatever the class of the role its chat routes to: of the role's `tools` it gets those the `read_only` class allows, the PM-MCP tools every `read_only` role names among them (link:../state-catalogue.adoc#chat-context[State Catalogue, What a Chat Knows]). The read-only contract does not rest on the harness's tool list: its confinement grants it no write in the project (link:../job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime Specification, Linux Filesystem Confinement]). Where the platform confines no job (`confinement: unavailable`), the contract rests on the tool set and the daemon's per-request binding (<<job-token>>) alone: a configuration whose harness's `read_only` entry is `tool_set: advisory` does not qualify for a chat there, and _chat_ is offered disabled with that reason while no other does.

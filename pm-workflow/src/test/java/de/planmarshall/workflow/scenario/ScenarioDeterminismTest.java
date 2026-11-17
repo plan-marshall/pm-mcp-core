@@ -114,9 +114,10 @@ class ScenarioDeterminismTest {
         var twice = replay(ScenarioFixtures.PLAN_UNIT, second);
 
         assertAll(
-                () -> assertEquals(11, once.size()),
-                () -> assertTrue(once.stream().allMatch(snapshot -> snapshot.status().length > 0)),
-                () -> assertEquals(once, twice));
+                () -> assertEquals(11, once.size(), "every step wrote one snapshot"),
+                () -> assertTrue(once.stream().allMatch(snapshot -> snapshot.status().length > 0),
+                        "every snapshot kept non-empty status bytes"),
+                () -> assertEquals(once, twice, "two replays from empty stores write the same bytes"));
     }
 
     @Test
@@ -126,12 +127,12 @@ class ScenarioDeterminismTest {
         var twice = replayProtocol(second);
 
         assertAll(
-                () -> assertEquals(13, once.size()),
+                () -> assertEquals(13, once.size(), "the protocol script kept one snapshot per step"),
                 () -> assertEquals(1, once.getLast().queue().size(),
                         "the replay wrote the one queue record of its task"),
                 () -> assertTrue(once.getLast().queue().containsKey("qt-0000000000000001.json"),
                         once.getLast().queue().keySet().toString()),
-                () -> assertEquals(once, twice));
+                () -> assertEquals(once, twice, "two protocol replays write the same bytes"));
     }
 
     @Test
@@ -142,18 +143,21 @@ class ScenarioDeterminismTest {
         var runner = new ScenarioReplayRunner(ScenarioFixtures.parse("changed.pmwf", changedUnit), second);
         var script = ScenarioScript.read(SCRIPT);
 
-        var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+        var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                "the changed unit fails at the script's assertion");
 
         var changed = runner.snapshots();
         assertAll(
-                () -> assertTrue(changedUnit.contains(CHANGED_TRANSITION), "the unit changed"),
-                () -> assertEquals(12, failure.line()),
+                () -> assertTrue(changedUnit.contains(CHANGED_TRANSITION),
+                        "the unit text carries the changed transition"),
+                () -> assertEquals(12, failure.line(), "the failure names the assertion's line"),
                 () -> assertEquals("line 12: assert_state expected 'completed' but the scope is in 'handed_back'",
-                        failure.getMessage()),
+                        failure.getMessage(), "the failure names both states of the scope"),
                 () -> assertEquals(List.of(3, 4, 5, 6, 7, 8, 9, 10, 11),
-                        changed.stream().map(Snapshot::line).toList()),
+                        changed.stream().map(Snapshot::line).toList(),
+                        "the snapshots name the steps before the change"),
                 () -> assertEquals(expected.subList(0, 8), changed.subList(0, 8),
-                        "every step before the changed transition writes the same bytes"),
+                        "the steps before the change write the same bytes"),
                 () -> assertFalse(Arrays.equals(expected.get(8).status(), changed.get(8).status()),
                         "the answered clarification takes the changed transition"));
     }

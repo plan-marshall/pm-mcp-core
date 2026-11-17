@@ -26,11 +26,14 @@ import de.planmarshall.core.queue.SecretRedactor;
  * <p>
  * The {@code stackTrace} component carries the frames the parser collected for this diagnostic, {@code null} where the
  * log carried none. It is the target of the Maven and Gradle parsers' stack-trace collection, which the ported
- * originals attach to the last issue they filed (see {@link StackTraceCollector}).
+ * originals attach to the last issue they filed (see {@link StackTraceCollector}). The constructor redacts it and cuts it
+ * to the stored bound; the constructor redacts the file too, so neither read-out can leave a parser unmasked.
  * <p>
  * The record has seven components, so it carries a {@code @Builder} beside its validating canonical constructor.
  *
- * @param file       the source file the diagnostic points into, or {@code null} when the tool named none
+ * @param file       the source file the diagnostic points into, or {@code null} when the tool named none; its
+ *                   credential shapes are redacted here, and a file that holds nothing visible after the redaction is no
+ *                   location — the line and column are dropped with it, so one such line cannot fail a whole parse
  * @param line       the line in {@code file}, or {@code null} when the tool named none
  * @param column     the column in {@code line}, or {@code null} when the tool named none
  * @param message    the diagnostic text with the tool's level prefix removed, never blank; its credential shapes are
@@ -39,7 +42,8 @@ import de.planmarshall.core.queue.SecretRedactor;
  * @param severity   how serious the parser rates the diagnostic — the level the tool printed where it prints one (Maven),
  *                   the category otherwise (Gradle)
  * @param stackTrace the frames collected for this diagnostic joined by {@code \n}, or {@code null} when there were none;
- *                   its credential shapes are redacted here, so no producer can store an unmasked frame
+ *                   its credential shapes are redacted here and it is cut to the stored bound, so no producer can store
+ *                   an unmasked stack or a read-out longer than a stored message
  * @since 0.1
  */
 @Builder
@@ -63,8 +67,17 @@ Severity severity,
         Objects.requireNonNull(message, "message");
         Objects.requireNonNull(category, "category");
         Objects.requireNonNull(severity, "severity");
+        if (file != null) {
+            file = SecretRedactor.redactText(file).orElseThrow();
+            if (file.isBlank()) {
+                // a file that holds nothing visible is no location: it must not fail the parse of the whole log
+                file = null;
+                line = null;
+                column = null;
+            }
+        }
         if (stackTrace != null) {
-            stackTrace = SecretRedactor.redactText(stackTrace).orElseThrow();
+            stackTrace = DiagnosticCollector.storedTrace(stackTrace);
         }
         if (message.isBlank()) {
             throw new IllegalArgumentException("a diagnostic message must not be blank");

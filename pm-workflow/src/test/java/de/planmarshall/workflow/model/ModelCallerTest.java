@@ -77,17 +77,19 @@ class ModelCallerTest {
         var queued = (ModelCallResult.Queued) result;
         var request = fixtures.enqueued().getFirst();
         assertAll(
-                () -> assertEquals(ModelFixtures.QUEUE_TASK, queued.queueTaskId()),
-                () -> assertEquals(IMPLEMENT, queued.role()),
-                () -> assertEquals(RoleForm.FRESH, queued.form()),
-                () -> assertFalse(queued.formDowngraded()),
-                () -> assertEquals(role.configurationDigest(), request.configurationDigest()),
+                () -> assertEquals(ModelFixtures.QUEUE_TASK, queued.queueTaskId(),
+                        "the queued task carries the queue id"),
+                () -> assertEquals(IMPLEMENT, queued.role(), "the queue names the implementing role"),
+                () -> assertEquals(RoleForm.FRESH, queued.form(), "the queued role runs in the fresh form"),
+                () -> assertFalse(queued.formDowngraded(), "the fresh role keeps its own form"),
+                () -> assertEquals(role.configurationDigest(), request.configurationDigest(),
+                        "the queued task carries the configuration digest"),
                 () -> assertEquals(role.qualificationDigest(), fixtures.digests().getFirst(),
                         "the lookup is asked with the role's digest"),
-                () -> assertEquals(ModelFixtures.HARNESS, request.harness()),
-                () -> assertEquals(ModelFixtures.MODEL, request.model()),
-                () -> assertEquals(STATE, request.stateId()),
-                () -> assertFalse(request.consultation()),
+                () -> assertEquals(ModelFixtures.HARNESS, request.harness(), "the queued task names the harness"),
+                () -> assertEquals(ModelFixtures.MODEL, request.model(), "the queued task names the model"),
+                () -> assertEquals(STATE, request.stateId(), "the queued task carries the state id"),
+                () -> assertFalse(request.consultation(), "a model job is not a consultation"),
                 () -> assertEquals(IMPLEMENT, fixtures.looked().getFirst(),
                         "the qualification lookup is asked for the role"));
     }
@@ -102,9 +104,10 @@ class ModelCallerTest {
         var queued = (ModelCallResult.Queued) fixtures.caller.call(job("task", IMPLEMENT, false));
 
         assertAll(
-                () -> assertEquals(RoleForm.FRESH, queued.form()),
-                () -> assertTrue(queued.formDowngraded()),
-                () -> assertEquals(RoleForm.FRESH, fixtures.enqueued().getFirst().form()));
+                () -> assertEquals(RoleForm.FRESH, queued.form(), "the downgraded role runs fresh"),
+                () -> assertTrue(queued.formDowngraded(), "the warm role is downgraded to fresh"),
+                () -> assertEquals(RoleForm.FRESH, fixtures.enqueued().getFirst().form(),
+                        "the queue receives the fresh form"));
     }
 
     @Test
@@ -116,9 +119,11 @@ class ModelCallerTest {
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("task", IMPLEMENT, false));
 
         assertAll(
-                () -> assertEquals("role_unqualified", result.reason()),
-                () -> assertTrue(fixtures.enqueued().isEmpty()),
-                () -> assertEquals("role_unqualified", fixtures.closed().getFirst().reason()));
+                () -> assertEquals("role_unqualified", result.reason(),
+                        "the missing record closes role_unqualified"),
+                () -> assertTrue(fixtures.enqueued().isEmpty(), "an unqualified role is never queued"),
+                () -> assertEquals("role_unqualified", fixtures.closed().getFirst().reason(),
+                        "the close carries the same reason"));
     }
 
     @Test
@@ -129,9 +134,9 @@ class ModelCallerTest {
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("task", IMPLEMENT, false));
 
         assertAll(
-                () -> assertEquals("role_undefined", result.reason()),
+                () -> assertEquals("role_undefined", result.reason(), "an absent role closes role_undefined"),
                 () -> assertNull(result.validationReason(), "an absent role carries no validation reason"),
-                () -> assertTrue(fixtures.enqueued().isEmpty()));
+                () -> assertTrue(fixtures.enqueued().isEmpty(), "an undefined role is never queued"));
     }
 
     @Test
@@ -145,7 +150,7 @@ class ModelCallerTest {
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("task", IMPLEMENT, false));
 
         assertAll(
-                () -> assertEquals("role_undefined", result.reason()),
+                () -> assertEquals("role_undefined", result.reason(), "the absent role still closes undefined"),
                 () -> assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, result.validationReason(),
                         "the closed result names the validation reason"));
     }
@@ -159,8 +164,8 @@ class ModelCallerTest {
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("task", "review-code", false));
 
         assertAll(
-                () -> assertEquals("class_mismatch", result.reason()),
-                () -> assertTrue(fixtures.enqueued().isEmpty()));
+                () -> assertEquals("class_mismatch", result.reason(), "a read_only role cannot take a task"),
+                () -> assertTrue(fixtures.enqueued().isEmpty(), "a class mismatch is never queued"));
     }
 
     @Test
@@ -171,7 +176,7 @@ class ModelCallerTest {
 
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("decision", "screener", true));
 
-        assertEquals("class_mismatch", result.reason());
+        assertEquals("class_mismatch", result.reason(), "a consulted zero_tool role mismatches");
     }
 
     @Test
@@ -184,8 +189,9 @@ class ModelCallerTest {
         var result = fixtures.caller.call(job("decision", "architecture", true));
 
         assertAll(
-                () -> assertInstanceOf(ModelCallResult.Queued.class, result),
-                () -> assertTrue(fixtures.enqueued().getFirst().consultation()));
+                () -> assertInstanceOf(ModelCallResult.Queued.class, result, "a consultation is queued"),
+                () -> assertTrue(fixtures.enqueued().getFirst().consultation(),
+                        "the queued consultation keeps its flag"));
     }
 
     @Test
@@ -199,8 +205,8 @@ class ModelCallerTest {
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("task", IMPLEMENT, false));
 
         assertAll(
-                () -> assertEquals("role_unavailable", result.reason()),
-                () -> assertTrue(fixtures.enqueued().isEmpty()));
+                () -> assertEquals("role_unavailable", result.reason(), "a held guard closes role_unavailable"),
+                () -> assertTrue(fixtures.enqueued().isEmpty(), "an unavailable role is never queued"));
     }
 
     @Nested
@@ -216,7 +222,7 @@ class ModelCallerTest {
             var result = fixtures.caller.call(job("zero_tool", JUDGE, false));
 
             assertAll(
-                    () -> assertInstanceOf(ModelCallResult.Queued.class, result),
+                    () -> assertInstanceOf(ModelCallResult.Queued.class, result, "the judge task is queued"),
                     () -> assertTrue(fixtures.looked().isEmpty(), "Qualify must be skipped"));
         }
 
@@ -233,10 +239,12 @@ class ModelCallerTest {
             var result = fixtures.caller.call(job("decision", STEWARD, false));
 
             assertAll(
-                    () -> assertInstanceOf(ModelCallResult.Queued.class, result),
+                    () -> assertInstanceOf(ModelCallResult.Queued.class, result, "the steward task is queued"),
                     () -> assertTrue(fixtures.looked().isEmpty(), "Qualify must be skipped"),
-                    () -> assertEquals(harness, fixtures.enqueued().getFirst().harness()),
-                    () -> assertEquals(model, fixtures.enqueued().getFirst().model()));
+                    () -> assertEquals(harness, fixtures.enqueued().getFirst().harness(),
+                            "the steward runs on the machine harness"),
+                    () -> assertEquals(model, fixtures.enqueued().getFirst().model(),
+                            "the steward runs on the machine model"));
         }
     }
 

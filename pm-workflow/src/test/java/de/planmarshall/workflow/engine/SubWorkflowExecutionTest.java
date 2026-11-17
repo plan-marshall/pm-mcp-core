@@ -339,17 +339,19 @@ class SubWorkflowExecutionTest {
             var pushedAt = fixtures.clock.tick(Duration.ofSeconds(5));
             var engine = argsEngine();
 
-            var resting = assertInstanceOf(EngineStep.Resting.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var resting = assertInstanceOf(EngineStep.Resting.class,
+                    engine.start(JournalScopeType.PLAN, PLAN_ID), "the call rests in the callee");
 
             var expectedArgs = new LinkedHashMap<String, BoundArg>();
             expectedArgs.put("mode", new BoundArg.StringArg("strict"));
             expectedArgs.put("rounds", new BoundArg.IntegerArg(2));
             expectedArgs.put("targets", new BoundArg.StringSetArg(new LinkedHashSet<>(List.of("origin", "mirror"))));
             assertAll(
-                    () -> assertEquals("sub.wait", resting.stateId()),
-                    () -> assertEquals(EXECUTE, resting.status().phase()),
+                    () -> assertEquals("sub.wait", resting.stateId(), "call rests in the callee's entry state"),
+                    () -> assertEquals(EXECUTE, resting.status().phase(), "call keeps the caller's phase"),
                     () -> assertEquals(List.of(new WorkflowStatus.CallFrame("plan", "execute.invoke",
-                            "sub.args", "main", expectedArgs, pushedAt)), resting.status().callStack()));
+                                    "sub.args", "main", expectedArgs, pushedAt)), resting.status().callStack(),
+                            "frame records the callee, entry, arguments and pushed_at"));
         }
 
         @ParameterizedTest(name = "entry {0} -> {1}")
@@ -358,14 +360,16 @@ class SubWorkflowExecutionTest {
         void shouldEnterNamedEntry(String entry, String expectedState) {
             var engine = twoEntriesEngine("call sub.two entry " + entry);
 
-            var resting = assertInstanceOf(EngineStep.Resting.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var resting = assertInstanceOf(EngineStep.Resting.class,
+                    engine.start(JournalScopeType.PLAN, PLAN_ID), "the call rests in the callee");
 
             assertAll(
-                    () -> assertEquals(expectedState, resting.stateId()),
+                    () -> assertEquals(expectedState, resting.stateId(), "call rests in the state of its entry"),
                     () -> assertEquals(List.of("sub.two"), resting.status().callStack().stream()
-                            .map(WorkflowStatus.CallFrame::subworkflowId).toList()),
+                                    .map(WorkflowStatus.CallFrame::subworkflowId).toList(),
+                            "frame names the called sub-workflow"),
                     () -> assertEquals(List.of(entry), resting.status().callStack().stream()
-                            .map(WorkflowStatus.CallFrame::entry).toList()));
+                            .map(WorkflowStatus.CallFrame::entry).toList(), "frame names the called entry"));
         }
 
         @ParameterizedTest(name = "entry {0}")
@@ -378,7 +382,7 @@ class SubWorkflowExecutionTest {
             var written = new String(WorkflowStatusCodec.write(status), StandardCharsets.UTF_8);
 
             assertAll(
-                    () -> assertEquals(expectedState, status.state()),
+                    () -> assertEquals(expectedState, status.state(), "call rests in the state of its entry"),
                     () -> assertTrue(written.contains("\"subworkflow_id\":\"sub.two\",\"entry\":\"" + entry + "\""),
                             written));
         }
@@ -389,12 +393,16 @@ class SubWorkflowExecutionTest {
             var engine = argsEngine();
             var callee = parse("sub.pmwf", SUB_ARGS);
 
-            var resting = assertInstanceOf(EngineStep.Resting.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var resting = assertInstanceOf(EngineStep.Resting.class,
+                    engine.start(JournalScopeType.PLAN, PLAN_ID), "the call rests in the callee");
 
             assertAll(
-                    () -> assertEquals(List.of("main"), List.copyOf(callee.entryBindings().keySet())),
-                    () -> assertEquals(callee.entryBindings().get("main").stateId(), resting.stateId()),
-                    () -> assertEquals("main", resting.status().callStack().getFirst().entry()));
+                    () -> assertEquals(List.of("main"), List.copyOf(callee.entryBindings().keySet()),
+                            "the callee declares its sole entry"),
+                    () -> assertEquals(callee.entryBindings().get("main").stateId(), resting.stateId(),
+                            "call rests in the state the sole entry binds"),
+                    () -> assertEquals("main", resting.status().callStack().getFirst().entry(),
+                            "frame records the sole entry"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -402,10 +410,10 @@ class SubWorkflowExecutionTest {
         @DisplayName("Should refuse a caller whose call names no entry of several or an entry the callee lacks")
         void shouldRefuseCallerWithoutDeclaredEntry(String callLine) {
             var unverified = assertThrows(WorkflowEngine.UnverifiedUnitException.class,
-                    () -> twoEntriesEngine(callLine));
+                    () -> twoEntriesEngine(callLine), "a call without a declared entry is refused");
 
             assertEquals(List.of(VerificationRule.INTERFACE_CALL_ENTRY), unverified.verification().violations()
-                    .stream().map(Violation::rule).toList());
+                    .stream().map(Violation::rule).toList(), "the verifier reports the missing call entry");
         }
 
         /*
@@ -420,7 +428,8 @@ class SubWorkflowExecutionTest {
                     .replace("entry: repair\nentry_description: The review rejected the change.\n", ""));
             var engine = catalogEngine("call sub.two", verifiedCallee);
 
-            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var fault = assertThrows(InternalFaultException.class,
+                    () -> engine.start(JournalScopeType.PLAN, PLAN_ID), "call naming no entry of several faults");
 
             assertTrue(fault.getMessage().contains("binds 2 entries"), fault::getMessage);
         }
@@ -433,7 +442,8 @@ class SubWorkflowExecutionTest {
                             "entry_description: The review rejected the change.\nentry: recheck\n"));
             var engine = catalogEngine("call sub.two entry recheck", verifiedCallee);
 
-            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var fault = assertThrows(InternalFaultException.class,
+                    () -> engine.start(JournalScopeType.PLAN, PLAN_ID), "call through an unbound entry faults");
 
             assertTrue(fault.getMessage().contains("binds no entry 'recheck'"), fault::getMessage);
         }
@@ -443,7 +453,8 @@ class SubWorkflowExecutionTest {
         void shouldRefuseToStartUnitWithEntries() {
             var engine = fixtures.engine(parse("two.pmwf", SUB_TWO_ENTRIES));
 
-            assertThrows(IllegalArgumentException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+            assertThrows(IllegalArgumentException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "starting a unit that binds entries is refused");
         }
 
         @Test
@@ -460,14 +471,17 @@ class SubWorkflowExecutionTest {
 
             var frames = resting.status().callStack();
             assertAll(
-                    () -> assertEquals("d4.step", resting.status().state()),
-                    () -> assertEquals(4, frames.size()),
+                    () -> assertEquals("d4.step", resting.status().state(), "the fourth callee rests on its job"),
+                    () -> assertEquals(4, frames.size(), "four calls push four frames"),
                     () -> assertEquals(List.of("execute.invoke", "d1.step", "d2.step", "d3.step"),
-                            frames.stream().map(WorkflowStatus.CallFrame::callerStateId).toList()),
+                            frames.stream().map(WorkflowStatus.CallFrame::callerStateId).toList(),
+                            "each frame names the caller state"),
                     () -> assertEquals(List.of("sub.d1", "sub.d2", "sub.d3", "sub.d4"),
-                            frames.stream().map(WorkflowStatus.CallFrame::subworkflowId).toList()),
+                            frames.stream().map(WorkflowStatus.CallFrame::subworkflowId).toList(),
+                            "the frames name the nested callees"),
                     () -> assertEquals(List.of("main", "main", "main", "main"),
-                            frames.stream().map(WorkflowStatus.CallFrame::entry).toList()));
+                            frames.stream().map(WorkflowStatus.CallFrame::entry).toList(),
+                            "every nested call takes the sole entry"));
         }
     }
 
@@ -510,9 +524,9 @@ class SubWorkflowExecutionTest {
             var held = Stream.of(new ResultGuard("pushed", false), new ResultGuard("pushed", true))
                     .filter(guard -> GuardEvaluator.holds(guard, result)).count();
             assertAll(
-                    () -> assertEquals(expectedState, step.status().state()),
+                    () -> assertEquals(expectedState, step.status().state(), "the holding guard routes the done"),
                     () -> assertEquals(1, held, "exactly one result guard holds"),
-                    () -> assertTrue(step.status().callStack().isEmpty()));
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the returned call pops its frame"));
         }
 
         @Test
@@ -560,9 +574,10 @@ class SubWorkflowExecutionTest {
             var resting = engine.start(JournalScopeType.PLAN, PLAN_ID);
 
             assertAll(
-                    () -> assertEquals("mid.hold", resting.status().state()),
+                    () -> assertEquals("mid.hold", resting.status().state(), "step-out enters the caller's link state"),
                     () -> assertEquals(List.of("sub.mid"), resting.status().callStack().stream()
-                            .map(WorkflowStatus.CallFrame::subworkflowId).toList()));
+                                    .map(WorkflowStatus.CallFrame::subworkflowId).toList(),
+                            "only the middle frame remains"));
         }
 
         @Test
@@ -574,14 +589,14 @@ class SubWorkflowExecutionTest {
             var stepped = engine.stepOut(choosing);
 
             assertAll(
-                    () -> assertEquals("inner.choose", choosing.state()),
-                    () -> assertEquals(2, choosing.callStack().size()),
-                    () -> assertEquals("outer.recover", stepped.status().state()),
+                    () -> assertEquals("inner.choose", choosing.state(), "the nested call rests on the inner link"),
+                    () -> assertEquals(2, choosing.callStack().size(), "two frames are open before the step-out"),
+                    () -> assertEquals("outer.recover", stepped.status().state(), "the caller routes the stepped frame"),
                     () -> assertEquals(List.of("sub.outer"), stepped.status().callStack().stream()
-                            .map(WorkflowStatus.CallFrame::subworkflowId).toList()),
+                            .map(WorkflowStatus.CallFrame::subworkflowId).toList(), "the outer frame stays open"),
                     // the root is an entity unit, which carries no phase of its own: the plan scope keeps the phase
                     // it opened at
-                    () -> assertEquals("phase-1-init", stepped.status().phase()));
+                    () -> assertEquals("phase-1-init", stepped.status().phase(), "the plan scope keeps its phase"));
         }
 
         @Test
@@ -597,10 +612,13 @@ class SubWorkflowExecutionTest {
             var waiting = argsEngine.start(JournalScopeType.PLAN, PLAN_ID).status();
 
             assertAll(
-                    () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(outsideSubWorkflow)),
-                    () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(raised)),
-                    () -> assertEquals("sub.wait", waiting.state()),
-                    () -> assertThrows(IllegalStateException.class, () -> argsEngine.stepOut(waiting)));
+                    () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(outsideSubWorkflow),
+                            "step-out outside a sub-workflow is refused"),
+                    () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(raised),
+                            "step-out under a condition is refused"),
+                    () -> assertEquals("sub.wait", waiting.state(), "the call rests on the callee's job state"),
+                    () -> assertThrows(IllegalStateException.class, () -> argsEngine.stepOut(waiting),
+                            "step-out from no link state is refused"));
         }
     }
 
@@ -624,13 +642,17 @@ class SubWorkflowExecutionTest {
 
             var counters = fallback.status().retryCounters();
             assertAll(
-                    () -> assertEquals("ent.fallback", fallback.status().state()),
-                    () -> assertTrue(fallback.status().callStack().isEmpty()),
-                    () -> assertTrue(fallback.status().condition().isEmpty()),
-                    () -> assertEquals(0, counters.attemptsOf(RetryRule.RETRY_ONCE, "inner.choose")),
-                    () -> assertEquals(0, counters.attemptsOf(RetryRule.CONDITION_BUDGET, "outer.recover")),
-                    () -> assertEquals(1, counters.attemptsOf(RetryRule.OPEN_PR, "ent.invoke")),
-                    () -> assertNotEquals("outer.recover", fallback.status().state()));
+                    () -> assertEquals("ent.fallback", fallback.status().state(), "unwinding lands on the fallback"),
+                    () -> assertTrue(fallback.status().callStack().isEmpty(), "no frame survives the unwinding"),
+                    () -> assertTrue(fallback.status().condition().isEmpty(), "the spent condition is cleared"),
+                    () -> assertEquals(0, counters.attemptsOf(RetryRule.RETRY_ONCE, "inner.choose"),
+                            "the unwound retry count is dropped"),
+                    () -> assertEquals(0, counters.attemptsOf(RetryRule.CONDITION_BUDGET, "outer.recover"),
+                            "the unwound condition count is dropped"),
+                    () -> assertEquals(1, counters.attemptsOf(RetryRule.OPEN_PR, "ent.invoke"),
+                            "the top-level retry count is kept"),
+                    () -> assertNotEquals("outer.recover", fallback.status().state(),
+                            "the fallback is no caller state"));
         }
 
         @Test
@@ -639,7 +661,8 @@ class SubWorkflowExecutionTest {
             var engine = nestedEngine();
             var choosing = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
 
-            assertThrows(IllegalArgumentException.class, () -> engine.unwindToFallback(choosing, "outer.recover"));
+            assertThrows(IllegalArgumentException.class, () -> engine.unwindToFallback(choosing, "outer.recover"),
+                    "a fallback the top-level unit lacks is refused");
         }
     }
 
@@ -657,10 +680,12 @@ class SubWorkflowExecutionTest {
             var sixFrames = List.of(frame, frame, frame, frame, frame, frame);
 
             assertAll(
-                    () -> assertEquals(5, CallStack.MAX_DEPTH),
-                    () -> assertEquals(CallStack.MAX_DEPTH, full.depth()),
-                    () -> assertThrows(IllegalStateException.class, () -> full.push(frame)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new CallStack(sixFrames)));
+                    () -> assertEquals(5, CallStack.MAX_DEPTH, "the phase level adds one frame to four"),
+                    () -> assertEquals(CallStack.MAX_DEPTH, full.depth(), "five pushes reach the maximum depth"),
+                    () -> assertThrows(IllegalStateException.class, () -> full.push(frame),
+                            "a sixth push is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new CallStack(sixFrames),
+                            "a stored stack of six frames is refused"));
         }
 
         @Test
@@ -673,12 +698,12 @@ class SubWorkflowExecutionTest {
             var empty = CallStack.empty();
 
             assertAll(
-                    () -> assertEquals(other, popped.frame()),
-                    () -> assertEquals(List.of(frame), popped.remaining().frames()),
-                    () -> assertEquals(List.of(other, frame), stack.unwound()),
-                    () -> assertEquals(other, stack.top().orElseThrow()),
-                    () -> assertTrue(empty.top().isEmpty()),
-                    () -> assertThrows(IllegalStateException.class, empty::pop));
+                    () -> assertEquals(other, popped.frame(), "popping returns the top frame"),
+                    () -> assertEquals(List.of(frame), popped.remaining().frames(), "the remaining stack is shorter"),
+                    () -> assertEquals(List.of(other, frame), stack.unwound(), "unwinding lists frames top first"),
+                    () -> assertEquals(other, stack.top().orElseThrow(), "the top frame is the last pushed"),
+                    () -> assertTrue(empty.top().isEmpty(), "an empty stack has no top frame"),
+                    () -> assertThrows(IllegalStateException.class, empty::pop, "popping an empty stack is refused"));
         }
 
         @Test
@@ -694,8 +719,8 @@ class SubWorkflowExecutionTest {
             var stored = stack.toStore();
 
             assertAll(
-                    () -> assertEquals("repair", stored.getFirst().entry()),
-                    () -> assertEquals(stack, CallStack.fromStore(stored)));
+                    () -> assertEquals("repair", stored.getFirst().entry(), "the stored frame keeps the entry"),
+                    () -> assertEquals(stack, CallStack.fromStore(stored), "the store round trip returns the stack"));
         }
 
         @Test
@@ -705,7 +730,8 @@ class SubWorkflowExecutionTest {
                     Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), T0);
             var storedFrames = List.of(stored);
 
-            assertThrows(ArithmeticException.class, () -> CallStack.fromStore(storedFrames));
+            assertThrows(ArithmeticException.class, () -> CallStack.fromStore(storedFrames),
+                    "an integer beyond the call value range is refused");
         }
 
         @Test
@@ -718,8 +744,8 @@ class SubWorkflowExecutionTest {
 
             var top = stack.top().orElseThrow();
             assertAll(
-                    () -> assertEquals("sub.commit", top.subWorkflowId()),
-                    () -> assertEquals(EngineFixtures.MAIN_ENTRY, top.entry()));
+                    () -> assertEquals("sub.commit", top.subWorkflowId(), "the resumed frame names its sub-workflow"),
+                    () -> assertEquals(EngineFixtures.MAIN_ENTRY, top.entry(), "the resumed frame keeps its entry"));
         }
     }
 }

@@ -88,10 +88,12 @@ class CompositionRulesTest {
             }
 
             assertAll(
-                    () -> assertEquals("2", rules.revision()),
+                    () -> assertEquals("2", rules.revision(), "the shipped file declares revision two"),
                     () -> assertTrue(rules.digest().matches("[0-9a-f]{64}"), rules.digest()),
-                    () -> assertEquals(PlanFacts.sha256(bytes), rules.digest()),
-                    () -> assertEquals(SHIPPED_RULE_IDS, rules.rules().stream().map(CompositionRule::id).toList()));
+                    () -> assertEquals(PlanFacts.sha256(bytes), rules.digest(),
+                            "the digest is the SHA-256 of the bytes"),
+                    () -> assertEquals(SHIPPED_RULE_IDS, rules.rules().stream().map(CompositionRule::id).toList(),
+                            "the rules keep their file order"));
         }
 
         @Test
@@ -100,14 +102,15 @@ class CompositionRulesTest {
             var first = loaded(CompositionRules.shipped());
             var second = loaded(CompositionRules.shipped());
 
-            assertEquals(first, second);
+            assertEquals(first, second, "loading twice yields the same value");
         }
 
         @Test
         @DisplayName("lives outside every location of model-facing content")
         void notModelFacing() {
             assertAll(
-                    () -> assertTrue(CompositionRules.RESOURCE.startsWith("/de/planmarshall/workflow/plan/")),
+                    () -> assertTrue(CompositionRules.RESOURCE.startsWith("/de/planmarshall/workflow/plan/"),
+                            "the file lives in the plan package"),
                     () -> List.of("/workflows/", "/roles/", "/bundles/", "/skills/").forEach(location ->
                             assertFalse(CompositionRules.RESOURCE.contains(location), location)));
         }
@@ -119,9 +122,10 @@ class CompositionRulesTest {
 
             assertAll(
                     () -> assertTrue(rules.stream().flatMap(rule -> rule.bindings().stream())
-                            .allMatch(binding -> "actions".equals(binding.argument()))),
+                                    .allMatch(binding -> "actions".equals(binding.argument())),
+                            "every binding binds the actions argument"),
                     () -> assertTrue(rules.stream().flatMap(rule -> rule.prunes().stream())
-                            .noneMatch(prune -> prune.id().contains("gate"))));
+                            .noneMatch(prune -> prune.id().contains("gate")), "no shipped rule prunes a gate"));
         }
 
         /**
@@ -138,11 +142,13 @@ class CompositionRulesTest {
             assertEquals(1, rules.size(), rules::toString);
             var rule = rules.getFirst();
             assertAll(
-                    () -> assertEquals(when, rule.when()),
-                    () -> assertEquals(targets, rule.prunes().stream().map(CompositionRule.Prune::id).toList()),
+                    () -> assertEquals(when, rule.when(), "the rule condition is the stated one"),
+                    () -> assertEquals(targets, rule.prunes().stream().map(CompositionRule.Prune::id).toList(),
+                            "the rule prunes exactly its targets"),
                     () -> assertTrue(rule.prunes().stream().allMatch(prune -> prune.reason() == reason
-                            && prune.element() == PrunedElement.Kind.STEP)),
-                    () -> assertEquals(List.of(), rule.bindings()));
+                                    && prune.element() == PrunedElement.Kind.STEP),
+                            "every prune is a step of this reason"),
+                    () -> assertEquals(List.of(), rule.bindings(), "the family rule binds no argument"));
         }
 
         @Test
@@ -154,20 +160,22 @@ class CompositionRulesTest {
                             .anyMatch(prune -> prune.reason() == PruneReason.MERGE_BY_OPERATOR)).toList();
 
             assertEquals(List.of(new CompositionRule("merge-by-operator",
-                    new CompositionRule.Equals("axes.asking.self_merge", "false"), List.of(
-                            new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-dispatch",
-                                    PruneReason.MERGE_BY_OPERATOR),
-                            new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-queue-wait",
-                                    PruneReason.MERGE_BY_OPERATOR),
-                            new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-queue-exit",
-                                    PruneReason.MERGE_BY_OPERATOR)), List.of())), rules);
+                            new CompositionRule.Equals("axes.asking.self_merge", "false"), List.of(
+                                    new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-dispatch",
+                                            PruneReason.MERGE_BY_OPERATOR),
+                                    new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-queue-wait",
+                                            PruneReason.MERGE_BY_OPERATOR),
+                                    new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-queue-exit",
+                                            PruneReason.MERGE_BY_OPERATOR)), List.of())), rules,
+                    "the merge_by_operator rule prunes the merge states");
         }
 
         @Test
         @DisplayName("has no rule on merge.auto_merge or recipe_id")
         void noRemovedFacts() {
             assertTrue(loaded(CompositionRules.shipped()).rules().stream().map(rule -> rule.when().fact())
-                    .noneMatch(fact -> "merge.auto_merge".equals(fact) || "recipe_id".equals(fact)));
+                            .noneMatch(fact -> "merge.auto_merge".equals(fact) || "recipe_id".equals(fact)),
+                    "no rule names a removed fact");
         }
 
         @Test
@@ -178,7 +186,7 @@ class CompositionRulesTest {
                     .filter(prune -> FLOOR_IMMUNE_STEPS.contains(prune.id())).toList();
 
             assertAll(
-                    () -> assertFalse(floorPrunes.isEmpty()),
+                    () -> assertFalse(floorPrunes.isEmpty(), "the floor-immune steps are pruned somewhere"),
                     () -> assertTrue(floorPrunes.stream()
                                     .allMatch(prune -> FLOOR_OVERRIDING_REASONS.contains(prune.reason())),
                             floorPrunes::toString));
@@ -233,7 +241,7 @@ class CompositionRulesTest {
                     new CompositionRule("c", new CompositionRule.Empty("derived.push_remote"), List.of(), List.of()),
                     new CompositionRule("d", new CompositionRule.Unset("integrations.sonar"), List.of(), List.of()),
                     new CompositionRule("e", new CompositionRule.Disjoint("footprint", List.of("**/*.java")),
-                            List.of(), List.of())), rules);
+                            List.of(), List.of())), rules, "every condition and literal kind reads back");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -244,7 +252,8 @@ class CompositionRulesTest {
                     {"id": "r", "when": {"fact": "lane", "equals": "land"}, "then": {
                        "bind": [{"call_site": "*", "argument": "level", "value": %s}]}}""".formatted(value))).rules();
 
-            assertEquals(new CallValue.IntValue(100), rules.getFirst().bindings().getFirst().value());
+            assertEquals(new CallValue.IntValue(100), rules.getFirst().bindings().getFirst().value(),
+                    "an integral value with an exponent reads as 100");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -254,14 +263,15 @@ class CompositionRulesTest {
             var rules = loaded(file("""
                     {"id": "r", "when": {"fact": "%s", "equals": "false"}, "then": {}}""".formatted(fact))).rules();
 
-            assertEquals(fact, rules.getFirst().when().fact());
+            assertEquals(fact, rules.getFirst().when().fact(), "an axis fact loads as its own name");
         }
 
         @Test
         @DisplayName("the registered axis facts are the bound variant of each axis and the declarations of its "
                 + "variants")
         void registeredAxisFacts() {
-            assertEquals(PlanFacts.AXIS_FACT_NAMES, Set.copyOf(axisFacts()));
+            assertEquals(PlanFacts.AXIS_FACT_NAMES, Set.copyOf(axisFacts()),
+                    "the axis facts are the registered ones");
         }
 
         @Test
@@ -273,8 +283,8 @@ class CompositionRulesTest {
                     + "\"then\": {}}"));
 
             assertAll(
-                    () -> assertEquals(first.rules(), second.rules()),
-                    () -> assertNotEquals(first.digest(), second.digest()));
+                    () -> assertEquals(first.rules(), second.rules(), "a changed byte leaves the rules equal"),
+                    () -> assertNotEquals(first.digest(), second.digest(), "a changed byte changes the digest"));
         }
     }
 
@@ -315,7 +325,8 @@ class CompositionRulesTest {
         void otherArgumentLoads() {
             var rules = loaded(file(bindingOf("mode"))).rules();
 
-            assertEquals("mode", rules.getFirst().bindings().getFirst().argument());
+            assertEquals("mode", rules.getFirst().bindings().getFirst().argument(),
+                    "an argument outside the budgets loads");
         }
 
         private static String bindingOf(String argument) {

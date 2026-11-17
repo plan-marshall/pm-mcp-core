@@ -1,0 +1,84 @@
+= ADR 010: The Key Block Is Masked Before the Label Passes, and a Record Redacts Its Own Read-outs
+:nofooter:
+
+== Status
+
+Accepted. Amends link:009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR `core-build/009`]
+in the lines its Decision sections keep for the key-block ordering and the stored-diagnostic seam.
+
+== Date
+
+2026-11-17
+
+== Context
+
+The three-layer analysis of PLAN-V2-143 (`landings/PLAN-V2-143.md`, layer 3, findings 1 and 3) read two gaps in the
+redactor's seams at `9c961d58`:
+
+* `SecretRedactor.redactText` ran the URL, quoted and unclosed-quoted assignment passes before the key-block scan. A
+  private key given as the value of a labelled assignment — `PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----` with its body
+  and `END` line, or `secret: -----BEGIN …` — lost its `BEGIN` marker to the label pass: the marker was masked with the
+  rest of the first line, so the key-block scan found no block and the body and the `END` line stayed readable. The
+  ordering was a choice between masking the block first and having the label pass leave a `BEGIN` marker (the wording of
+  PLAN-V2-151's D1).
+* `RewriteFinding.message` and `.path` of the OpenRewrite log parser were stored unredacted, because the parser files its
+  own records instead of passing a `Diagnostic` message through `DiagnosticCollector.stored`; ADR `core-build/009`
+  admitted that gap. `Diagnostic.file` carried no redactor call either. D3(a) of PLAN-V2-151 left the seam open: the
+  stored-message seam of ADR 009, or the parser.
+
+The plan's deliverable left both choices to its outline (PLAN-V2-151, D5: "no new ADR unless the outline takes a design
+decision (the PEM ordering, the seam of D3(a))"). This record is those two decisions.
+
+== Decision
+
+*The key-block scan runs first.* `SecretRedactor.redactText` masks the PEM and PGP key blocks on the text before any label
+pass, right after the invisible characters are removed. A block that is itself the value of a labelled assignment is
+therefore masked whole, its `BEGIN` and `END` markers included, and the label passes that follow see only the redaction
+marker. The scan stays the single left-to-right pass of ADR `core-build/009` (one `BEGIN` search, one `END` search per
+block, resume after the `END`); the URL pass still runs before the assignment passes, because an inner match must not
+remove the `@` the URL shape needs.
+
+*A record redacts its own read-outs.* The seam for a value that does not pass through `DiagnosticCollector.stored` is the
+record's constructor. `RewriteFinding` redacts its `path` and `message` in its canonical constructor, and `Diagnostic`
+redacts its `file` and its collected `stackTrace` there; the stack trace is cut to the stored bound
+(`DiagnosticCollector.storedTrace`, 500 characters, never splitting a surrogate pair) after the redaction. Every builder
+and canonical constructor passes through the seam, so no producer can store an unmasked read-out, and
+`DiagnosticCollector.stored` stays the seam for the messages it already covers.
+
+== Alternatives Considered
+
+* *Have the label pass leave a `BEGIN` marker.* It would make the label patterns carry a rule about a marker that is not
+  part of an assignment value, and the block's body and `END` line would still need the key-block scan to be masked; the
+  ordering is one line, the pattern change is not (PLAN-V2-151, D1).
+* *Redact the OpenRewrite fields at the parser.* It would put the same two calls in the parser while a new producer of a
+  `RewriteFinding` could bypass them; the record's constructor is the seam every producer passes through (D3(a)).
+* *Redact `Diagnostic.file` in every parser.* Every parser files its location, so each would need the call; the
+  constructor covers the present and future ones, as the stack-trace redaction already does.
+* *Keep the stack trace uncut.* A credentialed URL whose closing `@` lies beyond the line cut then leaves up to 8 192
+  characters of a partial password per frame; cutting at the stored bound caps it, at the cost of a stack longer than 500
+  characters losing its tail (PLAN-V2-151, D2, and "What stays readable" of ADR 009).
+
+== Consequences
+
+* A labelled private-key block is masked whole; the key-block cost tests of ADR 009 stay green, because the scan is the
+  same single pass and only its position in the sequence changed.
+* `RewriteFinding.path` and `.message` and `Diagnostic.file` carry no credential shape; a path or message without one is
+  byte-identical to before, so the ported fixtures are unchanged.
+* A `Diagnostic` whose file holds nothing visible after the redaction is filed unlocated, and an `OpenRewriteLogParser`
+  finding whose path does is a `PARSE_ERROR`; neither aborts the parse of the log, because one redacted location must not
+  cost the whole build's evidence.
+* `Diagnostic.stackTrace` is at most 500 characters. A stack longer than that loses its tail; the TAP, Jest and Maven
+  fixtures of the ported corpus are shorter and keep their frames, and a new test that expects a longer stack must not
+  rely on it.
+* A producer of a `RewriteFinding` or a `Diagnostic` cannot bypass the redaction; a new read-out of the build model belongs
+  in the same constructor seam, or in `DiagnosticCollector.stored` for a message and `storedTrace` for a stack-like text.
+* The redactor never stores a raw `BEGIN` marker before the label passes see it; a later change that moves the key-block
+  scan back behind the label passes reopens the leak of ADR `core-build/009`'s Context.
+
+== Source
+
+* Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-151-secret-redactor-hardening-2.md[PLAN-V2-151]
+* Landing analysis: `landings/PLAN-V2-143.md` of the epic `pm-mcp-core-m2-m4-v2` (layer 3, findings 1 and 3)
+* Amends link:009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR `core-build/009`]
+* Developer guides: link:../../developer/core-queue.adoc#redactor-shapes[`core.queue` § The Redactor's Shapes];
+  link:../../developer/core-build.adoc[`core.build`]

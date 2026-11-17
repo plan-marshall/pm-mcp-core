@@ -284,7 +284,8 @@ class WorkflowParserTest {
         @DisplayName("finds the seven valid fixtures")
         void fixturesPresent() {
             assertEquals(List.of(ADJUDICATE_UNIT, ASK_FRESH_UNIT, INSTANCE_UNIT, PLAN_UNIT, SESSION_UNIT,
-                    SUBWORKFLOW_UNIT, THREE_ENTRIES_UNIT), validFixtures());
+                            SUBWORKFLOW_UNIT, THREE_ENTRIES_UNIT), validFixtures(),
+                    "the seven valid fixtures are found in order");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -295,10 +296,10 @@ class WorkflowParserTest {
 
             assertAll(
                     () -> assertEquals(new SourceLocation(resource, definition.location().line(), 1),
-                            definition.location()),
-                    () -> assertEquals(1, definition.formatVersion()),
-                    () -> assertEquals(UnitOrigin.DEFAULT, definition.origin()),
-                    () -> assertTrue(definition.derivedFrom().isEmpty()));
+                            definition.location(), "the definition starts at column one"),
+                    () -> assertEquals(1, definition.formatVersion(), "the format version of the header is one"),
+                    () -> assertEquals(UnitOrigin.DEFAULT, definition.origin(), "a fixture keeps its default origin"),
+                    () -> assertTrue(definition.derivedFrom().isEmpty(), "a default unit derives from nothing"));
         }
 
         @Test
@@ -345,7 +346,8 @@ class WorkflowParserTest {
                             terminal("plan.aborted", "aborted", "aborted", OutcomeClass.FAILURE)),
                     NOWHERE);
 
-            assertEquals(expected, strip(DslFixtures.parseValid(PLAN_UNIT)));
+            assertEquals(expected, strip(DslFixtures.parseValid(PLAN_UNIT)),
+                    "the plan unit reads the expected tree");
         }
 
         @Test
@@ -381,7 +383,8 @@ class WorkflowParserTest {
                             terminal("git.stepped-out", "inherit", "stepped_out", OutcomeClass.STEPPED_OUT)),
                     NOWHERE);
 
-            assertEquals(expected, strip(DslFixtures.parseValid(SUBWORKFLOW_UNIT)));
+            assertEquals(expected, strip(DslFixtures.parseValid(SUBWORKFLOW_UNIT)),
+                    "the sub-workflow reads the expected tree");
         }
 
         @Test
@@ -439,7 +442,8 @@ class WorkflowParserTest {
                             terminal("setup.held", "setup", "held", OutcomeClass.UNSETTLED)),
                     NOWHERE);
 
-            assertEquals(expected, strip(DslFixtures.parseValid(SESSION_UNIT)));
+            assertEquals(expected, strip(DslFixtures.parseValid(SESSION_UNIT)),
+                    "the session unit reads the expected tree");
         }
 
         @Test
@@ -464,7 +468,8 @@ class WorkflowParserTest {
                             terminal("adjudicate.settled", "inherit", "settled", OutcomeClass.SUCCESS)),
                     NOWHERE);
 
-            assertEquals(expected, strip(DslFixtures.parseValid(ADJUDICATE_UNIT)));
+            assertEquals(expected, strip(DslFixtures.parseValid(ADJUDICATE_UNIT)),
+                    "the adjudication unit reads the expected tree");
         }
 
         @Test
@@ -490,7 +495,8 @@ class WorkflowParserTest {
                             terminal("plan.end", "finalize", "done", OutcomeClass.SUCCESS)),
                     NOWHERE);
 
-            assertEquals(expected, strip(DslFixtures.parseValid(INSTANCE_UNIT)));
+            assertEquals(expected, strip(DslFixtures.parseValid(INSTANCE_UNIT)),
+                    "the instance unit reads the expected tree");
         }
 
         @Test
@@ -529,10 +535,12 @@ class WorkflowParserTest {
             var parsed = DslFixtures.parseValid(THREE_ENTRIES_UNIT);
 
             assertAll(
-                    () -> assertEquals(expected, strip(parsed)),
+                    () -> assertEquals(expected, strip(parsed), "the three-entry unit reads the expected tree"),
                     () -> assertEquals(List.of("review", "repair", "recheck"),
-                            parsed.frontmatter().entries().stream().map(InterfaceElement::name).toList()),
-                    () -> assertEquals(List.of("review.check", "review.fix"), parsed.startingStates()));
+                            parsed.frontmatter().entries().stream().map(InterfaceElement::name).toList(),
+                            "the frontmatter names the three entries in order"),
+                    () -> assertEquals(List.of("review.check", "review.fix"), parsed.startingStates(),
+                            "the two entry bindings are the starting states"));
         }
     }
 
@@ -546,12 +554,15 @@ class WorkflowParserTest {
             var definition = DslFixtures.parseValid(PLAN_UNIT);
 
             assertAll(
-                    () -> assertEquals("Parser plan unit", definition.frontmatter().name()),
-                    () -> assertEquals(UnitType.WORKFLOW, definition.frontmatter().type()),
-                    () -> assertEquals(FIXTURE_DATE, definition.frontmatter().modificationDate()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 1, 1), definition.frontmatter().location()),
+                    () -> assertEquals("Parser plan unit", definition.frontmatter().name(), "the unit name is read"),
+                    () -> assertEquals(UnitType.WORKFLOW, definition.frontmatter().type(),
+                            "the unit type is a workflow"),
+                    () -> assertEquals(FIXTURE_DATE, definition.frontmatter().modificationDate(),
+                            "the modification date is read"),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 1, 1), definition.frontmatter().location(),
+                            "the frontmatter starts at its first line"),
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, FRONTMATTER_LINES + 4, 1),
-                            definition.location()));
+                            definition.location(), "the body starts after the frontmatter"));
         }
 
         @Test
@@ -562,7 +573,7 @@ class WorkflowParserTest {
             assertEquals(List.of(new SourceLocation(THREE_ENTRIES_UNIT, 24, 1),
                             new SourceLocation(THREE_ENTRIES_UNIT, 25, 1), new SourceLocation(THREE_ENTRIES_UNIT, 26, 1)),
                     definition.entryBindings().values().stream().map(WorkflowDefinition.EntryBinding::location)
-                            .toList());
+                            .toList(), "the entry bindings keep their source order");
         }
 
         @Test
@@ -576,7 +587,8 @@ class WorkflowParserTest {
             assertAll(
                     () -> assertNull(plain.entry(), "a call that names no entry reads null"),
                     () -> assertEquals("review", named.entry(), "a call reads the entry it names"),
-                    () -> assertEquals(Map.of(), named.paramBindings()));
+                    () -> assertEquals(Map.of(), named.paramBindings(),
+                            "a named entry without arguments binds none"));
         }
 
         @Test
@@ -587,7 +599,8 @@ class WorkflowParserTest {
 
             var definition = parse(source);
 
-            assertTrue(definition.states().containsKey("setup.entry"));
+            assertTrue(definition.states().containsKey("setup.entry"),
+                    "a state segment named entry is no keyword");
         }
 
         @Test
@@ -600,9 +613,10 @@ class WorkflowParserTest {
 
             assertAll(
                     () -> assertEquals("demo.end", definition.startState(), "the start line is read as is"),
-                    () -> assertEquals(Map.of(), definition.entryBindings()),
+                    () -> assertEquals(Map.of(), definition.entryBindings(), "a start line binds no entry"),
                     () -> assertEquals(List.of("review"),
-                            definition.frontmatter().entries().stream().map(InterfaceElement::name).toList()));
+                            definition.frontmatter().entries().stream().map(InterfaceElement::name).toList(),
+                            "the frontmatter declares the entry review"));
         }
 
         @Test
@@ -615,8 +629,10 @@ class WorkflowParserTest {
 
             assertAll(
                     () -> assertNull(definition.startState(), "a unit with entry lines reads no start"),
-                    () -> assertEquals(List.of("repair"), List.copyOf(definition.entryBindings().keySet())),
-                    () -> assertEquals(List.of("demo.end"), definition.startingStates()));
+                    () -> assertEquals(List.of("repair"), List.copyOf(definition.entryBindings().keySet()),
+                            "the unit binds the undeclared entry repair"),
+                    () -> assertEquals(List.of("demo.end"), definition.startingStates(),
+                            "an entry-bound state is a starting state"));
         }
 
         /** The frontmatter of a sub-workflow that declares one entry and the exit {@code done}. */
@@ -640,12 +656,16 @@ class WorkflowParserTest {
             var transition = ((StateBehavior.AutoStep) begin.behavior()).transitions().getFirst();
 
             assertAll(
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 13, 1), definition.location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 20, 1), definition.migrations().get(0).location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 23, 1), begin.location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 27, 9), transition.location()),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 13, 1), definition.location(),
+                            "the definition is located at its header line"),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 20, 1), definition.migrations().get(0).location(),
+                            "the first migration is located at its line"),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 23, 1), begin.location(),
+                            "the state is located at its header line"),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 27, 9), transition.location(),
+                            "the transition is located at its arrow"),
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 28, 13),
-                            transition.completions().getFirst().location()));
+                            transition.completions().getFirst().location(), "the completion names its step id"));
         }
 
         @Test
@@ -656,16 +676,22 @@ class WorkflowParserTest {
 
             assertAll(
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 15, 1),
-                            plan.declarations().get("max_rounds").location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 18, 1), plan.declarations().get("floor").location()),
+                            plan.declarations().get("max_rounds").location(),
+                            "the max_rounds declaration names its line"),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 18, 1),
+                            plan.declarations().get("floor").location(), "the floor declaration names its line"),
                     () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 14, 1),
-                            adjudicate.declarations().get("max_rounds").location()),
+                            adjudicate.declarations().get("max_rounds").location(),
+                            "the adjudicate max_rounds names its line"),
                     () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 15, 1),
-                            adjudicate.decisions().get("interpretation").location()),
+                            adjudicate.decisions().get("interpretation").location(),
+                            "the interpretation decision names its line"),
                     () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 16, 1),
-                            adjudicate.decisions().get("approach").location()),
+                            adjudicate.decisions().get("approach").location(),
+                            "the approach decision names its line"),
                     () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 18, 1),
-                            adjudicate.declarations().get("panel").location()));
+                            adjudicate.declarations().get("panel").location(),
+                            "the panel declaration names its line"));
         }
 
         @Test
@@ -677,11 +703,14 @@ class WorkflowParserTest {
             var detour = choose.links().get(1);
 
             assertAll(
-                    () -> assertEquals(new SourceLocation(SUBWORKFLOW_UNIT, 11, 8), input.location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 5), detour.location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 40), detour.freeParams().get(0).location()),
+                    () -> assertEquals(new SourceLocation(SUBWORKFLOW_UNIT, 11, 8), input.location(),
+                            "the sub-workflow input names its location"),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 5), detour.location(),
+                            "the detour link names its location"),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 40), detour.freeParams().get(0).location(),
+                            "the first free parameter names its column"),
                     () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 52),
-                            detour.freeParams().get(1).location()));
+                            detour.freeParams().get(1).location(), "the second free parameter names its column"));
         }
 
         @Test
@@ -695,15 +724,17 @@ class WorkflowParserTest {
             assertAll(
                     () -> assertEquals(List.of("init.begin", "init.dispatch", "init.compose", "review.check",
                                     "review.cap-check", "review.empty-args", "completed", "plan.aborted"),
-                            List.copyOf(plan.states().keySet())),
+                            List.copyOf(plan.states().keySet()), "the states keep their declaration order"),
                     () -> assertEquals(List.of("max_rounds", "mode", "channels", "floor"),
-                            List.copyOf(plan.declarations().keySet())),
+                            List.copyOf(plan.declarations().keySet()), "the declarations keep their source order"),
                     () -> assertEquals(List.of("push", "attempts", "targets"),
-                            List.copyOf(call.paramBindings().keySet())),
+                            List.copyOf(call.paramBindings().keySet()), "the call bindings keep their source order"),
                     () -> assertEquals(List.of("interpretation", "approach", "scope"),
-                            List.copyOf(adjudicate.decisions().keySet())),
+                            List.copyOf(adjudicate.decisions().keySet()),
+                            "the decisions keep their declaration order"),
                     () -> assertEquals(List.of("git.commit_and_push", "remediation.ci-failure"),
-                            instance.inputs().subUnits().stream().map(InstanceInputs.UnitRef::unit).toList()));
+                            instance.inputs().subUnits().stream().map(InstanceInputs.UnitRef::unit).toList(),
+                            "the sub-units keep their declaration order"));
         }
     }
 
@@ -722,7 +753,7 @@ class WorkflowParserTest {
         void scopes(WorkflowScope scope) {
             var source = unitWithBody(keyword(scope), "auto demo.run", "done -> demo.begin");
 
-            assertEquals(scope, parse(source).scope());
+            assertEquals(scope, parse(source).scope(), "the scope is read from its keyword");
         }
 
         @ParameterizedTest(name = "relation {0}")
@@ -734,7 +765,7 @@ class WorkflowParserTest {
 
             var links = (StateBehavior.InteractiveLinks) startBody(source);
 
-            assertEquals(relation, links.links().getFirst().rel());
+            assertEquals(relation, links.links().getFirst().rel(), "the link relation is read from its keyword");
         }
 
         @ParameterizedTest(name = "form {0}")
@@ -746,7 +777,7 @@ class WorkflowParserTest {
 
             var links = (StateBehavior.InteractiveLinks) startBody(source);
 
-            assertEquals(form, links.links().getFirst().form());
+            assertEquals(form, links.links().getFirst().form(), "the link form is read from its keyword");
         }
 
         @ParameterizedTest(name = "completion {0}")
@@ -758,7 +789,8 @@ class WorkflowParserTest {
 
             var auto = (StateBehavior.AutoStep) startBody(source);
 
-            assertEquals(status, auto.transitions().getFirst().completions().getFirst().status());
+            assertEquals(status, auto.transitions().getFirst().completions().getFirst().status(),
+                    "the step completion is read from its keyword");
         }
 
         @ParameterizedTest(name = "outcome class {0}")
@@ -770,7 +802,7 @@ class WorkflowParserTest {
 
             var terminal = Objects.requireNonNull(parse(source).states().get("demo.end").terminalOutcome());
 
-            assertEquals(outcomeClass, terminal.outcomeClass());
+            assertEquals(outcomeClass, terminal.outcomeClass(), "the outcome class is read from its keyword");
         }
     }
 
@@ -803,14 +835,14 @@ class WorkflowParserTest {
             var definition = parse(withList("[]"));
 
             assertAll(
-                    () -> assertEquals(EMPTY, declared(definition)),
-                    () -> assertEquals(EMPTY, bound(definition)));
+                    () -> assertEquals(EMPTY, declared(definition), "the declared list is empty"),
+                    () -> assertEquals(EMPTY, bound(definition), "the bound list is empty"));
         }
 
         @Test
         @DisplayName("parses [] with blanks inside the brackets as the empty list")
         void parsesEmptyWithBlank() {
-            assertEquals(EMPTY, declared(parse(withList("[ ]"))));
+            assertEquals(EMPTY, declared(parse(withList("[ ]"))), "a bracketed blank reads as the empty list");
         }
 
         @Test
@@ -820,8 +852,8 @@ class WorkflowParserTest {
             var definition = parse(withList("[outline, execute]"));
 
             assertAll(
-                    () -> assertEquals(expected, declared(definition)),
-                    () -> assertEquals(expected, bound(definition)));
+                    () -> assertEquals(expected, declared(definition), "the declared list keeps its elements"),
+                    () -> assertEquals(expected, bound(definition), "the bound list keeps its elements"));
         }
 
         @Test
@@ -834,8 +866,8 @@ class WorkflowParserTest {
 
             assertAll(
                     () -> assertTrue(printed.contains("declare wait_after = []"), printed),
-                    () -> assertEquals(EMPTY, declared(reread)),
-                    () -> assertEquals(EMPTY, bound(reread)));
+                    () -> assertEquals(EMPTY, declared(reread), "the reread declaration is the empty list"),
+                    () -> assertEquals(EMPTY, bound(reread), "the reread binding is the empty list"));
         }
 
         @Test
@@ -844,8 +876,8 @@ class WorkflowParserTest {
             var definition = parse(withList("[]").replace("\n", "\r\n"));
 
             assertAll(
-                    () -> assertEquals(EMPTY, declared(definition)),
-                    () -> assertEquals(EMPTY, bound(definition)));
+                    () -> assertEquals(EMPTY, declared(definition), "the CRLF declaration is the empty list"),
+                    () -> assertEquals(EMPTY, bound(definition), "the CRLF binding is the empty list"));
         }
     }
 
@@ -863,8 +895,10 @@ class WorkflowParserTest {
             var links = (StateBehavior.InteractiveLinks) startBody(source);
 
             assertAll(
-                    () -> assertEquals(relation, links.links().getFirst().rel()),
-                    () -> assertEquals(relation.defaultForm(), links.links().getFirst().form()));
+                    () -> assertEquals(relation, links.links().getFirst().rel(),
+                            "the link relation is read from its keyword"),
+                    () -> assertEquals(relation.defaultForm(), links.links().getFirst().form(),
+                            "a link without a form takes the relation default"));
         }
 
         @ParameterizedTest(name = "question {0}")
@@ -875,7 +909,7 @@ class WorkflowParserTest {
 
             var question = (StateBehavior.QuestionWait) startBody(source);
 
-            assertEquals(questionClass, question.questionClass());
+            assertEquals(questionClass, question.questionClass(), "the question class is read from its keyword");
         }
 
         @ParameterizedTest(name = "decide {0}")
@@ -888,7 +922,7 @@ class WorkflowParserTest {
 
             assertEquals(Map.of(kind,
                             new DecisionDeclaration.Ask(new SourceLocation(RESOURCE, FRONTMATTER_LINES + 3, 1))),
-                    parse(source).decisions());
+                    parse(source).decisions(), "the decision kind reads as an ask");
         }
 
         @Test
@@ -898,7 +932,10 @@ class WorkflowParserTest {
 
             var result = WorkflowParser.parse(PLAN_UNIT, source, UnitOrigin.PROJECT);
 
-            assertEquals(UnitOrigin.PROJECT, assertInstanceOf(ParseResult.Parsed.class, result).definition().origin());
+            assertEquals(UnitOrigin.PROJECT,
+                    assertInstanceOf(ParseResult.Parsed.class, result, "the result is a parsed unit")
+                            .definition().origin(),
+                    "the origin of the caller is carried through");
         }
 
         @Test
@@ -910,7 +947,9 @@ class WorkflowParserTest {
             var result = WorkflowParser.parse("inline.pmwf", source, UnitOrigin.PROJECT);
 
             assertEquals(Map.of("demo", 3),
-                    assertInstanceOf(ParseResult.Parsed.class, result).definition().derivedFrom());
+                    assertInstanceOf(ParseResult.Parsed.class, result, "the result is a parsed unit")
+                            .definition().derivedFrom(),
+                    "the project unit records its derived_from revision");
         }
 
         @Test
@@ -921,7 +960,10 @@ class WorkflowParserTest {
 
             var result = WorkflowParser.parse("inline.pmwf", source, UnitOrigin.PROJECT);
 
-            assertEquals(Map.of(), assertInstanceOf(ParseResult.Parsed.class, result).definition().derivedFrom());
+            assertEquals(Map.of(),
+                    assertInstanceOf(ParseResult.Parsed.class, result, "the result is a parsed unit")
+                            .definition().derivedFrom(),
+                    "a project unit without the clause derives nothing");
         }
 
         @Test
@@ -933,11 +975,14 @@ class WorkflowParserTest {
             var links = (StateBehavior.InteractiveLinks) startBody(source);
 
             assertAll(
-                    () -> assertEquals("retry", links.links().get(0).idPattern()),
+                    () -> assertEquals("retry", links.links().get(0).idPattern(),
+                            "a relation word reads as the link id pattern"),
                     () -> assertEquals(new LinkAction.ExecutePrimitive("plan.allocate-remediation-tasks"),
-                            links.links().get(0).action()),
-                    () -> assertEquals("plan.success", links.links().get(0).transitions().getFirst().targetStateId()),
-                    () -> assertEquals("state", links.links().get(1).idPattern()));
+                            links.links().get(0).action(), "the action reads the primitive it names"),
+                    () -> assertEquals("plan.success", links.links().get(0).transitions().getFirst().targetStateId(),
+                            "the transition reads its target state id"),
+                    () -> assertEquals("state", links.links().get(1).idPattern(),
+                            "a state word reads as the link id pattern"));
         }
 
         @Test
@@ -945,12 +990,13 @@ class WorkflowParserTest {
         void modelJobOrPrimitive() {
             var source = unitWithBody("plan", "job llm task role writer", "done -> demo.begin");
 
-            var job = assertInstanceOf(StateBehavior.ModelJob.class, startBody(source));
+            var job = assertInstanceOf(StateBehavior.ModelJob.class, startBody(source),
+                    "the job without a dot is a model job");
 
             assertAll(
-                    () -> assertEquals("task", job.entityKind()),
+                    () -> assertEquals("task", job.entityKind(), "the entity kind of the task is read"),
                     () -> assertEquals("writer", job.roleName(), "the role of the task state is read"),
-                    () -> assertEquals(List.of(), job.consultRoles()));
+                    () -> assertEquals(List.of(), job.consultRoles(), "a model job without consults has none"));
         }
 
         @Test
@@ -973,8 +1019,9 @@ class WorkflowParserTest {
             var auto = (StateBehavior.AutoStep) startBody(source);
 
             assertAll(
-                    () -> assertEquals("demo.run-fast", auto.primitiveId()),
-                    () -> assertEquals("demo.begin", auto.transitions().getFirst().targetStateId()));
+                    () -> assertEquals("demo.run-fast", auto.primitiveId(), "the primitive name keeps its hyphen"),
+                    () -> assertEquals("demo.begin", auto.transitions().getFirst().targetStateId(),
+                            "the compact arrow names its target state"));
         }
 
         @Test
@@ -982,10 +1029,13 @@ class WorkflowParserTest {
         void nullArguments() {
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> WorkflowParser.parse(null, "", UnitOrigin.DEFAULT)),
+                            () -> WorkflowParser.parse(null, "", UnitOrigin.DEFAULT),
+                            "a null resource name is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> WorkflowParser.parse("x.pmwf", null, UnitOrigin.DEFAULT)),
-                    () -> assertThrows(NullPointerException.class, () -> WorkflowParser.parse("x.pmwf", "", null)));
+                            () -> WorkflowParser.parse("x.pmwf", null, UnitOrigin.DEFAULT),
+                            "a null source text is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> WorkflowParser.parse("x.pmwf", "", null),
+                            "a null unit origin is refused"));
         }
     }
 

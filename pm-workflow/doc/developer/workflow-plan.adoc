@@ -502,7 +502,7 @@ files: `done`, `running`, `waiting_for_operator`, `failed` with its outcome, `pl
 reached a terminal state, and `not_in_this_plan` with the prune reason of a pruned call. Nothing else is durable, so a
 runtime that restarts derives the same states.
 
-link:../adr/workflow-plan/020-a-version-is-a-set-of-composed-files.adoc[ADR 020], link:../../../../pm-core/doc/adr/core-store/051-the-plan-history-in-core-store.adoc[ADR core-store 051].
+link:../adr/workflow-plan/020-a-version-is-a-set-of-composed-files.adoc[ADR 020], link:../../../pm-core/doc/adr/core-store/051-the-plan-history-in-core-store.adoc[ADR core-store 051].
 
 == Specification Tracing
 

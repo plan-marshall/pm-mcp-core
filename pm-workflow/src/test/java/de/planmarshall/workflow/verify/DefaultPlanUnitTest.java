@@ -110,15 +110,20 @@ class DefaultPlanUnitTest {
                                 .flatMap(state -> UnitGraph.allTransitions(state.behavior()).stream())
                                 .noneMatch(transition -> "phases.execute.land".equals(transition.targetStateId())),
                         "no other state of the plan enters the land call"),
-                () -> assertEquals("phase-5-execute", landCall.subWorkflowId()),
+                () -> assertEquals("phase-5-execute", landCall.subWorkflowId(),
+                        "the land call targets the execute phase"),
                 () -> assertEquals("land", landCall.entry(), "the land call enters the entry land"),
-                () -> assertEquals("land", landEntry.subWorkflowId()),
+                () -> assertEquals("land", landEntry.subWorkflowId(),
+                        "the land entry calls the land unit"),
                 () -> assertEquals("start", landEntry.entry(), "the land entry calls land at start"),
                 () -> assertEquals(List.of("done", "rework", "returned", "stepped_out"),
-                        landCall.transitions().stream().map(OutcomeTransition::outcomeName).toList()),
-                () -> assertEquals("phases.finalize", landCall.transitions().getFirst().targetStateId()),
+                        landCall.transitions().stream().map(OutcomeTransition::outcomeName).toList(),
+                        "the land call names its four outcomes"),
+                () -> assertEquals("phases.finalize", landCall.transitions().getFirst().targetStateId(),
+                        "a done land call returns to finalize"),
                 () -> assertEquals(List.of("done", "handed_back", "stepped_out"),
-                        landEntry.transitions().stream().map(OutcomeTransition::outcomeName).toList()));
+                        landEntry.transitions().stream().map(OutcomeTransition::outcomeName).toList(),
+                        "the land entry names its three outcomes"));
     }
 
     @Test
@@ -140,12 +145,15 @@ class DefaultPlanUnitTest {
                 () -> assertEquals("light", light.entry(), "the light route enters the entry light"),
                 () -> assertEquals("start", refine.entry(), "the refine call enters the entry start"),
                 () -> assertEquals(Phase.unitIds(), defaults().keySet().stream()
-                        .filter(id -> Phase.ofUnit(id).isPresent()).toList()),
+                                .filter(id -> Phase.ofUnit(id).isPresent()).toList(),
+                        "the default units hold every phase unit"),
                 () -> assertEquals(WorkflowStatus.PHASES, Set.of("phase-1-init", "phase-2-refine", "phase-3-outline", "phase-4-plan",
-                        "phase-5-execute", "phase-6-finalize", "completed", "aborted", "epic", "workspace",
-                        "machine")),
-                () -> assertTrue(WorkflowStatus.PHASES.containsAll(Phase.unitIds())),
-                () -> assertTrue(Phase.ofUnit("plan").isEmpty()));
+                                "phase-5-execute", "phase-6-finalize", "completed", "aborted", "epic", "workspace",
+                                "machine"),
+                        "the workflow status lists every phase unit"),
+                () -> assertTrue(WorkflowStatus.PHASES.containsAll(Phase.unitIds()),
+                        "the status holds every phase unit id"),
+                () -> assertTrue(Phase.ofUnit("plan").isEmpty(), "the plan unit is no phase unit"));
     }
 
     @ParameterizedTest(name = "lane {0}")
@@ -290,7 +298,8 @@ class DefaultPlanUnitTest {
         var refused = assertInstanceOf(
                 ParseResult.Refused.class,
                 WorkflowParser.parse("phase-clause.pmwf", source,
-                        UnitOrigin.DEFAULT));
+                        UnitOrigin.DEFAULT),
+                "the phase clause is refused at parse time");
 
         assertEquals(17, refused.diagnostic().line(), refused.diagnostic()::toString);
     }

@@ -132,7 +132,8 @@ class UnitInterfaceChecksTest {
 
         assertAll(
                 () -> assertEquals(List.of("CONFIG_KEY_BINDING", "FACT_KIND_BINDING"),
-                        found.stream().map(violation -> violation.rule().name()).toList()),
+                        found.stream().map(violation -> violation.rule().name()).toList(),
+                        "the empty registries refuse both declared reads"),
                 () -> assertTrue(found.getFirst().message().contains("not a key of the closed configuration"),
                         found.getFirst()::message),
                 () -> assertTrue(found.get(1).message().contains("not a known fact kind"), found.get(1)::message));

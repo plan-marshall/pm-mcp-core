@@ -148,8 +148,10 @@ class HeaderSchemaCheckTest {
         @DisplayName("a header that satisfies every constraint yields no violation")
         void noViolation() {
             assertAll(
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(VALID)),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(valid())));
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(VALID),
+                            "the valid text breaks no constraint"),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(valid()),
+                            "no violation on the parsed header"));
         }
 
         @ParameterizedTest(name = "{0} absent")
@@ -158,7 +160,8 @@ class HeaderSchemaCheckTest {
                 "/policy_calls/0/args/actions/file"})
         @DisplayName("an optional member may be absent")
         void optionalAbsent(String pointer) {
-            assertEquals(List.of(), HeaderSchemaCheck.check(edited(pointer, Optional.empty())));
+            assertEquals(List.of(), HeaderSchemaCheck.check(edited(pointer, Optional.empty())),
+                    "an absent optional member is accepted");
         }
 
         @ParameterizedTest(name = "{0} null")
@@ -166,13 +169,15 @@ class HeaderSchemaCheckTest {
                 "/inputs/templates/0/file", "/policy_calls/0/args/fix_budget/waiver_id"})
         @DisplayName("a member whose type admits null may be null")
         void nullable(String pointer) {
-            assertEquals(List.of(), HeaderSchemaCheck.check(edited(pointer, Optional.of(json("null")))));
+            assertEquals(List.of(), HeaderSchemaCheck.check(edited(pointer, Optional.of(json("null")))),
+                    "a nullable member may be null");
         }
 
         @Test
         @DisplayName("an integer may be written with a zero fraction, as JSON Schema counts it an integer")
         void integralFraction() {
-            assertEquals(List.of(), HeaderSchemaCheck.check(edited("/format_version", Optional.of(json("1.0")))));
+            assertEquals(List.of(), HeaderSchemaCheck.check(edited("/format_version", Optional.of(json("1.0")))),
+                    "an integral value with a zero fraction is accepted");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -181,7 +186,8 @@ class HeaderSchemaCheckTest {
         @DisplayName("a composed_at at the edge of the date and of the time with its offset is accepted")
         void dateTimeEdges(String composedAt) {
             assertEquals(List.of(), HeaderSchemaCheck.check(edited("/composed_at",
-                    Optional.of(json("\"" + composedAt + "\"")))));
+                            Optional.of(json("\"" + composedAt + "\"")))),
+                    "a composed_at at its edge is accepted");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -190,7 +196,8 @@ class HeaderSchemaCheckTest {
         @DisplayName("a policy call may name each of the six remediation policy units")
         void sixPolicyUnits(String unit) {
             assertEquals(List.of(), HeaderSchemaCheck.check(edited("/policy_calls/0/unit",
-                    Optional.of(json("\"" + unit + "\"")))));
+                            Optional.of(json("\"" + unit + "\"")))),
+                    "each remediation policy unit is accepted");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -198,7 +205,8 @@ class HeaderSchemaCheckTest {
         @DisplayName("a pruned element may carry each prune reason the specification added")
         void newPruneReasons(String reason) {
             assertEquals(List.of(), HeaderSchemaCheck.check(edited("/pruned/0/reason",
-                    Optional.of(json("\"" + reason + "\"")))));
+                            Optional.of(json("\"" + reason + "\"")))),
+                    "each added prune reason is accepted");
         }
 
         @Test
@@ -209,14 +217,15 @@ class HeaderSchemaCheckTest {
             var withCall = edit(edited("/pruned/0", Optional.of(call)), List.of("event"),
                     Optional.of(json("\"override\"")));
 
-            assertEquals(List.of(), HeaderSchemaCheck.check(withCall));
+            assertEquals(List.of(), HeaderSchemaCheck.check(withCall), "a pruned call and the override are accepted");
         }
 
         @Test
         @DisplayName("an argument value may be any JSON value")
         void anyArgumentValue() {
             assertEquals(List.of(), HeaderSchemaCheck.check(edited("/policy_calls/0/args/fix_budget/value",
-                    Optional.of(json("{\"x\": [true, 1.5]}")))));
+                            Optional.of(json("{\"x\": [true, 1.5]}")))),
+                    "any JSON value is accepted as an argument");
         }
     }
 
@@ -229,7 +238,8 @@ class HeaderSchemaCheckTest {
         @DisplayName("a missing required member is reported at its pointer")
         void missing(String pointer) {
             assertEquals(List.of(new HeaderViolation(pointer, HeaderSchemaCheck.MISSING)),
-                    HeaderSchemaCheck.check(edited(pointer, Optional.empty())));
+                    HeaderSchemaCheck.check(edited(pointer, Optional.empty())),
+                    "a missing required member is reported at its pointer");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -239,7 +249,8 @@ class HeaderSchemaCheckTest {
             var pointer = objectPointer + "/extra";
 
             assertEquals(List.of(new HeaderViolation(pointer, HeaderSchemaCheck.NOT_ALLOWED)),
-                    HeaderSchemaCheck.check(edited(pointer, Optional.of(json("true")))));
+                    HeaderSchemaCheck.check(edited(pointer, Optional.of(json("true")))),
+                    "an undeclared member is reported at its level");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -255,12 +266,14 @@ class HeaderSchemaCheckTest {
         void wrongTypeStopsDescent() {
             assertAll(
                     () -> assertEquals(List.of(new HeaderViolation("/inputs", HeaderSchemaCheck.NOT_OBJECT)),
-                            HeaderSchemaCheck.check(edited("/inputs", Optional.of(json("\"x\""))))),
+                            HeaderSchemaCheck.check(edited("/inputs", Optional.of(json("\"x\"")))),
+                            "a non-object inputs member is one violation"),
                     () -> assertEquals(List.of(new HeaderViolation("/inputs/templates/0",
                                     HeaderSchemaCheck.NOT_OBJECT)),
-                            HeaderSchemaCheck.check(edited("/inputs/templates/0", Optional.of(json("\"x\""))))),
+                            HeaderSchemaCheck.check(edited("/inputs/templates/0", Optional.of(json("\"x\"")))),
+                            "a non-object template is reported once"),
                     () -> assertEquals(List.of(new HeaderViolation("", HeaderSchemaCheck.NOT_OBJECT)),
-                            HeaderSchemaCheck.check("[]")));
+                            HeaderSchemaCheck.check("[]"), "a top-level array is one violation"));
         }
 
         @Test
@@ -270,7 +283,7 @@ class HeaderSchemaCheckTest {
             withMember.put("a/b~c", json("1"));
 
             assertEquals(List.of(new HeaderViolation("/a~1b~0c", HeaderSchemaCheck.NOT_ALLOWED)),
-                    HeaderSchemaCheck.check(new ObjectNode(withMember)));
+                    HeaderSchemaCheck.check(new ObjectNode(withMember)), "a member name is escaped in its pointer");
         }
 
         @Test
@@ -280,7 +293,7 @@ class HeaderSchemaCheckTest {
 
             assertEquals(List.of(new HeaderViolation("/version", HeaderSchemaCheck.BELOW_ONE),
                             new HeaderViolation("/lane", HeaderSchemaCheck.NOT_STRING_OR_NULL)),
-                    HeaderSchemaCheck.check(twice));
+                    HeaderSchemaCheck.check(twice), "both broken constraints are reported");
         }
 
         @Test
@@ -306,7 +319,8 @@ class HeaderSchemaCheckTest {
         @DisplayName("a member named twice is one violation at that member, never an exception")
         void duplicateMember() {
             assertEquals(List.of(new HeaderViolation("/inputs/config_hash", "member named twice")),
-                    HeaderSchemaCheck.check("{\"inputs\": {\"config_hash\": \"a\", \"config_hash\": \"b\"}}"));
+                    HeaderSchemaCheck.check("{\"inputs\": {\"config_hash\": \"a\", \"config_hash\": \"b\"}}"),
+                    "a member named twice is one violation");
         }
 
         @Test
@@ -316,11 +330,12 @@ class HeaderSchemaCheckTest {
 
             assertAll(
                     () -> assertEquals(List.of(new HeaderViolation("", "the header is empty")),
-                            HeaderSchemaCheck.check("")),
+                            HeaderSchemaCheck.check(""), "an empty text is one violation of the whole"),
                     () -> assertEquals(List.of(new HeaderViolation("", "content after the header value")),
-                            HeaderSchemaCheck.check("{} []")),
-                    () -> assertEquals(1, invalid.size()),
-                    () -> assertEquals("", invalid.getFirst().pointer()),
+                            HeaderSchemaCheck.check("{} []"), "content after the value is one violation"),
+                    () -> assertEquals(1, invalid.size(), "an invalid text yields exactly one violation"),
+                    () -> assertEquals("", invalid.getFirst().pointer(),
+                            "the violation names the whole header"),
                     () -> assertTrue(invalid.getFirst().reason().startsWith("the header is not valid JSON"),
                             invalid.getFirst().reason()));
         }
@@ -337,10 +352,11 @@ class HeaderSchemaCheckTest {
         void hugeFormatVersionReported() {
             var json = VALID.replace("\"format_version\": 1", "\"format_version\": " + HUGE);
 
-            var violations = assertDoesNotThrow(() -> HeaderSchemaCheck.check(json));
+            var violations = assertDoesNotThrow(() -> HeaderSchemaCheck.check(json),
+                    "a huge format_version is no exception");
 
             assertEquals(List.of(new HeaderViolation("/format_version", HeaderSchemaCheck.NOT_FORMAT_VERSION)),
-                    violations);
+                    violations, "the format_version is reported as not one");
         }
 
         @Test
@@ -349,9 +365,10 @@ class HeaderSchemaCheckTest {
         void hugeVersionChecked() {
             var json = VALID.replace("\"version\": 3", "\"version\": " + HUGE);
 
-            var violations = assertDoesNotThrow(() -> HeaderSchemaCheck.check(json));
+            var violations = assertDoesNotThrow(() -> HeaderSchemaCheck.check(json),
+                    "a huge version yields no violation");
 
-            assertEquals(List.of(), violations);
+            assertEquals(List.of(), violations, "a huge version breaks no constraint");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -360,7 +377,8 @@ class HeaderSchemaCheckTest {
         void integralVersionAccepted(String version) {
             var json = VALID.replace("\"version\": 3", "\"version\": " + version);
 
-            assertEquals(List.of(), HeaderSchemaCheck.check(json));
+            assertEquals(List.of(), HeaderSchemaCheck.check(json),
+                    "an integral version still satisfies the schema");
         }
     }
 

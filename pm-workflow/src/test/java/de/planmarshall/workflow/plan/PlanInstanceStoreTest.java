@@ -184,8 +184,10 @@ class PlanInstanceStoreTest {
             recordComposed(instance, texts());
 
             assertAll(
-                    () -> assertEquals(Optional.of(instance.text()), store.readVersion(1)),
-                    () -> assertEquals(Optional.empty(), store.readVersion(2)),
+                    () -> assertEquals(Optional.of(instance.text()), store.readVersion(1),
+                            "the composed version is read back as text"),
+                    () -> assertEquals(Optional.empty(), store.readVersion(2),
+                            "no second version is written"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             WorkflowLogMessages.INFO.PLAN_INSTANCE_VERSION_RECORDED.resolveIdentifierString()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
@@ -205,9 +207,10 @@ class PlanInstanceStoreTest {
                 var compositionRecord = CompositionRecord.composed(instance, null, COMPOSED_AT);
                 var texts = texts();
                 assertThrows(IllegalStateException.class, () -> store.recordComposed(transaction, instance, texts,
-                        compositionRecord));
+                        compositionRecord), "a second write of the same version is refused");
             }
-            assertEquals(Optional.of(instance.text()), store.readVersion(1));
+            assertEquals(Optional.of(instance.text()), store.readVersion(1),
+                    "the recorded version keeps its text");
         }
 
         /**
@@ -224,8 +227,9 @@ class PlanInstanceStoreTest {
             var second = assertInstanceOf(CompositionResult.Composed.class, otherResult, otherResult::toString)
                     .instance();
             assertAll("the two compositions are version 1 with different texts",
-                    () -> assertEquals(1, second.version()),
-                    () -> assertNotEquals(first.text(), second.text()));
+                    () -> assertEquals(1, second.version(), "both compositions are version 1"),
+                    () -> assertNotEquals(first.text(), second.text(),
+                            "the two compositions have different texts"));
             var texts = texts();
 
             try (var lock = new HoldingEverything()) {
@@ -242,7 +246,8 @@ class PlanInstanceStoreTest {
 
                 firstTransaction.commit();
 
-                assertThrows(IllegalStateException.class, secondTransaction::commit);
+                assertThrows(IllegalStateException.class, secondTransaction::commit,
+                        "the commit of the second transaction is refused");
             }
             assertAll(
                     () -> assertEquals(Optional.of(first.text()), store.readVersion(1),
@@ -264,9 +269,11 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, instance, texts, refusedRecord)),
+                                () -> store.recordComposed(transaction, instance, texts, refusedRecord),
+                                "a refused record cannot record a version"),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordAttempt(transaction, composedRecord)));
+                                () -> store.recordAttempt(transaction, composedRecord),
+                                "a composed attempt cannot go without its text"));
             }
         }
     }
@@ -291,8 +298,10 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, instance, texts, compositionRecord)),
-                        () -> assertFalse(Files.exists(scope.resolve("instance"))));
+                                () -> store.recordComposed(transaction, instance, texts, compositionRecord),
+                                "a record of another version is refused"),
+                        () -> assertFalse(Files.exists(scope.resolve("instance")),
+                                "the refused record writes no instance file"));
             }
         }
 
@@ -340,7 +349,7 @@ class PlanInstanceStoreTest {
 
             var lines = logLines();
             assertAll(
-                    () -> assertEquals(3, lines.size()),
+                    () -> assertEquals(3, lines.size(), "every attempt appends exactly one log line"),
                     () -> assertTrue(lines.get(0).contains("\"result\":\"composed\",\"trigger\":\"server\","
                             + "\"version\":1"), lines.get(0)),
                     () -> assertTrue(lines.get(1).contains("\"refusal\":\"position_not_contained\""), lines.get(1)),
@@ -356,9 +365,12 @@ class PlanInstanceStoreTest {
                     CompositionCause.refused(CompositionResult.Refusal.INVARIANT_FAILED))));
 
             assertAll(
-                    () -> assertEquals(1, logLines().size()),
-                    () -> assertEquals(Optional.empty(), store.readVersion(1)),
-                    () -> assertFalse(Files.exists(scope.resolve("mcp/units"))),
+                    () -> assertEquals(1, logLines().size(),
+                            "a refused composition appends exactly one line"),
+                    () -> assertEquals(Optional.empty(), store.readVersion(1),
+                            "a refused composition writes no version"),
+                    () -> assertFalse(Files.exists(scope.resolve("mcp/units")),
+                            "no sub-unit file is written either"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WorkflowLogMessages.WARN.PLAN_INSTANCE_COMPOSITION_REFUSED.resolveIdentifierString()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -374,12 +386,18 @@ class PlanInstanceStoreTest {
             var digests = CompositionRecord.composed(instance, null, COMPOSED_AT).inputDigests();
 
             assertAll(
-                    () -> assertEquals(inputs.configHash(), digests.get("config_hash")),
-                    () -> assertEquals(inputs.compositionRulesDigest(), digests.get("composition_rules")),
-                    () -> assertEquals(inputs.planFactsDigest(), digests.get("plan_facts")),
-                    () -> assertEquals(inputs.templates().getFirst().digest(), digests.get("template:plan")),
-                    () -> assertTrue(digests.containsKey("sub_unit:git.commit_and_push")),
-                    () -> assertFalse(digests.containsKey("providers")));
+                    () -> assertEquals(inputs.configHash(), digests.get("config_hash"),
+                            "the config hash is named as an input"),
+                    () -> assertEquals(inputs.compositionRulesDigest(), digests.get("composition_rules"),
+                            "the composition rules digest is named"),
+                    () -> assertEquals(inputs.planFactsDigest(), digests.get("plan_facts"),
+                            "the plan facts digest is named as an input"),
+                    () -> assertEquals(inputs.templates().getFirst().digest(), digests.get("template:plan"),
+                            "the digest of the plan template is named"),
+                    () -> assertTrue(digests.containsKey("sub_unit:git.commit_and_push"),
+                            "a bound sub-unit digest is named as an input"),
+                    () -> assertFalse(digests.containsKey("providers"),
+                            "an absent provider digest is not named"));
         }
 
         @Test
@@ -388,11 +406,13 @@ class PlanInstanceStoreTest {
         void versionFitsResult() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, null,
-                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), null, COMPOSED_AT)),
+                                    CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, null,
+                                    CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), null, COMPOSED_AT),
+                            "a composed attempt needs its version"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.PLAN, CompositionRecord.Result.KEPT, 2,
-                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), null, COMPOSED_AT)));
+                                    CompositionEvent.PLAN, CompositionRecord.Result.KEPT, 2,
+                                    CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), null, COMPOSED_AT),
+                            "an attempt that is not composed has no version"));
         }
 
         @Test
@@ -443,14 +463,17 @@ class PlanInstanceStoreTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, 2,
-                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), null, COMPOSED_AT)),
+                                    CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, 2,
+                                    CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), null, COMPOSED_AT),
+                            "a composed version after the first needs a summary"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.START, CompositionRecord.Result.COMPOSED, 1,
-                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), summary, COMPOSED_AT)),
+                                    CompositionEvent.START, CompositionRecord.Result.COMPOSED, 1,
+                                    CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), summary, COMPOSED_AT),
+                            "version 1 carries no diff summary"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.PLAN, CompositionRecord.Result.REFUSED, null,
-                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), summary, COMPOSED_AT)));
+                                    CompositionEvent.PLAN, CompositionRecord.Result.REFUSED, null,
+                                    CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), summary, COMPOSED_AT),
+                            "a refused attempt carries no diff summary"));
         }
 
         @Test
@@ -466,7 +489,7 @@ class PlanInstanceStoreTest {
 
             var lines = logLines();
             assertAll(
-                    () -> assertEquals(3, lines.size()),
+                    () -> assertEquals(3, lines.size(), "the log has one line per recorded attempt"),
                     () -> assertTrue(lines.get(0).contains("\"diff_summary\":null"), lines.get(0)),
                     () -> assertTrue(lines.get(1).contains("\"diff_summary\":{\"ceilings_changed\":[{\"argument\":"
                                     + "\"fix_budget\",\"call_site\":\"finalize.remediate\",\"previous\":3,\"value\":4}],"
@@ -494,8 +517,10 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, plain, texts, mismatched)),
-                        () -> assertEquals(Optional.empty(), store.readVersion(2)));
+                                () -> store.recordComposed(transaction, plain, texts, mismatched),
+                                "a summary against another version is refused"),
+                        () -> assertEquals(Optional.empty(), store.readVersion(2),
+                                "the refused version 2 is not readable"));
             }
         }
 
@@ -515,13 +540,16 @@ class PlanInstanceStoreTest {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 var refused = assertThrows(IllegalArgumentException.class,
-                        () -> store.recordComposed(transaction, second, texts, compositionRecord));
+                        () -> store.recordComposed(transaction, second, texts, compositionRecord),
+                        "version 2 is refused while version 1 is unrecorded");
                 assertAll(
                         () -> assertTrue(refused.getMessage().contains("version 1"), refused.getMessage()),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> CompositionRecord.composed(second, noPrevious, COMPOSED_AT)),
+                                () -> CompositionRecord.composed(second, noPrevious, COMPOSED_AT),
+                                "a second version without a previous is refused"),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> CompositionRecord.composed(first, previous, COMPOSED_AT)));
+                                () -> CompositionRecord.composed(first, previous, COMPOSED_AT),
+                                "a record whose previous is not before it is refused"));
             }
         }
 
@@ -542,13 +570,16 @@ class PlanInstanceStoreTest {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 var refused = assertThrows(IllegalStateException.class,
-                        () -> store.recordComposed(transaction, second, texts, compositionRecord));
+                        () -> store.recordComposed(transaction, second, texts, compositionRecord),
+                        "an unreadable version 1 header refuses version 2");
                 assertAll(
                         () -> assertEquals(Optional.of(corrupted), store.readVersion(1),
                                 "the refused record left the recorded text as it was"),
                         () -> assertTrue(refused.getMessage().contains("version 1"), refused.getMessage()),
-                        () -> assertInstanceOf(IllegalArgumentException.class, refused.getCause()),
-                        () -> assertEquals(Optional.empty(), store.readVersion(2)),
+                        () -> assertInstanceOf(IllegalArgumentException.class, refused.getCause(),
+                                "the refusal carries a schema cause"),
+                        () -> assertEquals(Optional.empty(), store.readVersion(2),
+                                "the refused version 2 is not recorded"),
                         () -> assertEquals(1, logLines().size(), "no log line was written"));
             }
         }
@@ -570,14 +601,16 @@ class PlanInstanceStoreTest {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 var refused = assertThrows(IllegalStateException.class,
-                        () -> store.recordComposed(transaction, second, texts, compositionRecord));
+                        () -> store.recordComposed(transaction, second, texts, compositionRecord),
+                        "a version 1 the parser refuses blocks version 2");
                 assertAll(
                         () -> assertEquals(Optional.of(corrupted), store.readVersion(1),
                                 "the refused record left the recorded text as it was"),
                         () -> assertTrue(refused.getMessage().contains("refused by the parser"), refused.getMessage()),
                         () -> assertTrue(refused.getMessage().contains("expected a scope"), refused.getMessage()),
                         () -> assertNull(refused.getCause(), "a parser refusal carries no cause"),
-                        () -> assertEquals(Optional.empty(), store.readVersion(2)),
+                        () -> assertEquals(Optional.empty(), store.readVersion(2),
+                                "the parser-refused write records no version 2"),
                         () -> assertEquals(1, logLines().size(), "no log line was written"));
             }
         }
@@ -601,13 +634,15 @@ class PlanInstanceStoreTest {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 var refused = assertThrows(IllegalStateException.class,
-                        () -> store.recordComposed(transaction, second, texts, compositionRecord));
+                        () -> store.recordComposed(transaction, second, texts, compositionRecord),
+                        "a version 1 without a header refuses version 2");
                 assertAll(
                         () -> assertEquals(Optional.of(headerless), store.readVersion(1),
                                 "the refused record left the recorded text as it was"),
                         () -> assertTrue(refused.getMessage().contains("no readable header"), refused.getMessage()),
                         () -> assertNull(refused.getCause(), "a headerless version carries no cause"),
-                        () -> assertEquals(Optional.empty(), store.readVersion(2)),
+                        () -> assertEquals(Optional.empty(), store.readVersion(2),
+                                "no version 2 is recorded after the refusal"),
                         () -> assertEquals(1, logLines().size(), "no log line was written"));
             }
         }
@@ -630,7 +665,8 @@ class PlanInstanceStoreTest {
                 var digest = text.reference().digest();
                 if (named.contains(text.reference())) {
                     assertAll(
-                            () -> assertEquals(Optional.of(text.text()), store.readSubUnit(digest)),
+                            () -> assertEquals(Optional.of(text.text()), store.readSubUnit(digest),
+                                    "a bound sub-unit text is read back by digest"),
                             () -> assertTrue(sidecar.contains(PlanInstanceStore.subUnitPath(digest)), sidecar));
                 } else {
                     assertEquals(Optional.empty(), store.readSubUnit(digest), text.reference()::unit);
@@ -649,10 +685,13 @@ class PlanInstanceStoreTest {
 
             var sidecar = Files.readString(scope.sidecarFile(), StandardCharsets.UTF_8);
             assertAll(
-                    () -> assertEquals(DeclarationBounds.ADJUDICATION_UNIT, adjudication.unit()),
+                    () -> assertEquals(DeclarationBounds.ADJUDICATION_UNIT, adjudication.unit(),
+                            "the last sub-unit is the adjudication unit"),
                     () -> assertEquals(Optional.of(InvariantFixtures.read(InvariantFixtures.ADJUDICATION_FILE)),
-                            store.readSubUnit(adjudication.digest())),
-                    () -> assertTrue(Files.isRegularFile(subUnitFile(adjudication.digest()))),
+                            store.readSubUnit(adjudication.digest()),
+                            "the adjudication text is stored by its digest"),
+                    () -> assertTrue(Files.isRegularFile(subUnitFile(adjudication.digest())),
+                            "the adjudication unit has its own file"),
                     () -> assertTrue(sidecar.contains(PlanInstanceStore.subUnitPath(adjudication.digest())),
                             sidecar));
         }
@@ -670,11 +709,13 @@ class PlanInstanceStoreTest {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 var refused = assertThrows(IllegalArgumentException.class,
-                        () -> store.recordComposed(transaction, instance, texts, compositionRecord));
+                        () -> store.recordComposed(transaction, instance, texts, compositionRecord),
+                        "a version naming a unit without text is refused");
                 assertAll(
                         () -> assertTrue(refused.getMessage().contains(DeclarationBounds.ADJUDICATION_UNIT),
                                 refused.getMessage()),
-                        () -> assertFalse(Files.exists(scope.resolve("instance"))));
+                        () -> assertFalse(Files.exists(scope.resolve("instance")),
+                                "nothing is written before the refusal"));
             }
         }
 
@@ -701,8 +742,10 @@ class PlanInstanceStoreTest {
             recordComposed(first, nextVersion(first, PlanFixtures.subUnits()), texts());
 
             assertAll(
-                    () -> assertEquals(untouched, Files.getLastModifiedTime(subUnitFile(digest))),
-                    () -> assertTrue(store.readVersion(2).isPresent()));
+                    () -> assertEquals(untouched, Files.getLastModifiedTime(subUnitFile(digest)),
+                            "a known digest leaves its file untouched"),
+                    () -> assertTrue(store.readVersion(2).isPresent(),
+                            "the later version is still written"));
         }
 
         @Test
@@ -723,8 +766,10 @@ class PlanInstanceStoreTest {
             recordComposed(first, nextVersion(first, subUnits), texts);
 
             assertAll(
-                    () -> assertEquals(Optional.of(changedText), store.readSubUnit(changedReference.digest())),
-                    () -> assertTrue(store.readSubUnit(git.reference().digest()).isPresent()));
+                    () -> assertEquals(Optional.of(changedText), store.readSubUnit(changedReference.digest()),
+                            "a new digest adds its own sub-unit file"),
+                    () -> assertTrue(store.readSubUnit(git.reference().digest()).isPresent(),
+                            "the old sub-unit file stays in place"));
         }
 
         @Test
@@ -744,11 +789,15 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, instance, wrong, compositionRecord)),
+                                () -> store.recordComposed(transaction, instance, wrong, compositionRecord),
+                                "a text that does not match its digest is refused"),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, instance, missing, compositionRecord)),
-                        () -> assertFalse(Files.exists(scope.resolve("instance"))),
-                        () -> assertThrows(IllegalStateException.class, transaction::commit));
+                                () -> store.recordComposed(transaction, instance, missing, compositionRecord),
+                                "a version missing one of its texts is refused"),
+                        () -> assertFalse(Files.exists(scope.resolve("instance")),
+                                "nothing is written for a refused text"),
+                        () -> assertThrows(IllegalStateException.class, transaction::commit,
+                                "the commit of a refused transaction fails"));
             }
         }
     }
@@ -785,15 +834,18 @@ class PlanInstanceStoreTest {
             assertAll(
                     () -> assertTrue(instance.units().size() > 2, instance.units()::toString),
                     () -> instance.units().forEach(unit -> assertEquals(Optional.of(unit.text()),
-                            store.readUnit(instance.version(), unit.unit()))),
+                            store.readUnit(instance.version(), unit.unit()),
+                            "every composed unit is read back as text")),
                     () -> instance.units().forEach(unit -> assertEquals(Optional.of(unit.text()),
-                            read(instanceFile(unit)))),
-                    () -> assertEquals(Optional.of(instance.text()), store.readVersion(instance.version())),
+                            read(instanceFile(unit)), "every composed unit has its own file")),
+                    () -> assertEquals(Optional.of(instance.text()), store.readVersion(instance.version()),
+                            "the version text is read back as written"),
                     () -> assertTrue(instance.units().stream().allMatch(unit -> Files.exists(
-                            instanceFile(unit)))));
+                            instanceFile(unit))), "every composed unit file is on disk"));
             var sidecar = DigestSidecar.load(scope.sidecarFile());
             assertAll(
-                    () -> assertTrue(sidecar.digest(PlanInstanceStore.versionPath(instance.version())).isPresent()),
+                    () -> assertTrue(sidecar.digest(PlanInstanceStore.versionPath(instance.version())).isPresent(),
+                            "the version is covered by the digest sidecar"),
                     () -> instance.units().forEach(unit -> assertTrue(sidecar.digest(unit.file()).isPresent(),
                             unit.file())));
         }
@@ -820,9 +872,12 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, withoutUnits, texts, compositionRecord)),
-                        () -> assertFalse(Files.exists(scope.resolve("instance"))),
-                        () -> assertThrows(IllegalStateException.class, transaction::commit));
+                                () -> store.recordComposed(transaction, withoutUnits, texts, compositionRecord),
+                                "a header naming an unwritten file is refused"),
+                        () -> assertFalse(Files.exists(scope.resolve("instance")),
+                                "no instance file is written before the refusal"),
+                        () -> assertThrows(IllegalStateException.class, transaction::commit,
+                                "the commit after the refusal fails"));
             }
         }
 
@@ -843,9 +898,12 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, mixed, texts, compositionRecord)),
-                        () -> assertFalse(Files.exists(scope.resolve("instance"))),
-                        () -> assertThrows(IllegalStateException.class, transaction::commit));
+                                () -> store.recordComposed(transaction, mixed, texts, compositionRecord),
+                                "a file the header does not name is refused"),
+                        () -> assertFalse(Files.exists(scope.resolve("instance")),
+                                "no instance file is written before the refusal"),
+                        () -> assertThrows(IllegalStateException.class, transaction::commit,
+                                "the commit after the refusal fails"));
             }
         }
 
@@ -863,6 +921,7 @@ class PlanInstanceStoreTest {
     void planScopeOnly() {
         var epic = JournalScope.epic(base, PROJECT, "epic-fixture");
 
-        assertThrows(IllegalArgumentException.class, () -> new PlanInstanceStore(epic));
+        assertThrows(IllegalArgumentException.class, () -> new PlanInstanceStore(epic),
+                "the store lives only in a plan scope");
     }
 }

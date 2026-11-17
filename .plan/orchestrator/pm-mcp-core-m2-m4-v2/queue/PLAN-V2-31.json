@@ -2,10 +2,10 @@
   "id": "PLAN-V2-31",
   "slug": "supervisor-calls-and-pass",
   "workstream": "WS-06",
-  "status": "staged",
+  "status": "running",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#472",
+  "landing": "landings/PLAN-V2-31.md",
   "seq": 31
 }

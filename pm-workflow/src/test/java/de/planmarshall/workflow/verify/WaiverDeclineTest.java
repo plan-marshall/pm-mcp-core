@@ -54,20 +54,24 @@ class WaiverDeclineTest {
         var unit = assertInstanceOf(ParseResult.Parsed.class, parsed, parsed::toString).definition();
         var wait = unit.states().get("remediation-qgate.waiver-wait");
 
-        var job = assertInstanceOf(StateBehavior.JobStep.class, wait.behavior());
+        var job = assertInstanceOf(StateBehavior.JobStep.class, wait.behavior(),
+                "the waiver wait is a job step");
         var declined = job.transitions().stream().filter(transition -> "declined".equals(transition.outcomeName()))
                 .toList();
         assertAll(
                 () -> assertTrue(job.composite(), "the waiver wait is a composite job"),
-                () -> assertEquals(1, declined.size()),
-                () -> assertEquals("remediation-qgate.exhausted", declined.getFirst().targetStateId()),
+                () -> assertEquals(1, declined.size(), "the waiver wait has one declined outcome"),
+                () -> assertEquals("remediation-qgate.exhausted", declined.getFirst().targetStateId(),
+                        "declined leaves on the exhausted transition"),
                 () -> assertTrue(job.transitions().stream()
                                 .noneMatch(transition -> "expired".equals(transition.outcomeName())),
                         "no waiver request ends by time"),
-                () -> assertEquals("declined", WaiverRequestOutcome.DECLINED.wireName()),
+                () -> assertEquals("declined", WaiverRequestOutcome.DECLINED.wireName(),
+                        "the declined outcome is named declined"),
                 () -> assertEquals(List.of(WaiverRequestOutcome.WAIVED, WaiverRequestOutcome.RAISED,
                                 WaiverRequestOutcome.DECLINED, WaiverRequestOutcome.CANCELLED),
-                        List.of(WaiverRequestOutcome.values())));
+                        List.of(WaiverRequestOutcome.values()),
+                        "the outcome vocabulary is closed and ordered"));
     }
 
     @Test
@@ -102,9 +106,11 @@ class WaiverDeclineTest {
         var read = WorkflowStatusCodec.read(Path.of("status.json"), WorkflowStatusCodec.write(status));
 
         assertAll(
-                () -> assertEquals(1, read.waiverRequests().size()),
-                () -> assertEquals(WaiverRequestOutcome.DECLINED, read.waiverRequests().getFirst().outcome()),
+                () -> assertEquals(1, read.waiverRequests().size(), "the status keeps the one waiver request"),
+                () -> assertEquals(WaiverRequestOutcome.DECLINED, read.waiverRequests().getFirst().outcome(),
+                        "the request keeps its declined outcome"),
                 () -> assertEquals(answerReason,
-                        read.waiverRequests().getFirst().answered().reason()));
+                        read.waiverRequests().getFirst().answered().reason(),
+                        "the answer reason survives the round trip"));
     }
 }

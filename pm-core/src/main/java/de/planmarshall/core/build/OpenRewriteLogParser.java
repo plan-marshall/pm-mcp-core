@@ -18,6 +18,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 
+import de.planmarshall.core.queue.SecretRedactor;
+
 /**
  * The native parse of the OpenRewrite finding lines of a Maven build log, ported from
  * {@code pm-dev-java-cui:parse-rewrite-log} and its call site {@code build-maven/_maven_cmd_rewrite_log.py}.
@@ -114,7 +116,8 @@ public class OpenRewriteLogParser {
     private static Optional<RewriteLogResult> accept(String line, List<RewriteFinding> findings) {
         if (mayBeFinding(line)) {
             Matcher match = FINDING.matcher(line);
-            if (match.find() && !match.group(2).isBlank() && !match.group(5).isBlank()) {
+            if (match.find() && !match.group(2).isBlank() && !match.group(5).isBlank()
+                    && !SecretRedactor.redactText(match.group(2)).orElseThrow().isBlank()) {
                 return addFinding(line, match, findings);
             }
         }

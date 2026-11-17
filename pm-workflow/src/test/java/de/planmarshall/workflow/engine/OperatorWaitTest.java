@@ -73,17 +73,18 @@ class OperatorWaitTest {
         var engine = fixtures.engine(EngineFixtures.plan("execute.wait", STATES));
 
         var started = assertInstanceOf(EngineStep.Resting.class,
-                engine.start(JournalScopeType.PLAN, WAITING_PLAN));
+                engine.start(JournalScopeType.PLAN, WAITING_PLAN),
+                "the operator wait is entered as a rest");
         var status = started.status();
         var wait = engine.restingWait(status).orElseThrow();
         assertAll(
-                () -> assertEquals("execute.wait", wait.stateId()),
-                () -> assertEquals(AwaitedEvent.OPERATOR_ACT, wait.awaitedEvent()),
-                () -> assertTrue(status.activeJobBinding().isEmpty(), "no job is bound"),
-                () -> assertTrue(status.activeJobs().isEmpty(), "no job runs"),
-                () -> assertTrue(status.activeTasks().isEmpty(), "no task is open"),
+                () -> assertEquals("execute.wait", wait.stateId(), "the plan rests in its waiting state"),
+                () -> assertEquals(AwaitedEvent.OPERATOR_ACT, wait.awaitedEvent(), "the wait awaits an operator act"),
+                () -> assertTrue(status.activeJobBinding().isEmpty(), "the waiting status binds no job"),
+                () -> assertTrue(status.activeJobs().isEmpty(), "the waiting status runs no job"),
+                () -> assertTrue(status.activeTasks().isEmpty(), "the waiting status opens no task"),
                 () -> assertTrue(fixtures.taskRequests.getValues().isEmpty(), "the operator wait offers no task"),
-                () -> assertEquals(JournalScopeType.PLAN, status.scopeType()));
+                () -> assertEquals(JournalScopeType.PLAN, status.scopeType(), "the status is scoped to the plan"));
 
         var time = new EngineEvent.TimeElapsed(EngineFixtures.T0.plus(Duration.ofDays(30)));
         assertThrows(IllegalArgumentException.class, () -> engine.advance(status, time),
@@ -104,10 +105,11 @@ class OperatorWaitTest {
                 "a link without free parameters accepts none");
 
         var acted = assertInstanceOf(EngineStep.Resting.class,
-                engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "proceed")));
+                engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "proceed")),
+                "the operator's link moves the plan on");
         assertAll(
-                () -> assertEquals("execute.build", acted.stateId()),
-                () -> assertEquals(AwaitedEvent.JOB_SETTLED, acted.awaitedEvent()),
+                () -> assertEquals("execute.build", acted.stateId(), "the link enters the build state"),
+                () -> assertEquals(AwaitedEvent.JOB_SETTLED, acted.awaitedEvent(), "the build state awaits the job"),
                 () -> assertEquals(1, fixtures.jobRequests.getValues().size(),
                         "the link's transition started the job"));
     }
@@ -117,7 +119,8 @@ class OperatorWaitTest {
     void otherPlansRunOn() {
         var engine = fixtures.engine(EngineFixtures.plan("execute.wait", STATES));
         var waiting = assertInstanceOf(EngineStep.Resting.class,
-                engine.start(JournalScopeType.PLAN, WAITING_PLAN)).status();
+                engine.start(JournalScopeType.PLAN, WAITING_PLAN),
+                "the waiting plan starts into a rest").status();
         var running = fixtures.planStatus(EngineFixtures.EXECUTE, "execute.build").toBuilder()
                 .activeJob(new WorkflowStatus.ActiveJob("execute.build", "b-0000000000000001"))
                 .activeJobs(Map.of("test.build",
@@ -127,8 +130,11 @@ class OperatorWaitTest {
         var settled = engine.advance(running, new EngineEvent.JobSettled("b-0000000000000001", "succeeded"));
 
         assertAll(
-                () -> assertEquals("merged", assertInstanceOf(EngineStep.Ended.class, settled).outcomeId()),
-                () -> assertEquals(AwaitedEvent.OPERATOR_ACT, engine.restingWait(waiting).orElseThrow().awaitedEvent()),
+                () -> assertEquals("merged", assertInstanceOf(EngineStep.Ended.class, settled,
+                        "the settled job ends the plan").outcomeId(), "the other plan ends merged"),
+                () -> assertEquals(AwaitedEvent.OPERATOR_ACT,
+                        engine.restingWait(waiting).orElseThrow().awaitedEvent(),
+                        "the waiting plan still awaits its operator"),
                 () -> assertTrue(waiting.activeTasks().isEmpty(), "the waiting plan still holds nothing"));
     }
 
@@ -154,12 +160,13 @@ class OperatorWaitTest {
         var engine = new WorkflowEngine(unit, WorkflowCatalog.empty(),
                 fixtures.validator(), fixtures.registry(), binder, fixtures.ports());
         var status = assertInstanceOf(EngineStep.Resting.class,
-                engine.start(JournalScopeType.PLAN, WAITING_PLAN)).status();
+                engine.start(JournalScopeType.PLAN, WAITING_PLAN),
+                "the start of the waiting plan rests").status();
 
         engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "choose", Map.of("note", NOTE)));
 
-        assertEquals(List.of(Map.of("note", NOTE)), seen);
-        assertEquals(List.of(NOTE), fixtures.note.notes);
+        assertEquals(List.of(Map.of("note", NOTE)), seen, "the binder sees the link's parameters");
+        assertEquals(List.of(NOTE), fixtures.note.notes, "the note primitive receives the parameter");
     }
 
     private static Record bindParameters(Primitive<?, ?> primitive, Map<String, String> parameters) {

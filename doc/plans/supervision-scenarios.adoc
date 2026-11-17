@@ -24,8 +24,8 @@ module consumes this repository's test-scope harness is its own decision:
    link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#behavioural-conformance-harness[Workflow
    DSL § Behavioural Conformance Harness].
 . *D7, the comparison footprint* the harness reports its runs with: the same section, and
-   link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#comparison-footprint[Evaluation
-   Reference] for its definition.
+   link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#comparison-footprint[Workflow DSL
+   § Comparison Footprint] for its definition.
 
 == Trace
 

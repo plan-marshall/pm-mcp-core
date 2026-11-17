@@ -118,15 +118,17 @@ class WorkflowEngineTest {
         void shouldEndInSuccessTerminal() {
             var engine = fixtures.engine(plan("execute.first", CHAIN));
 
-            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "the chain ends in the success terminal");
 
             assertAll(
-                    () -> assertEquals("merged", ended.outcomeId()),
-                    () -> assertEquals(OutcomeClass.SUCCESS, ended.outcomeClass()),
-                    () -> assertEquals("completed", ended.status().state()),
-                    () -> assertEquals("completed", ended.status().phase()),
-                    () -> assertEquals(List.of(Optional.of(PLAN_ID)), fixtures.step.scopes()),
-                    () -> assertEquals(1, fixtures.mark.calls()));
+                    () -> assertEquals("merged", ended.outcomeId(), "the chain ends in the merged outcome"),
+                    () -> assertEquals(OutcomeClass.SUCCESS, ended.outcomeClass(), "the end class is success"),
+                    () -> assertEquals("completed", ended.status().state(), "the end state is completed"),
+                    () -> assertEquals("completed", ended.status().phase(), "the end phase is completed"),
+                    () -> assertEquals(List.of(Optional.of(PLAN_ID)), fixtures.step.scopes(),
+                            "the plan scope is the only recorded one"),
+                    () -> assertEquals(1, fixtures.mark.calls(), "the mark primitive ran once"));
         }
 
         @Test
@@ -135,12 +137,13 @@ class WorkflowEngineTest {
             fixtures.step.then(StepOutcome.FAILED);
             var engine = fixtures.engine(plan("execute.first", CHAIN));
 
-            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "the failure ends in the handed_back terminal");
 
             assertAll(
-                    () -> assertEquals("handed_back", ended.outcomeId()),
-                    () -> assertEquals(OutcomeClass.FAILURE, ended.outcomeClass()),
-                    () -> assertEquals(0, fixtures.mark.calls()));
+                    () -> assertEquals("handed_back", ended.outcomeId(), "the failure reports handed_back"),
+                    () -> assertEquals(OutcomeClass.FAILURE, ended.outcomeClass(), "the end class is failure"),
+                    () -> assertEquals(0, fixtures.mark.calls(), "the next auto state never ran"));
         }
 
         @Test
@@ -169,13 +172,14 @@ class WorkflowEngineTest {
 
             var ended = assertInstanceOf(EngineStep.Ended.class,
                     engine.start(JournalScopeType.EPIC,
-                            "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT)));
+                            "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT)),
+                    "the epic ends in its abort terminal");
 
             assertAll(
-                    () -> assertEquals("aborted", ended.outcomeId()),
-                    () -> assertEquals(OutcomeClass.FAILURE, ended.outcomeClass()),
-                    () -> assertEquals("aborted", ended.status().phase()),
-                    () -> assertEquals(1, fixtures.nextWork.calls()));
+                    () -> assertEquals("aborted", ended.outcomeId(), "the epic ends in the aborted outcome"),
+                    () -> assertEquals(OutcomeClass.FAILURE, ended.outcomeClass(), "the abort class is failure"),
+                    () -> assertEquals("aborted", ended.status().phase(), "the abort phase is aborted"),
+                    () -> assertEquals(1, fixtures.nextWork.calls(), "the next-work primitive ran once"));
         }
 
         @ParameterizedTest(name = "terminal {0} ({1})")
@@ -185,7 +189,8 @@ class WorkflowEngineTest {
         void shouldEndDeliveryTerminalWithPhaseCompleted(String outcomeId, OutcomeClass outcomeClass) {
             var engine = fixtures.engine(endingPlan("plan.end", outcomeId, outcomeClass, ""));
 
-            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "the delivery terminal ends the plan");
 
             assertAll(
                     () -> assertEquals(outcomeId, ended.outcomeId(), "the end reports the terminal's outcome"),
@@ -201,7 +206,7 @@ class WorkflowEngineTest {
                     "\nstate plan.aborted terminal aborted failure\n"));
 
             var ended = assertInstanceOf(EngineStep.Ended.class,
-                    engine.advance(planStatus(EXECUTE, "plan.aborted")));
+                    engine.advance(planStatus(EXECUTE, "plan.aborted")), "the abort terminal ends the plan");
 
             assertAll(
                     () -> assertEquals("aborted", ended.outcomeId(), "the abort reports the outcome aborted"),
@@ -216,11 +221,12 @@ class WorkflowEngineTest {
             fixtures.mark.then(outcome);
             var engine = fixtures.engine(callingPlan("execute.commit", CALL_COMMIT), parse("sub.pmwf", SUB_COMMIT));
 
-            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "the sub-workflow exit reaches the caller");
 
             assertAll(
-                    () -> assertEquals(terminal, ended.status().state()),
-                    () -> assertTrue(ended.status().callStack().isEmpty()));
+                    () -> assertEquals(terminal, ended.status().state(), "the exit lands in the routed terminal"),
+                    () -> assertTrue(ended.status().callStack().isEmpty(), "the caller's call stack is empty"));
         }
     }
 
@@ -277,15 +283,16 @@ class WorkflowEngineTest {
             fixtures.clock.tick(Duration.ofSeconds(tick));
             var engine = fixtures.engine(plan("execute.first", CHAIN_TO_JOB));
 
-            var resting = assertInstanceOf(EngineStep.Resting.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var resting = assertInstanceOf(EngineStep.Resting.class, engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "the chain rests at the first job state");
 
             assertAll(
-                    () -> assertEquals("execute.build", resting.stateId()),
-                    () -> assertEquals(AwaitedEvent.JOB_SETTLED, resting.awaitedEvent()),
-                    () -> assertEquals(EXECUTE, resting.status().phase()),
-                    () -> assertEquals(T0.plusSeconds(tick), resting.status().updatedAt()),
-                    () -> assertEquals(1, fixtures.step.calls()),
-                    () -> assertEquals(1, fixtures.mark.calls()));
+                    () -> assertEquals("execute.build", resting.stateId(), "the chain rests at execute.build"),
+                    () -> assertEquals(AwaitedEvent.JOB_SETTLED, resting.awaitedEvent(), "the state awaits the job"),
+                    () -> assertEquals(EXECUTE, resting.status().phase(), "the phase stays at execute"),
+                    () -> assertEquals(T0.plusSeconds(tick), resting.status().updatedAt(), "the tick sets updatedAt"),
+                    () -> assertEquals(1, fixtures.step.calls(), "the step primitive ran once"),
+                    () -> assertEquals(1, fixtures.mark.calls(), "the second auto state ran once"));
         }
 
         @Test
@@ -298,11 +305,13 @@ class WorkflowEngineTest {
             var raised = engine.raise(resting, "precondition_unmet", Map.of("fact", "push_remote")).status();
 
             assertAll(
-                    () -> assertSame(resting, engine.advance(resting).status()),
-                    () -> assertSame(ended, engine.advance(ended).status()),
+                    () -> assertSame(resting, engine.advance(resting).status(),
+                            "a resting status advances unchanged"),
+                    () -> assertSame(ended, engine.advance(ended).status(), "an ended status advances unchanged"),
                     () -> assertSame(raised, assertInstanceOf(EngineStep.ConditionRaised.class,
-                            engine.advance(raised)).status()),
-                    () -> assertEquals(0, fixtures.step.calls()),
+                                    engine.advance(raised), "the advance raises a condition").status(),
+                            "a condition-carrying status is unchanged"),
+                    () -> assertEquals(0, fixtures.step.calls(), "the settled start runs no step"),
                     () -> assertTrue(fixtures.jobRequests.getValues().isEmpty(),
                             "a settled start starts no job"));
         }
@@ -315,9 +324,9 @@ class WorkflowEngineTest {
             var step = engine.advance(planStatus(EXECUTE, "execute.second"));
 
             assertAll(
-                    () -> assertEquals("execute.build", step.status().state()),
-                    () -> assertEquals(0, fixtures.step.calls()),
-                    () -> assertEquals(1, fixtures.mark.calls()));
+                    () -> assertEquals("execute.build", step.status().state(), "execution resumes at execute.build"),
+                    () -> assertEquals(0, fixtures.step.calls(), "the persisted start runs no step"),
+                    () -> assertEquals(1, fixtures.mark.calls(), "the mark primitive ran once"));
         }
 
         @Test
@@ -349,7 +358,7 @@ class WorkflowEngineTest {
             var resting = engine.start(JournalScopeType.WORKSPACE, null);
 
             assertAll(
-                    () -> assertEquals("workspace", resting.status().phase()));
+                    () -> assertEquals("workspace", resting.status().phase(), "a phase-less unit takes workspace"));
         }
     }
 
@@ -373,13 +382,14 @@ class WorkflowEngineTest {
                     """);
 
             var refused = assertThrows(WorkflowEngine.UnverifiedUnitException.class,
-                    () -> fixtures.engine(unverified));
+                    () -> fixtures.engine(unverified), "a violation refuses the unit");
 
             assertAll(
-                    () -> assertEquals("plan", refused.unitId()),
+                    () -> assertEquals("plan", refused.unitId(), "the refused unit is the plan"),
                     () -> assertTrue(refused.verification().violations().stream()
-                            .anyMatch(violation -> violation.rule() == VerificationRule.OUTCOME_COVERAGE)),
-                    () -> assertEquals("plan", fixtures.engine(corrected).unit().id()));
+                                    .anyMatch(violation -> violation.rule() == VerificationRule.OUTCOME_COVERAGE),
+                            "the violation is a coverage gap"),
+                    () -> assertEquals("plan", fixtures.engine(corrected).unit().id(), "the corrected unit verifies"));
         }
 
         @Test
@@ -388,9 +398,10 @@ class WorkflowEngineTest {
             var callee = parse("sub.pmwf", SUB_COMMIT.replace("        failed -> sub.stepped-out\n", ""));
 
             var refused = assertThrows(WorkflowEngine.UnverifiedUnitException.class,
-                    () -> fixtures.engine(callingPlan("execute.commit", CALL_COMMIT), callee));
+                    () -> fixtures.engine(callingPlan("execute.commit", CALL_COMMIT), callee),
+                    "a callee violation refuses the caller");
 
-            assertEquals("sub.commit", refused.unitId());
+            assertEquals("sub.commit", refused.unitId(), "the refused callee is sub.commit");
         }
 
         @Test
@@ -401,11 +412,11 @@ class WorkflowEngineTest {
             var refused = assertThrows(WorkflowEngine.UnverifiedUnitException.class,
                     () -> new WorkflowEngine(callingPlan("execute.commit", CALL_COMMIT), WorkflowCatalog.empty(),
                             fixtures.validator(callee), fixtures.registry(), (primitive, status) -> null,
-                            fixtures.ports()));
+                            fixtures.ports()), "a missing callee refuses the unit");
 
             assertAll(
-                    () -> assertEquals("sub.commit", refused.unitId()),
-                    () -> assertTrue(refused.verification().passed()));
+                    () -> assertEquals("sub.commit", refused.unitId(), "the missing callee is sub.commit"),
+                    () -> assertTrue(refused.verification().passed(), "the caller itself verifies cleanly"));
         }
     }
 
@@ -477,9 +488,9 @@ class WorkflowEngineTest {
             var resting = engine.advance(status);
 
             assertAll(
-                    () -> assertEquals("sub.wait", resting.status().state()),
-                    () -> assertEquals(2, fixtures.cap.calls()),
-                    () -> assertEquals(counted, resting.status().retryCounters()));
+                    () -> assertEquals("sub.wait", resting.status().state(), "the retry frame rests at sub.wait"),
+                    () -> assertEquals(2, fixtures.cap.calls(), "the cap primitive ran twice"),
+                    () -> assertEquals(counted, resting.status().retryCounters(), "the counts stay in the frame"));
         }
 
         @Test
@@ -494,10 +505,13 @@ class WorkflowEngineTest {
 
             var counters = ended.status().retryCounters();
             assertAll(
-                    () -> assertEquals("completed", ended.status().state()),
-                    () -> assertEquals(0, counters.attemptsOf(RetryRule.PUSH_FAILED, "sub.attempt")),
-                    () -> assertEquals(0, counters.attemptsOf(RetryRule.OPEN_PR, "sub.finish")),
-                    () -> assertEquals(1, counters.attemptsOf(RetryRule.SYNC_FAILED, "execute.retry-call")));
+                    () -> assertEquals("completed", ended.status().state(), "the popped sub-workflow completes"),
+                    () -> assertEquals(0, counters.attemptsOf(RetryRule.PUSH_FAILED, "sub.attempt"),
+                            "push failures are dropped on pop"),
+                    () -> assertEquals(0, counters.attemptsOf(RetryRule.OPEN_PR, "sub.finish"),
+                            "open-pr retries are dropped on pop"),
+                    () -> assertEquals(1, counters.attemptsOf(RetryRule.SYNC_FAILED, "execute.retry-call"),
+                            "the caller's retry count is kept"));
         }
     }
 
@@ -578,9 +592,11 @@ class WorkflowEngineTest {
 
             assertAll(
                     () -> assertEquals(Reason.UNRESOLVED_NAME, assertThrows(InternalFaultException.class,
-                            () -> engine.advance(unknownState)).reason()),
+                                    () -> engine.advance(unknownState), "an unknown state faults").reason(),
+                            "an unknown state is unresolved"),
                     () -> assertEquals(Reason.UNRESOLVED_NAME, assertThrows(InternalFaultException.class,
-                            () -> engine.advance(unknownFrame)).reason()));
+                                    () -> engine.advance(unknownFrame), "an unknown frame faults").reason(),
+                            "an unknown frame is unresolved"));
         }
 
         /*
@@ -599,11 +615,12 @@ class WorkflowEngineTest {
                     WorkflowCatalog.of(catalogCallee), fixtures.validator(verifiedCallee), fixtures.registry(),
                     (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
 
-            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "the catalog callee faults the caller");
 
             assertAll(
-                    () -> assertEquals(Reason.UNDECLARED_OUTCOME, fault.reason()),
-                    () -> assertEquals(1, fixtures.mark.calls()));
+                    () -> assertEquals(Reason.UNDECLARED_OUTCOME, fault.reason(), "an undeclared outcome is reported"),
+                    () -> assertEquals(1, fixtures.mark.calls(), "the mark primitive ran once"));
         }
 
         @Test
@@ -618,9 +635,10 @@ class WorkflowEngineTest {
                             cancelled -> handed_back
                     """));
 
-            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "a refused start without route faults");
 
-            assertEquals(Reason.UNDECLARED_OUTCOME, fault.reason());
+            assertEquals(Reason.UNDECLARED_OUTCOME, fault.reason(), "a refused start has no route");
         }
 
         @Test
@@ -638,11 +656,12 @@ class WorkflowEngineTest {
                             failed -> handed_back
                     """));
 
-            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "the looping chain faults at the cap");
 
             assertAll(
-                    () -> assertEquals(Reason.UNBOUNDED_CHAIN, fault.reason()),
-                    () -> assertEquals(WorkflowEngine.MAX_CHAIN, fixtures.cap.calls()));
+                    () -> assertEquals(Reason.UNBOUNDED_CHAIN, fault.reason(), "the capped chain never exhausts"),
+                    () -> assertEquals(WorkflowEngine.MAX_CHAIN, fixtures.cap.calls(), "capped at the chain limit"));
         }
 
         @Test
@@ -652,7 +671,8 @@ class WorkflowEngineTest {
                     fixtures.validator(), fixtures.registry(), (primitive, status) -> new Unexpected(),
                     fixtures.ports());
 
-            assertThrows(IllegalStateException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+            assertThrows(IllegalStateException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID),
+                    "a wrong parameter record is refused");
         }
     }
 
@@ -672,13 +692,13 @@ class WorkflowEngineTest {
 
             var condition = raised.status().condition().orElseThrow();
             assertAll(
-                    () -> assertEquals("precondition_unmet", raised.kind()),
-                    () -> assertEquals("{\"fact\":\"push_remote\"}", raised.facts()),
-                    () -> assertEquals(T0.plusSeconds(tick), condition.raisedAt()),
-                    () -> assertEquals(0, condition.remedyAttempts()),
-                    () -> assertEquals(resting.state(), raised.status().state()),
-                    () -> assertEquals(resting.phase(), raised.status().phase()),
-                    () -> assertEquals(resting.callStack(), raised.status().callStack()));
+                    () -> assertEquals("precondition_unmet", raised.kind(), "the condition is precondition_unmet"),
+                    () -> assertEquals("{\"fact\":\"push_remote\"}", raised.facts(), "the facts carry push_remote"),
+                    () -> assertEquals(T0.plusSeconds(tick), condition.raisedAt(), "the raise stamps the clock tick"),
+                    () -> assertEquals(0, condition.remedyAttempts(), "no remedy attempt is recorded"),
+                    () -> assertEquals(resting.state(), raised.status().state(), "the state is left as it was"),
+                    () -> assertEquals(resting.phase(), raised.status().phase(), "the phase is left as it was"),
+                    () -> assertEquals(resting.callStack(), raised.status().callStack(), "the call stack is kept"));
         }
 
         @Test
@@ -690,11 +710,14 @@ class WorkflowEngineTest {
 
             assertAll(
                     () -> assertThrows(IllegalStateException.class,
-                            () -> engine.raise(raised, "job_incomplete", Map.of())),
+                            () -> engine.raise(raised, "job_incomplete", Map.of()),
+                            "a second condition is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> engine.raise(resting, "integrity_breach", Map.of())),
+                            () -> engine.raise(resting, "integrity_breach", Map.of()),
+                            "an integrity breach is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> engine.raise(resting, "unknown_kind", Map.of())));
+                            () -> engine.raise(resting, "unknown_kind", Map.of()),
+                            "an unknown condition kind is refused"));
         }
 
         @Test
@@ -705,12 +728,16 @@ class WorkflowEngineTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineStep.Resting(resting, "execute.other", AwaitedEvent.JOB_SETTLED)),
+                            () -> new EngineStep.Resting(resting, "execute.other", AwaitedEvent.JOB_SETTLED),
+                            "a resting step with another state is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineStep.Ended(framed, "done", OutcomeClass.SUCCESS)),
+                            () -> new EngineStep.Ended(framed, "done", OutcomeClass.SUCCESS),
+                            "an ended step with a call stack is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineStep.ConditionRaised(resting, "job_incomplete", "{}")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> EngineStep.ConditionRaised.of(resting)));
+                            () -> new EngineStep.ConditionRaised(resting, "job_incomplete", "{}"),
+                            "a contradicting condition step is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> EngineStep.ConditionRaised.of(resting),
+                            "a condition step without facts is refused"));
         }
     }
 

@@ -13,9 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -149,10 +153,59 @@ class DiagnosticCollectorRedactionTest {
     }
 
     @Test
+    @DisplayName("a TypeScript line whose file is invisible only is filed unlocated, not refused")
+    void invisibleOnlyFileDoesNotAbortTheParse() {
+        var build = TypeScriptOutputParser.parse("\u200B(10,5): error TS2322: bad");
+
+        assertAll("an invisible-only file",
+                () -> assertEquals(1, build.diagnostics().size(), "the line files one diagnostic"),
+                () -> assertNull(build.diagnostics().getFirst().file(), "the file is no location"));
+    }
+
+    @Test
     @DisplayName("a Gradle message is redacted")
     void gradleMessageRedacted() {
         var build = GradleOutputParser.parse("/p/Foo.java:7: error: cannot find symbol " + CREDENTIAL + "\n");
 
         assertMessagesRedacted(build.diagnostics());
+    }
+
+    /** A wall-clock bound a linear scan meets and the former quadratic URL pattern exceeds. */
+    private static final Duration FLOOD_BOUND = Duration.ofSeconds(120);
+
+    private static List<String> hostileFlood() {
+        // a whitespace-separated flood is many tokens: a per-token lookup that walks back into the previous tokens is
+        // quadratic on the whole line, the shape the bounded scan must not have
+        var line = "x://y: ".repeat(BuildLogText.MAX_LINE_LENGTH / 7 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
+        var lines = new ArrayList<String>();
+        for (var index = 0; index < 2_000; index++) {
+            lines.add(line);
+        }
+        return List.copyOf(lines);
+    }
+
+    @Test
+    @DisplayName("a hostile URL flood redacts within the bound through the stored seam")
+    void hostileUrlFloodThroughTheStoredSeam() {
+        var flood = hostileFlood();
+
+        assertTimeoutPreemptively(FLOOD_BOUND, () -> flood.forEach(DiagnosticCollector::stored),
+                "the stored seam redacts the flood within the bound");
+
+        assertEquals(2_000, flood.size(), "the flood holds 2 000 lines");
+        assertEquals(BuildLogText.MAX_LINE_LENGTH, flood.getFirst().length(), "each flood line holds 8 192 characters");
+    }
+
+    @Test
+    @DisplayName("a hostile URL flood redacts within the bound through the Diagnostic constructor")
+    void hostileUrlFloodThroughTheDiagnosticConstructor() {
+        var stack = String.join("\n", hostileFlood());
+
+        assertTimeoutPreemptively(FLOOD_BOUND,
+                () -> new Diagnostic(null, null, null, "text", Category.OTHER, Severity.ERROR, stack),
+                "the constructor redacts the flood within the bound");
+
+        assertEquals(2_000 + 2_000 * BuildLogText.MAX_LINE_LENGTH - 1, stack.length(),
+                "the flood reaches the constructor whole");
     }
 }

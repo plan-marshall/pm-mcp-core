@@ -69,20 +69,25 @@ class WorkerTaskUnitFixtureTest {
         var unit = fixture();
 
         assertAll(
-                () -> assertEquals("worker-task", unit.id()),
-                () -> assertEquals(List.of("task.queued"), unit.startingStates()),
+                () -> assertEquals("worker-task", unit.id(), "the fixture unit is the worker task"),
+                () -> assertEquals(List.of("task.queued"), unit.startingStates(), "the unit starts at task.queued"),
                 () -> assertEquals(List.of("submitted", "asked", "infeasible", "lost"),
-                        unit.frontmatter().exits().stream().map(UnitFrontmatter.InterfaceElement::name).toList()),
+                        unit.frontmatter().exits().stream().map(UnitFrontmatter.InterfaceElement::name).toList(),
+                        "the unit declares the four exit names"),
                 () -> assertEquals(List.of("task.queued", "task.waiting", "task.offered", "task.executing",
                                 "task.consulting", "task.awaiting_answer", "task.suspended", "task.submitted",
                                 "task.asked", "task.infeasible", "task.lost"),
-                        List.copyOf(unit.states().keySet())),
-                () -> assertEquals(OutcomeClass.SUCCESS, outcomeClassOf(unit, "task.submitted")),
-                () -> assertEquals(OutcomeClass.UNSETTLED, outcomeClassOf(unit, "task.asked")),
-                () -> assertEquals(OutcomeClass.FAILURE, outcomeClassOf(unit, "task.infeasible")),
-                () -> assertEquals(OutcomeClass.INDETERMINATE, outcomeClassOf(unit, "task.lost")),
+                        List.copyOf(unit.states().keySet()), "the unit declares every state"),
+                () -> assertEquals(OutcomeClass.SUCCESS,
+                        outcomeClassOf(unit, "task.submitted"), "submitted is a success"),
+                () -> assertEquals(OutcomeClass.UNSETTLED,
+                        outcomeClassOf(unit, "task.asked"), "asked stays unsettled"),
+                () -> assertEquals(OutcomeClass.FAILURE,
+                        outcomeClassOf(unit, "task.infeasible"), "infeasible is a failure"),
+                () -> assertEquals(OutcomeClass.INDETERMINATE,
+                        outcomeClassOf(unit, "task.lost"), "a lost task is indeterminate"),
                 () -> assertInstanceOf(StateBehavior.TerminalState.class,
-                        unit.states().get("task.lost").behavior()));
+                        unit.states().get("task.lost").behavior(), "lost is a terminal state"));
     }
 
     @Test
@@ -97,16 +102,23 @@ class WorkerTaskUnitFixtureTest {
         var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
                 TaskFixtures.AT));
         var acknowledged = assertInstanceOf(CallResult.Accepted.class,
-                protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1)));
+                protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1)),
+                "the acknowledgement of the offer is accepted");
         var submitted = assertInstanceOf(CallResult.Accepted.class,
-                protocol.submit(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(2)));
+                protocol.submit(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(2)),
+                "the submission of the offer is accepted");
 
         assertAll(
-                () -> assertEquals("task.offered", targetOf(unit, "task.waiting", "offered")),
-                () -> assertEquals("task.executing", targetOf(unit, "task.offered", "acknowledged")),
-                () -> assertEquals("task.submitted", targetOf(unit, "task.executing", "submitted")),
-                () -> assertEquals(QueueTaskRecord.Status.EXECUTING, acknowledged.task().status()),
-                () -> assertEquals(QueueTaskRecord.Outcome.SUBMITTED, submitted.task().outcome()));
+                () -> assertEquals("task.offered",
+                        targetOf(unit, "task.waiting", "offered"), "a wait step leads to offered"),
+                () -> assertEquals("task.executing",
+                        targetOf(unit, "task.offered", "acknowledged"), "an acknowledge leads to executing"),
+                () -> assertEquals("task.submitted",
+                        targetOf(unit, "task.executing", "submitted"), "a submit leads to submitted"),
+                () -> assertEquals(QueueTaskRecord.Status.EXECUTING,
+                        acknowledged.task().status(), "the acknowledged task is executing"),
+                () -> assertEquals(QueueTaskRecord.Outcome.SUBMITTED,
+                        submitted.task().outcome(), "the submitted outcome is recorded"));
     }
 
     private static String targetOf(WorkflowDefinition unit, String stateId, String outcome) {

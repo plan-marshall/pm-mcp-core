@@ -71,11 +71,13 @@ class PlanTokensTest {
                 row("2", usage(200, 60, 0, 0, 10))));
 
         var aggregate = tokens.aggregate(UsageAggregate.Population.MODEL_JOB).orElseThrow();
-        assertAll(() -> assertEquals(OptionalLong.of(425), aggregate.totalTokens()),
-                () -> assertEquals(OptionalLong.of(315), aggregate.tokensIn()),
-                () -> assertEquals(OptionalLong.of(110), aggregate.tokensOut()),
-                () -> assertEquals(2, aggregate.rows()), () -> assertFalse(aggregate.totalIsFloor()),
-                () -> assertEquals(planId, tokens.planId()));
+        assertAll(() -> assertEquals(OptionalLong.of(425), aggregate.totalTokens(),
+                        "the plan total covers all rows"),
+                () -> assertEquals(OptionalLong.of(315), aggregate.tokensIn(), "the input tokens sum the rows"),
+                () -> assertEquals(OptionalLong.of(110), aggregate.tokensOut(), "the output tokens sum the rows"),
+                () -> assertEquals(2, aggregate.rows(), "both metrics rows are counted"),
+                () -> assertFalse(aggregate.totalIsFloor(), "a measured total is no floor"),
+                () -> assertEquals(planId, tokens.planId(), "the plan keeps its identifier"));
     }
 
     @Test
@@ -84,8 +86,9 @@ class PlanTokensTest {
         var planId = Generators.letterStrings(3, 12).next();
         var tokens = PlanTokens.empty(planId);
 
-        assertAll(() -> assertTrue(tokens.aggregate(UsageAggregate.Population.MODEL_JOB).isEmpty()),
-                () -> assertTrue(tokens.byPopulation().isEmpty()));
+        assertAll(() -> assertTrue(tokens.aggregate(UsageAggregate.Population.MODEL_JOB).isEmpty(),
+                        "an empty plan has no aggregate"),
+                () -> assertTrue(tokens.byPopulation().isEmpty(), "an empty plan has no population"));
     }
 
     @Test
@@ -103,11 +106,14 @@ class PlanTokensTest {
         var epic = EpicTokens.of(epicId, List.of(refused), List.of(first, second));
 
         var aggregate = epic.aggregate(UsageAggregate.Population.MODEL_JOB).orElseThrow();
-        assertAll(() -> assertEquals(OptionalLong.of(400), aggregate.totalTokens()),
-                () -> assertEquals(3, aggregate.populationCount()), () -> assertEquals(1, aggregate.rowsUnmeasured()),
-                () -> assertTrue(aggregate.totalIsFloor()), () -> assertEquals(epicId, epic.epicId()),
-                () -> assertEquals(OptionalLong.empty(), aggregate.tokensIn()),
-                () -> assertEquals(OptionalLong.empty(), aggregate.tokensOut()));
+        assertAll(() -> assertEquals(OptionalLong.of(400), aggregate.totalTokens(),
+                        "the epic total sums plans and rows"),
+                () -> assertEquals(3, aggregate.populationCount(), "three populations feed the epic"),
+                () -> assertEquals(1, aggregate.rowsUnmeasured(), "one metrics row is unmeasured"),
+                () -> assertTrue(aggregate.totalIsFloor(), "an unmeasured part makes a floor"),
+                () -> assertEquals(epicId, epic.epicId(), "the epic keeps its identifier"),
+                () -> assertEquals(OptionalLong.empty(), aggregate.tokensIn(), "the input split stays unknown"),
+                () -> assertEquals(OptionalLong.empty(), aggregate.tokensOut(), "the output split stays unknown"));
     }
 
     @Test
@@ -119,6 +125,7 @@ class PlanTokensTest {
                 Arrays.stream(EpicTokens.class.getRecordComponents()).map(RecordComponent::getName).toList());
 
         assertTrue(components.stream().flatMap(List::stream)
-                .noneMatch(name -> forbidden.stream().anyMatch(name::contains)));
+                        .noneMatch(name -> forbidden.stream().anyMatch(name::contains)),
+                "no token record carries a forbidden member");
     }
 }

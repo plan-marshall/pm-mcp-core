@@ -77,12 +77,12 @@ class StateKindTest {
         var derived = behaviours().map(arguments -> StateKind.of((StateBehavior) arguments.get()[1]))
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(StateKind.class)));
 
-        assertEquals(EnumSet.allOf(StateKind.class), derived);
+        assertEquals(EnumSet.allOf(StateKind.class), derived, "every kind is derived from a behaviour");
     }
 
     @Test
     @DisplayName("Should refuse a missing behaviour")
     void shouldRefuseMissingBehaviour() {
-        assertThrows(NullPointerException.class, () -> StateKind.of(null));
+        assertThrows(NullPointerException.class, () -> StateKind.of(null), "a missing behaviour is refused");
     }
 }
