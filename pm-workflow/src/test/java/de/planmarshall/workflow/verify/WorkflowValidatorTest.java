@@ -1110,7 +1110,7 @@ class WorkflowValidatorTest {
                     () -> assertThrows(NullPointerException.class, () -> validator.verify(null),
                             "a null unit is refused by the verifier"),
                     () -> assertThrows(NullPointerException.class, () -> validator.verify(null, noEntries),
-                            "a null prune record map is refused"),
+                            "a null unit with a prune map is refused"),
                     () -> assertThrows(NullPointerException.class, () -> validator.verify(workspace, null),
                             "a null prune map at a unit is refused"));
         }

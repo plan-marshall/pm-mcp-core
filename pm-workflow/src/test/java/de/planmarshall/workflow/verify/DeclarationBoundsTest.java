@@ -570,7 +570,7 @@ class DeclarationBoundsTest {
                         "a null declaration name is refused"),
                 () -> assertThrows(NullPointerException.class,
                         () -> new DeclarationBounds.Finding(findingName, location, null, findingMessage),
-                        "a null finding location is refused"));
+                        "a null finding bound is refused"));
     }
 
     static List<BoundCase> refusingCases() {

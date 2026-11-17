@@ -846,7 +846,7 @@ class CompiledInvariantsTest {
                         "a null rule result is refused"),
                 () -> assertThrows(NullPointerException.class,
                         () -> invariants.check(unit, rules, null, UNKNOWN_LANE),
-                        "a null unit collection is refused"),
+                        "a null pipeline result is refused"),
                 () -> assertDoesNotThrow(() -> invariants.check(unit, rules, List.of(), null),
                         "a null lane is accepted as the unknown lane"),
                 () -> assertThrows(NullPointerException.class,

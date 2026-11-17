@@ -405,7 +405,7 @@ class CompositionRuleEvaluatorTest {
                     () -> assertTrue(new CompositionRule.Empty("footprint").holds(facts),
                             "the empty condition holds for an empty list"),
                     () -> assertFalse(new CompositionRule.Empty("lane").holds(facts),
-                            "the empty condition fails for a set value"),
+                            "the empty condition fails for an unknown fact"),
                     () -> assertFalse(new CompositionRule.Equals("footprint", "").holds(facts),
                             "equals fails for a list, even an empty one"));
         }

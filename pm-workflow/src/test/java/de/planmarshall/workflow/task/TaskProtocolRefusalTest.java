@@ -115,7 +115,7 @@ class TaskProtocolRefusalTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW, measurement,
                                 Double.POSITIVE_INFINITY),
-                        "an infinite measurement is refused"));
+                        "an infinite threshold is refused"));
     }
 
     @Test
