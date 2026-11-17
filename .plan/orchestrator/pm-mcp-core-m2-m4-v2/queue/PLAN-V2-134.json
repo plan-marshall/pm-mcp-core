@@ -2,10 +2,10 @@
   "id": "PLAN-V2-134",
   "slug": "git-metadata-out-of-workers-reach",
   "workstream": "WS-06",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-134-git-metadata-out-of-workers-reach",
+  "pr": "#469",
+  "landing": "landings/PLAN-V2-134.md",
   "seq": 123
 }
