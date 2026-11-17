@@ -58,7 +58,7 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Log & Corpus Export]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-4[PM-MIG-4: Stage Exit Criteria & Lifecycle Gate]_
 
-== Status: PLANNED
+== Status: IN PROGRESS
 
 == Modules
 

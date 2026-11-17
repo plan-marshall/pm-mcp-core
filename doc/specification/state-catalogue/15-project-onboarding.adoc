@@ -69,7 +69,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |[[state-project.enrolment]]`project.enrolment`
 |— (`entry`)
 |`operator_wait`
-|`project.identity` (`set`).
+|`project.identity` (`set`); `project.enrol` (`refused`, with the reason).
 |Everything to be enrolled, each with where it comes from (detected, the machine, the default): wrappers and their pinned files, host tools (the machine's enrolled tools used unless the project enrols its own), language servers, scripts, the build environment (the operator's login environment as the terminal client captured and sent it; from the web app the one the terminal client last captured on the machine, said so, and without one the terminal command that captures it); the hosts the build jobs' egress proxy admits (`egress_hosts`) and the credential files they read (`build_credential_files`), proposed from the detected build configuration; the container engine and the open build network (`build_network: open`) only as separate choices, each with its warning. `enrol`, `back`, `abandon`.
 |`enrol` -> `project.enrol`; `back` -> `project.identity`; `abandon` -> `project.abandoned`.
 |link:../store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas Specification, Enrolment Store]
@@ -86,7 +86,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |`workspace`
 |`operator_wait`
 |`project.setup` (`operator_values`: in the first run after `setup.check-operator-files`, and whenever an integration needs the operator); `project.models`, `project.roles` (`done`); `project.completed` (`aspect:operator_values`).
-|The operator's values of the project, each with the machine's value as the proposal and marked so: the model language, the allowed models, the role assignment, the method and asking axes, in a run from the project's settings (`aspect:operator_values`) also the optional posture (`plan_defaults.posture`, unset unless set, never asked in the first run), the integration variant and credential of each provider (proposed from the machine's provider defaults), and the commit identity (the machine's `project_defaults.commit_identity`, else the operator's global git identity, read once as a proposal), and the cleanup durations of its plans, epics, and logs (proposed from the machine's `cleanup`, link:../timeouts/03-retention-harness-config.adoc#cleanup-durations[Timeouts & Budgets Specification, Cleanup durations]); after `setup.operator-values` the integrations whose variant or credential needs the operator, with their findings. Links: `set` (values; only a changed value is recorded, in `local-config.json`); `models`; `roles`; `continue`.
+|The operator's values of the project, each with the machine's value as the proposal and marked so: the model language, the diagram format in model text (`diagrams.format`), the speech transcription methods (`transcribe.methods`, offered only among the machine's methods, which the project may narrow and never widen), the allowed models, the role assignment, the method and asking axes, in a run from the project's settings (`aspect:operator_values`) also the optional posture (`plan_defaults.posture`, unset unless set, never asked in the first run), the integration variant and credential of each provider (proposed from the machine's provider defaults), and the commit identity (the machine's `project_defaults.commit_identity`, else the operator's global git identity, read once as a proposal), and the cleanup durations of its plans, epics, and logs (proposed from the machine's `cleanup`, link:../timeouts/03-retention-harness-config.adoc#cleanup-durations[Timeouts & Budgets Specification, Cleanup durations]); after `setup.operator-values` the integrations whose variant or credential needs the operator, with their findings. Links: `set` (values; only a changed value is recorded, in `local-config.json`); `models`; `roles`; `continue`.
 |`set` -> this state; `models` -> `project.models`; `roles` -> `project.roles`; `continue` -> `project.setup` (`integrations`; in an aspect run of the operator values: `project.completed`).
 |link:../store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas Specification, Project Values over Machine Values]
 
@@ -101,7 +101,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |[[state-project.setup]]`project.setup`
 |`workspace`
 |`call`
-|`project.enrol` (`enrolled`); `project.operator` (`continue`); `project.completed` (`reconcile`, `aspect:<name>`).
+|`project.enrol` (`enrolled`); `project.operator` (`continue`); `project.completed` (`reconcile`, `aspect:<name>` but `aspect:operator_values`).
 |`call setup` at the entry `first_run` (after the enrolment, also for a project enrolled by `pm-operator enrol`), `integrations` (after the operator values of the first run, or after an integration needed the operator), `reconcile`, or `aspect` (xref:06-setup-epic-other.adoc#state-catalogue-setup[Project Setup]).
 |`done` -> `project.completed`; `operator_values` -> `project.operator`; `stepped_out` (a later run left) -> `project.completed`.
 |link:../domain-extensions/04-setup-state-machine.adoc#project-setup-state-machine[Domain Extensions Specification, Project Setup State Machine]

@@ -12,7 +12,7 @@ link:../../Specification.adoc[Specification] » link:../phase-workflows.adoc[Pha
 == Automatic Review: Registry, Participation, Refusals & Ingestion
 _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-24[PM-WATCH-PHASE-24], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-25[PM-WATCH-PHASE-25], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-26[PM-WATCH-PHASE-26], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-27[PM-WATCH-PHASE-27], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-28[PM-WATCH-PHASE-28], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-29[PM-WATCH-PHASE-29], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-30[PM-WATCH-PHASE-30], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-105[PM-WATCH-PHASE-105]_
 
-`default:automatic-review` (order `30`) and the composite wait `finalize.concurrent-wait` work from one server-owned review-bot registry and write one participation record per `(pr_number, round, bot_kind)` into the plan's append-only `review-participation.jsonl` at review time (a change appends the full record again; the last readable line of a key is current), each stamped with the `HEAD` it observed (link:../store-schemas/03-findings-and-review-records.adoc#review-participation[Store Schemas Specification, Review Participation Record]). The rules were derived from `plan-marshall` `automatic-review` (`SKILL.md`, `standards/*.md`) at commit `f3de0e14f` and are normative as written. The comment fetch and the reply transmission are the findings contract of `pm-core` (`FindingSource`, `FindingResponder`), the pull-request and check-read contracts of the CI contract of the provider module `pm-provider-ci` (link:../../../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[`provider.ci`]), with their adapters in `pm-provider-github` and `pm-provider-gitlab` (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]).
+`default:automatic-review` (order `30`) and the composite wait `finalize.concurrent-wait` work from one server-owned review-bot registry and write one participation record per `(pr_number, round, bot_kind)` into the plan's append-only `review-participation.jsonl` at review time (a change appends the full record again; the last readable line of a key is current), each stamped with the `HEAD` it observed (link:../store-schemas/03-findings-and-review-records.adoc#review-participation[Store Schemas Specification, Review Participation Record]). The comment fetch and the reply transmission are the findings contract of `pm-core` (`FindingSource`, `FindingResponder`), the pull-request and check-read contracts of the CI contract of the provider module `pm-provider-ci` (link:../../../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[`provider.ci`]), with their adapters in `pm-provider-github` and `pm-provider-gitlab` (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]).
 
 === Review-Bot Registry
 
@@ -114,8 +114,10 @@ _Implementation watch: link:../../../../plan-marshall-documentation/doc/implemen
 
 [#migration-trigger-evaluation]
 === Migration Trigger Evaluation (`PM-MIG-5`)
-_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-97[PM-WATCH-PHASE-97], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-98[PM-WATCH-PHASE-98], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-103[PM-WATCH-PHASE-103], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-104[PM-WATCH-PHASE-104]_
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-97[PM-WATCH-PHASE-97], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-98[PM-WATCH-PHASE-98], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-103[PM-WATCH-PHASE-103]_
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5: Quantitative Triggers & Project Release]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-4[PM-MIG-4: Stage Exit Criteria & Lifecycle Gate]_
 
 The server evaluates each population-based trigger of `PM-MIG-5` over the persisted records of the evaluated stage or project, never over model-reported figures. Each trigger evaluates to `breached`, `clear`, or `indeterminate`: `indeterminate` when its population is below the trigger's minimum or a side of the comparison is unmeasured (a `plan-marshall` baseline that is not a published measured population included), otherwise `breached` when its rule holds and `clear` when it does not. The minimum populations are one compiled constant table (`MigrationTriggerMinimums`), never a setting.
 
@@ -251,6 +253,8 @@ A pre-merge diff check reads what the plan changed against its base and files wh
 
 [#dependency-delta]
 == Dependency Delta Check (Pre-Merge)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
 _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-60[PM-WATCH-PHASE-60]_
 
 A pre-merge diff check (<<pre-merge-diff-check>>) of `source: dependency_delta`: the server verifies that every third-party dependency the plan adds was approved when `outline.gate` passed (Phase 3, § 5).
@@ -342,7 +346,7 @@ What a change touches decides whether the operator reads and merges it, not who 
 == Added-Line Scan (Pre-Merge)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment]_
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-5[PM-CRED-5: Outbound Domain Scoping & Output Secret Redaction]_
-_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-122[PM-WATCH-PHASE-122], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-123[PM-WATCH-PHASE-123], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-132[PM-WATCH-PHASE-132]_
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-122[PM-WATCH-PHASE-122], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-123[PM-WATCH-PHASE-123]_
 
 The checkout is trusted (link:../model-work/07-untrusted-text-screening.adoc#local-trusted[Model Work Specification, What Is on This Machine Is Trusted]): every later plan reads it as the project's own, unscreened. A writer that read an injection can write text into it that a reviewer does not see but a model reads, and the next plan that reads the file carries it on. A pre-merge diff check (<<pre-merge-diff-check>>) of `source: added_lines` checks the lines a plan adds before they reach the base branch.
 

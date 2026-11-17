@@ -23,7 +23,7 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 _Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM-WATCH-HYP-1[PM-WATCH-HYP-1]_
 
-Every representation is serialized as a top-level TOON object with a fixed canonical field ordering. The server drives every plan and epic itself, so a representation offers links only where a model acts (`PM-WF-1`).
+Every representation is serialized as a top-level TOON object with a fixed canonical field ordering: identifiers and links first, so that a harness that cuts a long tool result keeps what the worker acts on (<<canonical-top-level-fields>>; link:../timeouts/03-retention-harness-config.adoc#tool-result-limit[Timeouts & Budgets, Harness Tool-Result Limit]). The server drives every plan and epic itself, so a representation offers links only where a model acts (`PM-WF-1`).
 
 [#representation-kinds]
 === Representation Kinds
@@ -55,17 +55,22 @@ _Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM
 |`scope`
 |Required
 |Closed enum
-|`"plan"`, `"epic"`, `"workspace"` (the project's workspace scope, which hosts `project-setup`; a call addresses it with `plan_id: "NO_PLAN"`, link:../identifiers/01-general-rules-and-registry.adoc#id-no-plan[Identifier Registry, `NO_PLAN`], never with a `scope` input), `"machine"` (the machine's one scope, which hosts its onboarding, link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]), or `"entity"` (a task entity, <<representation-kinds>>).
+|`"plan"` or `"epic"` (a view), or `"entity"` (a task entity; <<representation-kinds>>). The project's workspace scope, which hosts `project-setup`, and the machine's one scope, which hosts its onboarding (link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]), have no view: a worker reaches them only through the task entities of their tasks, and a call addresses them with `plan_id: "NO_PLAN"` (link:../identifiers/01-general-rules-and-registry.adoc#id-no-plan[Identifier Registry, `NO_PLAN`]), never with a `scope` input.
 
 |`plan_id` / `epic_id`
-|Required (one of), except for `scope: workspace`, `scope: machine`, and a task entity of the workspace or machine scope
+|Required (one of), except for a task entity of the workspace or machine scope
 |String
-|The addressed plan identifier (`plan_id`) or epic identifier (`epic_id`); a task entity carries the identifier of the scope its task belongs to. A `workspace` or `machine` representation and a task entity of the workspace or machine scope carry neither (not even the `NO_PLAN` sentinel that addresses them): the absence tells the worker to address the scope with `plan_id: "NO_PLAN"`. Their scope is the one of the worker's job record.
+|The addressed plan identifier (`plan_id`) or epic identifier (`epic_id`); a task entity carries the identifier of the scope its task belongs to. A task entity of the workspace or machine scope carries neither (not even the `NO_PLAN` sentinel that addresses them): the absence tells the worker to address the scope with `plan_id: "NO_PLAN"`. Their scope is the one of the worker's job record.
 
 |`entity`
 |Conditional
 |String
 |Present iff `scope == "entity"`: the entity a task works on (for example `envelope-2` or `enrich-http`), the task's `queue_task_id` where its state names no entity of its own, or, for a task of a start's entry (the screening of a stored source), the `entry_id` of the entry (for example `ent-3f9a2c41`).
+
+|`links`
+|Required
+|Tabular TOON array
+|`links[N]{rel,link,form,free}:` listing every transition valid for the caller (<<representation-kinds>>). Empty (`links: []`, the official form of an empty array) in a view, in terminal states, and under the `integrity_breach` condition, whose only resolutions are operator acts.
 
 |`state`
 |Required
@@ -101,11 +106,6 @@ _Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM
 |Required
 |Object
 |Minimal key-value map of domain facts required to exercise judgment in `state`, restricted to fields with a declared operational purpose (<<model-facing-minimality>>). Large payloads are referenced via `pm://` resource URIs.
-
-|`links`
-|Required
-|Tabular TOON array
-|`links[N]{rel,link,form,free}:` listing every transition valid for the caller (<<representation-kinds>>). Empty (`links: []`, the official form of an empty array) in a view, in terminal states, and under the `integrity_breach` condition, whose only resolutions are operator acts.
 |===
 
 [#facts-content-rules]
@@ -122,7 +122,7 @@ The server renders `facts` under seven general rules. Rules 1 to 4 apply to ever
 3. *Closed-Vocabulary Rule*: Every closed enumeration that classifies observed or judged input (statuses, dispositions, buckets, verdicts, linkage) contains an explicit out-of-set member (`unknown`, `indeterminate`, `not_applicable`, or `out_of_scope`, as fits). No member doubles as a stand-in for an unclassifiable case, and a malformed input is classified differently from an absent one.
 4. *Truncation Is Reported*: Any server-side clamp of text (pull-request body sections, comment bodies against a provider's size cap such as 65,536 characters) reports `truncated: true` with the original and the kept length and cuts at a sentence or line boundary; text is never cut mid-sentence silently. Where the full text is kept (a job log, a stored source, a record), a truncation in a model-facing result also names where it is read in full (`full: <resource URI>`, for example `pm://plan/{plan_id}/builds/{job_id}/log`); a clamp whose full text is not kept says `full: none`, so a reader never takes the kept part for the whole.
 5. [[model-facing-minimality]]*Model-Facing Minimality*: A representation (its top-level fields and `facts`), a tool result (`pm_wait`, `pm_build`, `pm_lsp`, `pm_skills`, `pm_skill`, `pm_skill_file`), and an error payload (`rejected`, the `isError: true` envelope, JSON-RPC `error.data`) carry only information that changes what the model does next: the offered links and their parameters, the facts its judgement in the current state needs (for a decision, the evidence the decision rests on: the code at the commit, the log line, the standing decision, link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Envelopes, Questions & Deadlines]), the error it must correct, the identifiers it must pass back (`question_id`, `finding_id`, `entity`), and the one-line `summary`. A model never relays anything to the operator: the operator is never its reader. Everything else is recorded, never returned: the implementation variant that served an operation; derivation and provenance sources (`budget_derivation`, the `source` of a configuration value or a resolved limit, a build template's source); internal versions (`format_version`, `worktree_sha_version`, binary and relay versions) unless the model must act on them; confinement and sandbox details; lease and holder internals (`holder_instance`, the lease of a task, the worker's generation and job token, queue positions, attempt counts); digests and hashes the model makes no decision on (`worktree_sha`, `config_hash`, `input_digest`); calibration bases (`predicted_cost_basis`); timing internals (elapsed seconds, `derived_at`, `recorded_at`, job durations, learned-budget hygiene); retry bookkeeping; the internal job identifiers of a composite wait; the role configuration and launch contract of a worker (harness, model, effort, form, argument vector, prompt file, job token digest, model-slot lease) and its parsed usage and cost; screener verdicts beyond the `withheld` marker of a withheld item; tallies and populations that serve only metrics; and `audit_id`, except on the errors an operator must look up (`internal_fault`, `file_unreadable`). Such data goes to `audit.jsonl`, the metrics store, the job record, the queue task record, or the server log, and where the operator needs it, it is served to the operator's clients over the local API (the terminal client `pm-operator` and the web app, link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]), never pushed in a representation or tool result. Web listener, pairing, and paired-device details (listener, certificate fingerprint, `device_id`, device labels, the channel of an operator act), the supervisor state of a worker, holds, `needs_operator`, reports, and the `stalled` state of a plan are operator data only and never model-facing. When the model's judgement needs a count (for example the open blocking findings), the count is rendered and its population list is not; rules 1 and 2 name and check a population, they do not require rendering it. A build-time test (`ModelFacingFieldAuditTest`) walks every representation, tool-result, and error-payload record type and fails on any field that is not in the registry of model-facing fields, in which every entry declares its operational purpose (`link_parameter`, `pass_back`, `judgement`, or `error_correction`); a new model-facing field is a registry change with a stated purpose.
-6. [[operator-command-relay]]*No Operator Relay*: No representation, tool result, or error payload carries an operator command or asks a model to relay anything to the operator; there is no `facts.operator_command`. What the next step needs from the operator (an integrity hold, a waiver request, a condition that needs a setting, a grant, an enrolment, or a credential) is an operator wait or a hold of the scope, served to the operator's clients with its acts as operator links (<<operator-links>>; link:../state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue Specification, Holds and Their Acts]); a task entity shows at most that its scope waits, and a worker never answers, waives, or confirms for the operator (`PM-WF-12`, `PM-SEC-3`).
+6. [[operator-command-relay]]*No Operator Relay*: No representation, tool result, or error payload carries an operator command or asks a model to relay anything to the operator; there is no `facts.operator_command`. What the next step needs from the operator (an integrity hold, a waiver request, a condition that needs a setting, a grant, an enrolment, or a credential) is an operator wait or a hold of the scope, served to the operator's clients: an operator wait with its acts as operator links (<<operator-links>>), a hold with its acts resolved at the hold, and an act of the operator's own initiative as an action of its resource (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]; link:../state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue Specification, Holds and Their Acts]); a task entity shows at most that its scope waits, and a worker never answers, waives, or confirms for the operator (`PM-WF-12`, `PM-SEC-3`).
 7. [[options-defined-once]]*Options Are Defined Once, in the Representation*: Where a judgment chooses among options (the remedy links of a remediation decision, the dispositions of a triage), the representation that offers the choice states each offered option's definition exactly once, as `facts.options[N]{option,definition}` keyed by the link identifier or the enum value it defines, rendered from the one compiled definition of that option. Only offered options are listed. The options of a decision are defined by the decision itself, not compiled: they are stated once, with the part they belong to, in the operator representation of the decision (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]) and, for a worker that continues after it, in `facts.answers` (<<answers-facts>>), never in `facts.options`. A role skill refers to the options by name and never redefines them, because a model follows the literal definition it reads over a differing one elsewhere.
 
 _Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM-WATCH-HYP-6[PM-WATCH-HYP-6]_
@@ -151,6 +151,11 @@ The decision task of `remediation.ci-failure` after its acknowledgement, as its 
 scope: entity
 plan_id: plan-2026-042
 entity: qt-5d0e7a1c9b3f2468
+links[4]{rel,link,form,free}:
+  retry,retry,submit,"reason:enum[flaky|infra|timeout],confidence:int[0..100]"
+  fix,fix,submit,"summary:text[1..500],confidence:int[0..100]"
+  loop_back,loop_back,submit,"remediation_summary:text[1..2000],confidence:int[0..100]"
+  submit,infeasible,submit,"evidence:text[1..2000]"
 state: entity.active
 phase: finalize
 summary: "1 required CI check failed at HEAD, choose the remedy"
@@ -164,11 +169,6 @@ facts:
     loop_back,"Return to execute: the remedy runs as new plan tasks in the worktree."
     retry,"Re-run the failed checks without a code change, naming the cause."
   retry_budget_left: 2
-links[4]{rel,link,form,free}:
-  retry,retry,submit,"reason:enum[flaky|infra|timeout],confidence:int[0..100]"
-  fix,fix,submit,"summary:text[1..500],confidence:int[0..100]"
-  loop_back,loop_back,submit,"remediation_summary:text[1..2000],confidence:int[0..100]"
-  submit,infeasible,submit,"evidence:text[1..2000]"
 ----
 
 The view of the same plan while the task runs, as a worker of the plan reads it through `pm://plan/plan-2026-042/state`; it offers no link:
@@ -177,13 +177,13 @@ The view of the same plan while the task runs, as a worker of the plan reads it 
 ----
 scope: plan
 plan_id: plan-2026-042
+links: []
 state: remediation-ci.choose
 phase: finalize
 summary: "CI failed, remedy being chosen (triage-ci)"
 facts:
   call_path[2]: plan.finalize,finalize.remediate-ci
   task_status: executing
-links: []
 ----
 
 [#link-forms]
@@ -192,19 +192,19 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8: Asynchronous Job Links & Wait Transitions]_
 
-Every row in `links[N]{rel,link,form,free}:` belongs to one of two closed link forms (`submit`, `noop`). The `form` column defines the interaction mechanics expected from the caller. Waiting on a job and cancelling it are engine events, never links: a job's completion moves its state, and a view shows the job's progress (`PM-WF-8`). The only waits a model holds are a worker's `pm_wait` (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools Specification, Core Workflow Tools]) and a running `pm_build`. No model-facing form requests an operator decision: what needs the operator is an operator wait whose operator links are endpoints of the local API (<<operator-links>>), and the operator's other acts (waivers, pause and start, cancel and abandon, the holds' acts) are endpoints of the same API. No form starts a model: every model step is a task of a role (<<model-job-states>>).
+Every row in `links[N]{rel,link,form,free}:` belongs to one of two closed link forms (`submit`, `noop`); `scope_id` stands for the `plan_id` or `epic_id` of the offer (`NO_PLAN` for the workspace or machine scope) and `entity` for the leased task entity (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools Specification, `pm_do`]). The `form` column defines the interaction mechanics expected from the caller. Waiting on a job and cancelling it are engine events, never links, the operator's stop of a chat's reply (`PM-WF-24`) being the one exception: a job's completion moves its state, and a view shows the job's progress (`PM-WF-8`). The only waits a model holds are a worker's `pm_wait` (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools Specification, Core Workflow Tools]) and a running `pm_build`. No model-facing form requests an operator decision: what needs the operator is an operator wait whose operator links are endpoints of the local API (<<operator-links>>), and the operator's other acts (waivers, pause and start, cancel and abandon, the holds' acts) are endpoints of the same API. No form starts a model: every model step is a task of a role (<<model-job-states>>).
 
 [cols="1,2,2,3"]
 |===
 |Link Form |Target Tool |`free` Column |Execution Semantics
 
 |`submit`
-|`pm_do(scope, link, args)`
+|`pm_do(scope_id, entity, link, args)`
 |Non-empty typed parameter list (e.g., `"message:text[1..2000]"`, `"disposition:enum[FIX\|SUPPRESS\|ACCEPT],reply_text:text[1..4000]"`)
 |Submits model judgment artifacts to the server from a worker for its leased task entity. The server validates `args` against the link's closed schema before executing the backing primitive.
 
 |`noop`
-|`pm_do(scope, link, {})`
+|`pm_do(scope_id, entity, link, {})`
 |`""` (empty)
 |Triggers a deterministic server-side transition that requires zero free judgment parameters from the model (for example the task acknowledgement `ack`).
 |===
@@ -256,12 +256,12 @@ These links are ordinary `submit` or `noop` links; their relation and form satis
 |Offered on the decision task of a remediation policy unit whose failing gate is on the closed waivable list. Files a waiver request (link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-request-record[Store Schemas Specification, Waiver Request Record]) and ends the task; the unit then rests in an operator wait without a time limit, which the operator ends by `waive` or `decline` in either client (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]). It is a request, never a decision the model waits on inside the call.
 |===
 
-No model ends a plan or an epic, and no model leaves a sub-workflow early: a task ends only in its closed outcomes `submitted`, `asked`, `infeasible`, and `lost` (link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]). A scope ends through `plan.aborted` or `epic.aborted` only by an operator act (cancel, abandon, the abort that resolves an integrity hold, link:../state-catalogue/04-plan-finalize-terminal.adoc#plan-end[State Catalogue Specification, Cancelling and Abandoning]), the release of its project, or `delete-plan`; the implicit `step_out` of a sub-workflow (relation `abort`) is an operator link of an operator wait (<<operator-links>>).
+No model ends a plan or an epic, and no model leaves a sub-workflow early: a task ends only in its closed outcomes `submitted`, `asked`, `infeasible`, and `lost` (link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]). A scope ends through `plan.aborted` or `epic.aborted` only by an operator act (cancel, abandon, the abort that resolves an integrity hold, link:../state-catalogue/04-plan-finalize-terminal.adoc#plan-end[State Catalogue Specification, Cancelling and Abandoning]) or the release of its project; the implicit `step_out` of a sub-workflow (relation `abort`) is an operator link of an operator wait (<<operator-links>>).
 
 [#model-job-states]
 === Task States (`job llm`)
 
-A state that needs a model (refine analysis, outline authoring, the Q-Gate, task envelopes, triage, remediation decisions, the screener, and every other task site of link:../model-work.adoc[Model Work Specification]) is a task state (DSL `job llm <entity_kind> role <role> [each <primitive_id>]`, link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Task States]). Entering it creates one queue task per entity for the named role; a worker of that role receives the task as the answer to its `pm_wait` and works on the task entity. The plan representation stays a view: it carries `state`, `summary`, and `facts.task_status` (the furthest task protocol state its tasks reached: `queued`, `offered`, `executing`, or `consulting`), and never a launch instruction, a link, or anything of the worker's configuration (<<model-facing-minimality>>).
+A state that needs a model (refine analysis, outline authoring, the Q-Gate, task envelopes, triage, remediation decisions, the screener, and every other task site of link:../model-work.adoc[Model Work Specification]) is a task state (DSL `job llm <entity_kind> role <role> [each <primitive_id>]`, link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Task States]). Entering it creates one queue task per entity for the named role; a worker of that role receives the task as the answer to its `pm_wait` and works on the task entity. The plan representation stays a view: it carries `state`, `summary`, and `facts.task_status` (of the state's open tasks, the status furthest in the order `queued`, `offered`, `executing`, `consulting`, `awaiting_answer`, `suspended`; link:../store-schemas/16-task-queue.adoc[Store Schemas Specification, Task Queue]), and never a launch instruction, a link, or anything of the worker's configuration (<<model-facing-minimality>>).
 
 * *Completion Is the Awaited Event*: When every task of the state has ended, the server runs the return-evaluation primitive of the entity kind over the persisted records the tasks submitted and takes the transition of its closed outcome. A worker's own final output never carries a deliverable: deliverables reach the server only through `submit` links.
 * *The Worker's Connection*: A worker reaches PM-MCP only through its job relay (`pm-mcp serve --job`) with its job-bound capability and generation (link:../model-work/04-worker-launch.adoc[Model Work Specification, Worker Launch]); its representations follow this format with the links of its leased task entity, and a link that would start a model is never offered to it (single-level leaf rule, `PM-WF-5`). The skills and the contract of an offered task are rendered from the same link and schema definitions as its representations, so one definition drives both.
@@ -282,9 +282,9 @@ The operator's two clients read every state and resource over the local API (lin
 [#operator-links]
 === Operator Links
 
-An operator link is an act the state offers the operator: an object `{id, rel, method, href, params, preselected, confirm}`.
+An operator link is an act an operator wait offers the operator: an object `{id, rel, method, href, params, preselected, confirm}`. The acts of a hold and the actions of a resource are not operator links; they are taken at the hold and at the resource (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]).
 
-* `id` follows the link identifier grammar (link:../identifiers/01-general-rules-and-registry.adoc#id-link-id[Identifier Registry, Link Identifier]) and is unique within the state (for example `yes`, `yes_remember`, `no`, `answer`, `waive`, `decline`, `step_out`, `accept_edit`, `cancel`, `retry`); `rel` is one of the closed relations of link:02-link-grammar.adoc#_closed_link_relations_rel[Closed Link Relations] (`step_out`, the early exit of a sub-workflow, has `abort`). A client and a mock scenario key a link by its `id`, never by its relation, which several links share.
+* `id` follows the link identifier grammar (link:../identifiers/01-general-rules-and-registry.adoc#id-link-id[Identifier Registry, Link Identifier]) and is unique within the state (for example `yes`, `yes_remember`, `no`, `answer`, `skip`, `step_out`, `retry`); `rel` is one of the closed relations of link:02-link-grammar.adoc#_closed_link_relations_rel[Closed Link Relations] (`step_out`, the early exit of a sub-workflow, has `abort`). A client and a mock scenario key a link by its `id`, never by its relation, which several links share.
 * `method` and `href` are the local API request that takes the act (`POST /api/v1/entries/ent-3f9a2c41/links/yes`, `POST /api/v1/plans/plan-2026-042/decisions/Q-007/answer`); `params` is the closed schema of its body, in the free parameter grammar of link:02-link-grammar.adoc#_free_parameter_descriptor_grammar_free_column[Free Parameter Descriptor Grammar], with the named schemas of link:02-link-grammar.adoc#named-parameter-schemas[Named Parameter Schemas]; `preselected` marks the link the state proposes; `confirm` names the message key of a confirmation the client shows before it follows the link, where the state asks for one (an act that ends work names what it ends).
 * Following a link is an operator act: validated against the state's current revision under the scope lock, audited with its channel and device, and answered with the new state; a link of a state left meanwhile is refused `act_not_available`, an act against an older revision `conflict`, and the first valid act of the two clients wins. An operator link never reaches a worker, and no model-facing link reaches a client of the operator.
 

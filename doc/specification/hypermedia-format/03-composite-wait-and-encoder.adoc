@@ -21,6 +21,7 @@ During Phase 6 (`finalize`), CI verification, the configured code analysis provi
 ----
 scope: plan
 plan_id: plan-2026-042
+links: []
 state: finalize.concurrent-wait
 phase: finalize
 summary: "waiting on CI run (running), analysis (running) and review bot (pending)"
@@ -31,7 +32,6 @@ facts:
     coderabbit,required,in_progress,none,pending,false
   ci_status: running
   pr_number: 184
-links: []
 ----
 
 The representation is a view (xref:01-representation-and-link-forms.adoc#representation-kinds[Representation Kinds]): it shows the progress of the composite and offers no link. The constituent job identifiers (the CI job, the analysis jobs, and the review-bot job), the per-provider analysis results, the branch, and the elapsed wait time are recorded in the scope's `mcp/status.json` and the job records and shown to the operator's clients in the plan's process; they are never rendered (xref:01-representation-and-link-forms.adoc#model-facing-minimality[Model facing minimality]).
@@ -111,7 +111,7 @@ While the composite job runs, the daemon monitors the underlying jobs (the CI ru
 |_Any_
 |`watch_interrupted` / `cancelled`
 |`finalize.restart-watch`
-|A constituent job ended with a fate other than success (`killed`, for example on a runtime restart, `timed_out`, `indeterminate`, `refused`, `failed`): `watch_interrupted`, carrying `{constituent, fate}`. A cancellation of the composite job by the engine (an operator act that ends the plan) settles it `cancelled`, routed to the same state; a pause with the point _now_ cancels it without routing, and the start enters the wait again (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime Lifecycle Specification, Pausing and Starting a Plan]). Every other constituent is cancelled, and the `auto` state `finalize.restart-watch` restarts the watch explicitly within the compiled restart budget (default 2 per wait-region firing); exhaustion enters `finalize.hand-back`.
+|A constituent job ended with a fate other than success (`killed`, for example on a runtime restart, `timed_out`, `indeterminate`, `refused`, `failed`): `watch_interrupted`, carrying `{constituent, fate}`. A cancellation of the composite job by the engine (an operator act that ends the plan) settles it `cancelled`, routed to the same state; a pause with the point _now_ cancels it without routing, and the start enters the wait again (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime Lifecycle Specification, Pausing and Starting a Plan]). Every other constituent is cancelled, and the `auto` state `finalize.restart-watch` restarts the watch explicitly within the watch restart budget (link:../timeouts/01-job-budgets-and-waits.adoc#watch-restart-budget[Timeouts & Budgets Specification, Watch restart budget]); exhaustion enters `finalize.hand-back`.
 
 |`failed`
 |_Any_
@@ -220,20 +220,13 @@ Each `finalize.remediate-*` call state routes the unit's reachable domain outcom
 == Deterministic Native TOON Encoder Specification
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-3[PM-IMPL-3: Deterministic Native TOON Encoder]_
 
-`pm-core` implements a dedicated, zero-reflection Java TOON encoder (`ToonEncoder`): a full encoder of the official TOON specification, pinned to version 4.1 at release v4.1.3, commit `a6b801a3326980ab2cb615b0ffe44457e091f7b6` (`PM-IMPL-3`). It encodes with the canonical options only, the comma delimiter and an indentation of 2 spaces; every other option of the official encoder (another delimiter, another indentation width, key folding) is not offered. For every value it emits the form the official rules require (Rules 5 to 10), never a substitute form. The rules below restate the official syntax and add PM-MCP's determinism rules (Rules 2 and 3), which the official specification permits. Given identical input records, `ToonEncoder` produces byte-for-byte identical UTF-8 output across JVM and GraalVM native image executions.
+`pm-core` encodes TOON with a dedicated, zero-reflection Java encoder (`ToonEncoder`) of the official TOON specification, pinned to version 4.1 at release v4.1.3, commit `a6b801a3326980ab2cb615b0ffe44457e091f7b6` (`PM-IMPL-3`), with the canonical options only (the comma delimiter and an indentation of 2 spaces; no other option of the official encoder is offered): for every value it emits the form the official rules require, never a substitute form, and identical input produces byte-for-byte identical UTF-8 output across JVM and GraalVM native image executions (link:../../../pm-core/doc/developer/core-toon.adoc[The TOON Encoder Developer Guide]).
 
 === Encoding Rules
-_Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM-WATCH-HYP-4[PM-WATCH-HYP-4], link:../../implementation-watch/hypermedia-format.adoc#PM-WATCH-HYP-11[PM-WATCH-HYP-11]_
+_Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM-WATCH-HYP-4[PM-WATCH-HYP-4]_
 
-1. *Character Encoding & Line Endings*: UTF-8 without BOM; the line separator is strictly `LF` (`\n`, `0x0A`), and `CR` (`\r`) never appears outside escaped string literals. No line contains trailing spaces (`0x20`), and the document ends without a trailing newline: its last byte is the last character of its last line (official § 12).
-2. *Indentation*: Exactly 2 ASCII spaces (`"  "`) per nesting level; tabs (`\t`) are never used for indentation.
-3. *Key Ordering*: Top-level representation keys follow the fixed canonical order defined in xref:01-representation-and-link-forms.adoc#canonical-top-level-fields[Canonical Top-Level Fields]. Java `Record` types serialize components in their declared record component order, dynamic `Map<String, ?>` containers (such as `facts`) sort keys in deterministic ASCII lexicographical order (`String::compareTo`), and keys with `null` or `Optional.empty()` values are omitted completely (never serialized as `key: null`).
-4. *Scalar Formatting & Quoting*: Numbers use the canonical number form of the pinned specification; integers are base-10 ASCII digits (`-?[0-9]+`) with no leading zeroes or thousands separators. A string value is emitted unquoted if and only if the pinned specification allows it (minimal quoting): among others it is non-empty, has no leading or trailing whitespace, contains no C0 control character (`0x00..0x1F`), none of the characters the official specification reserves (such as the active delimiter `,`, `:`, `"`, `\`, brackets, and braces), and does not match `true`, `false`, `null`, or a numeric literal. DEL (`0x7F`) is no control character in this sense: it neither forces quoting nor is escaped (official § 7.1). All other strings, multi-line strings included, are enclosed in `"` with the official escapes only: `\\`, `\"`, `\n`, `\r`, `\t`, and `\u00XX` for every other C0 control character; there are no block literals.
-5. *Objects*: `key: value` for a scalar, and `key:` followed by the object's fields one level deeper for a nested object.
-6. *Primitive Arrays*: An array of scalars serializes inline with a length header as `key[N]: val1,val2,val3`, applying scalar quoting per element.
-7. *Empty Arrays*: An empty array of any element type serializes as `key: []` (official § 9.1), never as `key[0]:` and never as an empty tabular header.
-8. *Tabular Arrays*: An array of objects with the same keys and scalar values, or nested objects of uniform keys (below) (such as `links` and `failures`), serializes with the official tabular header `<key>[<row_count>]{<col_1>,<col_2>,...,<col_k>}:`, where `<row_count>` is the exact decimal row count, column names are comma-separated without spaces, and each row is indented one level deeper with its cells quoted per Rule 4. Where the objects share a nested object of uniform keys, its columns are written as an official field group of the header, never flattened into dotted column names by the encoder.
-9. *Keyed Tabular Form*: A map whose values are objects of the same keys and scalar values serializes in the official keyed tabular form (official § 9.5), never as one nested object per key.
-10. *List Form*: An array that is neither primitive nor tabular (mixed element types, objects with differing keys or non-scalar values, nested arrays) serializes in the official list form: the length header `key[N]:` followed by one `- ` item per element, one level deeper.
+The encoder writes the official syntax of the pinned version (UTF-8 without BOM, `LF` line separators, no trailing spaces and no trailing newline, 2 spaces per nesting level, canonical numbers, minimal quoting with the official escapes only, a multi-line string as one quoted line and never as a block literal, and the object, inline, empty, tabular, keyed tabular and list forms) and passes byte-exact every encode fixture of the pinned version except the fixtures that set an encoder option outside the canonical options, which the conformance test lists with that reason; a newer official version is pinned only when its fixtures pass the same way (Requirements appendix, gate 12; link:../../../pm-core/doc/developer/core-toon.adoc#_the_encoder[The TOON Encoder Developer Guide, The Encoder]).
 
-*Conformance*: The encoder passes byte-exact every encode fixture of the pinned version, except the fixtures that set an encoder option outside the canonical options, which the conformance test lists with that reason. A newer official version is pinned only when its fixtures pass the same way (Requirements appendix, gate 12).
+PM-MCP's determinism rule, which the official specification permits:
+
+*Key Ordering*: Top-level representation keys follow the fixed canonical order defined in xref:01-representation-and-link-forms.adoc#canonical-top-level-fields[Canonical Top-Level Fields]. Java `Record` types serialize components in their declared record component order, dynamic `Map<String, ?>` containers (such as `facts`) sort keys in deterministic ASCII lexicographical order (`String::compareTo`), and `null` record components and map values are omitted completely (never serialized as `key: null`).

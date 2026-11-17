@@ -15,13 +15,12 @@ A requirement implemented in another repository is traced there, or, for code wi
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-1[PM-ARCH-1]
 
-Implementation (of the mutual-exclusion bullet, the per-project machine store `<PM_MCP_BASE>/projects/<project_id>/` as the one place of the server-owned state of a project, the same for its main checkout and its worktrees, with its directories and its identity record `store.json`, created once under the project's workspace lock and never rewritten, and nothing with state below the repository; the acts of enrolment, rename and unenrolment that write the identity, and every other bullet, are not implemented here): link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java[ProjectStore],
+Implementation (of the mutual-exclusion bullet, the per-project machine store `<PM_MCP_BASE>/projects/<project_id>/` with its directories and its identity record `store.json`, created once under the project's workspace lock and never rewritten; the acts of enrolment, rename and unenrolment that write the identity, and every other bullet, are not implemented here): link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java[ProjectStore],
 link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentity.java[ProjectStoreIdentity],
 link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentityCodec.java[ProjectStoreIdentityCodec]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[ProjectStoreTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCodecTest.java[ProjectStoreIdentityCodecTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreNoStateInRepositoryTest.java[ProjectStoreNoStateInRepositoryTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCodecTest.java[ProjectStoreIdentityCodecTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_project_store[Scope Stores Developer Guide § The Per-Project Machine Store],
 link:../pm-core/doc/adr/core-store/038-per-project-machine-store-with-its-identity-record.adoc[ADR core-store/038]
@@ -85,6 +84,19 @@ link:../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Po
 link:../pm-runtime/doc/developer/runtime-question.adoc[Question Record Reader Developer Guide],
 link:../pm-core/doc/developer/core-spi.adoc#_the_contract_of_a_primitive[Developer Guide § The Contract of a Primitive]
 
+[#PM-ARCH-5]
+=== PM-ARCH-5: Worktree-Bound Plan Execution & Main-Bound Epic Location
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-5[PM-ARCH-5]
+
+Implementation (of the first and the third bullet as far as the per-project machine store carries them: the server-owned state of a project in `<PM_MCP_BASE>/projects/<project_id>/`, the same for its main checkout and its worktrees, and no state below the repository; the plan directories, the worktree lifecycle, the epic worktree and every other bullet are not traced here): link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java[ProjectStore]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreNoStateInRepositoryTest.java[ProjectStoreNoStateInRepositoryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[ProjectStoreTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_project_store[Scope Stores Developer Guide § The Per-Project Machine Store],
+link:../pm-core/doc/adr/core-store/038-per-project-machine-store-with-its-identity-record.adoc[ADR core-store/038]
+
 [#PM-ARCH-6]
 === PM-ARCH-6: Filesystem State Persistence & Cache-Only Process Memory
 
@@ -109,7 +121,7 @@ link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
 
-Implementation (as far as the library module `pm-runtime` carries it, and not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, the unit in force kept beside it and restored when a new unit does not load, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, with the bounded verification of the audit chain through a seam (the audit chain itself is not implemented yet); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the old pending entry records, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
+Implementation (as far as the library module `pm-runtime` carries it, and, apart from the start steps, not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, the unit in force kept beside it and restored when a new unit does not load, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, which `pm-mcpd` runs before its bind, with the bounded verification of the audit chain through a seam (the verification is the one of `PM-SEC-6`, which `pm-mcpd` does not pass yet: it runs the start with `AuditChainVerification.NONE`); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the old pending entry records, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceManager.java[ServiceManager],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java[ServiceUnitInstaller],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StartupSequence.java[StartupSequence],
@@ -191,7 +203,7 @@ Implementation (of the third bullet, with the hold of a stalled scope as far as 
 it, and not yet wired into the runtime `pm-mcpd`: the detection of a plan or an epic that awaits no event and has made
 no transition and no task progress for at least the stalled threshold, with the cause `no_progress` and the idle
 span, the one `plan_stalled` audit record of an episode and the release of a hold that clears by itself; the acts of
-the hold and the pause the same bullet names are other work packages'): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java[StalledScopeDetector]
+the hold and the pause the same bullet names are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java[StalledScopeDetector]
 
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/StalledScopeDetectorTest.java[StalledScopeDetectorTest] (the threshold from one second below to past it, every awaited event, a pause, an operator wait and another hold, one record per episode, the release by itself, and the threshold read from the module's limits resource)
 
@@ -231,7 +243,7 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-
 
 Implementation (of the fourth bullet, the residue the periodic sweep removes: the pending entry records older than the
 pending entry record maximum age, in one workspace transaction with one `pending_entry_removed` record per record; the
-other residue kinds and the cleanup of the first three bullets are other work packages'): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep],
+other residue kinds and the cleanup of the first three bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep]
 
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest],
@@ -258,7 +270,7 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/AddressResolut
 
 Verified by (the addressing of a bootstrap): link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EntityAddressingTest.java[EntityAddressingTest]
 
-Implementation (the re-composition of a changed unit in bullet 6, as far as the library module `pm-workflow` carries it: a changed unit is composed into a new version of the plan's instance with the event `config_adopted`; the version is composed only when it verifies and contains the current state and every state of the call stack, and is otherwise refused as a value while the version in force stays; the composition log of the plan records every attempt with its result (`composed`, `identical_adopted`, `kept`, `refused`). Not implemented yet: the detection of a changed unit at the phase handshake, the `config_drift` condition with its decision and audit record, and the engine's switch to the adopted version): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
+Implementation (the re-composition of a changed unit in bullet 6, as far as the library module `pm-workflow` carries it: a changed unit is composed into a new version of the plan's instance with the event `config_adopted`; the version is composed only when it verifies and contains the current state and every state of the call stack, and is otherwise refused as a value while the version in force stays; the composition log of the plan records every attempt with its result. Not implemented yet: the detection of a changed unit at the phase handshake, the `config_drift` condition with its decision and audit record, and the engine's switch to the adopted version): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRequest.java[CompositionRequest],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java[PlanInstanceStore],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRecord.java[CompositionRecord],
@@ -458,6 +470,12 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/ProtectedP
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_protected_paths[Scope Stores Developer Guide § Protected Paths],
 link:../pm-core/doc/adr/core-store/071-the-protected-path-matcher-is-a-pure-core-class.adoc[ADR core-store/071]
 
+Implementation (the change type of a plan and of its deliverables, the closed set orthogonal to the domain and the harness profile, as far as `pm-workflow` carries it; its derivation and recording are not traced here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/classification/ChangeType.java[ChangeType]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/classification/ChangeTypeTest.java[ChangeTypeTest]
+
+Documentation: link:../pm-workflow/doc/developer/workflow-classification.adoc[The Change Classification Developer Guide]
+
 [#PM-WF-12]
 === PM-WF-12: Question Records vs Operator Overrides
 
@@ -511,7 +529,7 @@ link:../pm-core/doc/adr/core-store/040-a-question-set-is-asked-whole.adoc[ADR co
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14]
 
-Implementation (the part of the third bullet by which usage limits nothing, as far as the library modules carry it: no policy class `spend`, so a status document with `policy_counters.spend` is refused on read and `LoopBackBudget` refuses the class; no remediation unit `remediation.spend`, so the remediation invariants give it no exemption and the plan instance header refuses it as a policy call unit; no `spend_overrun` route of the merge gate checked by `INV-FIN-5`; and the package `workflow.spend` stating the completion of a task and its usage only. The envelopes are traced in the implementation line of the work package `envelope-packing` below; the model slots and the recording of the usage from the harness output are traced in the second implementation line below): link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
+Implementation (the part of the third bullet by which usage limits nothing, as far as the library modules carry it: no policy class `spend`, so a status document with `policy_counters.spend` is refused on read and `LoopBackBudget` refuses the class; no remediation unit `remediation.spend`, so the remediation invariants give it no exemption and the plan instance header refuses it as a policy call unit; no `spend_overrun` route of the merge gate checked by `INV-FIN-5`; and the package `workflow.spend` stating the completion of a task and its usage only. The envelopes are traced in the implementation line of the task envelopes below; the model slots and the recording of the usage from the harness output are traced in the second implementation line below): link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java[RemediationInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/FinalizeInvariants.java[FinalizeInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java[InvariantId],
@@ -519,7 +537,7 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaChec
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/LoopBackBudget.java[LoopBackBudget],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/spend/package-info.java[package-info of `workflow.spend`]
 
-Implementation (the model slots and the usage rows, added by the work package `slots-usage-and-budgets` as far as the
+Implementation (the model slots and the usage rows, as far as the
 library modules carry it and not yet wired into the runtime `pm-mcpd`: the machine model slots with the cap of
 `machine-config.json`, admission in FIFO order, at most one writer worker per plan, the reaping of a slot whose runtime
 died, and the release of every slot of a paused plan; the task row and the worker-idle row of a `metrics.json` with each
@@ -538,7 +556,7 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[Pr
 link:../pm-core/src/main/java/de/planmarshall/core/store/ChangeLedger.java[ChangeLedger],
 link:../pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java[QualificationSettingsStore]
 
-Implementation (the task envelopes of the first bullet, added by the work package `envelope-packing` as far as the
+Implementation (the task envelopes of the first bullet, as far as the
 library module `pm-workflow` carries them, as a pure computation over plain values: the cost sizing `derive-cost-size`
 with its six sizes, the size-to-token table with its compiled defaults and their basis `uncalibrated`, the per-envelope
 budget with its precedence, the cap of its two fallbacks at the long-context threshold read beside the harness projection
@@ -702,6 +720,46 @@ link:../pm-workflow/doc/developer/workflow-ast.adoc[Workflow AST Developer Guide
 link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
 link:../pm-core/doc/developer/core-store.adoc#_the_call_stack[Scope Stores Developer Guide § The Call Stack]
+
+[#PM-WF-17]
+=== PM-WF-17: Dynamic Re-Planning of a Running Plan
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-17[PM-WF-17]
+
+Implementation (the compiled bounds of the first bullet and the unit side of the fourth, as far as the library module
+`pm-workflow` carries them: the declarations of a project's re-planning unit — its thresholds, its budget and its
+prerequisite wait — checked against their compiled bounds, and the unit held to the default except its task role and its
+declarations, without a question link (`INV-REPLAN-1`). Not implemented yet: the trigger detection with its
+decision-log records, the re-planning task, the apply path, the fallback and the revision from a chat): link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/DeclarationBounds.java[DeclarationBounds],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SubWorkflowInvariants.java[SubWorkflowInvariants],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java[InvariantId]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBoundsTest.java[DeclarationBoundsTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest] (a re-planning task that asks the user refused with `INV-REPLAN-1`)
+
+Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workflow Verification Developer Guide § Declaration Bounds],
+link:../pm-workflow/doc/adr/workflow-verify/020-declaration-bounds-in-workflow-verify.adoc[ADR workflow-verify/020]
+
+[#PM-WF-18]
+=== PM-WF-18: Question Recommendation Score & Decision Quorum
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18]
+
+Implementation (the compiled bounds of the second bullet, as far as the library module `pm-workflow` carries them: the
+declarations and `decide` lines of a project's adjudication unit — the decision form of each kind with its quorum's
+roles and score, the kind of each server-raised question, the vote wait and the calibration level — checked against
+their compiled bounds, the decision kinds one closed set shared by the parser and the bound, and the unit held to the
+default except its declarations (`INV-ADJ-1`). Not implemented yet: the recommendation of a question, the adjudication,
+the blind quorum, the calibration, the live corrections and the adjudication record): link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/DecisionDeclaration.java[DecisionDeclaration],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/DeclarationBounds.java[DeclarationBounds],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SubWorkflowInvariants.java[SubWorkflowInvariants],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java[InvariantId]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBoundsTest.java[DeclarationBoundsTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest] (a vote wait below its bound refused with `INV-ADJ-1`)
+
+Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workflow Verification Developer Guide § Declaration Bounds],
+link:../pm-workflow/doc/adr/workflow-verify/020-declaration-bounds-in-workflow-verify.adoc[ADR workflow-verify/020]
 
 [#PM-WF-20]
 === PM-WF-20: Waiting for the Operator
@@ -875,7 +933,7 @@ link:../pm-workflow/doc/adr/workflow-onboarding/001-the-auto-run-vocabulary-and-
 == link:../../plan-marshall-documentation/doc/requirements/03-skills.adoc[Skills]
 
 [#PM-SKILL-4]
-=== PM-SKILL-4: Skill Delivery to a Worker
+=== PM-SKILL-4: Skill Delivery to Workers & State through Representations
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-4[PM-SKILL-4]
 
@@ -1174,7 +1232,7 @@ link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-requ
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009]
 
 [#PM-EXEC-6]
-=== PM-EXEC-6: Adaptive Build Timeouts, Coverage Parsers & Gate Honesty
+=== PM-EXEC-6: Adaptive Build Timeouts, Coverage Parsing & Gate Honesty
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 
@@ -1201,6 +1259,53 @@ link:../pm-core/doc/adr/core-build/008-the-coverage-parsers-read-with-dtd-off-an
 link:../pm-core/src/test/resources/ported/coverage/PROVENANCE.adoc[Fixture provenance of the coverage report parsers]
 
 == link:../../plan-marshall-documentation/doc/requirements/07-credentials.adoc[Credentials]
+
+[#PM-CRED-1]
+=== PM-CRED-1: Dual-Lane Credential Separation (System vs Token Lane)
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-1[PM-CRED-1]
+
+Implementation (the machine's provider record of the first bullet and the provider verification of the fourth, as far
+as the library module `pm-runtime` carries them: per provider whether it is available, its default variant, its
+credential key and its last verification result; the checks of a provider as a whole, one line each, reached through
+the provider and tool seams the assembly implements; a provider recorded available only with a passed verification, and
+one whose checks failed only as not available. Not implemented yet: the lane classification in domain support, the
+System Lane bullet, the device flow and the refresh of the user access token, and the committer identity): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ProviderVerification.java[ProviderVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/Provider.java[Provider],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/ProviderVariant.java[ProviderVariant],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/ProviderDefault.java[ProviderDefault],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/ProviderDefaults.java[ProviderDefaults],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/VerificationResult.java[VerificationResult],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineConfigurationStore.java[MachineConfigurationStore]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/ProviderVerificationTest.java[ProviderVerificationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/ProviderDefaultTest.java[ProviderDefaultTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/VerificationResultTest.java[VerificationResultTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationStoreTest.java[MachineConfigurationStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationCodecTest.java[MachineConfigurationCodecTest]
+
+Implementation (the identity read of the third bullet and the credential kinds of the sixth on the native variant of
+`github` and `gitlab`: `ci.whoami` with the identity, its permissions on the repository, its scopes and its expiry, the
+kind of the credential read from what the provider reports and never guessed, a missing expiry no failure, and both
+identities of a GitHub App; of the seventh bullet, the App's reads with an installation token and its writes with the
+user access token the assembly supplies): link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/Identity.java[Identity],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/TokenKind.java[TokenKind],
+link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java[GitHubCiProvider],
+link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/InstallationTokens.java[InstallationTokens],
+link:../pm-providers/pm-provider-gitlab/src/main/java/de/planmarshall/provider/gitlab/GitLabCiProvider.java[GitLabCiProvider]
+
+Verified by: link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest],
+link:../pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/gitlab/GitLabCiProviderTest.java[GitLabCiProviderTest],
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/InstallationTokensTest.java[InstallationTokensTest],
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ValueTypesTest.java[ValueTypesTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-credentials.adoc#_provider_verification[Credential Stores Developer Guide § Provider Verification],
+link:../pm-runtime/doc/developer/runtime-config.adoc#_the_model[`runtime.config` Developer Guide § The Model],
+link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc#_main_types[CI Provider Contract Developer Guide § Main Types],
+link:../pm-providers/pm-provider-github/doc/developer/provider-github.adoc#_authentication[GitHub Developer Guide § Authentication],
+link:../pm-runtime/doc/adr/runtime-config/001-the-provider-defaults-are-written-in-the-runtime.adoc[ADR runtime-config/001],
+link:../pm-runtime/doc/adr/runtime-config/002-the-verification-result-is-a-member-of-the-provider-default.adoc[ADR runtime-config/002]
 
 [#PM-CRED-2]
 === PM-CRED-2: Operator-Chosen Credential Store & Native Access
@@ -1239,21 +1344,16 @@ Implementation (the credential-store aspect's engine half, over the delivered st
 `store.consent`, `store.check`, `store.confirm-move`, `store.move` and `store.record` with the consent
 `check_credential_store` before the OS store is checked, the file store checked without one, and a failed move that keeps
 the old store and reports `credential_store_failed`; the units that run the states are the onboarding's, in
-`plan-marshall-mcp`; the provider verification and the machine's provider defaults are traced here too): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreAspect.java[CredentialStoreAspect],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ProviderVerification.java[ProviderVerification],
+`plan-marshall-mcp`; the provider verification and the machine's provider defaults are traced with PM-CRED-1): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreAspect.java[CredentialStoreAspect],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineConfigurationStore.java[MachineConfigurationStore],
 link:../pm-core/src/main/java/de/planmarshall/core/config/ConsentStore.java[ConsentStore]
 
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreAspectTest.java[CredentialStoreAspectTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/ProviderVerificationTest.java[ProviderVerificationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationStoreTest.java[MachineConfigurationStoreTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationCodecTest.java[MachineConfigurationCodecTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/ProviderDefaultTest.java[ProviderDefaultTest],
 link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentStoreTest.java[ConsentStoreTest]
 
 Documentation: link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_credential_store_aspect[Developer Guide § The Credential-Store Aspect (`runtime.credentials`)],
-link:../pm-runtime/doc/developer/runtime-credentials.adoc#_provider_verification[Developer Guide § Provider Verification (`runtime.credentials`)],
-link:../pm-runtime/doc/developer/runtime-config.adoc[Developer Guide § Machine Configuration Provider Defaults (`runtime.config`)],
 link:../pm-runtime/doc/adr/runtime-credentials/010-the-aspect-runs-the-delivered-store.adoc[ADR runtime-credentials/010]
 
 [#PM-CRED-3]
@@ -1283,6 +1383,62 @@ Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/credential
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreMoveTest.java[CredentialStoreMoveTest]
 
 Documentation: link:../pm-runtime/doc/developer/runtime-credentials.adoc[Developer Guide § Credential Stores (`runtime.credentials`)]
+
+[#PM-CRED-5]
+=== PM-CRED-5: Outbound Domain Scoping & Output Secret Redaction
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-5[PM-CRED-5]
+
+Implementation (the first two bullets on the HTTP base of the native provider adapters: the token read per request
+through the token seam and never cached; requests sent only to the origin of the endpoint, a target outside it refused
+before anything is sent, and the token dropped on a redirect to another origin; the CI contract's references bound to the
+origin of their provider and refused before sending; the installation tokens of a GitHub App, the derived exception of
+the first bullet, held in memory per installation, repository and permission set until the reuse margin and handed to
+a redaction seam. Not implemented yet: the redaction registry, the drop of derived tokens on rotation, removal,
+revocation and stop, and the API origin derived from the credential entry): module
+link:../pm-providers/pm-provider-http/pom.xml[pm-provider-http] with
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/HttpClient.java[HttpClient],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Endpoint.java[Endpoint],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/TokenSource.java[TokenSource],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/RepositoryRef.java[RepositoryRef],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
+link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java[GitHubCiProvider],
+link:../pm-providers/pm-provider-gitlab/src/main/java/de/planmarshall/provider/gitlab/GitLabCiProvider.java[GitLabCiProvider],
+link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/InstallationTokens.java[InstallationTokens]
+
+Verified by: link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/HttpClientTest.java[HttpClientTest],
+link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/EndpointTest.java[EndpointTest],
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ValueTypesTest.java[ValueTypesTest],
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest],
+link:../pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/gitlab/GitLabCiProviderTest.java[GitLabCiProviderTest],
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/InstallationTokensTest.java[InstallationTokensTest]
+
+Implementation (the third bullet in part: the native git transport contacts only the HTTPS origin of the credential
+entry, checked against the effective fetch URL after its `insteadOf` rewrite, and refuses any other remote with
+`remote_origin_mismatch` before anything is sent; the push rewrites, the mapping of an SSH remote and the security audit
+record are not implemented yet): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/RemotePolicy.java[RemotePolicy],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations]
+
+Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/RemotePolicyTest.java[RemotePolicyTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTest.java[JGitOperationsTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitCacheRepositoryTest.java[JGitCacheRepositoryTest]
+
+Implementation (the fifth bullet in part: output masked by the shape of a credential in the activity journal, the
+excerpt of a `failed_unparsed` build and the check lines of the provider verification, which carry a provider's answer
+only bounded and redacted; masking by the values of a redaction registry is not implemented yet. The fourth and the sixth
+bullet are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/queue/SecretRedactor.java[SecretRedactor],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ProviderVerification.java[ProviderVerification]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/ProviderVerificationTest.java[ProviderVerificationTest]
+
+Documentation: link:../pm-providers/pm-provider-http/doc/developer/provider-http.adoc#_invariants_and_failure_modes[Shared HTTP Base Developer Guide § Invariants and Failure Modes],
+link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc#_invariants_and_failure_modes[CI Provider Contract Developer Guide § Invariants and Failure Modes],
+link:../pm-providers/pm-provider-github/doc/developer/provider-github.adoc#_authentication[GitHub Developer Guide § Authentication],
+link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide],
+link:../pm-runtime/doc/developer/runtime-credentials.adoc#_provider_verification[Credential Stores Developer Guide § Provider Verification],
+link:../pm-runtime/doc/adr/runtime-credentials/011-a-providers-answer-is-redacted-before-a-check-line-carries-it.adoc[ADR runtime-credentials/011],
+link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008]
 
 == link:../../plan-marshall-documentation/doc/requirements/08-security.adoc[Security]
 
@@ -1410,6 +1566,16 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/StoreRefusalTest.java[S
 
 Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#check[Concepts § Enrolment, The Check], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_enrolment_check[Developer Guide § Enrolment Check and Operator Writes, The Enrolment Check]
 
+Implementation (the authentication seams of the listeners, as far as `pm-runtime` carries them: the closed kinds of token the runtime accepts, the minting and digest of a worker's job token, the registries that resolve a token's hash to its job or a device secret's hash to its paired device, and the constant-time comparison of secrets; the listeners and the authentication of a request live in the assembly `pm-mcp-server` and are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/security/CredentialKind.java[CredentialKind],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/security/JobTokens.java[JobTokens],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/security/JobTokenRegistry.java[JobTokenRegistry],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/security/DeviceRegistry.java[DeviceRegistry],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/security/Secrets.java[Secrets]
+
+Verified by (the job token): link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/JobTokenStoreTest.java[JobTokenStoreTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-security.adoc[Authentication Seams Developer Guide]
+
 [#PM-SEC-5]
 === PM-SEC-5: Subprocess Environment Sanitization & Linux Filesystem Confinement
 
@@ -1493,6 +1659,40 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobEnvironmentCompo
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/WorkerEgressProxyTest.java[WorkerEgressProxyTest]
 
 Documentation (the confinement and the environment): link:../pm-runtime/doc/developer/runtime-job.adoc#_confinement_and_environment[Developer Guide § Confinement and Job Environment (`runtime.job`)], link:../pm-runtime/doc/adr/runtime-job/014-confinement-and-environment-composed-outside-the-launcher.adoc[ADR runtime-job/014]
+
+[#PM-SEC-6]
+=== PM-SEC-6: Security Audit Trail & Tamper-Evident Logging
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-6[PM-SEC-6]
+
+Implementation (the chain bullet, as far as the modules `pm-core` and `pm-runtime` carry it, and not yet wired into the runtime `pm-mcpd`, which starts with `AuditChainVerification.NONE` and an audit sink that refuses every record: the append-only log `logs/audit.jsonl` as a hash chain of canonical lines with `prev_hash`, appended under the audit lock through the production sink; the head `logs/audit.head` with record count and head hash under the HMAC of the enrolment integrity key, which the audit path reads and never creates; the rotation by size and age through a `checkpoint` record and the hash-chained index `logs/audit-index.jsonl`; and the verification, incremental from the last checkpoint and full across every rotated file, with the reasons `link_broken`, `missing`, `reset`, `truncated`, and `head_mismatch`, which never repairs. The other bullets are not traced here yet): link:../pm-core/src/main/java/de/planmarshall/core/store/AuditLog.java[AuditLog],
+link:../pm-core/src/main/java/de/planmarshall/core/store/AuditRecord.java[AuditRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/AuditCodec.java[AuditCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/AuditLogSink.java[AuditLogSink],
+link:../pm-core/src/main/java/de/planmarshall/core/store/AuditAnchor.java[AuditAnchor],
+link:../pm-core/src/main/java/de/planmarshall/core/store/AuditHeadRecord.java[AuditHeadRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/AuditIndexEntry.java[AuditIndexEntry],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/audit/AuditHead.java[AuditHead],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/audit/AuditRotation.java[AuditRotation],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/audit/AuditIndex.java[AuditIndex],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/audit/AuditVerification.java[AuditVerification]
+
+Verified by (the chain bullet): link:../pm-core/src/test/java/de/planmarshall/core/store/AuditLogTest.java[AuditLogTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/AuditLogSinkTest.java[AuditLogSinkTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/AuditCodecTest.java[AuditCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/AuditSchemaParityTest.java[AuditSchemaParityTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/audit/AuditHeadTest.java[AuditHeadTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/audit/AuditIndexTest.java[AuditIndexTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/audit/AuditRotationTest.java[AuditRotationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/audit/AuditVerificationTest.java[AuditVerificationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/audit/AuditVerificationRecordsTest.java[AuditVerificationRecordsTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-audit.adoc[Audit Trail Developer Guide],
+link:../pm-core/doc/developer/core-store.adoc#_audit_log[Scope Stores Developer Guide § The Audit Log],
+link:../pm-runtime/doc/adr/runtime-audit/001-audit-trail-in-its-own-package.adoc[ADR runtime-audit/001],
+link:../pm-runtime/doc/adr/runtime-audit/002-rotation-limits-supplied-by-the-caller.adoc[ADR runtime-audit/002],
+link:../pm-runtime/doc/adr/runtime-audit/003-head-keyed-by-the-enrolment-integrity-key.adoc[ADR runtime-audit/003],
+link:../pm-runtime/doc/adr/runtime-audit/004-verification-never-repairs-and-survives-rotation.adoc[ADR runtime-audit/004]
 
 [#PM-SEC-8]
 === PM-SEC-8: Consent Before Acting
@@ -1583,6 +1783,28 @@ Implementation (the third bullet in part: the start steps from the singleton loc
 Verified by (the JVM guard: the median of the start steps with 300 enrolled projects agrees with the median with none; the native cold-start figure is not measured yet): link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/StartupColdStartIT.java[StartupColdStartIT]
 
 Documentation: link:../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#startup[Concepts § Startup]
+
+[#PM-TECH-4]
+=== PM-TECH-4: Operating System Platform Integration (macOS & Linux)
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TECH-4[PM-TECH-4]
+
+Implementation (the third bullet, the runtime side: the termination of a job's process group with `SIGTERM`, the grace
+period and the `SIGKILL` escalation, the cancel before the group exists, the signals sent through `kill(2)` over FFM with
+their `errno` as a value, and the descendants that left the group recorded and ended with the job; the launcher's
+process group and child subreaper are `pm-exec`'s, in another repository. The other bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/TerminationProtocol.java[TerminationProtocol],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessGroupSignals.java[ProcessGroupSignals],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/KillBinding.java[KillBinding],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessTreeTracker.java[ProcessTreeTracker]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/TerminationProtocolTest.java[TerminationProtocolTest] (against the recording primitive and against real process groups),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProcessTreeTrackerTest.java[ProcessTreeTrackerTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc#_termination[Job Runtime Developer Guide § Termination],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_descendants[Job Runtime Developer Guide § Descendants Outside the Group],
+link:../pm-runtime/doc/adr/runtime-job/008-process-group-signals-through-ffm.adoc[ADR runtime-job/008],
+link:../pm-runtime/doc/adr/runtime-job/013-record-and-sweep-descendants.adoc[ADR runtime-job/013],
+link:../pm-runtime/doc/adr/runtime-job/017-sweep-through-the-process-handle.adoc[ADR runtime-job/017]
 
 == link:../../plan-marshall-documentation/doc/requirements/10-distribution.adoc[Distribution]
 
@@ -1764,11 +1986,11 @@ Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/guard/Outb
 Documentation: link:../pm-runtime/doc/developer/runtime-guard.adoc[Outbound-Call Guard Developer Guide]
 
 [#PM-TEST-6]
-=== PM-TEST-6: Model Verification Corpus & Qualification Fixtures
+=== PM-TEST-6: Behavioural Conformance of Model-Facing Content
 
-link:../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6]
 
-Implementation: link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/RoleTopics.java[RoleTopics] (the topics of a role from the items' `role` field: the own and generic items, only `draft` and `confirmed` ones, and the `judge/` topic grades no role), link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/ConstantBaseline.java[ConstantBaseline], link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/Scoring.java[Scoring], link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeCheck.java[JudgeCheck]
+Implementation (the grading of role configurations against the model verification corpus of the [Roles] bullet, as far as `pm-core` and `pm-workflow` carry it; the behavioural conformance harness of the other bullets lives outside this repository and is not traced here): link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/RoleTopics.java[RoleTopics] (the topics of a role from the items' `role` field: the own and generic items, only `draft` and `confirmed` ones, and the `judge/` topic grades no role), link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/ConstantBaseline.java[ConstantBaseline], link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/Scoring.java[Scoring], link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeCheck.java[JudgeCheck]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/RoleTopicsTest.java[RoleTopicsTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ConstantBaselineTest.java[ConstantBaselineTest] (the constant answerer, the matched control, the too-uniform topic), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ScoringTest.java[ScoringTest], link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java[RoleGraderTest] (a fixture corpus with a scripted harness and judge; the runs the caller requested per item)
 
@@ -1875,7 +2097,7 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessListings.
 The install path's seam from the verification's `UsageResult` to the enrolment's `UsageReport` is
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/VerifiedUsage.java[VerifiedUsage] (`UsageReport.of` is the
 mapping boundary); the operator verb that writes the enrolment is owed to `plan-marshall-mcp`, and the recorded output of
-each harness and version as a parsing fixture is owed by this plan's landing (PLAN-V2-39), which names it.
+each harness and version as a parsing fixture is not traced yet.
 
 Verified by (the scan, the list and the verification gate):
 link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessScanTest.java[HarnessScanTest],
@@ -2118,6 +2340,20 @@ link:../pm-core/doc/adr/core-store/065-the-vocabulary-of-the-unavailable-states.
 link:../pm-core/doc/adr/core-store/066-the-lesson-store-reads-in-two-flavours-and-decides-under-the-lock.adoc[ADR core-store/066],
 link:../pm-core/doc/adr/core-store/067-the-lesson-store-builds-no-operator-act.adoc[ADR core-store/067]
 
+[#PM-IMPL-3]
+=== PM-IMPL-3: Deterministic Native TOON Encoder
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-3[PM-IMPL-3]
+
+Implementation (the encoder of the first bullet in `pm-core`, reflection-free over an explicitly built value tree, with the canonical options of the pinned specification release only, and the conformance test of the second bullet; the reader of the third bullet is not traced here): link:../pm-core/src/main/java/de/planmarshall/core/toon/ToonEncoder.java[ToonEncoder],
+link:../pm-core/src/main/java/de/planmarshall/core/toon/ToonValue.java[ToonValue],
+link:../pm-core/src/main/java/de/planmarshall/core/toon/ToonEncodingException.java[ToonEncodingException]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/toon/ToonEncoderTest.java[ToonEncoderTest],
+link:../pm-core/src/test/java/de/planmarshall/core/toon/ToonConformanceTest.java[ToonConformanceTest]
+
+Documentation: link:../pm-core/doc/developer/core-toon.adoc[The TOON Encoder Developer Guide]
+
 [#PM-IMPL-4]
 === PM-IMPL-4: Bounded Long-Poll & Progress-Reset Waiting Primitives
 
@@ -2285,7 +2521,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/spi/OutcomeReasonTest.java[Ou
 link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveResultTest.java[PrimitiveResultTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/SpiVocabularyTest.java[SpiVocabularyTest]
 
-Implementation (the unit frontmatter, the unit types and the interface of a unit, as far as the library module `pm-workflow` carries them: the frontmatter read by its own parser of the closed line subset, from the head of the source and without the body, refusing a control character, a format character, a line separator or a paragraph separator with its code point and line, bounded at 200 lines and 80 echoed characters, every refusal a value with file, line and column, and printed in the order of its field table so the round trip holds; the frontmatter inputs (`input` with `input_type`, `input_default`, `input_fallback`, `input_description`) and the reads (`reads_config`, `reads_fact`), checked against the registries the verifier is given; the six unit types; a unit with entries binds them and declares no start state; the verifier's interface rules and the check of the type against the scope and the interface; `INV-GEN-1` over the type, the entries, the exits, the inputs and the entry bindings; the refusal of a project unit larger than 1048576 bytes and of one whose author equals `plan-marshall` after NFKC normalisation, removal of its format characters, stripping and case folding. Not implemented yet: the machine unit's type row and its residence, the machine level's author check and `INV-GEN-1`, and the frontmatter written by the designer): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/UnitFrontmatterReader.java[UnitFrontmatterReader],
+Implementation (the unit frontmatter, the unit types and the interface of a unit, as far as the library module `pm-workflow` carries them: the frontmatter read by its own parser of the closed line subset, from the head of the source and without the body, refusing a control character, a format character, a line separator or a paragraph separator with its code point and line, within its compiled bounds, every refusal a value with file, line and column, and printed in the order of its field table so the round trip holds; the frontmatter inputs (`input` with `input_type`, `input_default`, `input_fallback`, `input_description`) and the reads (`reads_config`, `reads_fact`), checked against the registries the verifier is given; the six unit types; a unit with entries binds them and declares no start state; the verifier's interface rules and the check of the type against the scope and the interface; `INV-GEN-1` over the type, the entries, the exits, the inputs and the entry bindings; the refusal of a project unit larger than the compiled size bound and of one whose author equals `plan-marshall` after NFKC normalisation, removal of its format characters, stripping and case folding. Not implemented yet: the machine unit's type row and its residence, the machine level's author check and `INV-GEN-1`, and the frontmatter written by the designer): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/UnitFrontmatterReader.java[UnitFrontmatterReader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/UnitFrontmatter.java[UnitFrontmatter],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/UnitType.java[UnitType],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
@@ -2534,6 +2770,36 @@ link:../pm-core/doc/adr/core-store/058-the-reading-fails-closed.adoc[ADR core-st
 link:../pm-core/doc/adr/core-store/059-an-unreadable-store-is-a-refusal.adoc[ADR core-store/059],
 link:../pm-core/doc/adr/core-store/060-the-operator-only-exclusion-is-a-property-of-the-kind.adoc[ADR core-store/060]
 
+[#PM-EXT-7]
+=== PM-EXT-7: Configuration Versioning, Validation & Zero-CoT Upgrades
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-7[PM-EXT-7]
+
+Implementation (the plan instance of the seventh bullet, as far as the library module `pm-workflow` carries it: the
+instance header that names the inputs of a version by digest, the level `machine` of a unit not yet among them; a new
+version composed only when it verifies and contains the current state and every state of the call stack, and otherwise
+refused as a value while the version in force stays; each version written once, with one line of the composition log
+per attempt. Not implemented yet: the candidate composed at the phase handshake, the configuration-drift condition with
+its audit record, and the engine's switch to an adopted version. The verification of a project's units on load is
+traced with PM-IMPL-5; the other bullets are not traced here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceHeader.java[PlanInstanceHeader],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionInputs.java[CompositionInputs],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/UnitReference.java[UnitReference],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionResult.java[CompositionResult],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java[PlanInstanceStore],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRecord.java[CompositionRecord]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest] (the refusals `position_not_contained` and `invariant_failed`, and a refused version composing nothing),
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceHeaderTest.java[PlanInstanceHeaderTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/HeaderSchemaCheckTest.java[HeaderSchemaCheckTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest]
+
+Documentation: link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Instance Developer Guide],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_persistence[Plan Instance Developer Guide § Persistence],
+link:../pm-workflow/doc/adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR workflow-plan/001],
+link:../pm-workflow/doc/adr/workflow-plan/002-refused-composition-is-a-value.adoc[ADR workflow-plan/002],
+link:../pm-workflow/doc/adr/workflow-plan/003-versions-and-log-over-scope-transaction.adoc[ADR workflow-plan/003]
+
 == link:../../plan-marshall-documentation/doc/requirements/16-model-work.adoc[Model Work]
 
 [#PM-WORK-1]
@@ -2713,7 +2979,7 @@ Documentation (the turn's usage figures):
 link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
 link:../pm-runtime/doc/adr/runtime-worker/013-the-turn-keeps-tool-uses-and-cost-raw.adoc[ADR runtime-worker/013]
 
-Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorScenarioTest.java[SupervisorScenarioTest] (the package's Done When scenarios over the fixture harness and the virtual clock, supported by the mechanism tests named below: AgentStartedDetectorTest for the `agent_started` match and the impostor, StartFailureGuardTest for the count, the hold, the probe and the clear, WorkerRecyclingTest for the four recycle triggers, and WorkerEndingTest for the one end path),
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorScenarioTest.java[SupervisorScenarioTest] (the scenarios over the fixture harness and the virtual clock, with the mechanism tests named below),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorStartTest.java[WorkerSupervisorStartTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorLaunchTest.java[WorkerSupervisorLaunchTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerLossDetectionTest.java[WorkerLossDetectionTest],
@@ -2810,7 +3076,7 @@ link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeInstr
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleGrader.java[RoleGrader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RecordedQualification.java[RecordedQualification]
 
-Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationCheckTest.java[QualificationCheckTest] (a record whose `generic` topic reaches the level and whose `own` topic does not is not valid, and neither is the reverse; a record without a topic of the corpus is not valid; every topic at the level is valid; the level is read at every check; the warm downgrade), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ConstantBaselineTest.java[ConstantBaselineTest] (eight of ten equal references at 80 percent at an 80 percent level do not qualify, the matched control nine of ten does, ten equal references are too uniform), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/RoleTopicsTest.java[RoleTopicsTest] (the topics by the items' `role` field, the review statuses, the zero-tool and judgment roles), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ScoringTest.java[ScoringTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/JudgeCheckTest.java[JudgeCheckTest] (the oracle and blind accuracies, the lost judge task, the stale record), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordCodecTest.java[QualificationRecordCodecTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordStoreTest.java[QualificationRecordStoreTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationSchemaParityTest.java[QualificationSchemaParityTest] (the two grading schema files, their members and the validity of the written documents: the judge-check record as written, the qualification record but for the pinned `thin` mark of a topic result), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java[RoleGraderTest] (a complete corpus writes the record with its tokens, a failed import writes no valid record, a partial one names its missed sources, the judge refusals, the runs the caller requested, the checkout at the origin commit and `current` when the commit is missing, the re-grading of only the ungraded items), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RecordedQualificationTest.java[RecordedQualificationTest] (a changed level applies to an existing record, the warm downgrade, a stale digest), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest] (an unqualified role closes `role_unqualified` and the judge and the steward skip Qualify)
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationCheckTest.java[QualificationCheckTest] (the validity of a record per topic and level, the warm downgrade), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ConstantBaselineTest.java[ConstantBaselineTest] (the constant answerer, the matched control, the too-uniform topic), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/RoleTopicsTest.java[RoleTopicsTest] (the topics by the items' `role` field, the review statuses, the zero-tool and judgment roles), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ScoringTest.java[ScoringTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/JudgeCheckTest.java[JudgeCheckTest] (the oracle and blind accuracies, the lost judge task, the stale record), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordCodecTest.java[QualificationRecordCodecTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordStoreTest.java[QualificationRecordStoreTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationSchemaParityTest.java[QualificationSchemaParityTest] (the two grading schema files, their members and the validity of the written documents: the judge-check record as written, the qualification record but for the pinned `thin` mark of a topic result), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java[RoleGraderTest] (a complete corpus writes the record with its tokens, a failed import writes no valid record, a partial one names its missed sources, the judge refusals, the runs the caller requested, the checkout at the origin commit and `current` when the commit is missing, the re-grading of only the ungraded items), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RecordedQualificationTest.java[RecordedQualificationTest] (a changed level applies to an existing record, the warm downgrade, a stale digest), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest] (an unqualified role closes `role_unqualified` and the judge and the steward skip Qualify)
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide] (§ Role Qualification), link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide] (§ The Grading Run and the Qualification Lookup), link:../pm-core/doc/adr/core-role/003-qualification-measurements-decided-at-every-check.adoc[ADR core-role/003], link:../pm-core/doc/adr/core-role/004-grading-through-ports-not-a-worker-runtime.adoc[ADR core-role/004], link:../pm-core/doc/adr/core-role/006-grading-records-persist-the-total-only.adoc[ADR core-role/006], link:../pm-workflow/doc/adr/workflow-model/002-the-grading-run-in-workflow-model.adoc[ADR workflow-model/002]
 

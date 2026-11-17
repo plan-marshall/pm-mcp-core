@@ -47,16 +47,18 @@ Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#role-clas
 link:../specification/harness-profiles/01-profile-schema.adoc#worker-block[Harness Profiles § Worker Block] (`worker.eligible`),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
 Hazard:: Antigravity runs every worker with all its harness tools and beside the MCP servers of the operator's own
-configuration (`tool_set: advisory`, `mcp_config.exclusive: false`). That is accepted for `writer` and `read_only`
-roles and fatal for the screener: a profile that declared `zero_tool` for it would hand untrusted text to a model
-with a shell. Beside that, three things were seen in its measurement and not yet tested under target conditions:
+configuration (`tool_set: advisory`, `mcp_config.exclusive: false`). A harness that cannot be kept from connecting
+to servers other than the worker's job relay runs no class: a `writer` or `read_only` worker would reach the
+operator's own MCP servers, and a profile that declared `zero_tool` for it would hand untrusted text to a model with a
+shell. Beside that, three things were seen in its measurement and not yet tested under target conditions:
 the operator's global configuration may hold an MCP entry named `plan-marshall`, so a worker would start it beside
 its job relay under the same server name; all `agy` processes share a tool schema cache per
 server name, while the tool list differs per role; and task inputs of 8,000 characters and more were read back with
 the harness's `view_file` from its own step output, outside the server's resource tools. Its fault matrix passed only as
 a three-trial smoke run with unconfined workers on macOS.
-Guard:: Profile validation refuses a non-null `zero_tool` on a profile whose `mcp_config.exclusive` is `false`, and
-a fixture profile proves it. `worker.eligible` of `antigravity` becomes `true` only after: the ten-trial fault matrix
+Guard:: Profile validation refuses a non-null `writer`, `read_only`, or `zero_tool` on a profile whose
+`mcp_config.exclusive` is `false`, and a fixture profile per class proves it. `antigravity` hosts a class only once its
+profile's MCP configuration is exclusive, and its `worker.eligible` becomes `true` only after: the ten-trial fault matrix
 with confined workers on Linux, with a global `plan-marshall` MCP entry present in the operator's configuration (no tool of it is listed to the
 worker); two workers of roles with different tool sets running at once, each listing exactly its own
 tools; and its writable paths under Landlock, the step output it reads back included, recorded in
@@ -124,71 +126,6 @@ line with exactly `expected_plugins`, the job relay, and the role's tool set pas
 MCP server reports both in the line.
 Source:: Article analysis `claude-mods` of plan-marshall-documentation (Claude Code's `system` `init` line names the
 loaded plugins, MCP servers, and tools; managed settings add plugins and hooks no launch argument removes).
-
-== On-the-Fly Placeholder Rendering Rules
-
-[#PM-WATCH-CLIENT-1]
-=== PM-WATCH-CLIENT-1: Format-accuracy evidence is secondhand
-
-Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#_rendering_invariants[Harness Profiles § Rendering Invariants],
-link:../specification/harness-profiles/02-placeholders.adoc#calibration-decision[Harness Profiles § Calibration Decision],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-5[PM-TOOL-5], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-2[PM-IMPL-2],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6]
-Hazard:: The TOON wire form is a settled design decision, but its parse fidelity per client runtime is unmeasured;
-the only format-accuracy figures in circulation are secondhand (an up-to-40% drop from generic Markdown, a
-model-specific optimal format, parsing accuracy YAML 51.9% / JSON 43.1% / XML 33.8%). A runtime that parses TOON
-poorly degrades silently.
-Guard:: Keep the decision. Before revisiting TOON or the Calibration Decision, read the primary source (Ouyang et al.
-2026, _SkCC_, arXiv 2605.03353) and record what it measured; never cite the figures in a specification before
-that. The `PM-TEST-6` baseline of every client includes a TOON representation-parsing scenario (the model extracts
-`links` and `facts` from a `pm_state` result), link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#behavioural-conformance-harness[Workflow DSL § Behavioural Conformance Harness].
-Fixture:: the figures above, marked unverified.
-Source:: plan-marshall defect instrumentation-substrate PLAN-03 deliverable 5 and § Folded finding — `next-level-006`.
-
-[#PM-WATCH-CLIENT-2]
-=== PM-WATCH-CLIENT-2: No design rests on "weaker models need more scaffolding"
-
-Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#_on_the_fly_placeholder_rendering_rules[Harness Profiles § On-the-Fly Placeholder Rendering Rules],
-link:../specification/harness-profiles/02-placeholders.adoc#calibration-decision[Harness Profiles § Calibration Decision],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6]
-Hazard:: The claim is plausible but unmeasured; designing against it bakes in resident cost.
-Guard:: Reviews of skill content and profile additions reject a rationale citing this claim unless a `PM-TEST-6` verdict
-supports it.
-Source:: plan-marshall defect instrumentation-substrate PLAN-03 § Claim Labels, Verify-first clause.
-
-[#PM-WATCH-CLIENT-3]
-=== PM-WATCH-CLIENT-3: The `plan-marshall` description surface is a re-derivable baseline
-
-Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#harness-resident-surface-inventory[Harness Profiles § Harness-Resident Surface Inventory],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5]
-Hazard:: The `plan-marshall` always-resident description surface drifted by +660 bytes between staging and re-grounding; the
-measuring script was git-ignored and lost, so the figure could not be re-derived; the 500-character description
-limit was never enforced (min 30 / max 500 characters, 8 of 157 over 500).
-Guard:: The PM-MIG-5 baseline measurement is a checked-in, re-runnable derivation that records its population; the
-PM-MCP inventory is compared against it.
-Fixture:: UTF-8 byte length of `description:` over `marketplace/bundles/*/skills/*/SKILL.md`: 157 components, 27,354
-bytes (earlier 26,694), mean 174, median 119 (mean/median 1.46, right-skewed), 0 without a description, 0 unreadable. Top 8: `manage-lessons` 721,
-`ext-self-review-plan-marshall` 714, `manage-references` 713, `persona-module-tester` 651, `plan-orchestrator`
-621, `plugin-security` 587, `arch-gate-java` 519, `oci-standards` 501; they hold 18.4% of the bytes from 5.1% of the
-components. Registered: 154 skills (157 on disk), 2 agents, 2 commands = 158.
-Source:: plan-marshall defect instrumentation-substrate PLAN-05 § Claim Labels claims 1, 3 and 4.
-
-== Embedded Harness Bundle `bundle-manifest.json` Schema
-
-[#PM-WATCH-CLIENT-6]
-=== PM-WATCH-CLIENT-6: Every artifact an emitted instruction references is emitted too
-
-Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#_rendering_invariants[Harness Profiles § Rendering Invariants],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-2[PM-SKILL-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
-Hazard:: A target emitter shipped a routing table whose referenced documents were not part of that target's unit.
-Guard:: Build-time test: every template is rendered for every built-in profile and fails on
-any unresolved or missing form (Profile Completeness); a `{{...}}` token that fails to resolve fails the rendering
-closed and logs a template defect, never emitting raw `{{...}}` syntax (Zero Unresolved Placeholders).
-Fixture:: an opencode unit whose routing table referenced 8 `workflow/` documents that were not emitted (also
-`phase-5-execute`).
-Source:: plan-marshall defect process-compliance inbox module-budget-campaign-completion-008.
-
-== Endpoint Harness
 
 [#PM-WATCH-CLIENT-16]
 === PM-WATCH-CLIENT-16: A worker's isolation covers the operator's own instruction files and skills
@@ -269,3 +206,63 @@ one-turn run gives the same row under either accumulation.
 Source:: Article analysis `symphony` of plan-marshall-documentation: Codex reports the thread's running totals beside
 the increment of the last turn, and Symphony's own accounting notes warn against adding the totals.
 
+== On-the-Fly Placeholder Rendering Rules
+
+[#PM-WATCH-CLIENT-1]
+=== PM-WATCH-CLIENT-1: Format-accuracy evidence is secondhand
+
+Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#_rendering_invariants[Harness Profiles § Rendering Invariants],
+link:../specification/harness-profiles/02-placeholders.adoc#calibration-decision[Harness Profiles § Calibration Decision],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-5[PM-TOOL-5], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-2[PM-IMPL-2],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6]
+Hazard:: The TOON wire form is a settled design decision, but its parse fidelity per client runtime is unmeasured;
+the only format-accuracy figures in circulation are secondhand (an up-to-40% drop from generic Markdown, a
+model-specific optimal format, parsing accuracy YAML 51.9% / JSON 43.1% / XML 33.8%). A runtime that parses TOON
+poorly degrades silently.
+Guard:: Keep the decision. Before revisiting TOON or the Calibration Decision, read the primary source (Ouyang et al.
+2026, _SkCC_, arXiv 2605.03353) and record what it measured; never cite the figures in a specification before
+that. The `PM-TEST-6` baseline of every client includes a TOON representation-parsing scenario (the model extracts
+`links` and `facts` from a `pm_state` result), link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#behavioural-conformance-harness[Workflow DSL § Behavioural Conformance Harness].
+Fixture:: the figures above, marked unverified.
+Source:: plan-marshall defect instrumentation-substrate PLAN-03 deliverable 5 and § Folded finding — `next-level-006`.
+
+[#PM-WATCH-CLIENT-2]
+=== PM-WATCH-CLIENT-2: No design rests on "weaker models need more scaffolding"
+
+Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#_on_the_fly_placeholder_rendering_rules[Harness Profiles § On-the-Fly Placeholder Rendering Rules],
+link:../specification/harness-profiles/02-placeholders.adoc#calibration-decision[Harness Profiles § Calibration Decision],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6]
+Hazard:: The claim is plausible but unmeasured; designing against it bakes in resident cost.
+Guard:: Reviews of skill content and profile additions reject a rationale citing this claim unless a `PM-TEST-6` verdict
+supports it.
+Source:: plan-marshall defect instrumentation-substrate PLAN-03 § Claim Labels, Verify-first clause.
+
+[#PM-WATCH-CLIENT-3]
+=== PM-WATCH-CLIENT-3: The `plan-marshall` description surface is a re-derivable baseline
+
+Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#harness-resident-surface-inventory[Harness Profiles § Harness-Resident Surface Inventory],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5]
+Hazard:: The `plan-marshall` always-resident description surface drifted by +660 bytes between staging and re-grounding; the
+measuring script was git-ignored and lost, so the figure could not be re-derived; the 500-character description
+limit was never enforced (min 30 / max 500 characters, 8 of 157 over 500).
+Guard:: The PM-MIG-5 baseline measurement is a checked-in, re-runnable derivation that records its population; the
+PM-MCP inventory is compared against it.
+Fixture:: UTF-8 byte length of `description:` over `marketplace/bundles/*/skills/*/SKILL.md`: 157 components, 27,354
+bytes (earlier 26,694), mean 174, median 119 (mean/median 1.46, right-skewed), 0 without a description, 0 unreadable. Top 8: `manage-lessons` 721,
+`ext-self-review-plan-marshall` 714, `manage-references` 713, `persona-module-tester` 651, `plan-orchestrator`
+621, `plugin-security` 587, `arch-gate-java` 519, `oci-standards` 501; they hold 18.4% of the bytes from 5.1% of the
+components. Registered: 154 skills (157 on disk), 2 agents, 2 commands = 158.
+Source:: plan-marshall defect instrumentation-substrate PLAN-05 § Claim Labels claims 1, 3 and 4.
+
+[#PM-WATCH-CLIENT-6]
+=== PM-WATCH-CLIENT-6: Every artifact an emitted instruction references is emitted too
+
+Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#_rendering_invariants[Harness Profiles § Rendering Invariants],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-2[PM-SKILL-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+Hazard:: A target emitter shipped a routing table whose referenced documents were not part of that target's unit.
+Guard:: Build-time test: every template is rendered for every built-in profile and fails on
+any unresolved or missing form (Profile Completeness); a `{{...}}` token that fails to resolve fails the rendering
+closed and logs a template defect, never emitting raw `{{...}}` syntax (Zero Unresolved Placeholders).
+Fixture:: an opencode unit whose routing table referenced 8 `workflow/` documents that were not emitted (also
+`phase-5-execute`).
+Source:: plan-marshall defect process-compliance inbox module-budget-campaign-completion-008.

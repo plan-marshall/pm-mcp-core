@@ -62,7 +62,7 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
 
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 
-Detection decides only whether a worker is alive. A worker that is alive and busy but makes no progress (it repeats one call, works for many turns without following a link of its task, spends far more on a plan task than its size predicts, changes files outside the plan task's footprint, builds into the same failure again and again, or keeps changing one file without building) is noticed by the *off-track signals*, which the runtime computes from the worker's activity journal (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles Specification, What a Worker Does]) and the task's records, never by a model. A signal is not a limit: it never ends a plan, and it never becomes a decision or waits for the operator.
+Detection decides only whether a worker is alive. A worker that is alive and busy but makes no progress (it repeats one call, works for many turns without following a link of its task, spends far more on a plan task than its size predicts, changes files outside the plan task's footprint, builds into the same failure again and again, keeps changing one file without building, or starts another agent) is noticed by the *off-track signals*, which the runtime computes from the worker's activity journal (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles Specification, What a Worker Does]) and the task's records, never by a model. A signal is not a limit: it never ends a plan, and it never becomes a decision or waits for the operator.
 
 [cols="1,4"]
 |===
@@ -85,11 +85,14 @@ Detection decides only whether a worker is alive. A worker that is alive and bus
 
 |`edit_churn`
 |The worker changed one file `N` times (`file_changed` entries of one path) on the current plan task (counted as for `failing_again`) without a `pm_build` call between the first and the last of them. A `pm_build` call starts the counting again for every path.
+
+|`agent_started`
+|A process of the worker's process tree runs an enrolled harness executable (xref:04-worker-launch.adoc#harness-selection[Worker Launch, Harness Enrolment]) or the installed operator binary, compared by real path and digest, never by name; a member that left the worker's process group or started a session of its own is examined as well. Its threshold is `1` and fixed, its action is always `restart`, whatever the role artifact names, and it writes a `security` audit record.
 |===
 
-* *Thresholds*: every `N` is a compiled threshold (link:../timeouts/01-job-budgets-and-waits.adoc#off-track-thresholds[Timeouts & Budgets Specification, Off-track signal thresholds]); a role artifact may lower it in its `off_track` member and never raise it (xref:01-roles-and-configuration.adoc#role-artifact[Role Artifact Schema]). The compiled values are set from the activity of real plans once it is recorded.
+* *Thresholds*: every `N` but that of `agent_started` is a compiled threshold (link:../timeouts/01-job-budgets-and-waits.adoc#off-track-thresholds[Timeouts & Budgets Specification, Off-track signal thresholds]); a role artifact may lower it in its `off_track` member and never raise it (xref:01-roles-and-configuration.adoc#role-artifact[Role Artifact Schema]). The compiled values are set from the activity of real plans once it is recorded.
 * *When it is evaluated*: at every activity entry of the worker's current task, in the transaction that appends it; a signal holds at most once per attempt and plan task, so one cause never takes its action twice.
-* *What the server does*: per signal the action the role artifact chooses from the closed list below, `show` where the artifact names none. Every action is recorded with the signal, its measured value, and its threshold in the queue task's `signals[]` (link:../store-schemas/16-task-queue.adoc#queue-task-record[Store Schemas Specification, Queue Task Record]) and as a `signal` entry of the activity journal (link:../store-schemas/16-task-queue.adoc#activity-journal[Store Schemas Specification, Activity Journal]).
+* *What the server does*: per signal the action the role artifact chooses from the closed list below, `show` where the artifact names none; `agent_started` always takes `restart`. Every action is recorded with the signal, its measured value, and its threshold in the queue task's `signals[]` (link:../store-schemas/16-task-queue.adoc#queue-task-record[Store Schemas Specification, Queue Task Record]) and as a `signal` entry of the activity journal (link:../store-schemas/16-task-queue.adoc#activity-journal[Store Schemas Specification, Activity Journal]).
 
 [cols="1,4"]
 |===

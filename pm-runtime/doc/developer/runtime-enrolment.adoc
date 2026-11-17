@@ -252,8 +252,9 @@ deterministic order, before a write is signed:
   `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR` and `MVND_DAEMON_STORAGE` are refused by name. The match is
   case-sensitive, as the schema admits upper-case names only.
 
-What the policy does not check — shell metacharacters, the full credential-variable list, the uniqueness of the project
-root — is a known limit below.
+What the policy does not check — the shell metacharacters and the forbidden free flags of an argument vector, which the
+specification refuses at enrolment, the full credential-variable list, the uniqueness of the project root — is a known
+limit below.
 
 `enrol` checks the enrolment as written, before the key is resolved, a record is owed or anything is written; the
 re-baseline checks the enrolment decoded from its snapshot, before the key and before anything is owed, so it never
@@ -431,8 +432,10 @@ The reporting of a project whose recovery failed, on stderr and in `pm-operator 
   leaves an orphan sidecar and the owed record; the background pass of the recovery hands the record over and removes
   the sidecar after the next start or the next pass, and running `unenrol` again settles it too. An orphan sidecar
   without an owed record is not discovered; it strands nothing, because it is not an enrolment.
-* *The policy is not complete.* The shell-metacharacter set of an argument vector, whether the forbidden free flags apply
-  to enrolled templates, the full credential-variable list and a non-absolute write path are open in the specification.
+* *The policy is not complete.* The specification refuses shell metacharacters and the forbidden free flags in an
+  argument vector at enrolment (link:{spec}/store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas § Project
+  Enrolment Store], argument vectors); `EnrolmentPolicy` does not check either yet. The specification does not decide the
+  exact metacharacter set, the full credential-variable list, or the judgment of a non-absolute write path.
 * *The directories are not protected by the runtime.* `<PM_MCP_BASE>/enrolments/` and `<PM_MCP_BASE>/state/` must belong
   to the operator and be closed to every other identity: the HMAC proves that the runtime wrote a file, but nothing
   prevents whoever can write the directory from deleting or replacing the pair or the key file. `EnrolmentStore` and
