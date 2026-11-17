@@ -94,7 +94,10 @@ numbered `Decision` sections below.
   false positive of R2;
 * an `npm_` run of 37 or more alphanumeric characters, one followed by `_` and one preceded by a word character, because
   none of them is an npm token;
-* a PEM or PGP block whose `BEGIN` line lies before the excerpt's window: the window is not widened to reach the marker;
+* a PEM or PGP block whose `BEGIN` line lies before the excerpt's window: the window is not widened to reach the marker.
+  A job-log read window that carries the block's `END` line masks its interior prefix through that `END`
+  (`SecretRedactor.redactKeyBlockTail`); a window that lies entirely inside the body and carries no marker stays
+  readable;
 * a secret in an unlabelled query parameter, a bare JSON Web Token, an AWS access-key id, and the credential after the
   scheme word of an `Authorization:` header of a scheme other than `Bearer`, `Basic` or `Token` (the scheme word is
   taken as the value and masked) — shapes no anchored pattern marks, left for a later decision;
