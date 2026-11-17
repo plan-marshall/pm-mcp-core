@@ -115,8 +115,10 @@ class RoleCompositionTest {
         var refusal = refused(composition, RoleUse.forModelJob(STATE, "envelope", "review-code"));
 
         assertAll(
-                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
-                () -> assertEquals(Set.of(RoleClass.WRITER), refusal.requiredClasses()));
+                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason(),
+                        "a read_only envelope role mismatches"),
+                () -> assertEquals(Set.of(RoleClass.WRITER), refusal.requiredClasses(),
+                        "the envelope kind requires writer only"));
     }
 
     @Test
@@ -143,11 +145,14 @@ class RoleCompositionTest {
         var refusal = refused(composition, RoleUse.forModelJob(STATE, "task", "review-code"));
 
         assertAll(
-                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
-                () -> assertEquals("review-code", refusal.role()),
-                () -> assertEquals(STATE, refusal.stateId()),
-                () -> assertEquals(RoleClass.READ_ONLY, refusal.roleClass().orElseThrow()),
-                () -> assertEquals(Set.of(RoleClass.WRITER), refusal.requiredClasses()));
+                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason(),
+                        "a read_only task role mismatches"),
+                () -> assertEquals("review-code", refusal.role(), "the refusal names the read_only role"),
+                () -> assertEquals(STATE, refusal.stateId(), "the refusal names the failing state"),
+                () -> assertEquals(RoleClass.READ_ONLY, refusal.roleClass().orElseThrow(),
+                        "the refusal names the read_only class"),
+                () -> assertEquals(Set.of(RoleClass.WRITER), refusal.requiredClasses(),
+                        "the task kind requires writer only"));
     }
 
     @Test
@@ -158,10 +163,12 @@ class RoleCompositionTest {
         var refusal = refused(composition, RoleUse.forModelJob(STATE, "task", "implement"));
 
         assertAll(
-                () -> assertEquals(CompositionRefusal.Reason.ROLE_UNDEFINED, refusal.reason()),
-                () -> assertEquals("implement", refusal.role()),
-                () -> assertEquals(STATE, refusal.stateId()),
-                () -> assertEquals(Optional.empty(), refusal.validationReason()));
+                () -> assertEquals(CompositionRefusal.Reason.ROLE_UNDEFINED, refusal.reason(),
+                        "an absent role is role_undefined"),
+                () -> assertEquals("implement", refusal.role(), "the refusal names the absent role"),
+                () -> assertEquals(STATE, refusal.stateId(), "the refusal names the failing state"),
+                () -> assertEquals(Optional.empty(), refusal.validationReason(),
+                        "an absent role carries no reason"));
     }
 
     @Test
@@ -175,9 +182,11 @@ class RoleCompositionTest {
         var refusal = refused(composition, RoleUse.forModelJob(STATE, "task", "implement"));
 
         assertAll(
-                () -> assertEquals(CompositionRefusal.Reason.ROLE_UNDEFINED, refusal.reason()),
-                () -> assertEquals(Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), refusal.validationReason()),
-                () -> assertEquals(detail, refusal.detail()));
+                () -> assertEquals(CompositionRefusal.Reason.ROLE_UNDEFINED, refusal.reason(),
+                        "an invalid role is role_undefined"),
+                () -> assertEquals(Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), refusal.validationReason(),
+                        "the refusal carries the model_not_allowed reason"),
+                () -> assertEquals(detail, refusal.detail(), "the refusal keeps the resolver's detail"));
     }
 
     @Test
@@ -223,8 +232,10 @@ class RoleCompositionTest {
         var refusal = refused(composition, RoleUse.forConsultation(STATE, "screener"));
 
         assertAll(
-                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
-                () -> assertEquals(Set.of(RoleClass.WRITER, RoleClass.READ_ONLY), refusal.requiredClasses()));
+                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason(),
+                        "a consulted zero_tool role mismatches"),
+                () -> assertEquals(Set.of(RoleClass.WRITER, RoleClass.READ_ONLY), refusal.requiredClasses(),
+                        "a consultation requires writer or read_only"));
     }
 
     @Test
@@ -237,12 +248,13 @@ class RoleCompositionTest {
 
     private static void composes(RoleComposition composition, RoleUse use) {
         var uses = List.of(use);
-        assertDoesNotThrow(() -> composition.check(uses));
+        assertDoesNotThrow(() -> composition.check(uses), "a composing role passes the check");
     }
 
     private static CompositionRefusal refused(RoleComposition composition, RoleUse use) {
         var uses = List.of(use);
-        return assertThrows(CompositionRefusal.class, () -> composition.check(uses));
+        return assertThrows(CompositionRefusal.class, () -> composition.check(uses),
+                "a mismatching role refuses the check");
     }
 
     private static RoleComposition composition(Map<String, EffectiveRole> roles) {

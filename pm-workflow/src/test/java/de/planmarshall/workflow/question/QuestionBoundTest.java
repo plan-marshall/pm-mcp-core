@@ -61,13 +61,14 @@ class QuestionBoundTest {
         var entry = entry(entryId(1));
 
         assertAll(
-                () -> assertTrue(bound.count(entry)),
-                () -> assertTrue(bound.count(entry)),
-                () -> assertTrue(bound.count(entry)),
-                () -> assertFalse(bound.count(entry)),
-                () -> assertFalse(bound.mayOffer(entry)),
-                () -> assertEquals(QuestionBound.MAX_ASKS, bound.asked(entry)),
-                () -> assertEquals(0, bound.remaining(entry)));
+                () -> assertTrue(bound.count(entry), "the first question is offered"),
+                () -> assertTrue(bound.count(entry), "the second question is offered"),
+                () -> assertTrue(bound.count(entry), "the third question is offered"),
+                () -> assertFalse(bound.count(entry), "the fourth question is not offered"),
+                () -> assertFalse(bound.mayOffer(entry), "the ask link is withheld after three"),
+                () -> assertEquals(QuestionBound.MAX_ASKS, bound.asked(entry),
+                        "the entry has asked three questions"),
+                () -> assertEquals(0, bound.remaining(entry), "no question remains on the entry"));
     }
 
     @Test
@@ -80,9 +81,9 @@ class QuestionBoundTest {
 
         // the re-entry passes the same entry identity: its third question is still offered, the fourth is not
         assertAll(
-                () -> assertTrue(bound.mayOffer(entry)),
-                () -> assertTrue(bound.count(entry)),
-                () -> assertFalse(bound.mayOffer(entry)));
+                () -> assertTrue(bound.mayOffer(entry), "the third question is still offered"),
+                () -> assertTrue(bound.count(entry), "the re-entry counts the third question"),
+                () -> assertFalse(bound.mayOffer(entry), "the fourth question is withheld"));
     }
 
     @Test
@@ -96,7 +97,7 @@ class QuestionBoundTest {
         bound.count(first);
         bound.count(first);
 
-        assertTrue(bound.mayOffer(entry(prefix + "#2")));
+        assertTrue(bound.mayOffer(entry(prefix + "#2")), "a new entry of the state starts afresh");
     }
 
     @Test
@@ -106,10 +107,10 @@ class QuestionBoundTest {
         var task = planTask(taskId());
 
         assertAll(
-                () -> assertTrue(bound.count(task)),
-                () -> assertTrue(bound.count(task)),
-                () -> assertTrue(bound.count(task)),
-                () -> assertFalse(bound.mayOffer(task)));
+                () -> assertTrue(bound.count(task), "the first plan task question is offered"),
+                () -> assertTrue(bound.count(task), "the second plan task question is offered"),
+                () -> assertTrue(bound.count(task), "the third plan task question is offered"),
+                () -> assertFalse(bound.mayOffer(task), "the fourth plan task question is withheld"));
     }
 
     @Test
@@ -123,9 +124,10 @@ class QuestionBoundTest {
         bound.count(task);
 
         assertAll(
-                () -> assertFalse(bound.count(entry, task)),
-                () -> assertEquals(0, bound.asked(entry)),
-                () -> assertTrue(bound.mayOffer(entry(entryId(2)), planTask(taskId(500_000, 999_999)))));
+                () -> assertFalse(bound.count(entry, task), "a spent plan task withholds the entry ask"),
+                () -> assertEquals(0, bound.asked(entry), "the entry itself has asked nothing"),
+                () -> assertTrue(bound.mayOffer(entry(entryId(2)), planTask(taskId(500_000, 999_999))),
+                        "a fresh entry with a fresh task is offered"));
     }
 
     @Test
@@ -136,8 +138,10 @@ class QuestionBoundTest {
         bound.count(entry);
 
         assertAll(
-                () -> assertEquals(QuestionBound.MAX_ASKS, bound.remaining(planTask(taskId()))),
-                () -> assertEquals(QuestionBound.MAX_ASKS - 1, bound.remaining(entry)));
+                () -> assertEquals(QuestionBound.MAX_ASKS, bound.remaining(planTask(taskId())),
+                        "an untouched plan task keeps its three asks"),
+                () -> assertEquals(QuestionBound.MAX_ASKS - 1, bound.remaining(entry),
+                        "the entry has one ask left"));
     }
 
     @Test
@@ -146,7 +150,9 @@ class QuestionBoundTest {
         var taskId = Generators.letterStrings(1, 8).next();
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> new Key(Axis.STATE_ENTRY, " ")),
-                () -> assertThrows(NullPointerException.class, () -> new Key(null, taskId)));
+                () -> assertThrows(IllegalArgumentException.class, () -> new Key(Axis.STATE_ENTRY, " "),
+                        "a blank entry id is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new Key(null, taskId),
+                        "a null axis is refused"));
     }
 }
