@@ -357,6 +357,22 @@ default to not accepted, and the gate builds neither the consent `accept_unenfor
 PLAN-V2-59 builds those and supplies the value at the start path. The gate is ADR 006's; the five facts it checks are
 ADR 015's, and the controls its claims rest on are ADR 007's.
 
+== What Is Not Wired
+
+The gate is the library module's; what would consult it is not in this repository:
+
+* *The start-path wiring* of `SupervisorEnvironment.EligibilityGate`: owner `plan-marshall-mcp` (the assembly), no work
+  package here. `SupervisorEnvironment` offers the gate and the assembly wires it; nothing in this repository consults
+  it before a start.
+* *The loader that carries the record*: already wired. `ProfileLoader.readVerified` binds the verification record to the
+  loaded profile (link:../../../pm-core/src/main/java/de/planmarshall/core/profile/ProfileLoader.java[`ProfileLoader`,
+  `readVerified`]), and `LoadedProfile.verificationRecord()` carries the record with its platform and its stages, so the
+  gate reads them from the value it is handed. Nothing is owed here.
+* *The acceptance of unenforced egress*: PLAN-V2-59 (the consent kind `accept_unenforced_egress` and the record of the
+  acceptance). Until it lands the gate takes the value as a boolean that defaults to not accepted.
+* *The stage runner that writes the records this gate reads*: the plans of the verification runner staged 2026-11-14
+  behind the job-confinement plan; no work package in this repository yet.
+
 == The Three Verification Controls
 
 _Requirements:_ link:{req}/13-harness-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]
