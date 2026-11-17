@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.worker;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -24,6 +25,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.InstantSource;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -115,6 +117,8 @@ class SupervisionPassTest {
 
     private WorkerTaskActivity tasks;
 
+    private final Set<String> openTasks = new HashSet<>();
+
     private JobRecordStore jobs;
 
     private Process child;
@@ -136,7 +140,8 @@ class SupervisionPassTest {
         role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
         generation = started(supervisor);
         task = RuntimeGenerators.queueTaskIds().next();
-        tasks = queueTaskId -> queueTaskId.equals(task)
+        openTasks.add(task);
+        tasks = queueTaskId -> openTasks.contains(queueTaskId)
                 ? Optional.of(new WorkerTaskActivity.TaskActivity(1, role.artifact(), Set.of(), null, -1))
                 : Optional.empty();
         jobs = JobRecordStore.ofProject(fixture.base, fixture.project);
@@ -263,7 +268,9 @@ class SupervisionPassTest {
         pass(first).run();
         pass(second).run();
 
-        assertEquals(first.entries(task), second.entries(task), "the replay appends the same entries");
+        assertAll(
+                () -> assertFalse(first.entries(task).isEmpty(), "the replay appended the mapped lines"),
+                () -> assertEquals(first.entries(task), second.entries(task), "the replay appends the same entries"));
     }
 
     @Test
@@ -292,6 +299,21 @@ class SupervisionPassTest {
                         "the appended entry is the attempt's end"),
                 () -> assertEquals("exited_without_submit", entries.getFirst().end(),
                         "the exit ends the attempt without a submit"));
+    }
+
+    @Test
+    @DisplayName("a pass over a task whose facts are gone appends nothing and does not throw")
+    void aPassOverAClosedTaskAppendsNothing() throws Exception {
+        writeRunning(null);
+        lease();
+        var journal = journal("closed");
+        var pass = pass(journal);
+        append(text("first"));
+        openTasks.remove(task);
+
+        assertDoesNotThrow(pass::run, "a closed task does not fail the pass");
+
+        assertTrue(journal.entries(task).isEmpty(), "no entry is appended for the closed task");
     }
 
     @Test

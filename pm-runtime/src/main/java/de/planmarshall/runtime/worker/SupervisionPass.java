@@ -92,7 +92,7 @@ public final class SupervisionPass {
                 continue;
             }
             if (record.get().status().isSettled()) {
-                completeEnd(generation, now);
+                completeEnd(generation, now, jobs);
                 continue;
             }
             var task = generation.leasedTask();
@@ -108,8 +108,7 @@ public final class SupervisionPass {
      * line the log gained is appended once however often the pass runs.
      */
     private void observe(WorkerGeneration generation, String task, JobRecord job, JobRecordStore jobs) {
-        var pump = active.computeIfAbsent(generation.generationId(), ignored -> pumps.apply(generation));
-        pump.pump(task, generation.generationId(), new JobLog(jobs.logPath(generation.jobId())));
+        pump(generation, task, jobs);
         var pid = job.pid();
         if (pid == null) {
             return;
@@ -119,11 +118,29 @@ public final class SupervisionPass {
     }
 
     /**
-     * Settles a generation whose job record is settled: a deadline or the observed exit decides the loss, an exit
-     * before the first call is the start failure, and the one end path completes the end exactly once.
+     * Appends the lines the job log gained, through the generation's own pump. A task whose facts can no longer be read
+     * has no journal this run can append to — the recorder refuses an unknown or closed task — so nothing is appended
+     * and the pass moves on instead of failing every later pass.
      */
-    private void completeEnd(WorkerGeneration generation, Instant now) {
+    private void pump(WorkerGeneration generation, String task, JobRecordStore jobs) {
+        if (tasks.facts(task).isEmpty()) {
+            return;
+        }
+        var pump = active.computeIfAbsent(generation.generationId(), ignored -> pumps.apply(generation));
+        pump.pump(task, generation.generationId(), new JobLog(jobs.logPath(generation.jobId())));
+    }
+
+    /**
+     * Settles a generation whose job record is settled: a deadline or the observed exit decides the loss, an exit
+     * before the first call is the start failure, and the one end path completes the end exactly once. The generation's
+     * log is read once more first, so the tail a worker wrote before its exit is appended before the attempt ends.
+     */
+    private void completeEnd(WorkerGeneration generation, Instant now, JobRecordStore jobs) {
         var generationId = generation.generationId();
+        var task = generation.leasedTask();
+        if (task != null) {
+            pump(generation, task, jobs);
+        }
         var detection = calls.detection(generation);
         var exit = detection.exit(now);
         exit.ifPresent(signal -> ending.end(generation, signal));

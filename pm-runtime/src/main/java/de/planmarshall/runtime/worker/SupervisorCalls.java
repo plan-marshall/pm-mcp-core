@@ -28,11 +28,11 @@ import de.planmarshall.core.store.WorkerState;
  * The implementation of the supervisor's inbound API {@link WorkerCalls} (PM-WORK-3, PM-WORK-7): the tests each call
  * records, answered with the protocol's three wait answers.
  * <p>
- * The class resolves the generation from the supervisor's registry and ignores a call of a generation it does not know,
- * so a transport of a fenced or ended generation reaches no state. It owns the per-generation {@link LossDetection},
- * created at the first sight of the generation with {@link LossDetection#started(Instant)} and handed a
- * {@link LossSignal} that ends the generation through the one end path, {@link WorkerEnding#end(WorkerGeneration,
- * LossSignal)}.
+ * The class resolves the generation from the supervisor's registry and ignores a call of a generation it does not know or
+ * one that already ended, so a transport of a fenced, ended or unknown generation reaches no state. It owns the
+ * per-generation {@link LossDetection}, created at the first sight of the generation with
+ * {@link LossDetection#started(Instant)} and handed a {@link LossSignal} that ends the generation through the one end
+ * path, {@link WorkerEnding#end(WorkerGeneration, LossSignal)}.
  * <p>
  * Every state change of a generation is written through {@link WorkerSupervisor#replaced(WorkerGeneration)} and its
  * {@link WorkerLifecycle} transition table, which refuses a transition the protocol does not have; a transition the
@@ -82,6 +82,9 @@ public final class SupervisorCalls implements WorkerCalls {
         var detection = detection(generation);
         if (detection.firstCallMade()) {
             detection.called(at);
+            // A call by a worker that holds an unacknowledged offer or launch is that acknowledgement: the deadline
+            // runs from the offer (or the first call) and only a call clears it, so a heartbeat settles it here.
+            detection.acknowledged(at);
         } else {
             detection.firstCall(at);
             supervisor.environment().startGuard().firstCall(generation.role(), generation.harness());
@@ -129,7 +132,7 @@ public final class SupervisorCalls implements WorkerCalls {
             supervisor.replaced(waiting(generation).withIdleWakeups(result.idleWakeups()));
             return new WaitAnswer.WaitAgain();
         }
-        roleDigests.put(generationId, roleDigest);
+        roleDigests.put(generationId, Objects.requireNonNull(roleDigest, "roleDigest"));
         detection.offered(queueTaskId, at);
         supervisor.replaced(offered(generation, queueTaskId));
         return new WaitAnswer.Offered(queueTaskId, roleDigest);
@@ -235,7 +238,8 @@ public final class SupervisorCalls implements WorkerCalls {
     }
 
     private @Nullable WorkerGeneration known(String generationId) {
-        return supervisor.generation(generationId).orElse(null);
+        var generation = supervisor.generation(generationId).orElse(null);
+        return generation == null || generation.terminal() ? null : generation;
     }
 
     private List<String> rolesOf(String clientId) {

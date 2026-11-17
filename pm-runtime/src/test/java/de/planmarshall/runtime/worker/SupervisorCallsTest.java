@@ -41,9 +41,11 @@ import de.planmarshall.core.store.WorkerState;
  * wait receives, the transitions the lifecycle table admits, and the generation the calls ignore.
  * <p>
  * The clock is the fixture's virtual clock, so a deadline is asserted by moving the clock and never by waiting. The
- * generation and the task are generated; the bounded wait and the silence grace are the profile's worker block, whose
- * values the contract of the fixture declares.
+ * generation is generated and the queue-task id is a literal of the wire shape the queue uses; the bounded wait, the
+ * acknowledgement deadline and the silence grace are the test's own values, because the fixture profile declares no
+ * worker block (the production values come from the harness profile).
  */
+
 @EnableGeneratorController
 @DisplayName("Supervisor calls")
 class SupervisorCallsTest {
@@ -232,6 +234,54 @@ class SupervisorCallsTest {
                         "an end-requested generation is never offered a task"),
                 () -> assertNull(supervisor.generation(generation.generationId()).orElseThrow().leasedTask(),
                         "the refused offer leases nothing"));
+    }
+
+    @Test
+    @DisplayName("a heartbeat settles the acknowledgement deadline an offer armed")
+    void aHeartbeatSettlesTheAcknowledgement() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        fixture.advance(Duration.ofSeconds(1));
+
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        fixture.advance(Duration.ofSeconds(269));
+
+        assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
+                "an acknowledged offer is not a missed acknowledgement");
+    }
+
+    @Test
+    @DisplayName("an offer no call acknowledges is a missed acknowledgement at its deadline")
+    void anUnacknowledgedOfferIsLost() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+
+        fixture.advance(Duration.ofSeconds(270));
+
+        assertAll(
+                () -> assertEquals(Optional.of(EndCause.LOST), ending.requestedCause(generation.generationId()),
+                        "the missed acknowledgement ends the worker"),
+                () -> assertEquals(Optional.of(LossReason.ACK_MISSED),
+                        calls.loss(generation.generationId()).map(LossSignal::reason),
+                        "the loss names the missed acknowledgement"));
+    }
+
+    @Test
+    @DisplayName("a call of an ended generation is ignored")
+    void aCallOfAnEndedGenerationIsIgnored() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        ending.forceEnd(generation, EndCause.DRAIN);
+        supervisor.replaced(ending.exited(generation));
+
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        var answer = calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+
+        assertAll(
+                () -> assertEquals(new WorkerCalls.WaitAnswer.End(), answer, "an ended generation is told to end"),
+                () -> assertNull(supervisor.generation(generation.generationId()).orElseThrow().leasedTask(),
+                        "the ended generation leases nothing"),
+                () -> assertTrue(calls.loss(generation.generationId()).isEmpty(),
+                        "no detection is created for the ended generation"));
     }
 
     @Test
