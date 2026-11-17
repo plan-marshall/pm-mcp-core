@@ -282,16 +282,23 @@ class DiffSummaryTest {
         }
 
         @Test
-        @DisplayName("a nested ceiling is written with its in_unit, and a plan-unit ceiling without one")
+        @DisplayName("a nested ceiling is written with its in_unit and a plan-unit ceiling without one")
         void nestedCeilingJson() {
-            var summary = new DiffSummary(List.of(), List.of(),
+            var nested = new DiffSummary(List.of(), List.of(),
                     List.of(new CeilingChange("execute.remediate", "fix_budget", new CallValue.IntValue(3),
                             new CallValue.IntValue(4), "phase-5-execute")),
                     List.of(), List.of());
+            var planUnit = new DiffSummary(List.of(), List.of(),
+                    List.of(new CeilingChange("finalize.remediate", "fix_budget", new CallValue.IntValue(3),
+                            new CallValue.IntValue(4))),
+                    List.of(), List.of());
 
-            var json = HeaderJson.canonical(summary.toNode());
-
-            assertTrue(json.contains("\"in_unit\":\"phase-5-execute\""), json);
+            assertAll(
+                    () -> assertTrue(HeaderJson.canonical(nested.toNode())
+                                    .contains("\"in_unit\":\"phase-5-execute\""),
+                            "the nested ceiling names its unit"),
+                    () -> assertFalse(HeaderJson.canonical(planUnit.toNode()).contains("in_unit"),
+                            "a plan-unit ceiling writes no in_unit"));
         }
 
         @Test

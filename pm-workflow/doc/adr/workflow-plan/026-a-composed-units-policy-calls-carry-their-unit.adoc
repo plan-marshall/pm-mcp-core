@@ -41,7 +41,7 @@ the same state id in two units collapsed into one.
 
 == Consequences
 
-The header and the composed bodies agree on every policy call and its effective arguments. `PlanInstanceTest`'s
+The header and the composed bodies agree on every policy call and its effective arguments. `PlanInstanceComposerTest`'s
 `headerAndComposedBodyAgree` checks the agreement, and `DiffSummaryTest` keeps two calls with the same state id in two
 units apart. A reader of an older header sees no `in_unit`, which is the plan unit's form; no reader of an older
 version is needed.

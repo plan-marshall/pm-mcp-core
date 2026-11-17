@@ -42,7 +42,7 @@
             "additionalProperties": false,
             "properties": {
               "call_site": { "type": "string", "description": "state_id of the calling state of the policy call." },
-              "in_unit": { "type": "string", "description": "The composed unit that holds the call; absent for a call of the plan unit." },
+              "in_unit": { "type": "string", "description": "The composed unit that holds the call; absent for a call of the plan unit. Must name a composed unit of the header's inputs.templates." },
               "argument": { "type": "string", "description": "The bound argument whose value changed (retry_budget, fix_budget, actions)." },
               "previous": { "description": "The value in the previous version; null where the previous version did not bind the argument." },
               "value": { "description": "The value in this version; null where this version does not bind the argument." }

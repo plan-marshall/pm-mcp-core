@@ -15,6 +15,7 @@ import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  * @param inUnit   the composed unit that holds the call; {@code null} for a call of the plan unit
  * @since 0.1
  */
+@Builder
 public record PolicyCall(String callSite, String unit, SortedMap<String, BoundArgument> args,
 @Nullable String inUnit) {
 

@@ -30,8 +30,8 @@ import org.jspecify.annotations.Nullable;
  * The {@code diff_summary} of a line of the composition log (PM-IMPL-5, PM-WF-1): a composed version relative to the
  * version before it, as five flat arrays. A pruned element, a waived gate and a bound argument value are compared as
  * the header writes them; a pruned element whose reason or source fact changed is removed and added. Each array keeps
- * the order of the header it comes from, the ceilings the order of the call sites, first those of the previous
- * version, and within a call site the order of the argument names.
+ * the order of the header it comes from, the ceilings the order of the call sites — a call site identified by its unit
+ * and its state id — first those of the previous version, and within a call site the order of the argument names.
  *
  * @param prunedAdded     pruned in this version, not in the previous one
  * @param prunedRemoved   pruned in the previous version, not in this one
@@ -193,7 +193,7 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
             var members = new LinkedHashMap<String, Node>();
             members.put("call_site", new StringNode(callSite));
             if (inUnit != null) {
-                members.put("in_unit", new StringNode(inUnit));
+                members.put(HeaderJson.IN_UNIT, new StringNode(inUnit));
             }
             members.put("argument", new StringNode(argument));
             members.put(PREVIOUS, previous == null ? NullNode.INSTANCE : HeaderJson.callValue(previous));

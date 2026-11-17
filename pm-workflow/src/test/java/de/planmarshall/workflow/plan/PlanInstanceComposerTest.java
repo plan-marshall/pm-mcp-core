@@ -1181,13 +1181,17 @@ class PlanInstanceComposerTest {
                     .filter(call -> call.inUnit() != null).toList();
 
             assertAll(
-                    () -> assertEquals(List.of("execute.remediate", "outline.remediate", "plan.remediate",
-                                    "refine.remediate"),
-                            composed.stream().map(PolicyCall::callSite).sorted().toList(),
-                            "every remediation call of a composed phase is in the header"),
+                    () -> assertEquals(List.of("refine.remediate", "outline.remediate", "plan.remediate",
+                                    "execute.remediate"),
+                            composed.stream().map(PolicyCall::callSite).toList(),
+                            "the composed calls follow the request's sub-units"),
                     () -> assertEquals(List.of("phase-2-refine", "phase-3-outline", "phase-4-plan", "phase-5-execute"),
-                            composed.stream().map(PolicyCall::inUnit).distinct().sorted().toList(),
+                            composed.stream().map(PolicyCall::inUnit).distinct().toList(),
                             "each call names the composed unit that holds it"),
+                    () -> assertEquals(composed, instance.header().policyCalls()
+                                    .subList(instance.header().policyCalls().size() - composed.size(),
+                                            instance.header().policyCalls().size()),
+                            "the composed calls follow the plan unit's"),
                     () -> assertEquals(new CallValue.IntValue(3),
                             composed.stream().filter(call -> "execute.remediate".equals(call.callSite()))
                                     .findFirst().orElseThrow().args().get("fix_budget").value(),
@@ -1227,7 +1231,7 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertFalse(bodyCalls.isEmpty(), "the composed files hold policy calls"),
-                    () -> assertTrue(mismatches.isEmpty(), mismatches::toString));
+                    () -> assertEquals(List.of(), mismatches, "no mismatch between header and body"));
         }
 
         @Test

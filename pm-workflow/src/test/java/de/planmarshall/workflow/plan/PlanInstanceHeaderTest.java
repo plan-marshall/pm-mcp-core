@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -323,7 +324,12 @@ class PlanInstanceHeaderTest {
             var read = HeaderJson.read(json);
 
             assertAll(
-                    () -> assertTrue(json.contains("\"in_unit\":\"phase-6-finalize\""), json),
+                    () -> assertTrue(json.contains("\"in_unit\":\"phase-6-finalize\""),
+                            "the nested call writes its in_unit"),
+                    () -> assertEquals(json.indexOf("\"in_unit\""), json.lastIndexOf("\"in_unit\""),
+                            "only the nested call writes an in_unit"),
+                    () -> assertFalse(json.contains("\"in_unit\":null"),
+                            "the plan unit's call writes no in_unit"),
                     () -> assertEquals("phase-6-finalize", read.policyCalls().getLast().inUnit(),
                             "the in_unit reads back"),
                     () -> assertEquals(header, read, "the nested call survives the round trip"),
