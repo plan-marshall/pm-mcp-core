@@ -46,7 +46,7 @@ The consultation task goes through the model caller (xref:01-roles-and-configura
 The asker waits in `pm_wait`, which holds the call open, so a consulting worker is never silent (xref:03-supervision-and-recycling.adoc#detection[Detection]); it receives `wait_again` at the end of each window while the consultation is open.
 
 * *Delivery*: When the consultation closes, the server answers the asker's pending `pm_wait`, or its next one, with the asking task's representation in `executing`, whose `facts.consultations` lists `{consultation_id, role, status, answer}`. The answer is delivered exactly once and only to the asking generation.
-* *No answer*: A consultation that closes `lost` (its re-offers spent, or its role undefined, unqualified, or unavailable) is delivered with `status: unavailable` and no answer; the asker continues on its own judgment.
+* *No answer*: A consultation that closes `lost`, for any of its reasons (xref:02-task-protocol.adoc#task-outcomes[Task Protocol, Task Outcomes]), is delivered with `status: unavailable` and no answer; the asker continues on its own judgment.
 * *Fenced asker*: When the asking generation is fenced while the consultation is open or its answer undelivered, the answer is recorded in the asking task's facts, and the successor's offer of the task carries it (xref:02-task-protocol.adoc#redelivery[Redelivery within the Re-Offer Budget]); the successor does not consult again for it.
 
 [#consult-reference]

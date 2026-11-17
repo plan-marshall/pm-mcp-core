@@ -142,7 +142,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`call`
 |`refine.qgate` (`blocking`).
 |As xref:01-conventions-generic-conditions.adoc#state-phase.remediate-qgate[`<phase>.remediate-qgate`].
-|`resolved`, `waived` -> `refine.ready`; `fix_requested` -> `refine.analyze`; `exhausted`, `stepped_out` -> `plan.return`.
+|`resolved`, `waived` -> `refine.ready`; `fix_requested` -> `refine.analyze`; `exhausted`, `stepped_out` -> the phase's exit `returned`, which the plan unit routes to `plan.return`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows Specification, Q-Gate Validation Loop]
 
 |[[state-refine.ready]]`refine.ready`
@@ -231,7 +231,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`call`
 |`outline.qgate` (`blocking`); `outline.gate` (`findings_pending`); `plan.derive-tasks` (`derivation_failed`: the failure filed as a blocking `3-outline` finding, phase set back to `phase-3-outline`).
 |As xref:01-conventions-generic-conditions.adoc#state-phase.remediate-qgate[`<phase>.remediate-qgate`].
-|`resolved`, `waived` -> `outline.gate`; `fix_requested` -> the phase's exit `rework`, on which the plan unit calls the phase again at the authoring entry of the plan's lane (`outline.deep` for `deep`, `outline.light-regate` for `light`; xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]); `exhausted`, `stepped_out` -> `plan.return`.
+|`resolved`, `waived` -> `outline.gate`; `fix_requested` -> the phase's exit `rework`, on which the plan unit calls the phase again at the authoring entry of the plan's lane (`outline.deep` for `deep`, `outline.light-regate` for `light`; xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]); `exhausted`, `stepped_out` -> the phase's exit `returned`, which the plan unit routes to `plan.return`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows Specification, Q-Gate Validation Loop]
 
 |[[state-outline.gate]]`outline.gate`
@@ -255,6 +255,6 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`auto`
 |`outline.review` (every resolution).
 |Router: `auto outline.route-review` reads the review record's answer; for `revise` it checks and charges, on the deep lane, the fix budget of `remediation.qgate-findings`, on the light lane the plan's counter `outline_review_revisions` (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-gate[Phase Workflows Specification, Outline Review]).
-|`approve` -> `plan.derive-tasks` (phase `phase-4-plan`); `revise` (budget left) -> the phase's exit `rework`, on which the plan unit calls the phase again at the authoring entry of the plan's lane (`outline.deep` for `deep`, `outline.light-regate` for `light`); `budget_spent` (a `revise` with the fix budget spent) -> `plan.return`.
+|`approve` -> `plan.derive-tasks` (phase `phase-4-plan`); `revise` (budget left) -> the phase's exit `rework`, on which the plan unit calls the phase again at the authoring entry of the plan's lane (`outline.deep` for `deep`, `outline.light-regate` for `light`); `budget_spent` (a `revise` with the fix budget spent) -> the phase's exit `returned`, which the plan unit routes to `plan.return`.
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-gate[Phase Workflows Specification, Server Outline Gate]
 |===

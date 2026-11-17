@@ -43,7 +43,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |The intent record's `decisions[]` becomes `choices[]`, one enum of decider kinds for choices and amendment sources; records with the old names stay readable
 |`open`
 |nothing
-|Milestone 4 (rename of code already built)
+|Milestone 8 (rename of code already built: the intent record)
 
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
@@ -196,9 +196,15 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:runtime-control.adoc[`runtime-control`]
-|Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, the update check, the upgrade
+|Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart
+|`open`
+|nothing
+|Milestone 2; the client work of `pm-mcp-clients`
+
+|`runtime-update`
+|The update check and the upgrade of the runtime from the clients (the tasks _Update check_ and _Upgrade_ of link:runtime-control.adoc[`runtime-control`])
 |`blocked`
-|the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
+|the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package); `runtime-control`
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:runtime-metrics.adoc[`runtime-metrics`]
@@ -413,6 +419,30 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 
 |`schema-files-machine-stores`
 |The 22 schema blocks of `store-schemas` 11, 12, 13 and 15 as files; the audit and credential parity tests read the files, the credential test without regular expressions
+|`done`
+|
+|
+
+|`removed-concepts`
+|The code of the concepts the specification dropped removed (the scope session log and the session generation record among them), and stalled scopes detected
+|`done`
+|
+|
+
+|`spend-removal`
+|The spend limits removed from the code: no policy class `spend`, no remediation unit `remediation.spend`, no `spend_overrun` route of the pre-merge barrier; the package `workflow.spend` keeps the completion of a task and its usage
+|`done`
+|
+|
+
+|`envelope-packing`
+|Task envelopes as a pure computation in `pm-workflow`: the cost sizing, the size-to-token table, the packer, and the envelope budget
+|`done`
+|
+|
+
+|`slots-usage-and-budgets`
+|The machine model slots, the usage rows of a task and of an idle worker, and the per-role learned worker budget, in the library modules
 |`done`
 |
 |

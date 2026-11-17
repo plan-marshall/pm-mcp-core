@@ -25,7 +25,7 @@ Settings]). Every project takes a machine default unless its own operator values
 The package lies in the runtime, not in `pm-core`'s `core.config`, because the closed list of providers names them and the
 foundation is provider-neutral by its architecture guard
 (link:../adr/runtime-config/001-the-provider-defaults-are-written-in-the-runtime.adoc[ADR 001]). The document's
-other writer — `credentials.store` — is the runtime's `CredentialStoreChoice`, so one module now holds both writers,
+other writer — `credentials.store` — is the runtime's `CredentialStoreChoice`, so one module holds both writers,
 coordinated by `locks/machine-config.lock`.
 
 == The Model

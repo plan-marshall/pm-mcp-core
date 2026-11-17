@@ -42,9 +42,9 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |[[drain-timeout]]Drain timeout
 |`600`
 |`drain_timeout_seconds` in `machine-config.json`
-|minimum `0` (`0` terminates running jobs at once), maximum `3153600000` (100 years of 365 days, so the deadline of the drain can always be represented); a negative, non-integer or larger value, and a `machine-config.json` that cannot be read or does not parse as one JSON object, is invalid: the default `600` applies and a warning names the file and the reason; the start and the drain never fail for it
+|minimum `0`, maximum `3153600000` (100 years of 365 days); an invalid value or `machine-config.json` falls back to `600` with a warning and never fails the start or the drain (link:../../../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Runtime Start Developer Guide, `DrainTimeout`])
 |running jobs at `SIGTERM`/`SIGINT` / `pm-operator drain` and at the operator's stop with `when: drain`, for which a stop with `when: now` cuts it to `0`; the wait of `pm-operator drain` for the runtime's exit
-|Remaining job groups are terminated (xref:01-job-budgets-and-waits.adoc#grace-period[Grace period]) and recorded `killed`, their build and model slots released, their job tokens revoked, the generations of workers fenced and their task leases released (the tasks stay `queued` for the next start), and `queued` jobs recorded `killed`; at the start of the drain no task is offered any more and every waiting worker is answered `end`, so only workers holding a task run into the drain timeout; warm language servers are shut down; merge-queue and review-bot leases are left in place and handled at the next start like those of a crash (<<leases>>); the runtime exits. `pm-operator drain` waits for the exit up to the drain timeout plus the xref:01-job-budgets-and-waits.adoc#grace-period[Grace period] plus a fixed `10`, then reports that the runtime is still draining.
+|The jobs and workers still running are terminated (xref:01-job-budgets-and-waits.adoc#grace-period[Grace period]) and recorded `killed`, `queued` jobs are recorded `killed`, the tasks of the ended workers stay `queued` for the next start, and merge-queue and review-bot leases are left in place and handled at the next start like those of a crash (<<leases>>) (link:../../../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[Runtime Start Developer Guide, The Job Drain Participant]; link:../../../pm-runtime/doc/developer/runtime-worker.adoc#_ending_fencing_and_drain[Runtime Worker Developer Guide, Ending, Fencing and Drain]); warm language servers are shut down; the runtime exits. `pm-operator drain` waits for the exit up to the drain timeout plus the xref:01-job-budgets-and-waits.adoc#grace-period[Grace period] plus a fixed `10`, then reports that the runtime is still draining.
 |link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]
 
 |[[stalled-threshold]]Stalled threshold
@@ -243,11 +243,11 @@ since the last transition or task progress of a non-terminal scope that is neith
 |link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-request-record[Store Schemas, Waiver Request Record]
 
 |[[integrity-hold]]Integrity hold
-|No expiry: an `integrity_breach` hold ends only by `accept-edit` (re-baseline and re-verification) or, for a plan or epic scope, by its cancel, the abort that ends a plan with the outcome `aborted` and an epic as `cancelled`; a workspace breach and a lesson breach end only by `accept-edit`; a breached pending entry record ends by `accept-edit` or by abandoning the entry.
+|No expiry: an `integrity_breach` hold ends once no cause remains, each cause cleared by its own act (`accept-edit` for a tampered store or enrolment, with re-baseline and re-verification; `rebaseline` of the project for changed git metadata), or, for a plan or epic scope, by its cancel, the abort that ends a plan with the outcome `aborted` and an epic as `cancelled`; a breached pending entry record ends also by abandoning the entry (link:../state-catalogue/01-conventions-generic-conditions.adoc#condition-integrity_breach[State Catalogue, `integrity_breach`]).
 |—
 |—
-|plan, epic, and workspace scopes, single lessons, and single bootstrap entities (a tampered enrolment holds every running plan of the project)
-|—; the deadline of a prerequisite wait is held and processed after the pause ends.
+|plan, epic, and workspace scopes, single lessons, and single bootstrap entities (a tampered enrolment and changed git metadata of the project hold every running plan of the project)
+|—; the deadline of a prerequisite wait is held and processed after the hold ends.
 |link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-integrity-hold[CLI & Security, Integrity Hold]
 
 |[[access-grant-lifetime]]Access grant
@@ -326,11 +326,11 @@ The runtime owns every value of this section: it serves web access itself, on it
 |link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]; link:../state-catalogue.adoc#state-chat.turn[State Catalogue, `chat.turn`]
 
 |[[chat-page]]Chat transcript page and chat context
-|`50` turns per page of `GET …/chat`; a role's reply of at most `64` KiB (the chat reply bound). The chat core budget `chat_core_budget_tokens` `6000` tokens; the chat transcript window `chat_transcript_window_tokens` `12000` tokens; the chat idle release `chat_idle_release_seconds` `600` s.
+|`50` turns per page of `GET …/chat`; a role's reply of at most `64` KiB (the chat reply bound). The chat core budget `chat_core_budget_tokens` `6000` tokens; the chat transcript window `chat_transcript_window_tokens` `12000` tokens; the chat core text start `chat_core_text_chars` `1500` characters; the chat idle release `chat_idle_release_seconds` `600` s.
 |fixed (compiled constants)
 |—
 |the transcript of a chat read by a client; the reply `chat.reply` writes; the core and the transcript window a chat's generation is primed with; the chat's warm worker between turns
-|A longer reply ends its job; the turn ends `failed` with the reason `too_long`. A long text of the core (a description, an epic's intent) is given as its start of at most 1 500 characters with its URI, and over the core budget a list of the core becomes its count with its URI, so nothing is lost; turns beyond the window are read by URI. A chat worker idle for the release is recycled, and at once where queued work waits for a slot; the chat never ends by time.
+|A longer reply ends its job; the turn ends `failed` with the reason `too_long`. A long text of the core (a description, an epic's intent) is given whole up to the chat core text start, else as its start of that length with its URI, and over the core budget a list of the core becomes its count with its URI, so nothing is lost; turns beyond the window are read by URI. A chat worker idle for the release is recycled, and at once where queued work waits for a slot; the chat never ends by time.
 |link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]; link:../state-catalogue.adoc#chat-context[State Catalogue, What a Chat Knows]; link:../model-work/03-supervision-and-recycling.adoc#chat-worker[Model Work, The Chat Worker]
 
 |[[plan-changes-bounds]]Plan changes bounds

@@ -133,10 +133,11 @@ the matched control (`WorkflowValidatorTest` with `step-completion-waived-guard.
 `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_9_step_completion[Workflow Verification Developer Guide § Rule 9: Step Completion]).
 The five shipped `waived` transitions of `finalize.remediate-ci`, `finalize.remediate-analysis`,
-`finalize.remediate-review`, `finalize.remediate-security-audit`, and `finalize.remediate-self-review` pass and
-complete `default:ci-verify`, `default:analysis-roundtrip`, `default:automatic-review`,
-`default:finalize-step-security-audit`, and `default:pre-submission-self-review` with the waiver id (over the shipped
-default units of `pm-mcp-server`); the operator surface offers no skip or force-complete verb (closed verb table
+`finalize.remediate-review`, `finalize.remediate-security-audit`, and `finalize.remediate-self-review`, with their
+completions of `default:ci-verify`, `default:analysis-roundtrip`, `default:automatic-review`,
+`default:finalize-step-security-audit`, and `default:pre-submission-self-review`, pass the static check of rule 9 (over
+the shipped default units of `pm-mcp-server`); the guard is the static check only, since the `waived` route of
+`finalize.remediate-security-audit` is a route the engine never takes (link:../specification/workflow-dsl/03-reference-excerpt.adoc#_reference_workflow_dsl_excerpt_finalize_pmwf[Workflow DSL § Reference Excerpt]); the operator surface offers no skip or force-complete verb (closed verb table
 test); a `waived` completion never satisfies a barrier predicate without its own waiver lookup.
 Source:: design review.
 
@@ -147,17 +148,14 @@ Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verifi
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-3[PM-TEST-3]
 Hazard:: A cycle of `auto` states (or a `retry` whose primitive awaits nothing) spins inside one transaction or
 burns a budget without any observable change, for example a failed fetch re-fired through the shared failure state.
-Guard:: Over units written for the tests: a cycle of `auto` states whose primitives
-declare no cycle measure fails Rule 11a naming the cycle, the retry pair of two `auto` states included; a cycle
-through a `noop` link whose primitive declares no awaited event fails Rule 11b; a dispatch hub passes Rule 11a with
-the progress measure `STEP_LIST`, and Rule 9 refuses an outcome of the hub with a pass that settles no step or more
-than one; a cycle that waits in a `job` state passes (`WorkflowValidatorTest` with `cycle-measure-missing.pmwf`,
-`cycle-noop-without-event.pmwf` and `cycle-measure-step-list-settle.pmwf` and its matched controls, and
-`AdditionalRulesTest`, of `pm-workflow`,
+Guard:: Over units written for the tests: Rule 9 refuses an outcome of a dispatch hub with a pass that settles no
+step or more than one, and a cycle that waits in a `job` state passes (`WorkflowValidatorTest` with
+`cycle-measure-step-list-settle.pmwf` and its matched controls, and `AdditionalRulesTest`, of `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_11_cycles[Workflow Verification Developer Guide § Rule 11: Cycles],
-link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_9_step_completion[§ Rule 9: Step Completion]).
-The matched controls over the shipped default units of `pm-mcp-server`: the `remediation-ci` cycle
-`budget-check` -> `waiver-wait` -> `budget-check` passes (awaited `OPERATOR_WAIVER` or `TIME`), the retry pairs
+link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_9_step_completion[§ Rule 9: Step Completion]); a cycle
+without a measure (Rule 11a) is PM-WATCH-DSL-29's, a `noop` link whose primitive awaits nothing (Rule 11b)
+PM-WATCH-DSL-4's. The matched controls over the shipped default units of `pm-mcp-server`: the `remediation-ci` cycle
+`budget-check` -> `decide` -> `waiver-wait` -> `budget-check` passes (awaited `OPERATOR_WAIVER`), the retry pairs
 `finalize.archive-plan` -> `finalize.archive-unobserved` and `finalize.adopt-pr` -> `finalize.adopt-blocked` and the
 `remediation-merge` loop through `remediation-merge.rerun` pass because each retry waits in its `composite_job` for
 `TIME` or `EXTERNAL_STATE`, the epic cycle `epic.next-work` -> `epic.active` passes through the watch
@@ -186,7 +184,7 @@ routes `stepped_out`.
 Source:: design review.
 
 [#PM-WATCH-DSL-18]
-=== PM-WATCH-DSL-18: The integrity hold offers only its two acts and takes no transition
+=== PM-WATCH-DSL-18: The integrity hold offers only the acts of its causes and takes no transition
 
 Anchor:: link:../specification/workflow-dsl/02-units-jobs-decisions.adoc#waivers-and-integrity[Workflow DSL § Waivers, Waiver Requests & the Integrity Hold],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-3[PM-WF-3]
@@ -195,8 +193,10 @@ difference over a store that cannot be trusted; accepting the edit clears the pa
 Guard:: Scenario: a digest mismatch of `status.json` raises `integrity_breach`; the representation carries the
 condition and no link, every `pm_do` is refused with `integrity_held`, and no transition of the scope is taken
 while it is set; both clients show the hold `integrity_hold` with the tampered file and its recorded and current
-size and digest, and nothing is restored and no difference is computed; accepting the edit re-baselines and the
-engine re-verifies before the current state is re-rendered; the cancel ends the plan in `plan.aborted` with the
+size and digest, and nothing is restored and no difference is computed; a change of the project's git metadata
+while the hold is set adds its cause to the same condition, shown with each changed part and the act `rebaseline`;
+each act clears its own cause only (accepting the edit re-baselines, and the engine re-verifies), and the current
+state is re-rendered only once no cause remains; the cancel ends the plan in `plan.aborted` with the
 outcome `aborted` (an epic `cancelled`); matched control: a non-integrity condition on the same state is remedied
 by the server within its budget while the scope's task entities keep their links.
 Source:: design review.
@@ -261,7 +261,8 @@ Source:: design review.
 [#PM-WATCH-DSL-22]
 === PM-WATCH-DSL-22: An outcome that must branch goes through a router, never to two targets
 
-Anchor:: link:../specification/workflow-dsl/03-reference-excerpt.adoc#_reference_workflow_dsl_excerpt_finalize_pmwf[Workflow DSL § Reference Workflow DSL Excerpt]
+Anchor:: link:../specification/workflow-dsl/03-reference-excerpt.adoc#_reference_workflow_dsl_excerpt_finalize_pmwf[Workflow DSL § Reference Workflow DSL Excerpt],
+link:../specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
 Hazard:: A catalogue row that routes one outcome to several targets by lane, fact, or configuration leaves the choice
 to an implicit engine branch that no validator checks and no diagram shows.
 Guard:: Static check over every compiled unit and the state catalogue: each outcome of every state routes to exactly
@@ -290,8 +291,7 @@ link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_9_step_completio
 Over the shipped default units of `pm-mcp-server`, the three shipped measured cycles pass (the git sync
 loop under the sync attempt cap of `git.sync-required` with `attempts_exhausted`, the setup re-probe under the
 re-probe cap of `setup.verify-credentials` with `reprobe_exhausted`, the epic archive under the archive steps of
-`epic.next-work`), and so do the `finalize.next-step` cycles, and the same cycles with the measure removed fail
-Rule 11a naming the cycle. Scenario: the second invalidation in one setup run enters `setup.needs-repair`.
+`epic.next-work`), and the same cycles with the measure removed fail Rule 11a naming the cycle. Scenario: the second invalidation in one setup run enters `setup.needs-repair`.
 Source:: design review.
 
 [#PM-WATCH-DSL-30]
@@ -343,6 +343,21 @@ loader does not add the state yet); an `ask` on a state of a `zero_tool` role is
 Matched control: `answered` and `assumed` re-enter the asking state.
 Source:: design review.
 
+[#PM-WATCH-DSL-40]
+=== PM-WATCH-DSL-40: A phase-internal outcome never routes into another unit
+
+Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (rule 6),
+link:../specification/workflow-dsl/01-grammar.adoc#sub-workflow-exits[Workflow DSL § Sub-Workflow Exit Contract]
+Hazard:: A phase-internal outcome (`stepped_out`, `exhausted`, `lost`, a router's continuation) routed to a state of
+another unit, such as `finalize.hand-back` from inside `execute`, passes the verifier, or the engine takes such a route
+implicitly, so the plan unit never sees the phase end and its call states, the asking axis between phases, and the
+phase's records are skipped.
+Guard:: Rule 3 over the shipped units refuses every cross-unit target and the catalogue drift test compares every exit
+of every phase with the plan unit's catalogue; a fixture whose `execute` call site routes `stepped_out` to
+`finalize.hand-back` fails validation with its file and line. Matched control: the same call site routing
+`stepped_out` to the phase's own exit `hand_back` passes.
+Source:: design review.
+
 == Reusable Compound Sub-Workflows & Call-Stack Execution
 
 [#PM-WATCH-DSL-6]
@@ -379,7 +394,7 @@ while a cap that never resets on a hook rewrite lets an unchanged change set fai
 Guard:: CLI-variant fixture with a failing repository hook: `git.commit-fix` creates a task of the role `implement`;
 the first two failures on the same staged tree id and message return to `git.commit-fix`, and the third identical
 failure makes `git.stage-and-commit` return `attempts_exhausted`, which enters `git.stepped-out` (server step-out,
-`cause: attempts_exhausted`) and the caller routes (a plan caller to `finalize.hand-back`, a remediation unit back to
+`cause: attempts_exhausted`) and the caller routes (a plan caller to its phase's fallback, a remediation unit back to
 its `budget-check`); matched control: a fix that changes the staged tree (or a submit with a recomposed message, or a
 hook rewrite) after the second failure resets the counter and the next attempt returns to `git.commit-fix` again;
 the native variant has no hook and no counter.
@@ -409,7 +424,8 @@ Source:: design review.
 === PM-WATCH-DSL-15: Result guards partition every `done` transition
 
 Anchor:: link:../specification/workflow-dsl/01-grammar.adoc#sub-workflow-exits[Workflow DSL § Result Guards & Sub-Workflow Exit Contract],
-link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
+link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules],
+link:../specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
 Hazard:: Two `done` transitions of one call site guarded by overlapping or incomplete result guards leave a result
 that matches none (a dead end) or both (a nondeterministic route), for example a commit call routing `result.pushed`
 without the negated branch.
@@ -495,19 +511,6 @@ server-rule retry budget takes `retry_spent` into `git.stepped-out` (`cause: pus
 that succeeds on the retry ends `done` with `pushed: true`.
 Source:: design review.
 
-[#PM-WATCH-DSL-34]
-=== PM-WATCH-DSL-34: Open: what the push of `setup.land-changes` pushes
-
-Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stages 5 and 6)
-Hazard:: Undecided: `setup.land-changes` binds `push_mode=if_push_remote` on the primary checkout, but Stages 5 and 6 are
-defined only for a plan (`branch_name`, `branch_pushed_at`, `pr-find`, ledger freshness); which branch is pushed is
-undefined and may be the protected base branch. Options: (1) specify the workspace semantics of both stages; (2)
-bind `push_mode=never` for setup and leave the push to the operator. Recommendation: 2, no server push of a base
-branch.
-Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
-the result in the specification and the requirement it touches, and deletes this item.
-Source:: `workflow-dsl/06-reusable-sub-workflows.adoc:258-266`, `state-catalogue/06-setup-epic-other.adoc:232`.
-
 [#PM-WATCH-DSL-35]
 === PM-WATCH-DSL-35: Open: a gather failure of the review-findings and merge-conflict units
 
@@ -520,8 +523,8 @@ a gather constituent failure in these units enters `conservative`. Recommendatio
 kinds.
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
-Source:: `workflow-dsl/08-remediation-units.adoc:116`, `state-catalogue/08-remediation-units.adoc:275-276`,
-`state-catalogue/11-remediation-units-merge-qgate-spend.adoc:30-31`.
+Source:: `workflow-dsl/08-remediation-units.adoc:108`, `state-catalogue/08-remediation-units.adoc:271`,
+`state-catalogue/11-remediation-units-merge-qgate-spend.adoc:30`.
 
 [#PM-WATCH-DSL-36]
 === PM-WATCH-DSL-36: A conformance predicate passes on a call that failed or on a red that is not an assertion
@@ -579,13 +582,14 @@ the input of its own, so a call site written against the default unit binds a va
 silently changes what the default does. The input is part of the interface a caller relies on, and the copy is resolved
 over the default without a warning.
 
-Guard:: `INV-GEN-1` compares the inputs of a project unit with those of its default unit: name, type, optional form,
-default and fallback, in declaration order, and names the differing input (`CompiledInvariantsTest`, the cases
-`INTERFACE_INPUT_WIDENED` (an enum domain) and `INTERFACE_INPUT_RANGE` (an int range) of `git-commit-and-push.pmwf` and
-`remediation-qgate-findings.pmwf`, and `INTERFACE_INPUT_MISSING`, of `pm-workflow`,
+Guard:: `INV-GEN-1` compares the inputs of a project unit with those of its default unit (name, type, optional form,
+default and fallback, in declaration order) and names the differing input; a widened enum domain, a widened int range
+and a missing input are refused (`CompiledInvariantsTest`, the cases `INTERFACE_INPUT_WIDENED`,
+`INTERFACE_INPUT_RANGE` and `INTERFACE_INPUT_MISSING`, of `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
-Developer Guide § INV-GEN-1 over Type and Interface]). The comparison does not read the description, so a copy may
-reword it.
+Developer Guide § INV-GEN-1 over Type and Interface]). Open: a project unit that changes an input's default or
+fallback, its optional form, or the order of the inputs fails naming the input; matched control: a copy that only
+rewords an input's description passes.
 
 Source:: design review (PLAN-V2-04).
 

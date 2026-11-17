@@ -18,7 +18,7 @@ forge: the request belongs to the adapter (`pm-provider-github`, `pm-provider-gi
 `pm-provider-forgejo`), and the module depends on the shared HTTP base for its closed `Result` and on `pm-core` for the
 provider id pattern.
 
-The operator decided on 2026-10-29 that the contract is this module and not a port in `pm-core`
+The contract is this module and not a port in `pm-core`
 (link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]).
 
 == Main Types

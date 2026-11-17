@@ -9,7 +9,7 @@
 :test: ../../src/test/java/de/planmarshall/runtime/web
 
 == Purpose
-_Requirements: link:{docs}/Requirements.adoc#PM-SEC-6[PM-SEC-6]_
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-7[PM-SEC-7], link:{docs}/Requirements.adoc#PM-WORK-7[PM-WORK-7]_
 
 Package `de.planmarshall.runtime.web` of `pm-runtime` holds the state of web access and the material the web listener
 serves when it is exposed on a LAN address: the self-signed certificate and its private key, written as PEM without a
@@ -17,7 +17,7 @@ cryptography library, and the conflict a listener that cannot open reports. The 
 closing and binding belong to the assembly `pm-mcp-server`.
 
 == Main Types
-_Requirements: link:{docs}/Requirements.adoc#PM-SEC-6[PM-SEC-6]_
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-7[PM-SEC-7], link:{docs}/Requirements.adoc#PM-WORK-7[PM-WORK-7]_
 
 [cols="1,3",options="header"]
 |===
@@ -120,4 +120,4 @@ directory is `0700` with the key file `0600`.
 * Specification: link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment § Audit
   and Outbound HTTPS], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc[Timeouts § Runtime, Leases, Operator and
   Web] (the listener exposure and the default port)
-* Requirement: link:{docs}/Requirements.adoc#PM-SEC-6[PM-SEC-6]
+* Requirements: link:{docs}/Requirements.adoc#PM-SEC-7[PM-SEC-7], link:{docs}/Requirements.adoc#PM-WORK-7[PM-WORK-7]

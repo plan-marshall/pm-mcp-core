@@ -7,7 +7,7 @@
 :docs: ../../../../plan-marshall-documentation/doc
 
 == Purpose
-_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{docs}/Requirements.adoc#PM-CLIENT-3[PM-CLIENT-3], link:{docs}/Requirements.adoc#PM-EXEC-4[PM-EXEC-4], link:{docs}/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]_
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-EXEC-4[PM-EXEC-4], link:{docs}/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]_
 
 This guide covers the stores of a scope that `pm-core` adds on top of the store substrate, and the engine ports:
 
@@ -340,7 +340,7 @@ commits, the second is refused, the first content stays).
 
 [#_pending_entry_record]
 == The Pending Entry Record
-_Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
 
 A client opens an entry for a plan or an epic that does not exist yet, and the server records what the client named in
 a pending entry record `pending/<entry_id>.json` of the workspace scope. The record is the state store of that entry's
@@ -2390,6 +2390,26 @@ WARN with the code and the reason, never with the path
 
 The confinement is a library: a package that performs a file or repository operation for a project adopts the check
 itself; a path that does not adopt it is not confined.
+
+=== Recognition of a Linked Worktree
+
+A worktree of the live set counts as a linked worktree of the enrolled root only when its three pointer files agree. They
+are read as plain files; no git process runs:
+
+* *Pointer*: its `.git` is a file that names its git directory after the prefix `gitdir:`;
+* *Registration*: the canonical git directory is a direct child of `<root>/.git/worktrees/`, and that `worktrees`
+  directory is no symbolic link;
+* *Common directory*: the `commondir` file of the git directory names `<root>/.git`, a directory;
+* *Back-pointer*: the `gitdir` file of the git directory, resolved against the git directory when it is relative (the
+  form git writes with `worktree.useRelativePaths`), names the `.git` file of the worktree.
+
+Every pointer file is a regular file, never a symbolic link, neither empty nor larger than 8192 bytes. A directory whose
+git directory carries a fitting `commondir` file but lies outside `<root>/.git/worktrees/`, and a second directory that
+points at the git directory of a registered worktree, are refused. A worktree moved by hand with `mv` keeps a `gitdir`
+record that names its old place and is refused until `git worktree repair` has rewritten it.
+`PathConfinement.linkedMainCheckout` is the same recognition read the other way, from a worktree to its main checkout,
+which the project resolution follows (<<_project_resolution>>). `LinkedWorktreeConfinementTest` covers each condition
+and each refusal.
 
 == Reading Helpers Shared with the Stores of Other Packages
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_

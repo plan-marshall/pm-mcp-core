@@ -99,16 +99,17 @@ Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
 Hazard:: Undecided: `pm-operator runtime install|uninstall` are API requests the runtime executes. When the per-user
 service started that runtime, the step that stops the service (`launchctl bootout`, `systemctl --user stop`) ends the
-runtime in the middle of the request: the client gets no answer, and on macOS a reinstall leaves the job unloaded,
-because the `bootstrap` after the `bootout` is never issued, until the next login or the next install. Options: (1)
-the runtime answers the request first and runs the steps of the service manager from a detached process that
-outlives it; (2) a runtime started by the service refuses both requests with a code that tells the operator to stop
-the service first; (3) accept and document. Recommendation: 1, the request is answered and the reinstall completes.
-Guard:: The file work comes before every step that can stop the service (install writes the unit before it loads it,
-uninstall removes the unit before it unloads it), so an ended runtime leaves neither a stale nor a missing unit; a
-test records whether the unit file exists at every command. The plan implementing the API request decides the point
-(with the operator where it changes scope), records the result in Service Unit and `PM-ARCH-7`, and deletes this
-item.
+runtime in the middle of the request: the client gets no answer, and on macOS a reinstall never loads the new unit,
+because the `bootstrap` after the `bootout` is never issued; the restore of the next start brings the previous unit
+back, so the reinstall has not happened. Options: (1) the runtime answers the request first and runs the steps of the
+service manager from a detached process that outlives it; (2) a runtime started by the service refuses both requests
+with a code that tells the operator to stop the service first; (3) accept and document. Recommendation: 1, the request
+is answered and the reinstall completes.
+Guard:: No stale or missing unit is left behind: the file work before every command and the kept unit with its
+restore are covered by `ServiceUnitInstallerTest` (order of the file work and the commands, restore of the previous
+unit). Remains: the start runs the restore step (`ServiceUnitInstaller.restore()`), and the plan implementing the API
+request decides the point (with the operator where it changes scope), records the result in Service Unit and
+`PM-ARCH-7`, and deletes this item.
 Source:: `pm-mcp-core` work package `service-unit` (review of the install and uninstall order).
 
 == Server-Driven Scopes

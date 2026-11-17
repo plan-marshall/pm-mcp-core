@@ -15,18 +15,6 @@ specification. Item format and lifecycle: link:../ImplementationWatch.adoc[Imple
 
 == Outcome Derivation
 
-[#PM-WATCH-JOB-1]
-=== PM-WATCH-JOB-1: Job outcomes are derived at the boundary
-
-Anchor:: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[Job Runtime § Outcome Derivation],
-link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#_standard_output_payload_stdout[Domain Extensions § Standard Output Payload],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-4[PM-EXEC-4]
-Hazard:: Two vocabularies (`indeterminate` in the wrapper, `unknown` at the boundary) named one state, and a wrapper
-could claim a status the boundary never derived.
-Guard:: The runtime derives job outcomes itself; a `project_script` output `status` is validated against the
-observed exit and parse evidence and never adopted blindly.
-Source:: plan-marshall truthful-signals PLAN-TRUTH-155 D5.
-
 [#PM-WATCH-JOB-23]
 === PM-WATCH-JOB-23: A crash at job end loses at most a usage row, a freshness mark, or a timing sample
 
@@ -103,7 +91,7 @@ Guard:: Engine waits use monotonic wall-clock deadlines (test with fast pollers)
 not absent; the only calls a model holds open are a worker's `pm_wait` and a running `pm_build`: a `pm_wait` returns
 an offer, `wait_again`, or `end` within its harness's bounded window and never fails with a transport timeout, a
 `pm_build` whose window ends with the build still running returns `status: running` with its `job_id`, and a
-`pm_build` continuing on an unknown or finished `job_id`, or one of another scope, is refused `invalid_arguments`.
+`pm_build` continuing on the `job_id` of a finished build of the same scope returns that build's terminal result, and one continuing on an unknown `job_id`, or one of another scope, is refused `invalid_arguments`.
 Not built (owner `runtime-metrics`): time deferred by a provider rate limit is attributed
 `provider_rate_limit` and never counted as a timeout, and the wait population below is the baseline for wait metrics.
 Fixture:: 600 s budget burned in seconds ("CodeRabbit absent" while running); a script cost rollup of 2,051 calls, 14,423,580 ms, dominated by the three wait notations
@@ -191,12 +179,14 @@ fallback credential file, an enrolment, or another project's machine store learn
 Guard:: On Linux with Landlock, a job fixture tries to read `<PM_MCP_BASE>/run/runtime.token`, a fallback credential
 file under `<PM_MCP_BASE>/credentials/`, and an entry of the per-project machine store, and each read fails with a
 permission error; positive control: the same job reads a binary under `<PM_MCP_HOME>`, a sibling of `<PM_MCP_BASE>`
-in its parent directory, and a sibling of each directory on the path from `/` (read set built by sibling
-enumeration); control: an entry created on that path after job start is not readable by the job, which is the
-accepted limitation, and an entry created elsewhere stays readable; the one exception: a worker (kind `llm`)
-reads its own job-private directory `<PM_MCP_BASE>/run/jobs/<job_id>/` and fails to read that of another job and
-every other entry of `<PM_MCP_BASE>`; the jobs that run build tools read and write their project's daemon store and
-no other project's.
+in its parent directory, and a sibling of each directory on the path from `/`; control: an entry created on that
+path after job start is not readable by the job, which is the accepted limitation, and an entry created elsewhere
+stays readable. The fixture job is of a kind whose read set is built by that enumeration (a `git` job of the CLI
+variant); a worker and a `build` or `project_script` job have a listed read set instead, guarded by
+<<PM-WATCH-JOB-38>>. The one exception for both constructions: a worker and a probe read their
+own job-private directory `<PM_MCP_BASE>/run/jobs/<job_id>/` and fail to read that of another job and every other
+entry of `<PM_MCP_BASE>`; the jobs that run build tools read and write their project's daemon store and no other
+project's.
 Source:: design review.
 
 [#PM-WATCH-JOB-21]
@@ -460,24 +450,6 @@ link:../../../plan-marshall-documentation/doc/articles/ghostty-creator-rex.adoc[
 
 == Native Build Output Parsers
 
-[#PM-WATCH-JOB-11]
-=== PM-WATCH-JOB-11: A test filter matching nothing reports zero tests
-
-Anchor:: link:../specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-2[PM-TOOL-2]
-Hazard:: A scoped Maven test filter (`-Dtest=<package>.*`) matching zero classes failed the surefire build instead of
-reporting zero tests.
-Guard:: A `no_tests_ran` verdict requires the build tool's positive marker, never a zero count, and a successful
-build whose summaries cannot be aggregated reports `tests_population: unmeasured`, never `tests_run: 0`; fixtures
-with a non-matching filter (positive marker present) and with unaggregatable summaries. Implemented for all nine parsers
-by `pm-core` package `core.build` (link:../../pm-core/doc/developer/core-build.adoc[`core.build` Developer
-Guide]); the `deliberate-no-tests-ran-positive-marker`, `deliberate-zero-count-is-no-no-tests-ran`,
-`deliberate-gradle-no-tests-marker`, `deliberate-jest-unmeasured-tests`, `deliberate-tap-zero-tests` and
-`deliberate-tap-unmeasured-tests` fixtures and the `PyprojectOutputParserTest` case that reports no count for a filter
-matching nothing carry the guard.
-Fixture:: cui-jsf lesson `2026-06-16-09-001`.
-Source:: plan-marshall repository cui-jsf-test-basic, `.plan/local/lessons-learned/2026-06-16-09-001.md` (git-ignored consumer lesson store); lessons-routing PLAN-LR-01 D3.
-
 [#PM-WATCH-JOB-13]
 === PM-WATCH-JOB-13: Every build is a change-ledger row
 
@@ -664,8 +636,8 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-
 Hazard:: A single Unicode pass leaves smuggled characters that a removal exposes (nested tag sequences, an ANSI escape
 split by a removed code point); a silently dropped span hides what the validator did from the screener and the audit.
 Guard:: Fuzz and corpus tests (cui-http generators, garak and promptfoo corpora as JUnit fixtures): running the
-validator on its own output changes nothing; no tag-block code point, variation selector, `Cf`, `Co`, or `Cn` code
-point, lone surrogate, or ANSI escape survives; images, raw HTML, and links outside the allowlist are removed or
+validator on its own output changes nothing; no code point of a hidden-character class (link:../specification/job-runtime/03-parsers-and-gates.adoc#hidden-character-classes[Job Runtime § Hidden Characters]),
+lone surrogate, or ANSI escape survives; images, raw HTML, and links outside the allowlist are removed or
 neutralized with one reported change each; a rule-table hit is recorded as a finding and never blocks on its own; the
 number of passes is bounded. Matched pairs in the shapes of an incident-response detection pack (a tool description with
 an instruction block, CSS-hidden instructions as an HTML block and inline, a rules-file text with coercive directives,

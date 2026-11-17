@@ -57,7 +57,7 @@ Configuration is split by owner class (link:../domain-extensions/06-configuratio
 
 |`<PM_MCP_BASE>/projects/<project_id>/local-config.json`
 |operator
-|the operator's acts in either client: `project.operator` of the project's onboarding and setup, a value set or unset over the local API, `pm-operator config --project <project_id>`
+|the operator's acts in either client: `project.operator` of the project's onboarding and setup, a value set or unset over the local API, `pm-operator config set\|unset <key> [<level>]` at the project's level
 |The operator's values and machine-local bindings of one project (xref:08-project-configuration-local.adoc#local-config[Operator Local Configuration (`<PM_MCP_BASE>/projects/<project_id>/local-config.json`)]); beside it, in the same store, the project's `role-assignments.json` and `model-catalogue.json` (xref:12-machine-stores.adoc#role-assignments-store[Role Assignments], xref:12-machine-stores.adoc#model-catalogue[Model Catalogue]).
 |===
 
