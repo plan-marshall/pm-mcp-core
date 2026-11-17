@@ -95,6 +95,23 @@ class ActivityJournalMaskingTest {
     }
 
     @Test
+    @DisplayName("a destination that masking shrinks below the floor is masked whole, not refused")
+    void masksADestinationShrunkBelowTheFloor(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        journal.append(TASK, ActivityEntry.builder()
+                .seq(1)
+                .attempt(1)
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.EGRESS)
+                .egress(new ActivityEntry.Egress("\u200Ba\u200Bb"))
+                .at(QueueFixtures.AT)
+                .build());
+
+        assertEquals(SecretRedactor.REDACTED, journal.entries(TASK).getFirst().egress().destination(),
+                "the shrunk destination is masked whole");
+    }
+
+    @Test
     @DisplayName("a task's journal is archived with the plan and deleted with it")
     void archiveAndDelete(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());

@@ -52,10 +52,13 @@ partial enforcement) would change the type.
 `format_version` stays 1 (R13): the member replaces version 1 in place, and no reader for an older record is written. A
 record written before this change is refused rather than read with an absent member. The schema-parity test pins the
 property, its place in `required` and the enumeration; the codec test pins the round trip, the strict read and the rule
-per kind; `EgressJobTest` pins the runner's honest value at every write point and for a refused worker, and that a
-`git`, a `build` and a probe job record none. The enforcement, the launch-report member that would state `enforced`, the
-production start of `WorkerEgressProxy` and the operator's acceptance of unenforced egress remain outside this repository
-(link:../../../../doc/plans/job-confinement-and-environment.adoc[the package file]).
+per kind; `EgressJobTest` pins the runner's honest value at every write point and for a refused worker, `SubprocessJobRunnerTest`
+pins that a `git` and a `build` job record none, and `ProbeJobTest` that a probe does. A `build` and a `project_script`
+job record `null` today: the values the Build Egress section names for them join the member with their own
+implementation, which is why the schema description and that section say so. The enforcement, the launch-report member
+that would state `enforced`, the production start of `WorkerEgressProxy`, the operator's acceptance of unenforced egress
+and the runtime status line remain outside this repository and are listed in
+link:../../../../doc/plans/job-confinement-and-environment.adoc[the package file].
 
 == Source
 

@@ -42,6 +42,13 @@ still demands lives elsewhere:
   say `enforced`, so every worker's record states `unenforced`
   (link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[§ Worker Egress Proxy]).
 * *The CLI git variant* of the enforcement, verified absent in `pm-mcp-clients`.
+* *The production start of `WorkerEgressProxy`* for a worker generation, and the producer of the `egress` entries: the
+  supervisor passes no proxy URL today, and a proxy started without a platform that forces the route is configured, not
+  enforced (link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[§ Worker Egress Proxy]).
+* *The operator's acceptance of unenforced egress* — where it is stored, the name and fields of its audit record, the
+  command of each client and how it is withdrawn — and *the admission gate* that refuses a worker until it is accepted.
+* *The runtime status line* for the egress state, and the bound on the journal's growth when a worker keeps asking for a
+  refused destination (one entry per distinct destination per attempt is the reading recorded for the count).
 
 The decisions behind the two delivered parts are link:../../pm-core/doc/adr/core-store/072-the-job-record-egress-is-a-nullable-enumeration.adoc[ADR core-store/072]
 and link:../../pm-core/doc/adr/core-queue/010-the-refused-destination-is-an-activity-entry-kind.adoc[ADR core-queue/010].

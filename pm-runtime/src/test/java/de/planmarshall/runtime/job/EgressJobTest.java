@@ -16,7 +16,6 @@ import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -54,7 +53,6 @@ import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.Egress;
 import de.planmarshall.core.store.JobRecord.Scope;
 import de.planmarshall.core.store.JobRecordStore;
-import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
 import de.planmarshall.runtime.launch.JobTokenStore;
 import de.planmarshall.runtime.launch.LaunchPrompt;
 import de.planmarshall.runtime.launch.LaunchRefusal;
@@ -149,7 +147,7 @@ class EgressJobTest {
     }
 
     @Test
-    @DisplayName("a worker's post-spawn record keeps the honest value")
+    @DisplayName("a worker's record with its PID keeps the honest value")
     void postSpawnRecordKeepsUnenforced() {
         var result = runner.startWorker(start());
         var jobId = assertInstanceOf(JobRunner.StartResult.Started.class, result, "the worker should be started")
@@ -159,7 +157,7 @@ class EgressJobTest {
         assertAll("the post-spawn replace derives from the record",
                 () -> assertTrue(settled.pid() != null, "the settled record carries the post-spawn PID"),
                 () -> assertEquals(Egress.UNENFORCED, settled.egress(),
-                        "the record that carries the PID states unenforced"));
+                        "the record that carries the PID keeps the member"));
     }
 
     @Test
@@ -173,45 +171,6 @@ class EgressJobTest {
 
         assertEquals(Egress.UNENFORCED, stored.egress(),
                 "a refused worker records the platform state");
-    }
-
-    @Test
-    @DisplayName("a git job records no egress")
-    void gitJobRecordsNoEgress() throws Exception {
-        Files.writeString(fixture.tools.get(HostToolName.GIT), "#!/bin/sh\nexit 0\n");
-        fixture.enrol();
-        var request = fixture.request(fixture.root.toString(),
-                new JobRequest.HostToolCall(HostToolName.GIT, List.of("status")));
-
-        var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.GIT, new Scope(Scope.Type.WORKSPACE, null),
-                BUDGET_KEY, 30, FLOOR, request, null));
-
-        var jobId = assertInstanceOf(JobRunner.StartResult.Started.class, result, "the git job should start")
-                .jobId();
-        var settled = runner.awaitSettled(jobId, SETTLE_TIMEOUT).orElseThrow();
-        assertAll("a non-worker records no egress",
-                () -> assertEquals(JobId.Kind.GIT, jobId.kind(), "the job is a git job"),
-                () -> assertNull(settled.egress(), "the record leaves the member null"));
-    }
-
-    @Test
-    @DisplayName("a build job records no egress")
-    void buildJobRecordsNoEgress() throws Exception {
-        Files.writeString(fixture.tools.get(HostToolName.GIT), "#!/bin/sh\nexit 0\n");
-        fixture.enrol();
-        var planId = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-        var request = fixture.request(fixture.root.toString(),
-                new JobRequest.HostToolCall(HostToolName.GIT, List.of("status")));
-
-        var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.BUILD, new Scope(Scope.Type.PLAN, planId),
-                "maven:verify", 30, FLOOR, request, null));
-
-        var jobId = assertInstanceOf(JobRunner.StartResult.Started.class, result, "the build job should start")
-                .jobId();
-        var settled = runner.awaitSettled(jobId, SETTLE_TIMEOUT).orElseThrow();
-        assertAll("a build job records no egress",
-                () -> assertEquals(JobId.Kind.BUILD, jobId.kind(), "the job is a build job"),
-                () -> assertNull(settled.egress(), "the record leaves the member null"));
     }
 
     private WorkerStart start() {

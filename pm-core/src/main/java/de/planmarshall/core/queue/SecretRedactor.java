@@ -661,8 +661,7 @@ public class SecretRedactor {
                     cutUtf16(stripAndRedact(entry.link().target()), 128).value()));
         }
         if (entry.egress() != null) {
-            masked = masked.withEgress(new ActivityEntry.Egress(
-                    cutUtf16(stripAndRedact(entry.egress().destination()), 259).value()));
+            masked = masked.withEgress(new ActivityEntry.Egress(destination(entry.egress())));
         }
         return masked;
     }
@@ -670,6 +669,17 @@ public class SecretRedactor {
     /** Strips the terminal escape sequences of a journal value, then redacts it. */
     private static String stripAndRedact(String value) {
         return redactText(BuildLogText.stripAnsi(value)).orElseThrow();
+    }
+
+    /**
+     * The masked destination of an egress entry. Masking can shorten a value (the invisible characters are removed), so
+     * a destination that drops below the record's floor is masked whole instead of being rebuilt as an invalid one: the
+     * journal never refuses an entry it was handed, and a three-character value of which the visible part is shorter was
+     * no {@code host:port} to begin with.
+     */
+    private static String destination(ActivityEntry.Egress egress) {
+        var masked = cutUtf16(stripAndRedact(egress.destination()), ActivityEntry.Egress.MAX_DESTINATION).value();
+        return masked.length() < ActivityEntry.Egress.MIN_DESTINATION ? REDACTED : masked;
     }
 
     /**

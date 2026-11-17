@@ -1999,6 +1999,18 @@ class SubprocessJobRunnerTest {
                     "the build job of the budget key starts").jobId();
         }
 
+        @Test
+        @DisplayName("a build job records no egress, only a worker does")
+        void buildRecordsNoEgress() throws Exception {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var jobId = startedBuild("maven:verify",
+                    new JobRequest.HostToolCall(HostToolName.GIT, List.of("ok")));
+
+            assertAll("a build job records no egress",
+                    () -> assertEquals(JobId.Kind.BUILD, jobId.kind(), "the job is a build job"),
+                    () -> assertNull(settled(jobId).egress(), "the record leaves the member null"));
+        }
+
         @ParameterizedTest(name = "{0}")
         @EnumSource(BuildSystem.class)
         @DisplayName("the parser receives the job record of every build system")

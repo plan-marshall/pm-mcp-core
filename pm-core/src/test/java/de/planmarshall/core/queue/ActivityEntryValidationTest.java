@@ -166,6 +166,10 @@ class ActivityEntryValidationTest {
                         "a destination beyond 259 characters is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.EGRESS)
+                                .egress(new ActivityEntry.Egress("a:")).build(),
+                        "a destination below the 3-character floor is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.EGRESS)
                                 .egress(new ActivityEntry.Egress("host:4\n43")).build(),
                         "a destination with a line break is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
