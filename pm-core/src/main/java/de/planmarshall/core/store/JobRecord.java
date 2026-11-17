@@ -639,8 +639,14 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         Objects.requireNonNull(kind, "kind");
         if (kind == JobId.Kind.LLM) {
             requireWorker(execution, scope, worker, egress, gitMetadata);
-        } else {
-            requireNoWorkerMembers(kind.wireName(), worker, egress, gitMetadata);
+        } else if (worker != null) {
+            throw new IllegalArgumentException("Only a worker carries a worker block, not a job of kind "
+                    + kind.wireName());
+        } else if (egress != null) {
+            throw new IllegalArgumentException("Only a worker carries egress, not a job of kind " + kind.wireName());
+        } else if (gitMetadata != null) {
+            throw new IllegalArgumentException("Only a worker carries git_metadata, not a job of kind "
+                    + kind.wireName());
         }
         if (kind == JobId.Kind.PROBE) {
             requireProbe(execution, scope);
@@ -665,19 +671,6 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         }
         if (gitMetadata == null) {
             throw new IllegalArgumentException("A worker records whether its git metadata is unwritable");
-        }
-    }
-
-    private static void requireNoWorkerMembers(String kindName, @Nullable String worker, @Nullable Egress egress,
-            @Nullable GitMetadata gitMetadata) {
-        if (worker != null) {
-            throw new IllegalArgumentException("Only a worker carries a worker block, not a job of kind " + kindName);
-        }
-        if (egress != null) {
-            throw new IllegalArgumentException("Only a worker records egress, not a job of kind " + kindName);
-        }
-        if (gitMetadata != null) {
-            throw new IllegalArgumentException("Only a worker records git_metadata, not a job of kind " + kindName);
         }
     }
 
