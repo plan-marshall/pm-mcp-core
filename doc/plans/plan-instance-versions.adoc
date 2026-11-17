@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `plan-instance-versions`
 
 [horizontal]
-Roadmap item:: the plan instance: the triggers of the composition events, the engine's switch to a version in force, the instance resources; Rules 13 and 14 at composition (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Roadmap item:: the plan instance: the triggers of the composition events, the pruning of the lane's route at the `outline` event, the engine's switch to a version in force, the instance resources; Rules 13 and 14 at composition (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
 Where:: pm-workflow packages `workflow.plan` (`PlanInstanceComposer`, `PlanInstanceStore`), `workflow.engine` (the composition at the entering transaction, the version in force) and `workflow.verify` (the composition-time checks); pm-core package `core.store` (`instance_version`)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
@@ -12,7 +12,7 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 
 The specification sections named are the single statement of what each task builds. The composer, the store of versions and sub-unit texts, and the rendering are built (`plan-instance`, link:../../pm-workflow/doc/developer/workflow-plan.adoc[Plan Instance Developer Guide]).
 
-. *The composition events and their triggers*, server events in the entering transaction, operator and configuration events through one entry point with the position rule: link:../specification/workflow-dsl/09-plan-instance.adoc#_versions_composition_events[Workflow DSL § Versions & Composition Events]; link:../specification/workflow-dsl/09-plan-instance.adoc#composition-rules[§ Composition Rules].
+. *The composition events and their triggers*, server events in the entering transaction, operator and configuration events through one entry point with the position rule: link:../specification/workflow-dsl/09-plan-instance.adoc#_versions_composition_events[Workflow DSL § Versions & Composition Events]; link:../specification/workflow-dsl/09-plan-instance.adoc#composition-rules[§ Composition Rules], the states of the other lane pruned from the `outline` event on among them.
 . *The version in force*: `instance_version` as a field, the engine running the composed units and the stored sub-unit texts: § Versions & Composition Events; link:../specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance]; link:../specification/store-schemas/02-workflow-state-store.adoc[§ Workflow State Store].
 . *Rules 13 and 14 at composition*, with the skill catalogue read through a port: link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]; link:../specification/model-work/01-roles-and-configuration.adoc#role-sets[Model Work § Role Sets & Precedence]; link:../specification/model-work/10-decision-quorum.adoc#model-identity[§ Model Identity].
 . *The instance resources* (the version's text with its header, the diagram of the version in force, the status): link:../specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Display]; link:../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc#_normative_resource_uri_templates[MCP Tools § Resource URI Templates].

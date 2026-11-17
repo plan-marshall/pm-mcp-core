@@ -46,7 +46,7 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMP
 Hazard:: A late blocking finding marked `carried` before its destination (the epic message or the seeded lesson) is
 written disappears when the runtime crashes between the two writes.
 Guard:: Crash-injection test between the destination write and the `carried` mark: recovery derives nothing and
-leaves the finding `pending` without `carried_to`; the resumed carry-out carries it exactly once more, so the
+leaves the finding without the status `carried` and without `carried_to`; the resumed carry-out carries it exactly once more, so the
 destination holds at most a duplicate notice and never none. Matched control: a crash before the destination write
 leaves the finding uncarried and the resumed carry-out carries it once.
 Source:: design review.
@@ -121,7 +121,7 @@ Anchor:: link:../specification/store-schemas/02-workflow-state-store.adoc#_workf
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-7[PM-WF-7]
 Hazard:: A remediation whose cause is held only in memory, or kept after its router routed, sends the fix commit of
 one cause back to the build of another after a restart or a second remediation.
-Guard:: Test per cause (`deliverable`, `sweep`, `finalize`, `exit_barrier`, `land_exit`): the transition entering the
+Guard:: Test per cause (`deliverable`, `sweep`, `finalize`, `exit_barrier`): the transition entering the
 remediation writes the field in its own transaction; `execute.route-build-cause` and `execute.route-commit-cause` route
 by it and set it to `null` in the routing transaction; a crash after the entry and before the router leaves the field
 set and the router routes exactly once after recovery. Matched control: with no remediation in flight the field is
@@ -275,7 +275,7 @@ Options: (1) add writers (coordinate or re-cut submits, a park verb, `split` fro
 members without a writer. Recommendation: 2, unless the epic slice needs one of them.
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
-Source:: `store-schemas/04-epic-and-change-ledger.adoc:126-129`, `model-work/08-epic-coordination.adoc:188`.
+Source:: `store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row`, `model-work/08-epic-coordination.adoc#git-distributed-epic-ledger`.
 
 [#PM-WATCH-STORE-54]
 === PM-WATCH-STORE-54: Open: a handed-back plan without a pull request never settles its row
@@ -289,22 +289,22 @@ live forever, its dependants never start, and `epic.next-work` never reaches `se
 Recommendation: 1, the plan has ended and nothing is left to observe.
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
-Source:: `store-schemas/04-epic-and-change-ledger.adoc:129`, `model-work/08-epic-coordination.adoc:188`
+Source:: `store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row`, `model-work/08-epic-coordination.adoc#git-distributed-epic-ledger`
 (row settlement).
 
 [#PM-WATCH-STORE-55]
-=== PM-WATCH-STORE-55: Open: how a held row is cleared
+=== PM-WATCH-STORE-55: Open: how a row refused at its start is recorded and retried
 
 Anchor:: link:../specification/store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row[Store Schemas § Queue Row] (`held`)
-Hazard:: Undecided: `held` clears only on a change of the effective role set or when the operator acts on the epic, but no
-operator act of the epic clears it; the refusals of a start (`setup_required`, `plan_id_taken`,
-`lifecycle_closed`, `config_invalid`) are not among the listed held reasons. A row held for a cause that has since
-gone stays skipped by `epic.next-work`, and a row refused by the bootstrap is retried or stalls without a recorded
-reason. Options: (1) an operator verb plus per-reason clearing events; (2) `epic.next-work` re-checks held launch
-refusals on every settle. Recommendation: 2, server-side and without a new verb.
+Hazard:: Undecided: an operator act clears a held row (the acts `retry` and the row's own acts of the hold kind `held`),
+but the refusals of a row's start (`setup_required`, `plan_id_taken`, `lifecycle_closed`, `config_invalid`) are not
+among the held reasons, so a row the start refuses is retried on every pass of `epic.next-work` or stalls without a
+recorded reason. Options: (1) record each start refusal as a held reason with its own clearing event; (2)
+`epic.next-work` records the refusal as `held` and re-checks held start refusals on every settle. Recommendation: 2,
+server-side and without a new verb.
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
-Source:: `store-schemas/04-epic-and-change-ledger.adoc:131-133`.
+Source:: `store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row`, `state-catalogue/01-conventions-generic-conditions.adoc#holds` (`held`).
 
 == Change Ledger Record (`change-ledger.jsonl`)
 
@@ -465,7 +465,8 @@ floor `3600` applied only without a published ETA and without a registered `rate
 completion allowance `600`, the default `attempt_ceiling` `6`); the compiled default table that every
 effective-configuration computation starts from carries them, and a test pins the table and the registry schema
 default against the Timeouts specification.
-Fixture:: `review_rate_window_await=false`, `review_rate_window_timeout_seconds=3600`.
+Fixture:: A review bot without a published ETA and without a registered `rate_interval_seconds` waits for its rate
+window with the floor `3600`; a registry entry without `attempt_ceiling` reads `6`.
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-155 D2 (carrying PLAN-TRUTH-091 D2 (b)).
 
 [#PM-WATCH-STORE-25]
@@ -758,7 +759,8 @@ exist before a finding is kept).
 === PM-WATCH-STORE-58: A lesson written from untrusted text stays marked, and a start screens it
 
 Anchor:: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
-(Derived from Untrusted Text), link:../specification/model-work/07-untrusted-text-screening.adoc#local-trusted[Model Work § What Is on This Machine Is Trusted]
+(Derived from Untrusted Text), link:../specification/model-work/07-untrusted-text-screening.adoc#local-trusted[Model Work § What Is on This Machine Is Trusted],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
 Hazard:: The flag is taken from the lesson's `sources[]` kinds instead of from what the writing task's facts actually
 delivered, so a lesson written from a plan whose review comments were screened `clean` is trusted; or a revision, a
 merge, or a body replaced by the lesson review recomputes the flag and turns it back to `false`; or `source-lesson`
@@ -770,3 +772,22 @@ the screener, and with a screener verdict `suspicious` the start waits in `sourc
 a lesson of a plan whose facts held no untrusted text is `false` and stored without screening.
 Source:: Article analysis `context-collapse` of plan-marshall-documentation (Copilot memory written from a summarized
 web page and reused in every later session).
+
+== Project Enrolment Store (`<PM_MCP_BASE>/enrolments/<project_id>.json`)
+
+[#PM-WATCH-STORE-59]
+=== PM-WATCH-STORE-59: Open: a relative write path and two spellings of one root
+
+Anchor:: link:../specification/store-schemas/11-enrolment-store.adoc#enrolment-field-semantics[Store Schemas § Field Semantics Beyond the Schema] (`write_paths`; the Unique Root rule of the enrolment store)
+Hazard:: Undecided: the policy judges an absolute write path against `<PM_MCP_BASE>`, but states neither how a
+non-absolute entry of `write_paths` is judged (refused, resolved against the project root, or against the operator's
+home) nor when two project roots are equal for `enrolment_root_conflict` on a case-insensitive file system, where two
+spellings of one directory are two strings. A relative path resolved at job time against a changed base grants a write
+set nobody confirmed; a root compared as a string lets one checkout be enrolled twice, and its two projects write one
+worktree tree. Options for the path: (1) refuse a non-absolute write path at enrolment (`enrolment_invalid`); (2) resolve
+it once at enrolment against the project root and store the result. For the root: (1) compare the real paths the file
+system returns (`toRealPath`, which reports the stored spelling); (2) compare the file identity (device and inode).
+Recommendation: path 1, root 1 with a test on a case-insensitive volume.
+Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
+the result in the specification and the requirement it touches, and deletes this item.
+Source:: `store-schemas/11-enrolment-store.adoc#enrolment-field-semantics`, `concepts/enrolment.adoc` § Policy Before Signing (plan-marshall-documentation).

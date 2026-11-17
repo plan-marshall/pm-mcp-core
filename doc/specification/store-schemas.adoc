@@ -24,10 +24,12 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15: Epic Creation, Server-Started Plans & Cross-Plan Merge Mutex]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-1[PM-EXEC-1: Wrapper-First Execution & Enrolled Host Tools]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-2[PM-EXEC-2: Operator Enrolment & Verify-Not-Resolve Contract]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-2[PM-SEC-2: Workspace Confinement & Path Traversal Prevention]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-3[PM-SEC-3: Operator Channel Isolation (Operator CLI & Paired Web Devices)]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5: Subprocess Environment Sanitization & Linux Filesystem Confinement]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-3[PM-CRED-3: Permission-Guarded File Credential Store]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-6[PM-SEC-6: Security Audit Trail & Tamper-Evident Logging]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-7[PM-SEC-7: Optional Web Access, Device Pairing & Browser Channel Hardening]_
@@ -76,6 +78,7 @@ Implemented in (link:../../../plan-marshall-documentation/doc/specification/modu
 
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: all persisted stores, format versioning, digests and lock ordering
 * the CI contract of the provider module `pm-provider-ci` (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-ci[Module Structure § `pm-provider-ci`]): part 09: the provider derivations
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-forgejo[`pm-provider-forgejo`]: part 09: the host detection of a Forgejo forge
 
 == Parts
 

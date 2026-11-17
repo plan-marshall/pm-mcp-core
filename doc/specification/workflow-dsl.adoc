@@ -64,6 +64,7 @@ Implemented in (link:../../../plan-marshall-documentation/doc/specification/modu
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: part 05: the `Primitive<P, R>` SPI
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-git[`pm-provider-git`]: part 06: the `git.*` operations of `git.commit_and_push`
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-conformance[`pm-conformance`]: part 07: the behavioural conformance harness
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-mcp-server[`pm-mcp-server`]: part 02: the default workflow units the binary ships, as its content (link:workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow Definition Units])
 
 == Parts
 

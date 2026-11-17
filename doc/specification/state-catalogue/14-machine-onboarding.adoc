@@ -91,9 +91,9 @@ States of `onboarding.pmwf`, reached from `onboard.completed` once the onboardin
 |[[state-settings.choose]]`settings.choose`
 |`machine`
 |`operator_wait`
-|`onboard.completed` (`settings`); every aspect call state (`stepped_out`) and `onboard.next` (`settings`); `settings.withdraw` (`keep`), `settings.remove-consent`, `settings.record`, `settings.verify-providers`.
-|`facts`: what the machine recorded per aspect, the remembered consents, the documents mode, the cleanup's durations, the credentials with their status (an expired one, and the plans it holds), the upstream MCP servers with their fetched tools and the projects that switched each on, and the paired devices. Links: `reconfigure:<aspect>`; `withdraw:<consent>`; `documents_mode`; `cleanup_durations`; `credential:<key>`; `verify_providers` (check the providers again on request, link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[Credentials & Enrolment Specification, Provider Verification]); `done`. The paired devices and the upstream servers are acted on through their own endpoints (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#devices[CLI, Coordination & Security Specification, Devices in Both Clients]; xref:01-conventions-generic-conditions.adoc#operator-flows[Operator Flows That Are Not Workflow Units], `upstream.*`).
-|`reconfigure` -> the aspect's call state (`onboard_run: reconfigure`); `withdraw` -> `settings.withdraw`; `documents_mode` -> `settings.documents-mode`; `cleanup_durations` -> `settings.cleanup-durations`; `credential` -> `settings.credential`; `verify_providers` -> `settings.verify-providers`; `done` -> `onboard.completed`.
+|`onboard.completed` (`settings`); every aspect call state (`stepped_out`) and `onboard.next` (`settings`); `settings.withdraw` (`keep`), `settings.remove-consent`, `settings.record`, `settings.store-credential` (`store_unavailable`), `settings.verify-providers`.
+|`facts`: what the machine recorded per aspect, the remembered consents, the documents mode, the diagram format, the cleanup's durations, the credentials with their status (an expired one, and the plans it holds), the upstream MCP servers with their fetched tools and the projects that switched each on, and the paired devices. Links: `reconfigure:<aspect>`; `withdraw:<consent>`; `documents_mode`; `diagrams_format`; `cleanup_durations`; `credential:<key>`; `verify_providers` (check the providers again on request, link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[Credentials & Enrolment Specification, Provider Verification]); `done`. The paired devices and the upstream servers are acted on through their own endpoints (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#devices[CLI, Coordination & Security Specification, Devices in Both Clients]; xref:01-conventions-generic-conditions.adoc#operator-flows[Operator Flows That Are Not Workflow Units], `upstream.*`).
+|`reconfigure` -> the aspect's call state (`onboard_run: reconfigure`); `withdraw` -> `settings.withdraw`; `documents_mode` -> `settings.documents-mode`; `diagrams_format` -> `settings.diagrams-format`; `cleanup_durations` -> `settings.cleanup-durations`; `credential` -> `settings.credential`; `verify_providers` -> `settings.verify-providers`; `done` -> `onboard.completed`.
 |link:../../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-10[UC-ONB-10]
 
 |[[state-settings.withdraw]]`settings.withdraw`
@@ -120,6 +120,14 @@ States of `onboarding.pmwf`, reached from `onboard.completed` once the onboardin
 |`set` -> `settings.record`.
 |xref:09-bootstrap-and-lessons.adoc#documents-source[Documents as a Source]
 
+|[[state-settings.diagrams-format]]`settings.diagrams-format`
+|`machine`
+|`operator_wait`
+|`settings.choose` (`diagrams_format`).
+|`set` (`text` or `mermaid`) of the machine's `diagrams.format`, the form of a diagram in what a model writes for the operator, the default of every project that sets none.
+|`set` -> `settings.record`.
+|link:../store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas Specification, Project Values over Machine Values]
+
 |[[state-settings.cleanup-durations]]`settings.cleanup-durations`
 |`machine`
 |`operator_wait`
@@ -131,7 +139,7 @@ States of `onboarding.pmwf`, reached from `onboard.completed` once the onboardin
 |[[state-settings.record]]`settings.record`
 |`machine`
 |`auto`
-|`settings.documents-mode`, `settings.cleanup-durations` (`set`).
+|`settings.documents-mode`, `settings.diagrams-format`, `settings.cleanup-durations` (`set`).
 |Writes the machine setting against the revision the change was made against, audited.
 |`recorded` -> `settings.choose`; `conflict` (a newer revision: the current value shown, the change not written) -> `settings.choose`.
 |link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration Store]
@@ -149,7 +157,7 @@ States of `onboarding.pmwf`, reached from `onboard.completed` once the onboardin
 |`auto`
 |`settings.credential`.
 |Writes the secret into the recorded credential store and drops every token derived from the old secret; refused with `credential_store_unavailable` while the recorded store is not available.
-|`stored` -> `settings.verify-providers`.
+|`stored` -> `settings.verify-providers`; `store_unavailable` (the recorded store is not available; nothing written) -> `settings.choose` (refused with `credential_store_unavailable`).
 |link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
 
 |[[state-settings.verify-providers]]`settings.verify-providers`
@@ -263,7 +271,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`composite_job`
 |`harness.consent`; `harness.none` (`recheck`).
 |One scan: the `headless.executable` of every profile of the effective profile set, in the directories of the operator's login `PATH` (as the client sent it) and in the profile's `headless.install_locations`; only the version probe runs on what it finds.
-|`found` -> `harness.icons-consent`; `none_found` -> `harness.none`.
+|`found` (the profile of a found harness declares its icon in the `source` form) -> `harness.icons-consent`; `found_no_icons` (no profile of a found harness declares one) -> `harness.choose`; `none_found` -> `harness.none`.
 |link:../harness-profiles/01-profile-schema.adoc#harness-scan[Harness Profiles Specification, Harness Scan]
 
 |[[state-harness.none]]`harness.none`
@@ -293,7 +301,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |[[state-harness.choose]]`harness.choose`
 |`machine`
 |`operator_wait`
-|`harness.icons-consent` (`no`), `harness.fetch-icons`; `harness.blocked` (`choose_again`); `harness.install-profile`; `harness.add` (`known`).
+|`harness.scan` (`found_no_icons`); `harness.icons-consent` (`no`), `harness.fetch-icons`; `harness.blocked` (`choose_again`); `harness.confirm` (`back`); `harness.install-profile`; `harness.add` (`known`).
 |Every found harness with its version, supported or not, worker-eligible or not (a profile with `headless: null` or `worker.eligible: false` shown and never offered as a worker or the default), and what it reports of its token usage (`complete`, `partial` naming what is missing, `not_reported`); the harnesses listed in the order of their `harness_id`; every supported worker-eligible one preselected, the first of them in that order the default. `choose` (the chosen ones, one the default); `add`.
 |`choose` -> `harness.probe-consent`; `add` -> `harness.add`.
 |link:../harness-profiles/01-profile-schema.adoc#harness-scan[Harness Profiles Specification, Harness Scan]; link:../harness-profiles/01-profile-schema.adoc#token-usage[Tokens, Not Money]
@@ -357,7 +365,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |[[state-harness.add]]`harness.add`
 |`machine`
 |`operator_wait`
-|`harness.none`, `harness.choose` (`add`); `harness.verify-profile` (`stage_failed`).
+|`harness.none`, `harness.choose` (`add`); `harness.verify-profile` (`stage_failed`); `harness.add-confirm` (`back`).
 |The draft profile as a form: the executable, a client id and name, and the interface statements profile verification needs (headless arguments, environment, MCP configuration, output and usage format, version probe), prefilled from the profile of the known harness the operator picks as the closest; after a failed stage, the stage, its finding, and the draft field to fix. A known harness not found where it is looked for is pointed at by its path, and its shipped profile is used. `submit`, `known`.
 |`submit` -> `harness.add-consent`; `known` -> `harness.choose`.
 |link:../harness-profiles/01-profile-schema.adoc#unknown-harness[Harness Profiles Specification, Unknown Harness]

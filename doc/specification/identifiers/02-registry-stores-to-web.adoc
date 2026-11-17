@@ -135,7 +135,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |link:../store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas, Transaction Journal]
 
 |[[id-commit-sha]]Git commit identifier
-|`^[0-9a-f]{40}$`, 40.
+|`^[0-9a-f]{40}([0-9a-f]{24})?$`, 40 or 64 (lowercase): the SHA-1 object name of a repository, or the SHA-256 object name of a SHA-256 repository, which the CLI variant of `git` serves (link:../credentials-and-enrolment/01-provider-credentials.adoc#cli-variant-credentials[Credentials & Enrolment, CLI Variant]).
 |git
 |Repository
 |Re-derivable (content address)
@@ -270,7 +270,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |link:../harness-profiles.adoc[Harness Profiles]; the `harness` of a role artifact link:../model-work/01-roles-and-configuration.adoc[Model Work]; the harness enrolment store and the job record's `worker.harness` link:../store-schemas.adoc[Store Schemas]
 
 |[[id-credential-key]]`credential_key`
-|`^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`, 3–64: `github`, `gitlab`, `forgejo` (with the forge's host recorded on the entry, link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#forgejo[Module Structure, Codeberg and Forgejo]), or `git-https` for the agent credentials of the native git and provider integrations (link:../credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials & Enrolment, Agent Credentials]); `mcp-<server_id>` for an upstream MCP server; otherwise the key the project configuration names for the integration in its `credential_key` (for example `sonar`, link:../store-schemas/07-project-configuration.adoc[Store Schemas, Project Configuration]). There is no key for a harness: `PM-MCP` stores no harness authentication.
+|`^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`, 3–64: `github`, `gitlab`, `forgejo` (with the forge's host recorded on the entry, link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#forgejo[Module Structure, Codeberg and Forgejo]), or `git-https` for the agent credentials of the native git and provider integrations (link:../credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials & Enrolment, Agent Credentials]); `mcp-<server_id>` for an upstream MCP server; otherwise the key the operator names for the integration (for example `sonar`): the project's `integrations.<integration>.credential_key` of `local-config.json`, else the machine's provider default (link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas, Operator Local Configuration]); no team file names a credential key. There is no key for a harness: `PM-MCP` stores no harness authentication. Two names are reserved for the runtime's own accounts in the credential store and are refused as a credential key by every act and schema: `enrolment-integrity-key` (the enrolment integrity key where it lives in the store, link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#enrolment-integrity[Credentials & Enrolment, Enrolment Integrity]) and `credential-store-check` (the test entry of the credential-store check, link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment, Credential Store as an Operator Choice]).
 |operator
 |Machine (global entry) or project (override `<project_id>/<credential_key>`)
 |Immutable

@@ -29,7 +29,7 @@ Learned values live in the project's `<PM_MCP_BASE>/projects/<project_id>/build-
 |Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
 
 |[[engine-floor]]Engine floor $F$
-|Maven, Gradle, npm: `300`; pyproject (`pw`, every command): `330` (plan-marshall's per-tool outer floors `MAVEN_OUTER_FLOOR_SECONDS`, `GRADLE_OUTER_FLOOR_SECONDS`, `NPM_OUTER_FLOOR_SECONDS`, `PYTEST_OUTER_FLOOR_SECONDS`, verified at plan-marshall commit `88fcfc9ef`). `git`, `ci`: the floor of the operation class (rows below).
+|Maven, Gradle, npm: `300`; pyproject (`pw`, every command): `330` (plan-marshall's per-tool outer floors `MAVEN_OUTER_FLOOR_SECONDS`, `GRADLE_OUTER_FLOOR_SECONDS`, `NPM_OUTER_FLOOR_SECONDS`, `PYTEST_OUTER_FLOOR_SECONDS`). `git`, `ci`: the floor of the operation class (rows below).
 |fixed
 |Is itself the lower bound of every budget of its key; no derivation and no configuration ever undercuts it.
 |build jobs, `git` and `ci` operations
@@ -125,7 +125,7 @@ Learned values live in the project's `<PM_MCP_BASE>/projects/<project_id>/build-
 |link:../domain-extensions.adoc[Domain Extensions] (Project Script Jobs); link:../job-runtime.adoc[Job Runtime]
 
 |[[model-job-budget]]Worker budget (`llm`)
-|Allocation as above over the key `llm:<role>`, with the role floor as $F$: the `budget_floor_seconds` of the role artifact, compiled minimum `60`; shipped floors: link:../model-work/01-roles-and-configuration.adoc#default-roles[Model Work, Default Role Set]. The budget runs for a fresh worker from its spawn to its exit, and for a warm worker per task from the offer to the attempt's end; a consultation's wait counts toward the asker's budget; a hold for the answer to a question does not, the budget pausing from the ask to the answer acknowledgement (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work, Continuing after a Question]). A fresh worker feeds $L$ with its spawn-to-exit duration, a warm worker with the duration of each attempt that closed its task (offer to attempt end), only on success (link:../job-runtime/03-parsers-and-gates.adoc#_adaptive_timeout_learning[Job Runtime Specification, Adaptive Timeout Learning]); escalation and the cap $C$ apply as above. No other time bound of model work exists: the supervisor observes every worker's end.
+|Allocation as above over the key `llm:<role>`, with the role floor as $F$: the `budget_floor_seconds` of the role artifact, compiled minimum `60`; shipped floors: link:../model-work/01-roles-and-configuration.adoc#default-roles[Model Work, Default Role Set]. The budget runs for a fresh worker from its spawn to its exit, and for a warm worker per task from the offer to the attempt's end; a consultation's wait counts toward the asker's budget; a hold for the answer to a question does not, the budget pausing from the ask to the answer acknowledgement (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work, Continuing after a Question]). A fresh worker feeds $L$ with its spawn-to-exit duration, a warm worker with the duration of each attempt that closed its task (offer to attempt end), only on success (link:../job-runtime/03-parsers-and-gates.adoc#_adaptive_timeout_learning[Job Runtime Specification, Adaptive Timeout Learning]); escalation and the cap $C$ apply as above. Every other time bound of model work is a bound of supervision, of a consultation or of a question (<<worker-supervision>>); the supervisor observes every worker's end.
 |via $O$ per `llm:<role>` in `command_budgets`; the floor in the role artifact
 |$t \ge$ the role floor; floor `60`..`86400`
 |workers of every role
@@ -133,7 +133,7 @@ Learned values live in the project's `<PM_MCP_BASE>/projects/<project_id>/build-
 |link:../model-work/03-supervision-and-recycling.adoc[Model Work, Supervision & Recycling]; link:../job-runtime.adoc[Job Runtime]
 
 |[[grace-period]]Termination grace period
-|`5` between `SIGTERM` and `SIGKILL` to the job's process group. The measured exits of the worker harnesses on `SIGTERM` under a held wait lie within it (`claude` at most 2.9 s, `opencode` below 0.1 s).
+|`5` between `SIGTERM` and `SIGKILL` to the job's process group. The measured exits of the worker harnesses on `SIGTERM` under a held wait lie within it (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#harness-values[Evaluation Reference, Harness Values]).
 |fixed
 |—
 |every termination of a job group (budget expiry, engine cancel, drain, orphan termination), every end of a worker by the supervisor (`SIGTERM`, then `SIGKILL`, then the fence), and the final `SIGTERM` of an evicted language server
@@ -194,7 +194,7 @@ _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH
 |Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
 
 |[[bounded-wait]]Bounded wait window
-|Compiled default `240` per harness profile.
+|The value of the worker's harness profile (shipped values: link:../harness-profiles/01-profile-schema.adoc#worker-block[Harness Profiles Specification, Worker Block]).
 |`connection.bounded_wait_seconds` of the harness profile; operator override in `machine-config.json` (`harness_profiles.<harness_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas, Machine Configuration Store])
 |`15`..`3600`; for a harness whose `connection.progress_resets_timeout` is false, profile validation also rejects a value above `connection.idle_timeout_seconds − 30`
 |`pm_wait` of a worker, a consultation's answer included; a `pm_build` call and its `job_id` continuation, unless the call qualifies for a progress wait (<<progress-wait>>)
@@ -247,7 +247,7 @@ _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH
 |never more often than every `30`; never before a stated `Retry-After` or reset instant
 |CI waits, the provider observations of review-bot waits, <<merge-queue-wait>>
 |A provider rate limit is recorded as the wait slice reason `provider_rate_limit` (link:../job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime, Wait Attribution]) and the wait continues; it is never a timeout and never a failure.
-|link:../phase-workflows.adoc[Phase Workflows], Phase 6; link:../hypermedia-format/03-composite-wait-and-encoder.adoc#_deterministic_evaluation_immediate_short_circuit_matrix[Hypermedia Format, Short-Circuit Matrix]; _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-19[PM-WATCH-JOB-19]_
+|link:../phase-workflows.adoc[Phase Workflows], Phase 6; link:../hypermedia-format/03-composite-wait-and-encoder.adoc#short-circuit-matrix[Hypermedia Format, Short-Circuit Matrix]; _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-19[PM-WATCH-JOB-19]_
 
 |[[review-bot-windows]]Review-bot rate windows, re-review timeout, attempt ceiling
 a|* *Rate window*: `reset_at` is the bot-stated reset ETA when one is published and parsed (a floor to re-check, never a deadline); otherwise `claimed_at + rate_interval_seconds` of the bot's registry record; otherwise, for a record without an interval, the compiled rate-window floor `3600`.
@@ -268,7 +268,7 @@ a|* *Rate window*: `reset_at` is the bot-stated reset ETA when one is published 
 |link:../phase-workflows/06-finalize-re-entry-and-merge.adoc#_cross_plan_merge_mutex_fifo_admission_queue[Phase Workflows, Cross-Plan Merge Mutex]; link:../model-work.adoc[Model Work] (Epic Landing); _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-78[PM-WATCH-PHASE-78]_
 
 |[[release-landing-wait]]Release landing wait (`release.landing_wait_seconds`)
-|`600` from the release's confirmation, while a short landing of the project (`git.land-removal`, `git.land-unit`) runs.
+|`600` from the release's confirmation, while a short landing of the project (`git.land-removal`, `git.land-unit`, `git.land-setup`) runs.
 |fixed (compiled constant)
 |—
 |the release of a project (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[Credentials & Enrolment, Releasing Ends Work as the Operator Ends It])
@@ -311,7 +311,7 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |link:../model-work/03-supervision-and-recycling.adoc[Model Work, Supervision & Recycling]
 
 |[[exit-detection-bound]]Exit detection bound
-|`1500` ms from a worker's exit to its recorded loss: the supervisor observes the exit of the job's process itself, never by polling a call (measured at most 302 ms under confinement on Linux).
+|`1500` ms from a worker's exit to its recorded loss: the supervisor observes the exit of the job's process itself, never by polling a call (measured basis: link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#harness-values[Evaluation Reference, Harness Values]).
 |fixed
 |—
 |every running worker
@@ -413,7 +413,7 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
 
 |[[retry-budget]]Retry budget (`retry_budget`)
-|Shipped call arguments per policy: `qgate-findings` `0`, `build-failure` `1` (land `1`), `ci-failure` `2`, `review-findings` `1`, `analysis` `1`, `merge-conflict` `0`.
+|Shipped call arguments per policy: `qgate-findings` `0`, `build-failure` `1` (land `1`), `ci-failure` `2`, `review-findings` `1` (`0` at the call sites before the pull request exists, which bind only `loop_back`), `analysis` `1`, `merge-conflict` `0`.
 |call argument of the calling project-owned phase unit (`.marshall/config/*.pmwf`); per plan by a `raise` waiver `retry_budget:<policy>` (a revoked raise lowers the ceiling again from the next budget check)
 |hard cap `5` (compiled; bounds template values and operator raises)
 |`retry` of a remediation unit's `decide` (reason `flaky`, `infra`, or `timeout`)
@@ -482,7 +482,7 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |—
 |`finalize.restart-watch` after a composite wait returned `watch_interrupted` (a constituent killed, timed out, or indeterminate), and `resume_wait` of `finalize.merge-queue-exit`
 |`finalize.hand-back`.
-|link:../hypermedia-format/03-composite-wait-and-encoder.adoc#_deterministic_evaluation_immediate_short_circuit_matrix[Hypermedia Format, Short-Circuit Matrix]
+|link:../hypermedia-format/03-composite-wait-and-encoder.adoc#short-circuit-matrix[Hypermedia Format, Short-Circuit Matrix]
 
 |[[step-refire-budget]]Failed-step re-fire
 |`1` automatic re-fire of a failed finalize step by `finalize.step-failed`.
@@ -549,4 +549,4 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |link:../domain-extensions/04-setup-state-machine.adoc#setup-verify-credentials[Domain Extensions, Credential Verification]; link:../state-catalogue/06-setup-epic-other.adoc#state-setup.verify-credentials[State Catalogue, `setup.verify-credentials`]; link:../workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL Specification] (Rule 11a)
 |===
 
-*Deadline processing*: The prerequisite wait of a re-planning is an engine-owned instant persisted with its record (`deadline_at`), processed by the runtime's deadline timer (link:../job-runtime/01-pipeline-and-subprocesses.adoc#engine-deadlines[Job Runtime Specification, Engine Deadlines]); an operator wait has none. The integrity hold and the operator's pause hold every fallback and deadline until they end, and an operator act that ends the plan (cancel, abandon, the integrity abort, the release, `delete-plan`) closes its open decisions and waiver requests `cancelled`.
+*Deadline processing*: The prerequisite wait of a re-planning is an engine-owned instant persisted with its record (`deadline_at`), processed by the runtime's deadline timer (link:../job-runtime/01-pipeline-and-subprocesses.adoc#engine-deadlines[Job Runtime Specification, Engine Deadlines]); an operator wait has none. The integrity hold and the operator's pause hold every fallback and deadline until they end, and an operator act that ends the plan (cancel, abandon, the integrity abort, the release) closes its open decisions and waiver requests `cancelled`.

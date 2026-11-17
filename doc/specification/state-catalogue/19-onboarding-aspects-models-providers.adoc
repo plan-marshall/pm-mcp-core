@@ -180,7 +180,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |[[state-store.choose]]`store.choose`
 |`machine`
 |`operator_wait`
-|`store.detect`; `store.unavailable` (`choose_another`).
+|`store.detect`; `store.unavailable` (`choose_another`); `store.confirm-move` (`back`).
 |Each offered store with what protects a secret in it and what does not; the recommendation preselected (the OS store where one is available, else files). `choose`.
 |`os` -> `store.consent`; `os_unavailable` (an OS store not available now) -> `store.unavailable`; `file` -> `store.check` (no consent: the file store lies in the machine's own directory).
 |link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
@@ -206,7 +206,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |`auto`
 |`store.consent`, `store.choose` (`file`).
 |Writes, reads, and deletes a test entry; each step a line ending in ✓ or ✗ with its cause.
-|`passed` with no store recorded -> `store.record`; `passed` with another store recorded -> `store.confirm-move`; `failed` -> `store.unavailable`.
+|`passed` with no store recorded -> `store.record`; `passed` with the same store recorded (the default of every later run) -> `store.record` (nothing moved); `passed` with another store recorded -> `store.confirm-move`; `failed` -> `store.unavailable`.
 |link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
 
 |[[state-store.confirm-move]]`store.confirm-move`

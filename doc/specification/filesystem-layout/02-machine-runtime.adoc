@@ -36,6 +36,9 @@ The runtime (`pm-mcpd`) persists machine-wide configuration and the machine's ot
 │   ├── mcp/                             # status.json (FSM state, call stack, onboard_run, step progress), digests.json,
 │   │                                    # transaction-journal.json
 │   ├── metrics.json                     # Task rows of the machine scope's role tasks and probe jobs
+│   ├── change-ledger.jsonl              # Ledger rows of the machine scope
+│   ├── questions.jsonl                  # Question records of the machine scope
+│   ├── decision-log.jsonl               # Decision-log records of the machine scope
 │   ├── queue/                           # Task queue of the machine scope (the steward's tasks)
 │   ├── tasks/activity/                  # Activity journals of the machine scope's tasks
 │   ├── jobs/                            # Job records and logs of the machine scope (probes, the steward's workers)
@@ -121,10 +124,13 @@ The runtime (`pm-mcpd`) persists machine-wide configuration and the machine's ot
 │   ├── merge.lock                       # state/merge-queue.json (merge leases)
 │   ├── model-catalogue.lock             # model-catalogue.json
 │   ├── model-slots.lock                 # state/model-slots.json
+│   ├── profiles.lock                    # profiles/ of the machine and of every project's store
+│   ├── recipes.lock                     # recipes/
 │   ├── review-bot.lock                  # state/review-bot-windows.json
 │   ├── role-assignments.lock            # role-assignments.json
 │   ├── upgrade.lock                     # state/upgrade.json
-│   └── web-devices.lock                 # state/web-devices.json
+│   ├── web-devices.lock                 # state/web-devices.json
+│   └── workflows.lock                   # workflows/
 │
 └── logs/                                # Diagnostic logs and structured security audit
     ├── daemon.log                       # Rolling runtime diagnostic log (mode 0600)
@@ -149,7 +155,7 @@ Every worker gets one job-private directory `<PM_MCP_BASE>/run/jobs/<job_id>/` (
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-26[PM-WF-26: Machine Onboarding & the Machine Scope]_ +
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-8[PM-EXT-8: Project Onboarding as One Process]_
 
-* *Machine scope*: the one scope of the machine (link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]) lives in `machine/`. Its state is `machine/mcp/status.json` (the state of the compiled unit `onboarding.pmwf`, its call stack, the `onboard_run` of the aspect running, and the progress of the onboarding's steps; link:../store-schemas/02-workflow-state-store.adoc[Store Schemas Specification, Workflow State Store]), written in journaled transactions (`machine/mcp/transaction-journal.json`) under the machine scope lock `machine/locks/machine.lock` and covered by its digest sidecar `machine/mcp/digests.json`. A role task of the machine scope (the steward's) is queued in `machine/queue/` under `machine/locks/queue.lock` and runs on the default harness; its worker's job record and log, and those of the machine's probe jobs (the harness scan, the login and model probes, the provider tool probes), lie in `machine/jobs/` with scope `machine`. Such a worker works in the empty `cwd/` of its job-private directory, never in a project tree. The task rows of the machine scope, from which the expected tokens of its tasks are shown, are `machine/metrics.json`; its change ledger is `machine/change-ledger.jsonl` and its question log `machine/questions.jsonl`, the generic stores of the scope. The machine scope has no archive; it rests in `onboard.completed`. The values its sub-workflows record go to the machine's operator files, never into `machine/`.
+* *Machine scope*: the one scope of the machine (link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]) lives in `machine/`. Its state is `machine/mcp/status.json` (the state of the compiled unit `onboarding.pmwf`, its call stack, the `onboard_run` of the aspect running, and the progress of the onboarding's steps; link:../store-schemas/02-workflow-state-store.adoc[Store Schemas Specification, Workflow State Store]), written in journaled transactions (`machine/mcp/transaction-journal.json`) under the machine scope lock `machine/locks/machine.lock` and covered by its digest sidecar `machine/mcp/digests.json`. A role task of the machine scope (the steward's) is queued in `machine/queue/` under `machine/locks/queue.lock` and runs on the default harness; its worker's job record and log, and those of the machine's probe jobs (the harness scan, the login and model probes, the provider tool probes), lie in `machine/jobs/` with scope `machine`. Such a worker works in the empty `cwd/` of its job-private directory, never in a project tree. The task rows of the machine scope, from which the expected tokens of its tasks are shown, are `machine/metrics.json`; its change ledger is `machine/change-ledger.jsonl`, its question log `machine/questions.jsonl`, and its decision log `machine/decision-log.jsonl`, the generic stores of the scope. The machine scope has no archive; it rests in `onboard.completed`. The values its sub-workflows record go to the machine's operator files, never into `machine/`.
 * *Onboarding entries*: a project's onboarding runs in a scope of its own until its enrolment (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[Credentials & Enrolment Specification, Onboarding a Project as One Process]), so that several projects are onboarded at once and the machine scope is never touched. Its home is `onboardings/<entry_id>/`: `entry.json` (the onboarding unit's state, the checkout path, the detection results, and the consents a `yes_remember` holds until the enrolment), `jobs/` (the records and logs of its probe jobs, scope `entry`), and `mcp/` (its digest sidecar and transaction journal), written under `onboardings/locks/<entry_id>.lock`. The transaction of `project.enrol` creates the project's machine store and its enrolment, moves the onboarding's state into the project's workspace scope and its job records and logs into the project's `jobs/`, writes the held consents to `consents.json` under the confirmed `project_id`, and removes the entry's directory; from then on the onboarding runs in the workspace scope. An onboarding the operator abandons before its enrolment is removed with its directory and remembers nothing. The release of a project ends a running onboarding of it.
 
 === File Permissions & Security Attributes
@@ -256,8 +262,8 @@ The workspace confinement of `PM-SEC-2` governs project paths: a path the runtim
 |`<PM_MCP_BASE>/enrolments/<project_id>.json` and the credential files below `<PM_MCP_BASE>/credentials/`, on every use
 |`PM-SEC-4` and `PM-CRED-3` for owner and mode (`enrolment_insecure`, `credentials_file_insecure`), and `PM-SEC-5` for the HMAC of an enrolment file (`enrolment_tampered`); a violation blocks only the project or the step concerned, never the runtime start.
 
-|The per-user service unit (systemd user unit, launchd agent), which lies outside `<PM_MCP_BASE>` at the location its platform fixes
-|The start modes of the runtime: the unit is installed and removed by `pm-operator runtime install` and `uninstall`, and rewritten by an upgrade (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#_start_modes[Runtime & Interaction Model Specification, Start Modes]).
+|The per-user service unit (systemd user unit, launchd agent), which lies outside `<PM_MCP_BASE>` at the location its platform fixes, and beside it, while a reinstall's load has not completed, `<unit>.previous` (the bytes of the unit in force) and the marker `<unit>.reinstall`
+|The start modes of the runtime: the unit is installed and removed by `pm-operator runtime install` and `uninstall`, and rewritten by an upgrade (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#_start_modes[Runtime & Interaction Model Specification, Start Modes]); the two siblings are written before the new unit, dropped after its load, and restored from by the next start when the load was cut off (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#service-unit[Runtime Lifecycle Specification, Service Unit]).
 
 |The terminal client's own state directory, outside `<PM_MCP_BASE>`
 |The client's own files (history, the overview's selection), written and read only by the terminal client; no runtime store, never an input of the runtime (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#cli-file-reads[CLI, Coordination & Security Specification, Direct File Reads]).

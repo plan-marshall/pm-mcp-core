@@ -9,7 +9,7 @@
 :test: ../../src/test/java/de/planmarshall/core/toon
 
 == Purpose
-_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-3[PM-IMPL-3]_
 
 Package `de.planmarshall.core.toon` of `pm-core` holds the deterministic, reflection-free encoder of TOON, the
 token-oriented text form in which PM-MCP hands structured answers to a model. The encoder implements the official TOON
@@ -21,7 +21,7 @@ are identical on every platform, under a JVM and under native image. Nothing is 
 explicitly built value tree.
 
 == Main Types
-_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-3[PM-IMPL-3]_
 
 [cols="1,3",options="header"]
 |===

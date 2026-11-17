@@ -42,14 +42,15 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals]_
-== Status: PLANNED
+
+== Status: IN PROGRESS
 
 == Modules
 
 Implemented in (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]):
 
-* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: parts 01 and 02: profile schema, placeholders and vocabulary translation
-* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-runtime[`pm-runtime`]: part 01: the harness scan, the login and models probes, the icon fetch, and the activity and usage read from a worker's output
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: parts 01 and 02: profile schema, placeholders and vocabulary translation; part 03: the endpoint profile schema and its validation
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-runtime[`pm-runtime`]: part 01: the harness scan, the login and models probes, the icon fetch, and the activity and usage read from a worker's output; part 03: the endpoint request, the owner check, the weights identity and the verification of an endpoint
 
 == Parts
 

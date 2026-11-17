@@ -26,7 +26,7 @@ Hazard:: A role is defined but of the wrong class for its entity kind: a `read_o
 write, a `writer` role as the screener holds tools that untrusted text can steer, and a consulted `zero_tool` role
 answers without the repository; the defect shows only when the state is reached, or after an artifact edit changed
 the class.
-Guard:: Composition test of the rules of link:../specification/model-work/01-roles-and-configuration.adoc#role-class-fit[Model Work § Composition Check]: one fixture per refusal (a `job llm` state whose role's class differs from its entity kind's, a `consult role` clause naming a `zero_tool` role) and one edit that changes a composed role's class before task creation, each asserting the reason and the named role, class, state, and required class; matched control: every kind of the shipped units composes with its shipped role.
+Guard:: The rules of link:../specification/model-work/01-roles-and-configuration.adoc#role-class-fit[Model Work § Composition Check] are covered by `RoleCompositionTest` (each class against each kind, a consulted `zero_tool` role, `role_undefined` with and without its validation reason) and `ModelCallerTest` (a class that no longer fits closes the task `class_mismatch` at task creation and is never queued). Remaining: a composition test of a plan instance, an epic workflow, and the project setup workflow that refuses before the scope is created, naming the role, its class, the state, and the required class; matched control: every kind of the shipped units composes with its shipped role.
 Source:: design review.
 
 [#PM-WATCH-DISP-51]
@@ -45,17 +45,20 @@ Matched control: a reply that validates against `judge-score` closes `submitted`
 Source:: design review.
 
 [#PM-WATCH-DISP-57]
-=== PM-WATCH-DISP-57: Open: `judge` as the one fixed role
+=== PM-WATCH-DISP-57: Open: `judge` and `steward` as fixed roles
 
-Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#grading[Model Work § Grading]
-Hazard:: Undecided: the model caller skips the qualification check for `judge`, and grading uses "the shipped `zero_tool` role
-`judge`", while the specification states that the server knows no fixed role. A compiled role name breaks roles as
-configuration: a project that renames or replaces the judge loses grading or the exemption. Options: (1) state
-`judge` as the one compiled exception (Roles as Configuration Artifacts, `PM-WORK-1`, the roles concept); (2) an
-operator key `qualification.judge_role` with the exemption tied to it. Recommendation: 2, roles stay configuration.
+Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#grading[Model Work § Grading],
+link:../specification/model-work/01-roles-and-configuration.adoc#steward-role[Model Work § Steward Role]
+Hazard:: Undecided: the model caller skips the qualification check for `judge` and `steward`, grading uses "the shipped
+`zero_tool` role `judge`", and the model caller takes the steward's harness and model from the machine's default
+harness, outside the role assignment, while the specification states that the server knows no fixed role. A compiled
+role name breaks roles as configuration: a project that renames or replaces the judge or the steward loses grading,
+the machine's advice, or the exemption. Options: (1) state `judge` and `steward` as the compiled exceptions (Roles as
+Configuration Artifacts, `PM-WORK-1`, the roles concept); (2) operator keys (`qualification.judge_role` and one for the
+steward) with the exemption tied to them. Recommendation: 2, roles stay configuration.
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
-Source:: `model-work/01-roles-and-configuration.adoc:15`, `:256`, `:279`.
+Source:: `model-work/01-roles-and-configuration.adoc` § The Model Caller (*Qualify*), § Default Role Set, § Steward Role, § Grading.
 
 == Task Protocol, Supervision & Skill Delivery
 
@@ -178,7 +181,7 @@ Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.
 === PM-WATCH-DISP-61: A dead runtime leaves the login copies of its workers behind
 
 Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-data-home[Job Runtime § Per-Worker Data Home],
-link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_per_project_recovery[Runtime Lifecycle § Per-Project Recovery]
+link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Lifecycle § Per-Project Recovery]
 Hazard:: The copy of a harness's login file in a worker's data directory is removed when the worker's job settles,
 by the runtime that launched it. A runtime that is killed while workers run removes nothing: the copies of its
 live workers stay on disk, a credential of the operator in a place the operator does not know, until something
@@ -216,7 +219,7 @@ Source:: plan-marshall defect truthful-signals (quality-aspect) PLAN-213 (checkp
 [#PM-WATCH-DISP-2]
 === PM-WATCH-DISP-2: The plan-marshall cost baseline ran dark
 
-Anchor:: link:../specification/model-work/09-completion-usage-and-spend.adoc#spend-accounting-budget-anchors[Model Work § Spend Accounting & Budget Anchors],
+Anchor:: link:../specification/model-work/09-completion-usage-and-spend.adoc#spend-accounting-budget-anchors[Model Work § Usage Reporting & Spend Classes],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5],
 link:../specification/filesystem-layout/03-project-store.adoc#coexistence-lifecycle[Filesystem Layout § Coexistence with plan-marshall, Enrolment & Release]
 Hazard:: The plan-marshall cost instrument ran dark: every usage column of every dispatch row was unmeasured on
@@ -238,7 +241,7 @@ PLAN-CIS-054 D7 (population gate), epic F7/D21.
 === PM-WATCH-DISP-3: Sub-agent tokens are not billing cost
 
 Anchor:: link:../specification/model-work/09-completion-usage-and-spend.adoc#job-result-schema[Model Work § Worker Result & Usage Parsing],
-link:../specification/model-work/09-completion-usage-and-spend.adoc#spend-accounting-budget-anchors[Model Work § Spend Accounting & Budget Anchors],
+link:../specification/model-work/09-completion-usage-and-spend.adoc#spend-accounting-budget-anchors[Model Work § Usage Reporting & Spend Classes],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5]
 Hazard:: Reports presented dispatched tokens as plan cost, while billing tracks context residency multiplied by
 turns and is dominated by cache reads; a 3-file change cost 71.4M billing tokens.
@@ -540,17 +543,21 @@ Source:: design review.
 === PM-WATCH-DISP-35: Only returned verdicts are cached, and a suspicious text never reaches a model as content
 
 Anchor:: link:../specification/model-work/07-untrusted-text-screening.adoc#screener[Model Work § Screener],
+link:../specification/model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work § Screened Once Stored],
 link:../specification/store-schemas/15-screening-and-grants.adoc#screen-verdict-cache[Store Schemas § Screening Verdict Cache],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
 Hazard:: A fail-closed verdict (a crashed or unparseable screener run) is cached as `suspicious` for good, or a
 missing verdict is cached as `clean`; a flagged text is still delivered to the triage job or the plan's model as
 content.
-Guard:: Scenario per firing: a screener worker that ends `timed_out` or returns invalid output marks every item of its
-part `suspicious` for this firing and writes nothing to `screen-verdicts.jsonl`, so the next firing screens them
-again; a valid verdict is appended once and reused by SHA-256 without a second screener task; inside a plan a
-`suspicious` item never enters a triage batch and reaches representations only as its structured fields plus
-`withheld: flagged by screener`, the finding stays pending, and the unit ends through its budget unless a `met`
-waiver covers it; in a bootstrap it offers only `accept` (audited) or the implicit `step_out` back to the choice.
+Guard:: Scenario per firing: a screener worker that ends `timed_out` or returns invalid output leaves every item of its
+part without a verdict and writes nothing to `screen-verdicts.jsonl`, so the next firing screens them again; inside a
+plan such an item is withheld like a `suspicious` one, and a source of a start stays `unscreened` with the cause, never
+marked `suspicious`, its operator wait offering _retry_, _remove_, and _accept as untrusted_ (the acceptance recorded
+with the operator's reason); a valid verdict is appended once and reused by SHA-256 without a second screener task;
+inside a plan a `suspicious` item never enters a triage batch and reaches representations only as its structured
+fields plus `withheld: flagged by screener`, the finding stays pending, and the unit ends through its budget unless a
+`met` waiver covers it; a `suspicious` source of a start offers only _accept_ (audited, the text still marked
+untrusted) or _remove_. Matched control: a `clean` verdict delivers the item's cleaned text marked untrusted.
 Source:: design review.
 
 [#PM-WATCH-DISP-36]
@@ -565,6 +572,22 @@ Guard:: Property test over generated firings against link:../specification/model
 Source:: design review.
 
 == Epic Coordination & Server-Started Plans
+
+[#PM-WATCH-CLI-1]
+=== PM-WATCH-CLI-1: A plan started from its epic row is linked to its epic
+
+Anchor:: link:../specification/model-work/08-epic-coordination.adoc#server-started-plans[Model Work § Server-Started Plans] (Start transaction, Single Epic Pointer)
+Hazard:: A plan whose source was a staged specification file of its epic was detected as epic-linked by one probe
+and reported `not_epic_pointer` by every transition probe.
+Guard:: Linkage test for a plan the server started through `source-epic-row` (the staged spec section of the queue row
+as request): `origin.epic_id` is set by the start transaction alone, and every surface (`pm-operator status`, the
+web app, the epic ledger, `outbox:send`, the landing step) reports the plan as linked from that one field; a start of a
+plan from other sources whose new `plan_id` equals a non-terminal queue row returns to `start.ready` with
+`epic_pointer_mismatch`, so only its epic starts that row's plan; a start whose row is unknown or not launchable
+creates no plan and marks the row `held`.
+Fixture:: ledger-decomposition `source_id` = `.plan/orchestrator/orchestrator-refactor/plans/PLAN-02-…md`: detection
+true, transition probe `not_epic_pointer` ×3.
+Source:: plan-marshall lesson 2026-09-23-15-001.
 
 [#PM-WATCH-DISP-13]
 === PM-WATCH-DISP-13: One address, one grammar on both sides of every epic–plan channel
@@ -619,7 +642,9 @@ sentinel and never a queue row), plans started without an epic, and the epic's o
 archive are never members. An unordered overlap refuses with `surface_overlap` naming every overlapping plan and
 path; an overlap ordered through prerequisites is admitted; a surface that cannot be declared (prose, empty,
 unparseable, untracked) refuses with `surface_undeclared` and is never read as empty or disjoint. A plan start
-compares no surfaces, so no unrelated member can block a start. Every refusal names its recovery (re-cut the plans or
+re-checks no staging invariant, and its admission compares the row's declared surface only with the running plans
+of the same epic (declared surfaces and realized changes against `overlap_max_files`), so no member outside the epic
+can block a start. Every refusal names its recovery (re-cut the plans or
 declare the ordering).
 Fixture:: 95 of 581 sibling-epic-spec candidates across 25 epics plus one plan-marshall `NO_PLAN` placeholder row blocked
 emission;
@@ -736,7 +761,7 @@ specification (the start takes no slot; the plan's tasks take slots); (2) align 
 Recommendation: 1, a plan start runs only server logic and every model task is already bounded by the slots.
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
-Source:: `requirements/02-workflow.adoc:242`, `model-work/08-epic-coordination.adoc:154`.
+Source:: `requirements/02-workflow.adoc` § `PM-WF-15` (the start of launchable plans), `model-work/08-epic-coordination.adoc` § Server-Started Plans (Admission).
 
 [#PM-WATCH-DISP-23]
 === PM-WATCH-DISP-23: The landing commit is found under a squash merge queue
@@ -824,8 +849,8 @@ Hazard:: An epic that enters `epic.archived` or `epic.aborted` when it moves its
 or unlanded in the shared epic worktree, so the default branch keeps a live ledger of an ended epic and the next
 clone adopts it again.
 Guard:: Scenario test for `complete` and for the operator's cancel of the epic (either client; `pm-operator epic
-cancel <epic_id>`): the cancel first withdraws the epic's open tasks and ends their workers; `epic.archive` moves the ledger and sets the archive flag; the move is
-committed by `epic.commit-ledger` staging `epic/**` and `archived-epics/**` and landed by
+cancel <epic_id>`): the cancel first withdraws the epic's open tasks and ends their workers; `epic.archive-ledger` moves the ledger and sets the archive flag; the move is
+committed by `epic.commit-ledger` staging `.marshall/epics/**` and `.marshall/archived-epics/**` and landed by
 `epic.landing`; only then does `epic.next-work` take `archive_landed` (`epic.archived`) or `cancel_landed`
 (`epic.aborted`). Fixtures: a landing that fails or a commit that steps out keeps the epic non-terminal and resumes on
 the next ledger commit or default-branch advance; no plan starts and no task is served while the archive flag is set.
@@ -859,7 +884,8 @@ Source:: design review.
 [#PM-WATCH-DISP-66]
 === PM-WATCH-DISP-66: An exported item sees only what was knowable at the decision
 
-Anchor:: link:../specification/model-work/11-decision-records.adoc#corpus-export[Model Work § Corpus Export]
+Anchor:: link:../specification/model-work/11-decision-records.adoc#corpus-export[Model Work § Corpus Export],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
 Hazard:: The export quotes the current version of a store record or file named as evidence, so the item carries the fix
 made after the decision and its reference answer is visible in its input.
 Guard:: Scenario: a decision whose evidence finding was resolved and whose file was changed after the decision exports
@@ -976,7 +1002,7 @@ repository configuration among its case studies).
 [#PM-WATCH-DISP-76]
 === PM-WATCH-DISP-76: The fit step estimates tokens from bytes at a measured ratio, never characters ÷ 4
 
-Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#model-caller[Model Work § The Model Caller]
+Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#model-caller[Model Work § The Model Caller], link:../specification/timeouts/03-retention-harness-config.adoc#bytes-per-token[Timeouts § Bytes per Token]
 Hazard:: The estimate counts Java `char` units or divides characters by four, estimates the input without the launch
 prompt, or takes a model's ratio from a task whose turn input is mostly the harness's start context; an input estimated
 to fit then exceeds the context the harness has, the harness rejects it as a runtime failure instead of
