@@ -66,15 +66,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/decision-engine.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/decision-engine.adoc at HEAD has 7 Tasks and a Done When of Watch plus Tests; no section What with 9 bullets (restructured by #286). The spec carries no section stating this.
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: decision-engine.adoc at 3d453e6c has 7 Tasks and Done When of Watch and Tests, no What with 9 bullets (#286); re-ground record states it
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-22 (`start-source-intake`) (the entry's decision stores and their move)) — read at `doc/plans/decision-engine.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: README row for decision-engine is open and depends only on start-source-intake (README 90-93); operator-wait-and-machine-scope (PLAN-42) shipped and is no longer listed. The spec still lists it.
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc:84-88 decision-engine row open, depends only on start-source-intake; PLAN-42 no longer listed; record states it
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: workflow/question is not package-info only: QuestionBound and QuestionContinuation exist; workflow/decision is package-info only; DecisionRecord is absent; QuestionRecord, QuestionLog, QuestionRefusal exist in core/store.
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: workflow/question has QuestionBound, QuestionContinuation, workflow-question.adoc and 2 ADRs (not package-info only); workflow/decision is package-info only; DecisionRecord absent; QuestionRecord/Log/Refusal exist
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row is open not blocked; UC-PLN-2 is AGREED in the documentation origin/main (03-plans.adoc:37-40). Open pull requests cannot be read here.
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:86 decision-engine status is open, not blocked; use-case agreement and shipped restructured packages are not readable here
 - OBSERVED: the specification parts above carry the added content — `rationale_origin` and `probabilities` in the vote schema of `store-schemas/18-decision-records.adoc`, the adjudication sentence of `model-work/11-decision-records.adoc` and § Judgment Votes of `model-work/10-decision-quorum.adoc` — read at `4617865`
-  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: rationale_origin and probabilities occur in no spec or schema at HEAD; both were deleted by #286 (efecccba) with the judgment-vote content; model-work/10 has no Judgment Votes section. Spec section Specification Added Since
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: git grep finds rationale_origin and probabilities nowhere in doc or pm-core; model-work/10 has no Judgment Votes section (headings :12-:204); record states #286 deleted them
 
 ## Expected Surface
 
@@ -165,6 +165,12 @@ Written by the `cleanup` verb after a read-only leaf compared every claim of thi
 - Claim 1 (contradicted at HEAD): README row for decision-engine is open and depends only on start-source-intake (README 90-93); operator-wait-and-machine-scope (PLAN-42) shipped and is no longer listed. The spec still lists it.
 - Claim 2 (contradicted at HEAD): workflow/question is not package-info only: QuestionBound and QuestionContinuation exist; workflow/decision is package-info only; DecisionRecord is absent; QuestionRecord, QuestionLog, QuestionRefusal exist in core/store.
 - Claim 4 (contradicted at HEAD): rationale_origin and probabilities occur in no spec or schema at HEAD; both were deleted by #286 (efecccba) with the judgment-vote content; model-work/10 has no Judgment Votes section. Spec section Specification Added Since is stale.
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+
+- The section "Specification Added Since The Package File" is stale: `rationale_origin` and `probabilities` no longer exist anywhere in `doc` or `pm-core`.
 
 ## Hand-Off Command
 

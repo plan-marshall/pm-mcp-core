@@ -57,13 +57,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/epic-auto.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: re-scoped in the Re-ground record of cleanup 2026-11-15: doc/plans/epic-auto.adoc was restructured by #286 (efecccba): now 7 Tasks, Trace and Done When, no What section; the 9 bullets D1-D9 and long Done-when are not the file's own words; no section of the spec says so
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/epic-auto.adoc at HEAD has Tasks (7 numbered), Trace, Done When; no What section or 9 bullets (efecccba #286); spec Re-ground record claim 0 states it
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-V2-21 (`plan-and-epic-control`) (the operator's acts on a plan); PLAN-V2-27 (`epic-resource-and-release`) (next plan, the toggle among the epic's actions, archive, the release); PLAN-V2-32 (`epic-decomposition`)) — read at `doc/plans/epic-auto.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row 198 is open and depends on plan-and-epic-control, epic-resource-and-release, epic-decomposition; all three rows still listed
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:192-196 epic-auto open, depends on plan-and-epic-control, epic-resource-and-release, epic-decomposition; all three rows still listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis for the trace matrix; epic.schema.json and local-config.schema.json already carry auto_start, overlap_max_files, parallelization_scope; workflow/epic holds only EpicTokens; workflow-epic.adoc now exists; no PUT auto or settings code
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about how the Expected Surface was inferred, settled at the trace matrix; no epic-auto code at HEAD (workflow/epic holds only EpicTokens)
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure needing open-PR list and agreement of use cases, not readable; the index part holds (row open, not blocked)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:192-196 epic-auto is open, not blocked, and its three dependency rows are open; use-case agreement and open PRs are not readable
 
 ## Expected Surface
 

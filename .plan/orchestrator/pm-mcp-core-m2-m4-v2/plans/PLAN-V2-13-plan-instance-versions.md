@@ -55,11 +55,11 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/plan-instance-versions.adoc` § What, Trace, Done When on `origin/main` at `4617865` (5 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: plan-instance-versions.adoc has Tasks (4), Trace, Done When and no What after #286; Grounding corrections of 2026-11-10 replace the deliverable intro, Context and Done-when and map tasks to the 5 deliverables
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/plan-instance-versions.adoc at HEAD has Tasks, Trace, Done When and no What; the spec Grounding corrections state exactly this
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line, the class names of § What and the specification parts the package links, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: All Expected Surface paths exist; instance_version is only a member name (WorkflowStatusCodec:147), WorkflowEngine takes int instanceVersion (now :390, :425), no pm-workflow main caller of RoleComposition, no SKILL_UNRESOLVED or quorum refusal
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about how the Expected Surface was inferred; the spec Grounding corrections say no entry is wrong, nothing to read at HEAD
 - Verify-first clause: before scoping, list the open pull requests for one that names `plan-instance-versions`, check in `doc/plans/README.adoc` that no package it depends on is still listed, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 393b02107ad3 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row 18 is open with depends on nothing; code covers none of the item (no engine switch, no instance_version field); open-PR part not readable; PLAN-V2-136 (#411, #416) already converted EngineFixtures doubles
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: doc/plans/README.adoc:18-22 row plan-instance-versions is open and depends on nothing; the open-PR part is not readable at HEAD
 
 ## Expected Surface
 

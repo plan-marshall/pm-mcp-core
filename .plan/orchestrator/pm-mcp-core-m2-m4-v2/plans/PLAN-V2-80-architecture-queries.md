@@ -54,11 +54,17 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`open`, depends on nothing) — `doc/plans/domain-extensions-and-architecture.adoc` (What: seven bullets, Done When: six paragraphs) and `doc/plans/README.adoc` at `origin/main` `a8da4104`; the package is cut into seven plans because the seven bullets hold about thirty testable parts
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc:246 row open, depends on nothing (holds), but domain-extensions-and-architecture.adoc now has 7 Tasks and Done When of Watch plus Tests, not What bullets and six paragraphs (#286)
 - OBSERVED: the packages `core.domain`, `core.architecture` and `core.discovery` of `pm-core` hold only their `package-info.java` (15 lines each, Javadoc naming the specification part) at `a8da4104` — every class named in the plans of this package is new
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: core/domain, core/architecture, core/discovery hold only package-info.java at 3d453e6c; length drifted from 15 to 18 lines (@NullMarked, #255)
 - OBSERVED: `doc/specification/domain-extensions/03-module-discovery.adoc` lines 81-122 specify the nine resources, the resource contracts, "Empty Graph Is Not Clean" and the two capability vocabularies
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 03-module-discovery.adoc:82-123 holds the nine-resource table, Resource Contracts :121, Empty Graph Is Not Clean :122, Two Capability Vocabularies :123 (shifted by one)
 - OBSERVED: no `pm://architecture` string exists in `pm-*/src/main` (`grep` finds none): the resource layer is not in this repository
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: git grep pm://architecture over pm-*/src/main at 3d453e6c finds nothing; the resource layer is absent from this repository
 - HYPOTHESIS: the enrichment status (`responsibility`, `purpose`, `key_packages`, "persisted semantic enrichment") is model judgment stored under `.marshall/project-architecture/` and is read as an opaque input; its writer is outside this package — confirm at `04-setup-state-machine.adoc` (verify-at-outline)
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about the enrichment writer outside this package; no .marshall/project-architecture reader in pm-*/src at HEAD, confirmation is at the setup state machine spec
 - Verify-first clause: before editing, confirm that the plans PLAN-V2-30 (`architecture-merges`), PLAN-V2-79 (`architecture-resolvers`), PLAN-V2-14 (`module-discovery`) and PLAN-V2-35 (`build-map-and-derive-verification`) are merged, list the open pull requests touching `core/discovery/`, and re-read the resource table at the head; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause; ledger queue rows PLAN-V2-30, -79, -14, -35 are all parked and core/discovery is package-info only at HEAD, so not met
 
 ## Expected Surface
 
@@ -71,6 +77,11 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-V2-30 (`architecture-merges`), PLAN-V2-79 (`architecture-resolvers`), PLAN-V2-14 (`module-discovery`), PLAN-V2-35 (`build-map-and-derive-verification`).
 - Overlaps with: the parked PLAN-V2-78 `change-map` declares `core/discovery/` (it follows this package); none with PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43.
 - Adjacent to: `plan-marshall-mcp` `pm-mcp-server` (the `pm://architecture/*` routing); `change-map` and `finalize-pipeline-and-merge` (blocked, read the module crawl and the dependency parser).
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+- Claim 0 (the package file and its index row (open, depends on nothing) — doc/plans/domain-extensions-and-architecture.adoc (What: seven bullets, Done When:…) is contradicted at HEAD: README.adoc:246 row open, depends on nothing (holds), but domain-extensions-and-architecture.adoc now has 7 Tasks and Done When of Watch plus Tests, not What bullets and six paragraphs (#286)
 
 ## Hand-Off Command
 

@@ -53,11 +53,17 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`open`, depends on nothing) — `doc/plans/domain-extensions-and-architecture.adoc` (What: seven bullets, Done When: six paragraphs) and `doc/plans/README.adoc` at `origin/main` `a8da4104`; the package is cut into seven plans because the seven bullets hold about thirty testable parts
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: domain-extensions-and-architecture.adoc at HEAD has Tasks (7 numbered) and Done When of 2 bullets, not What plus six paragraphs; README.adoc:246-250 row open, depends on nothing holds
 - OBSERVED: the packages `core.domain`, `core.architecture` and `core.discovery` of `pm-core` hold only their `package-info.java` (15 lines each, Javadoc naming the specification part) at `a8da4104` — every class named in the plans of this package is new
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: core/domain, architecture, discovery hold only package-info.java at HEAD; 18 lines now (was 15; @NullMarked added by #255), no other class
 - OBSERVED: `doc/specification/domain-extensions/02-merge-algorithms.adoc` (404 lines): § Edge Derivation Merge from line 17 (seven numbered rules, listing in package `de.planmarshall.core.architecture`) and § Path Attribution Merge from line 206 (six rules, listing); both import `de.planmarshall.core.domain.*` types
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 02-merge-algorithms.adoc 404 lines: Edge Derivation Merge at 17 (seven rules), Path Attribution Merge at 206 (six rules); imports core.domain types at 34-37
 - OBSERVED: the sealed Axis C interface permits nine classes in the specification: `MavenEdgeResolver`, `GradleEdgeResolver`, `NpmEdgeResolver`, `PyprojectEdgeResolver`, `PythonImportEdgeResolver`, `MarkdownCrossRefResolver`, `DocumentationCrossRefResolver`, `LspSymbolEdgeResolver`, `ProjectScriptEdgeResolver` (`01-four-axis-architecture.adoc` lines 127-131); none exists in code
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 01-four-axis-architecture.adoc:127-131 sealed EdgeDerivationAxis permits the nine resolvers; git grep finds no EdgeResolver class in any */src at HEAD
 - HYPOTHESIS: the `WorkspaceDiscoveryContext` the resolvers receive (discovered modules, the root) is defined by this plan as a record over `DiscoveredModuleFacts` of PLAN-V2-09 (`domain-axes-and-descriptors`); the specification names the type without a body — confirm at the specification (verify-at-outline)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: WorkspaceDiscoveryContext only used in 01:142 and 02:36,90 with no body; DiscoveredModuleFacts only at 01:68; neither exists in any */src
 - Verify-first clause: before editing, confirm that PLAN-V2-09 (`domain-axes-and-descriptors`) is merged (`DiscoveredModuleFacts`), list the open pull requests touching `core/architecture/`, and re-read both merge sections at the head; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause needing the open-PR list; PLAN-V2-09 is not merged at HEAD (core/domain holds package-info only, no DiscoveredModuleFacts)
 
 ## Expected Surface
 
@@ -72,6 +78,11 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-V2-09 (`domain-axes-and-descriptors`) (`DiscoveredModuleFacts`, the package `core.domain`).
 - Overlaps with: code-disjoint from PLAN-V2-14 (`module-discovery`) and PLAN-V2-79 (`architecture-resolvers`) (the latter depends on this plan); adds new classes to `core.domain` beside PLAN-V2-09 (`domain-axes-and-descriptors`), which it follows. None with PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43.
 - Adjacent to: PLAN-V2-79 (`architecture-resolvers`) (the concrete resolvers); PLAN-V2-80 (`architecture-queries`) (the graph and the attribution table).
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+- Claim 0 (the package file and its index row (open, depends on nothing) — doc/plans/domain-extensions-and-architecture.adoc (What: seven bullets, Done When:…) is contradicted at HEAD: domain-extensions-and-architecture.adoc at HEAD has Tasks (7 numbered) and Done When of 2 bullets, not What plus six paragraphs; README.adoc:246-250 row open, depends on nothing holds
 
 ## Hand-Off Command
 

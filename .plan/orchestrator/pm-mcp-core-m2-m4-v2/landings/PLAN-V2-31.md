@@ -2,10 +2,10 @@
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
-pr: #472 (**open**, head `b99b45ce`, base `1e9466ac`; not merged, not reported ready by the lane)
+pr: #472 (**merged 2026-11-17 as `3d453e6c`**, head `2d5068bd`, first parent `4bc06ae3`; 8 files, +1740/-9; first read open at `b99b45ce`, base `1e9466ac`)
 
-> Landing record for one plan whose pull request is **open**, **delivered as specified, with an end path that cannot complete against the landed
-> store and four unnamed defects**. Written by `analyze` (inbox scan) from the lane's landing message
+> Landing record for one plan, **merged on the operator's decision of 2026-11-17 with the end path left open**: **delivered as specified, with an end path that cannot complete against the landed
+> store and four unnamed defects**. The first reading (below) is of the open head `b99b45ce`; the section "Merge delta" records what the closing message and the merge changed. Written by `analyze` (inbox scan) from the lane's landing message
 > `rb-v2-31-supervisor-calls-and-pass-001.md` (`deliverables_done` 5 of 5, `merge_state=open`, `cleanup_owed=true`). The reading is of the PR
 > head, not of `main`. A claim of the message is a lead; the blocker's chain, the detection arming, the end path's side effects and the
 > missing scheduler were re-read at the head.
@@ -92,3 +92,41 @@ reported the blocker instead of fixing it, on the operator's word of 2026-11-17.
    required reviewer ran, and a follow-up plan builds on them.
 4. **Not routed:** the `waitOpened` finally path (untested by the lane's own statement, not checked); the 15 s acknowledgement default of the
    shipped `claude` profile (lives in `plan-marshall-mcp`).
+
+## Merge delta (closing message `rb-v2-31-supervisor-calls-and-pass-002.md`, 2026-11-17)
+
+The closing message (`merge_state=merged`, `deliverables_done` 5 of 5, `cleanup_owed=false`, supersedes `-001`) reports #472 merged through the merge queue as
+`3d453e6c` on the operator's decision of 2026-11-17 ("merge it as it is; the end-path blocker stays with the follow-up plan"). A second read-only leaf
+(`execution-context-level-3`, `orchestrator.analyze`) read `git diff b99b45ce..2d5068bd` and the tree at `3d453e6c`; the orchestrator re-read
+`SupervisionPass.run` and `finishAttempt` (`:88-99`, `:197-210`) and `WorkerRecycling.yieldIdleSlot` (`:186-205`), and the commit `9ae1b999`'s stat.
+
+| Id | Point | Verdict | Severity |
+|----|-------|---------|----------|
+| M-1 | the delta of the plan's own files after `b99b45ce` is one commit, `9ae1b999` (`SupervisionPass.java` +31, `SupervisorCalls.java` +6); the two base merges touch no file of the plan | confirmed (stat re-read) | ok |
+| M-2 | fix (a), `run()` in `try { … } finally { recycling.yieldIdleSlot(); }`: correct for the yield; **a throwing `yieldIdleSlot` replaces the in-flight exception**, which under B1 is the store refusal, so the cause is hidden; the yield can reach `recycle` and `ending.end` | confirmed by reading (`:92-98`, `WorkerRecycling.java:190-215`) | minor |
+| M-3 | under B1 the ended generation stays non-terminal with its slot already released; the yield (now run after the throw) filters only on `WARM`, non-terminal, `WAITING`, no lease, so it may pick that dead generation and call `ending.end` on it | reading of the filter re-read; the `end` behaviour on an exited process is **not** checked | minor, unverified |
+| M-4 | the `run()` Javadoc says "a single failing generation never starves a role that waits for a slot"; the generations after the throwing one are still unobserved on every pass | confirmed (Javadoc `:84-87` re-read) | minor |
+| M-5 | fix (b), `finishAttempt` removes the pump after the finish (`:197-210`, re-read): it helps only when `pump.finish` throws something other than `IllegalStateException`; a throw after the append (in `forget`) leaves `finished` unset and the retry appends a second `attempt_end` | leaf reading of `WorkerActivityPump` | minor |
+| M-6 | fix (c), `SupervisorCalls.lost()` through `known(...)` skips terminal and absent generations; also closes the `losses.put` leak after a forget (narrows N-9); its Javadoc does not say so | leaf reading | minor |
+| M-7 | **no test** for any of the three fixes (no throwing-generation test, no terminal-generation `lost` test); the test, ADR and guide files are byte-identical between `b99b45ce` and `3d453e6c` | confirmed (empty diff by the leaf) | minor |
+| M-8 | the guide's Known-blocker paragraph and ADR 014 `:116-124` still say "the throw escapes `run()`, so the idle yield never runs" (false after `9ae1b999`) and "this pull request is not ready to merge" (stale after the merge) | leaf reading | minor |
+| M-9 | the pass's pump reads through `JobLog.readLines`, which #475 made redact every line; `nextOffset` is computed on the raw bytes, so a key block spanning pump windows stays unmasked (the residue of PLAN-V2-151 item 44(d)) | leaf reading | info |
+| M-10 | B1 at the merged head is unchanged: `JobRecordStore.java:328-332` refuses a settled record, `WorkerEnding.exited` writes at `:150` after the side effects at `:143-149`, `SupervisionPass.advance` routes a settled record to `completeEnd` (`:113-115`); the pass is still unscheduled (repository-wide grep: no production caller of `run()` or constructor of `SupervisorCalls`) | confirmed | blocker (latent) |
+| M-11 | N-1, N-2, N-3 (the yield now runs, the later generations are still aborted), N-4 to N-8, N-15 and T-1 to T-3 are unchanged; N-9 is narrowed; Doc-2 (Traceability text), Doc-3 (ADR dated 2026-11-16, records a 2026-11-17 decision) and Doc-5 (the guide's Decisions list stops at ADR 009) are still there | leaf reading | as before |
+| M-12 | footprint 8 files, all in the plan's surface but `SupervisorEnvironment.java` (`StartGuard.firstCall`, the lane's admitted seam, `:266-276`); no pom, schema, native-image file, `LogRecord` or generic catch; ADR 014 is the next free number in `runtime-worker/` (001 to 013 at `4bc06ae3`) | confirmed | clean |
+| M-13 | the lane's five open items hold (the `fresh` end recorded LOST, `harnessEnrolled` narrower than D1, the start-failure count owed, the owed cleanups, the `waitOpened` finally untested) | confirmed in substance | as the lane says |
+| M-14 | omitted by the lane: M-2 to M-8, N-15 and M-9; its sentence "fail-capability shown by mutating the committed fix three times" refers to the D3 tests, not to the three `9ae1b999` fixes | confirmed | info |
+
+Review and quality numbers of the closing message: CodeRabbit reviewed head `2ecac207` (after three quota refusals and one escalated trigger), 4 findings, 3 fixed in `9ae1b999`,
+the blocker answered with the recorded reason, all threads resolved (`review-gate` `merge_allowed: true`, by the lane); Sourcery on a 7-day quota; Sonar 0 open, gate OK; CI green on `2d5068bd`.
+`landing-check` complete=false for `total_tokens` and `plugin_version` (E27). Two base merges re-ran the gate on the merged tree. The lane saw one load-dependent timeout of
+`DiagnosticCollectorRedactionTest` (PLAN-V2-151's flood test, passes in isolation).
+
+### Residue after the merge
+
+1. **The follow-up plan for the end path stays owed** (operator decision of 2026-11-17, `handle-open` item 1, proposal 1): B1 and N-3 (the terminal write that the store accepts and the retry guard), N-1,
+   N-2, N-4, N-8. It is **not staged**; it waits for the operator's word "stage it", and is gated against the `runtime.job` plans, PLAN-V2-149 and PLAN-V2-150. M-2 and M-3 (the yield's masking and
+   the dead generation) belong to its design of the end path.
+2. **Carried into PLAN-V2-114, item 42**, whose condition ("only after #472 has merged") is now met: N-5, N-6, N-7, N-9, N-15, T-1 to T-3, Doc-2, Doc-3, Doc-5, `@Override` on
+   `StartFailureGuard.firstCall`, and the points M-4 to M-8 (the Javadoc of `run()` and `lost()`, the three untested fixes, the stale ADR and guide paragraphs).
+3. **Decision recorded:** the merge of #472 as it was (operator, 2026-11-17).

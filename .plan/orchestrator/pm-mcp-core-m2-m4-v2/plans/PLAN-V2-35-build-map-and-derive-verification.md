@@ -54,11 +54,17 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`open`, depends on nothing) — `doc/plans/domain-extensions-and-architecture.adoc` (What: seven bullets, Done When: six paragraphs) and `doc/plans/README.adoc` at `origin/main` `a8da4104`; the package is cut into seven plans because the seven bullets hold about thirty testable parts
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: domain-extensions-and-architecture.adoc at HEAD has Tasks (7 numbered) and Done When of 2 bullets, not What plus six paragraphs; README.adoc:246-250 row open, depends on nothing holds
 - OBSERVED: the packages `core.domain`, `core.architecture` and `core.discovery` of `pm-core` hold only their `package-info.java` (15 lines each, Javadoc naming the specification part) at `a8da4104` — every class named in the plans of this package is new
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: core/domain, architecture, discovery hold only package-info.java at HEAD; 18 lines now (was 15; @NullMarked added by #255), no other class
 - OBSERVED: `doc/specification/domain-extensions/03-module-discovery.adoc` lines 64-79 (Build Map & Deterministic `derive-verification`) state the seeding, write-once, explicit reseed, separate glob dialect, route precedence (anchor `route-precedence`), fail-closed read and the canonical command resolution rules; line 267 of `store-schemas/08-project-configuration-local.adoc` declares `derivation_resolvers`
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: 03-module-discovery.adoc:64-79 build-map rules hold, but derivation_resolvers is no longer in store-schemas/08; schema moved to core/config/local-config.schema.json:162 (#323)
 - OBSERVED: no class reads `build-map.json` or `derivation_resolvers` (`grep -rn 'build-map\|derivation_resolvers' pm-*/src/main` finds nothing); `pm-core/src/main/java/de/planmarshall/core/config/package-info.java` is the only file of `core.config`, a directory declared by PLAN-V2-17, PLAN-46 and PLAN-V2-74
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: core/config holds about 21 classes at HEAD (ConsentStore, RoleAssignmentsStore...) not only package-info; no Java reads build-map.json, but config-build-map.schema.json exists
 - HYPOTHESIS: the owning module of a path comes from the longest-prefix attribution of PLAN-V2-30 (`architecture-merges`) for non-module paths and from the module roots for module paths — confirm at the specification's `which-module` row (verify-at-outline)
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 03-module-discovery.adoc:103 which-module row: owning module via module roots and Axis-D PathAttributionMerge plus matching build.map route; no code yet
 - Verify-first clause: before editing, confirm that PLAN-V2-09 (`domain-axes-and-descriptors`), PLAN-V2-30 (`architecture-merges`) and PLAN-V2-14 (`module-discovery`) are merged, list the open pull requests touching `core/discovery/` and `core/config/`, and re-read the originals in the sibling checkout; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause needing open PRs and the sibling checkout; PLAN-V2-09, 30 and 14 are not merged at HEAD (core/domain, architecture, discovery package-info only)
 
 ## Expected Surface
 
@@ -72,6 +78,13 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-V2-09 (`domain-axes-and-descriptors`) (Axis B), PLAN-V2-30 (`architecture-merges`) (path attribution) and PLAN-V2-14 (`module-discovery`) (module roots).
 - Overlaps with: the parked PLAN-V2-78 declares the `core/discovery/` directory (1 shared entry, it follows this package); none with PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43; `core.config` is not touched, so PLAN-V2-17/PLAN-46/PLAN-V2-74 are not overlapped.
 - Adjacent to: `project-onboarding-unit` PLAN-V2-17 (seeds and reseeds the map; owns `local-config.json`); `change-map` (reads the classification).
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+- Claim 0 (the package file and its index row (open, depends on nothing) — doc/plans/domain-extensions-and-architecture.adoc (What: seven bullets, Done When:…) is contradicted at HEAD: domain-extensions-and-architecture.adoc at HEAD has Tasks (7 numbered) and Done When of 2 bullets, not What plus six paragraphs; README.adoc:246-250 row open, depends on nothing holds
+- Claim 2 (doc/specification/domain-extensions/03-module-discovery.adoc lines 64-79 (Build Map & Deterministic derive-verification) state the seeding, write-…) is contradicted at HEAD: 03-module-discovery.adoc:64-79 build-map rules hold, but derivation_resolvers is no longer in store-schemas/08; schema moved to core/config/local-config.schema.json:162 (#323)
+- Claim 3 (no class reads build-map.json or derivation_resolvers (grep -rn 'build-map\|derivation_resolvers' pm-*/src/main finds nothing); pm-core/src/mai…) is contradicted at HEAD: core/config holds about 21 classes at HEAD (ConsentStore, RoleAssignmentsStore...) not only package-info; no Java reads build-map.json, but config-build-map.schema.json exists
 
 ## Hand-Off Command
 

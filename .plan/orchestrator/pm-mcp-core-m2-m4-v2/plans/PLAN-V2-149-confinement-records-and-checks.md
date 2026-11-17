@@ -66,10 +66,15 @@ Five deliverables, one commit each, in this order.
 All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: `WorkerEgressProxy` matches lower-cased text (`pm-runtime/.../job/WorkerEgressProxy.java:158-159`) and connects with `new InetSocketAddress(host, port)` (`:205`); `AuditEvent.egressRefused` has no reason.
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: WorkerEgressProxy.java:158-159 lower-cases the destination, :205 new InetSocketAddress(host, port); AuditEvent.java:378 egressRefused(generationId, destination) has no reason
 - OBSERVED: `Confinement` has `PARTIAL_ABI_1` only (`JobRecord.java:238`); `job-record.schema.json:84` has no `abi=2`; the record has no `seccomp`, `egress` or `git_metadata` member.
+  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: JobRecord.java:98 has gitMetadata and schema job-record.schema.json:92 git_metadata (PLAN-V2-134, #469 a9754c56); PARTIAL_ABI_1 now :245, no abi=2 or seccomp or egress member
 - OBSERVED: the real `pm-exec` report `{"pm_exec":"launched",...,"no_new_privs":b}` (`pm-mcp-clients` `Launcher.java:79-81`) against `LaunchReport.parse` (`:164`, refuses undeclared members) and `FakePmExec`.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Real pm-exec report lives in pm-mcp-clients Launcher.java, not readable here; LaunchReport.java:171 default undeclared and FakePmExec.java:60-73 omit no_new_privs hold
 - OBSERVED: no self-check code (no grep hit); the JGit identity exists in `pm-provider-git` (`GitIdentity`, `GitOperations`), the CLI variant does not.
+  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: No seccomp or self-check hit in any src/main; pm-provider-git has GitIdentity and GitOperations (JGit); CLI variant only has committerName pass-through in JobEnvironmentComposer.java:155
 - HYPOTHESIS: PLAN-V2-59 and PLAN-V2-134 will have delivered the `egress` and `git_metadata` members before this plan is emitted; verify-first by reading their landing records; deliver only the difference.
+  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Future-landing hypothesis: git_metadata delivered by #469 (JobRecord.java:98) but no egress member exists at HEAD, PLAN-V2-59 not landed; landing records not read
 
 ## Expected Surface
 
@@ -87,6 +92,13 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 - Not here: the kernel enforcement and the self-check mode itself (`pm-exec` in `pm-mcp-clients`: `exec-hardening`), macOS Seatbelt (Task 8), the production wiring of the proxy, the concept document (the documentation repository).
 
 **Corrections of 2026-11-14 after the impact analysis of the specification pull requests #414, #417 and #419 (`landings/SPEC-PRS-2026-11-14.md`; BINDING over any contradicting older text of this spec).** **#419 (`77f2a83d`) extended the rule D1 implements** (`doc/specification/job-runtime/02-confinement-and-environment.adoc:181`, § Name Resolution, "The proxy checks what it reached", and the watch item `PM-WATCH-JOB-40`, `doc/implementation-watch/job-runtime.adoc` about `:250-267`): **multicast is a class of `address_not_public`**, and **an IPv6 address that carries an IPv4 address is checked as that IPv4 address**: IPv4-mapped `::ffff:0:0/96`, IPv4-compatible `::/96`, NAT64 `64:ff9b::/96` and `64:ff9b:1::/48`, 6to4 `2002::/16`, Teredo `2001::/32` with the client address inverted. **Test vectors of the watch item:** `::ffff:127.0.0.1`, `64:ff9b::a00:1`, `2002:a00:1::`, a Teredo address whose client is `10.0.0.1`, and a multicast address (each refused, with a matched public control). Java maps only the IPv4-mapped form to `Inet4Address` itself: the other prefixes need explicit checks in the outline. `WorkerEgressProxy.java` has none of this at the head (`toLowerCase` matching at `:73,:158-159`, no resolver seam, `new InetSocketAddress(host, port)` at `:205`).
+
+## Re-ground record (cleanup 2026-11-17, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
+
+- Partly overtaken: `git_metadata` was delivered by #469 (`a9754c56`, PLAN-V2-134), so the claim of no `git_metadata` member is contradicted; the egress, seccomp and `abi=2` slices remain open and PLAN-V2-59 has not landed.
+- Claim 1 (Confinement has PARTIAL_ABI_1 only (JobRecord.java:238); job-record.schema.json:84 has no abi=2; the record has no seccomp, egress or g…) is contradicted at HEAD: JobRecord.java:98 has gitMetadata and schema job-record.schema.json:92 git_metadata (PLAN-V2-134, #469 a9754c56); PARTIAL_ABI_1 now :245, no abi=2 or seccomp or egress member
 
 ## Hand-Off Command
 
