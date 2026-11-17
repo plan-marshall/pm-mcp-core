@@ -256,6 +256,21 @@ class TaskQueueSchemaParityTest {
         }
 
         @Test
+        @DisplayName("the egress destination bounds are the schema's")
+        void egressBounds() {
+            var egress = member(schema(SCHEMA), "egress");
+            var destination = SchemaResource.object(egress.get("properties")).get("destination");
+
+            assertAll("the destination bounds are the schema's",
+                    () -> assertEquals(ActivityEntry.Egress.MIN_DESTINATION,
+                            ((Number) SchemaResource.object(destination).get("minLength")).intValue(),
+                            "the destination floor is the schema's"),
+                    () -> assertEquals(ActivityEntry.Egress.MAX_DESTINATION,
+                            ((Number) SchemaResource.object(destination).get("maxLength")).intValue(),
+                            "the destination ceiling is the schema's"));
+        }
+
+        @Test
         @DisplayName("an egress entry is valid against the schema")
         void egress() {
             var validator = validator(SCHEMA);

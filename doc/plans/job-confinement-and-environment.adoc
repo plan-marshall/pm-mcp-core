@@ -33,8 +33,8 @@ Left out: the `pm-exec` packages `exec-listed-read-set` and `exec-hardening` of 
 
 The plan PLAN-V2-59 delivered the in-repository share: the job record's `egress` member and the `egress` activity entry
 (link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record],
-link:../specification/store-schemas/16-task-queue.adoc#activity-journal[§ Activity Journal]). What the Done-when above
-still demands lives elsewhere:
+link:../specification/store-schemas/16-task-queue.adoc#activity-journal[§ Activity Journal]). The remainder this
+package leaves:
 
 * *The enforcement*: the Landlock and Seatbelt network rule, the worker network namespace and the egress tunnel, in
   `pm-exec` (`pm-mcp-clients`), with the Linux child-subreaper package the epic already owes there.

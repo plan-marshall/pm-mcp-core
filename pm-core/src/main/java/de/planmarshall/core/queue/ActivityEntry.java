@@ -339,10 +339,10 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
     public record Egress(String destination) {
 
         /** The shortest destination: a one-character host, a colon and a one-digit port. */
-        public static final int MIN_DESTINATION = 3;
+        static final int MIN_DESTINATION = 3;
 
         /** The longest destination the schema admits: a 253-character host, a colon and a five-digit port. */
-        public static final int MAX_DESTINATION = 259;
+        static final int MAX_DESTINATION = 259;
 
         /**
          * @throws NullPointerException     if the destination is {@code null}

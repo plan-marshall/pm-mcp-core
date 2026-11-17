@@ -225,7 +225,7 @@ class JobRecordCodecTest {
             }).toList();
 
             assertAll("every egress value round-trips",
-                    () -> assertEquals(Egress.values().length, documents.size(), "both values are covered"),
+                    () -> assertEquals(Egress.values().length, documents.size(), "every value is covered"),
                     () -> assertTrue(documents.get(0).contains("\"egress\":\"enforced\""),
                             "the enforced value is written by its wire name"),
                     () -> assertTrue(documents.get(1).contains("\"egress\":\"unenforced\""),

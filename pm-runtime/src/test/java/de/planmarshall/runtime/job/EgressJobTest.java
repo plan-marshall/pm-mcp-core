@@ -63,13 +63,14 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The {@code egress} of a job record (PM-SEC-5, Job Runtime § Worker Egress Proxy): a worker records {@code unenforced}
- * until a launch report states the platform enforcement, a refused worker records {@code unenforced} too, and a job of
- * another kind records none.
+ * until a launch report states the platform enforcement, and a refused worker records {@code unenforced} too. The records
+ * of the other kinds are pinned where their fixtures live: a `git` and a `build` job in {@code SubprocessJobRunnerTest}
+ * and a probe in {@code ProbeJobTest}.
  * <p>
  * The launcher is {@link FakePmExec}. It applies no network enforcement, so every worker record of this fixture is
  * {@code unenforced}. Contract literals that stay: the modes of the launcher, the host {@code PATH}, the harness
- * {@code claude}, the tool {@code read_file}, the effort {@code high}, the budget keys and the role bounds. The
- * generation id, the job token, the role name, the model and the versions are generated.
+ * {@code claude}, the tool {@code read_file}, the effort {@code high} and the role bounds. The generation id, the job
+ * token, the role name, the model and the versions are generated.
  */
 @EnabledOnOs(OS.LINUX)
 @EnableGeneratorController
@@ -79,7 +80,6 @@ class EgressJobTest {
     private static final Duration SETTLE_TIMEOUT = Duration.ofSeconds(30);
     private static final Scope PROJECT = new Scope(Scope.Type.PROJECT, null);
     private static final Map<String, String> ENVIRONMENT = Map.of("PATH", "/usr/bin:/bin");
-    private static final String BUDGET_KEY = "git:status";
     private static final BudgetDerivation FLOOR = new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null);
 
     private static final String WORKER_SCRIPT = """
