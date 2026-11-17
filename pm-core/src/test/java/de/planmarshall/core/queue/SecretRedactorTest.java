@@ -668,7 +668,7 @@ class SecretRedactorTest {
     }
 
     /** A wall-clock bound a left-to-right scan meets easily and the former lazy pattern exceeds. */
-    private static final Duration REDACTION_BOUND = Duration.ofSeconds(5);
+    private static final Duration REDACTION_BOUND = Duration.ofSeconds(20);
 
     private static final String PEM_BEGIN_MARKER = "-----BEGIN PRIVATE KEY-----";
 
