@@ -94,6 +94,15 @@ public final class SecretRedactor {
     /** The shared separator head with its own capturing group and an optional closing quote. */
     private static final String SEPARATOR = "(" + SEPARATOR_HEAD + "(?:\\\\?[\"'])?)";
 
+    /** The head of every quoted assignment form: its label group closes, then the separator group opens. */
+    private static final String QUOTED_ASSIGNMENT_HEAD = ")\\b(" + SEPARATOR_HEAD + ")";
+
+    /** The opening quote of a quoted value, its own capturing group. */
+    private static final String OPENING_QUOTE = "([\"'])";
+
+    /** The rest of a quoted assignment's line, its own capturing group. */
+    private static final String REST_OF_LINE = "([^\\r\\n]*)";
+
     private static final String VALUE = "([^\\s\"',;]{4,})";
 
     private static final Pattern AUTH_HEADER = Pattern.compile(
@@ -321,19 +330,19 @@ public final class SecretRedactor {
      * closing quote, read through the escape pairs of {@link #QUOTED_LINE}.
      */
     private static Pattern quotedAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(" + SEPARATOR_HEAD + ")([\"'])"
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + QUOTED_ASSIGNMENT_HEAD + OPENING_QUOTE
                 + QUOTED_ASSIGNMENT_VALUE);
     }
 
     /** One unclosed quoted assignment: the label, the separator, the opening quote and the rest of its line. */
     private static Pattern unclosedQuotedAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(" + SEPARATOR_HEAD + ")([\"'])(?!"
-                + QUOTED_ASSIGNMENT_VALUE + ")([^\\r\\n]*)");
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + QUOTED_ASSIGNMENT_HEAD + OPENING_QUOTE + "(?!"
+                + QUOTED_ASSIGNMENT_VALUE + ")" + REST_OF_LINE);
     }
 
     /** One escaped-JSON assignment: the label, the separator, the escaped opening quote and the rest of its line. */
     private static Pattern escapedJsonAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b(" + SEPARATOR_HEAD + ")(\\\\[\"'])([^\\r\\n]*)");
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + QUOTED_ASSIGNMENT_HEAD + "(\\\\[\"'])" + REST_OF_LINE);
     }
 
     /**
