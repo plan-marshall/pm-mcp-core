@@ -87,13 +87,7 @@ public final class SupervisorCalls implements WorkerCalls {
             // records the call as well.
             detection.acknowledged(at);
         } else {
-            detection.firstCall(at);
-            supervisor.environment().startGuard().firstCall(generation.role(), generation.harness());
-            if (generation.form() != RoleForm.FRESH && generation.leasedTask() == null) {
-                // A warm worker's first call owes no acknowledgement: its deadline runs from the offer it is given,
-                // and a heartbeat before that offer must not make it silent a deadline later.
-                detection.acknowledged(at);
-            }
+            firstCall(generation, detection, at);
         }
         supervisor.replaced(acknowledging(generation));
     }
@@ -108,6 +102,11 @@ public final class SupervisorCalls implements WorkerCalls {
         }
         var at = supervisor.environment().clock().instant();
         var detection = detection(generation);
+        if (!detection.firstCallMade()) {
+            // Every call is a heartbeat, and a wait is a call: a generation whose first call is its wait owes the same
+            // first-call record and guard clear as one that began with another call.
+            firstCall(generation, detection, at);
+        }
         detection.waitOpened(at);
         try {
             return answerTo(generation, queueTaskId, roleDigest, at, detection);
@@ -137,11 +136,9 @@ public final class SupervisorCalls implements WorkerCalls {
         }
         if (queueTaskId.isBlank()) {
             var result = recycling.waitAgain(generation);
-            if (result.recycleCause() != null) {
-                return new WaitAnswer.End();
-            }
-            supervisor.replaced(waiting(generation).withIdleWakeups(result.idleWakeups()));
-            return new WaitAnswer.WaitAgain();
+            var waiting = waiting(generation).withIdleWakeups(result.idleWakeups());
+            supervisor.replaced(waiting);
+            return result.recycleCause() != null ? new WaitAnswer.End() : new WaitAnswer.WaitAgain();
         }
         roleDigests.put(generationId, roleDigest);
         detection.offered(queueTaskId, at);
@@ -174,6 +171,7 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized void planPaused(String planId) {
+        Objects.requireNonNull(planId, "planId");
         for (var generation : supervisor.generations()) {
             if (!generation.terminal() && planId.equals(generation.planId())) {
                 ending.forceEnd(generation, EndCause.PAUSE_AT_ONCE);
@@ -183,6 +181,7 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized void harnessEnrolled(String clientId) {
+        Objects.requireNonNull(clientId, "clientId");
         var guard = supervisor.environment().startGuard();
         for (var role : rolesOf(clientId)) {
             guard.clear(role, clientId);
@@ -249,6 +248,23 @@ public final class SupervisorCalls implements WorkerCalls {
     private synchronized void lost(String generationId, LossSignal signal) {
         losses.put(generationId, signal);
         supervisor.generation(generationId).ifPresent(generation -> ending.end(generation, signal));
+    }
+
+    /**
+     * Records the generation's first call, which clears the start-failure guard of the role on the harness, and settles
+     * the acknowledgement deadline the call armed where the worker owes none: the specification scopes that deadline to
+     * a fresh worker's first call and to an offer, so a warm worker's first call clears what {@code firstCall} armed.
+     *
+     * @param generation the generation whose first call this is
+     * @param detection  its loss detection
+     * @param at         the instant of the call
+     */
+    private void firstCall(WorkerGeneration generation, LossDetection detection, Instant at) {
+        detection.firstCall(at);
+        supervisor.environment().startGuard().firstCall(generation.role(), generation.harness());
+        if (generation.form() != RoleForm.FRESH) {
+            detection.acknowledged(at);
+        }
     }
 
     private @Nullable WorkerGeneration known(String generationId) {

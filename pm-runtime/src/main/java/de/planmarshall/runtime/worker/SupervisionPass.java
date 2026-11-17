@@ -137,22 +137,26 @@ public final class SupervisionPass {
      */
     private void completeEnd(WorkerGeneration generation, Instant now, JobRecordStore jobs) {
         var generationId = generation.generationId();
-        var task = generation.leasedTask();
-        if (task != null) {
-            pump(generation, task, jobs);
+        // One writer at a time: a transport call and this completion both write the generation, and a call that read it
+        // before the terminal write must not land after it. The calls object is the monitor every call holds.
+        synchronized (calls) {
+            var task = generation.leasedTask();
+            if (task != null) {
+                pump(generation, task, jobs);
+            }
+            var detection = calls.detection(generation);
+            var exit = detection.exit(now);
+            exit.ifPresent(signal -> ending.end(generation, signal));
+            var loss = exit.or(() -> calls.loss(generationId)).orElse(null);
+            var requested = ending.requestedCause(generationId).orElse(null);
+            if (requested == null && detection.startFailure()) {
+                ending.end(generation, EndCause.START_FAILURE);
+                requested = ending.requestedCause(generationId).orElse(null);
+            }
+            finishAttempt(generation, requested, loss);
+            supervisor.replaced(ending.exited(generation));
+            calls.forget(generationId);
         }
-        var detection = calls.detection(generation);
-        var exit = detection.exit(now);
-        exit.ifPresent(signal -> ending.end(generation, signal));
-        var loss = exit.or(() -> calls.loss(generationId)).orElse(null);
-        var requested = ending.requestedCause(generationId).orElse(null);
-        if (requested == null && detection.startFailure()) {
-            ending.end(generation, EndCause.START_FAILURE);
-            requested = ending.requestedCause(generationId).orElse(null);
-        }
-        finishAttempt(generation, requested, loss);
-        supervisor.replaced(ending.exited(generation));
-        calls.forget(generationId);
     }
 
     /**

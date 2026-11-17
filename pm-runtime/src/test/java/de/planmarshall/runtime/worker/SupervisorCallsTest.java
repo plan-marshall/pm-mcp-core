@@ -35,6 +35,8 @@ import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.store.WorkerState;
+import de.planmarshall.runtime.launch.LaunchRequest;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The supervisor's inbound calls (PM-WORK-3, PM-WORK-7): what each call of {@link WorkerCalls} records, the answer a
@@ -247,9 +249,35 @@ class SupervisorCallsTest {
 
         calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
         fixture.advance(Duration.ofSeconds(269));
+        var atTheOfferDeadline = ending.requestedCause(generation.generationId());
+        fixture.advance(Duration.ofSeconds(2));
 
-        assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
-                "an acknowledged offer is not a missed acknowledgement");
+        assertAll(
+                () -> assertTrue(atTheOfferDeadline.isEmpty(),
+                        "an acknowledged offer is not a missed acknowledgement"),
+                () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
+                        "the cleared deadline never fires late"));
+    }
+
+    @Test
+    @DisplayName("a first call that is a wait clears the guard like any other call")
+    void aWaitAsTheFirstCallClearsTheGuard() {
+        var guard = new StartFailureGuard(fixture.project, List::of, fixture.protocol, fixture.eventSink,
+                fixture.clock);
+        withGuard(guard);
+        var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
+        var generation = started(role);
+        for (var ignored = 0; ignored < StartFailureGuard.HOLD_THRESHOLD; ignored++) {
+            guard.startFailed(role.artifact().name(), role.harness(), "");
+        }
+
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+
+        assertAll(
+                () -> assertFalse(guard.holds(role.artifact().name(), role.harness()),
+                        "a first call that is a wait clears the held guard"),
+                () -> assertTrue(calls.detection(generation).firstCallMade(),
+                        "the wait records the generation's first call"));
     }
 
     @Test
@@ -361,6 +389,28 @@ class SupervisorCallsTest {
                         ending.requestedCause(generations.get(0).generationId()), "the first ends at once"),
                 () -> assertEquals(Optional.of(EndCause.PAUSE_AT_ONCE),
                         ending.requestedCause(generations.get(1).generationId()), "the second ends at once"));
+    }
+
+    @Test
+    @DisplayName("a pause leaves the generations of another plan running")
+    void aPauseLeavesAnotherPlanRunning() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2);
+        var otherPlan = RuntimeGenerators.planIds().next();
+        var requests = List.of(fixture.freshRequest(role), new WorkerStartRequest(role,
+                LaunchRequest.WorkdirKind.PLAN_WORKTREE, otherPlan, fixture.workdir, fixture.envelope(), false,
+                List.of(), List.of(), "", null));
+        var outcomes = supervisor.start(requests);
+
+        calls.planPaused(fixture.plan);
+
+        assertAll(
+                () -> assertEquals(Optional.of(EndCause.PAUSE_AT_ONCE),
+                        ending.requestedCause(((WorkerSupervisor.StartOutcome.Started) outcomes.get(0)).generation()
+                                .generationId()),
+                        "the paused plan's generation ends"),
+                () -> assertTrue(ending.requestedCause(
+                                ((WorkerSupervisor.StartOutcome.Started) outcomes.get(1)).generation().generationId()).isEmpty(),
+                        "the other plan's generation keeps running"));
     }
 
     @Test

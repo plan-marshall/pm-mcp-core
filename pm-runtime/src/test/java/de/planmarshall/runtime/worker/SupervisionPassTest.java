@@ -9,6 +9,11 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -141,9 +146,7 @@ class SupervisionPassTest {
         generation = started(supervisor);
         task = RuntimeGenerators.queueTaskIds().next();
         openTasks.add(task);
-        tasks = queueTaskId -> openTasks.contains(queueTaskId)
-                ? Optional.of(new WorkerTaskActivity.TaskActivity(1, role.artifact(), Set.of(), null, -1))
-                : Optional.empty();
+        tasks = tasks();
         jobs = JobRecordStore.ofProject(fixture.base, fixture.project);
     }
 
@@ -157,6 +160,19 @@ class SupervisionPassTest {
     private WorkerGeneration started(WorkerSupervisor over) {
         var outcomes = over.start(List.of(fixture.warmRequest(role, fixture.workdir)));
         return ((WorkerSupervisor.StartOutcome.Started) outcomes.getFirst()).generation();
+    }
+
+    /** @return the {@code WorkerTaskActivity} double: the facts of the one task while the test leaves it open */
+    private WorkerTaskActivity tasks() {
+        WorkerTaskActivity mock = createMock(WorkerTaskActivity.class);
+        expect(mock.facts(anyString())).andAnswer(() -> {
+            var asked = (String) getCurrentArguments()[0];
+            return openTasks.contains(asked)
+                    ? Optional.of(new WorkerTaskActivity.TaskActivity(1, role.artifact(), Set.of(), null, -1))
+                    : Optional.empty();
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
     private ActivityJournal journal(String name) throws IOException {
