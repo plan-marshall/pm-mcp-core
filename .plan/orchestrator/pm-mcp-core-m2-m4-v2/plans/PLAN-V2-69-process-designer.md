@@ -62,13 +62,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/process-designer.adoc` § What, Trace, Done When on `origin/main` at `4617865` (12 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: process-designer.adoc at HEAD has 7 numbered Tasks, not 12 What bullets; spec Re-ground record names claim 0
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/process-designer.adoc now has Tasks (7 numbered tasks), Trace, Done When; no What section and no twelve bullets
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-V2-54 (`recipe-workflows`); PLAN-46 (`machine-onboarding-unit`) (the plan axes and their variants); PLAN-V2-22 (`start-source-intake`) (the short landings); PLAN-26 (`role-sets-and-model-caller`) (the effective role set)) — read at `doc/plans/process-designer.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README process-designer row open, depends phase-sub-workflows, recipe-workflows, start-source-intake only; no machine-onboarding-unit row at HEAD; 10-25 Re-grounding Record states it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc row process-designer is open and depends on phase-sub-workflows, recipe-workflows and start-source-intake only; machine-onboarding-unit (PLAN-46) and role-sets-and-model-caller (PLAN-26) are not listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: UnitOrigin.java:19-21 DEFAULT and PROJECT only; HeaderJson.java:526 maps only project; surface understated and runtime/ path wrong per the spec's Re-grounding Records
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: The package file now has seven Tasks naming specification sections plus a Where line with pm-workflow, pm-core and pm-runtime, so the surface is derivable from the tasks, not from the Where line only
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure clause for the executing plan (index state, use cases agreed); the index row is open now, and use cases are in another repository
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause: use cases agreed and which restructured packages shipped are run-time checks
 
 ## Expected Surface
 
@@ -205,6 +205,14 @@ Written by the `cleanup` verb after a read-only leaf compared every claim of thi
 Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
 
 - The Expected Surface is partly stale (the `runtime/` path is wrong).
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): doc/plans/process-designer.adoc now has Tasks (7 numbered tasks), Trace, Done When; no What section and no twelve bullets Correction: Cite the package file's Tasks (seven tasks), Trace and Done When sections.
+- Claim 1 (contradicted): README.adoc row process-designer is open and depends on phase-sub-workflows, recipe-workflows and start-source-intake only; machine-onboarding-unit (PLAN-46) and role-sets-and-model-caller (PLAN-26) are not listed Correction: The index lists phase-sub-workflows, recipe-workflows and start-source-intake (the short landings); drop PLAN-46 and PLAN-26.
+- Claim 2 (contradicted): The package file now has seven Tasks naming specification sections plus a Where line with pm-workflow, pm-core and pm-runtime, so the surface is derivable from the tasks, not from the Where line only Correction: Derive the Expected Surface from the seven Tasks and the three-module Where line, not the Where line alone.
 
 ## Hand-Off Command
 

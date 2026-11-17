@@ -59,13 +59,13 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/runtime-metrics.adoc` § What, Trace, Done When on `origin/main` at `4617865` (6 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/runtime-metrics.adoc at HEAD has 5 Tasks (registry, catalogue, gauges, endpoints, OpenMetrics), no What section; edited by efecccba #286; record states it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/runtime-metrics.adoc now has 5 numbered Tasks, Trace, 2-bullet Done When; no What section and not 6 bullets
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-30 (`supervisor`); PLAN-28 (`task-queue-and-protocol`); PLAN-31 (`slots-usage-and-budgets`); PLAN-61 (`token-usage`); PLAN-V2-21 (`plan-and-epic-control`) (held and paused)) — read at `doc/plans/runtime-metrics.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc:210-214 row is open and depends only on plan-and-epic-control; token-usage closed in 81c51719 #215; Re-ground record states it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc:216-220 runtime-metrics is open and depends only on plan-and-epic-control (held and paused); PLAN-30, PLAN-28, PLAN-31 and PLAN-61 are no longer listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about the Expected Surface; no core/metrics package exists at HEAD and no pom names micrometer, so nothing to confirm yet
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about an Expected Surface inferred from the Where line; package file has no such section
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, that the parent POM manages `micrometer-core`, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row is open not blocked, but the parent POM managing micrometer-core and the agreed use cases are in other repositories; no pom here names micrometer
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Clause includes that the parent POM manages micrometer-core, a registry artifact in another repository; index row is open
 
 ## Expected Surface
 
@@ -167,6 +167,13 @@ Written by the `cleanup` verb after a read-only leaf compared every claim of thi
 
 - Claim 0 (contradicted at HEAD): doc/plans/runtime-metrics.adoc was rewritten by #286 (efecccba), with an earlier edit in #215: it now has 5 Tasks (registry, catalogue, gauges, endpoints, OpenMetrics), no What section; the 6 bullets differ.
 - Claim 1 (contradicted at HEAD): HEAD row is open and depends only on plan-and-epic-control; token-usage shipped (#215/#204) and left it. The spec lists five; its record lists two.
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): doc/plans/runtime-metrics.adoc now has 5 numbered Tasks, Trace, 2-bullet Done When; no What section and not 6 bullets Correction: Say: five Tasks (registry and seam, closed catalogue, gauges and windows, endpoints and stream, OpenMetrics exposition).
+- Claim 1 (contradicted): README.adoc:216-220 runtime-metrics is open and depends only on plan-and-epic-control (held and paused); PLAN-30, PLAN-28, PLAN-31 and PLAN-61 are no longer listed Correction: Say: depends on plan-and-epic-control (held and paused) alone.
 
 ## Hand-Off Command
 

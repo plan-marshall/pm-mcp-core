@@ -59,13 +59,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/runtime-control.adoc` § What, Trace, Done When on `origin/main` at `4617865` (8 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: runtime-control.adoc at HEAD has 7 numbered Tasks (:15-21) and no What with 8 bullets; spec Re-ground record names claim 0
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/runtime-control.adoc now has Tasks (7 numbered tasks), Trace, Done When; no What section and no eight bullets; its roadmap line splits out the blocked row runtime-update
 - OBSERVED: the package file and its index row (`blocked`; depends on PLAN-30 (`supervisor`); PLAN-28 (`task-queue-and-protocol`); PLAN-46 (`machine-onboarding-unit`) (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)) — read at `doc/plans/runtime-control.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README:204-208 row blocked, depends only on the registry-credential open question; no supervisor, task-queue-and-protocol or machine-onboarding-unit; 10-26 record states it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc: runtime-control is open with dependency nothing; the new blocked row runtime-update depends on the registry-credential answer and runtime-control
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about how the Expected Surface was inferred, settled at the trace matrix; nothing to read at HEAD
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Provenance of the plan's own Expected Surface; settled only at the trace matrix
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedure clause for the executing plan (index no longer blocked, use cases agreed); the row is still blocked but the clause is not a fact
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause: use cases agreed and which restructured packages shipped are run-time checks
 
 ## Expected Surface
 
@@ -156,6 +156,13 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
 
 - Claim 0 (contradicted at HEAD): doc/plans/runtime-control.adoc at HEAD has 7 Tasks and no What section with 8 bullets (restructured by #286); the spec states no correction for it.
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): doc/plans/runtime-control.adoc now has Tasks (7 numbered tasks), Trace, Done When; no What section and no eight bullets; its roadmap line splits out the blocked row runtime-update Correction: Cite the package file's Tasks (seven tasks); the update check and upgrade are the blocked row runtime-update.
+- Claim 1 (contradicted): README.adoc: runtime-control is open with dependency nothing; the new blocked row runtime-update depends on the registry-credential answer and runtime-control Correction: runtime-control is open and depends on nothing; runtime-update is blocked on the registry credential and runtime-control; PLAN-30, 28 and 46 are no longer listed.
 
 ## Hand-Off Command
 

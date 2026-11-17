@@ -66,15 +66,15 @@ Five deliverables, one commit each, in this order.
 All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: `WorkerEgressProxy` matches lower-cased text (`pm-runtime/.../job/WorkerEgressProxy.java:158-159`) and connects with `new InetSocketAddress(host, port)` (`:205`); `AuditEvent.egressRefused` has no reason.
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: WorkerEgressProxy.java:158-159 lower-cases the destination, :205 new InetSocketAddress(host, port); AuditEvent.java:378 egressRefused(generationId, destination) has no reason
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: WorkerEgressProxy.java :158 lower-cases the destination text, :205 remote.connect(new InetSocketAddress(host, port)); AuditEvent.egressRefused :378 takes only generationId and destination, no reason.
 - OBSERVED: `Confinement` has `PARTIAL_ABI_1` only (`JobRecord.java:238`); `job-record.schema.json:84` has no `abi=2`; the record has no `seccomp`, `egress` or `git_metadata` member.
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: JobRecord.java:98 has gitMetadata and schema job-record.schema.json:92 git_metadata (PLAN-V2-134, #469 a9754c56); PARTIAL_ABI_1 now :245, no abi=2 or seccomp or egress member
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: JobRecord.Confinement :241-253 has six values (CONFINED, PARTIAL_ABI_1 :245, PARTIAL_CONTAINER_ENGINE, SEATBELT, UNAVAILABLE, NOT_APPLICABLE); JobRecord has a git_metadata member (:98, schema :92); only seccomp and egress are absent.
 - OBSERVED: the real `pm-exec` report `{"pm_exec":"launched",...,"no_new_privs":b}` (`pm-mcp-clients` `Launcher.java:79-81`) against `LaunchReport.parse` (`:164`, refuses undeclared members) and `FakePmExec`.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Real pm-exec report lives in pm-mcp-clients Launcher.java, not readable here; LaunchReport.java:171 default undeclared and FakePmExec.java:60-73 omit no_new_privs hold
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Rests on pm-mcp-clients Launcher.java:79-81 in another repository; in-repo LaunchReport.parse refuses undeclared members (StrictJson.undeclared :171).
 - OBSERVED: no self-check code (no grep hit); the JGit identity exists in `pm-provider-git` (`GitIdentity`, `GitOperations`), the CLI variant does not.
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: No seccomp or self-check hit in any src/main; pm-provider-git has GitIdentity and GitOperations (JGit); CLI variant only has committerName pass-through in JobEnvironmentComposer.java:155
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: No self-check/selfcheck hit in pm-core, pm-runtime or pm-providers src; GitIdentity.java, GitOperations.java, JGitOperations.java exist in pm-provider-git, which holds no CLI-variant class.
 - HYPOTHESIS: PLAN-V2-59 and PLAN-V2-134 will have delivered the `egress` and `git_metadata` members before this plan is emitted; verify-first by reading their landing records; deliver only the difference.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Future-landing hypothesis: git_metadata delivered by #469 (JobRecord.java:98) but no egress member exists at HEAD, PLAN-V2-59 not landed; landing records not read
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis on the future landing records of PLAN-V2-59 and PLAN-V2-134, which live in .plan and are not read here; the egress and seccomp members are absent from job-record.schema.json at origin/main.
 
 ## Expected Surface
 
@@ -99,6 +99,12 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`
 
 - Partly overtaken: `git_metadata` was delivered by #469 (`a9754c56`, PLAN-V2-134), so the claim of no `git_metadata` member is contradicted; the egress, seccomp and `abi=2` slices remain open and PLAN-V2-59 has not landed.
 - Claim 1 (Confinement has PARTIAL_ABI_1 only (JobRecord.java:238); job-record.schema.json:84 has no abi=2; the record has no seccomp, egress or g…) is contradicted at HEAD: JobRecord.java:98 has gitMetadata and schema job-record.schema.json:92 git_metadata (PLAN-V2-134, #469 a9754c56); PARTIAL_ABI_1 now :245, no abi=2 or seccomp or egress member
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 1 (contradicted): JobRecord.Confinement :241-253 has six values (CONFINED, PARTIAL_ABI_1 :245, PARTIAL_CONTAINER_ENGINE, SEATBELT, UNAVAILABLE, NOT_APPLICABLE); JobRecord has a git_metadata member (:98, schema :92); only seccomp and egress are absent. Correction: Say: Confinement has PARTIAL_ABI_1 among six values and no abi=2 value (schema :84 pattern), the record already has git_metadata (JobRecord.GitMetadata, schema :92) and lacks only seccomp and egress; #484 now makes an ABI-1-only kernel `unavailable`.
 
 ## Hand-Off Command
 
