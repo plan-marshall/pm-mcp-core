@@ -419,16 +419,30 @@ through `WorkerEnding`. A `waitOpened` that names a task leases it to the genera
 none counts an idle wake-up through `WorkerRecycling.waitAgain` and answers `WaitAgain`, or `End` when the answer recycled
 the generation; a wait of a generation whose end is requested is answered `End` without leasing anything. The blank task
 id is the answered absence: `pm_wait` takes no argument, so the transport names the candidate it holds and a real
-queue-task id is never blank. `planPaused` forces every generation of the plan at once, `harnessEnrolled` clears the
-start-failure guard of every role the registry holds on the harness, and the first call of a worker clears that guard —
-the clear the specification requires, which the `StartGuard` seam names as `firstCall`.
+queue-task id is never blank. Its answer closes the wait on the detection, because a held wait suppresses the silence
+signal and the answer re-arms it. A heartbeat beyond the first call settles an outstanding acknowledgement through
+`LossDetection.acknowledged`: the acknowledgement deadline runs from the offer (or a fresh worker's first call), and only
+a call clears it. `planPaused` forces every generation of the plan at once, `harnessEnrolled` clears the start-failure
+guard of every role the registry holds on the harness, and the first call of a worker clears that guard — the clear the
+specification requires, which the `StartGuard` seam names as `firstCall`. A call of a generation that already ended is
+ignored like a call of an unknown one.
 
 link:{src}/SupervisionPass.java[`SupervisionPass`] is the periodic step the assembly schedules. `run()` takes one reading
 of the clock, reads each non-terminal generation's job record from the store the terminal-state writer reads, completes
 the end of a worker whose job ended — a loss through `WorkerEnding.end`, then `WorkerEnding.exited` — pumps the job log of
-a generation that holds a task through one `WorkerActivityPump` per generation, runs `AgentStartedDetector.detect` over
-the record's PID, and yields an idle slot once per pass. At the end of a generation whose log it pumped it appends the
-attempt's end with the reason the cause and the loss signal name.
+a running generation that holds a task whose facts can still be read, through one `WorkerActivityPump` per generation,
+runs `AgentStartedDetector.detect` over the record's PID, and yields an idle slot once per pass. It pumps once more before
+it completes an end, so the tail a worker wrote before its exit reaches the journal, and it appends the attempt's end with
+the reason the cause and the loss signal name.
+
+**Known blocker (operator decision 2026-11-17: ship as specified, report it).** The end the pass completes runs
+`WorkerEnding.exited` *after* the job record is settled, and `WorkerEnding.exited` writes the terminal worker state through
+`JobRecordStore.writeWorker`, which refuses a settled record ("its worker state is no longer written"). The settlement
+writes the fate and carries the worker block the record held, so the store's contract requires that write to happen before
+the fate — while the fate is what tells the pass the exit happened. Against the landed writer the first pass over an ended
+worker throws and its generation never becomes terminal; the package's tests cannot see it because the fixture mocks the
+writer. The trigger and the write order need a specification amendment, which this plan may not make: it is owed to the
+assembly or to a follow-up plan, and it keeps this pull request from being ready to merge.
 
 What the package still owes, and to whom: the transport that implements `WorkerProtocol` and forwards `SupervisorCalls`,
 the scheduling of `SupervisionPass.run()` and the construction of the pump, the recorder and the mapper per role (all
@@ -436,7 +450,8 @@ the scheduling of `SupervisionPass.run()` and the construction of the pump, the 
 stage written into the verification record and the harness enrolment (the machine harness verification); the plan-task
 boundary of the `over_size` and `outside_footprint` signals (the assembly's adapter of the `WorkerTaskActivity` port) and
 the plan cleanup that adopts `ActivityJournal.archiveInto` and `delete`. The supervisor's start-failure count of an exit
-the pass observes is part of that: `StartGuard` names the clear, not the count. The work packages `worker-activity` and
+the pass observes is part of that: `StartGuard` names the clear, not the count, and `AgentStartedDetector` needs a
+`forget` for a terminal generation, which the pass makes long-lived. The work packages `worker-activity` and
 `question-continuation` stay open.
 
 The landed-contract decision and its two seams are ADR 002's; the protocol adapter is ADR 009's; the one writer block is
