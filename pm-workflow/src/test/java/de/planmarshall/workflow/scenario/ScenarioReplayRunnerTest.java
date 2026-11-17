@@ -98,7 +98,8 @@ class ScenarioReplayRunnerTest {
     private ScenarioFailure failure(String text, Path replayDirectory) {
         var runner = new ScenarioReplayRunner(ScenarioFixtures.planUnit(), replayDirectory);
         var script = ScenarioScript.read(text);
-        return assertThrows(ScenarioFailure.class, () -> runner.run(script));
+        return assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                "the script's deviation is raised as a failure");
     }
 
     /** @return a script that starts the plan, lets the reviewer deliver the outcome and runs the given lines */
@@ -173,10 +174,13 @@ class ScenarioReplayRunnerTest {
             var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN, PLAN_ID));
             var fixtures = runner.fixtures();
             assertAll(
-                    () -> assertEquals("completed", stored.read().orElseThrow().state()),
+                    () -> assertEquals("completed", stored.read().orElseThrow().state(),
+                            "the replay reached the unit's terminal state"),
                     () -> assertEquals(List.of(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13),
-                            runner.snapshots().stream().map(ScenarioReplayRunner.Snapshot::line).toList()),
-                    () -> assertArrayEquals(Files.readAllBytes(stored.store()), runner.snapshots().getLast().status()),
+                            runner.snapshots().stream().map(ScenarioReplayRunner.Snapshot::line).toList(),
+                            "one snapshot was kept for every step line"),
+                    () -> assertArrayEquals(Files.readAllBytes(stored.store()), runner.snapshots().getLast().status(),
+                            "the last snapshot holds the stored status bytes"),
                     () -> assertEquals(1, fixtures.jobRequests.getValues().size(),
                             "the replay started the build job once"),
                     () -> assertEquals(List.of(new QueueTaskCreator.CreateRequest(PLAN_ID, "execute.review", "change",
@@ -197,9 +201,10 @@ class ScenarioReplayRunnerTest {
             runner.run(script);
 
             assertAll(
-                    () -> assertEquals(3, startedTwice.line()),
+                    () -> assertEquals(3, startedTwice.line(), "the second start failed at its own line"),
                     () -> assertTrue(startedTwice.getMessage().contains("started already"), startedTwice.getMessage()),
-                    () -> assertThrows(IllegalStateException.class, () -> runner.run(script)));
+                    () -> assertThrows(IllegalStateException.class, () -> runner.run(script),
+                            "a second replay of the same runner is refused"));
         }
     }
 
@@ -214,7 +219,7 @@ class ScenarioReplayRunnerTest {
             var failure = failure(text);
 
             assertAll(
-                    () -> assertEquals(line, failure.line()),
+                    () -> assertEquals(line, failure.line(), "the failure carries the assertion's line"),
                     () -> assertTrue(failure.getMessage().startsWith("line %d: %s".formatted(line, message)),
                             failure.getMessage()));
         }
@@ -231,10 +236,11 @@ class ScenarioReplayRunnerTest {
             var runner = runner();
             var script = ScenarioScript.read(text);
 
-            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                    "an event the resting state rejects is a failure");
 
             assertAll(
-                    () -> assertEquals(3, failure.line()),
+                    () -> assertEquals(3, failure.line(), "the failure names the event's line"),
                     () -> assertTrue(failure.getMessage().contains(message), failure.getMessage()),
                     () -> assertTrue(runner.snapshots().stream().noneMatch(snapshot -> snapshot.line() == 3),
                             "the failed step leaves no snapshot"));
@@ -256,7 +262,7 @@ class ScenarioReplayRunnerTest {
                     assert_state %s
                     """.formatted(outcome, nextState))));
 
-            assertEquals(4, runner.snapshots().size());
+            assertEquals(4, runner.snapshots().size(), "the replay kept one snapshot per step");
         }
 
         @Test
@@ -270,7 +276,8 @@ class ScenarioReplayRunnerTest {
                     """);
 
             assertEquals("line 4: the task qt-0000000000000001 of role reviewer is queued in 'execute.review', but "
-                    + "the script declares no worker of the role", failure.getMessage());
+                    + "the script declares no worker of the role", failure.getMessage(),
+                    "the refusal names the role without a worker");
         }
 
         @Test
@@ -279,7 +286,7 @@ class ScenarioReplayRunnerTest {
             var failure = failure(reviewed("asked", "assert_task_outcome reviewer asked"));
 
             assertAll(
-                    () -> assertEquals(5, failure.line()),
+                    () -> assertEquals(5, failure.line(), "the failure names the directive's line"),
                     () -> assertTrue(failure.getMessage().contains("the worker of role reviewer"),
                             failure.getMessage()));
         }
@@ -299,9 +306,10 @@ class ScenarioReplayRunnerTest {
 
             assertAll(
                     () -> assertEquals("line 2: the worker of role reviewer has task outcomes no task took: [lost]",
-                            surplus.getMessage()),
+                            surplus.getMessage(), "the surplus outcome fails at the declaration line"),
                     () -> assertEquals("line 3: the worker of role planner has task outcomes no task took: "
-                            + "[submitted]", unused.getMessage()));
+                            + "[submitted]", unused.getMessage(),
+                            "the unused role's outcome fails at its line"));
         }
     }
 
@@ -332,10 +340,13 @@ class ScenarioReplayRunnerTest {
             var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN,
                     "scenario-operator"));
             assertAll(
-                    () -> assertEquals("completed", stored.read().orElseThrow().state()),
+                    () -> assertEquals("completed", stored.read().orElseThrow().state(),
+                            "the operator act reached the merged terminal"),
                     () -> assertEquals(List.of(2, 3, 4, 5, 6),
-                            runner.snapshots().stream().map(ScenarioReplayRunner.Snapshot::line).toList()),
-                    () -> assertArrayEquals(Files.readAllBytes(stored.store()), runner.snapshots().getLast().status()));
+                            runner.snapshots().stream().map(ScenarioReplayRunner.Snapshot::line).toList(),
+                            "the operator steps kept their line order"),
+                    () -> assertArrayEquals(Files.readAllBytes(stored.store()), runner.snapshots().getLast().status(),
+                            "the status bytes match the last snapshot"));
         }
 
         @Test
@@ -354,7 +365,8 @@ class ScenarioReplayRunnerTest {
             var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN,
                     "scenario-operator"));
             assertAll(
-                    () -> assertEquals("completed", stored.read().orElseThrow().state()),
+                    () -> assertEquals("completed", stored.read().orElseThrow().state(),
+                            "the act reached the operator's terminal state"),
                     () -> assertEquals(List.of(note), runner.fixtures().note.notes(),
                             "the primitive received the parameter the script named"));
         }
@@ -370,10 +382,11 @@ class ScenarioReplayRunnerTest {
                     operator_do %s web
                     """.formatted(unknown));
 
-            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                    "an act the resting wait does not offer is refused");
 
             assertAll(
-                    () -> assertEquals(3, failure.line()),
+                    () -> assertEquals(3, failure.line(), "the failure names the act's line"),
                     () -> assertTrue(failure.getMessage().contains("offers no link '" + unknown + "'"),
                             failure.getMessage()));
         }
@@ -390,10 +403,11 @@ class ScenarioReplayRunnerTest {
                     operator_do choose cli {"%s":"%s"}
                     """.formatted(otherName, otherValue));
 
-            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                    "an act that omits the free parameter is refused");
 
             assertAll(
-                    () -> assertEquals(3, failure.line()),
+                    () -> assertEquals(3, failure.line(), "the failure carries the act's line"),
                     () -> assertTrue(failure.getMessage().contains("free parameter 'note'"),
                             failure.getMessage()));
         }
@@ -408,7 +422,7 @@ class ScenarioReplayRunnerTest {
             first.run(ScenarioScript.read(OPERATOR_SCRIPT));
             second.run(ScenarioScript.read(OPERATOR_SCRIPT));
 
-            assertEquals(first.snapshots(), second.snapshots());
+            assertEquals(first.snapshots(), second.snapshots(), "both runs replay to the same snapshots");
         }
     }
 
@@ -427,10 +441,11 @@ class ScenarioReplayRunnerTest {
             var asserted = snapshots.get(1).status();
             var settledJob = snapshots.get(2).status();
             assertAll(
-                    () -> assertTrue(started.length > 0),
+                    () -> assertTrue(started.length > 0, "the first step stored non-empty status bytes"),
                     () -> assertArrayEquals(started, asserted, "assert_state writes nothing"),
                     () -> assertFalse(Arrays.equals(asserted, settledJob), "complete_job writes the next state"),
-                    () -> assertTrue(new String(settledJob, StandardCharsets.UTF_8).contains("execute.review")));
+                    () -> assertTrue(new String(settledJob, StandardCharsets.UTF_8).contains("execute.review"),
+                            "the settled job stores the review state"));
         }
     }
 
@@ -885,7 +900,8 @@ class ScenarioReplayRunnerTest {
                     kill_relay reviewer
                     """);
 
-            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                    "a relay killed on an unacknowledged task is refused");
 
             assertAll(
                     () -> assertEquals(5, failure.line(), "the failure names the fault's line"),
@@ -903,7 +919,8 @@ class ScenarioReplayRunnerTest {
                     restart_runtime
                     """);
 
-            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                    "a restart of a scope never started is refused");
 
             assertAll(
                     () -> assertEquals(2, failure.line(), "the failure names the restart's line"),
@@ -927,7 +944,8 @@ class ScenarioReplayRunnerTest {
                     restart_runtime
                     """);
 
-            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                    "a restart of an ended scope is refused");
 
             assertAll(
                     () -> assertEquals(9, failure.line(), "the failure names the restart's line"),
@@ -965,7 +983,8 @@ class ScenarioReplayRunnerTest {
                     kill_worker reviewer
                     """);
 
-            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                    "a fault on a consultation task is refused");
 
             assertAll(
                     () -> assertEquals(7, failure.line(), "the failure names the fault's line"),
@@ -1064,7 +1083,8 @@ class ScenarioReplayRunnerTest {
             var runner = consultRunner();
             var script = ScenarioScript.read(SCRIPT);
 
-            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script),
+                    "the submit without its consultation id is refused");
 
             assertAll(
                     () -> assertEquals(11, failure.line(), "the failure names the submit's line"),

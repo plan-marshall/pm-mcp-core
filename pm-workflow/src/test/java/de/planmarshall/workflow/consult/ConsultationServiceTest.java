@@ -415,7 +415,8 @@ class ConsultationServiceTest {
         serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
         protocol.fence(ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT);
         assertInstanceOf(ConsultationOutcome.Answered.class,
-                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT));
+                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT),
+                "A lost consultation is delivered as answered");
 
         var successor = assertInstanceOf(WaitAnswer.Offered.class, protocol.wait(
                         new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
@@ -586,9 +587,11 @@ class ConsultationServiceTest {
     private void serve(String consultationId, String generation, String role) {
         var answer = protocol.wait(new WaitRequest(generation, role, ConsultationFixtures.DIGEST,
                 ConsultationFixtures.DIGEST, 3), ConsultationFixtures.AT);
-        var offered = assertInstanceOf(WaitAnswer.Offered.class, answer);
-        assertEquals(consultationId, offered.task().queueTaskId());
+        var offered = assertInstanceOf(WaitAnswer.Offered.class, answer, "The successor is offered the answer");
+        assertEquals(consultationId, offered.task().queueTaskId(),
+                "The offered task carries the consultation id");
         assertInstanceOf(CallResult.Accepted.class,
-                protocol.acknowledge(new TaskCall(consultationId, generation), ConsultationFixtures.AT));
+                protocol.acknowledge(new TaskCall(consultationId, generation), ConsultationFixtures.AT),
+                "The successor acknowledges the offered task");
     }
 }
