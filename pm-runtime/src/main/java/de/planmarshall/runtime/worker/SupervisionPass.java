@@ -81,16 +81,21 @@ public final class SupervisionPass {
     }
 
     /**
-     * Runs one step of the supervision over the supervisor's registry, the job records and the job logs.
+     * Runs one step of the supervision over the supervisor's registry, the job records and the job logs. The idle yield
+     * runs even when one generation's step throws, so a single failing generation never starves a role that waits for a
+     * slot.
      */
     public synchronized void run() {
         var environment = supervisor.environment();
         var now = environment.clock().instant();
         var jobs = JobRecordStore.ofProject(environment.base(), environment.projectId());
-        for (var generation : supervisor.generations()) {
-            advance(generation, now, jobs);
+        try {
+            for (var generation : supervisor.generations()) {
+                advance(generation, now, jobs);
+            }
+        } finally {
+            recycling.yieldIdleSlot();
         }
-        recycling.yieldIdleSlot();
     }
 
     /**
@@ -191,15 +196,17 @@ public final class SupervisionPass {
      */
     private void finishAttempt(WorkerGeneration generation, @Nullable EndCause cause, @Nullable LossSignal loss) {
         var task = generation.leasedTask();
-        var pump = active.remove(generation.generationId());
-        if (task == null || pump == null || tasks.facts(task).isEmpty()) {
-            return;
+        var pump = active.get(generation.generationId());
+        if (task != null && pump != null && tasks.facts(task).isPresent()) {
+            try {
+                pump.finish(task, generation.generationId(), attemptEnd(cause, loss));
+            } catch (IllegalStateException _) {
+                // The same race as the pump's: a task that closed first has no journal entry to append.
+            }
         }
-        try {
-            pump.finish(task, generation.generationId(), attemptEnd(cause, loss));
-        } catch (IllegalStateException _) {
-            // The same race as the pump's: a task that closed first has no journal entry to append.
-        }
+        // The pump leaves only after its end is appended: a completion that throws before that keeps the pump, and the
+        // retry resumes from its offset instead of re-reading the whole log.
+        active.remove(generation.generationId());
     }
 
     /**

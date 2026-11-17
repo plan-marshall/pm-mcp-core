@@ -251,8 +251,10 @@ public final class SupervisorCalls implements WorkerCalls {
      * @param signal       the detection that settled the generation
      */
     private synchronized void lost(String generationId, LossSignal signal) {
-        losses.put(generationId, signal);
-        supervisor.generation(generationId).ifPresent(generation -> ending.end(generation, signal));
+        known(generationId).ifPresent(generation -> {
+            losses.put(generationId, signal);
+            ending.end(generation, signal);
+        });
     }
 
     /**
