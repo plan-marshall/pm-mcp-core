@@ -5,7 +5,7 @@ link:README.adoc[Work packages of `pm-mcp-core`] » `epic-auto`
 
 [horizontal]
 Roadmap item:: _apply the operator's acts of Milestone 10 to epics: automatic start on and off_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap]); the mode in force at the start of an epic (UC-STA-2)
-Where:: pm-workflow (starting by itself, the overlap admission, the reactions on a finished plan, the completion review once through); pm-core (the header's `auto_start` and `overlap_max_files`, the wait reason `overlap`, the project's values `epic.auto_start` and `epic.overlap_max_files`); pm-runtime (`PUT …/auto` and `PUT …/settings` of the epic)
+Where:: pm-workflow (starting by itself, the overlap admission, the reactions on a finished plan, the completion review once through); pm-core (the header's `auto_start` and `overlap_max_files`, the wait reason `overlap`, the project's values `epic.auto_start` and `epic.overlap_max_files`); pm-runtime (the epic's actions `auto` and `common_files`, and `PUT …/settings` of the epic)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks
