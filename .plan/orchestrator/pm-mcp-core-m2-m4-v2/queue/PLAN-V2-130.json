@@ -2,10 +2,10 @@
   "id": "PLAN-V2-130",
   "slug": "json-schema-validator-3-upgrade",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-130-json-schema-validator-3-upgrade",
+  "pr": "#473",
+  "landing": "landings/PLAN-V2-130.md",
   "seq": 118
 }
