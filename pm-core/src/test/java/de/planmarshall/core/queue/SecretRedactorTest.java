@@ -240,7 +240,7 @@ class SecretRedactorTest {
     @Test
     @DisplayName("a scheme-and-colon run without @ as long as a bounded line is redacted to itself")
     void urlUserInformationLongRunWithoutAt() {
-        // x://y: repeated without any @ is the worst case of the pattern: every scheme start scans back to it
+        // x://y: repeated without any @ is the worst case of the shape: every scheme start is a candidate
         var run = "x://y:".repeat(BuildLogText.MAX_LINE_LENGTH / 6 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
 
         var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(run),

@@ -41,9 +41,9 @@ remove the `@` the URL shape needs.
 *A record redacts its own read-outs.* The seam for a value that does not pass through `DiagnosticCollector.stored` is the
 record's constructor. `RewriteFinding` redacts its `path` and `message` in its canonical constructor, and `Diagnostic`
 redacts its `file` and its collected `stackTrace` there; the stack trace is cut to the stored bound
-(`DiagnosticCollector.stored`, 500 characters) after the redaction. Every builder and canonical constructor passes
-through the seam, so no producer can store an unmasked read-out, and `DiagnosticCollector.stored` stays the seam for the
-messages it already covers.
+(`DiagnosticCollector.storedTrace`, 500 characters, never splitting a surrogate pair) after the redaction. Every builder
+and canonical constructor passes through the seam, so no producer can store an unmasked read-out, and
+`DiagnosticCollector.stored` stays the seam for the messages it already covers.
 
 == Alternatives Considered
 
@@ -68,7 +68,7 @@ messages it already covers.
   fixtures of the ported corpus are shorter and keep their frames, and a new test that expects a longer stack must not
   rely on it.
 * A producer of a `RewriteFinding` or a `Diagnostic` cannot bypass the redaction; a new read-out of the build model belongs
-  in the same constructor seam or in `DiagnosticCollector.stored`.
+  in the same constructor seam, or in `DiagnosticCollector.stored` for a message and `storedTrace` for a stack-like text.
 * The redactor never stores a raw `BEGIN` marker before the label passes see it; a later change that moves the key-block
   scan back behind the label passes reopens the leak of ADR `core-build/009`'s Context.
 

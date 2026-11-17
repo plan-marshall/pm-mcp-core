@@ -181,8 +181,8 @@ at all, because the match crosses line ends. `SecretRedactorTest` therefore boun
 400 000 characters of `BEGIN` markers without an `END`, a 3 700-marker input and a 1 000 000-character quoted flag value
 (a plain run and an escape-pair run) must redact within a stated bound, and the two URL shapes are measured with the same
 bound rather than by an equality check alone. `DiagnosticCollectorRedactionTest` adds the same measurement on the seam
-that stores a line and on the `Diagnostic` constructor: 2 000 lines of 8 192 characters of `x://y:x://y:…` (16.4 MB)
-must redact within a stated bound, which the quadratic scan did not meet.
+that stores a line and on the `Diagnostic` constructor: 2 000 lines of 8 192 characters of whitespace-separated `x://y:`
+tokens (16.4 MB) must redact within a stated bound, which the quadratic scan did not meet.
 The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and the answer is cut at
 `BuildLogText.MAX_LINE_LENGTH` characters — never splitting a surrogate pair — before the redaction, which bounds that
 input; a user-information head or a provider-token head the cut leaves incomplete is masked there, so the bound removes
