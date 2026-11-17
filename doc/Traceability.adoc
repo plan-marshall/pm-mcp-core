@@ -2682,7 +2682,9 @@ as the role's form, its `count`, the start-failure guard, the verification-recor
 the three loss deadlines and the off-track `agent_started` signal, compared by executable path and digest; the one end
 path with its fence, token revocation, slot release and terminal state; the drain participant; the four recycle triggers
 and the idle yields; the start-failure guard with its bounded report and its probe; the machine-wide start spacing of one
-harness; and the worker state of the generation written into the job record. The transport and the assembly wiring are
+harness; the worker state of the generation written into the job record; the inbound calls that map the transport's facts
+onto detection, recycling, ending and the guard; and the scheduled supervision pass that settles an ended job, pumps a
+running worker's log and yields an idle slot. The transport, the scheduling of the pass and the assembly wiring are
 `pm-mcp-server`'s, and the model slots are the landed scheduler's): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java[WorkerSupervisor],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerGeneration.java[WorkerGeneration],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerLifecycle.java[WorkerLifecycle],
@@ -2695,6 +2697,8 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/HarnessStartSpac
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/AgentStartedDetector.java[AgentStartedDetector],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerTimers.java[WorkerTimers],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerCalls.java[WorkerCalls],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisorCalls.java[SupervisorCalls],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisionPass.java[SupervisionPass],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.java[WorkerProtocol],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ModelSlots.java[ModelSlots],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java[WorkerState]
@@ -2718,7 +2722,9 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerDrainParti
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerRecyclingTest.java[WorkerRecyclingTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartFailureGuardTest.java[StartFailureGuardTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java[HarnessStartSpacingTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/AgentStartedDetectorTest.java[AgentStartedDetectorTest]
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/AgentStartedDetectorTest.java[AgentStartedDetectorTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java[SupervisorCallsTest] (each call of `WorkerCalls` and its answer, the unknown generation, an end-requested wait, the pause of a plan and the enrolment's clear),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once — against the fixture's mocked `WorkerStateWriter`, because the landed writer refuses a settled record, see ADR `runtime-worker/014` — the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
 
 Documentation: link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
 link:../pm-runtime/doc/adr/runtime-worker/001-one-supervisor-per-project-and-role.adoc[ADR runtime-worker/001],
@@ -2726,7 +2732,8 @@ link:../pm-runtime/doc/adr/runtime-worker/004-deadlines-from-an-injected-clock-a
 link:../pm-runtime/doc/adr/runtime-worker/005-agent-started-reads-executable-path-and-digest.adoc[ADR runtime-worker/005],
 link:../pm-runtime/doc/adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR runtime-worker/008],
 link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009],
-link:../pm-runtime/doc/adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR runtime-worker/012]
+link:../pm-runtime/doc/adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR runtime-worker/012],
+link:../pm-runtime/doc/adr/runtime-worker/014-the-inbound-calls-and-the-scheduled-pass.adoc[ADR runtime-worker/014]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server
@@ -2834,12 +2841,15 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7
 Implementation (the mapping of a worker's output line onto the closed activity kinds through the profile's
 `headless.events`, the reading of a running worker's job log line by line, the activity journal's mask and its archive
 and delete surfaces, the four activity signals with their thresholds and actions, the `agent_started` journal entry, the
-activity page and pull stream, and the `events` stage of the profile verification; the assembly's HTTP routes and the production supervision loop that drives the pump are `pm-mcp-server`'s):
+activity page and pull stream, the `events` stage of the profile verification, and the scheduled pass that drives the
+pump, the `agent_started` detection and the attempt's end; the assembly's HTTP routes and the scheduling of that pass
+are `pm-mcp-server`'s):
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityEventMapping.java[ActivityEventMapping],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/SecretRedactor.java[SecretRedactor],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityEventMapper.java[ActivityEventMapper],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerActivityPump.java[WorkerActivityPump],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisionPass.java[SupervisionPass],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityRecorder.java[ActivityRecorder],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/OffTrackDetector.java[OffTrackDetector],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerTaskActivity.java[WorkerTaskActivity],
@@ -2861,6 +2871,9 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/OffTrackDetector
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/OffTrackScenarioTest.java[OffTrackScenarioTest]
 (each signal and each action as a scenario of the fixture harness's scripted output stream, raised at its threshold
 and never one entry before it, the action recorded with its signal, its measured value and its threshold),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest]
+(the scheduled pass pumping each gained line once, the `agent_started` signal ending the worker once, and the attempt's
+end appended with the reason the cause and the loss signal name),
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolReOfferTest.java[TaskProtocolReOfferTest]
 (the `agent_started` journal entry and the off-track signal entry),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/web/ActivityServiceTest.java[ActivityServiceTest]
@@ -2877,5 +2890,6 @@ link:../pm-core/doc/adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR 
 link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008],
 link:../pm-runtime/doc/adr/runtime-worker/010-the-activity-recorder-evaluates-signals-at-the-entry.adoc[ADR runtime-worker/010],
 link:../pm-runtime/doc/adr/runtime-worker/011-the-stream-reader-is-a-pump-over-the-job-log.adoc[ADR runtime-worker/011],
+link:../pm-runtime/doc/adr/runtime-worker/014-the-inbound-calls-and-the-scheduled-pass.adoc[ADR runtime-worker/014],
 link:../pm-runtime/doc/adr/runtime-launch/006-the-events-stage-maps-a-recorded-output.adoc[ADR runtime-launch/006],
 link:../pm-runtime/doc/adr/runtime-web/001-activity-is-served-from-a-cursor-and-a-pull-stream.adoc[ADR runtime-web/001]

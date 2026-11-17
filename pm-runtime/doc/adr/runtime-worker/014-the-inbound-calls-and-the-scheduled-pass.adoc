@@ -1,0 +1,167 @@
+= ADR 014: The Inbound Calls and the Scheduled Supervision Pass
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-16
+
+== Context
+
+`WorkerCalls` is the supervisor's inbound API (PM-WORK-3, PM-WORK-7) and has no implementation: nothing in
+`pm-runtime/src/main` implements it, no class creates a `LossDetection`, a `WorkerActivityPump`, an
+`ActivityRecorder` or an `AgentStartedDetector`, and the developer guide says that "the pass is the supervision loop's
+call" and that the loop "is composed outside this package". Two shares are therefore missing: the adapter that turns
+a transport call into the supervisor's state changes, and the periodic step that reads the job records and logs, ends
+what ended and pumps what grew.
+
+Both shares are pure Java over collaborators this module already owns (the supervisor's registry, the job record
+store, `JobLog`, the pump, the end path, the recycling and the clock). Neither needs Quarkus, a socket or a process of
+its own. ADR `runtime-worker/009` makes the transport module implement `WorkerProtocol` and consume the supervisor;
+ADR `runtime-worker/011` rejected a reader thread for the pump and named the loop as the caller of a step-shaped pump.
+
+== Decision
+
+`SupervisorCalls` implements `WorkerCalls` in `runtime.worker`. It resolves the generation from the supervisor's
+registry, ignores a call of a generation it does not know — a `waitOpened` of one is answered `end`, so an unknown
+worker never waits forever — and owns the per-generation `LossDetection`, created at the first sight of the generation,
+armed with `started(startedAt)`, constructed with the supervisor's clock and timers, the class of the generation's role
+and the profile's worker values. The detection's `LossSignal` runs the one end path, `WorkerEnding.end(generation,
+signal)`.
+
+The class maps the calls onto the landed types: `callHeartbeat` to `LossDetection.firstCall`/`acknowledged` and, on the
+first call, to `StartGuard.firstCall`, which the specification's start-failure guard requires as its clear; `waitOpened` to
+`LossDetection.waitOpened`, the answer's close (`waitClosed`) and one of the three answers — and, when it is the
+generation's first call, to the same first-call record, because every call is a heartbeat; `turnCompleted` to the
+generation's `ContextTokens` and `WorkerRecycling.afterTurnCompleted`; `taskClosed` to the served tasks and
+`WorkerRecycling.afterTaskClosed`; `planPaused` to `WorkerEnding.forceEnd(generation, EndCause.PAUSE_AT_ONCE)` for
+every generation of the plan; and `harnessEnrolled` to `StartGuard.clear` of every role the registry holds on that
+harness. Every state change is written through `WorkerSupervisor.replaced(generation)` and the `WorkerLifecycle`
+transition table; a transition the table does not have from the current state leaves that state as it is instead of
+throwing at the transport. A call of a generation that already ended is ignored like a call of an unknown one, so a late
+transport never resurrects a terminal generation.
+
+A call by a worker that holds an unacknowledged offer or launch is the acknowledgement the specification's
+acknowledgement deadline waits for, so a heartbeat beyond the first call settles it through
+`LossDetection.acknowledged`. Without that mapping the deadline an offer arms would never be cleared and every worker of
+a harness whose `ack_deadline_seconds` is short (the shipped `claude` value is 15) would be declared lost 15 seconds after
+its offer. `LossDetection.firstCall` arms that deadline too, which the specification scopes to a fresh worker and to an
+offer; a warm worker's first call therefore settles it at once, or a worker sitting in a legal bounded wait would be lost
+a deadline later.
+
+The pass completes an end while holding the calls object's monitor, which every inbound call also holds, so a transport
+call that read the generation before the terminal write cannot land after it and resurrect a terminal generation.
+
+A wait's `queueTaskId` is the candidate task the transport would offer, and a blank one is the answered absence: the
+`pm_wait` tool takes no argument and the server decides the offer, so the transport names what it holds and the
+supervisor answers what the protocol allows. A real queue-task id is never blank.
+
+`SupervisionPass` is the periodic step, as a function the assembly schedules: no thread and no timer of its own. `run()`
+takes one reading of the clock and, for every non-terminal generation, reads its job record from
+`JobRecordStore.ofProject` — the store the terminal-state writer reads — and, when the record is settled, settles the
+detection with `LossDetection.exit(now)`, runs a loss through `WorkerEnding.end(generation, signal)` first, and
+completes the end through `WorkerEnding.exited(generation)`, writing the terminal generation through `replaced`. A
+generation that holds a task pumps its job log through one `WorkerActivityPump` per generation (the pump keeps the
+offset, so a line is appended once) and hands the process tree of the record's PID to `AgentStartedDetector.detect`
+with the attempt of the task's `WorkerTaskActivity` facts; a task whose facts are gone is not pumped, because the
+recorder refuses an unknown or closed task. The pass pumps once more before it completes an end, so the tail a worker
+wrote before its exit reaches the journal. Once per pass the recycling yields an idle slot. At the end of a generation
+whose log was pumped, the pump appends the attempt's end, chosen from the end cause and the loss reason (`LOSS` → the
+reason's own attempt end, `PAUSE_AT_ONCE` → `paused`, `OFF_TRACK` → `off_track`, `START_FAILURE` → `start_failure`,
+`DRAIN` → `drain`, `TASK_DONE`/`RECYCLE` → `closed`, and a loss with no signal → `worker_lost`; a `RECYCLE` of a
+generation that held its task for an answer ends the attempt `closed` too, which the sibling plan
+`continuation-hold-and-budget` will revisit with `suspended`).
+
+Both classes take what they cannot construct from the caller, because it belongs to the assembly: the role's class by
+its name, the profile's `WorkerParameters`, the pump of one generation (composed with the role's mapper and recorder),
+and the `AgentStartedDetector` (which needs the enrolled executables).
+
+`SupervisorEnvironment.StartGuard` gains the `firstCall` default method. The seam had `holds`, `clear` and
+`probeDeclined`; the specification's guard also clears on the first call of a worker of the role on the harness, which
+is the transition a probe's first call settles. `StartFailureGuard` already carries that method, so the seam only had
+to name it.
+
+== Alternatives Considered
+
+1. *The pass as a thread of the supervisor.*
+   _Rejected_: ADR `runtime-worker/011` rejected a reader thread for the pump on the same ground — a thread outlives
+   the caller that owns the worker's lifetime, and the pass is a step whose schedule is an operational decision. The
+   deadlines of `LossDetection` already run on `WorkerTimers`, the supervisor's one scheduler thread.
+2. *Everything in `pm-mcp-server`.*
+   _Rejected_: the lifecycle, the loss path, the end ordering and the pump would then be untestable without the
+   Quarkus assembly, and the specification places the pure-Java share in this repository (ADR `runtime-worker/009`).
+3. *A per-generation state holder beside the supervisor, owned by neither class.*
+   _Rejected_: a third class would hold the detection that must be shared between the calls and the pass; the calls
+   already own it, so the pass reads it from there.
+4. *The supervisor constructing its own role classes and worker parameters.*
+   _Rejected_: the role set and the profile belong to the assembly, and the fixture profile of the package's tests
+   declares neither block.
+
+== Consequences
+
+* A transport of the assembly forwards a call and gets the protocol's answer; it never touches the registry, the
+  generation or the detection.
+* The assembly schedules `SupervisionPass.run()` and composes the pump, its recorder and its mapper per role; it also
+  builds the `AgentStartedDetector` over the enrolled executables. These constructions are owed to `pm-mcp-server`.
+* **A known blocker, recorded rather than papered over (operator decision 2026-11-17: ship as specified and report it).**
+  The pass completes an ended worker's end only once its job record is settled, and `WorkerEnding.exited` writes the
+  terminal worker state through `JobRecordStore.writeWorker`, which refuses a settled record (`The record of job X is
+  settled and carries its fate; its worker state is no longer written`). The settlement writes the fate and carries the
+  worker block the record held, so the store's contract requires the end path's write to happen *before* the fate — and
+  the fate is what tells the pass the exit happened. Against the landed `WorkerStateWriter.over` the first pass over an
+  ended worker therefore throws, the generation is never replaced terminal, and later passes throw again; the throw
+  escapes `run()`, so the generations after it in registry order go unobserved and the idle yield never runs, and each
+  retry repeats the end path's pre-write side effects (fence, token revocation, slot release) because the request was
+  already consumed, re-deriving the cause as `LOST`. The pass records a generation whose attempt end it appended, so a
+  retry neither re-pumps the log from offset zero nor appends a second attempt end; the detection of the throwing
+  generation, with its loss and digest, leaks while the generations after it own no pump yet. The package's tests cannot
+  see it because the fixture injects a mock writer — a `WorkerStateWriter.over` over a settled record would show it. The
+  trigger and the write order need a specification amendment (a second exit observable, or a store-compatible terminal
+  write), which this plan may not make: it is an owed rest for the assembly or a follow-up plan, and it is the reason
+  this pull request is not ready to merge.
+* **A second gap, recorded as an open item rather than decided here.** The pass derives the end cause from the detection
+  and the requested end alone (`LossDetection.exit` answers `EXIT` for every post-first-call exit), so
+  `EndCause.TASK_DONE` has no production caller: nothing ends a fresh generation on a closed task
+  (`WorkerRecycling.afterTaskClosed` returns empty for `FRESH`). A `fresh` worker that dies while it still holds the lease
+  is therefore recorded `LOST`/`EXITED` with the attempt end `exited_without_submit`; one whose task the transport closed
+  first holds no lease, so the pass appends no attempt end at all. The settled record does carry the discriminator
+  (`JobRecord.Fate`), so a mapping from a succeeded fate to `TASK_DONE` is possible — but it is a design decision this
+  plan's deliverables do not name, so it is left to the specification and the orchestrator rather than invented here.
+* `harnessEnrolled` clears the guard of every role **the registry holds** on the harness, which is narrower than
+  Deliverable 1's "every role on the harness": the registry is the only role list `SupervisorCalls` has. A role whose
+  failed generations were retired, or whose guard a later construction rebuilds over a registry with none of its
+  generations, is not cleared by the enrolment.
+* The acknowledgement entry of the inbound port that ADR `runtime-worker/012` names — a `WorkerCalls` method that reaches
+  `LossDetection.answerDelivered` — is still owed: `WorkerCalls` has no such method and this plan may not add one. It
+  belongs with the sibling plan `continuation-hold-and-budget`, which extends `SupervisorCalls`.
+* The start-failure guard's `startFailed` count of an exit the pass observes is owed to a follow-up, and **not** to the
+  transport or the assembly: the pass is the only reader of the settled job record, so nothing else can observe the exit,
+  and `StartFailureGuard.startFailed` has no production caller. `StartGuard` names `firstCall`, `clear` and
+  `probeDeclined`, not the count, and this plan may not add a deliverable the specification does not name for it. A live
+  guard therefore does not count such a failure; a guard **rebuilt** over the registry does, because the pass enters the
+  `START_FAILED` lifecycle state on that path and `StartFailureGuard.rebuild()` counts exactly those generations.
+* `LossDetection.called(Instant)` now has no caller: a call is either the first call or the acknowledgement, and the
+  acknowledgement records the call as well. The method stays because `LossDetection` is declared by another plan.
+* `AgentStartedDetector` keeps its process trees and its reported set per generation and forgets them only on a report.
+  The pass makes it long-lived, so a `forget(generationId)` on a terminal generation is an owed follow-up; the same holds
+  for the pass's own pump map, its finished-attempt set and the calls' detection, loss and digest maps, which only the
+  pass's completion removes.
+* A pass over a supervisor with no generation, and over one whose only generations are terminal, writes nothing; a
+  generation whose job record is absent is skipped for that pass, and stays skipped while the record stays absent.
+* An unreadable or truncated log appends nothing and is read again at the next pass (ADR `runtime-worker/011`), and a
+  task whose facts are gone is not pumped at all; a job record the store refuses propagates, so a corrupt record is
+  visible instead of silently skipped. A log that shrank below the pump's offset stays unreadable for that generation,
+  which is the pump's own contract (ADR `runtime-worker/011`), not this pass's.
+* No new class starts a thread and none adds a timing literal: every value comes from the clock, the profile or the
+  role artifact.
+
+== Source
+
+Work package `worker-activity` and `runtime-control`; link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc[Model
+Work § Supervision & Recycling] (§ Detection, § Ending a Worker, § Recycling Warm Workers, § Start-Failure Guard),
+link:../../../../doc/specification/model-work/02-task-protocol.adoc[Model Work § Task Protocol] (§ `pm_wait`, § Offer),
+link:../../../../doc/specification/model-work/04-worker-launch.adoc#worker-output[Model Work § Output Read While the
+Worker Runs], ADRs `runtime-worker/009`, `010`, `011` and `012`.
