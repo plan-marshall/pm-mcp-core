@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.Serializable;
@@ -50,8 +51,10 @@ class VerifiedContractTest implements ShouldHandleObjectContracts<Verified> {
     @Test
     @DisplayName("a mark below version one or without a digest is refused")
     void invalidMarkIsRefused() {
+        var digest = "a".repeat(64);
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> Verified.of(0, "a".repeat(64)),
+                () -> assertThrows(IllegalArgumentException.class, () -> Verified.of(0, digest),
                         "a version below one is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> Verified.of(1, " "),
                         "a blank digest is refused"));
@@ -66,7 +69,7 @@ class VerifiedContractTest implements ShouldHandleObjectContracts<Verified> {
         assertAll(
                 () -> assertEquals(first, second, "equal marks should be equal"),
                 () -> assertEquals(first.hashCode(), second.hashCode(), "equal marks should hash alike"),
-                () -> assertFalse(first.equals(Verified.of(2, "c".repeat(64))),
+                () -> assertNotEquals(first, Verified.of(2, "c".repeat(64)),
                         "marks of another digest should differ"));
     }
 }
