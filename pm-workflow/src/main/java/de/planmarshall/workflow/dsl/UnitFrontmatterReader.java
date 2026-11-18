@@ -480,15 +480,19 @@ public final class UnitFrontmatterReader {
         }
 
         /** Checks a {@code config_key}: one or more identifier segments, each of at most 32 characters and no reserved
-         * keyword, joined by dots (the same rule the parser applies to {@code depends_on_config}). */
+         * keyword, joined by dots (the same rule the parser applies to {@code depends_on_config}). The first segment is
+         * the file stem of the effective key — {@code project}, {@code workflow} or {@code local-config} — so it is no
+         * statement keyword and the reserved-keyword rule does not apply to it; which stems exist is the closed
+         * configuration's answer, checked when the unit is verified. */
         private static String configKey(String value, int number, int column) {
             var segments = value.split("\\.", -1);
-            for (var segment : segments) {
+            for (var index = 0; index < segments.length; index++) {
+                var segment = segments[index];
                 if (!IDENTIFIER.matcher(segment).matches()) {
                     throw new Refusal(number, column,
                             "the configuration key '%s' is no dotted key of identifier segments".formatted(echo(value)));
                 }
-                if (WorkflowParser.RESERVED_KEYWORDS.contains(segment)) {
+                if (index > 0 && WorkflowParser.RESERVED_KEYWORDS.contains(segment)) {
                     throw new Refusal(number, column,
                             "the configuration key '%s' names the reserved keyword '%s'".formatted(echo(value),
                                     segment));

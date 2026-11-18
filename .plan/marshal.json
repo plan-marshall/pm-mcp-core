@@ -169,7 +169,8 @@
     "auto_emit": false,
     "effort": {},
     "parallelization_scope": 1,
-    "use_worktree": true
+    "use_worktree": true,
+    "decision_confidence_threshold": 90
   },
   "build": {
     "queue": {
@@ -312,7 +313,7 @@
       "plugin_cache_keep_versions": 5,
       "plugin_cache_keep_days": 3
     },
-    "provisioned_version": "0.1.2118",
-    "config_seed_fingerprint": "9aaf980d"
+    "provisioned_version": "0.1.2155",
+    "config_seed_fingerprint": "97639602"
   }
 }

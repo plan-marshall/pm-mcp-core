@@ -84,6 +84,13 @@ and no kind exists in an empty registry.
   fallback never leaves it without a value; an input name is no `reads_fact` kind of the same unit
   (link:../adr/workflow-verify/036-input-bindings-under-rule-1.adoc[ADR 036]).
 
+A configuration domain is one of the three closed input types or none: the production table's `Text`, `Object`, list of
+text, union and one-sided ranges have no counterpart there, so such a key carries no domain
+(`ConfigKeyRegistry.ConfigKey.domain` is `@Nullable InputType`) and is assignable to nothing, which the refusal states
+as "no closed input type". The production context with both registries is
+`ProductRegistries.context(...)` of `workflow.unit`
+(link:../adr/workflow-unit/011-a-key-whose-domain-no-input-type-expresses-carries-none.adoc[ADR workflow-unit/011]).
+
 A value declared twice — a `reads_config` key, a `reads_fact` kind, an input name or an enum value of an `input_type` —
 is the frontmatter reader's refusal (`FRONTMATTER`, at the line and column), so it has one owner and the verifier does
 not repeat it (R15 item 1).
