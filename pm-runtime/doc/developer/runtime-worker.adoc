@@ -347,7 +347,7 @@ No value of a profile is believed because the profile says so:
 * The refusal never depends on the order in which the record lists its stages, and none reads the host's clock: the
   claimed stages are examined in the order the claim names them, and every other recorded stage in its name's order. The
   confinement must be the one its operating system's verification records — `landlock` on `linux`, `sandbox` on `darwin`
-  — so {@code none}, the confinement of the other operating system and every other value name none.
+  — so `none`, the confinement of the other operating system and every other value name none.
 
 link:{src}/RuntimePlatform.java[`RuntimePlatform`] is the operating system and architecture in the record's spelling
 (`linux`, `darwin`; `x86_64`, `aarch64`), normalised from `os.name` and `os.arch`. It compares the record's `platform`
