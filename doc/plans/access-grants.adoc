@@ -14,7 +14,7 @@ The specification sections named are the single statement of what each task buil
 
 . *The record and its three target shapes*: link:../specification/store-schemas/15-screening-and-grants.adoc#grant-record[Store Schemas § Access Grant Record], the schema block.
 . *The three stores and the move at `start.create-scope`*: § Access Grant Record; link:../specification/filesystem-layout/03-project-store.adoc[Filesystem Layout § Per-Project Machine Store].
-. *The operator act, its refusals and its audit*: link:../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-grant-access[CLI & Security § Cross-Project Access]; § Access Grant Record; link:../specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Audit Log].
+. *The operator act, its refusals and its audit*: link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/02-operator-channel.adoc#operator-grant-access[CLI & Security § Cross-Project Access]; § Access Grant Record; link:../specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Audit Log].
 . *The check* in front of every access outside the project, and its hold: § Access Grant Record; link:../specification/state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue § Holds and Their Acts].
 . *The granted provider reads*: the grant check, completeness and rate limit of link:../specification/credentials-and-enrolment/01-provider-credentials.adoc#cross-repository-reads[Credentials & Enrolment § Cross-Repository Reads].
 
