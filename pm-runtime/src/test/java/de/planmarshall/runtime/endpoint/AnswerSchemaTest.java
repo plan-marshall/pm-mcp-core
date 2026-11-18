@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.endpoint;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -194,5 +195,31 @@ class AnswerSchemaTest {
         var check = AnswerSchema.validate(parse(nested.toString()), parse("{}"));
 
         assertTrue(check.valid(), "a deeply nested schema is checked as valid");
+    }
+
+    @Test
+    @DisplayName("every refusal the check states is pinned, including the ones no case above reaches")
+    void refusalMessages() {
+        // a schema that refers to itself recurses until the depth bound refuses it; the bound is the contract
+        var recursive = parse("{\"$defs\":{\"self\":{\"$ref\":\"#/$defs/self\"}},\"$ref\":\"#/$defs/self\"}");
+        var tooDeep = AnswerSchema.validate(recursive, parse("{}"));
+        var notAnObject = AnswerSchema.validate(parse("\"a schema\""), parse("{}"));
+        var badType = AnswerSchema.validate(parse("{\"type\":5}"), parse("{}"));
+        var remoteReference = AnswerSchema.validate(parse("{\"$ref\":\"https://example.com/a.json\"}"),
+                parse("{}"));
+        var tooFewItems = AnswerSchema.validate(parse("{\"type\":\"array\",\"minItems\":2}"), parse("[1]"));
+
+        assertAll(
+                () -> assertFalse(tooDeep.valid(), "a schema past the depth bound is refused"),
+                () -> assertEquals("/: the schema nests deeper than 32", tooDeep.detail(),
+                        "the depth refusal names the bound it applies"),
+                () -> assertEquals("/: a schema is an object", notAnObject.detail(),
+                        "a schema that is not an object names its shape"),
+                () -> assertEquals("/: the result schema's type is neither a string nor an array",
+                        badType.detail(), "a type of another shape names the two shapes admitted"),
+                () -> assertEquals("/: the result schema refers to 'https://example.com/a.json'",
+                        remoteReference.detail(), "a reference outside the document names the reference"),
+                () -> assertEquals("/: the array has fewer than 2 items", tooFewItems.detail(),
+                        "an array below minItems names the bound"));
     }
 }

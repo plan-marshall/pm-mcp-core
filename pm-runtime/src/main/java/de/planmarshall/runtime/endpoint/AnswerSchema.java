@@ -57,13 +57,54 @@ public final class AnswerSchema {
         return check(schema, schema, answer, "", 0);
     }
 
+    /**
+     * The check, in the order the refusals are stated: the depth and shape guard, the keyword guard, the {@code $ref}
+     * branch, the type of the answer, the {@code const} and {@code enum} guard, and the dispatch on the answer's kind.
+     * The steps are separate methods so no one of them carries the whole of the check; their order and every refusal
+     * message are the contract {@code AnswerSchemaTest} pins.
+     */
     private static Check check(JsonNode root, JsonNode schema, JsonNode answer, String pointer, int depth) {
+        var shape = guardDepthAndShape(schema, pointer, depth);
+        if (!shape.valid()) {
+            return shape;
+        }
+        var keywords = guardKeywords(schema, pointer);
+        if (!keywords.valid()) {
+            return keywords;
+        }
+        var reference = followReference(root, schema, answer, pointer, depth);
+        if (reference.isPresent()) {
+            return reference.get();
+        }
+        var type = guardType(schema, answer, pointer);
+        if (!type.valid()) {
+            return type;
+        }
+        var value = guardConstantAndEnum(schema, answer, pointer);
+        if (!value.valid()) {
+            return value;
+        }
+        return dispatch(root, schema, answer, pointer, depth);
+    }
+
+    /**
+     * @return the refusal of a schema that nests past {@link #MAX_DEPTH} or is not an object, or {@link Check#ok()}
+     */
+    private static Check guardDepthAndShape(JsonNode schema, String pointer, int depth) {
         if (depth > MAX_DEPTH) {
             return Check.refused(pointer, "the schema nests deeper than %d".formatted(MAX_DEPTH));
         }
         if (!schema.isObject()) {
             return Check.refused(pointer, "a schema is an object");
         }
+        return Check.ok();
+    }
+
+    /**
+     * @return the refusal of a schema that uses a member outside the supported keywords and annotations, or whose
+     *         {@code type} is neither a string nor an array, or {@link Check#ok()}
+     */
+    private static Check guardKeywords(JsonNode schema, String pointer) {
         var unsupported = schema.members().keySet().stream()
                 .filter(name -> !KEYWORDS.contains(name) && !ANNOTATIONS.contains(name)).findFirst();
         if (unsupported.isPresent()) {
@@ -74,27 +115,55 @@ public final class AnswerSchema {
         if (declaredType != null && !declaredType.isString() && !declaredType.isArray()) {
             return Check.refused(pointer, "the result schema's type is neither a string nor an array");
         }
-        if (schema.member("$ref").isPresent()) {
-            var siblings = schema.members().keySet().stream()
-                    .filter(name -> KEYWORDS.contains(name) && !"$ref".equals(name)).findFirst();
-            if (siblings.isPresent()) {
-                return Check.refused(pointer, "the result schema combines $ref with '%s'".formatted(siblings.get()));
-            }
-            var reference = schema.member("$ref").flatMap(JsonNode::text).orElse("");
-            if (!reference.startsWith("#/")) {
-                return Check.refused(pointer, "the result schema refers to '%s'".formatted(reference));
-            }
-            var target = resolve(root, reference);
-            if (target.isEmpty()) {
-                return Check.refused(pointer,
-                        "the result schema refers to '%s', which does not resolve".formatted(reference));
-            }
-            return check(root, target.get(), answer, pointer, depth + 1);
+        return Check.ok();
+    }
+
+    /**
+     * Follows the {@code $ref} branch: a schema without one answers empty, a local reference is followed with one more
+     * depth step, and every other reference, a reference beside a sibling keyword, and one that does not resolve are
+     * refused.
+     *
+     * @return the terminal check of the branch, or empty when the schema carries no {@code $ref}
+     */
+    private static Optional<Check> followReference(JsonNode root, JsonNode schema, JsonNode answer, String pointer,
+            int depth) {
+        if (schema.member("$ref").isEmpty()) {
+            return Optional.empty();
         }
+        var siblings = schema.members().keySet().stream()
+                .filter(name -> KEYWORDS.contains(name) && !"$ref".equals(name)).findFirst();
+        if (siblings.isPresent()) {
+            return Optional.of(
+                    Check.refused(pointer, "the result schema combines $ref with '%s'".formatted(siblings.get())));
+        }
+        var reference = schema.member("$ref").flatMap(JsonNode::text).orElse("");
+        if (!reference.startsWith("#/")) {
+            return Optional.of(Check.refused(pointer, "the result schema refers to '%s'".formatted(reference)));
+        }
+        var target = resolve(root, reference);
+        if (target.isEmpty()) {
+            return Optional.of(Check.refused(pointer,
+                    "the result schema refers to '%s', which does not resolve".formatted(reference)));
+        }
+        return Optional.of(check(root, target.get(), answer, pointer, depth + 1));
+    }
+
+    /**
+     * @return the refusal of an answer that has none of the schema's declared types, or {@link Check#ok()}
+     */
+    private static Check guardType(JsonNode schema, JsonNode answer, String pointer) {
         var types = typeNames(schema);
         if (!types.isEmpty() && types.stream().noneMatch(name -> typeMatches(name, answer))) {
             return Check.refused(pointer, "the answer is not of type %s".formatted(types));
         }
+        return Check.ok();
+    }
+
+    /**
+     * @return the refusal of an answer outside the schema's {@code const} value or {@code enum}, or
+     *         {@link Check#ok()}
+     */
+    private static Check guardConstantAndEnum(JsonNode schema, JsonNode answer, String pointer) {
         var constant = schema.member("const");
         if (constant.isPresent() && !sameValue(constant.get(), answer)) {
             return Check.refused(pointer, "the answer is not the schema's const value");
@@ -103,6 +172,14 @@ public final class AnswerSchema {
         if (values.isPresent() && values.get().elements().stream().noneMatch(value -> sameValue(value, answer))) {
             return Check.refused(pointer, "the answer is none of the schema's enum values");
         }
+        return Check.ok();
+    }
+
+    /**
+     * @return the check of the answer against the keywords of its own kind; an answer of no structured kind is valid
+     *         once the guards above passed
+     */
+    private static Check dispatch(JsonNode root, JsonNode schema, JsonNode answer, String pointer, int depth) {
         if (answer.isObject()) {
             return object(root, schema, answer, pointer, depth);
         }
