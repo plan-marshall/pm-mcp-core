@@ -53,7 +53,8 @@ public record ProjectIdentityProposal(String projectId, String displayName) {
      *
      * @param remoteUrl  the remote as the checkout records it, for example {@code https://host/owner/name.git}
      * @param takenIds   the project ids the machine already enrols
-     * @return the proposal; empty when the remote names no owner and name or no valid id can be made from them
+     * @return the proposal; empty when the remote names no owner and name, is a {@code file://} remote, or names a
+     *         repository no valid id can be made from
      * @throws NullPointerException if an argument is {@code null}
      */
     public static Optional<ProjectIdentityProposal> fromRemote(String remoteUrl, Collection<String> takenIds) {
@@ -61,9 +62,13 @@ public record ProjectIdentityProposal(String projectId, String displayName) {
         Objects.requireNonNull(takenIds, "takenIds");
         return path(remoteUrl).flatMap(ProjectIdentityProposal::split).flatMap(repository -> {
             var base = slug(repository.name());
-            return base.isEmpty() ? Optional.empty()
-                    : Optional.of(new ProjectIdentityProposal(unique(base, takenIds),
-                            repository.owner() + "/" + repository.name()));
+            if (base.isEmpty()) {
+                return Optional.empty();
+            }
+            var id = unique(base, takenIds);
+            return LockKey.isIdentifier(id)
+                    ? Optional.of(new ProjectIdentityProposal(id, repository.owner() + "/" + repository.name()))
+                    : Optional.empty();
         });
     }
 
@@ -122,6 +127,10 @@ public record ProjectIdentityProposal(String projectId, String displayName) {
         }
         var separator = trimmed.indexOf("://");
         if (separator >= 0) {
+            var scheme = trimmed.substring(0, separator);
+            if ("file".equalsIgnoreCase(scheme)) {
+                return Optional.empty();
+            }
             var afterScheme = trimmed.substring(separator + 3);
             var slash = afterScheme.indexOf('/');
             return slash < 0 ? Optional.empty() : Optional.of(afterScheme.substring(slash + 1));

@@ -11,7 +11,7 @@ https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/speci
 All packages lie below `de.planmarshall.core`. Each line is the first sentence of the package's `package-info.java`.
 
 * `analysis`: the provider-neutral code-analysis contract, implemented by the provider modules.
-* `architecture`: the merges over the contributions of the domain extensions: edge derivation and path ownership.
+* `architecture`: the merges over the contributions of the domain extensions: edge derivation and path ownership, and the setup's enrichment cost offer.
 * `build`: the build output parsers, the evaluation of a gate, and the compiled artifact pattern table.
 * `config`: the configuration: its split into team, local and machine files, the derived facts, and the keys of job budgets and retention.
 * `discovery`: the discovery of the modules of a project and of their facts.
@@ -71,6 +71,7 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 == Developer Documentation
 
 * link:doc/developer/core-analysis.adoc[Code Analysis (`core.analysis`)]
+* link:doc/developer/core-architecture.adoc[Architecture Values (`core.architecture`)]
 * link:doc/developer/core-build.adoc[Build Output Parsers (`core.build`)]
 * link:doc/developer/core-config.adoc[Consents, Model Catalogue and Role Assignments (`core.config`)]
 * link:doc/developer/core-findings.adoc[Findings (`core.findings`)]
@@ -86,6 +87,8 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 == ADRs
 
 * link:doc/adr/core-analysis/[`doc/adr/core-analysis/`]: the code-analysis contract.
+* link:doc/adr/core-architecture/[`doc/adr/core-architecture/`]: the architecture values the setup drives; ADR 001 the
+  enrichment cost as a compiled token estimate.
 * link:doc/adr/core-config/[`doc/adr/core-config/`]: the consent store's gate and the settings conflict that carries the
   current value.
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.

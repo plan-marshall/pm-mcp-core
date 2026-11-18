@@ -106,6 +106,12 @@
  * {@link de.planmarshall.core.store.ProjectStoreIdentity}, read and written by
  * {@link de.planmarshall.core.store.ProjectStoreIdentityCodec}), created under the workspace lock and read as present,
  * absent or unreadable; nothing with state lies below the repository.</li>
+ * <li><em>The operator's projects</em> (PM-EXT-8): {@code explorer.json} of the machine, the favourite project ids in the
+ * operator's order and, per project, its last act and the acts per UTC day of the compiled window
+ * ({@link de.planmarshall.core.store.ExplorerStore}, read and written by
+ * {@link de.planmarshall.core.store.ExplorerCodec}); a write prunes the days outside the window and the entries of a
+ * project no longer enrolled, and {@link de.planmarshall.core.store.ExplorerStore.Snapshot} answers the most used and the
+ * most recent projects. The data is operator data only and never reaches a model.</li>
  * <li><em>The derived facts store</em> (PM-EXT-6, PM-IMPL-2): {@code derived-facts.json} of a project, the cache of the
  * values the server can observe ({@link de.planmarshall.core.store.DerivedFacts}, read and written by
  * {@link de.planmarshall.core.store.DerivedFactsCodec}): the entries by key, each carrying its kind, its value as a

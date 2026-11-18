@@ -34,6 +34,14 @@
         "format": { "type": "string", "enum": ["text", "mermaid"], "description": "The form of a diagram in text a model writes for a human (the writing skill): text, a fixed-width text diagram, or mermaid, a fenced Mermaid block; absent: the machine's diagrams.format." }
       }
     },
+    "transcribe": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The speech transcription methods the project allows: a subset of the machine's methods, so a project may narrow and never widen (a method the machine does not allow is refused invalid_arguments).",
+      "properties": {
+        "methods": { "type": "array", "uniqueItems": true, "minItems": 1, "items": { "type": "string", "enum": ["local", "provider"] }, "description": "The methods the project allows; absent: the machine's transcribe.methods." }
+      }
+    },
     "plan_defaults": {
       "type": "object",
       "additionalProperties": false,

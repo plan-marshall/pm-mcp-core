@@ -40,7 +40,8 @@ public enum SetupRun {
         this.wireName = wireName;
     }
 
-    /** @return the value of {@code setup_run} in the project's workflow state */
+    /** @return the value of {@code setup_run} or the name of an entry of {@code project.setup}; {@code integrations} is
+     *          an entry only and is never recorded as a run */
     public String wireName() {
         return wireName;
     }

@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import de.planmarshall.core.config.SettingsConflict;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
 
@@ -34,9 +35,10 @@ import de.planmarshall.core.service.LockManager;
  * <p>
  * The store serves operator data only: no model reads it, and it never reaches a representation. A write is one short
  * transaction on {@code locks/explorer.lock}: it reads the document again under the lock, refuses a caller whose
- * revision is not the one the document holds ({@code conflict}, 409), drops every entry of a project that is no longer
- * enrolled and every day older than the window, applies the change and increments the revision. A favourite is set,
- * moved or removed by writing the whole ordered list, so the operator's order survives.
+ * revision is not the one the document holds ({@link SettingsConflict}: {@code conflict}, 409, with the current value),
+ * drops every entry of a project that is no longer enrolled and every day older than the window — the project's last act
+ * stays — applies the change and increments the revision. A favourite is set, moved or removed by writing the whole
+ * ordered list, so the operator's order survives.
  *
  * @since 0.1
  */
@@ -63,7 +65,8 @@ public final class ExplorerStore {
      * The activity of one project: when the operator last acted in it and how often on each UTC day of the window.
      *
      * @param lastAt the last act
-     * @param days   the acts per UTC day, the day as {@code yyyy-MM-dd}
+     * @param days   the acts per UTC day, the day as {@code yyyy-MM-dd}; empty once every counted day left the window,
+     *               so the last act stays visible
      * @since 0.1
      */
     public record Activity(Instant lastAt, Map<String, Integer> days) {
@@ -196,9 +199,9 @@ public final class ExplorerStore {
      * @param enrolled   the projects enrolled on the machine now
      * @param revision   the revision the caller read
      * @throws IllegalArgumentException if a favourite is not a project id or names a project twice
-     * @throws StoreRefusal             as {@link StoreRefusal.Outcome#CONFLICT conflict} if the document holds another
-     *                                  revision than {@code revision}; if the document is unreadable or has another
-     *                                  format version
+     * @throws SettingsConflict         if the document holds another revision than {@code revision}, carrying the current
+     *                                  snapshot as its current value; if the document is unreadable or has another format
+     *                                  version as a {@link StoreRefusal}
      * @throws UncheckedIOException     if the document cannot be read or written
      * @throws InternalFaultException   if the lock of the document must not be acquired by the transaction
      */
@@ -223,8 +226,8 @@ public final class ExplorerStore {
      * @param enrolled  the projects enrolled on the machine now
      * @param revision  the revision the caller read
      * @throws IllegalArgumentException if the project is no valid project id or is no longer enrolled
-     * @throws StoreRefusal             as {@link StoreRefusal.Outcome#CONFLICT conflict} if the document holds another
-     *                                  revision than {@code revision}
+     * @throws SettingsConflict         if the document holds another revision than {@code revision}, carrying the current
+     *                                  snapshot as its current value
      * @throws UncheckedIOException     if the document cannot be read or written
      */
     public void recordActivity(String projectId, Set<String> enrolled, long revision) {
@@ -260,7 +263,7 @@ public final class ExplorerStore {
                     .map(document -> ExplorerCodec.read(storeFile.store(), document))
                     .orElseGet(() -> new Snapshot(List.of(), Map.of(), NO_DOCUMENT));
             if (current.revision() != revision) {
-                throw StoreRefusal.conflict(storeFile.store(), revision, current.revision());
+                throw new SettingsConflict(storeFile.store(), revision, current.revision(), current);
             }
             var next = change.apply(current);
             storeFile.write(transaction, ExplorerCodec.write(storeFile.store(),
@@ -296,9 +299,7 @@ public final class ExplorerStore {
                     days.put(day.getKey(), day.getValue());
                 }
             }
-            if (!days.isEmpty()) {
-                kept.put(entry.getKey(), new Activity(entry.getValue().lastAt(), days));
-            }
+            kept.put(entry.getKey(), new Activity(entry.getValue().lastAt(), days));
         }
         return kept;
     }

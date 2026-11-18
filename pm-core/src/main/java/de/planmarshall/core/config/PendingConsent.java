@@ -19,9 +19,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * A consent the operator gave with {@code yes_remember} in a project's onboarding before the project had its id (Store
  * Schemas § Consent Before Acting; Credentials &amp; Enrolment § Onboarding a Project as One Process): the hold is kept
- * with the onboarding's entry and written to {@code consents.json} under the confirmed {@code project_id} in the
- * transaction of {@code project.enrol}. An onboarding that does not reach its enrolment remembers nothing, because the
- * hold lives and dies with its entry and is never a store entry of its own.
+ * with the onboarding's entry and written to {@code consents.json} at {@code project.enrol} under the confirmed
+ * {@code project_id}, in the consents store's own transaction (the consents lock is separate from the enrolment's). An
+ * onboarding that does not reach its enrolment remembers nothing, because the hold lives and dies with its entry and is
+ * never a store entry of its own.
  * <p>
  * Only a project-scoped kind is held: the first checkout consents are {@code inspect_checkout} and
  * {@code run_checkout_scripts}, and a machine kind is asked with the machine's id known.

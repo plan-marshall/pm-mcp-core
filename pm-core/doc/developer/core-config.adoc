@@ -177,8 +177,8 @@ value, which the store-refusal vocabulary has no field for
 * `ConsentGate` refuses a `yes_remember` for `verify_harness_profile` and `auto_run`, so a caller that offers the link
   fails loudly instead of remembering a kind the specification says is never remembered.
 * A `PendingConsent` is never a store entry: it is held with the onboarding's entry and written under the confirmed
-  `project_id` in the transaction of `project.enrol`, so an onboarding that abandons before its enrolment remembers
-  nothing.
+  `project_id` at `project.enrol`, in the consents store's own transaction, so an onboarding that abandons before its
+  enrolment remembers nothing.
 * `ProjectValueProposal.recorded` answers empty for the machine's own value, so accepting a proposal writes no key and the
   project keeps following the machine.
 

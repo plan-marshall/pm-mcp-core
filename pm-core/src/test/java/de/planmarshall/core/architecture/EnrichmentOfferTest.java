@@ -37,8 +37,8 @@ class EnrichmentOfferTest {
     @DisplayName("Should estimate the compiled tokens per module")
     void estimatesTheCompiledTokensPerModule() {
         assertAll(
-                () -> assertEquals(3 * EnrichmentOffer.PER_MODULE, EnrichmentOffer.expectedTokens(3),
-                        "Three modules cost three compiled estimates"),
+                () -> assertEquals(18_000L, EnrichmentOffer.expectedTokens(3),
+                        "Three modules cost the compiled 18000 tokens"),
                 () -> assertEquals(0, EnrichmentOffer.expectedTokens(0), "No module costs no tokens"));
     }
 
@@ -61,7 +61,7 @@ class EnrichmentOfferTest {
         var line = EnrichmentOffer.of(List.of("pm-core")).costLine();
 
         assertAll(
-                () -> assertTrue(line.endsWith(" tokens"), "The cost line ends in the token count"),
+                () -> assertTrue(line.equals("6000 tokens"), "The cost line is the compiled token count"),
                 () -> assertFalse(line.matches(".*[$€£¥].*"), "The cost line carries no currency"),
                 () -> assertFalse(line.toLowerCase(Locale.ROOT).contains("usd"),
                         "The cost line names no money unit"));

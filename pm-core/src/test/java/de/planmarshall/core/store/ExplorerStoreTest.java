@@ -35,6 +35,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.config.SettingsConflict;
 
 /**
  * The operator's projects {@code explorer.json} (Store Schemas § The Operator's Projects): the favourites in the
@@ -110,16 +111,22 @@ class ExplorerStoreTest {
     }
 
     @Test
-    @DisplayName("Should refuse a change against an older revision")
+    @DisplayName("Should refuse a change against an older revision with the current value")
     void refusesAStaleRevision() {
         var project = id();
         store.setFavourites(List.of(project), Set.of(project), 0);
 
-        var refusal = assertThrows(StoreRefusal.class,
+        var conflict = assertThrows(SettingsConflict.class,
                 () -> store.setFavourites(List.of(project), Set.of(project), 0),
                 "A change against the read revision is refused");
 
-        assertEquals(StoreRefusal.Outcome.CONFLICT, refusal.outcome(), "The refusal is a conflict");
+        assertAll(
+                () -> assertEquals(SettingsConflict.ERROR_CODE, conflict.code(), "The refusal code is conflict"),
+                () -> assertEquals(0L, conflict.expectedRevision(), "The change's revision is carried"),
+                () -> assertEquals(1L, conflict.currentRevision(), "The document's revision is carried"),
+                () -> assertEquals(List.of(project),
+                        ((ExplorerStore.Snapshot) conflict.currentValue()).favourites(),
+                        "The current value is the document's favourites"));
     }
 
     @Test
@@ -151,6 +158,24 @@ class ExplorerStoreTest {
         var activity = later.read().activity().get(project);
         var today = LocalDate.ofInstant(laterInstant, ZoneOffset.UTC).toString();
         assertEquals(Map.of(today, 1), activity.days(), "The window keeps only the act inside it");
+    }
+
+    @Test
+    @DisplayName("Should keep the last act of a project whose counted days left the window")
+    void keepsTheLastActOfAnIdleProject() {
+        var idle = id();
+        var active = id();
+        store.recordActivity(idle, Set.of(idle, active), 0);
+
+        var laterInstant = NOW.plus(ExplorerStore.ACTIVITY_WINDOW_DAYS, DAYS);
+        var later = new ExplorerStore(ExplorerStore.file(base), locks, Clock.fixed(laterInstant, ZoneOffset.UTC));
+        later.recordActivity(active, Set.of(idle, active), 1);
+
+        var activity = later.read().activity().get(idle);
+        assertAll(
+                () -> assertEquals(NOW, activity.lastAt(), "The idle project keeps its last act"),
+                () -> assertTrue(activity.days().isEmpty(), "No counted day survives outside the window"),
+                () -> assertEquals(0, activity.actsInWindow(), "The idle project counts no act"));
     }
 
     @Test

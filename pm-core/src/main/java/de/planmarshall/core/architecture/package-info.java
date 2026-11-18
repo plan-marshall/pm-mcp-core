@@ -8,9 +8,11 @@
  * the root of this repository.
  */
 /**
- * The merges over the contributions of the domain extensions: edge derivation and path ownership.
+ * The merges over the contributions of the domain extensions: edge derivation and path ownership; and the framework-free
+ * values of the architecture work the project setup drives, the enrichment cost offer among them.
  * <p>
- * Specification: {@code doc/specification/domain-extensions/02-merge-algorithms.adoc}.
+ * Specification: {@code doc/specification/domain-extensions/02-merge-algorithms.adoc},
+ * {@code doc/specification/domain-extensions/04-setup-state-machine.adoc}.
  */
 @NullMarked
 package de.planmarshall.core.architecture;

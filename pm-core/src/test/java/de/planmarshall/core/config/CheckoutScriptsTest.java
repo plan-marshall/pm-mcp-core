@@ -12,7 +12,9 @@ package de.planmarshall.core.config;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -118,6 +120,21 @@ class CheckoutScriptsTest {
         assertThrows(IllegalArgumentException.class,
                 () -> CheckoutScripts.digest(checkout, List.of("run.sh", "./run.sh")),
                 "A consent names each script once");
+    }
+
+    @Test
+    @DisplayName("Should not pass a remembered consent that lacks an added script")
+    void remembersOnlyTheListedDigests() {
+        var first = new ConsentScript("scripts/first.sh", sha256("first".getBytes(UTF_8)));
+        var added = new ConsentScript("scripts/added.sh", sha256("added".getBytes(UTF_8)));
+        var snapshot = new ConsentStore.Snapshot(List.of(Consent.checkoutScripts("my-project", List.of(first),
+                java.time.Instant.parse("2026-11-18T00:00:00Z"), Consent.Channel.CLI, null)), 1);
+
+        assertAll(
+                () -> assertTrue(snapshot.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, "my-project",
+                        List.of(first)), "The remembered list passes the scripts it covers"),
+                () -> assertFalse(snapshot.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, "my-project",
+                        List.of(first, added)), "An added script asks again"));
     }
 
     private static String sha256(byte[] content) {

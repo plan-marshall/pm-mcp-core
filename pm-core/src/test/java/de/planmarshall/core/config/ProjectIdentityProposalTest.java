@@ -20,6 +20,8 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.store.LockKey;
+
 /**
  * The identity a project onboarding proposes (State Catalogue § Project Onboarding, {@code project.identity}): the id
  * from the remote's name, valid by the identifier grammar and unique on the machine, and the display name from the
@@ -89,8 +91,19 @@ class ProjectIdentityProposalTest {
                 Set.of()).orElseThrow();
 
         assertAll(
-                () -> assertTrue(proposal.projectId().length() <= 63, "The id stays inside 63 characters"),
-                () -> assertTrue(proposal.projectId().length() >= 2, "The id keeps the grammar's minimum"));
+                () -> assertTrue(LockKey.isIdentifier(proposal.projectId()), "The id is one of the grammar"),
+                () -> assertTrue(proposal.projectId().length() <= 63, "The id stays inside 63 characters"));
+    }
+
+    @Test
+    @DisplayName("Should propose nothing when the name cannot form an identifier")
+    void proposesNothingForANameTooShort() {
+        assertAll(
+                () -> assertTrue(ProjectIdentityProposal.fromRemote("https://example.org/owner/ui.git",
+                        Set.of()).isEmpty(),
+                        "A two-character name forms no identifier"),
+                () -> assertTrue(ProjectIdentityProposal.fromRemote("file:///home/owner/repo.git",
+                        Set.of()).isEmpty(), "A file remote proposes no identity"));
     }
 
     private static ProjectIdentityProposal proposal(String remote) {

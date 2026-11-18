@@ -2729,10 +2729,11 @@ document's order and never a derived one. `recordActivity` counts one act on the
 and then to the project id, so the order is total and repeatable.
 
 *Invariants*: the window is the compiled `ACTIVITY_WINDOW_DAYS` (30), so a day older than `today - 29` is dropped by the
-next write; an entry, and a favourite, of a project no longer enrolled is dropped by the next write; an act of a project
-that is not enrolled is refused instead of recorded; a write happens only under the document's lock and only while the
-caller's revision is the document's, and a change against an older one is a `StoreRefusal` of outcome `CONFLICT`; the
-store is operator data only and never reaches a model.
+next write while the project's last act stays, so `recent` never loses a project that merely went quiet; an entry, and a
+favourite, of a project no longer enrolled is dropped by the next write; an act of a project that is not enrolled is
+refused instead of recorded; a write happens only under the document's lock and only while the caller's revision is the
+document's, and a change against an older one is a `SettingsConflict` carrying the current snapshot; the store is operator
+data only and never reaches a model.
 
 *Failure modes*: a document of another `format_version`, one that does not parse, a member the schema does not name, a
 project id outside the identifier grammar, a day that is no UTC date and a count below one are refused as unreadable

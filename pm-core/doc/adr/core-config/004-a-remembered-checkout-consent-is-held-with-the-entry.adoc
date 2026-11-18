@@ -46,8 +46,8 @@ asked again in that run.
 
 == Consequences
 
-* An abandoned onboarding leaves no entry, no enrolment and no remembered consent, which is the property the Done-when
-  tests.
+* An abandoned onboarding leaves no entry, no enrolment and no remembered consent; the hold itself is never a store
+  entry, so nothing of it survives its entry.
 * A consent covers exactly the digests it was granted for, so editing a script re-opens the question without touching the
   store.
 

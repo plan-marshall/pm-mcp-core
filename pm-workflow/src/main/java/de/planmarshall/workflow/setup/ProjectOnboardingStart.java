@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import lombok.Builder;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -52,6 +53,7 @@ public final class ProjectOnboardingStart {
      * @param clients     the operator's clients, where the onboarding goes on
      * @since 0.1
      */
+    @Builder
     public record MachineNotOnboarded(String reason, int httpStatus, String missingStep, List<String> clients)
             implements Decision {
 

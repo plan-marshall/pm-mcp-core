@@ -16,7 +16,8 @@ import java.util.Optional;
 /**
  * One aspect of a project's setup, in the order its single-aspect run offers it (State Catalogue § Project Setup,
  * {@code setup.entry}): the value is what {@code project.completed}'s {@code aspect:<name>} link names and what the run
- * records in {@code setup_aspect}.
+ * records in {@code setup_aspect}. The six aspects below are the setup's; {@code aspect:operator_values} is not one of
+ * them, because that link enters {@code project.operator} directly.
  * <p>
  * The list lives in this module because the unit that routes an aspect and the runtime that serves the links read the
  * same names, so the closed list and its order exist once.

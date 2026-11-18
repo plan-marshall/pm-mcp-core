@@ -10,18 +10,21 @@
 package de.planmarshall.core.config;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 
 import lombok.experimental.UtilityClass;
-
-import de.planmarshall.core.store.StoreDigest;
 
 /**
  * The digests a {@link ConsentKind#RUN_CHECKOUT_SCRIPTS run_checkout_scripts} consent is keyed by (Store Schemas §
@@ -36,6 +39,9 @@ import de.planmarshall.core.store.StoreDigest;
  */
 @UtilityClass
 public final class CheckoutScripts {
+
+    /** The largest script the consent digests; a larger file is refused rather than read. */
+    public static final long MAX_SCRIPT_BYTES = 8L * 1024 * 1024;
 
     /**
      * Digests the scripts a {@code run_checkout_scripts} state would run.
@@ -82,9 +88,23 @@ public final class CheckoutScripts {
             throw new IllegalArgumentException("A checkout script is a regular file: " + given);
         }
         try {
-            return new ConsentScript(path.toString(), StoreDigest.of(Files.readAllBytes(file)).sha256());
+            if (Files.size(file) > MAX_SCRIPT_BYTES) {
+                throw new IllegalArgumentException(
+                        "A checkout script is at most %d bytes: %s".formatted(MAX_SCRIPT_BYTES, given));
+            }
+            return new ConsentScript(path.toString(), sha256(file));
         } catch (IOException e) {
             throw new UncheckedIOException("A checkout script cannot be read: " + given, e);
+        }
+    }
+
+    private static String sha256(Path file) throws IOException {
+        try (var digest = new DigestInputStream(Files.newInputStream(file),
+                MessageDigest.getInstance("SHA-256"))) {
+            digest.transferTo(OutputStream.nullOutputStream());
+            return HexFormat.of().formatHex(digest.getMessageDigest().digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("The JVM carries SHA-256", e);
         }
     }
 }
