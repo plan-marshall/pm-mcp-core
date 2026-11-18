@@ -32,7 +32,7 @@ import de.planmarshall.core.store.LockKey;
 public record ProjectIdentityProposal(String projectId, String displayName) {
 
     /** The longest identifier the grammar admits. */
-    private static final int MAX_LENGTH = 63;
+    private static final int MAX_LENGTH = 64;
 
     private static final Pattern SCP_LIKE = Pattern.compile("^(?:[^@/\\s]+@)?[^:/\\s]+:(.+)$");
 
@@ -150,7 +150,10 @@ public record ProjectIdentityProposal(String projectId, String displayName) {
         if (name.endsWith(".git")) {
             name = name.substring(0, name.length() - ".git".length());
         }
-        return owner.isEmpty() || name.isEmpty() ? Optional.empty() : Optional.of(new Repository(owner, name));
+        if (owner.isEmpty() || ".".equals(owner) || "..".equals(owner) || name.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new Repository(owner, name));
     }
 
     /** The owner and the name of a repository, before the id is made from them. */

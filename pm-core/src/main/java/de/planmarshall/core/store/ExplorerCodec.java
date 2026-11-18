@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -55,6 +56,9 @@ final class ExplorerCodec {
     private static final String FIELD_ACTIVITY = "activity";
     private static final String FIELD_LAST_AT = "last_at";
     private static final String FIELD_DAYS = "days";
+
+    /** The grammar of a counted UTC day, a four-digit year included. */
+    private static final Pattern DAY = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
 
     /**
      * @param file     the document's file, named by a refusal
@@ -158,7 +162,7 @@ final class ExplorerCodec {
         requireObject(parser, name);
         requireProjectId(name, FIELD_ACTIVITY);
         Instant lastAt = null;
-        Map<String, Integer> days = Map.of();
+        Map<String, Long> days = Map.of();
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -172,17 +176,20 @@ final class ExplorerCodec {
         return new ExplorerStore.Activity(lastAt, days);
     }
 
-    private static Integer day(JsonParser parser, String key) throws IOException {
+    private static Long day(JsonParser parser, String key) throws IOException {
+        if (!DAY.matcher(key).matches()) {
+            throw unreadable("A day of the activity is a UTC date: " + key);
+        }
         try {
             LocalDate.parse(key);
         } catch (DateTimeParseException e) {
             throw unreadable("A day of the activity is a UTC date: " + key, e);
         }
         var count = integer(parser, key);
-        if (count < 1 || count > Integer.MAX_VALUE) {
+        if (count < 1) {
             throw unreadable("An act count is one or more, and not '%s': %d".formatted(key, count));
         }
-        return (int) count;
+        return count;
     }
 
     private static void requireProjectId(String projectId, String field) {

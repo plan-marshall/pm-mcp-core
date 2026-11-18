@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import de.planmarshall.core.config.SettingsConflict;
 import de.planmarshall.core.service.InternalFaultException;
@@ -53,7 +54,9 @@ public final class ExplorerStore {
     /** The revision a document that does not exist reads as. */
     private static final long NO_DOCUMENT = 0L;
 
-    private static final String LOCK = "explorer";
+    /** The grammar of a counted UTC day, a four-digit year included. */
+    private static final Pattern DAY = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+
     private static final String FILE = "explorer.json";
     private static final String PROJECT_ID = "projectId";
 
@@ -69,7 +72,7 @@ public final class ExplorerStore {
      *               so the last act stays visible
      * @since 0.1
      */
-    public record Activity(Instant lastAt, Map<String, Integer> days) {
+    public record Activity(Instant lastAt, Map<String, Long> days) {
 
         /**
          * @throws NullPointerException     if the instant is {@code null}
@@ -84,11 +87,14 @@ public final class ExplorerStore {
         }
 
         /** @return the number of acts the window holds */
-        public int actsInWindow() {
-            return days.values().stream().mapToInt(Integer::intValue).sum();
+        public long actsInWindow() {
+            return days.values().stream().mapToLong(Long::longValue).sum();
         }
 
-        private static void requireDay(String day, int count) {
+        private static void requireDay(String day, long count) {
+            if (!DAY.matcher(day).matches()) {
+                throw new IllegalArgumentException("A day of the activity is a UTC date: " + day);
+            }
             try {
                 LocalDate.parse(day);
             } catch (DateTimeParseException e) {
@@ -123,7 +129,7 @@ public final class ExplorerStore {
          */
         public List<String> mostUsed(int limit) {
             Comparator<Map.Entry<String, Activity>> order = Comparator
-                    .comparingInt((Map.Entry<String, Activity> entry) -> entry.getValue().actsInWindow())
+                    .comparingLong((Map.Entry<String, Activity> entry) -> entry.getValue().actsInWindow())
                     .reversed()
                     .thenComparing((Map.Entry<String, Activity> entry) -> entry.getValue().lastAt(),
                             Comparator.reverseOrder())
@@ -150,13 +156,14 @@ public final class ExplorerStore {
      * @param storeFile   the {@code explorer.json} file with the key of the explorer lock
      * @param lockManager the lock manager of the runtime
      * @param clock       the clock of the UTC day and instant an act is recorded at
-     * @throws IllegalArgumentException if the key of the store file is not the machine's explorer lock
+     * @throws IllegalArgumentException if the key of the store file is not the machine's explorer lock of this base
      */
     public ExplorerStore(AtomicStoreFile storeFile, LockManager lockManager, Clock clock) {
         this.storeFile = Objects.requireNonNull(storeFile, "storeFile");
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.clock = Objects.requireNonNull(clock, "clock");
-        if (storeFile.lockKey().level() != LockLevel.MACHINE_STORE || !LOCK.equals(storeFile.lockKey().id())) {
+        var base = Objects.requireNonNull(storeFile.store().getParent(), "base");
+        if (!storeFile.lockKey().equals(LockKey.explorer(base))) {
             throw new IllegalArgumentException("The operator's projects are guarded by the machine's explorer lock: "
                     + storeFile.lockKey().lockFile());
         }
@@ -241,13 +248,20 @@ public final class ExplorerStore {
         mutate(revision, current -> {
             var activity = new LinkedHashMap<>(prune(current.activity(), enrolled, today()));
             var previous = activity.get(projectId);
-            var days = new LinkedHashMap<String, Integer>();
+            var days = new LinkedHashMap<String, Long>();
             if (previous != null) {
                 days.putAll(previous.days());
             }
-            days.merge(day, 1, Integer::sum);
+            var count = days.getOrDefault(day, 0L);
+            try {
+                days.put(day, Math.addExact(count, 1L));
+            } catch (ArithmeticException e) {
+                throw StoreRefusal.unreadable(storeFile.store(), FORMAT_VERSION,
+                        "the act count of '%s' cannot advance".formatted(day), e);
+            }
             activity.put(projectId, new Activity(now, days));
-            return new Snapshot(current.favourites(), activity, current.revision());
+            var favourites = current.favourites().stream().filter(enrolled::contains).toList();
+            return new Snapshot(favourites, activity, current.revision());
         });
     }
 
@@ -267,7 +281,7 @@ public final class ExplorerStore {
             }
             var next = change.apply(current);
             storeFile.write(transaction, ExplorerCodec.write(storeFile.store(),
-                    new Snapshot(next.favourites(), next.activity(), revision + 1)));
+                    new Snapshot(next.favourites(), next.activity(), nextRevision(current.revision()))));
         }
     }
 
@@ -283,6 +297,19 @@ public final class ExplorerStore {
     }
 
     /**
+     * The revision a write stores: one more than the document's, refused once it cannot advance, so an exhausted
+     * revision leaves the current document readable rather than persisting a negative one.
+     */
+    private long nextRevision(long current) {
+        try {
+            return Math.addExact(current, 1L);
+        } catch (ArithmeticException e) {
+            throw StoreRefusal.unreadable(storeFile.store(), FORMAT_VERSION,
+                    "the revision cannot advance beyond " + current, e);
+        }
+    }
+
+    /**
      * Drops the entries of projects that are no longer enrolled and the days older than the window.
      */
     private static Map<String, Activity> prune(Map<String, Activity> activity, Set<String> enrolled,
@@ -293,7 +320,7 @@ public final class ExplorerStore {
             if (!enrolled.contains(entry.getKey())) {
                 continue;
             }
-            var days = new LinkedHashMap<String, Integer>();
+            var days = new LinkedHashMap<String, Long>();
             for (var day : entry.getValue().days().entrySet()) {
                 if (day.getKey().compareTo(oldest) >= 0) {
                     days.put(day.getKey(), day.getValue());

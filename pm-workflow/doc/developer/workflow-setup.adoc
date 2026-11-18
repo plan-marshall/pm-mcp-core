@@ -45,10 +45,11 @@ is a functional interface, so the call site owns what it reads; the gate is cons
 
 `SetupRunDerivation`:: The `setup_run` a setup call records at `setup.entry`
 (link:../../../doc/specification/state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue § Project
-Setup]). `derive(entry, configDirectoryPresent, recorded)` keeps the run an interrupted call already recorded; otherwise an
-`integrations` entry continues the first run, a primary checkout without `.marshall/config/` is a first run, an `aspect`
-entry is that one aspect, and every other call reconciles. The four entries and the six aspects are
-`SetupRun`/`SetupAspect` of `core.config`, so the names exist once
+Setup]). `derive(entry, configDirectoryPresent, recorded)` takes the entry the caller named — one value of `SetupRun`,
+where `integrations` is an entry that derives `FIRST_RUN` and is never a recorded run — and keeps the run an interrupted
+call already recorded; otherwise an `integrations` entry continues the first run, a primary checkout without
+`.marshall/config/` is a first run, an `aspect` entry is that one aspect, and every other call reconciles. The four
+entries (`SetupRun`) and the six aspects (`SetupAspect`) are closed lists of `core.config`, so the names exist once
 (link:../adr/workflow-setup/003-the-setup-run-is-derived-from-server-facts.adoc[ADR 003]).
 
 == Invariants

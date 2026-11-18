@@ -66,9 +66,14 @@ public record PendingConsent(ConsentKind kind, List<ConsentScript> scripts, Inst
                     "Only run_checkout_scripts covers scripts, and '%s' names %d"
                             .formatted(kind.wireName(), scripts.size()));
         }
-        if (deviceId != null && channel != Consent.Channel.WEB) {
-            throw new IllegalArgumentException(
-                    "Only an answer through web names a paired device: " + deviceId);
+        if (deviceId != null) {
+            if (channel != Consent.Channel.WEB) {
+                throw new IllegalArgumentException(
+                        "Only an answer through web names a paired device: " + deviceId);
+            }
+            if (!Consent.isPairedDevice(deviceId)) {
+                throw new IllegalArgumentException("Not a paired device id of a hold: " + deviceId);
+            }
         }
     }
 

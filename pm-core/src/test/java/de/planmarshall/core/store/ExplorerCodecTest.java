@@ -47,7 +47,7 @@ class ExplorerCodecTest {
                 () -> assertEquals(1L, snapshot.revision(), "The document's revision is read"),
                 () -> assertEquals(List.of("pm-core"), snapshot.favourites(),
                         "The favourites are read in order"),
-                () -> assertEquals(1, snapshot.activity().get("pm-core").actsInWindow(),
+                () -> assertEquals(1L, snapshot.activity().get("pm-core").actsInWindow(),
                         "The activity's day is read"));
     }
 
@@ -97,12 +97,15 @@ class ExplorerCodecTest {
     }
 
     @Test
-    @DisplayName("Should refuse a day that is no date and a count below one")
+    @DisplayName("Should refuse a day that is no date, a repeated day and a count below one")
     void refusesAnInvalidDay() {
         assertAll(
                 () -> assertEquals(StoreRefusal.Outcome.UNREADABLE,
                         refusal(VALID.replace("\"2026-11-18\": 1", "\"yesterday\": 1")).outcome(),
                         "A day that is no date is refused"),
+                () -> assertEquals(StoreRefusal.Outcome.UNREADABLE,
+                        refusal(VALID.replace("\"2026-11-18\": 1", "\"2026-11-18\": 1, \"2026-11-18\": 1")).outcome(),
+                        "A day named twice is refused"),
                 () -> assertEquals(StoreRefusal.Outcome.UNREADABLE,
                         refusal(VALID.replace("\"2026-11-18\": 1", "\"2026-11-18\": 0")).outcome(),
                         "A count below one is refused"));

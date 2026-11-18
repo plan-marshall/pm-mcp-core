@@ -48,8 +48,8 @@ refusal type of the new stores.
 
 * A client can show the current value and offer the act again on top of it without a read that races the next writer.
 * The current value is typed by the store (`ProviderDefaults`, `ModelCatalogueStore.Snapshot`,
-  `RoleAssignmentsStore.Snapshot`, `ConsentStore.Snapshot`, `ExplorerStore.Snapshot`), so a consumer must know which
-  store refused to read it.
+  `RoleAssignmentsStore.Snapshot`, `ConsentStore.Snapshot`, `ExplorerStore.Snapshot`, and the `PlanOverrides` document of
+  `PlanOverridesStore`), so a consumer must know which store refused to read it.
 * The value is not serializable, like the file path of `StoreRefusal`: a deserialized conflict carries no value.
 * Two conflict refusals now exist side by side — `StoreRefusal` for the settings store that shipped first and
   `SettingsConflict` for the stores of this package. A follow-up may fold the former into the latter once it has a caller

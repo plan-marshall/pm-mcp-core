@@ -36,6 +36,9 @@ public record TranscribeMethods(List<String> methods) {
         if (methods.isEmpty()) {
             throw new IllegalArgumentException("A project allows at least one transcription method");
         }
+        if (methods.stream().distinct().count() != methods.size()) {
+            throw new IllegalArgumentException("A project names each transcription method once");
+        }
     }
 
     /**

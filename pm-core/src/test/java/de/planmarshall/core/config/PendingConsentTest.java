@@ -139,6 +139,20 @@ class PendingConsentTest {
                 "Only a web answer names a paired device");
     }
 
+    @Test
+    @DisplayName("Should refuse a device id that is no paired device")
+    void refusesAnInvalidDevice() {
+        var builder = PendingConsent.builder()
+                .kind(ConsentKind.INSPECT_CHECKOUT)
+                .scripts(List.of())
+                .grantedAt(GRANTED)
+                .channel(Consent.Channel.WEB)
+                .deviceId("not-a-device");
+
+        assertThrows(IllegalArgumentException.class, builder::build,
+                "A web answer names a paired device id");
+    }
+
     private static ConsentScript script() {
         var content = Generators.letterStrings(4, 20).next();
         return new ConsentScript("scripts/" + Generators.letterStrings(1, 8).next() + ".sh", sha256(content));

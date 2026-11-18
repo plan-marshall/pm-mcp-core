@@ -128,11 +128,9 @@ absent file, a directory, a symbolic link and a repeated path are refused rather
 script the state cannot run.
 
 `PendingConsent`:: A `yes_remember` of a project-scoped kind given before the project has its id: the hold lives with the
-onboarding's entry, and `resolvedFor(projectId)` materializes it under the confirmed id at `project.enrol`. It carries
-the kind, the scripts a script consent covers, the grant instant, the channel and the paired device; a machine kind, a
-never-remembered kind, scripts on a kind that covers none, an empty script list on `run_checkout_scripts` and a device on
-a `cli` answer are refused (link:../../doc/adr/core-config/004-a-remembered-checkout-consent-is-held-with-the-entry.adoc[ADR
-004]).
+onboarding's entry (the unit's), and `resolvedFor(projectId)` materializes it under the confirmed id. Recording it
+through `ConsentStore.grant` at `project.enrol`, in the consents store's own transaction, is the unit's step; this type
+holds the value and never writes a store.
 
 `RunConsents`:: The kinds one onboarding run already answered `no`: `asksAgain(kind)` is false for a refused optional
 consent, so `project.run-consent` goes on without the scripts and does not ask again in that run. It records the answer of
@@ -149,7 +147,11 @@ which run a call records.
 `ProjectValueProposal`:: One value of a project over the machine's
 (link:../../../doc/specification/store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas § Project
 Values over Machine Values]): the machine's value is the proposal, accepting it records nothing, and a changed value is
-the one the project records. The rule is the same for every key and aspect, so no key carries a rule of its own.
+the one the project records. The rule is the same for every machine-backed key and aspect, so no such key carries a rule
+of its own. Two keys sit outside it: the transcription methods, which the project may only narrow (`TranscribeMethods`,
+called before an override is recorded), and the commit identity where neither the project nor the machine holds one — the
+specification proposes the operator's global git identity and records it on the operator's acceptance, and
+`ProjectValueProposal` covers only a value it can propose.
 
 `TranscribeMethods`:: The one value a project may only narrow. `chosen(methods, machineMethods)` accepts a subset of the
 machine's and refuses a method the machine does not allow with `invalid_arguments`.
@@ -178,7 +180,7 @@ value, which the store-refusal vocabulary has no field for
   fails loudly instead of remembering a kind the specification says is never remembered.
 * A `PendingConsent` is never a store entry: it is held with the onboarding's entry and written under the confirmed
   `project_id` at `project.enrol`, in the consents store's own transaction, so an onboarding that abandons before its
-  enrolment remembers nothing.
+  enrolment remembers nothing. The write is the unit's step; the type holds the value.
 * `ProjectValueProposal.recorded` answers empty for the machine's own value, so accepting a proposal writes no key and the
   project keeps following the machine.
 

@@ -68,7 +68,7 @@ class EnrichmentOfferTest {
     }
 
     @Test
-    @DisplayName("Should refuse an offer of no module and a negative estimate")
+    @DisplayName("Should refuse an offer of no module and a figure that is not the estimate")
     void refusesWhatItCannotOffer() {
         List<String> noModule = List.of();
         var oneModule = List.of(module());
@@ -76,10 +76,19 @@ class EnrichmentOfferTest {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> EnrichmentOffer.of(noModule),
                         "An enrichment offers at least one module"),
-                () -> assertThrows(IllegalArgumentException.class, () -> new EnrichmentOffer(oneModule, -1),
-                        "The expected tokens are not negative"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new EnrichmentOffer(oneModule, 1),
+                        "A figure that is not the estimate is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> EnrichmentOffer.expectedTokens(-1),
                         "A module count is not negative"));
+    }
+
+    @Test
+    @DisplayName("Should accept the estimate the constructor is given")
+    void acceptsTheEstimate() {
+        var offer = new EnrichmentOffer(List.of(module()), EnrichmentOffer.PER_MODULE);
+
+        assertEquals(EnrichmentOffer.PER_MODULE, offer.expectedTokens(),
+                "One module costs the compiled estimate");
     }
 
     private static String module() {

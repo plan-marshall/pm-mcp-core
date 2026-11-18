@@ -33,16 +33,20 @@ public record EnrichmentOffer(List<String> modules, long expectedTokens) {
 
     /**
      * @throws NullPointerException     if the modules are {@code null}
-     * @throws IllegalArgumentException if no module is offered or the expected tokens are negative
+     * @throws IllegalArgumentException if no module is offered, or the expected tokens are not the compiled estimate of
+     *                                  the offered modules
      */
     public EnrichmentOffer {
-        modules = List.copyOf(Objects.requireNonNull(modules, "modules"));
-        if (modules.isEmpty()) {
+        var snapshot = List.copyOf(Objects.requireNonNull(modules, "modules"));
+        if (snapshot.isEmpty()) {
             throw new IllegalArgumentException("An enrichment offers at least one module to describe");
         }
-        if (expectedTokens < 0) {
-            throw new IllegalArgumentException("The expected tokens are not negative: " + expectedTokens);
+        if (expectedTokens != expectedTokens(snapshot.size())) {
+            throw new IllegalArgumentException(
+                    "An enrichment of %d modules costs the compiled %d tokens: %d"
+                            .formatted(snapshot.size(), expectedTokens(snapshot.size()), expectedTokens));
         }
+        modules = snapshot;
     }
 
     /**
@@ -65,7 +69,8 @@ public record EnrichmentOffer(List<String> modules, long expectedTokens) {
      * @throws IllegalArgumentException if the list is empty
      */
     public static EnrichmentOffer of(List<String> modules) {
-        return new EnrichmentOffer(modules, expectedTokens(modules.size()));
+        var snapshot = List.copyOf(Objects.requireNonNull(modules, "modules"));
+        return new EnrichmentOffer(snapshot, expectedTokens(snapshot.size()));
     }
 
     /**

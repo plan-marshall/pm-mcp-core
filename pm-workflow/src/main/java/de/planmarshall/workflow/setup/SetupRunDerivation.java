@@ -38,10 +38,15 @@ public final class SetupRunDerivation {
      * @param configDirectoryPresent whether the primary checkout carries {@code .marshall/config/}
      * @param recorded               the run an interrupted call already recorded, if any; may be {@code null}
      * @return the run to record
-     * @throws NullPointerException if the entry is {@code null}
+     * @throws NullPointerException     if the entry is {@code null}
+     * @throws IllegalArgumentException if {@code recorded} is the {@code integrations} entry, which is never a recorded
+     *                                  {@code setup_run}
      */
     public static SetupRun derive(SetupRun entry, boolean configDirectoryPresent, @Nullable SetupRun recorded) {
         Objects.requireNonNull(entry, "entry");
+        if (recorded == SetupRun.INTEGRATIONS) {
+            throw new IllegalArgumentException("An integrations entry is no recorded setup_run");
+        }
         if (recorded != null) {
             return recorded;
         }

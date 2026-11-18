@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -79,18 +80,18 @@ class ProjectOnboardingStartTest {
     @Test
     @DisplayName("Should admit the start and inspect the checkout once the machine is onboarded")
     void inspectsTheCheckoutAfterTheGuardAdmits() {
-        var inspected = new AtomicBoolean();
+        var inspections = new AtomicInteger();
         var onboarding = MachineOnboarding.fromStatus(machineStatus("onboard.completed", null, STEPS));
 
         var decision = ProjectOnboardingStart.start(onboarding, () -> {
-            inspected.set(true);
+            inspections.incrementAndGet();
             return Optional.empty();
         });
 
         assertAll(
                 () -> assertInstanceOf(ProjectOnboardingStart.Admitted.class, decision,
                         "An onboarded machine admits the start"),
-                () -> assertTrue(inspected.get(), "The checkout is inspected once the guard admits"));
+                () -> assertEquals(1, inspections.get(), "The checkout is inspected exactly once"));
     }
 
     @Test

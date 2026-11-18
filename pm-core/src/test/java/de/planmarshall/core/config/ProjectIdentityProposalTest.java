@@ -78,7 +78,9 @@ class ProjectIdentityProposalTest {
                 () -> assertTrue(ProjectIdentityProposal.fromRemote("", Set.of()).isEmpty(),
                         "An empty remote proposes nothing"),
                 () -> assertTrue(ProjectIdentityProposal.fromRemote("https://example.org/owner/___.git",
-                        Set.of()).isEmpty(), "A name with no valid character proposes nothing"));
+                        Set.of()).isEmpty(), "A name with no valid character proposes nothing"),
+                () -> assertTrue(ProjectIdentityProposal.fromRemote("./repo.git", Set.of()).isEmpty(),
+                        "A dot owner proposes nothing"));
     }
 
     @Test
@@ -90,7 +92,7 @@ class ProjectIdentityProposalTest {
 
         assertAll(
                 () -> assertTrue(LockKey.isIdentifier(proposal.projectId()), "The id is one of the grammar"),
-                () -> assertTrue(proposal.projectId().length() <= 63, "The id stays inside 63 characters"));
+                () -> assertTrue(proposal.projectId().length() <= 64, "The id stays inside 64 characters"));
     }
 
     @Test

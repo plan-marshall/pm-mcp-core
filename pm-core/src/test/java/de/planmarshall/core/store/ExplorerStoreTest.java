@@ -114,12 +114,14 @@ class ExplorerStoreTest {
     @DisplayName("Should refuse a change against an older revision with the current value")
     void refusesAStaleRevision() {
         var project = id();
+        var other = id();
         var favourites = List.of(project);
-        var enrolled = Set.of(project);
+        var enrolled = Set.of(project, other);
         store.setFavourites(favourites, enrolled, 0);
+        var stale = List.of(other);
 
         var conflict = assertThrows(SettingsConflict.class,
-                () -> store.setFavourites(favourites, enrolled, 0),
+                () -> store.setFavourites(stale, enrolled, 0),
                 "A change against the read revision is refused");
 
         assertAll(
@@ -128,7 +130,9 @@ class ExplorerStoreTest {
                 () -> assertEquals(1L, conflict.currentRevision(), "The document's revision is carried"),
                 () -> assertEquals(List.of(project),
                         ((ExplorerStore.Snapshot) conflict.currentValue()).favourites(),
-                        "The current value is the document's favourites"));
+                        "The current value is the document's favourites"),
+                () -> assertEquals(List.of(project), store.read().favourites(),
+                        "The stale proposal is not written"));
     }
 
     @Test
@@ -143,8 +147,8 @@ class ExplorerStoreTest {
         var activity = store.read().activity().get(project);
         assertAll(
                 () -> assertEquals(NOW, activity.lastAt(), "The last act keeps the store clock's instant"),
-                () -> assertEquals(Map.of(day, 2), activity.days(), "Both acts count on the same UTC day"),
-                () -> assertEquals(2, activity.actsInWindow(), "The window sums the day's acts"));
+                () -> assertEquals(Map.of(day, 2L), activity.days(), "Both acts count on the same UTC day"),
+                () -> assertEquals(2L, activity.actsInWindow(), "The window sums the day's acts"));
     }
 
     @Test
@@ -159,7 +163,7 @@ class ExplorerStoreTest {
 
         var activity = later.read().activity().get(project);
         var today = LocalDate.ofInstant(laterInstant, ZoneOffset.UTC).toString();
-        assertEquals(Map.of(today, 1), activity.days(), "The window keeps only the act inside it");
+        assertEquals(Map.of(today, 1L), activity.days(), "The window keeps only the act inside it");
     }
 
     @Test
@@ -177,7 +181,7 @@ class ExplorerStoreTest {
         assertAll(
                 () -> assertEquals(NOW, activity.lastAt(), "The idle project keeps its last act"),
                 () -> assertTrue(activity.days().isEmpty(), "No counted day survives outside the window"),
-                () -> assertEquals(0, activity.actsInWindow(), "The idle project counts no act"));
+                () -> assertEquals(0L, activity.actsInWindow(), "The idle project counts no act"));
     }
 
     @Test
@@ -229,8 +233,8 @@ class ExplorerStoreTest {
         var often = id();
         var recently = id();
         var snapshot = new ExplorerStore.Snapshot(List.of(), Map.of(
-                often, new ExplorerStore.Activity(NOW, Map.of("2026-11-17", 3)),
-                recently, new ExplorerStore.Activity(NOW.plusSeconds(60), Map.of("2026-11-18", 1))), 0);
+                often, new ExplorerStore.Activity(NOW, Map.of("2026-11-17", 3L)),
+                recently, new ExplorerStore.Activity(NOW.plusSeconds(60), Map.of("2026-11-18", 1L))), 0);
 
         assertAll(
                 () -> assertEquals(List.of(often, recently), snapshot.mostUsed(2),
@@ -240,11 +244,51 @@ class ExplorerStoreTest {
     }
 
     @Test
+    @DisplayName("Should drop a favourite of an unenrolled project on an activity write too")
+    void dropsAFavouriteOnAnActivityWrite() {
+        var gone = id();
+        var enrolled = id();
+        store.setFavourites(List.of(gone), Set.of(gone), 0);
+
+        store.recordActivity(enrolled, Set.of(enrolled), 1);
+
+        assertEquals(List.of(), store.read().favourites(), "The activity write drops the unenrolled favourite");
+    }
+
+    @Test
+    @DisplayName("Should refuse a write whose revision cannot advance")
+    void refusesAnExhaustedRevision() throws IOException {
+        var project = id();
+        var document = new ExplorerStore.Snapshot(List.of(), Map.of(), Long.MAX_VALUE);
+        Files.write(base.resolve("explorer.json"), ExplorerCodec.write(base.resolve("explorer.json"), document));
+
+        var enrolled = Set.of(project);
+        var favourites = List.of(project);
+        assertThrows(StoreRefusal.class, () -> store.setFavourites(favourites, enrolled, Long.MAX_VALUE),
+                "An exhausted revision leaves the document as it is");
+    }
+
+    @Test
+    @DisplayName("Should refuse an act whose daily count cannot advance")
+    void refusesAnExhaustedDayCount() throws IOException {
+        var project = id();
+        var day = LocalDate.ofInstant(NOW, ZoneOffset.UTC).toString();
+        var document = new ExplorerStore.Snapshot(List.of(),
+                Map.of(project, new ExplorerStore.Activity(NOW, Map.of(day, Long.MAX_VALUE))), 1);
+        Files.write(base.resolve("explorer.json"), ExplorerCodec.write(base.resolve("explorer.json"), document));
+
+        var enrolled = Set.of(project);
+        assertThrows(StoreRefusal.class, () -> store.recordActivity(project, enrolled, 1),
+                "A count that cannot advance leaves the document as it is");
+    }
+
+    @Test
     @DisplayName("Should refuse a document with a member the schema does not name")
     void refusesAnUndeclaredMember() throws IOException {
-        Files.writeString(base.resolve("explorer.json"), """
-                {"format_version": 1, "revision": 0, "favourites": [], "activity": {}, "extra": true}
-                """, UTF_8);
+        var valid = "{\"format_version\": %d, \"revision\": 0, \"favourites\": [], \"activity\": {}}"
+                .formatted(ExplorerStore.FORMAT_VERSION);
+        Files.writeString(base.resolve("explorer.json"),
+                valid.replaceFirst("\\{", "{\"extra\": true, "), UTF_8);
 
         var refusal = assertThrows(StoreRefusal.class, () -> store.read(),
                 "An undeclared member is refused as an unreadable store");

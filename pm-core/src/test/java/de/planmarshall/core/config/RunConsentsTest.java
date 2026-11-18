@@ -49,12 +49,17 @@ class RunConsentsTest {
     @Test
     @DisplayName("Should keep the recorded refusals of the run in its value")
     void recordsTheRefusalsInTheValue() {
-        var run = RunConsents.fresh().declined(ConsentKind.RUN_CHECKOUT_SCRIPTS);
+        var fresh = RunConsents.fresh();
+        var run = fresh.declined(ConsentKind.RUN_CHECKOUT_SCRIPTS);
 
         assertAll(
                 () -> assertTrue(run.declined().contains(ConsentKind.RUN_CHECKOUT_SCRIPTS),
                         "The refused kind is part of the value"),
-                () -> assertTrue(RunConsents.fresh().declined().isEmpty(),
-                        "The fresh value stays empty, the record is immutable"));
+                () -> assertFalse(run.asksAgain(ConsentKind.RUN_CHECKOUT_SCRIPTS),
+                        "The returned run does not ask again"),
+                () -> assertTrue(fresh.asksAgain(ConsentKind.RUN_CHECKOUT_SCRIPTS),
+                        "The original run is unchanged"),
+                () -> assertTrue(fresh.declined().isEmpty(),
+                        "The original value stays empty"));
     }
 }

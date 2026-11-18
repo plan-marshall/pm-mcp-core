@@ -8,7 +8,8 @@ https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/speci
 
 == Packages
 
-All packages lie below `de.planmarshall.core`. Each line is the first sentence of the package's `package-info.java`.
+All packages lie below `de.planmarshall.core`. Each line is a summary of the package's purpose, drawn from the first
+sentence of its `package-info.java`.
 
 * `analysis`: the provider-neutral code-analysis contract, implemented by the provider modules.
 * `architecture`: the merges over the contributions of the domain extensions: edge derivation and path ownership, and the setup's enrichment cost offer.

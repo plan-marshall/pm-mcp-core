@@ -116,6 +116,18 @@ class CheckoutScriptsTest {
     }
 
     @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("Should refuse a symbolic link in a parent directory of the script")
+    void refusesASymbolicParent() throws IOException {
+        var outside = Files.createDirectory(checkout.resolve("outside"));
+        Files.write(outside.resolve("run.sh"), "#!/bin/sh\n".getBytes(UTF_8));
+        Files.createSymbolicLink(checkout.resolve("linked"), outside);
+        var throughLink = List.of("linked/run.sh");
+
+        assertRefused(throughLink, "A parent directory that is a symbolic link is refused");
+    }
+
+    @Test
     @DisplayName("Should not pass a remembered consent that lacks an added script")
     void remembersOnlyTheListedDigests() {
         var first = new ConsentScript("scripts/first.sh", sha256("first".getBytes(UTF_8)));

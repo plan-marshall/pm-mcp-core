@@ -49,16 +49,20 @@ class TranscribeMethodsTest {
     }
 
     @Test
-    @DisplayName("Should refuse a project that allows no method")
+    @DisplayName("Should refuse a project that allows no method or names one twice")
     void refusesNoMethod() {
         List<String> none = List.of();
-        var machineMethods = List.of("local");
+        var machineMethods = List.of("local", "provider");
+        var twice = List.of("local", "local");
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> new TranscribeMethods(none),
                         "A project allows at least one method"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> TranscribeMethods.chosen(none, machineMethods),
-                        "The chosen subset is not empty"));
+                        "The chosen subset is not empty"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> TranscribeMethods.chosen(twice, machineMethods),
+                        "A project names each method once"));
     }
 }

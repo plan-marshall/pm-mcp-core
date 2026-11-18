@@ -9,7 +9,9 @@
  */
 package de.planmarshall.workflow.setup;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,5 +64,25 @@ class SetupRunDerivationTest {
         var run = SetupRunDerivation.derive(SetupRun.ASPECT, true, null);
 
         assertEquals(SetupRun.ASPECT, run, "An aspect entry runs one aspect");
+    }
+
+    @Test
+    @DisplayName("Should keep the precedence of the missing directory and the recorded run")
+    void appliesThePrecedence() {
+        assertAll(
+                () -> assertEquals(SetupRun.FIRST_RUN,
+                        SetupRunDerivation.derive(SetupRun.ASPECT, false, null),
+                        "A missing config directory wins over the aspect entry"),
+                () -> assertEquals(SetupRun.RECONCILE,
+                        SetupRunDerivation.derive(SetupRun.INTEGRATIONS, true, SetupRun.RECONCILE),
+                        "A recorded run wins over the integrations entry"));
+    }
+
+    @Test
+    @DisplayName("Should refuse the integrations entry as a recorded run")
+    void refusesIntegrationsAsRecorded() {
+        assertThrows(IllegalArgumentException.class,
+                () -> SetupRunDerivation.derive(SetupRun.FIRST_RUN, true, SetupRun.INTEGRATIONS),
+                "The integrations entry is never a recorded setup_run");
     }
 }

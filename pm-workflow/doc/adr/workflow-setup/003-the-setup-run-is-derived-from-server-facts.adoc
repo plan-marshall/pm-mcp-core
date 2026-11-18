@@ -40,7 +40,8 @@ links read the same names.
 * The rule is a pure function over three values, provable without a checkout: `SetupRunDerivationTest` states the five
   cases, the interrupted first run among them.
 * A later entry or aspect must be added to the closed lists and the derivation together, and the lists' order is the
-  order the run offers them.
+  order the run offers them. A new aspect also needs its start-state route in `project-setup.pmwf`
+  (`setup.entry`'s `aspect` exit, State Catalogue § Project Setup); the enum alone gives it a name, not a state to enter.
 
 == Source
 
