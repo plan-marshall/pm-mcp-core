@@ -2,10 +2,10 @@
   "id": "PLAN-V2-96",
   "slug": "role-qualification-adapter",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-96-role-qualification-adapter",
+  "pr": "#486",
+  "landing": "landings/PLAN-V2-96.md",
   "seq": 96
 }
