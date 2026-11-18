@@ -260,4 +260,31 @@ class EndpointVerificationTest {
                         result.values().getFirst().status(), "no value is measured"),
                 () -> assertEquals(0, server.getRequestCount(), "no request reached the mock web server"));
     }
+
+    @Test
+    @DisplayName("a models listing whose body is not JSON fails the identity stage instead of the run")
+    void malformedModelsListing() {
+        on("GET", profile.endpoint().modelsPath(), fixed(200, word()));
+
+        var result = verification().verify(profile, MODEL, word(), toolTask(), decoy, schema);
+
+        assertAll("the malformed listing",
+                () -> assertFalse(result.identity().passed(), "a listing that is no JSON fails the identity"),
+                () -> assertTrue(result.identity().models().isEmpty(), "no model is read from that listing"),
+                () -> assertTrue(result.refusesDraft(), "the failed identity refuses the draft"));
+    }
+
+    @Test
+    @DisplayName("an answer whose body is not JSON still launches the endpoint and is measured advisory")
+    void malformedAnswer() {
+        on("POST", EndpointClient.CHAT_PATH, fixed(200, word()));
+
+        var result = verification().verify(profile, MODEL, word(), toolTask(), decoy, schema);
+
+        assertAll("the malformed answer",
+                () -> assertFalse(result.launch().passed(), "an answer that is no JSON fails the launch"),
+                () -> assertFalse(result.launch().streamingOff(), "no answer is recorded with streaming off"),
+                () -> assertEquals("advisory", result.launch().resultSchema(),
+                        "a malformed answer is measured advisory"));
+    }
 }

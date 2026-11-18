@@ -24,6 +24,7 @@ import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.JsonPointer;
+import de.planmarshall.core.profile.ProfileRefusal;
 import de.planmarshall.core.profile.ProfileStages;
 import de.planmarshall.runtime.launch.HarnessVerifier;
 
@@ -243,9 +244,7 @@ public final class EndpointVerification {
         try {
             var document = JsonDocument.parse(answered.get().getBytes(StandardCharsets.UTF_8), "answer");
             return AnswerSchema.validate(contradicted, document).valid() ? ENFORCED : ADVISORY;
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException _) {
+        } catch (ProfileRefusal _) {
             return ADVISORY;
         }
     }
@@ -282,9 +281,7 @@ public final class EndpointVerification {
             }
             JsonDocument.parse(content.get().getBytes(StandardCharsets.UTF_8), "content");
             return content;
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException _) {
+        } catch (ProfileRefusal _) {
             return Optional.empty();
         }
     }
@@ -306,9 +303,7 @@ public final class EndpointVerification {
         try {
             var document = JsonDocument.parse(response.body().getBytes(StandardCharsets.UTF_8), "models");
             return JsonPointer.resolve(document, profile.endpoint().modelsPointer(), "models listing");
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException _) {
+        } catch (ProfileRefusal _) {
             return JsonNode.nullValue();
         }
     }

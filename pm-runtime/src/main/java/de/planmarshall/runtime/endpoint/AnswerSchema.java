@@ -19,6 +19,7 @@ import lombok.experimental.UtilityClass;
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.JsonPointer;
+import de.planmarshall.core.profile.ProfileRefusal;
 
 /**
  * The server's own check of an answer against the role's result schema (Client Profiles § The Request): the answer is
@@ -198,9 +199,7 @@ public final class AnswerSchema {
     private static Optional<JsonNode> resolve(JsonNode root, String reference) {
         try {
             return Optional.of(JsonPointer.resolve(root, reference.substring(1), "result schema"));
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException _) {
+        } catch (ProfileRefusal _) {
             return Optional.empty();
         }
     }
