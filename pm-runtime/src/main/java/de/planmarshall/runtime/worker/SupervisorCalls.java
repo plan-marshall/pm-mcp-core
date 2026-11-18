@@ -115,8 +115,11 @@ public final class SupervisorCalls implements WorkerCalls {
         try {
             return answerTo(generation, queueTaskId, roleDigest, at, detection);
         } finally {
-            // The answer closes the wait: a held wait suppresses the silence signal, and the answer re-arms it.
-            detection.waitClosed(at);
+            // The answer closes the wait — except for a generation that holds: the hold keeps the wait open, and the
+            // hold's close re-arms the silence limit.
+            if (!holding(generationId)) {
+                detection.waitClosed(at);
+            }
         }
     }
 
@@ -171,8 +174,13 @@ public final class SupervisorCalls implements WorkerCalls {
         if (generation == null) {
             return;
         }
+        var at = supervisor.environment().clock().instant();
         var closed = generation.withServedTasks(served(generation.servedTasks(), queueTaskId)).withLeasedTask(null);
         var next = waiting(closed);
+        if (generation.lifecycle() == WorkerLifecycle.HOLDING) {
+            // A closed task ends the hold as well: its wait closes, so the silence limit counts again from here.
+            detection(generation).waitClosed(at);
+        }
         supervisor.replaced(next);
         recycling.afterTaskClosed(next, roleDigests.get(generationId));
     }
@@ -374,6 +382,12 @@ public final class SupervisorCalls implements WorkerCalls {
     private static boolean namesTheHeldTask(WorkerGeneration generation, String queueTaskId) {
         var leased = generation.leasedTask();
         return leased == null || leased.equals(queueTaskId);
+    }
+
+    /** @return whether the generation holds its task for an answer */
+    private boolean holding(String generationId) {
+        return supervisor.generation(generationId)
+                .map(current -> current.lifecycle() == WorkerLifecycle.HOLDING).orElse(false);
     }
 
     private static List<String> served(List<String> servedTasks, String queueTaskId) {

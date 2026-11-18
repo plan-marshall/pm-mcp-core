@@ -253,7 +253,9 @@ ending (Model Work § Continuing after a Question). The runtime carries the supe
   the registry does not know, a call that names another task than the generation leases and a transition the table does
   not have — a hold from `STARTING` — all leave the state as it is, because the inbound API never throws at the
   transport. The transport reports the hold of a turn before that turn's completion, so the supervisor decides the
-  asking turn's budget while the generation still holds.
+  asking turn's budget while the generation still holds. The hold's wait is closed by whatever ends the hold —
+  `holdClosed`, and `taskClosed` for a task that closes while it is held — and a bounded wait a holding generation opens
+  keeps the suppression, because the hold, not that window, is why the worker is not silent.
 * *The hold's end* — at its token budget a holding generation ends its hold before its recycle: `WorkerRecycling`
   reports `WorkerProtocol.holdEnded` once per generation, with the generation, the task, the attempt, the cause
   `token_budget` and the instant, and only then hands the generation to `WorkerEnding`. The protocol therefore sees the

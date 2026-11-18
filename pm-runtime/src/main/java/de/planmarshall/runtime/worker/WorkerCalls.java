@@ -17,9 +17,10 @@ import java.util.Objects;
  * recycling and the start-failure guard need, handed over without the supervisor ever reading a transport.
  * <p>
  * Every call names the generation it concerns; the supervisor resolves the generation from its registry and ignores a
- * call it cannot apply: a generation it does not know, a task the generation does not lease and a transition the
- * lifecycle table does not have all leave the state as it is, so a call of an ended or an ending generation never throws
- * at the transport. A wait answer is one of the protocol's three: an offer, another wait, or the end of the worker.
+ * call of a generation it does not know. A hold entry refuses a call it cannot apply — an unknown generation, a task the
+ * generation does not lease and a transition the lifecycle table does not have — leaving the state as it is, so a call of
+ * an ended or an ending generation never throws at the transport. A wait answer is one of the protocol's three: an offer,
+ * another wait, or the end of the worker.
  *
  * @since 0.1
  */

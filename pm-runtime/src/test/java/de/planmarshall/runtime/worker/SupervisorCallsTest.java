@@ -551,6 +551,56 @@ class SupervisorCallsTest {
     }
 
     @Test
+    @DisplayName("a held generation's bounded wait keeps the hold's silence suppression")
+    void aHeldBoundedWaitKeepsTheSuppression() {
+        var generation = holdingGeneration();
+
+        var answer = calls.waitOpened(generation.generationId(), "", generation.configurationDigest());
+        fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
+
+        assertAll(
+                () -> assertEquals(new WorkerCalls.WaitAnswer.WaitAgain(), answer,
+                        "a held generation's wait is answered wait again"),
+                () -> assertEquals(WorkerLifecycle.HOLDING,
+                        supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                        "the held wait leaves the generation holding"),
+                () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
+                        "a held wait suppresses the silence signal"));
+    }
+
+    @Test
+    @DisplayName("a closed task ends the hold and re-arms the silence limit")
+    void aClosedHeldTaskReArmsTheSilenceLimit() {
+        var generation = holdingGeneration();
+
+        calls.taskClosed(generation.generationId(), TASK);
+        var closed = supervisor.generation(generation.generationId()).orElseThrow();
+        fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
+
+        assertAll(
+                () -> assertEquals(WorkerLifecycle.WAITING, closed.lifecycle(),
+                        "the closed held task moves the generation to waiting"),
+                () -> assertEquals(Optional.of(EndCause.LOST), ending.requestedCause(generation.generationId()),
+                        "the closed held task re-arms the silence limit"));
+    }
+
+    @Test
+    @DisplayName("a close that names another task than the lease is refused")
+    void aCloseOfAnotherTaskIsRefused() {
+        var generation = holdingGeneration();
+
+        calls.holdClosed(generation.generationId(), OTHER_TASK, fixture.clock.instant());
+        var refused = supervisor.generation(generation.generationId()).orElseThrow();
+        fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
+
+        assertAll(
+                () -> assertEquals(WorkerLifecycle.HOLDING, refused.lifecycle(),
+                        "the refused close leaves the hold in place"),
+                () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
+                        "the refused close keeps the silence suppressed"));
+    }
+
+    @Test
     @DisplayName("a pause at once ends every generation of the plan by force")
     void aPauseEndsEveryGenerationOfThePlan() {
         var generations = startedFresh(fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2), 2);

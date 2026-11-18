@@ -137,9 +137,6 @@ to name it.
 * The acknowledgement entry of the inbound port that ADR `runtime-worker/012` names — a `WorkerCalls` method that reaches
   `LossDetection.answerDelivered` — is still owed: `WorkerCalls` has no such method and this plan may not add one. It
   belongs with the sibling plan `continuation-hold-and-budget`, which extends `SupervisorCalls`.
-
-NOTE: The sibling plan landed: `WorkerCalls` carries `holdOpened`, `holdClosed` and `answerDelivered`, and
-`SupervisorCalls` implements them (ADR `runtime-worker/016`). What remains owed is the assembly's call of the entries.
 * The start-failure guard's `startFailed` count of an exit the pass observes is owed to a follow-up, and **not** to the
   transport or the assembly: the pass is the only reader of the settled job record, so nothing else can observe the exit,
   and `StartFailureGuard.startFailed` has no production caller. `StartGuard` names `firstCall`, `clear` and
@@ -160,6 +157,10 @@ NOTE: The sibling plan landed: `WorkerCalls` carries `holdOpened`, `holdClosed` 
   which is the pump's own contract (ADR `runtime-worker/011`), not this pass's.
 * No new class starts a thread and none adds a timing literal: every value comes from the clock, the profile or the
   role artifact.
+
+NOTE: The sibling plan `continuation-hold-and-budget` landed: `WorkerCalls` carries `holdOpened`, `holdClosed` and
+`answerDelivered`, and `SupervisorCalls` implements them (ADR `runtime-worker/016`). What remains owed is the assembly's
+call of the entries.
 
 == Source
 
