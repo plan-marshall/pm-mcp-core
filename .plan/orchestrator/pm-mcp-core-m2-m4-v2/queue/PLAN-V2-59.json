@@ -2,10 +2,10 @@
   "id": "PLAN-V2-59",
   "slug": "egress-record",
   "workstream": "WS-06",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-59-egress-record",
+  "pr": "#487",
+  "landing": "landings/PLAN-V2-59.md",
   "seq": 59
 }
