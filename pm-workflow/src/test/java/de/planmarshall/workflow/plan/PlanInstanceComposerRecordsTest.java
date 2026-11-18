@@ -11,6 +11,7 @@ package de.planmarshall.workflow.plan;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +49,7 @@ class PlanInstanceComposerRecordsTest {
         var unresolved = Set.of(Generators.letterStrings(1, 8).next());
         var components = composedClass.getRecordComponents();
         var constructor = composedClass.getDeclaredConstructor(
-                Arrays.stream(components).map(component -> component.getType()).toArray(Class[]::new));
+                Arrays.stream(components).map(RecordComponent::getType).toArray(Class[]::new));
         constructor.setAccessible(true);
         var values = Map.of("units", units, "positionStates", positionStates, "policyCalls", policyCalls,
                 "subUnits", subUnits, "pruned", pruned, "unresolved", unresolved);
