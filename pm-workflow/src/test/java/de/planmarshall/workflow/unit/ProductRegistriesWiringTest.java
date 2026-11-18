@@ -35,6 +35,7 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.plan.CompositionEvent;
 import de.planmarshall.workflow.plan.CompositionRequest;
 import de.planmarshall.workflow.plan.CompositionResult;
+import de.planmarshall.workflow.plan.CompositionChecks;
 import de.planmarshall.workflow.plan.CompositionRules;
 import de.planmarshall.workflow.plan.InstancePosition;
 import de.planmarshall.workflow.plan.PlanFacts;
@@ -275,7 +276,7 @@ class ProductRegistriesWiringTest {
                 .finalizeSteps(List.of())
                 .build();
         var composer = new PlanInstanceComposer(context, List.of(template), List.of(), noRules(),
-                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
+                CompositionChecks.NONE, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
         return composer.compose(request);
     }
 
