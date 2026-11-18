@@ -324,12 +324,13 @@ No value of a profile is believed because the profile says so:
 * A *shipped* profile is trusted — the release compiled its document.
 * A profile that makes *no claim* (`worker.eligible: false` and no `zero_tool` class) passes untouched.
 * A claimed profile makes up to three claims. `worker.eligible: true` is honoured only when the record carries `faults`
-  with `trials` of at least 10, a `platform.confinement` of `landlock` or `sandbox`, and `paths` and `egress` as
-  `passed` — or an `egress` whose `results` state `"enforcement": "unenforced"` while the machine has accepted unenforced
-  egress. A non-null `zero_tool` class is honoured only when `classes` and `isolation` passed. An `enforced` tool set on
-  `writer` or `read_only` is honoured only when the record measured the `classes` and `isolation` stages that establish
-  it. Beyond the claim's own stages, every stage the record carries must be `passed`: a record that measured a failure
-  anywhere does not establish the profile's claims.
+  with `trials` of at least 10, the confinement its operating system's verification records (`landlock` on `linux`, the
+  sandbox `sandbox` on `darwin`), and `paths` and `egress` as `passed` — or an `egress` whose `results` state
+  `"enforcement": "unenforced"` while the machine has accepted unenforced egress. A non-null `zero_tool` class is
+  honoured only when `classes` and `isolation` passed. An `enforced` tool set on `writer` or `read_only` is honoured only
+  when the record measured the `classes` and `isolation` stages that establish it. Beyond the claim's own stages, every
+  stage the record carries must be `passed`: a record that measured a failure anywhere does not establish the profile's
+  claims.
 * The record must be the one written for this document: its `profile_digest` is compared with the canonical-JSON digest
   of the loaded profile, so a record verified for another document of the same harness refuses.
 * The `egress` stage states unenforced egress in its `results` as `"enforcement": "unenforced"`, and states
@@ -345,8 +346,8 @@ No value of a profile is believed because the profile says so:
   `Eligible` and `Refused`, so a caller cannot read a third state into it.
 * The refusal never depends on the order in which the record lists its stages, and none reads the host's clock: the
   claimed stages are examined in the order the claim names them, and every other recorded stage in its name's order. The
-  confinement set is the member's Javadoc's and the specification's, not the reader's — `VerificationRecord` takes any
-  string — so every value outside `landlock` and `sandbox`, `none` included, names no confinement.
+  confinement must be the one its operating system's verification records — `landlock` on `linux`, `sandbox` on `darwin`
+  — so {@code none}, the confinement of the other operating system and every other value name none.
 
 link:{src}/RuntimePlatform.java[`RuntimePlatform`] is the operating system and architecture in the record's spelling
 (`linux`, `darwin`; `x86_64`, `aarch64`), normalised from `os.name` and `os.arch`. It compares the record's `platform`

@@ -11,15 +11,16 @@ package de.planmarshall.runtime.worker;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileSetKind;
+import de.planmarshall.core.profile.ProfileStages;
 import de.planmarshall.core.profile.ProfileValidator;
 import de.planmarshall.core.profile.VerificationRecord;
 import de.planmarshall.core.role.HarnessProfile;
@@ -32,10 +33,10 @@ import de.planmarshall.core.role.RoleClass;
  * <p>
  * No value of a profile is believed because the profile says so. A shipped profile is trusted as today — the release
  * compiled its document — while a machine or project profile makes exactly three claims that the gate examines:
- * {@code worker.eligible: true} is honoured only when the record carries {@code faults} with at least ten trials, a
- * platform with a confinement, {@code paths} and {@code egress} as {@code passed} (or an {@code egress} recorded
- * {@code unenforced} that the machine has accepted), a non-null {@code zero_tool} class only when {@code classes} and
- * {@code isolation} passed, and an {@code enforced} tool set on {@code writer} or {@code read_only} only when the record
+ * {@code worker.eligible: true} is honoured only when the record carries {@code faults} with at least ten trials, the
+ * confinement its operating system's verification records — Landlock on Linux, the sandbox profile on macOS —
+ * {@code paths} and {@code egress} as {@code passed} (or an {@code egress} recorded {@code unenforced} that the machine
+ * has accepted), a non-null {@code zero_tool} class only when {@code classes} and {@code isolation} passed, and an {@code enforced} tool set on {@code writer} or {@code read_only} only when the record
  * measured the {@code classes} and {@code isolation} stages that establish it. The record must be the one written for
  * this document: its {@code profile_digest} is compared with the canonical-JSON digest of the loaded profile. Beyond the
  * claim's own stages, every stage the record carries must be {@code passed}: a record that measured a failure anywhere
@@ -76,8 +77,8 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
     /** The trials the stage {@code faults} needs before an eligible claim may rest on it. */
     private static final int MINIMUM_FAULTS_TRIALS = 10;
 
-    /** The confinements a verification record names; any other value, {@code none} included, establishes none. */
-    private static final Set<String> CONFINEMENTS = Set.of("landlock", "sandbox");
+    /** The confinement each operating system's verification records; any other pair establishes none. */
+    private static final Map<String, String> CONFINEMENTS = Map.of("linux", "landlock", "darwin", "sandbox");
 
     /** The result under which the stage {@code egress} records whether it enforced egress (ADR runtime-worker/015). */
     private static final String ENFORCEMENT_RESULT = "enforcement";
@@ -89,7 +90,7 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
     private static final List<String> CLASS_CLAIM_STAGES = List.of(CLASSES_STAGE, ISOLATION_STAGE);
 
     /** The stages an endpoint harness's verification records: its profile carries no worker, tool or session claim. */
-    private static final List<String> ENDPOINT_STAGES = List.of("identity", "launch", CLASSES_STAGE, "limits");
+    private static final List<String> ENDPOINT_STAGES = ProfileStages.ENDPOINT_STAGES;
 
     private final LoadedProfile profile;
     private final RuntimePlatform platform;
@@ -166,10 +167,10 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
      * <p>
      * A shipped profile is honoured, and so is a machine or project profile that makes no claim. A claimed profile is
      * refused when it has no record, when the record was written on another platform, when the record's digest is not
-     * the digest of the profile, when an eligible claim rests on a platform without a confinement, when a stage its
-     * claim rests on is absent from the record, when the {@code faults} stage ran fewer than ten trials, when the
-     * {@code egress} stage records unenforced egress the machine has not accepted, or when any recorded stage is not
-     * {@code passed}. The stages the claim itself rests on are examined first, so the refusal names the stage that
+     * the digest of the profile, when an eligible claim rests on a platform without its operating system's confinement,
+     * when a stage its claim rests on is absent from the record, when the {@code faults} stage ran fewer than ten trials,
+     * when the {@code egress} stage records unenforced egress the machine has not accepted, or when any recorded stage is
+     * not {@code passed}. The stages the claim itself rests on are examined first, so the refusal names the stage that
      * decided the claim where one exists.
      *
      * @param profile  the profile whose claims are examined
@@ -304,10 +305,12 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
 
     /**
      * @param platform the platform a record was written on
-     * @return whether the platform names a confinement of the closed set the record's member admits
+     * @return whether the platform names the confinement its operating system's verification records: Landlock on
+     *         {@code linux}, the sandbox profile on {@code darwin}. A confinement of the other operating system, the
+     *         closed value {@code none} and any value outside the pair establish none.
      */
     private static boolean confined(VerificationRecord.Platform platform) {
-        return CONFINEMENTS.contains(platform.confinement());
+        return platform.confinement().equals(CONFINEMENTS.get(platform.os()));
     }
 
     /**

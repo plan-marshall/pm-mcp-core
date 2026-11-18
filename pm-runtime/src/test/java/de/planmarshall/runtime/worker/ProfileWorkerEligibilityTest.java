@@ -58,6 +58,8 @@ class ProfileWorkerEligibilityTest {
 
     private static final RuntimePlatform THIS_PLATFORM = new RuntimePlatform("linux", "x86_64");
 
+    private static final RuntimePlatform DARWIN_PLATFORM = new RuntimePlatform("darwin", "aarch64");
+
     private static final String CONFINED = "landlock";
 
     private static final String ENFORCED_WRITER = "\"writer\": {\"tool_set\": \"enforced\"}";
@@ -160,6 +162,25 @@ class ProfileWorkerEligibilityTest {
                 () -> assertEquals(EligibilityRefusal.Reason.EGRESS_UNENFORCED, refusal.reason(),
                         "the record states unenforced egress the machine refuses"),
                 () -> assertEquals("egress", refusal.stage(), "the refusal names the egress stage"));
+    }
+
+    @Test
+    @DisplayName("a confinement of the other operating system refuses")
+    void aForeignConfinementRefuses() {
+        var linuxWithSandbox = machine(recordFor("").conforming().confinement("sandbox"));
+        var darwinWithLandlock = machine(recordFor("").conforming().os("darwin").arch("aarch64")
+                .confinement("landlock"));
+
+        var refusal = refusalOf(linuxWithSandbox);
+        var darwinVerdict = ProfileWorkerEligibility.of(darwinWithLandlock, DARWIN_PLATFORM).verdict();
+        var darwinRefusal = assertInstanceOf(EligibilityVerdict.Refused.class, darwinVerdict,
+                "the darwin verdict is a refusal").refusal();
+
+        assertAll(
+                () -> assertEquals(EligibilityRefusal.Reason.NO_CONFINEMENT, refusal.reason(),
+                        "the sandbox is not the confinement linux records"),
+                () -> assertEquals(EligibilityRefusal.Reason.NO_CONFINEMENT, darwinRefusal.reason(),
+                        "landlock is not the confinement darwin records"));
     }
 
     @Test
@@ -418,6 +439,8 @@ class ProfileWorkerEligibilityTest {
 
         private final byte[] document;
         private final Map<String, String> stages = new LinkedHashMap<>();
+        private String os = "linux";
+        private String arch = "x86_64";
         private String confinement = CONFINED;
         private @Nullable String profileDigest;
         private @Nullable Integer faultsTrials = 10;
@@ -459,6 +482,16 @@ class ProfileWorkerEligibilityTest {
             return this;
         }
 
+        private RecordBuilder os(String value) {
+            os = value;
+            return this;
+        }
+
+        private RecordBuilder arch(String value) {
+            arch = value;
+            return this;
+        }
+
         private RecordBuilder digestOfAnotherDocument() {
             profileDigest = "sha256:" + RuntimeGenerators.sha256Digests().next();
             return this;
@@ -487,11 +520,11 @@ class ProfileWorkerEligibilityTest {
                       "tool": {"version": "0.1.99", "commit": "1a2b3c4"},
                       "harness": {"executable": "claude", "version": "1.5.0", "executable_sha256": "%3$s",
                                   "models": ["a-model"]},
-                      "platform": {"os": "linux", "arch": "x86_64", "confinement": "%4$s"},
-                      "stages": {%5$s},
+                      "platform": {"os": "%4$s", "arch": "%5$s", "confinement": "%6$s"},
+                      "stages": {%7$s},
                       "values": [{"pointer": "/worker/eligible", "status": "measured"}]
                     }
-                    """.formatted(CLIENT, digest, executableDigest, confinement, stageJson());
+                    """.formatted(CLIENT, digest, executableDigest, os, arch, confinement, stageJson());
             return VerificationRecord.read(json.getBytes(StandardCharsets.UTF_8), "verification.json");
         }
 

@@ -40,10 +40,11 @@ record's digest, the confinement of an eligible claim, the claimed stages, then 
    `paths`.
 2. The `faults` stage must carry `trials` of at least 10; a stage without a count is refused as
    `FAULTS_TRIALS_INSUFFICIENT`, never read as ten trials.
-3. `platform.confinement` must name `landlock` or `sandbox`. `none` is `NO_CONFINEMENT`, and — fail-closed — so is any
-   other value, because the record reader accepts any string and the closed set exists only in the member's Javadoc and
-   the specification. The check applies to the claim `worker.eligible`: the specification names a confinement for that
-   claim alone, and an endpoint harness records no `faults` stage.
+3. `platform.confinement` must be the one its operating system's verification records: `landlock` on `linux`, `sandbox`
+   on `darwin`. `none` is `NO_CONFINEMENT`, and — fail-closed — so is the confinement of the other operating system and
+   any other value, because the record reader accepts any string and the closed pairing exists only in the member's
+   Javadoc and the specification. The check applies to the claim `worker.eligible`: the specification names a confinement
+   for that claim alone, and an endpoint harness records no `faults` stage.
 4. An `enforced` tool set on `writer` or `read_only` claims `classes` and `isolation`; the `isolation` stage is
    `CLAIM_STAGE_ABSENT` when absent, as `classes` already was.
 5. `profile.digest()` — the canonical-JSON digest of the loaded document through `CanonicalJson.digest` — is compared
