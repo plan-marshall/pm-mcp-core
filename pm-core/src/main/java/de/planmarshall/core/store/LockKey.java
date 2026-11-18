@@ -14,6 +14,8 @@ import java.util.Comparator;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The canonical key of one transaction lock (PM-IMPL-7): its level in the total lock order, the file the lock
  * guards, and the id that orders keys within a level. The OS lock of a leaf key is taken on the sidecar
@@ -268,6 +270,14 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
 
     /**
      * @param base the base directory of the runtime
+     * @return the key of the lock of the operator's projects, {@code explorer.json}
+     */
+    public static LockKey explorer(Path base) {
+        return ofMachineStore(base, "explorer");
+    }
+
+    /**
+     * @param base the base directory of the runtime
      * @return the key of the lock of the model catalogues of the machine and its projects
      */
     public static LockKey modelCatalogue(Path base) {
@@ -379,5 +389,17 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
             throw new IllegalArgumentException("Not a valid identifier for " + name + ": " + value);
         }
         return value;
+    }
+
+    /**
+     * Whether a value is an identifier of a project, a plan or an epic in its one grammar, without building a lock key
+     * for it.
+     *
+     * @param value a candidate; may be {@code null}
+     * @return whether the value is an identifier of the closed grammar
+     * @since 0.1
+     */
+    public static boolean isIdentifier(@Nullable String value) {
+        return value != null && IDENTIFIER.matcher(value).matches();
     }
 }

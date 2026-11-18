@@ -1,0 +1,60 @@
+= Core Architecture Developer Guide (`core.architecture`)
+:toc: left
+:toclevels: 3
+:sectnums:
+:nofooter:
+
+|===
+|Module |`pm-core`
+|Specification |link:../../../doc/specification/domain-extensions/04-setup-state-machine.adoc#setup-enrichment[Domain
+Extensions § Setup Enrichment], link:../../../doc/specification/harness-profiles/01-profile-schema.adoc#token-usage[Harness
+Profiles § Tokens, Not Money]
+|Decisions |link:../adr/core-architecture/001-the-enrichment-cost-is-a-compiled-token-estimate.adoc[ADR core-architecture/001]
+|===
+
+== Purpose
+
+`de.planmarshall.core.architecture` holds the framework-free values of the architecture work the project setup drives,
+so a unit of `plan-marshall-mcp` can show them without a dependency on the runtime. The package's first type is the cost
+offer of the setup's architecture enrichment.
+
+== The Enrichment Cost Offer
+
+`EnrichmentOffer` is the offer `setup.enrich-consent` shows before the enrichment costs model tokens
+(link:../../../doc/specification/domain-extensions/04-setup-state-machine.adoc#setup-enrichment[Domain Extensions § Setup
+Enrichment]): the modules to describe and the expected tokens of their enrichment. The estimate is compiled —
+`PER_MODULE` tokens per module, because one module's description is one task that writes its responsibility, its purpose
+and its key packages — and `expectedTokens(int)` states it for a count.
+
+`costLine()` states the cost in tokens and never in money, which is the rule of the specification
+(link:../../../doc/specification/harness-profiles/01-profile-schema.adoc#token-usage[Harness Profiles § Tokens, Not
+Money]): usage is what the harness reports, in tokens, and no price of any currency is put before the operator in its
+place. The offer names at least one module; an empty offer is refused rather than shown.
+
+== Invariants and Failure Modes
+
+* *Tokens, never money*: no type of the package holds or renders a currency amount, and a cost line always ends in the
+  token count.
+* *A compiled estimate, not a measurement*: the figure per module is a compiled constant, and a measurement is never
+  substituted for it; a measurement of a run belongs to the usage the runtime records.
+* An offer of no module, a negative count and negative expected tokens are refused with `IllegalArgumentException`; the
+  caller has nothing to ask consent for.
+
+== Specification Tracing
+
+* link:../../../doc/specification/domain-extensions/04-setup-state-machine.adoc#setup-enrichment[Domain Extensions § Setup
+  Enrichment]
+* link:../../../doc/specification/harness-profiles/01-profile-schema.adoc#token-usage[Harness Profiles § Tokens, Not
+  Money]
+* link:../../../doc/specification/state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue § Project
+  Setup], `setup.enrich-consent`
+
+== Testing
+
+`EnrichmentOfferTest` states the compiled estimate for a count, the offer's modules and tokens, the cost line's tokens-only
+shape, and the three refusals.
+
+== Decisions
+
+* link:../adr/core-architecture/001-the-enrichment-cost-is-a-compiled-token-estimate.adoc[ADR core-architecture/001]: the
+  enrichment cost is a compiled token estimate per module, rendered in tokens and never in money.
