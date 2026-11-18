@@ -9,9 +9,16 @@
  */
 package de.planmarshall.workflow.unit;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,12 +32,6 @@ import de.planmarshall.core.store.DerivedFactKind;
 import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.verify.ConfigKeyRegistry;
 import de.planmarshall.workflow.verify.InvariantFixtures;
-
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The production registries: they carry exactly the compiled tables and the closed enumeration, and the context they

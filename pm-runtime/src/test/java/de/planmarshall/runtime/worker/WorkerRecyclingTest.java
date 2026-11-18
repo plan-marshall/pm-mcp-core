@@ -249,7 +249,7 @@ class WorkerRecyclingTest {
 
     @Test
     @DisplayName("an executing or waiting generation at the budget sends no hold-ended")
-    void aGenerationThatDoesNotHoldSendsNothing() throws IOException {
+    void aGenerationThatDoesNotHoldSendsNothing() throws Exception {
         var executing = warm().withLifecycle(WorkerLifecycle.EXECUTING).withLeasedTask(firstTask)
                 .withServedTasks(List.of(firstTask)).withContextTokens(ContextTokens.measured(TOKEN_BUDGET));
         var waiting = warm(Files.createDirectories(base.resolve(otherWorktree)))
