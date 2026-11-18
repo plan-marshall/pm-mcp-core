@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.unit;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.jspecify.annotations.Nullable;
 
@@ -74,24 +75,38 @@ public final class ProductRegistries {
     }
 
     /**
-     * The closed input type that expresses a configuration domain, or none.
+     * The closed input type that expresses a configuration domain.
      *
      * @param domain the domain of a configuration key
-     * @return the input type, or {@code null} when no closed input type expresses the domain
+     * @return the input type, or empty when no closed input type expresses the domain
      */
-    static @Nullable InputType inputType(ConfigValueDomain domain) {
+    static Optional<InputType> inputType(ConfigValueDomain domain) {
         return switch (domain) {
-            case ConfigValueDomain.Enumeration(var values) -> new InputType.Enumeration(values);
-            case ConfigValueDomain.IntegerRange(var min, var max) when min != null && max != null ->
-                new InputType.IntRange(min, max);
-            case ConfigValueDomain.IntegerRange(var min, var max) when min == null && max == null ->
-                new InputType.IntRange(null, null);
-            case ConfigValueDomain.ListOf(ConfigValueDomain.Enumeration(var values)) -> new InputType.EnumList(values);
-            default -> null;
+            case ConfigValueDomain.Enumeration(var values) -> Optional.of(new InputType.Enumeration(values));
+            case ConfigValueDomain.IntegerRange(var min, var max) -> range(min, max);
+            case ConfigValueDomain.ListOf(var element) -> listOf(element);
+            case ConfigValueDomain.Bool ignored -> Optional.empty();
+            case ConfigValueDomain.Text ignored -> Optional.empty();
+            case ConfigValueDomain.Object ignored -> Optional.empty();
+            case ConfigValueDomain.Union ignored -> Optional.empty();
         };
     }
 
+    private static Optional<InputType> range(@Nullable Integer min, @Nullable Integer max) {
+        if (min == null && max == null || min != null && max != null) {
+            return Optional.of(new InputType.IntRange(min, max));
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<InputType> listOf(ConfigValueDomain element) {
+        return element instanceof ConfigValueDomain.Enumeration(var values)
+                ? Optional.of(new InputType.EnumList(values))
+                : Optional.empty();
+    }
+
     private static ConfigKeyRegistry.ConfigKey configKey(EffectiveConfigKey key) {
-        return new ConfigKeyRegistry.ConfigKey(key.key(), inputType(key.domain()), key.hasCompiledDefault());
+        return new ConfigKeyRegistry.ConfigKey(key.key(), inputType(key.domain()).orElse(null),
+                key.hasCompiledDefault());
     }
 }

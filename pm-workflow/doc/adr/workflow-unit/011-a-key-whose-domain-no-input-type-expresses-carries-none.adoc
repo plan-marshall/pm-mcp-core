@@ -36,9 +36,8 @@ closed input type" instead of reading the domain. A key without a domain can the
 == Consequences
 
 This is a surface delta against the plan's read-only list: `ConfigKeyRegistry` and `WorkflowValidator` are edited, and
-both edits are named in the landing. The two classes' existing tests pass unchanged, because the constructor never
-refused a `null` domain that a caller supplied. A domain that becomes expressible needs no change here: the conversion
-is written once, in the factory.
+both edits are named in the landing. The two classes' existing tests pass unchanged, because no existing test supplied a
+`null` domain. A domain that becomes expressible needs no change here: the conversion is written once, in the factory.
 
 == Source
 

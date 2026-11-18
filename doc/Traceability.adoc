@@ -2418,7 +2418,6 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagr
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java[PlanInstanceStore],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanProcessStates.java[PlanProcessStates],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProductRegistries.java[ProductRegistries],
 link:../pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java[PlanHistory]
 
 Verified by (the workflow DSL, its verifier, interpreter and diagram generator): link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserTest.java[WorkflowParserTest],

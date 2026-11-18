@@ -11,16 +11,19 @@ package de.planmarshall.workflow.unit;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.config.ConfigValueDomain;
 import de.planmarshall.core.config.EffectiveConfigKey;
 import de.planmarshall.core.config.EffectiveConfigKeys;
 import de.planmarshall.core.store.DerivedFactKind;
 import de.planmarshall.workflow.ast.InputType;
+import de.planmarshall.workflow.verify.ConfigKeyRegistry;
 import de.planmarshall.workflow.verify.InvariantFixtures;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -111,6 +114,25 @@ class ProductRegistriesTest {
     @Nested
     @DisplayName("Value domain conversion")
     class ValueDomainConversion {
+
+        @Test
+        @DisplayName("Should convert an unbounded range and refuse a one-sided one")
+        void shouldConvertTheRangeBounds() {
+            assertAll("Range conversion",
+                    () -> assertEquals(Optional.of(new InputType.IntRange(null, null)),
+                            ProductRegistries.inputType(new ConfigValueDomain.IntegerRange(null, null)),
+                            "An unbounded range should stay a range"),
+                    () -> assertEquals(Optional.empty(),
+                            ProductRegistries.inputType(new ConfigValueDomain.IntegerRange(1, null)),
+                            "A one-sided range should have no input type"));
+        }
+
+        @Test
+        @DisplayName("Should answer no assignment for a key without a domain")
+        void shouldRefuseAssignmentWithoutDomain() {
+            assertFalse(ConfigKeyRegistry.assignable(new InputType.Enumeration(List.of("a")), null),
+                    "A key without a domain should be assignable to nothing");
+        }
 
         @Test
         @DisplayName("Should carry an enumeration and a two-bounded range as their input types")

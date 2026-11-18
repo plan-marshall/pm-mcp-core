@@ -38,9 +38,9 @@ a table row fails that test.
 
 == Consequences
 
-The table is the only production statement of the key set, and the parity test is the only place that may read the
-schemas. A schema change and its table row are one change: the test fails until both are present. The compiled default
-VALUES the specification also describes are not part of this table; it carries only whether a default exists.
+The table is the only production statement of the key set, and the parity test is the only place that derives it from
+the schemas. A schema change and its table row are one change: the test fails until both are present. The compiled
+default VALUES the specification also describes are not part of this table; it carries only whether a default exists.
 
 == Source
 

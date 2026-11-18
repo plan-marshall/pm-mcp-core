@@ -41,7 +41,10 @@ import de.planmarshall.workflow.plan.PlanFacts;
 import de.planmarshall.workflow.plan.PlanInstanceComposer;
 import de.planmarshall.workflow.plan.PlanInstanceHeader;
 import de.planmarshall.workflow.plan.UnitReference;
+import de.planmarshall.workflow.verify.EntityKindRegistry;
 import de.planmarshall.workflow.verify.InvariantFixtures;
+import de.planmarshall.workflow.verify.QuestionClassRegistry;
+import de.planmarshall.workflow.verify.SchemaRegistry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -68,10 +71,12 @@ class ProductRegistriesWiringTest {
     private static final String UNKNOWN_FACT = "fact-kind-unknown.pmwf";
     private static final String DERIVED_KEY = "config-key-derived.pmwf";
     private static final String NO_DEFAULT = "fallback-without-compiled-default.pmwf";
+    private static final String TEXT_FALLBACK = "fallback-text-domain.pmwf";
 
     private static final VerificationContext PRODUCT =
             ProductRegistries.context(InvariantFixtures.registry(), List.of());
-    private static final VerificationContext EMPTY = UnitFixtures.context();
+    private static final VerificationContext EMPTY = new VerificationContext(InvariantFixtures.registry(),
+            EntityKindRegistry.defaults(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), List.of());
 
     /** A well-formed digest for the request's template reference and config hash, which the test does not exercise. */
     private static final String DIGEST = "0".repeat(64);
@@ -119,6 +124,15 @@ class ProductRegistriesWiringTest {
                     "A derived fact named as a key should be refused");
             assertEquals(List.of("INPUT_DECLARATION"), codes(loadDefault(NO_DEFAULT, PRODUCT)),
                     "A fallback without a compiled default should be refused");
+        }
+
+        @Test
+        @DisplayName("Should refuse a fallback to a key no input type expresses")
+        void shouldRefuseAFallbackWithoutADomain() {
+            var result = loadDefault(TEXT_FALLBACK, PRODUCT);
+
+            assertTrue(messages(result).stream().anyMatch(message -> message.contains("no closed input type")),
+                    () -> "The refusal should name the absent domain: " + messages(result));
         }
     }
 
@@ -173,25 +187,42 @@ class ProductRegistriesWiringTest {
     class Composer {
 
         @Test
-        @DisplayName("Should verify the composed unit against the product registries")
-        void shouldCarryTheProductRegistries() {
-            var product = violations(compose(PRODUCT));
-            var empty = violations(compose(EMPTY));
+        @DisplayName("Should accept the composed unit's declared reads")
+        void shouldPassUnderTheProductRegistries() {
+            var product = violations(compose(PRODUCT, PASSING));
 
-            assertFalse(product.stream().anyMatch(violation -> violation.contains("CONFIG_KEY_BINDING")),
-                    () -> "The product context should accept the declared key: " + product);
+            assertFalse(product.stream().anyMatch(violation -> violation.contains("Rule 1 (")),
+                    () -> "The product context should accept the reads: " + product);
+            assertTrue(product.stream().allMatch(violation -> violation.contains("INV-GEN-1")),
+                    () -> "Only the standalone fixture's missing default should remain: " + product);
+        }
+
+        @Test
+        @DisplayName("Should refuse a composed unit whose key is unknown")
+        void shouldRefuseAnUnknownKey() {
+            var product = violations(compose(PRODUCT, UNKNOWN_KEY));
+
+            assertTrue(product.stream().anyMatch(violation -> violation.contains("CONFIG_KEY_BINDING")),
+                    () -> "The product context should refuse the misspelt key: " + product);
+        }
+
+        @Test
+        @DisplayName("Should refuse the same composed unit under the empty registries")
+        void shouldRefuseUnderTheEmptyRegistries() {
+            var empty = violations(compose(EMPTY, PASSING));
+
             assertTrue(empty.stream().anyMatch(violation -> violation.contains("CONFIG_KEY_BINDING")),
                     () -> "The empty registries should refuse the declared key: " + empty);
         }
     }
 
-    private static CompositionResult compose(VerificationContext context) {
-        var template = parseDefault(PASSING);
+    private static CompositionResult compose(VerificationContext context, String fixture) {
+        var template = parseDefault(fixture);
         var request = CompositionRequest.builder()
                 .planId("wiring-plan")
                 .event(CompositionEvent.START)
                 .template(template)
-                .templates(List.of(new UnitReference(template.id(), ROOT + PASSING, DIGEST, UnitOrigin.DEFAULT)))
+                .templates(List.of(new UnitReference(template.id(), ROOT + fixture, DIGEST, UnitOrigin.DEFAULT)))
                 .subUnits(List.of())
                 .facts(PlanFacts.builder().lane(PlanInstanceHeader.Lane.DEEP).posture(PlanInstanceHeader.Posture.FULL)
                         .changeType("feature").build())
@@ -201,7 +232,7 @@ class ProductRegistriesWiringTest {
                 .verificationSteps(List.of())
                 .finalizeSteps(List.of())
                 .build();
-        var composer = new PlanInstanceComposer(context, List.of(), List.of(), noRules(),
+        var composer = new PlanInstanceComposer(context, List.of(template), List.of(), noRules(),
                 Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
         return composer.compose(request);
     }
@@ -270,5 +301,9 @@ class ProductRegistriesWiringTest {
 
     private static List<String> codes(UnitLoadResult result) {
         return result.findings().stream().map(UnitFinding::code).toList();
+    }
+
+    private static List<String> messages(UnitLoadResult result) {
+        return result.findings().stream().map(UnitFinding::message).toList();
     }
 }

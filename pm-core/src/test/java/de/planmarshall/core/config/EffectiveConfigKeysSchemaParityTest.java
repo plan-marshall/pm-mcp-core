@@ -95,9 +95,6 @@ class EffectiveConfigKeysSchemaParityTest {
 
     private static final Pattern MENTIONS_DEFAULT = Pattern.compile("\\bdefault\\b", Pattern.CASE_INSENSITIVE);
 
-    /** The schema document whose walk is in progress, the root an internal {@code $ref} resolves in. */
-    private static Map<?, ?> currentDocument;
-
     @Test
     @DisplayName("Should hold exactly the keys of the three configuration schemas")
     void shouldHoldExactlyTheSchemaKeys() {
@@ -161,9 +158,14 @@ class EffectiveConfigKeysSchemaParityTest {
             }
         });
 
-        assertTrue(undeclared.isEmpty(), () -> "A stated default should be classified, and these are not: " + undeclared);
+        assertTrue(undeclared.isEmpty(), () -> "A stated default should be classified: " + undeclared);
         var absent = STATED_BUT_NOT_COMPILED.keySet().stream().filter(key -> !nodes.containsKey(key)).toList();
-        assertTrue(absent.isEmpty(), () -> "A classified absence should name a real node, and these do not: " + absent);
+        assertTrue(absent.isEmpty(), () -> "A classified absence should name a real node: " + absent);
+        var proseAbsent = PROSE_DEFAULTS.keySet().stream().filter(key -> !nodes.containsKey(key)).toList();
+        assertTrue(proseAbsent.isEmpty(), () -> "A prose default should name a real node: " + proseAbsent);
+        var stale = STATED_BUT_NOT_COMPILED.keySet().stream()
+                .filter(key -> !MENTIONS_DEFAULT.matcher(nodes.get(key).description()).find()).toList();
+        assertTrue(stale.isEmpty(), () -> "A classified absence should still mention a default: " + stale);
     }
 
     @Test
@@ -222,44 +224,56 @@ class EffectiveConfigKeysSchemaParityTest {
         var walked = new LinkedHashMap<String, SchemaNode>();
         for (var file : FILES.entrySet()) {
             var schema = SchemaResource.load(CONFIG_DIRECTORY + file.getValue());
-            currentDocument = schema;
-            walkObject(schema, file.getKey(), walked);
+            walkObject(schema, file.getKey(), walked, schema);
         }
         return walked;
     }
 
-    private static void walkObject(Map<?, ?> schema, String path, Map<String, SchemaNode> into) {
-        for (var entry : properties(schema).entrySet()) {
+    private static void walkObject(Map<?, ?> schema, String path, Map<String, SchemaNode> into,
+            Map<?, ?> document) {
+        for (var entry : properties(schema, document).entrySet()) {
             var name = String.valueOf(entry.getKey());
             var childPath = path.isEmpty() ? name : path + "." + name;
             var child = asObject(entry.getValue());
-            record(childPath, child, into);
-            walkNode(child, childPath, into);
+            record(childPath, child, into, document);
+            walkNode(child, childPath, into, document);
         }
-        for (var entry : additionalProperties(schema).entrySet()) {
+        for (var entry : additionalProperties(schema, document).entrySet()) {
             var childPath = path.isEmpty() ? "*" : path + ".*";
-            record(childPath, entry.getValue(), into);
-            walkNode(entry.getValue(), childPath, into);
+            record(childPath, entry.getValue(), into, document);
+            walkNode(entry.getValue(), childPath, into, document);
         }
     }
 
-    private static void walkNode(Map<?, ?> node, String path, Map<String, SchemaNode> into) {
-        var resolved = resolve(node);
-        if (resolved.containsKey("oneOf")) {
+    private static void walkNode(Map<?, ?> node, String path, Map<String, SchemaNode> into, Map<?, ?> document) {
+        var resolved = resolve(node, document);
+        var oneOf = resolved.get("oneOf");
+        if (oneOf != null) {
+            for (var entry : SchemaResource.array(oneOf)) {
+                var alternative = asObject(entry);
+                if (alternative.containsKey("properties") || alternative.containsKey("additionalProperties")) {
+                    fail("The oneOf alternative of '" + path + "' holds members the walk does not enumerate");
+                }
+            }
             return;
         }
-        walkObject(resolved, path, into);
+        for (var unsupported : List.of("patternProperties", "anyOf", "if")) {
+            if (resolved.containsKey(unsupported)) {
+                fail("The node '" + path + "' uses " + unsupported + ", which the walk does not model");
+            }
+        }
+        walkObject(resolved, path, into, document);
     }
 
-    private static void record(String path, Map<?, ?> node, Map<String, SchemaNode> into) {
-        var resolved = resolve(node);
+    private static void record(String path, Map<?, ?> node, Map<String, SchemaNode> into, Map<?, ?> document) {
+        var resolved = resolve(node, document);
         var description = resolved.get("description");
-        into.put(path, new SchemaNode(domain(resolved), resolved.containsKey("default"),
+        into.put(path, new SchemaNode(domain(resolved, document), resolved.containsKey("default"),
                 description == null ? "" : String.valueOf(description)));
     }
 
-    private static Map<String, Map<?, ?>> properties(Map<?, ?> schema) {
-        var resolved = resolve(schema);
+    private static Map<String, Map<?, ?>> properties(Map<?, ?> schema, Map<?, ?> document) {
+        var resolved = resolve(schema, document);
         var properties = new LinkedHashMap<String, Map<?, ?>>();
         var own = resolved.get("properties");
         if (own != null) {
@@ -268,14 +282,14 @@ class EffectiveConfigKeysSchemaParityTest {
         var allOf = resolved.get("allOf");
         if (allOf != null) {
             for (var entry : SchemaResource.array(allOf)) {
-                properties.putAll(properties(asObject(entry)));
+                properties.putAll(properties(asObject(entry), document));
             }
         }
         return properties;
     }
 
-    private static Map<String, Map<?, ?>> additionalProperties(Map<?, ?> schema) {
-        var resolved = resolve(schema);
+    private static Map<String, Map<?, ?>> additionalProperties(Map<?, ?> schema, Map<?, ?> document) {
+        var resolved = resolve(schema, document);
         var additional = resolved.get("additionalProperties");
         if (additional == null || !(additional instanceof Map<?, ?>)) {
             return Map.of();
@@ -283,30 +297,32 @@ class EffectiveConfigKeysSchemaParityTest {
         return Map.of("*", asObject(additional));
     }
 
-    private static ConfigValueDomain domain(Map<?, ?> node) {
-        var resolved = resolve(node);
+    private static ConfigValueDomain domain(Map<?, ?> node, Map<?, ?> document) {
+        var resolved = resolve(node, document);
         var oneOf = resolved.get("oneOf");
         if (oneOf != null) {
             return new ConfigValueDomain.Union(SchemaResource.array(oneOf).stream()
-                    .map(entry -> domain(asObject(entry))).toList());
+                    .map(entry -> domain(asObject(entry), document)).toList());
         }
         var type = resolved.get("type");
         if (type instanceof List<?> types) {
             var only = types.stream().map(String::valueOf).filter(name -> !"null".equals(name)).toList();
             if (only.size() == 1) {
-                return domainOf(resolved, only.get(0));
+                return domainOf(resolved, only.get(0), document);
             }
+            fail("The node '" + node + "' declares the type list " + types + ", which the walk does not model");
         }
-        return domainOf(resolved, type == null ? "object" : String.valueOf(type));
+        return domainOf(resolved, type == null ? "object" : String.valueOf(type), document);
     }
 
-    private static ConfigValueDomain domainOf(Map<?, ?> node, String type) {
+    private static ConfigValueDomain domainOf(Map<?, ?> node, String type, Map<?, ?> document) {
         return switch (type) {
             case "string" -> enumeration(node).orElseGet(ConfigValueDomain.Text::new);
             case "integer" -> new ConfigValueDomain.IntegerRange(bound(node, "minimum"), bound(node, "maximum"));
             case "boolean" -> new ConfigValueDomain.Bool();
-            case "array" -> new ConfigValueDomain.ListOf(domain(asObject(node.get("items"))));
-            default -> new ConfigValueDomain.Object();
+            case "array" -> new ConfigValueDomain.ListOf(domain(asObject(node.get("items")), document));
+            case "object" -> new ConfigValueDomain.Object();
+            default -> fail("The schema declares the unmodelled type '" + type + "', which the walk does not map");
         };
     }
 
@@ -331,21 +347,21 @@ class EffectiveConfigKeysSchemaParityTest {
     /**
      * Resolves an internal or external {@code $ref} of a schema node, following chained references.
      */
-    private static Map<?, ?> resolve(Map<?, ?> node) {
+    private static Map<?, ?> resolve(Map<?, ?> node, Map<?, ?> document) {
         var current = node;
         var seen = new LinkedHashSet<String>();
         while (current.get("$ref") instanceof String reference) {
             if (!seen.add(reference)) {
                 fail("The schema holds a reference cycle at " + reference);
             }
-            current = asObject(target(reference));
+            current = asObject(target(reference, document));
         }
         return current;
     }
 
-    private static Object target(String reference) {
+    private static Object target(String reference, Map<?, ?> document) {
         if (reference.startsWith("#/")) {
-            Map<?, ?> node = currentDocument;
+            Map<?, ?> node = document;
             for (var segment : reference.substring(2).split("/")) {
                 node = asObject(node.get(segment));
             }

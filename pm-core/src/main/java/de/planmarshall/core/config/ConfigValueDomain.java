@@ -21,8 +21,8 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * The set is total over the schemas of {@code config-project}, {@code config-workflow} and {@code local-config}: every
  * node a walk of those schemas reaches has exactly one member here, and {@link Union} carries the one shape the
- * single-type members cannot, the schema keyword {@code oneOf}. A domain is a value: two domains are equal exactly when
- * they admit the same values.
+ * single-type members cannot, the schema keyword {@code oneOf}. A domain is a value and is compared structurally: an
+ * enumeration's values and a union's alternatives are compared in declaration order.
  *
  * @since 0.1
  */
