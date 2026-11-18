@@ -134,8 +134,8 @@ A document written before the change still reads, because the member was declare
 `instance_version` is a typed member of the workflow state, not a name the codec keeps verbatim: an integer from `1`, or
 `null` while no version is in force, and `null`/absent for every scope that composes no instances. A plan's engine
 writes it in the transaction that puts a version in force, beside the version's files and the `instance` line of its
-history, so the status and the version are one journaled write; `instanceVersionInForce()` answers `OptionalInt` and an
-absent member reads as no version. It resets no other member: the retry counters, the loop-back accounting and the
+history, so the status and the version are one journaled write; `instanceVersionInForce()` answers `Optional<Integer>`
+and an absent member reads as no version. It resets no other member: the retry counters, the loop-back accounting and the
 history lines are the ones the previous version left
 (link:../adr/core-store/073-the-instance-version-is-a-field-of-the-workflow-state.adoc[ADR core-store 073]).
 

@@ -2901,8 +2901,8 @@ machine and project sets with whole-artifact replacement, and the six resolution
 with the assignment stores, the plan override and the model catalogues read through the `RoleEnvironment` port; the
 effective model catalogue, the project's else the machine's, with `model_not_allowed`; validation against the client
 profile and the catalogue with the ten reasons of the table; the composition check with `role_undefined` and
-`class_mismatch`, and the quorum clause with `quorum_invalid` and `quorum_not_diverse` by model identity, at composition
-and at task creation; the one model caller with the judge and steward skipping Qualify,
+`class_mismatch`, at composition and at task creation, and the composition-time quorum clause with `quorum_invalid` and
+`quorum_not_diverse` by model identity; the one model caller with the judge and steward skipping Qualify,
 and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`; and an
 endpoint harness runs the class `zero_tool` alone, its projection carrying no other class (Harness Profiles § Endpoint
 Harness, ADR core-profile/011). Not

@@ -87,7 +87,10 @@ import org.jspecify.annotations.Nullable;
  * INV-GEN-1 admits against its template, with the lane the version is composed for, unknown for {@code start}, so
  * INV-INIT-2 holds per lane), else {@code invariant_failed} with every violation found.</li>
  * </ol>
- * Rules 13 and 14, the resolution of roles and skills, are left to the packages that own them. Every event composes
+ * Rules 13 and 14 — the resolution of every role a model state or a consultation names in the effective role set, the
+ * quorum's model identity and every skill a {@code skill} clause names in the project's catalogue — run last over the
+ * composed plan unit and every unit it calls, and refuse the version with their reason where one does not resolve
+ * ({@link CompositionChecks}). Every event composes
  * the same way, the operator's {@code override} of one of the plan's own values among them, so an override whose
  * version does not contain the plan's position is refused {@code position_not_contained}. The composer reads no store
  * and writes nothing; a refused input is never an exception.

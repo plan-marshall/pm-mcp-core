@@ -21,9 +21,9 @@ version in force), and the one fact a restart must not lose.
 
 `instance_version` is a typed member of the workflow state. `WorkflowStatus` carries it as a `@Nullable Integer`
 component, the codec reads and writes it strictly in its schema position, and `instanceVersionInForce()` answers
-`OptionalInt`: an absent member, or a document of a scope that composes no instances, reads as no version. The engine
-writes the member in the transaction that puts a version in force, beside the version's files and the `instance` line of
-the plan's history.
+`Optional<Integer>`: an absent member, or a document of a scope that composes no instances, reads as no version. The
+engine writes the member in the transaction that puts a version in force, beside the version's files and the `instance`
+line of the plan's history.
 
 The format version stays 1: the member was declared all along, so a document written before this change reads as no
 version and is rewritten with the member on its next write (R13).

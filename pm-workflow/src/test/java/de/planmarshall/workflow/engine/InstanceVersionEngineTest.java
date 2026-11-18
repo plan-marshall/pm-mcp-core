@@ -18,6 +18,7 @@ import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
 import static org.easymock.EasyMock.newCapture;
 import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -31,6 +32,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,6 +42,8 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.PlanHistory;
 import de.planmarshall.core.store.PlanHistoryLine;
+import de.planmarshall.core.store.RetryCounters;
+import de.planmarshall.core.store.RetryCounters.RetryRule;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatusStore;
@@ -239,6 +243,9 @@ class InstanceVersionEngineTest {
     /** The positions the composition port was handed, in the order the engine composed. */
     private final Capture<InstancePosition> positions = newCapture(CaptureType.ALL);
 
+    /** The units the composition port answers for a version it composed, by version. */
+    private final Map<Integer, InstanceUnits> composedUnits = new HashMap<>();
+
     /**
      * @param triggers the server event of each state that composes one
      * @param results  the results the composition returns, in order; the last one for every later call
@@ -260,8 +267,21 @@ class InstanceVersionEngineTest {
         }
         composition.record(anyObject(ScopeTransaction.class), capture(recorded));
         expectLastCall().anyTimes();
+        expect(composition.unitsOf(anyObject(CompositionResult.Composed.class))).andAnswer(
+                () -> composedUnits.get(((CompositionResult.Composed) getCurrentArguments()[0]).instance().version()))
+                .anyTimes();
         replay(composition);
         return composition;
+    }
+
+    /**
+     * @param version the version the composition returns
+     * @param units   the units the port answers for that version, as {@link InstanceComposition#unitsOf} does
+     * @return this fixture
+     */
+    private InstanceVersionEngineTest composedUnitsOf(int version, InstanceUnits units) {
+        composedUnits.put(version, units);
+        return this;
     }
 
     /** @return the outcomes the composition port recorded, in order */
@@ -295,9 +315,10 @@ class InstanceVersionEngineTest {
         @EnumSource(value = CompositionEvent.class, names = {"OUTLINE", "PLAN", "FALLBACK", "EMPTY_HARVEST", "REPLAN"})
         @DisplayName("composes its version in the entering transaction and the chain selects from it")
         void composesInTheEnteringTransaction(CompositionEvent event) {
+            var units = units(Map.of(2, composedUnit(2)), Map.of());
+            composedUnitsOf(2, units);
             var composition = composition(Map.of("s.one", event), composed(2, event));
-            var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition,
-                    units(Map.of(2, composedUnit(2)), Map.of())));
+            var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition, units));
 
             var step = committedStep(transaction -> engine.advance(EngineFixtures.planStatus(EXECUTE, "s.one"),
                     store, transaction, history));
@@ -351,9 +372,10 @@ class InstanceVersionEngineTest {
         @EnumSource(value = CompositionEvent.class, names = {"CONFIG_ADOPTED", "WAIVER", "OVERRIDE"})
         @DisplayName("takes force from the next transition, never mid-state")
         void takesForceFromTheNextTransition(CompositionEvent event) {
-            var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(
-                    composition(Map.of(), composed(2, event)),
-                    units(Map.of(2, composedUnit(2)), Map.of())));
+            var units = units(Map.of(2, composedUnit(2)), Map.of());
+            composedUnitsOf(2, units);
+            var engine = fixtures.engine(builtUnit(),
+                    fixtures.instancePorts(composition(Map.of(), composed(2, event)), units));
 
             var after = committedOperator(engine, EngineFixtures.planStatus(EXECUTE, "s.one"), event);
 
@@ -417,8 +439,9 @@ class InstanceVersionEngineTest {
             var composition = composition(Map.of("s.invoke", CompositionEvent.PLAN),
                     new CompositionResult.Composed(instance(2, CompositionEvent.PLAN, composedPlan,
                             List.of(reference))));
-            var engine = fixtures.engine(built, fixtures.instancePorts(composition,
-                    units(Map.of(2, composedPlan), Map.of("sub", storedText))), projectCopy);
+            var units = units(Map.of(2, composedPlan), Map.of("sub", storedText));
+            composedUnitsOf(2, units);
+            var engine = fixtures.engine(built, fixtures.instancePorts(composition, units), projectCopy);
 
             var step = committedStep(transaction -> engine.advance(EngineFixtures.planStatus(EXECUTE, "s.invoke"),
                     store, transaction, history));
@@ -438,11 +461,15 @@ class InstanceVersionEngineTest {
         @Test
         @DisplayName("writes its history line and resets no counter of the version before it")
         void rewritesNoHistoryAndNoCounter() {
+            var units = units(Map.of(2, composedUnit(2), 3, composedUnit(3)), Map.of());
+            composedUnitsOf(2, units);
+            composedUnitsOf(3, units);
             var composition = composition(Map.of("s.one", CompositionEvent.OUTLINE),
                     composed(2, CompositionEvent.OUTLINE), composed(3, CompositionEvent.OVERRIDE));
-            var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition,
-                    units(Map.of(2, composedUnit(2), 3, composedUnit(3)), Map.of())));
-            var first = EngineFixtures.planStatus(EXECUTE, "s.one");
+            var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition, units));
+            var first = EngineFixtures.planStatus(EXECUTE, "s.one").toBuilder()
+                    .retryCounters(RetryCounters.empty().attempt(RetryRule.PUSH_FAILED, "s.one"))
+                    .build();
 
             var step = committedStep(transaction -> engine.advance(first, store, transaction, history));
             var after = store.read().orElseThrow();

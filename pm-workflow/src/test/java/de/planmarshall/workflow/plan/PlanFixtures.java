@@ -356,10 +356,6 @@ final class PlanFixtures {
     }
 
     /**
-     * @param rules the composition rules
-     * @return a composer over the plan unit of the invariant fixtures and its phase units
-     */
-    /**
      * @param rules  the composition rules
      * @param checks the role and skill ports of Rules 13 and 14
      * @return a composer over the plan unit of the invariant fixtures and its phase units

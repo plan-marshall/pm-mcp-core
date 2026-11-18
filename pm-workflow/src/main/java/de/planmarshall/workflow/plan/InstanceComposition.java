@@ -51,6 +51,18 @@ public interface InstanceComposition {
     CompositionResult compose(CompositionEvent event, InstancePosition position, int versionInForce);
 
     /**
+     * The units of a version the composition just returned, for the run that continues in the transaction that composed
+     * it: the version's files are staged and not yet committed, so the plan's store cannot read them back, and the chain
+     * that follows the composing transition would fault on a version that is not on disk. The implementation answers
+     * from the composition it just made, so the same advance runs the plan unit, the composed files and the stored texts
+     * of the digest-bound sub-units. A run from a committed version reads {@link InstanceUnits} instead.
+     *
+     * @param composed the composed version
+     * @return the units of that version, readable before the transaction commits
+     */
+    InstanceUnits unitsOf(CompositionResult.Composed composed);
+
+    /**
      * Records the outcome of a composition in the transaction of the advance: the composed version with the texts of
      * the sub-units it names and its line of the composition log, or the log line of a refused attempt.
      *

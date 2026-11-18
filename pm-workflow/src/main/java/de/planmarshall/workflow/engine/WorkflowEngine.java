@@ -478,7 +478,7 @@ public final class WorkflowEngine {
      * @throws InternalFaultException see {@link #advance(WorkflowStatus)}
      */
     public EngineStep advance(WorkflowStatus status, WorkflowStatusStore store, ScopeTransaction transaction) {
-        return persisted(status, advance(status), store, transaction);
+        return persisted(status, advance(status, new Run(status, null, transaction)), store, transaction);
     }
 
     /**
@@ -511,7 +511,7 @@ public final class WorkflowEngine {
      */
     public EngineStep advance(WorkflowStatus status, EngineEvent event, WorkflowStatusStore store,
             ScopeTransaction transaction) {
-        return persisted(status, advance(status, event), store, transaction);
+        return persisted(status, advance(status, event, new Run(status, null, transaction)), store, transaction);
     }
 
     /**
@@ -864,6 +864,9 @@ public final class WorkflowEngine {
         /** The units of the version in force, read once per advance by unit id. */
         private final Map<String, WorkflowDefinition> unitsInForce = new HashMap<>();
 
+        /** The units of a version this advance composed, readable before its files are committed; {@code null} for none. */
+        private @Nullable InstanceUnits justComposed;
+
         /** The history lines of this advance, in the order the advance produced them. */
         private final List<Pending> lines = new ArrayList<>();
 
@@ -906,7 +909,8 @@ public final class WorkflowEngine {
 
         /**
          * Reads one unit of the version in force: its own plan unit, the composed file of a phase sub-workflow or bound
-         * axis variant, or the stored text of a unit the header binds by digest.
+         * axis variant, or the stored text of a unit the header binds by digest. A version this advance composed is
+         * read through the units the composition answered for it, because its files are staged and not yet committed.
          *
          * @param unitId the id of the unit
          * @return the unit as the version carries it
@@ -914,16 +918,17 @@ public final class WorkflowEngine {
          */
         private WorkflowDefinition loadUnit(String unitId) {
             var version = status.instanceVersionInForce().orElse(null);
-            if (version == null || versionUnits == null) {
+            var units = justComposed != null ? justComposed : versionUnits;
+            if (version == null || units == null) {
                 return verifiedUnit(unitId);
             }
-            var plan = versionUnits.planUnit(version).orElseThrow(() -> fault(Reason.UNRESOLVED_NAME,
+            var plan = units.planUnit(version).orElseThrow(() -> fault(Reason.UNRESOLVED_NAME,
                     "the version %d in force carries no plan unit", version));
             if (unitId.equals(plan.id())) {
                 return plan;
             }
-            return versionUnits.composedUnit(version, unitId)
-                    .or(() -> versionUnits.subUnit(version, unitId))
+            return units.composedUnit(version, unitId)
+                    .or(() -> units.subUnit(version, unitId))
                     .orElseThrow(() -> fault(Reason.UNRESOLVED_NAME,
                             "the version %d in force carries no unit '%s'", version, unitId));
         }
@@ -950,6 +955,7 @@ public final class WorkflowEngine {
                                 .map(WorkflowStatus.CallFrame::subworkflowId).toList())
                         .phase(status.phase())
                         .outcome(outcome)
+                        .instanceVersion(instanceVersion)
                         .build());
             }
         }
@@ -973,17 +979,20 @@ public final class WorkflowEngine {
             var seq = history.nextSeq();
             var numbered = new ArrayList<PlanHistoryLine>(lines.size());
             for (var line : lines) {
-                numbered.add(line.line(seq++, instanceVersion, clock.now()));
+                numbered.add(line.line(seq++, clock.now()));
             }
             history.append(transaction, numbered);
         }
 
-        /** A line of the advance before it is numbered. */
+        /**
+         * A line of the advance before it is numbered; the instance version in force is the one the line was produced
+         * under, so a line before a composition keeps the version it belongs to.
+         */
         @Builder
         private record Pending(PlanHistoryLine.Event event, String node, List<String> callPath, String phase,
-        @Nullable String outcome) {
+        @Nullable String outcome, int instanceVersion) {
 
-            PlanHistoryLine line(long seq, int instanceVersion, Instant at) {
+            PlanHistoryLine line(long seq, Instant at) {
                 return PlanHistoryLine.of(seq, event, node, callPath, phase, outcome, instanceVersion, at);
             }
         }
@@ -1170,6 +1179,7 @@ public final class WorkflowEngine {
             var version = composed.instance().version();
             instanceVersion = version;
             composition.record(composing, composed);
+            justComposed = composition.unitsOf(composed);
             unitsInForce.clear();
             status = status.toBuilder().instanceVersion(version).build();
             record(PlanHistoryLine.Event.INSTANCE, PlanInstanceComposer.PLAN_UNIT, null);
@@ -1190,7 +1200,7 @@ public final class WorkflowEngine {
          * creation composition creates no plan.
          */
         void composeStart() {
-            if (composition == null) {
+            if (composition == null || status.scopeType() != JournalScopeType.PLAN) {
                 return;
             }
             if (composeAndTakeForce(CompositionEvent.START) != null) {
@@ -1214,7 +1224,7 @@ public final class WorkflowEngine {
                 throw new IllegalStateException(
                         "the event '%s' composes in a transaction".formatted(event.wireName()));
             }
-            var result = composition.compose(event, position(), status.instanceVersionInForce().orElse(1));
+            var result = composition.compose(event, position(), status.instanceVersionInForce().orElse(0));
             switch (result) {
                 case CompositionResult.Composed composed -> takeForce(composing, composed);
                 case CompositionResult.Refused refused -> composition.record(composing, refused);

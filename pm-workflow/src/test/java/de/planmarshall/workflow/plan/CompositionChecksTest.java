@@ -223,6 +223,23 @@ class CompositionChecksTest {
                 "reviewer", role(RoleClass.READ_ONLY, "claude", "opus", null)));
     }
 
+    /**
+     * @param architectModel the identifier of the quorum's first role
+     * @param reviewerModel  the identifier of the quorum's second role
+     * @return a resolver that defines every role of the invariant fixtures and the quorum's two on the given identifiers
+     */
+    private static RoleResolver resolverWithPair(String architectModel, String reviewerModel) {
+        return resolver(java.util.Map.of("implementer",
+                role(RoleClass.READ_ONLY, "claude", "sonnet", null),
+                "outline", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
+                "voter", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
+                "planner", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
+                "fixer", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
+                "decider", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
+                "architect", role(RoleClass.READ_ONLY, "claude", architectModel, null),
+                "reviewer", role(RoleClass.READ_ONLY, "claude", reviewerModel, null)));
+    }
+
     @Test
     @DisplayName("at start a refused composition returns the refusal and no version")
     void refusedStartCreatesNothing() {
@@ -299,6 +316,32 @@ class CompositionChecksTest {
     @Nested
     @DisplayName("the model identity of a quorum (PM-WATCH-DISP-67)")
     class ModelIdentities {
+
+        @ParameterizedTest(name = "{0} and {1} refuse the composition as one model")
+        @CsvSource({
+                "sonnet, openrouter/sonnet",
+                "sonnet, openrouter/anthropic/sonnet",
+                "sonnet, sonnet:free",
+                "Sonnet, sonnet",
+                "qwen3:32b, qwen3:8b"})
+        @DisplayName("two listed roles of one model refuse the composition with quorum_not_diverse")
+        void oneModelRefusesTheQuorum(String first, String second) {
+            var refused = assertInstanceOf(CompositionResult.Refused.class,
+                    compose(CompositionEvent.OUTLINE, checks(resolverWithPair(first, second), uri -> true)),
+                    "a quorum of two identifiers of one model is refused");
+
+            assertEquals(CompositionResult.Refusal.QUORUM_NOT_DIVERSE, refused.refusal(),
+                    "the refusal names quorum_not_diverse");
+        }
+
+        @Test
+        @DisplayName("matched control: two different models compose at the same event")
+        void differentModelsCompose() {
+            assertEquals(CompositionResult.Composed.class,
+                    compose(CompositionEvent.OUTLINE,
+                            checks(resolverWithPair("sonnet", "opus"), uri -> true)).getClass(),
+                    "a quorum of two models composes");
+        }
 
         @ParameterizedTest(name = "{0} and {1} are one model: {2}")
         @CsvSource({

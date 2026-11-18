@@ -129,7 +129,8 @@ Any violation gives `Refused(invariant_failed)` with every violation found, one 
 . *Rules 13 and 14.* `RoleComposition` over every role a model state or a consult clause of the reachable units names, `ModelIdentity` over every quorum declaration, and `SkillCatalogue` over every `skill` clause; the first check that fails refuses the composition with its reason (<<_rules_13_and_14_at_composition>>).
 . *Composed.* Otherwise the result is `Composed` with the version and its printed text, the version carrying the `Verified` mark of the composer.
 
-The composer reads no store and writes nothing; Rules 13 and 14 are not checked.
+The composer reads no store and writes nothing; the checks beyond the tree are the two ports of
+<<_rules_13_and_14_at_composition>>.
 
 === Events
 

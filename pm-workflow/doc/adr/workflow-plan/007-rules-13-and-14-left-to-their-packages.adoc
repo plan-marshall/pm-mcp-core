@@ -3,9 +3,8 @@
 
 == Status
 
-Superseded by link:028-only-a-version-the-composer-verified-is-stored.adoc[ADR 028] and the composer's
-`CompositionChecks` (2026-11-18, PLAN-V2-13): the role sets landed with `role-sets-and-model-caller` #146 and the skill
-catalogue is a port, so the composer runs Rules 13 and 14 itself
+Superseded by the composer's `CompositionChecks` (2026-11-18, PLAN-V2-13): the role sets landed with
+`role-sets-and-model-caller` #146 and the skill catalogue is a port, so the composer runs Rules 13 and 14 itself
 (link:../workflow-model/003-the-model-identity-of-a-quorum.adoc[ADR workflow-model 003]). The record stays as the
 history of the seam.
 
