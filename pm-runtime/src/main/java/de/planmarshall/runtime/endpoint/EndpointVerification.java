@@ -241,12 +241,9 @@ public final class EndpointVerification {
         if (answered.isEmpty()) {
             return ADVISORY;
         }
-        try {
-            var document = JsonDocument.parse(answered.get().getBytes(StandardCharsets.UTF_8), "answer");
-            return AnswerSchema.validate(contradicted, document).valid() ? ENFORCED : ADVISORY;
-        } catch (ProfileRefusal _) {
-            return ADVISORY;
-        }
+        // contentOf parsed exactly these bytes, so the content is a JSON document and no refusal can be raised here.
+        var document = JsonDocument.parse(answered.get().getBytes(StandardCharsets.UTF_8), "answer");
+        return AnswerSchema.validate(contradicted, document).valid() ? ENFORCED : ADVISORY;
     }
 
     /**

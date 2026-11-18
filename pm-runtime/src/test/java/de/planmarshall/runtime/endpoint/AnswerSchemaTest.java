@@ -198,7 +198,7 @@ class AnswerSchemaTest {
     }
 
     @Test
-    @DisplayName("every refusal the check states is pinned, including the ones no case above reaches")
+    @DisplayName("the refusals no case above reaches are pinned with the message they state")
     void refusalMessages() {
         // a schema that refers to itself recurses until the depth bound refuses it; the bound is the contract
         var recursive = parse("{\"$defs\":{\"self\":{\"$ref\":\"#/$defs/self\"}},\"$ref\":\"#/$defs/self\"}");

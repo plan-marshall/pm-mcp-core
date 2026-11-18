@@ -51,8 +51,9 @@ first; every write holds `locks/harnesses.lock` and writes the canonical file an
 serves the onboarding's `harness.enrol` and `pm-operator enrol-harness`. A file that fails its check is re-baselined by
 the next enrolment with the named client only. Every entry names a serving program by its executable path, digest and
 version; an entry that carries an undeclared member is refused `harness_store_unreadable`. A document whose top-level
-`harnesses` member is missing, `null` or not an object is refused the same way, so a document that does not read as the
-store is never read as an empty map; an empty `harnesses` object stays a valid empty store
+`harnesses` member is missing, `null` or not an object is refused the same way, so a reader never sees such a document
+as an empty store; only the re-baseline of a new enrolment treats it as empty, as it does a tampered file, and an empty
+`harnesses` object stays a valid empty store
 (link:../adr/runtime-launch/011-a-store-without-a-top-level-harnesses-object-is-unreadable.adoc[ADR 011]).
 
 `HarnessVerifier`::

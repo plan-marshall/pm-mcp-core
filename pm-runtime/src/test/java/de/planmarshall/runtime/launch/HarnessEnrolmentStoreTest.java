@@ -43,9 +43,9 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  * <p>
  * The client ids, versions, digests, instants, models and the HMAC key are generated. The literals that stay are the
  * contract: the store's file names ({@code harnesses.json} and its {@code .hmac} sidecar), the stored JSON documents
- * of the malformed-entry and endpoint-member tests (the store's wire format), the usage figure and event names
- * with their stage results ({@code reported}, {@code missing}, {@code not_applicable}), the role classes of a start
- * context and the file permissions {@code rw-------} the store requires.
+ * of the malformed-entry, top-level-member and endpoint-member tests (the store's wire format), the usage figure and
+ * event names with their stage results ({@code reported}, {@code missing}, {@code not_applicable}), the role classes of
+ * a start context and the file permissions {@code rw-------} the store requires.
  */
 @EnableGeneratorController
 @DisplayName("Harness enrolment store")

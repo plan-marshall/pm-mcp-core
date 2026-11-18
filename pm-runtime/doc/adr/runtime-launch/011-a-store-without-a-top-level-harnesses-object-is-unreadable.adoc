@@ -53,11 +53,13 @@ A truncated `harnesses.json` now refuses every read with `harness_store_unreadab
 that verifies the store, which counts as a start failure of the role on that harness until a new enrolment re-baselines
 the file — the same flow a tampered file takes.
 
-A later writer that adds a top-level member must add it to `harnesses.schema.json` and to this guard; the store never
-reads a document in part.
+A later writer that adds a top-level member adds it to `harnesses.schema.json`, which declares
+`additionalProperties: false`. This guard checks only that `harnesses` is present and is an object: a top-level member
+the schema does not name is still read beside `harnesses` and ignored, so a change that gives the document a different
+shape must extend the guard too.
 
 == Source
 
-Work package `runtime-endpoint-residues` (PLAN-V2-46, D5); Store Schemas § Harness Enrolment Store, *Unreadable Store*;
+Staged plan PLAN-V2-46 (`runtime-endpoint-residues`), D5; Store Schemas § Harness Enrolment Store, *Unreadable Store*;
 the store's schema `pm-runtime/src/main/resources/de/planmarshall/runtime/launch/harnesses.schema.json`; `PM-SEC-5`;
-Adapted from the review lead of the PLAN-104 landing and the PLAN-97/PLAN-98 residues (`Op43`).
+adapted from the review lead of the PLAN-104 landing and the PLAN-97/PLAN-98 residues (`Op43`).

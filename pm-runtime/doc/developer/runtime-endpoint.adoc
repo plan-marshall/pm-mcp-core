@@ -124,9 +124,10 @@ of the result-schema subset is added to `AnswerSchema.KEYWORDS` and to the step 
 answer's kind — together with the refusal that ends an answer, which `AnswerSchemaTest` pins.
 
 The documents the package reads are untrusted: `JsonDocument.parse` and `JsonPointer.resolve` state one refusal,
-`ProfileRefusal`, and that is the only exception a read of this package catches. A listing, an answer or a pointer that
-does not read leaves the value unread (an empty `Optional`, an empty listing, or the measurement `advisory`); it never
-ends the run with a generic exception, and a new read catches `ProfileRefusal` by name.
+`ProfileRefusal`, and the reads of this package catch it by name — `EndpointOutcome` also names
+`IllegalArgumentException` for the same call, and no class of the package catches `RuntimeException`. A listing, an answer
+or a pointer that does not read leaves the value unread (an empty `Optional`, an empty listing, or the measurement
+`advisory`); it never ends the run with a generic exception.
 
 == Invariants and failure modes
 
@@ -140,5 +141,6 @@ ends the run with a generic exception, and a new read catches `ProfileRefusal` b
   like a worker without a valid result.
 - A document the package reads is untrusted: a malformed models listing leaves `Optional.empty()` or an empty model
   list, a malformed answer leaves the answer unread, and a weights pointer that does not resolve leaves the identity
-  unread. The one exception caught is `ProfileRefusal`.
+  unread. The reads name `ProfileRefusal` (`EndpointOutcome` also `IllegalArgumentException`); no class of the package
+  catches `RuntimeException`.
 - No log line, audit line or error text holds a request body.
