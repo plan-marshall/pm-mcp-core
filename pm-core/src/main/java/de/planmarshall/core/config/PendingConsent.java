@@ -12,7 +12,6 @@ package de.planmarshall.core.config;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -36,7 +35,7 @@ import org.jspecify.annotations.Nullable;
  */
 @Builder
 public record PendingConsent(ConsentKind kind, List<ConsentScript> scripts, Instant grantedAt, Consent.Channel channel,
-        @Nullable String deviceId) {
+@Nullable String deviceId) {
 
     /**
      * @throws NullPointerException     if a non-nullable component is {@code null}

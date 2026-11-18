@@ -28,7 +28,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-
 import lombok.experimental.UtilityClass;
 
 /**
@@ -145,9 +144,9 @@ public final class CheckoutScripts {
             }
             var last = components.getLast();
             try (var channel = current.newByteChannel(last,
-                    Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
-                    var digest = new DigestInputStream(Channels.newInputStream(channel),
-                            MessageDigest.getInstance("SHA-256"))) {
+                         Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
+                 var digest = new DigestInputStream(Channels.newInputStream(channel),
+                         MessageDigest.getInstance("SHA-256"))) {
                 digest.transferTo(OutputStream.nullOutputStream());
                 return HexFormat.of().formatHex(digest.getMessageDigest().digest());
             } catch (NoSuchAlgorithmException e) {

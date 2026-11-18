@@ -11,7 +11,6 @@ package de.planmarshall.core.config;
 
 import java.util.Objects;
 import java.util.Optional;
-
 import org.jspecify.annotations.Nullable;
 
 /**

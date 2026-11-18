@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -100,7 +99,7 @@ class ProjectIdentityProposalTest {
     void proposesNothingForANameTooShort() {
         assertAll(
                 () -> assertTrue(ProjectIdentityProposal.fromRemote("https://example.org/owner/ui.git",
-                        Set.of()).isEmpty(),
+                                Set.of()).isEmpty(),
                         "A two-character name forms no identifier"),
                 () -> assertTrue(ProjectIdentityProposal.fromRemote("file:///home/owner/repo.git",
                         Set.of()).isEmpty(), "A file remote proposes no identity"));
