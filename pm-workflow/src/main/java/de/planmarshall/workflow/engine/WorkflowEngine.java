@@ -340,7 +340,9 @@ public final class WorkflowEngine {
      * is never in force mid-state (Workflow DSL § Versions &amp; Composition Events, item 1).
      * <p>
      * The status and the version's history line are written in {@code transaction}; a refused version leaves the
-     * version in force and is returned as the result, its attempt logged in the same transaction.
+     * version in force and is returned as the result, its attempt logged in the same transaction. The version's files
+     * are staged in that transaction, so the transition that runs the new version is a later advance, after this call
+     * committed; an advance inside this transaction reads the version through the composition port's units.
      *
      * @param status      the status of the scope
      * @param event       the operator or configuration event
@@ -348,7 +350,7 @@ public final class WorkflowEngine {
      * @param transaction the transaction of the advance
      * @param history     the plan's history
      * @return the status after the composition, with the version in force, and the composition's result
-     * @throws IllegalArgumentException if the event is a server event
+     * @throws IllegalArgumentException if the event is a server event, or the scope is no plan scope
      * @throws IllegalStateException    if the engine carries no instance composition
      */
     public OperatorComposition composeOperatorEvent(WorkflowStatus status, CompositionEvent event,
@@ -361,6 +363,10 @@ public final class WorkflowEngine {
         if (event.trigger() != CompositionEvent.Trigger.OPERATOR) {
             throw new IllegalArgumentException("the event '%s' is no operator or configuration event"
                     .formatted(event.wireName()));
+        }
+        if (status.scopeType() != JournalScopeType.PLAN) {
+            throw new IllegalArgumentException("the %s scope composes no plan instance"
+                    .formatted(status.scopeType().wireName()));
         }
         var run = new Run(status, history, transaction);
         var result = run.composeOperator(event);
@@ -1129,7 +1135,7 @@ public final class WorkflowEngine {
          *         null} when the state composes no event or the version composed
          */
         private @Nullable Map<String, String> composeAtEntry(StateNode node) {
-            if (composition == null) {
+            if (composition == null || status.scopeType() != JournalScopeType.PLAN) {
                 return null;
             }
             var event = composition.serverEventAt(node.id()).orElse(null);
@@ -1150,10 +1156,18 @@ public final class WorkflowEngine {
             if (composition == null) {
                 throw new IllegalStateException("no plan instance composition is wired");
             }
+            if (status.scopeType() != JournalScopeType.PLAN) {
+                throw new IllegalStateException(
+                        "the %s scope composes no plan instance".formatted(status.scopeType().wireName()));
+            }
             var composing = transaction;
             if (composing == null) {
                 throw new IllegalStateException(
                         "the event '%s' composes in the transaction of an advance".formatted(event.wireName()));
+            }
+            if (history == null) {
+                throw new IllegalStateException("the event '%s' composes in an advance that carries the plan's history"
+                        .formatted(event.wireName()));
             }
             var result = composition.compose(event, position(), status.instanceVersionInForce().orElse(0));
             return switch (result) {

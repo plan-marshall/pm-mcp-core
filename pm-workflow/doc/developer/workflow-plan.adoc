@@ -69,7 +69,10 @@ A header or a log line with a value outside them, such as the former `recipe_ove
 `PlanInstanceStore`:: Writes the versions, the sub-unit texts and the composition log through a `ScopeTransaction` of the plan, and reads versions and sub-unit texts back.
 `PlanInstanceVersions`:: The `InstanceUnits` port over a `PlanInstanceStore`: the plan unit of a version, the composed file of a unit, and the stored text of a bound sub-unit, each read from the plan's directory so a level's copy never reaches a running call.
 `PlanInstanceResources`:: The read side of the instance resources: the DSL text of a version with its header, the diagram of the version in force with its active state, and the version with the composition event that produced it (<<_the_version_in_force_and_its_resources>>).
-`InstanceComposition`:: The port the engine composes and records through: the server event a state composes, `compose(event, position, versionInForce)`, and the recording of an outcome in the advance's transaction.
+`InstanceComposition`:: The port the engine composes and records through: the server event a state composes,
+`compose(event, position, versionInForce)`, the recording of an outcome in the advance's transaction, and the units of a
+version the composition just returned (`unitsOf`), which the run that continues in that transaction reads because the
+version's files are staged until the commit (<<_the_version_in_force_and_its_resources>>).
 `InstanceUnits`:: The port through which the engine reads the units a version in force runs: its plan unit, a composed file, and a stored sub-unit text.
 `SubUnitText`:: The verified text of a sub-unit a version names, handed to the store with the version.
 `CompositionRecord`:: One line of the composition log: event, `Result` (`composed`, `identical_adopted`, `kept`, `refused`), version, trigger, cause, input digests, `diff_summary`, time. `composed(instance, previous, recordedAt)` builds the record of a composed version from the version before it, which is `null` exactly for version 1.
@@ -285,7 +288,8 @@ A line of an attempt that composed no version writes no `diff_summary`.
 
 === Limitations
 
-* *Rules 13 and 14* (role and skill resolution) are left to the packages that own the role sets and the skill catalogue (link:../adr/workflow-plan/007-rules-13-and-14-left-to-their-packages.adoc[ADR 007]).
+* *The role and skill checks need a project*: `CompositionChecks.NONE` checks neither, so a preview or a composition
+  without a project admits a role or skill that does not resolve (<<_rules_13_and_14_at_composition>>).
 * *The provider rule reads `integrations.sonar` only*, the one shipped analysis adapter; a second adapter needs a derived fact or a conjunction in the rule language first (link:../adr/workflow-plan/008-rule-family-targets-derived.adoc[ADR 008]).
 * *One composed unit per version.* The version is the plan unit as it composes from its template and its phase
   sub-units; the phase set as one instance file per composed unit, and the landing variant composed into the finalize
@@ -554,8 +558,10 @@ phase sub-workflow and bound axis variant, and the stored text `mcp/units/<diges
 by digest. An edit of a project's or the machine's unit therefore never changes a running call.
 
 `InstanceComposition` is the other half of the seam: the engine asks it which server event a state's entry composes,
-hands it the position and the version in force, and records the outcome in the transaction of the advance. The engine
-owes neither port an implementation, so it composes nothing itself and the assembly wires the composer behind them
+hands it the position and the version in force, records the outcome in the transaction of the advance, and asks it for
+the units of the version it just composed (`unitsOf`), which the rest of that advance reads because the version's files
+are staged until the commit. The engine owes neither port an implementation, so it composes nothing itself and the
+assembly wires the composer behind them
 (link:../adr/workflow-engine/016-the-composition-runs-in-the-entering-transactions.adoc[ADR workflow-engine 016]).
 
 The read side is `PlanInstanceResources`, the package's API for the resource URIs the assembly binds

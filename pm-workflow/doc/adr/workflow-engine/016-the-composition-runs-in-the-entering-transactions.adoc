@@ -26,17 +26,19 @@ facts, and the composer must not open a transaction.
 
 The composition enters the engine as two ports of `WorkflowEngine.Ports`:
 
-* `InstanceComposition` — the server event a state's entry composes, `compose(event, position, versionInForce)`, and
-  the recording of an outcome in the advance's transaction.
+* `InstanceComposition` — the server event a state's entry composes, `compose(event, position, versionInForce)`, the
+  recording of an outcome in the advance's transaction, and the units of the version it just composed (`unitsOf`).
 * `InstanceUnits` — the plan unit of a version, a composed file, and the stored text of a bound sub-unit.
 
 A mounted `InstanceComposition` makes an advance compose a server event in the transaction that enters its target state,
 before the state's behaviour runs; the version takes force immediately (`instance_version` in the status, the units of
 the run switched to the version's files, its `instance` history line), and a refusal raises `precondition_unmet` on the
 composing transition with the refusal's reason. `composeOperatorEvent` composes an operator or configuration event at the
-current position and takes force from the next transition, leaving the state where it is. `PlanInstanceVersions`
-implements `InstanceUnits` over the plan's store, so the engine reads `instance/plan.v<N>.pmwf`, the composed files and
-`mcp/units/<digest>.pmwf`, never a level's copy of a template.
+current position and takes force from the next transition, leaving the state where it is. The run that continues inside
+the composing transaction reads the version through the port's `unitsOf`, because the version's files are staged and not
+yet committed; a run from a committed version reads `PlanInstanceVersions`, which implements `InstanceUnits` over the
+store, and so reads `instance/plan.v<N>.pmwf`, the composed files and `mcp/units/<digest>.pmwf`, never a level's copy of
+a template.
 
 == Alternatives Considered
 

@@ -55,7 +55,9 @@ public interface InstanceComposition {
      * it: the version's files are staged and not yet committed, so the plan's store cannot read them back, and the chain
      * that follows the composing transition would fault on a version that is not on disk. The implementation answers
      * from the composition it just made, so the same advance runs the plan unit, the composed files and the stored texts
-     * of the digest-bound sub-units. A run from a committed version reads {@link InstanceUnits} instead.
+     * of the digest-bound sub-units; it must therefore keep what {@code compose} produced (the request's sub-units
+     * included, which the instance does not carry) until {@code record} has written it, and it is called after
+     * {@code record} in that transaction. A run from a committed version reads {@link InstanceUnits} instead.
      *
      * @param composed the composed version
      * @return the units of that version, readable before the transaction commits
