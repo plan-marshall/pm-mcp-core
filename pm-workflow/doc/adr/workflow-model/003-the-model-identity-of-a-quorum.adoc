@@ -1,0 +1,61 @@
+= ADR workflow-model 003: The Model Identity of a Quorum
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+Rule 13 of the static verification rules requires the roles of a quorum declaration to sit on pairwise different
+models. The naive reading — different model identifiers — is wrong: one model reaches a harness under several
+identifiers (a router prefix such as `openrouter/anthropic/sonnet`, a route variant such as `:free`, another case), and
+two tags of one local model (`qwen3:32b`, `qwen3:8b`) are one model behind two names. A quorum of two such roles shares
+exactly the blind spots the quorum exists to avoid.
+
+Model Work § Model Identity states the comparison: two listed roles are the same model when the weights identities their
+enrolments record are equal or, where either records none, when their identifiers are equal after dropping everything up
+to the last `/`, everything from the first `:` and the case, and the check errs towards refusal. `PM-WATCH-DISP-67`
+requires a table test and a matched control for it.
+
+The package `decision-quorum-and-calibration` owns the validation of a quorum declaration outside composition, but it
+lands after this plan and has no code yet (`quorum_not_diverse` appears in no source of `main`).
+
+== Decision
+
+`ModelIdentity` lives in `workflow.model`, beside the role checks of Rule 13, and is the one comparison:
+`shared(first, second)` answers the identity two `EffectiveRole`s share, weights identity first and the stripped
+identifier otherwise; `check(resolver, declarations, site)` resolves every listed role, refuses an undefined or
+non-`read_only` one as `quorum_invalid`, and refuses the first pair of one declaration that names one model as
+`quorum_not_diverse`, naming both roles, both identifiers and the shared identity.
+
+`PlanInstanceComposer` runs it for the plan unit, the version's composed files and the sub-units it binds by digest,
+`adjudicate.decisions` among them, so a quorum is checked although no call site calls it.
+
+== Alternatives Considered
+
+* *Compare identifiers only.* Rejected: it admits every router prefix, route variant and case difference as a
+  difference of model, which is the defect the specification's § Model Identity names.
+* *Compare the enrolment's configuration digest.* Rejected: two enrolments of one model may differ in effort, form or
+  limits and still be one model; the identity is the weights, not the configuration.
+* *Build it in `decision-quorum-and-calibration`.* Rejected as a sequencing choice: that package is not emitted, and the
+  composition of this plan's Done When needs the check. The package reuses `ModelIdentity` instead of building a second
+  comparison, and this plan does not delete `PM-WATCH-DISP-67`, which that package's Done When lists.
+
+== Consequences
+
+* `quorum_not_diverse` is a value of `CompositionRefusal.Reason` and of `CompositionResult.Refusal`, so a composition
+  reports it like every other refusal.
+* The comparison errs towards refusal: `qwen3:32b` and `qwen3:8b` are one model, and a role that names no weights
+  identity is compared by its identifier stem, never accepted on the identifier's prefix.
+* `PM-WATCH-DISP-67` stays open for the quorum package; its table test and matched control live in
+  `CompositionChecksTest` beside the composition-level cases.
+
+== Source
+
+The plan `PLAN-V2-13` (`plan-instance-versions`) of the epic `pm-mcp-core-m2-m4-v2`, deliverable 4; Workflow DSL § Static
+AST Verification Rules (Rule 13); Model Work § Model Identity and § Role Sets & Precedence; `PM-WATCH-DISP-67`.

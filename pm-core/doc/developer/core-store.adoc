@@ -51,7 +51,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/R
 position (`scope_type`, `scope_id`, `phase`, `state`, `call_stack` with its `CallFrame` records and `BoundArg` values),
 the loop-back accounting (`loop_back_iteration`, `outline_loop_backs`, `policy_counters`), the retry counts
 (`retry_counters`), the bindings of the current state (`active_job`, `active_jobs`, `active_tasks`), the condition
-overlay (`pending_condition`), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>) and
+overlay (`pending_condition`), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>), the instance
+version in force of a plan (`instance_version`, see <<_the_instance_version_in_force>>) and
 `updated_at`. Every other member of the closed schema is kept in `retained()` as the raw JSON text it was read with. The engine updates the record through its `with…` and `toBuilder()` copies; the
 constructor checks every closed value, so a copy with a value outside the schema cannot be built.
 `RetryCounters`:: The typed value of the member `retry_counters` (see <<_retry_counters>>).
@@ -127,6 +128,16 @@ format change:
   round trip and its refusals.
 
 A document written before the change still reads, because the member was declared and kept verbatim all along.
+
+=== The Instance Version in Force
+
+`instance_version` is a typed member of the workflow state, not a name the codec keeps verbatim: an integer from `1`, or
+`null` while no version is in force, and `null`/absent for every scope that composes no instances. A plan's engine
+writes it in the transaction that puts a version in force, beside the version's files and the `instance` line of its
+history, so the status and the version are one journaled write; `instanceVersionInForce()` answers `OptionalInt` and an
+absent member reads as no version. It resets no other member: the retry counters, the loop-back accounting and the
+history lines are the ones the previous version left
+(link:../adr/core-store/073-the-instance-version-is-a-field-of-the-workflow-state.adoc[ADR core-store 073]).
 
 === The Machine Scope
 

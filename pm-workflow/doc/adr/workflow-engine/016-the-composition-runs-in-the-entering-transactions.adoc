@@ -1,0 +1,63 @@
+= ADR workflow-engine 016: The Composition Runs in the Entering Transaction, and the Engine Reads a Version Through Two Ports
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+The plan instance was built without a caller: `PlanInstanceComposer` composed a version, `PlanInstanceStore` wrote it,
+and `PlanInstanceResources` rendered it, but nothing composed on an event, the engine ran the single unit it was built
+with, and `instance_version` was a member name of the status codec without a field. Workflow DSL § Versions &
+Composition Events requires the composition of a server event to happen in the transaction that enters its target state,
+so that the version contains the state it was composed for and is in force for the rest of the chain from that
+transition, and the operator and configuration events to take force from the next transition, never mid-state.
+
+The engine is the only place that owns the transaction of an advance and the position of the scope; the composer owns
+the facts, the sub-units and the registries. Neither may take the other's responsibility: the engine must not read plan
+facts, and the composer must not open a transaction.
+
+== Decision
+
+The composition enters the engine as two ports of `WorkflowEngine.Ports`:
+
+* `InstanceComposition` — the server event a state's entry composes, `compose(event, position, versionInForce)`, and
+  the recording of an outcome in the advance's transaction.
+* `InstanceUnits` — the plan unit of a version, a composed file, and the stored text of a bound sub-unit.
+
+A mounted `InstanceComposition` makes an advance compose a server event in the transaction that enters its target state,
+before the state's behaviour runs; the version takes force immediately (`instance_version` in the status, the units of
+the run switched to the version's files, its `instance` history line), and a refusal raises `precondition_unmet` on the
+composing transition with the refusal's reason. `composeOperatorEvent` composes an operator or configuration event at the
+current position and takes force from the next transition, leaving the state where it is. `PlanInstanceVersions`
+implements `InstanceUnits` over the plan's store, so the engine reads `instance/plan.v<N>.pmwf`, the composed files and
+`mcp/units/<digest>.pmwf`, never a level's copy of a template.
+
+== Alternatives Considered
+
+* *Compose inside the engine.* Rejected: the engine would need the plan facts, the composition rules and the verified
+  default units, and every engine test would carry a composer.
+* *Compose in the caller of `advance`.* Rejected: the caller does not know which transition the advance will take, so it
+  cannot compose in the entering transaction; composing before the advance would also let a version take force that the
+  chain never reaches.
+* *Read the version's units by path in the engine.* Rejected: the engine would know the store layout, and it may not
+  depend on a store at all (its clock, jobs and tasks arrive as ports).
+
+== Consequences
+
+* An engine without the ports behaves exactly as before: it runs the verified unit it was built with, and composes
+  nothing. The assembly wires both ports for a plan.
+* The engine holds no composition state between advances: the version in force is the status's `instance_version`, read
+  afresh for every advance, so a version written by another session is seen without a restart.
+* A unit the version in force does not carry is an internal fault naming the version and the unit, never a silent
+  fallback to the level's copy.
+
+== Source
+
+The plan `PLAN-V2-13` (`plan-instance-versions`) of the epic `pm-mcp-core-m2-m4-v2`, deliverables 1 and 2; Workflow DSL
+§ Plan Instance (Versions & Composition Events); Store Schemas § Plan Instance.
