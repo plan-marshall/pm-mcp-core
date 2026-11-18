@@ -131,12 +131,15 @@ public final class CheckoutScripts {
             throw new IllegalArgumentException(
                     "The checkout's file system offers no secure directory traversal: " + root);
         }
-        try (secureRoot) {
+        var opened = new ArrayList<SecureDirectoryStream<Path>>();
+        opened.add(secureRoot);
+        try {
             var components = new ArrayList<Path>();
             relative.forEach(components::add);
             var current = secureRoot;
             for (var index = 0; index < components.size() - 1; index++) {
                 current = current.newDirectoryStream(components.get(index), LinkOption.NOFOLLOW_LINKS);
+                opened.add(current);
             }
             var last = components.getLast();
             try (var channel = current.newByteChannel(last,
@@ -147,6 +150,10 @@ public final class CheckoutScripts {
                 return HexFormat.of().formatHex(digest.getMessageDigest().digest());
             } catch (NoSuchAlgorithmException e) {
                 throw new IllegalStateException("The JVM carries SHA-256", e);
+            }
+        } finally {
+            for (var index = opened.size() - 1; index >= 0; index--) {
+                opened.get(index).close();
             }
         }
     }
