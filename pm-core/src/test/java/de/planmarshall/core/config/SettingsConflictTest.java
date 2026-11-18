@@ -36,10 +36,12 @@ class SettingsConflictTest {
 
         var conflict = new SettingsConflict(file, 1L, 4L, "mermaid");
 
+        var expected = "revision %d".formatted(1L);
+        var current = "holds %d".formatted(4L);
         assertAll(
-                () -> assertTrue(conflict.getMessage().contains("revision 1"),
+                () -> assertTrue(conflict.getMessage().contains(expected),
                         "The message names the change's revision"),
-                () -> assertTrue(conflict.getMessage().contains("holds 4"),
+                () -> assertTrue(conflict.getMessage().contains(current),
                         "The message names the document's revision"),
                 () -> assertTrue(conflict.getMessage().contains(file.toString()),
                         "The message names the refused document"));
