@@ -17,7 +17,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import de.planmarshall.workflow.ast.InputType;
-
 import org.jspecify.annotations.Nullable;
 
 /**

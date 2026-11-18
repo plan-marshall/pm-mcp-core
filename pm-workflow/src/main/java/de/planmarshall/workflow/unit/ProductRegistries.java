@@ -13,8 +13,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import org.jspecify.annotations.Nullable;
-
 import de.planmarshall.core.config.ConfigValueDomain;
 import de.planmarshall.core.config.EffectiveConfigKey;
 import de.planmarshall.core.config.EffectiveConfigKeys;
@@ -28,6 +26,7 @@ import de.planmarshall.workflow.verify.FactKindRegistry;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The production registries of the static verifier (PM-IMPL-5, PM-WF-16): the closed configuration keys of Store Schemas
