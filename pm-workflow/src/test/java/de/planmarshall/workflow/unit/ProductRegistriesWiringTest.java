@@ -73,6 +73,7 @@ class ProductRegistriesWiringTest {
     private static final String DERIVED_KEY = "config-key-derived.pmwf";
     private static final String NO_DEFAULT = "fallback-without-compiled-default.pmwf";
     private static final String TEXT_FALLBACK = "fallback-text-domain.pmwf";
+    private static final String WORKFLOW_KEY = "workflow-key.pmwf";
 
     private static final VerificationContext PRODUCT =
             ProductRegistries.context(InvariantFixtures.registry(), List.of());
@@ -121,10 +122,24 @@ class ProductRegistriesWiringTest {
                     "A misspelt key should be refused as a config binding");
             assertEquals(List.of("FACT_KIND_BINDING"), codes(loadDefault(UNKNOWN_FACT, PRODUCT)),
                     "An unknown kind should be refused as a fact binding");
-            assertEquals(List.of("CONFIG_KEY_BINDING"), codes(loadDefault(DERIVED_KEY, PRODUCT)),
+            var derived = loadDefault(DERIVED_KEY, PRODUCT);
+            assertEquals(List.of("CONFIG_KEY_BINDING"), codes(derived),
                     "A derived fact named as a key should be refused");
-            assertEquals(List.of("INPUT_DECLARATION"), codes(loadDefault(NO_DEFAULT, PRODUCT)),
+            assertTrue(messages(derived).getFirst().contains("derived fact"),
+                    () -> "The refusal should direct the author to reads_fact: " + messages(derived));
+            var noDefault = loadDefault(NO_DEFAULT, PRODUCT);
+            assertEquals(List.of("INPUT_DECLARATION"), codes(noDefault),
                     "A fallback without a compiled default should be refused");
+            assertTrue(messages(noDefault).stream().anyMatch(message -> message.contains("has no compiled default")),
+                    () -> "The refusal should name the missing default: " + messages(noDefault));
+        }
+
+        @Test
+        @DisplayName("Should pass a unit that reads a workflow.json key")
+        void shouldPassAWorkflowKey() {
+            var result = loadDefault(WORKFLOW_KEY, PRODUCT);
+
+            assertTrue(result.isVerified(), result.findings()::toString);
         }
 
         @Test
@@ -152,7 +167,7 @@ class ProductRegistriesWiringTest {
         @Test
         @DisplayName("Should pass the same tree with CRLF line endings")
         void shouldPassTheCrlfTwin() {
-            var crlf = read(PASSING).replace("\n", "\r\n");
+            var crlf = read(PASSING).replace("\r\n", "\n").replace("\n", "\r\n");
 
             var result = loadProject("declared-reads-crlf.pmwf", crlf, PASSING, PRODUCT);
 
@@ -176,10 +191,16 @@ class ProductRegistriesWiringTest {
                     "A misspelt key should be refused as a config binding");
             assertEquals(List.of("FACT_KIND_BINDING"), codes(loadProject(UNKNOWN_FACT, read(UNKNOWN_FACT), PRODUCT)),
                     "An unknown kind should be refused as a fact binding");
-            assertEquals(List.of("CONFIG_KEY_BINDING"), codes(loadProject(DERIVED_KEY, read(DERIVED_KEY), PRODUCT)),
+            var derived = loadProject(DERIVED_KEY, read(DERIVED_KEY), PRODUCT);
+            assertEquals(List.of("CONFIG_KEY_BINDING"), codes(derived),
                     "A derived fact named as a key should be refused");
-            assertEquals(List.of("INPUT_DECLARATION"), codes(loadProject(NO_DEFAULT, read(NO_DEFAULT), PRODUCT)),
+            assertTrue(messages(derived).getFirst().contains("derived fact"),
+                    () -> "The refusal should direct the author to reads_fact: " + messages(derived));
+            var noDefault = loadProject(NO_DEFAULT, read(NO_DEFAULT), PRODUCT);
+            assertEquals(List.of("INPUT_DECLARATION"), codes(noDefault),
                     "A fallback without a compiled default should be refused");
+            assertTrue(messages(noDefault).stream().anyMatch(message -> message.contains("has no compiled default")),
+                    () -> "The refusal should name the missing default: " + messages(noDefault));
         }
     }
 
@@ -215,11 +236,11 @@ class ProductRegistriesWiringTest {
                                     .anyMatch(violation -> violation.contains("FACT_KIND_BINDING")),
                             "The composer should refuse the unknown fact kind"),
                     () -> assertTrue(violations(compose(PRODUCT, DERIVED_KEY)).stream()
-                                    .anyMatch(violation -> violation.contains("CONFIG_KEY_BINDING")),
+                                    .anyMatch(violation -> violation.contains("derived fact")),
                             "The composer should refuse the derived fact as a key"),
                     () -> assertTrue(violations(compose(PRODUCT, NO_DEFAULT)).stream()
-                                    .anyMatch(violation -> violation.contains("INPUT_DECLARATION")),
-                            "The composer should refuse the fallback without a default"));
+                                    .anyMatch(violation -> violation.contains("has no compiled default")),
+                            "The composer should name the missing default"));
         }
 
         @Test

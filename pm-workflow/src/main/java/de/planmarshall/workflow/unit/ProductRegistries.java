@@ -11,6 +11,7 @@ package de.planmarshall.workflow.unit;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import org.jspecify.annotations.Nullable;
 
@@ -45,6 +46,9 @@ import lombok.experimental.UtilityClass;
  */
 @UtilityClass
 public final class ProductRegistries {
+
+    /** The form of an enum value a unit's frontmatter accepts, so a converted value is one a unit can declare. */
+    private static final Pattern ENUM_VALUE = Pattern.compile("[a-z][a-z0-9_-]*");
 
     /**
      * @return the keys of the closed configuration, each with the value domain its schema states and whether a compiled
@@ -82,7 +86,7 @@ public final class ProductRegistries {
      */
     static Optional<InputType> inputType(ConfigValueDomain domain) {
         return switch (domain) {
-            case ConfigValueDomain.Enumeration(var values) -> Optional.of(new InputType.Enumeration(values));
+            case ConfigValueDomain.Enumeration(var values) -> enumeration(values);
             case ConfigValueDomain.IntegerRange(var min, var max) -> range(min, max);
             case ConfigValueDomain.ListOf(var element) -> listOf(element);
             case ConfigValueDomain.Bool _ -> Optional.empty();
@@ -90,6 +94,12 @@ public final class ProductRegistries {
             case ConfigValueDomain.Object _ -> Optional.empty();
             case ConfigValueDomain.Union _ -> Optional.empty();
         };
+    }
+
+    private static Optional<InputType> enumeration(List<String> values) {
+        return validEnumValues(values)
+                ? Optional.of(new InputType.Enumeration(values))
+                : Optional.empty();
     }
 
     private static Optional<InputType> range(@Nullable Integer min, @Nullable Integer max) {
@@ -100,9 +110,13 @@ public final class ProductRegistries {
     }
 
     private static Optional<InputType> listOf(ConfigValueDomain element) {
-        return element instanceof ConfigValueDomain.Enumeration(var values)
+        return element instanceof ConfigValueDomain.Enumeration(var values) && validEnumValues(values)
                 ? Optional.of(new InputType.EnumList(values))
                 : Optional.empty();
+    }
+
+    private static boolean validEnumValues(List<String> values) {
+        return values.stream().allMatch(value -> ENUM_VALUE.matcher(value).matches());
     }
 
     private static ConfigKeyRegistry.ConfigKey configKey(EffectiveConfigKey key) {

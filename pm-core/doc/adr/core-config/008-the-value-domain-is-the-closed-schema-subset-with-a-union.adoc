@@ -48,6 +48,11 @@ The schema keyword `not` is not modelled: `project_steps.*.order` excludes 11 an
 `IntegerRange(3, 989)` admits them. The over-approximation is conservative for assignment — a fallback is refused more
 often, never admitted wrongly — and it is stated here rather than modelled.
 
+One node declares a type list, `local-config.integrations.provenance.credential_key` with `["string", null]`. The table
+records `Text` and the walk reads the one non-null member of a type list: the null alternative is the value's absence,
+which the effective configuration already expresses by the key being absent, not by a text value. A type list with any
+other member is refused by the walk.
+
 == Source
 
 * Plan `PLAN-V2-10`, Decision 5; the operator's answer of 2026-11-18 (add a `Union` member).

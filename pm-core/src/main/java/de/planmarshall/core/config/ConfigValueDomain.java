@@ -119,22 +119,25 @@ public sealed interface ConfigValueDomain
     }
 
     /**
-     * {@code oneOf}: a value of one of at least two alternatives, none of which is the other.
+     * {@code oneOf}: a value of one of at least two alternatives, none of which is another.
      *
      * @param alternatives the admitted alternatives in declaration order
      */
     record Union(List<ConfigValueDomain> alternatives) implements ConfigValueDomain {
 
         /**
-         * Copies the alternatives into an immutable list and refuses fewer than two.
+         * Copies the alternatives into an immutable list and refuses fewer than two or a repeated one.
          *
          * @param alternatives the admitted alternatives in declaration order
-         * @throws IllegalArgumentException if fewer than two alternatives are present
+         * @throws IllegalArgumentException if fewer than two alternatives are present or one occurs twice
          */
         public Union {
             var copied = List.copyOf(alternatives);
             if (copied.size() < 2) {
                 throw new IllegalArgumentException("a union needs at least two alternatives");
+            }
+            if (new HashSet<>(copied).size() != copied.size()) {
+                throw new IllegalArgumentException("a union alternative occurs twice");
             }
             alternatives = copied;
         }

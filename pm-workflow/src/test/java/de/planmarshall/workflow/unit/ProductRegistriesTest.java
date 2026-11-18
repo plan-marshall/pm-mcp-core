@@ -164,13 +164,16 @@ class ProductRegistriesTest {
             var object = ProductRegistries.configKeys().find("local-config.commit_trailer").orElseThrow();
             var textList = ProductRegistries.configKeys()
                     .find("project.review.required_bots").orElseThrow();
+            var dottedEnum = ProductRegistries.configKeys()
+                    .find("local-config.plan_defaults.method").orElseThrow();
 
             assertAll("Inexpressible domains",
                     () -> assertNull(text.domain(), "Text should be no closed input type"),
                     () -> assertNull(oneSided.domain(), "A one-sided range should be no closed input type"),
                     () -> assertNull(union.domain(), "A union should be no closed input type"),
                     () -> assertNull(object.domain(), "An object should be no closed input type"),
-                    () -> assertNull(textList.domain(), "A list of text should be no closed input type"));
+                    () -> assertNull(textList.domain(), "A list of text should be no closed input type"),
+                    () -> assertNull(dottedEnum.domain(), "A dotted value is no declarable enum"));
         }
 
         @Test

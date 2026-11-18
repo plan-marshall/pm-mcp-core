@@ -95,7 +95,8 @@ class EffectiveConfigKeysSchemaParityTest {
             "local-config.format_version", "the format version of the operator file",
             "local-config.revision", "the write revision of the operator file");
 
-    private static final Pattern MENTIONS_DEFAULT = Pattern.compile("\\bdefault\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MENTIONS_DEFAULT =
+            Pattern.compile("\\b(default|fallback)\\b", Pattern.CASE_INSENSITIVE);
 
     @Test
     @DisplayName("Should hold exactly the keys of the three configuration schemas")
@@ -165,6 +166,9 @@ class EffectiveConfigKeysSchemaParityTest {
         assertTrue(absent.isEmpty(), () -> "A classified absence should name a real node: " + absent);
         var proseAbsent = PROSE_DEFAULTS.keySet().stream().filter(key -> !nodes.containsKey(key)).toList();
         assertTrue(proseAbsent.isEmpty(), () -> "A prose default should name a real node: " + proseAbsent);
+        var staleProse = PROSE_DEFAULTS.keySet().stream()
+                .filter(key -> !MENTIONS_DEFAULT.matcher(nodes.get(key).description()).find()).toList();
+        assertTrue(staleProse.isEmpty(), () -> "A prose default should still state a default: " + staleProse);
         var stale = STATED_BUT_NOT_COMPILED.keySet().stream()
                 .filter(key -> !MENTIONS_DEFAULT.matcher(nodes.get(key).description()).find()).toList();
         assertTrue(stale.isEmpty(), () -> "A classified absence should still mention a default: " + stale);
@@ -262,20 +266,21 @@ class EffectiveConfigKeysSchemaParityTest {
 
     private static void walkNode(Map<?, ?> node, String path, Map<String, SchemaNode> into, Map<?, ?> document) {
         var resolved = resolve(node, document);
-        var oneOf = resolved.get("oneOf");
-        if (oneOf != null) {
-            for (var entry : SchemaResource.array(oneOf)) {
-                var alternative = resolve(asObject(entry), document);
-                if (alternative.containsKey("properties") || alternative.containsKey("additionalProperties")) {
-                    fail("The oneOf alternative of '" + path + "' holds members the walk does not enumerate");
-                }
-            }
-            return;
-        }
         for (var unsupported : List.of("patternProperties", "anyOf", "if")) {
             if (resolved.containsKey(unsupported)) {
                 fail("The node '" + path + "' uses " + unsupported + ", which the walk does not model");
             }
+        }
+        var oneOf = resolved.get("oneOf");
+        if (oneOf != null) {
+            for (var entry : SchemaResource.array(oneOf)) {
+                var alternative = resolve(asObject(entry), document);
+                if (!properties(alternative, document).isEmpty()
+                        || !additionalProperties(alternative, document).isEmpty()) {
+                    fail("The oneOf alternative of '" + path + "' holds members the walk does not enumerate");
+                }
+            }
+            return;
         }
         walkObject(resolved, path, into, document);
     }
