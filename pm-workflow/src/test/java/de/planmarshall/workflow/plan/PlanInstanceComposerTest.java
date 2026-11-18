@@ -1199,6 +1199,23 @@ class PlanInstanceComposerTest {
         }
 
         @Test
+        @DisplayName("the plan unit's policy call is listed before a composed unit's call in one version")
+        void planUnitCallBeforeComposedCall() {
+            var instance = composed(composer().compose(PlanFixtures.requestWithComposedPolicyCall()));
+            var calls = instance.header().policyCalls();
+
+            assertAll(
+                    () -> assertEquals(2, calls.size(), "the version holds both calls"),
+                    () -> assertEquals("finalize.remediate", calls.getFirst().callSite(),
+                            "the plan unit's call is listed first"),
+                    () -> assertNull(calls.getFirst().inUnit(), "the plan unit's call carries no unit"),
+                    () -> assertEquals("ask.questions-only", calls.getLast().inUnit(),
+                            "the composed unit's call follows"),
+                    () -> assertEquals("questions-only.remediate", calls.getLast().callSite(),
+                            "the composed call is the variant's"));
+        }
+
+        @Test
         @DisplayName("the plan unit's policy calls are listed before every composed unit's")
         void planUnitCallsFirst() {
             var planUnit = PolicyCall.of("finalize.remediate", "remediation.qgate-findings", Map.of());
