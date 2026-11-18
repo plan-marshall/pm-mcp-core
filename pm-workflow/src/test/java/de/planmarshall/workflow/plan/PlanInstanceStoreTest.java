@@ -219,10 +219,20 @@ class PlanInstanceStoreTest {
                             "the value carries no composer mark"),
                     () -> assertEquals(Optional.empty(), store.readVersion(1),
                             "nothing was written for a version without its mark"));
-            assertThrows(IllegalArgumentException.class, () -> recordComposed(unmarked, texts()),
-                    "a version the composer did not return is refused");
-            assertThrows(IllegalArgumentException.class, () -> recordComposed(foreignMark, texts()),
-                    "the mark of another version is refused");
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                var texts = texts();
+                var unmarkedRecord = CompositionRecord.composed(unmarked, null, COMPOSED_AT);
+                var foreignRecord = CompositionRecord.composed(foreignMark, null, COMPOSED_AT);
+                assertThrows(IllegalArgumentException.class,
+                        () -> store.recordComposed(transaction, unmarked, texts, unmarkedRecord),
+                        "a version the composer did not return is refused");
+                assertThrows(IllegalArgumentException.class,
+                        () -> store.recordComposed(transaction, foreignMark, texts, foreignRecord),
+                        "the mark of another version is refused");
+            }
         }
 
         @Test
