@@ -240,6 +240,25 @@ class CompositionChecksTest {
     }
 
     @Test
+    @DisplayName("the model-check refusals carry the reasons' wire names")
+    void refusalWireNamesMatchTheReasons() {
+        assertAll(
+                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.ROLE_UNDEFINED.wireName(),
+                        CompositionResult.Refusal.ROLE_UNDEFINED.wireName(), "role_undefined is one spelling"),
+                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.CLASS_MISMATCH.wireName(),
+                        CompositionResult.Refusal.CLASS_MISMATCH.wireName(), "class_mismatch is one spelling"),
+                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.QUORUM_INVALID.wireName(),
+                        CompositionResult.Refusal.QUORUM_INVALID.wireName(), "quorum_invalid is one spelling"),
+                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.QUORUM_NOT_DIVERSE.wireName(),
+                        CompositionResult.Refusal.QUORUM_NOT_DIVERSE.wireName(), "quorum_not_diverse is one spelling"),
+                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.SKILL_UNRESOLVED.wireName(),
+                        CompositionResult.Refusal.SKILL_UNRESOLVED.wireName(), "skill_unresolved is one spelling"),
+                () -> assertEquals(2, CompositionResult.Refusal.values().length
+                                - de.planmarshall.workflow.model.CompositionRefusal.Reason.values().length,
+                        "the two refusals without a model-check reason are the only others"));
+    }
+
+    @Test
     @DisplayName("at start a refused composition returns the refusal and no version")
     void refusedStartCreatesNothing() {
         var result = compose(CompositionEvent.START, checks(resolver(java.util.Map.of()), uri -> true));
