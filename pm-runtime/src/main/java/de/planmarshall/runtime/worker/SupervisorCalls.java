@@ -51,6 +51,9 @@ import de.planmarshall.core.store.WorkerState;
  */
 public final class SupervisorCalls implements WorkerCalls {
 
+    /** The name of the queue-task argument, as a null check reports it. */
+    private static final String QUEUE_TASK_ARGUMENT = "queueTaskId";
+
     private final WorkerSupervisor supervisor;
     private final WorkerEnding ending;
     private final WorkerRecycling recycling;
@@ -98,7 +101,7 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized WaitAnswer waitOpened(String generationId, String queueTaskId, String roleDigest) {
-        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(queueTaskId, QUEUE_TASK_ARGUMENT);
         Objects.requireNonNull(roleDigest, "roleDigest");
         var generation = known(generationId).orElse(null);
         if (generation == null) {
@@ -176,7 +179,7 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized void taskClosed(String generationId, String queueTaskId) {
-        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(queueTaskId, QUEUE_TASK_ARGUMENT);
         var generation = known(generationId).orElse(null);
         if (generation == null) {
             return;
@@ -194,7 +197,7 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized void holdOpened(String generationId, String queueTaskId, Instant at) {
-        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(queueTaskId, QUEUE_TASK_ARGUMENT);
         Objects.requireNonNull(at, "at");
         var generation = known(generationId).orElse(null);
         if (generation == null || !namesTheHeldTask(generation, queueTaskId)
@@ -208,7 +211,7 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized void holdClosed(String generationId, String queueTaskId, Instant at) {
-        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(queueTaskId, QUEUE_TASK_ARGUMENT);
         Objects.requireNonNull(at, "at");
         var generation = known(generationId).orElse(null);
         if (generation == null || !namesTheHeldTask(generation, queueTaskId)
