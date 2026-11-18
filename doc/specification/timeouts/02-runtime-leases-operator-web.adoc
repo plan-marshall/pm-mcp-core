@@ -248,7 +248,7 @@ since the last transition or task progress of a non-terminal scope that is neith
 |—
 |plan, epic, and workspace scopes, single lessons, and single bootstrap entities (a tampered enrolment and changed git metadata of the project hold every running plan of the project)
 |—; the deadline of a prerequisite wait is held and processed after the hold ends.
-|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-integrity-hold[CLI & Security, Integrity Hold]
+|link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/02-operator-channel.adoc#operator-integrity-hold[CLI & Security, Integrity Hold]
 
 |[[access-grant-lifetime]]Access grant
 |No time expiry: a grant holds until the plan ends.
@@ -264,7 +264,7 @@ since the last transition or task progress of a non-terminal scope that is neith
 |—
 |credential entries with a known `expires_at`, for a `github_app` entry the expiry of its user refresh token (`pm-operator credentials status`, the project setup credential verification)
 |Not an expiry: the entry is reported `expiring` to the operator; it is never refused and never reported in a model-facing representation, since an expiring credential still works.
-|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-credential-cli[CLI & Security, Operator Credential CLI]; link:../store-schemas/12-machine-stores.adoc#credential-store[Store Schemas, Credential Store]; link:../domain-extensions/04-setup-state-machine.adoc#setup-verify-credentials[Domain Extensions, Setup Credential Verification]
+|link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/02-operator-channel.adoc#operator-credential-cli[CLI & Security, Operator Credential CLI]; link:../store-schemas/12-machine-stores.adoc#credential-store[Store Schemas, Credential Store]; link:../domain-extensions/04-setup-state-machine.adoc#setup-verify-credentials[Domain Extensions, Setup Credential Verification]
 |===
 
 [#web-access]

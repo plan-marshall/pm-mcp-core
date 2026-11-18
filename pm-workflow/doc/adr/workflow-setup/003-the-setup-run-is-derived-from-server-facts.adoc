@@ -1,0 +1,53 @@
+= ADR workflow-setup/003: The Setup Run Is Derived From Server Facts
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-18.
+
+== Context
+
+`setup.entry` records `setup_run` — `first_run`, `reconcile` or `aspect`, with the aspect's name beside it — from server
+facts and the call, "never from a model", and every later fork of the run follows the recorded value, so an interrupted
+first run keeps its first-run path (State Catalogue § Project Setup). The facts available are the entry the caller named
+and whether the primary checkout carries `.marshall/config/`. The entry `integrations` continues a first run after the
+project's operator values at `setup.probe-integration-variants`, and an interrupted first run may already have created
+`.marshall/config/`.
+
+A derivation that looked only at the config directory would turn an interrupted first run into a reconcile run.
+
+== Decision
+
+`SetupRunDerivation.derive(entry, configDirectoryPresent, recorded)` returns the recorded run when there is one. Otherwise
+an `integrations` entry continues the first run, a checkout without `.marshall/config/` is a first run, an `aspect` entry
+is that one aspect, and every other call is a reconcile run. The four entries (`SetupRun`) and the six aspects
+(`SetupAspect`) are closed lists of `core.config`, because the unit that routes a run and the runtime that serves the
+links read the same names.
+
+== Alternatives Considered
+
+* *Derive from the config directory alone*: not taken. It loses the interrupted-first-run rule and would make a first run
+  that stopped after `setup.prepare-workspace` continue as a reconcile.
+* *Keep the entry list in the unit only*: not taken. The runtime names the same entries in its links and the clients show
+  them, so a single Java definition is the one place they cannot drift apart.
+
+== Consequences
+
+* The rule is a pure function over three values, provable without a checkout: `SetupRunDerivationTest` states the five
+  cases, the interrupted first run among them.
+* A later entry or aspect must be added to the closed lists and the derivation together, and the lists' order is the
+  order the run offers them. A new aspect also needs its start-state route in `project-setup.pmwf`
+  (`setup.entry`'s `aspect` exit, State Catalogue § Project Setup); the enum alone gives it a name, not a state to enter.
+
+== Source
+
+The pull request of PLAN-V2-17 (`feature/v2-17-project-onboarding-unit`); work package
+link:../../../../doc/plans/project-onboarding-unit.adoc[`project-onboarding-unit`];
+link:../../../../doc/specification/state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue § Project
+Setup];
+link:../../../../doc/specification/domain-extensions/04-setup-state-machine.adoc#project-setup-state-machine[Domain
+Extensions § Setup State Machine].

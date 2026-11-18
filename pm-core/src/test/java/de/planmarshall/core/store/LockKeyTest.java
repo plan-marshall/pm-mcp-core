@@ -84,6 +84,8 @@ class LockKeyTest {
                         "locks/consents.lock", "consents.json"),
                 Arguments.of((Function<String, LockKey>) ignored -> LockKey.credentials(BASE),
                         "locks/credentials.lock", "credentials"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.explorer(BASE),
+                        "locks/explorer.lock", "explorer.json"),
                 Arguments.of((Function<String, LockKey>) enrolment -> LockKey.enrolment(BASE, enrolment),
                         "locks/enrolments/%s.lock", "enrolments/%s.json"),
                 Arguments.of((Function<String, LockKey>) ignored -> LockKey.harnesses(BASE),
@@ -213,7 +215,7 @@ class LockKeyTest {
     class Order {
 
         @Test
-        @DisplayName("the thirteen machine store locks sort alphabetically by lock path")
+        @DisplayName("the machine store locks sort alphabetically by lock path")
         void machineStoreLocks() {
             var keys = machineStoreKeys()
                     .map(arguments -> ((Function<String, LockKey>) arguments.get()[0]).apply(project)).toList();
@@ -221,8 +223,8 @@ class LockKeyTest {
 
             var sorted = sortedAfterShuffle(keys);
 
-            assertAll("the thirteen machine store locks sort by path",
-                    () -> assertEquals(13, sorted.size(), "the fixture holds all thirteen locks"),
+            assertAll("the machine store locks sort by path",
+                    () -> assertEquals(keys.size(), sorted.size(), "every factory of the fixture is sorted"),
                     () -> assertEquals(alphabetical,
                             sorted.stream().map(key -> BASE.relativize(key.lockFile()).toString()).toList(),
                             "the keys sort alphabetically by lock path"));

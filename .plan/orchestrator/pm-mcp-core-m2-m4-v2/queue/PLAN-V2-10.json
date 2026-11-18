@@ -2,10 +2,10 @@
   "id": "PLAN-V2-10",
   "slug": "production-registries-and-wiring",
   "workstream": "WS-01",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-10-production-registries-and-wiring",
+  "pr": "#495",
+  "landing": "landings/PLAN-V2-10.md",
   "seq": 10
 }

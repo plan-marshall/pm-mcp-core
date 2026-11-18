@@ -127,6 +127,11 @@ public final class EffectiveConfigKeys {
             key("local-config.language.model", TEXT, false),
             key("local-config.diagrams", OBJECT, false),
             key("local-config.diagrams.format", new ConfigValueDomain.Enumeration(List.of("text", "mermaid")), false),
+            key("local-config.transcribe", OBJECT, false),
+            key("local-config.transcribe.methods",
+                    new ConfigValueDomain.ListOf(
+                            new ConfigValueDomain.Enumeration(List.of("browser", "local", "provider"))),
+                    false),
             key("local-config.plan_defaults", OBJECT, false),
             key("local-config.plan_defaults.method",
                     new ConfigValueDomain.Enumeration(List.of("method.test-first", "method.tests-after")), false),
