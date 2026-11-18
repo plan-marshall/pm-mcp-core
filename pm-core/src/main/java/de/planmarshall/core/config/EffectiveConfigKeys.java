@@ -90,7 +90,7 @@ public final class EffectiveConfigKeys {
             key("workflow.plan.phase-2-refine.simplicity",
                     new ConfigValueDomain.Enumeration(List.of("lean", "pragmatic", "defensive")), true),
             key("workflow.plan.phase-5-execute", OBJECT, false),
-            key("workflow.plan.phase-5-execute.final_verification", new ConfigValueDomain.ListOf(BUILD_VERB), false),
+            key("workflow.plan.phase-5-execute.final_verification", new ConfigValueDomain.ListOf(TEXT), false),
             key("workflow.plan.phase-5-execute.per_deliverable_verbs", new ConfigValueDomain.ListOf(BUILD_VERB), true),
             key("workflow.plan.phase-6-finalize", OBJECT, false),
             key("workflow.plan.phase-6-finalize.project_steps", OBJECT, false),
