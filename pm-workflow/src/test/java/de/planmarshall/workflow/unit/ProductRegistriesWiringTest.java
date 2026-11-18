@@ -49,6 +49,7 @@ import de.planmarshall.workflow.verify.SchemaRegistry;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -211,8 +212,12 @@ class ProductRegistriesWiringTest {
         @Test
         @DisplayName("Should accept the composed unit's declared reads")
         void shouldPassUnderTheProductRegistries() {
-            var product = violations(compose(PRODUCT, PASSING));
+            var result = compose(PRODUCT, PASSING);
+            var product = violations(result);
 
+            assertInstanceOf(CompositionResult.Refused.class, result,
+                    () -> "The standalone fixture should be refused only for its missing plan default: " + result);
+            assertFalse(product.isEmpty(), () -> "The refusal should name the missing default: " + product);
             assertFalse(product.stream().anyMatch(violation -> violation.contains("Rule 1 (")),
                     () -> "The product context should accept the reads: " + product);
             assertTrue(product.stream().allMatch(violation -> violation.contains("INV-GEN-1")),

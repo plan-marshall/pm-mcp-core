@@ -194,8 +194,13 @@ closed unless the assembly passes the product context (ADR 010).
 
 Rule 1 reads the two registries: a `reads_config` key the table does not hold is refused `CONFIG_KEY_BINDING`, a
 `reads_fact` kind outside the enumeration `FACT_KIND_BINDING`, and an `input_fallback` to a key without a compiled
-default `INPUT_DECLARATION` where the input has neither an `input_default` nor the optional form, which is the case the
-fallback would otherwise leave without a value.
+default `INPUT_DECLARATION` where the input has no `input_default`; the frontmatter reader refuses a fallback beside the
+optional form, so an optional input carries none.
+
+An enumeration and a list of an enumeration become a fallback domain only when every value is one a unit's `input_type`
+accepts (`[A-Za-z][A-Za-z0-9_-]*`): `project.review.currency` and the build verbs convert, while
+`local-config.plan_defaults.method` and `workflow.landing` — whose values contain a dot — carry no domain and can serve
+no fallback. Both remain ordinary `reads_config` keys.
 
 The registry's `ConfigKey.domain` is `@Nullable InputType`: the configuration domains are seven, the input types three,
 and a domain no input type expresses (text, an object, a list of text, a union, a one-sided range) is converted to no

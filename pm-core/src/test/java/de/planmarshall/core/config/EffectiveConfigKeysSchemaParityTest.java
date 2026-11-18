@@ -66,27 +66,26 @@ class EffectiveConfigKeysSchemaParityTest {
     private static final Map<String, String> FILES = files();
 
     /**
-     * The nodes whose compiled default the schema states only in its description, each with the reason it is compiled:
-     * the parity test derives the default flag from the {@code default} keyword or from this map.
+     * The nodes whose compiled default the schema states only in its description: the fragment the description must
+     * still contain, so a reworded or removed sentence forces a reclassification.
      */
     private static final Map<String, String> PROSE_DEFAULTS = Map.of(
-            "project.review.optional_bots", "description 'Default []'",
-            "project.review.operator_paths", "description 'Default []'",
-            "workflow.plan.phase-5-execute.per_deliverable_verbs", "description 'Default [compile, module-tests]'",
-            "local-config.commit_trailer", "description 'compiled default plan-marshall <noreply@cuioss.de>'",
-            "local-config.envelope_budget_tokens", "description 'compiled fallback 400000'");
+            "project.review.optional_bots", "Default []",
+            "project.review.operator_paths", "Default []",
+            "workflow.plan.phase-5-execute.per_deliverable_verbs", "Default [\"compile\", \"module-tests\"]",
+            "local-config.commit_trailer", "compiled default plan-marshall",
+            "local-config.envelope_budget_tokens", "compiled fallback 400000");
 
     /**
-     * The nodes whose description mentions a default that is NOT compiled, each with the reason: a derived value, an
-     * answered absence, or a phrase about default steps. The second assertion of Decision 4 refuses an unclassified
-     * mention, so a new prose default cannot be added in silence.
+     * The nodes whose description mentions a default that is NOT compiled: the fragment that states which kind of
+     * default it is, so a reworded sentence forces a reclassification as well.
      */
     private static final Map<String, String> STATED_BUT_NOT_COMPILED = Map.of(
-            "project.base_branch", "the default is derived from origin/HEAD, not compiled",
-            "project.review.required_bots", "the presence of the key is the roster answer",
-            "workflow.plan.phase-5-execute.final_verification", "the default is derived from the build systems",
-            "workflow.plan.phase-6-finalize.project_steps.*.order", "the phrase names the default steps, not a default",
-            "local-config.integrations.provenance", "the description states that no machine default exists");
+            "project.base_branch", "derived from origin/HEAD",
+            "project.review.required_bots", "No default",
+            "workflow.plan.phase-5-execute.final_verification", "derived from the build systems",
+            "workflow.plan.phase-6-finalize.project_steps.*.order", "default steps",
+            "local-config.integrations.provenance", "No machine default");
 
     /** The four file-metadata members the table leaves out, each with what they are instead. */
     private static final Map<String, String> LEFT_OUT = Map.of(
@@ -97,6 +96,9 @@ class EffectiveConfigKeysSchemaParityTest {
 
     private static final Pattern MENTIONS_DEFAULT =
             Pattern.compile("\\b(default|fallback)\\b", Pattern.CASE_INSENSITIVE);
+
+    /** The one key whose schema admits {@code null} beside its type; every other type list is refused. */
+    private static final String NULLABLE_KEY = "local-config.integrations.provenance.credential_key";
 
     @Test
     @DisplayName("Should hold exactly the keys of the three configuration schemas")
@@ -166,12 +168,12 @@ class EffectiveConfigKeysSchemaParityTest {
         assertTrue(absent.isEmpty(), () -> "A classified absence should name a real node: " + absent);
         var proseAbsent = PROSE_DEFAULTS.keySet().stream().filter(key -> !nodes.containsKey(key)).toList();
         assertTrue(proseAbsent.isEmpty(), () -> "A prose default should name a real node: " + proseAbsent);
-        var staleProse = PROSE_DEFAULTS.keySet().stream()
-                .filter(key -> !MENTIONS_DEFAULT.matcher(nodes.get(key).description()).find()).toList();
-        assertTrue(staleProse.isEmpty(), () -> "A prose default should still state a default: " + staleProse);
-        var stale = STATED_BUT_NOT_COMPILED.keySet().stream()
-                .filter(key -> !MENTIONS_DEFAULT.matcher(nodes.get(key).description()).find()).toList();
-        assertTrue(stale.isEmpty(), () -> "A classified absence should still mention a default: " + stale);
+        var staleProse = PROSE_DEFAULTS.entrySet().stream()
+                .filter(entry -> !nodes.get(entry.getKey()).description().contains(entry.getValue())).toList();
+        assertTrue(staleProse.isEmpty(), () -> "A prose default should state its evidence: " + staleProse);
+        var stale = STATED_BUT_NOT_COMPILED.entrySet().stream()
+                .filter(entry -> !nodes.get(entry.getKey()).description().contains(entry.getValue())).toList();
+        assertTrue(stale.isEmpty(), () -> "A classified default should state its evidence: " + stale);
     }
 
     @Test
@@ -266,11 +268,7 @@ class EffectiveConfigKeysSchemaParityTest {
 
     private static void walkNode(Map<?, ?> node, String path, Map<String, SchemaNode> into, Map<?, ?> document) {
         var resolved = resolve(node, document);
-        for (var unsupported : List.of("patternProperties", "anyOf", "if")) {
-            if (resolved.containsKey(unsupported)) {
-                fail("The node '" + path + "' uses " + unsupported + ", which the walk does not model");
-            }
-        }
+        guardUnsupported(resolved, "'" + path + "'");
         var oneOf = resolved.get("oneOf");
         if (oneOf != null) {
             for (var entry : SchemaResource.array(oneOf)) {
@@ -288,7 +286,7 @@ class EffectiveConfigKeysSchemaParityTest {
     private static void recordNode(String path, Map<?, ?> node, Map<String, SchemaNode> into, Map<?, ?> document) {
         var resolved = resolve(node, document);
         var description = resolved.get("description");
-        into.put(path, new SchemaNode(domain(resolved, document), resolved.containsKey("default"),
+        into.put(path, new SchemaNode(domain(resolved, document, path), resolved.containsKey("default"),
                 description == null ? "" : String.valueOf(description)));
     }
 
@@ -302,10 +300,23 @@ class EffectiveConfigKeysSchemaParityTest {
         var allOf = resolved.get("allOf");
         if (allOf != null) {
             for (var entry : SchemaResource.array(allOf)) {
-                properties.putAll(properties(asObject(entry), document));
+                var branch = asObject(entry);
+                guardUnsupported(branch, "an allOf branch of '" + schema + "'");
+                properties.putAll(properties(branch, document));
             }
         }
         return properties;
+    }
+
+    /**
+     * Refuses a construct the walk does not model: one whose members or conditions it would never enumerate.
+     */
+    private static void guardUnsupported(Map<?, ?> node, String where) {
+        for (var unsupported : List.of("patternProperties", "anyOf", "if", "then", "else")) {
+            if (node.containsKey(unsupported)) {
+                fail("The node " + where + " uses " + unsupported + ", which the walk does not model");
+            }
+        }
     }
 
     private static Map<String, Map<?, ?>> additionalProperties(Map<?, ?> schema, Map<?, ?> document) {
@@ -317,30 +328,30 @@ class EffectiveConfigKeysSchemaParityTest {
         return Map.of("*", asObject(additional));
     }
 
-    private static ConfigValueDomain domain(Map<?, ?> node, Map<?, ?> document) {
+    private static ConfigValueDomain domain(Map<?, ?> node, Map<?, ?> document, String path) {
         var resolved = resolve(node, document);
         var oneOf = resolved.get("oneOf");
         if (oneOf != null) {
             return new ConfigValueDomain.Union(SchemaResource.array(oneOf).stream()
-                    .map(entry -> domain(asObject(entry), document)).toList());
+                    .map(entry -> domain(asObject(entry), document, path)).toList());
         }
         var type = resolved.get("type");
         if (type instanceof List<?> types) {
             var only = types.stream().map(String::valueOf).filter(name -> !"null".equals(name)).toList();
-            if (only.size() == 1) {
-                return domainOf(resolved, only.get(0), document);
+            if (only.size() == 1 && (types.size() == 1 || NULLABLE_KEY.equals(path))) {
+                return domainOf(resolved, only.get(0), document, path);
             }
-            fail("The node '" + node + "' declares the type list " + types + ", which the walk does not model");
+            fail("The node '" + path + "' declares the type list " + types + ", which the walk does not model");
         }
-        return domainOf(resolved, type == null ? "object" : String.valueOf(type), document);
+        return domainOf(resolved, type == null ? "object" : String.valueOf(type), document, path);
     }
 
-    private static ConfigValueDomain domainOf(Map<?, ?> node, String type, Map<?, ?> document) {
+    private static ConfigValueDomain domainOf(Map<?, ?> node, String type, Map<?, ?> document, String path) {
         return switch (type) {
             case "string" -> enumeration(node).orElseGet(ConfigValueDomain.Text::new);
             case "integer" -> new ConfigValueDomain.IntegerRange(bound(node, "minimum"), bound(node, "maximum"));
             case "boolean" -> new ConfigValueDomain.Bool();
-            case "array" -> new ConfigValueDomain.ListOf(domain(asObject(node.get("items")), document));
+            case "array" -> new ConfigValueDomain.ListOf(domain(asObject(node.get("items")), document, path));
             case "object" -> new ConfigValueDomain.Object();
             default -> fail("The schema declares the unmodelled type '" + type + "', which the walk does not map");
         };
@@ -361,7 +372,29 @@ class EffectiveConfigKeysSchemaParityTest {
 
     private static Integer bound(Map<?, ?> node, String keyword) {
         var value = node.get(keyword);
-        return value instanceof Number number ? Integer.valueOf(number.intValue()) : null;
+        if (!(value instanceof Number number)) {
+            return null;
+        }
+        var exact = number.longValue();
+        if (exact < Integer.MIN_VALUE || exact > Integer.MAX_VALUE || number.doubleValue() != exact) {
+            fail("The bound " + keyword + " = " + value + " does not fit in an int exactly");
+        }
+        return (int) exact;
+    }
+
+    /**
+     * Refuses a node whose {@code $ref} carries a sibling keyword the walk would drop: following the reference loses the
+     * sibling, so a {@code default} or a member stated beside it would never reach the comparison.
+     */
+    private static void guardReferenceSiblings(Map<?, ?> node) {
+        if (!(node.get("$ref") instanceof String)) {
+            return;
+        }
+        for (var sibling : List.of("default", "properties", "allOf", "items", "enum")) {
+            if (node.containsKey(sibling)) {
+                fail("The reference " + node.get("$ref") + " carries the sibling '" + sibling + "', which the walk drops");
+            }
+        }
     }
 
     /**
@@ -371,6 +404,7 @@ class EffectiveConfigKeysSchemaParityTest {
         var current = node;
         var seen = new LinkedHashSet<String>();
         while (current.get("$ref") instanceof String reference) {
+            guardReferenceSiblings(current);
             if (!seen.add(reference)) {
                 fail("The schema holds a reference cycle at " + reference);
             }

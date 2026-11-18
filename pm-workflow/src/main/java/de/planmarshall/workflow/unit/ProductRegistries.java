@@ -48,7 +48,7 @@ import lombok.experimental.UtilityClass;
 public final class ProductRegistries {
 
     /** The form of an enum value a unit's frontmatter accepts, so a converted value is one a unit can declare. */
-    private static final Pattern ENUM_VALUE = Pattern.compile("[a-z][a-z0-9_-]*");
+    private static final Pattern ENUM_VALUE = Pattern.compile("[A-Za-z][A-Za-z0-9_-]*");
 
     /**
      * @return the keys of the closed configuration, each with the value domain its schema states and whether a compiled

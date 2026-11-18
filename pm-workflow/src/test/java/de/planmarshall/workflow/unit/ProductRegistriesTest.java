@@ -93,7 +93,8 @@ class ProductRegistriesTest {
         @Test
         @DisplayName("Should hold the compiled defaults beside the two registries")
         void shouldHoldTheCompiledDefaults() {
-            var context = ProductRegistries.context(InvariantFixtures.registry(), List.of());
+            var compiledUnit = InvariantFixtures.entityUnit();
+            var context = ProductRegistries.context(InvariantFixtures.registry(), List.of(compiledUnit));
 
             assertAll("Production context",
                     () -> assertTrue(context.entityKinds().find("decision").isPresent(),
@@ -106,8 +107,8 @@ class ProductRegistriesTest {
                             "The context should carry the production config keys"),
                     () -> assertEquals(ProductRegistries.factKinds(), context.factKinds(),
                             "The context should carry the production fact kinds"),
-                    () -> assertTrue(context.compiledUnits().isEmpty(),
-                            "The context should carry the compiled units it was given"));
+                    () -> assertEquals(List.of(compiledUnit), context.compiledUnits(),
+                            "The context should keep every compiled unit it was given"));
         }
     }
 
@@ -141,15 +142,16 @@ class ProductRegistriesTest {
             var overlap = ProductRegistries.configKeys().find("local-config.epic.overlap_max_files").orElseThrow();
             var verbs = ProductRegistries.configKeys()
                     .find("workflow.plan.phase-5-execute.per_deliverable_verbs").orElseThrow();
+            var declaredVerbs = (ConfigValueDomain.ListOf) EffectiveConfigKeys
+                    .find("workflow.plan.phase-5-execute.per_deliverable_verbs").orElseThrow().domain();
 
             assertAll("Converted domains",
                     () -> assertEquals(new InputType.Enumeration(List.of("exact_sha", "after_last_push")),
                             currency.domain(), "An enumeration should stay an enumeration"),
                     () -> assertEquals(new InputType.IntRange(0, 20), overlap.domain(),
                             "A two-bounded range should stay a bounded range"),
-                    () -> assertEquals(new InputType.EnumList(List.of("clean", "compile", "test-compile",
-                                    "module-tests", "integration-tests", "e2e", "coverage", "mutation", "benchmark",
-                                    "quality-gate", "arch-gate", "verify", "install", "clean-install", "package")),
+                    () -> assertEquals(new InputType.EnumList(((ConfigValueDomain.Enumeration) declaredVerbs.element())
+                                    .values()),
                             verbs.domain(), "A list of an enumeration should stay a list of it"));
         }
 
