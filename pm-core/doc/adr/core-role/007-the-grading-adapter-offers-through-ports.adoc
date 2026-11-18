@@ -1,0 +1,72 @@
+= ADR 007: The grading adapter lives in `runtime.worker` and reaches the task protocol through a port
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-17
+
+== Context
+
+ADR `core-role/004` left the launch contract of a grading to an adapter: `core.role.qualification` declares the two ports
+`GradingHarness` and `JudgeScorer`, and something above them offers each item as a task, runs it under the launch contract
+of production, keeps the warm form warm, withholds the reference from the judge's blind task, and hands the answer to
+`workflow.model`'s `RoleGrader`. That adapter does not exist, and `runtime.worker`'s supervisor library — landed by
+PLAN-V2-31 — has no production caller either.
+
+Three facts of the module graph shape the decision. The task protocol (`workflow.task.TaskProtocol`) lives in
+`pm-workflow`, which depends on `pm-core`; `pm-runtime` depends on `pm-core` and cannot see `pm-workflow`, and the
+dependency cannot be reversed because the supervisor is the transport the protocol drives. The queue store
+(`core.queue`) is in `pm-core`, but a task's submitted answer is applied to the task's entity by the server, not stored in
+the queue record, so an adapter in `pm-runtime` cannot read an answer from the protocol alone. And the launch contract the
+adapter must honour — harness enrolment, the composed-vector check, model slots, the one-writer-per-plan rule — is
+`runtime.launch` and `runtime.worker`, that is, `pm-runtime`.
+
+== Decision
+
+The adapter is `runtime.worker`'s: `WorkerGradingHarness` implements `GradingHarness`, `WorkerJudgeScorer` implements
+`JudgeScorer`, and `QualificationService` is the runtime side of the entry `pm-operator roles qualify` over the assembly's
+grading engine. The two facts the module cannot reach come in through ports this package declares:
+
+* `ItemTaskOffers` offers one item as a task of the task protocol and answers the submitted answer with its tokens and its
+  time. The assembly implements it over `TaskProtocol` and the task's entity.
+* `ItemWorktrees` materialises an item's origin commit as a job-private detached worktree and answers empty when it cannot.
+  The assembly implements it over the project's repository provider.
+
+The adapter owns what the engine cannot see: one fresh worker per item, one supervised warm worker per contamination group
+and directory, a job-private detached worktree per origin-commit item, and the zero-tool prompt of the screener and the
+judge. `QualificationService` takes the engine as `GradingEngine` rather than a `RoleGrader`, because `pm-runtime` cannot
+depend on `pm-workflow`.
+
+== Alternatives Considered
+
+* *Put the adapter in `pm-workflow` beside `RoleGrader`.* Refused: the launch contract is `pm-runtime`'s, and `pm-workflow`
+  does not depend on it; the adapter would have to re-implement composition, slots and the supervisor.
+* *Let `pm-runtime` depend on `pm-workflow`.* Refused: it reverses the module order — the protocol drives the transport, not
+  the other way round — and would drag the engine and its stores into the daemon's leaf module.
+* *Write the queue records directly from the adapter.* Refused: the queue store is reachable, but the submitted answer is
+  not in the record, so the adapter would grade from a record that cannot carry the answer.
+* *Run an item in the project checkout when its origin worktree cannot be materialised.* Refused: the record would claim
+  `item_commit` for a run that happened in the checkout. The item is left ungraded instead, and the caller's `ItemCheckout`
+  port is what decides `current` for a commit the repository does not hold.
+
+== Consequences
+
+* The assembly in `plan-marshall-mcp` supplies `ItemTaskOffers`, `ItemWorktrees` and the engine, and the client renders the
+  offer and the owed record; both are owed outside this repository and named in the pull request that lands this adapter.
+* The adapter is testable without a running harness: the supervisor runs over the existing worker fixtures, and the offer
+  port stands in for the protocol.
+* A grading run of a warm form with one project checkout serves one worker; a contamination split needs the items'
+  origin-commit worktrees, which is where its workers run anyway.
+* The adapter records no pass flag and writes no record: the engine decides the measurements, and the record's topic mark
+  and judge check are the record's own (ADR `core-role/003`).
+
+== Source
+
+Work package `qualification-evidence` (closed in the same pull request), specification
+`doc/specification/model-work/01-roles-and-configuration.adoc` § Grading and § Corpus Topics of a Role,
+`doc/specification/model-work/04-worker-launch.adoc` § Launch Contract, and ADR
+`core-role/004`.

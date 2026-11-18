@@ -43,7 +43,7 @@ import org.jspecify.annotations.Nullable;
  * @param idleWakeups        the effective idle wakeups of a warm worker; empty when neither sets it
  * @since 0.1
  */
-@Builder
+@Builder(toBuilder = true)
 public record EffectiveRole(RoleArtifact artifact, String harness, String model, EffortValue effort,
 List<RoleSkill> skills, String harnessVersion, @Nullable String weightsIdentity,
 RoleArtifact.Questions questions, Map<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting> offTrack,

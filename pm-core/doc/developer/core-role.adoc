@@ -189,8 +189,11 @@ link:../../../pm-workflow/doc/developer/workflow-model.adoc[`workflow.model`'s `
 `QualificationRecord` is the value of one grading: the role, the qualification digest it is bound to, the graded
 `configuration` (harness, harness major.minor, model, effort, tools, class and skill digests), the corpus revision, the
 missed sources of a partial import, the measurements per form (`fresh`, and `warm` for every role that is not
-`zero_tool`), the warm-fresh gap, the ungraded count and every item's run with its answer, score, tokens, duration and
-`checkout`. `QualificationRecordCodec` is its one wire shape; `QualificationRecordStore` writes the project set's
+`zero_tool`), the warm-fresh gap, the ungraded count, the judge instrument check's result where the check ran, and every
+item's run with its answer, score, tokens, duration and `checkout`. A topic result answers the mark `thin` from its own
+graded count (`TopicResult.THIN_LIMIT`, twenty): the mark never becomes a stored state that could contradict the count,
+it changes no verdict, and the codec writes it beside the count as the schema requires.
+`QualificationRecordCodec` is its one wire shape; `QualificationRecordStore` writes the project set's
 `qualification/<role>.json` by atomic rename under the store's lock, and a lookup reads the project set before the set of
 the artifact (`QualificationRecords.firstOf`). `JudgeCheck` and `JudgeCheckStore` do the same for
 `qualification/judge-check.json`.
@@ -233,7 +236,10 @@ denominator and never in a numerator. `Scoring` scores a closed item against its
 control is right only when it reports nothing) and decides whether a rubric score reaches the item's pass threshold.
 `JudgeInstrumentCheck` runs the judge twice per judge-topic item — oracle and blind, with the reference withheld from the
 blind prompt — and records the two accuracies and the baseline; `JudgeCheck.Verdict.of` passes only when the oracle
-exceeds the baseline and the blind accuracy by the margin and nothing is unscored.
+exceeds the baseline and the blind accuracy by the margin and nothing is unscored. The check blocks no grading: the role
+grading records its result (`JudgeCheckResult.PASSED` or `FAILED`) in the qualification record and runs either way, and a
+corpus without a `judge/` item records no result at all. The conformance harness keeps its own `judge_unchecked`
+refusal.
 
 == Invariants and Failure Modes
 
@@ -261,7 +267,8 @@ file), `QualificationCheckTest` (the validity matrix, the level change, the base
 `ConstantBaselineTest`, `RoleTopicsTest`, `ScoringTest`, `JudgeCheckTest` (the oracle and blind accuracies, the lost
 judge task, the stale record), `QualificationRecordCodecTest`, `QualificationRecordStoreTest` and
 `QualificationSchemaParityTest` (the two grading schema files, their members, enumerations and the validity of the written
-documents: the judge-check record as written, the qualification record but for the pinned `thin` mark of a topic result).
+documents: the judge-check record as written, and the qualification record with its topic mark and its optional judge
+check).
 
 == Tokens and the Split
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5]_
@@ -278,8 +285,7 @@ total is refused at construction.
 
 `QualificationRecordCodecTest` covers the split of `TokenTotal` and asserts that a record is written without it;
 `QualificationSchemaParityTest` reads the two schema files and validates the written documents against their schemas: the
-judge-check record as written, the qualification record but for the pinned `thin` mark of a topic result (owner: the work
-package `qualification-evidence`).
+judge-check record as written, and the qualification record with its topic mark and its optional judge check.
 
 link:../adr/core-role/006-grading-records-persist-the-total-only.adoc[ADR 006]: the qualification and judge-check records
 persist the total only. link:../adr/core-role/005-token-total-carries-the-split.adoc[ADR 005] is superseded in the part

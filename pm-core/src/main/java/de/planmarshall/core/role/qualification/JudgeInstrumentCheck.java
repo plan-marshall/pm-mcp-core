@@ -22,8 +22,9 @@ import de.planmarshall.core.role.EffectiveRole;
  * topic {@code judge/} is scored twice, once with the reference and once blind, and the record stores the two
  * accuracies, the constant baseline and every item's scores. The blind task's prompt carries no reference.
  * <p>
- * A judge task that closes {@code lost} leaves its answer unscored; a record with an unscored answer has no verdict, and
- * a grading whose judge has no valid check record that passes is refused with {@code judge_unchecked}.
+ * A judge task that closes {@code lost} leaves its answer unscored; a record with an unscored answer has no verdict. A
+ * grading records the check's result beside its measurements and is never refused on it: the role grading runs either
+ * way, and the conformance harness keeps its own {@code judge_unchecked} refusal.
  *
  * @since 0.1
  */

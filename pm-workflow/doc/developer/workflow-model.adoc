@@ -85,8 +85,9 @@ one place that turns a corpus into a qualification record, and it uses the ports
   and its missed sources are named in the record.
 . *Independence*: a judge whose model is the graded model or a declared sibling refuses `scorer_not_independent`.
 . *Instrument check*: a valid check record for the judge's qualification digest and the corpus revision is reused;
-  otherwise `JudgeInstrumentCheck` runs and writes the project set's `judge-check.json`, and a check without a verdict or
-  one that does not pass refuses `judge_unchecked` before any item is offered.
+  otherwise `JudgeInstrumentCheck` runs and writes the project set's `judge-check.json`. The check blocks no grading: its
+  result is recorded in the qualification record as `passed` or `failed`, and a corpus that holds no `judge/` item
+  records no result at all.
 . *Topics and forms*: the role's topics come from the corpus items' `role` field. Every item is offered fresh and, unless
   the role is `zero_tool`, warm; every role's item is offered the runs the caller's `GradingProfile` requests, one by
   default. An item of the project's repository
