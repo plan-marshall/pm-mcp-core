@@ -38,7 +38,8 @@ class PlanInstanceComposerRecordsTest {
         var units = List.of();
         var positionStates = Map.of(Generators.letterStrings(1, 8).next(), Set.of(Generators.letterStrings(1, 8)
                 .next()));
-        var policyCalls = List.of();
+        var policyCalls = List.of(PolicyCall.of(Generators.letterStrings(1, 8).next(),
+                "remediation.qgate-findings", Map.of()));
         var subUnits = Set.of(Generators.letterStrings(1, 8).next());
         var pruned = List.of(PrunedElement.builder()
                 .element(Generators.enumValues(PrunedElement.Kind.class).next())

@@ -20,7 +20,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.plan.HeaderJson.ArrayNode;
@@ -30,6 +29,7 @@ import de.planmarshall.workflow.plan.HeaderJson.NumberNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Checks a plan instance header against every constraint of the {@code PlanInstanceHeader} schema (PM-IMPL-5,
@@ -192,20 +192,34 @@ public final class HeaderSchemaCheck {
 
     /**
      * @param root the header tree
-     * @return the ids of the composed units the header's inputs name, the plan unit excluded; empty where the inputs
-     *         or the templates are absent or of another type, which the check reports on its own
+     * @return the ids of the composed units the header's inputs name by their composed file, the plan unit excluded;
+     *         empty where the inputs, the templates or the version are absent or of another type, which the check
+     *         reports on its own
      */
     private static Set<String> composedUnits(Node root) {
         if (!(root instanceof ObjectNode(var members))
                 || !(members.get(HeaderJson.INPUTS) instanceof ObjectNode(var inputs))
-                || !(inputs.get(HeaderJson.TEMPLATES) instanceof ArrayNode(var templates))) {
+                || !(inputs.get(HeaderJson.TEMPLATES) instanceof ArrayNode(var templates))
+                || !(members.get(HeaderJson.VERSION) instanceof NumberNode version) || !version.integral()) {
             return Set.of();
         }
-        return templates.stream().filter(ObjectNode.class::isInstance).map(ObjectNode.class::cast)
-                .filter(reference -> reference.members().get(HeaderJson.FILE) instanceof StringNode)
-                .map(reference -> reference.members().get(HeaderJson.UNIT)).filter(StringNode.class::isInstance)
-                .map(StringNode.class::cast).map(StringNode::value)
-                .filter(unit -> !PlanInstanceComposer.PLAN_UNIT.equals(unit)).collect(Collectors.toSet());
+        var number = version.value();
+        if (number.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) > 0
+                || number.compareTo(BigDecimal.valueOf(Integer.MIN_VALUE)) < 0) {
+            return Set.of();
+        }
+        var versionNumber = number.intValueExact();
+        var units = new HashSet<String>();
+        for (var template : templates) {
+            if (template instanceof ObjectNode(var reference)
+                    && reference.get(HeaderJson.UNIT) instanceof StringNode(var unit)
+                    && !PlanInstanceComposer.PLAN_UNIT.equals(unit)
+                    && reference.get(HeaderJson.FILE) instanceof StringNode(var file)
+                    && PlanInstanceStore.unitPath(unit, versionNumber).equals(file)) {
+                units.add(unit);
+            }
+        }
+        return Set.copyOf(units);
     }
 
     /**
@@ -217,18 +231,28 @@ public final class HeaderSchemaCheck {
         if (!(node instanceof ArrayNode(var elements))) {
             return;
         }
-        var seen = new HashSet<String>();
+        var seen = new HashSet<CallSiteKey>();
         for (var index = 0; index < elements.size(); index++) {
             if (!(elements.get(index) instanceof ObjectNode(var members))) {
                 continue;
             }
             var callSite = members.get(HeaderJson.CALL_SITE) instanceof StringNode(var site) ? site : null;
             var inUnit = members.get(HeaderJson.IN_UNIT) instanceof StringNode(var unit) ? unit : null;
-            if (callSite != null && !seen.add(inUnit + "\u0000" + callSite)) {
+            if (callSite != null && !seen.add(new CallSiteKey(inUnit, callSite))) {
                 out.add(new HeaderViolation(HeaderJson.child(pointer, Integer.toString(index)),
                         DUPLICATE_CALL_SITE));
             }
         }
+    }
+
+    /**
+     * The key of a policy call in the duplicate check: the unit that holds it and the state that calls it. A record
+     * keeps an absent unit apart from a unit named {@code null}; a state id is unique only within its unit.
+     *
+     * @param inUnit   the composed unit that holds the call; {@code null} for a call of the plan unit
+     * @param callSite the state id of the calling state
+     */
+    private record CallSiteKey(@Nullable String inUnit, String callSite) {
     }
 
     /** A date-time is valid when it has the RFC 3339 shape and the header reader can parse it. */

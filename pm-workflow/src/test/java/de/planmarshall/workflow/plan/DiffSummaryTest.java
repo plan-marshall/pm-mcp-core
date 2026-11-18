@@ -213,13 +213,12 @@ class DiffSummaryTest {
 
             var changes = DiffSummary.between(before, after).ceilingsChanged();
 
-            assertAll(
-                    () -> assertEquals(List.of("phase-4-plan", "phase-5-execute"),
-                            changes.stream().map(CeilingChange::inUnit).toList(),
-                            "both units' calls are listed"),
-                    () -> assertEquals(List.of("plan.remediate", "plan.remediate"),
-                            changes.stream().map(CeilingChange::callSite).toList(),
-                            "the same state id is kept apart by its unit"));
+            assertEquals(List.of(
+                            new CeilingChange("plan.remediate", "fix_budget", null, new CallValue.IntValue(3),
+                                    "phase-4-plan"),
+                            new CeilingChange("plan.remediate", "fix_budget", null, new CallValue.IntValue(4),
+                                    "phase-5-execute")),
+                    changes, "each unit keeps its own ceiling value");
         }
 
         private static PolicyCall nested(String unit, int fixBudget) {

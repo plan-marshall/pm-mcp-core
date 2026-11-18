@@ -1282,10 +1282,11 @@ class PlanInstanceComposerTest {
                     InstancePosition.of("replan", "replan.assess"), List.of())));
 
             assertAll(
-                    () -> assertTrue(instance.composed("phase-5-execute").isPresent(), instance.units()::toString),
+                    () -> assertTrue(instance.composed("phase-5-execute").isPresent(),
+                            "the composed execute file is present"),
                     () -> assertTrue(instance.header().inputs().subUnits().stream()
                                     .noneMatch(reference -> "replan".equals(reference.unit())),
-                            instance.header().inputs().subUnits()::toString),
+                            "replan is no bound sub-unit"),
                     () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
                             "the state of the pruned call is no position"),
                     () -> assertEquals(List.of("position: version 1 does not contain the state 'replan.assess' of "
@@ -1295,7 +1296,7 @@ class PlanInstanceComposerTest {
                                     pruned.element() == PrunedElement.Kind.CALL
                                             && "execute.replan/replan".equals(pruned.id())
                                             && pruned.reason() == PruneReason.OTHER_LANE),
-                            instance.header().pruned()::toString));
+                            "the prune records the pruned call"));
         }
 
         @Test
@@ -1315,7 +1316,7 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertTrue(inTheComposedUnit.composed("phase-6-finalize").isPresent(),
-                            inTheComposedUnit.units()::toString),
+                            "the composed finalize file is present"),
                     () -> assertTrue(inTheComposedUnit.composed("phase-6-finalize").orElseThrow().definition()
                                     .states().containsKey("finalize.push-barrier"),
                             "the composed unit declares the state"),
