@@ -38,11 +38,12 @@ class WorkflowStatusBuilderContractTest {
     @DisplayName("the builder builds the constructor's workflow status")
     void builderBuildsWorkflowStatus() {
         var canonical = new WorkflowStatus(JournalScopeType.PLAN, "plan-core", "phase-5-execute",
-                "execute.step", List.of(), 0, 0, Map.of(), List.of(), RetryCounters.empty(), null, Map.of(),
+                "execute.step", List.of(), 3, 0, 0, Map.of(), List.of(), RetryCounters.empty(), null, Map.of(),
                 Map.of(), null, AT, Map.of());
 
         var built = WorkflowStatus.builder().scopeType(canonical.scopeType()).scopeId(canonical.scopeId())
                 .phase(canonical.phase()).state(canonical.state()).callStack(canonical.callStack())
+                .instanceVersion(canonical.instanceVersion())
                 .loopBackIteration(canonical.loopBackIteration())
                 .outlineLoopBacks(canonical.outlineLoopBacks())
                 .policyCounters(canonical.policyCounters())
@@ -53,7 +54,7 @@ class WorkflowStatusBuilderContractTest {
 
         var fromConstructor = assertThrows(NullPointerException.class,
                 () -> new WorkflowStatus(null, canonical.scopeId(), canonical.phase(), canonical.state(),
-                        canonical.callStack(), canonical.loopBackIteration(),
+                        canonical.callStack(), canonical.instanceVersion(), canonical.loopBackIteration(),
                         canonical.outlineLoopBacks(), canonical.policyCounters(),
                         canonical.waiverRequests(), canonical.retryCounters(), canonical.activeJob(),
                         canonical.activeJobs(), canonical.activeTasks(), canonical.pendingCondition(),

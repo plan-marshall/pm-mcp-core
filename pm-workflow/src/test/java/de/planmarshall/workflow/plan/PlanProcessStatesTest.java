@@ -126,7 +126,7 @@ class PlanProcessStatesTest {
                 Generators.letterStrings(1, 8).next(), null, null, null);
         var header = new PlanInstanceHeader(planId, unit.version(), CompositionEvent.PLAN, T0, inputs, null, null,
                 new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(), List.of(), List.of());
-        var instance = new PlanInstance(unit.version(), header, unit, text, List.of());
+        var instance = new PlanInstance(unit.version(), header, unit, text, List.of(), null);
 
         var states = PlanProcessStates.derive(instance, List.of(
                 PlanHistoryLine.of(1, Event.ENTERED, "setup.choose", List.of(), "phase-1-init", null,

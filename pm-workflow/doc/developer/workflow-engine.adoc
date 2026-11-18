@@ -30,9 +30,11 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/R
 `WorkflowEngine`:: The interpreter of one top-level unit. The constructor takes the unit, the `WorkflowCatalog` of
 callable sub-workflows, the `WorkflowValidator`, the `PrimitiveRegistry`, a `ParameterBinder` that binds the
 parameter record of a primitive from the status, and the `Ports` record (`JobStarter`, `QueueTaskCreator`,
-`QuestionRecordReader`, `WorkflowClock`). Its operations are `start`, `advance` (with and without an event, each also
-in a form that writes the new status into a `ScopeTransaction`), `restingWait`, `stepOut`, `raise` and
+`QuestionRecordReader`, `WorkflowClock`, and the optional `InstanceComposition` and `InstanceUnits` of a plan
+instance). Its operations are `start`, `advance` (with and without an event, each also
+in a form that writes the new status into a `ScopeTransaction`), `composeOperatorEvent`, `restingWait`, `stepOut`, `raise` and
 `unwindToFallback`.
+`OperatorComposition`:: The answer of `composeOperatorEvent`: the status after the composition, with the version in force, and the composition's `CompositionResult`.
 `EngineStep`:: The sealed result of one operation: `Resting` (the resting state and the `AwaitedEvent` it waits for),
 `Ended` (the outcome and outcome class of the top-level unit's terminal; the call stack is empty), and
 `ConditionRaised` (the condition kind and its facts; state, phase and call stack unchanged). Every variant carries the
@@ -116,6 +118,48 @@ The engine returns the new status with `updated_at` from the `WorkflowClock`. Th
 the caller's `ScopeTransaction`, so the state change and the other writes of the transaction are one journaled write;
 a status the advance did not change is not written again.
 
+=== Composition Events and the Version in Force
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1]_
+
+A mounted `InstanceComposition` makes the plan compose versions (Workflow DSL § Versions & Composition Events,
+link:../adr/workflow-engine/016-the-composition-runs-in-the-entering-transactions.adoc[ADR 016]):
+
+* *A server event* (`outline`, `plan`, `fallback`, `empty_harvest`, `replan`) is composed by the advance, in the
+  transaction that enters its target state, before the state's own behaviour runs: `serverEventAt(state)` names the
+  event, the composition reads the position of the advance, and the version takes force immediately, so the rest of the
+  chain selects from it. A refused composition raises `precondition_unmet` on the composing transition with the
+  refusal's reason as its facts, and the version in force stays.
+* *An operator or configuration event* (`config_adopted`, `waiver`, `override`) enters through
+  `composeOperatorEvent(status, event, store, transaction, history)`: the version is composed at the current position and
+  takes force from the next transition, never mid-state; the state does not move, and a refusal is returned to the
+  caller with its attempt logged.
+* *`start`* is composed in the plan's creation transaction; the engine's `start` refuses the creation when the
+  composition of `start` is refused (`IllegalStateException`), so the caller creates no plan from a refused version.
+
+A version takes force by recording it and its `instance` history line in the transaction, switching the units the run
+reads to the version's own files, and writing `instance_version` into the status; it resets no counter and rewrites no
+history line. The run that continues in the composing transaction reads the version through the composition port
+(`InstanceComposition.unitsOf`), because the version's files are staged and not yet committed; once the transaction
+commits, a later run reads the version in force through `InstanceUnits` (`PlanInstanceVersions` over the plan's store):
+the plan unit of `instance/plan.v<N>.pmwf`, the composed file of each phase sub-workflow and bound axis variant, and the
+stored text `mcp/units/<digest>.pmwf` of a sub-unit the header binds by digest. An edit of a project's
+or the machine's unit therefore never changes a running call, and a unit the version does not carry is an internal fault
+naming it.
+
+`composeOperatorEvent` composes in its own locked call, so the transition that runs the new version is a later advance,
+after that call committed; a caller that advances inside the composition's own transaction reads the version through the
+port's answer, and the history-bearing advance is the one that composes (a composition without the plan's history is
+refused, because the version's `instance` line is part of taking force).
+
+The position the composition reads is the `InstancePosition` of the advance: the unit and state the run is in (the top
+frame's unit, or the plan unit when the stack is empty), plus the calling unit and state of every frame.
+
+A run that carries no transaction or no history — the recovery entry points `stepOut` and `unwindToFallback`, and the
+non-persisted `advance` overloads — reports `precondition_unmet` for a composing state instead of throwing, and an
+advance composes at most one version: a second server event in the same chain reports `precondition_unmet` with its
+reason until the first version is committed, because the store records a version against the one before it, which is
+still staged.
+
 === Selecting a Transition
 
 Of the transitions of a state that route the returned outcome, the engine takes the one without a result guard or
@@ -132,6 +176,9 @@ outcome by result guards (Rule 6), so the fault is reachable only through a defe
   spent condition budget unwinds every frame.
 * *No state outside the store*: the engine holds no field that changes between advances. The current state, phase,
   call stack, bindings, counters and condition are read from the status passed in; `RestingWait` is derived from it.
+* *The version in force is the store's*: a composition writes only into the caller's transaction, so a version is in
+  force exactly when the status and the version's files were committed; the run reads its units through `InstanceUnits`
+  and never from the level's copy.
 * *Retry counts*: the engine counts no retry. It drops the `retry_counters` entries of every state of a sub-workflow
   when it pops or unwinds that sub-workflow's frame, in the same status write, and changes them nowhere else: entering
   and leaving states within a frame keeps them (link:../../../pm-core/doc/adr/core-store/005-retry-count-clearing-rule.adoc[ADR core-store 005]).
@@ -169,6 +216,18 @@ reason; the guard is never folded into held or not held.
 
 |A question record of a resolution cannot be read
 |The condition `precondition_unmet` is raised with the `question_id` and the reason; state and call stack stay.
+
+|A server event's composition is refused
+|The condition `precondition_unmet` is raised on the composing transition with the refusal's reason; the version in force stays.
+
+|`composeOperatorEvent` is called without an instance composition, or for an event that is no operator event
+|`IllegalStateException` or `IllegalArgumentException`; no composition runs.
+
+|The version in force carries no unit a running call reads
+|`InternalFaultException` with the reason `unresolved_name`, naming the version and the unit.
+
+|The creation composition of `start` is refused
+|`IllegalStateException`; the caller creates no plan.
 
 |An event is not the one the resting state waits for, or the question record is still open or resolved with another
 outcome
@@ -611,6 +670,12 @@ frame, the unwind of every frame to the fallback, nesting depth five and the ref
 killed job settled `killed` and never restarted
 |`EngineResumeTest` |A run stopped after each persisted step continues from the store with the same state, call stack
 and next step; a frame resumed from the store keeps its entry and returns into the caller as before
+|`InstanceVersionEngineTest` |A server event of each kind composes in the entering transaction and the chain selects
+from the version, its `InstancePosition` read at the entering state, with the `instance` history line; a refused server
+composition raises `precondition_unmet` and takes no version; an operator event takes force from the next transition,
+never mid-state, and a refused one is returned and logged; the version in force runs the stored sub-unit text although
+the project's copy changed; a composition resets no counter and rewrites no history line
+|`PlanHistoryEngineTest` |The history of an advance: entered, left, called, returned and the `instance` line, read whole
 |`EntityAddressingTest` |Every entity kind of the workspace scope resolved in the workspace fixture unit
 (`bootstrap-plan`, `bootstrap-epic`, `enrich-<module_id>`, the lesson review of kind `lessons-review`), the grammar at
 its bounds, every address of another scope refused `scope_not_found` without a read of the port for a plan or epic
@@ -669,3 +734,5 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
   wait and awaits `OPERATOR_ACT`; no engine event and no time ends it.
 * link:../adr/workflow-engine/014-five-call-frames-and-the-derived-phase.adoc[ADR 014]: five call frames, and the phase
   of a scope is derived from the phase unit on its stack.
+* link:../adr/workflow-engine/016-the-composition-runs-in-the-entering-transactions.adoc[ADR 016]: the composition of a
+  server event runs in the transaction that enters its target state, and the engine reads a version through two ports.

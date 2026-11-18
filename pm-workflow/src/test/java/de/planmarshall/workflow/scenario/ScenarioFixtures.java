@@ -436,7 +436,8 @@ final class ScenarioFixtures {
         var registry = registry();
         var validator = new WorkflowValidator(registry, List.of(), entityKinds(), QuestionClassRegistry.defaults(),
                 SchemaRegistry.defaults(), WorkflowCatalog.of());
-        var ports = new WorkflowEngine.Ports(jobStarter, queueTasks, questionReader, clock);
+        var ports = WorkflowEngine.Ports.builder().jobs(jobStarter).tasks(queueTasks).questions(questionReader)
+                .clock(clock).build();
         return new WorkflowEngine(unit, WorkflowCatalog.of(), validator, registry, new ScenarioParameterBinder(), ports);
     }
 

@@ -12,11 +12,14 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-5[PM-WF-5], link:{docs}/Requi
 Package `de.planmarshall.workflow.model` of `pm-workflow` holds the *one model caller* and the *composition checks* of a
 role. Every model step of every workflow goes through the caller; no other part of the runtime knows what a role is for.
 
-The package owns four things:
+The package owns five things:
 
 * `ModelCaller`, the ordered Resolve → Qualify → Available → Queue steps (Serve belongs to the supervisor);
-* `RoleComposition`, the `role_undefined`/`class_mismatch` check of a composed unit;
+* `RoleComposition`, the `role_undefined`/`class_mismatch` check of a composed unit, and `ModelIdentity`, the
+  `quorum_invalid`/`quorum_not_diverse` check of its quorum declarations;
 * `RoleUse`, the role a unit names with the classes its use admits;
+* `CompositionRefusal`, the refusal value of those checks, with the reason `skill_unresolved` for the skill clause of
+  Rule 14 (Workflow DSL § Static AST Verification Rules);
 * the ports the caller needs — `QualificationLookup`, `AvailabilityGuard`, `ModelQueue` — so the caller carries no store
   and no session of its own.
 
@@ -56,6 +59,19 @@ the class is absent there.
 * `role_undefined` — the role is absent, or its artifact or effective values failed validation (the validation reason
   travels with the refusal);
 * `class_mismatch` — the role's class is not one the use admits.
+
+`ModelIdentity.check(RoleResolver, List<ListedQuorum>, String site)` closes the quorum clause of Rule 13
+(Model Work § Model Identity): a listed role that is undefined or not `read_only` refuses with `quorum_invalid`, and two
+listed roles of one declaration that name one model refuse with `quorum_not_diverse`, naming both roles, both identifiers
+and the shared identity. `ModelIdentity.shared(first, second)` is that comparison: the weights identities the enrolments
+record, equal or not; where either records none, the identifiers after dropping everything up to the last `/`, everything
+from the first `:` and the case. It errs towards refusal, so `qwen3:32b` and `qwen3:8b` are one model and a router prefix,
+a `:free` variant or another case never makes two roles diverse
+(link:../adr/workflow-model/003-the-model-identity-of-a-quorum.adoc[ADR workflow-model/003]).
+
+`SkillCatalogue` is Rule 14's port into the project's skill catalogue: `resolves(uri)` answers whether the project
+publishes the skill a unit's `skill` clause names, and the composing check refuses with `skill_unresolved` where it does
+not. The assembly fills the port; the engine never reads a skill catalogue itself.
 
 The same check runs at task creation: a role whose class an edit changed so that it no longer fits closes its task with
 `class_mismatch` instead of running (`ModelCaller`, step 2). This is the guard of `PM-WATCH-DISP-49`: a `read_only` role
@@ -128,7 +144,8 @@ lets its state take the conservative fallback.
 
 `ModelCallerTest` (the order, the four closure reasons, the form downgrade, the judge and steward skipping Qualify, the
 class mismatch, the unavailable role), `RoleCompositionTest` (`role_undefined`, `class_mismatch`, the matched controls of
-the shipped kinds and a consultation), `RoleGraderTest` (the record and its tokens, the consent, the import verdicts, the
+the shipped kinds and a consultation), `CompositionChecksTest` (`PM-WATCH-DISP-67`'s identity table and its matched
+control, over `ModelIdentity.shared`, beside Rules 13 and 14 through the composer), `RoleGraderTest` (the record and its tokens, the consent, the import verdicts, the
 judge check and its reuse, the scorer independence, the requested runs of every role, the checkout, the lost items and the re-grading
 of only the ungraded ones), `RecordedQualificationTest` (the levels at every check, the warm downgrade and the stale
 record).
@@ -138,3 +155,4 @@ record).
 * link:../../../pm-core/doc/developer/core-role.adoc[Role Artifacts, Role Sets and the Effective Configuration Developer Guide]
 * link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001]
 * link:../adr/workflow-model/002-the-grading-run-in-workflow-model.adoc[ADR workflow-model/002]
+* link:../adr/workflow-model/003-the-model-identity-of-a-quorum.adoc[ADR workflow-model/003]

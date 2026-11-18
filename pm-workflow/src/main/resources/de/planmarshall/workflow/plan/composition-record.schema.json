@@ -22,7 +22,7 @@
         "replan_id": { "type": ["string", "null"], "pattern": "^RP-[0-9]+$", "description": "replan: the re-planning whose revision composed the version." },
         "from_config_hash": { "type": ["string", "null"] },
         "to_config_hash": { "type": ["string", "null"] },
-        "refusal": { "type": ["string", "null"], "enum": ["position_not_contained", "invariant_failed", null] }
+        "refusal": { "type": ["string", "null"], "enum": ["position_not_contained", "invariant_failed", "role_undefined", "class_mismatch", "quorum_invalid", "quorum_not_diverse", "skill_unresolved", null], "description": "refused: position_not_contained for a version that lacks the plan's position; invariant_failed for a tree, invariant or header violation; role_undefined, class_mismatch, quorum_invalid and quorum_not_diverse for Rules 13; skill_unresolved for Rule 14." }
       }
     },
     "input_digests": { "type": "object", "additionalProperties": { "type": "string" } },

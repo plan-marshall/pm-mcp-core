@@ -23,7 +23,7 @@ The specification sections named are the single statement of what each task buil
 . *The simplify step*: states, roster wiring and model tasks of `finalize.simplify` and `finalize.simplify-apply`: link:../specification/phase-workflows/04-finalize-step-bands.adoc#finalize-step-bands[Phase Workflows § Finalize Step Ordering Bands].
 . *The self-review results per constraint, non-goal and decision* in the phase: § Finalize Step Ordering Bands, `pre-submission-self-review`.
 
-Left out: the instance versions (link:plan-instance-versions.adoc[`plan-instance-versions`]); the finalize pipeline (link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]); the drill-down in the clients.
+Left out: the instance versions (done, PLAN-V2-13); the finalize pipeline (link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]); the drill-down in the clients.
 
 == Trace
 
