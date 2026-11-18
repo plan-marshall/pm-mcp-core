@@ -1,0 +1,18 @@
+---
+name: verify.fallback-without-default
+description: A unit whose fallback key has no compiled default, never copied from the product.
+type: workflow
+icon: workflow.default
+reads_config: project.merge_method
+input: merge_method
+input_type: enum[squash|merge|rebase]
+input_fallback: project.merge_method
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+workflow verify.fallback-without-default version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry terminal done success

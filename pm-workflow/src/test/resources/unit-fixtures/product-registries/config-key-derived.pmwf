@@ -1,0 +1,15 @@
+---
+name: verify.derived-as-config-key
+description: A unit whose reads_config names a derived fact, never copied from the product.
+type: workflow
+icon: workflow.default
+reads_config: derived.push_remote
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+workflow verify.derived-as-config-key version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry terminal done success
