@@ -27,8 +27,10 @@ created anyway: the defect shows only when that state is reached, or after an ar
 Guard:: The class-fit half is covered: `RoleCompositionTest` (each class against each kind, a consulted `zero_tool` role,
 `role_undefined` with and without its validation reason) and `ModelCallerTest` (a class that no longer fits closes the
 task `class_mismatch` at task creation and is never queued). Remaining: a composition test of a plan instance, an epic
-workflow, and the project setup workflow that refuses before the scope is created, naming the role, its class, the
-state, and the required class; matched control: every kind of the shipped units composes with its shipped role.
+workflow, and the project setup workflow, one case per refusal — an absent role and an invalid role each refusing with
+`role_undefined`, and a role whose class its use does not admit refusing with `class_mismatch` naming the role, its
+class, the state, and the required class — each before the scope is created; matched control: every kind of the
+shipped units composes with its shipped role.
 Source:: design review.
 
 [#PM-WATCH-DISP-51]
