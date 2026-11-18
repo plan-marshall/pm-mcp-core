@@ -61,6 +61,7 @@
         "properties": {
           "call_site": { "type": "string", "description": "state_id of the calling state." },
           "unit": { "type": "string", "enum": ["remediation.ci-failure", "remediation.review-findings", "remediation.build-failure", "remediation.merge-conflict", "remediation.qgate-findings", "remediation.analysis"] },
+          "in_unit": { "type": "string", "description": "The composed unit that holds the call; absent for a call of the plan unit. Must name a composed unit of inputs.templates, so the plan unit itself is refused." },
           "args": {
             "type": "object",
             "description": "Effective bound arguments: retry_budget, fix_budget (integers) and actions (the allowed decide actions); each value carries its provenance.",

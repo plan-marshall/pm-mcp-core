@@ -1,0 +1,47 @@
+= ADR 007: A Compiled Default Is the Keyword or a Classified Prose Default
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+Whether a key has a compiled default is what the verifier's fallback rule reads: an input with neither a value nor the
+optional form may fall back only to a key that has one. Some nodes carry the schema keyword `default`
+(`review.currency`, `epic.auto_start`), and some state their compiled default only in their description
+(`commit_trailer`: "compiled default plan-marshall <noreply@cuioss.de>"). Other descriptions mention a default that is
+NOT compiled: a value derived from a fact (`base_branch`), a default derived from the build systems
+(`final_verification`), an answered absence (`review.required_bots`) or a phrase about the default steps
+(`project_steps.*.order`).
+
+== Decision
+
+`EffectiveConfigKey.hasCompiledDefault` is true exactly when the schema node carries the `default` keyword or the key is
+one of the five prose defaults the parity test classifies with a reason: `review.optional_bots`, `review.operator_paths`,
+`per_deliverable_verbs`, `commit_trailer` and `envelope_budget_tokens`. The parity test carries a second classification
+for the descriptions that mention a default which is not compiled, and it fails for a description that mentions a
+default the test does not classify. No schema block is edited.
+
+== Alternatives Considered
+
+1. *Add the missing `default` keywords to the schema blocks.* Rejected: those blocks are read by other plans and by the
+   operator's files, and the change would alter a published schema for a statement only this table needs.
+2. *Treat every description that mentions "default" as a compiled default.* Rejected: it would claim a default for
+   `required_bots`, whose presence is the answer, and for keys whose value is derived.
+
+== Consequences
+
+A new prose default is a test failure until whoever adds it classifies it, which is the point: the classification is
+where "compiled" and "derived" are told apart. The two classifications are test constants, so the production table stays
+a plain value list.
+
+== Source
+
+* Plan `PLAN-V2-10`, Decision 4 and Deliverable 2.
+* Store Schemas 07, Effective Configuration and Sources (the compiled default table).
+* Store Schemas 08, Operator Local Configuration (`commit_identity`, `commit_trailer`, `envelope_budget_tokens`).

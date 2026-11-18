@@ -422,13 +422,14 @@ public final class WorkflowValidator {
             return;
         }
         if (!ConfigKeyRegistry.assignable(input.type(), key.get().domain())) {
+            var domain = key.get().domain();
             violations.add(Violation.builder()
                     .rule(VerificationRule.INPUT_DECLARATION)
                     .stateId(stateId)
                     .location(input.location())
                     .message("the domain %s of the input_fallback '%s' of the input '%s' is not assignable to its type %s"
-                            .formatted(key.get().domain().sourceText(), fallback, input.name(),
-                                    input.type().sourceText()))
+                            .formatted(domain == null ? "no closed input type" : domain.sourceText(), fallback,
+                                    input.name(), input.type().sourceText()))
                     .build());
         }
         if (!input.optional() && input.defaultValue() == null && !key.get().compiledDefault()) {

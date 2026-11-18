@@ -1,0 +1,60 @@
+= ADR 008: The Value Domain Is the Closed Set of the Schema Subset, With a Union
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+The configuration schemas express their values with a small subset of JSON Schema: `type` (`string`, `integer`,
+`boolean`, `array`, `object`, and once `[string, null]`), `enum`, `const`, `minimum`, `maximum`, `items`, and one
+`oneOf`. The verifier's assignability check compares a key's domain with an input type, so the domain model has to say
+which values a key admits and no more.
+
+The operator file's three cleanup durations reference `machine-config.json#/$defs/cleanup_duration`, which is
+`oneOf: [{type: integer, minimum: 7}, {type: string, const: never}]` with `default: 30`. Decision 5 of the plan named six
+members and no member expresses a union; the operator chose to add the seventh member rather than flatten the union into
+`Object` or drop the `never` alternative.
+
+== Decision
+
+`ConfigValueDomain` is sealed with seven members: `Enumeration(values)` (from `enum` and `const`), `IntegerRange(min?,
+max?)` (either bound may be absent, as `minimum` and `maximum` are independent), `Bool`, `Text`, `ListOf(element)`,
+`Object`, and `Union(alternatives)` (from `oneOf`). `Enumeration` needs at least one value and no value twice,
+`IntegerRange` refuses inverted bounds, `ListOf` refuses a missing element domain, and `Union` needs at least two
+alternatives. Every node of the three schemas has exactly one member, and the parity test derives the expected domain
+from the node's keywords by the same rule.
+
+== Alternatives Considered
+
+1. *Map `oneOf` to `Object`.* Rejected: it states no structure where the schema states two alternatives, and a later
+   assignability check could not tell the union from a free-form object.
+2. *Map the cleanup duration to `IntegerRange(7, null)`.* Rejected: it silently drops the legal value `never`.
+3. *Add the other members the subset would need (a date type, a map type).* Not taken: no node of the three schemas uses
+   them, and an unused member is a claim nothing checks.
+
+== Consequences
+
+A new schema keyword needs a member here, a derivation in the parity test and a row in the table; the sealed interface
+makes the compiler name every place that switches over the domains. The union is the only member that nests another
+member rather than a value.
+
+The schema keyword `not` is not modelled: `project_steps.*.order` excludes 11 and 70, and the table's
+`IntegerRange(3, 989)` admits them. The over-approximation is conservative for assignment — a fallback is refused more
+often, never admitted wrongly — and it is stated here rather than modelled.
+
+One node declares a type list, `local-config.integrations.provenance.credential_key` with `["string", null]`. The table
+records `Text` and the walk reads the one non-null member of a type list: the null alternative is the value's absence,
+which the effective configuration already expresses by the key being absent, not by a text value. A type list with any
+other member is refused by the walk.
+
+== Source
+
+* Plan `PLAN-V2-10`, Decision 5; the operator's answer of 2026-11-18 (add a `Union` member).
+* Store Schemas 08, Operator Local Configuration (the cleanup durations and their external references).
+* `pm-runtime` `machine-config.schema.json` `$defs/cleanup_duration` (read, never edited).

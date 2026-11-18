@@ -1,0 +1,51 @@
+= ADR 024: The Position Is a Pair of Unit and State
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-17
+
+== Context
+
+A plan instance version is a set of composed files (ADR 020): the plan unit's file and one file per composed phase
+sub-workflow and bound axis variant. Several units declare the same state id by design — `completed`, `handed_back`,
+`returned` and `finalize.hand-back` appear in more than one unit of the default fixtures — and a state id is unique
+only inside its unit.
+
+`InstancePosition` carried bare state ids, and the composer compared them against one merged set of every unit's
+states (`PlanInstanceComposer.positionStates`). A state pruned from its own unit therefore passed the rule whenever
+another reached unit declared the same id, and a version was written that stranded the plan: the engine would enter
+a state its unit no longer contains.
+
+== Decision
+
+* `InstancePosition` carries a nested `UnitState(unit, state)` and is `InstancePosition(UnitState current,
+  List<UnitState> callStack)`.
+* The composer builds the states by unit — the pruned plan unit, every composed file and every reached digest-bound
+  unit — and `missingFrom` answers the `(unit, state)` pairs the version does not contain.
+* The refusal names the unit: `position: version <N> does not contain the state '<state>' of the unit '<unit>'`.
+* `InstancePosition.at(String)` stays and means the plan unit (`PlanInstanceComposer.PLAN_UNIT`); a caller that names
+  another unit's state uses the unit-aware factory.
+
+== Alternatives Considered
+
+1. *Keep one merged set and qualify only the diagnostic.* Rejected: the merged set is the defect. A version that lost
+   a state from its own unit would still pass whenever another unit declared the id.
+2. *Make `at(String)` resolve the state to the unit that declares it.* Rejected: it needs a version to resolve
+   against before the version is composed, and it would re-admit the collision whenever two units declare the id.
+
+== Consequences
+
+The rule is checked per unit, so a state pruned from its own unit is refused even when another unit declares it. The
+mapping of an engine `CallStack` to the position is composed on events and belongs to the engine's instance work
+(PLAN-V2-13), which this decision does not change. The verifier-side sibling (`CallGraphExpansion` keying by bare id)
+is PLAN-V2-69's.
+
+== Source
+
+* Workflow DSL 09 § Versions & Composition Events, item 2 (Position rule); Store Schemas 14 § Plan Instance.
+* PLAN-V2-82, Deliverable 2.

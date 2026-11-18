@@ -23,7 +23,11 @@ writes and that everything else only reads:
   ({spec}/model-work/01-roles-and-configuration.adoc#default-assignment[Model Work § Default Role Assignment]);
 * the *settings-conflict refusal* every one of those stores raises on a change against an older revision
   ({spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store], the
-  operator-file revision rule).
+  operator-file revision rule);
+* the *effective configuration key table*: every addressable node of the three configuration files with its value domain
+  and whether the configuration compiles a default for it
+  ({spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective
+  Configuration and Sources]).
 
 The package never reads a file for a fact another package owns: the role package reads the assignments through
 `RoleEnvironment`, the model catalogue through the same port, and the runtime is to wire both (no production
@@ -164,6 +168,48 @@ the document holds and the current value of the setting, which the operator may 
 merged and nothing is overwritten unseen. `SettingsConflict` exists beside `StoreRefusal` because it carries the current
 value, which the store-refusal vocabulary has no field for
 (link:../../doc/adr/core-config/001-the-settings-conflict-carries-the-current-value.adoc[ADR 001]).
+
+== The Effective Configuration Key Table
+
+_Requirements: link:{docs}/Requirements.adoc#PM-EXT-6[PM-EXT-6]_
+
+`EffectiveConfigKeys` is the compiled table of the keys the effective configuration resolves
+({spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective Configuration
+and Sources]). It holds 98 keys: 16 of `project.json`, 20 of `workflow.json` and 62 of `local-config.json`. Each is an
+`EffectiveConfigKey` — the key, its `ConfigValueDomain` and whether the configuration compiles a default for it.
+
+*The grammar.* An effective key is `stem "." segment {"." segment}`. The stems are `project`, `workflow` and
+`local-config`; `derived.` names a fact and is refused with a message that says a fact is read by kind. A segment is an
+identifier (`[a-z][a-z0-9_-]*`) or the single wildcard `*`; an empty segment, a segment that is neither, and a key with no
+dotted path are refused.
+
+*A key is any addressable node.* A node with members is a key of domain `Object` beside its members, so
+`local-config.commit_trailer` and `local-config.commit_trailer.email` are both keys. A map node — the finalize `steps`,
+the `project_steps`, the upstream MCP `servers`, the `derivation_resolvers` — contributes the wildcard segment `*`, which
+stands for exactly one non-empty segment: `workflow.plan.phase-6-finalize.steps.*.lane`. `EffectiveConfigKeys.find`
+answers the exact key or the one key whose wildcard the form's segment stands for, never a prefix of a key, so a misspelt
+key resolves to nothing instead of to a shorter one. The verifier's registry is an exact lookup and a unit's
+`config_key` admits identifiers only, so a wildcard row serves the effective-value machinery rather than a
+`reads_config` declaration; the schema keyword `not` is not modelled, which over-approximates a range by the values it
+excludes (`project_steps.*.order` admits 11 and 70).
+
+*The domain.* `ConfigValueDomain` is sealed with seven members: `Enumeration(values)` (`enum` and `const`),
+`IntegerRange(min?, max?)` (either bound may be absent), `Bool`, `Text`, `ListOf(element)`, `Object` and
+`Union(alternatives)` (`oneOf`; the three cleanup durations are `integer` at least 7 or `never`).
+
+*The compiled default.* `hasCompiledDefault` is true when the schema node carries the `default` keyword or the key is
+one of the five prose defaults the parity test classifies. A key whose presence is itself the answer has no default, and
+neither has a key whose value is derived.
+
+*Adding a key.* The table is pinned to the schemas, so a key arrives in three steps:
+
+. Change the schema resource of the file (`config-project.schema.json`, `config-workflow.schema.json` or
+  `local-config.schema.json`).
+. Add the row to `EffectiveConfigKeys`, with the domain the schema states and whether a default exists; a new prose
+  default is classified in `PROSE_DEFAULTS` with its reason.
+. Run `EffectiveConfigKeysSchemaParityTest`. It walks the schemas, derives every key, domain and default flag, and fails
+  on a key, an enumeration value, a bound or a `default` keyword the table disagrees with — and on a description that
+  states a default the test does not classify.
 
 == Invariants and Failure Modes
 

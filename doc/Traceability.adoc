@@ -2403,7 +2403,7 @@ link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-co
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
 
-Implementation (the parser of the workflow DSL with its refusals naming file and line, the immutable tree of a unit, the reading of a plan instance's header, and the printer; the static verifier with the checks of primitive binding, free-parameter match, outcome coverage of `auto`, `job`, `composite_job` and link actions, reachability, exit paths, unique link identifiers and released states, each violation a value naming the rule, the state, the file and the line; the seeded transition fuzzer; the deterministic interpreter of a verified unit and the sub-workflows it calls, which runs the primitives of `auto` states, starts the jobs of job states and creates the queue tasks of task states through ports, and is resumed by typed engine events, with three-valued guards and the persisted loop-back and remediation counters, not yet wired into the runtime `pm-mcpd`; the generator that renders a unit as a Mermaid state diagram with one composite state per phase, as AsciiDoc state, link and outcome tables per phase group with the columns of the State Catalogue, and as a table for terminal output, each form byte-stable in declaration order; the remaining validation rules, among them the vocabulary skills and the roles, and the committed diagrams with their drift tests are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
+Implementation (the parser of the workflow DSL with its refusals naming file and line, the immutable tree of a unit, the reading of a plan instance's header, and the printer; the static verifier with the checks of primitive binding, free-parameter match, outcome coverage of `auto`, `job`, `composite_job` and link actions, reachability, exit paths, unique link identifiers and released states, each violation a value naming the rule, the state, the file and the line; the seeded transition fuzzer; the deterministic interpreter of a verified unit and the sub-workflows it calls, which runs the primitives of `auto` states, starts the jobs of job states and creates the queue tasks of task states through ports, and is resumed by typed engine events, with three-valued guards and the persisted loop-back and remediation counters, not yet wired into the runtime `pm-mcpd`; the generator that renders a unit as a Mermaid state diagram with one composite state per phase, as AsciiDoc state, link and outcome tables per phase group with the columns of the State Catalogue, and as a table for terminal output, each form byte-stable in declaration order; the production registries of the configuration keys and of the fact kinds with the one factory that assembles the verifier context; the remaining validation rules, among them the vocabulary skills and the roles, and the committed diagrams with their drift tests are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowPrinter.java[WorkflowPrinter],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/WorkflowDefinition.java[WorkflowDefinition],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
@@ -2439,6 +2439,18 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessState
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistorySchemaParityTest.java[PlanHistorySchemaParityTest]
+
+Implementation (the production registries of the configuration keys and the fact kinds, and the one factory that assembles the verifier context from them): link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProductRegistries.java[ProductRegistries],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/ConfigKeyRegistry.java[ConfigKeyRegistry],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/FactKindRegistry.java[FactKindRegistry]
+
+Verified by (the product registries and the three call sites): link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProductRegistriesTest.java[ProductRegistriesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProductRegistriesWiringTest.java[ProductRegistriesWiringTest]
+
+Documentation (the product registries): link:../pm-workflow/doc/developer/workflow-unit.adoc#_product_registries[Workflow Units Developer Guide § Product Registries],
+link:../pm-workflow/doc/adr/workflow-unit/009-the-fact-kind-registry-has-no-list-of-its-own.adoc[ADR workflow-unit/009],
+link:../pm-workflow/doc/adr/workflow-unit/010-one-factory-no-hidden-default.adoc[ADR workflow-unit/010],
+link:../pm-workflow/doc/adr/workflow-unit/011-a-key-whose-domain-no-input-type-expresses-carries-none.adoc[ADR workflow-unit/011]
 
 Implementation (the named parameter schemas `intent-record` and `outline-record` of the registry, and the simplify step's descriptor in the finalize roster): link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java[SchemaRegistry],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/SimplifyStep.java[SimplifyStep],
@@ -2593,12 +2605,14 @@ link:../pm-workflow/doc/developer/workflow-finalize.adoc[Finalize Pipeline Devel
 link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Instance Developer Guide],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_lane_pruning[Plan Instance Developer Guide § Lane Pruning],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_outcomes_settled_by_a_prune[§ Outcomes Settled by a Prune],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_verification_and_the_position_rule[§ Verification and the Position Rule],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_composed_set_of_files[§ The Composed Set of Files],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_diff_summary[§ The Diff Summary],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_rule_file[§ The Rule File],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#_inv_init_2_per_lane[Workflow Verification Developer Guide § INV-INIT-2 per Lane],
 link:../pm-workflow/doc/developer/workflow-dsl.adoc#call-values[Workflow DSL Developer Guide § Call Values and the Empty List],
 ADRs link:../pm-workflow/doc/adr/workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc[workflow-plan/012] to link:../pm-workflow/doc/adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[016], link:../pm-workflow/doc/adr/workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc[workflow-verify/029], link:../pm-workflow/doc/adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[workflow-dsl/006],
-link:../pm-workflow/doc/adr/workflow-plan/017-per-lane-rework-fixture.adoc[workflow-plan/017], link:../pm-workflow/doc/adr/workflow-verify/030-lane-entry-ids-in-one-holder.adoc[workflow-verify/030],
+link:../pm-workflow/doc/adr/workflow-plan/017-per-lane-rework-fixture.adoc[workflow-plan/017], link:../pm-workflow/doc/adr/workflow-plan/024-the-position-is-a-pair-of-unit-and-state.adoc[workflow-plan/024] to link:../pm-workflow/doc/adr/workflow-plan/027-the-plan-history-is-read-whole-until-it-is-long.adoc[027], link:../pm-workflow/doc/adr/workflow-verify/030-lane-entry-ids-in-one-holder.adoc[workflow-verify/030],
 link:../pm-workflow/doc/developer/workflow-diagram.adoc#instance-forms[Workflow Diagrams Developer Guide § Instance forms],
 link:../pm-core/doc/developer/core-spi.adoc#_the_contract_of_a_primitive[Developer Guide § The Contract of a Primitive], link:../pm-core/doc/developer/core-spi.adoc#_the_registry[Developer Guide § The Registry]
 
@@ -2767,7 +2781,11 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKinds.java[D
 link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactStore.java[DerivedFactStore],
 link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactReading.java[DerivedFactReading],
 link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactDerivation.java[DerivedFactDerivation],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/DerivedFactGuards.java[DerivedFactGuards]
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/DerivedFactGuards.java[DerivedFactGuards];
+the effective configuration key set of the Team and Operator bullets, each key with its value domain and whether a
+compiled default exists: link:../pm-core/src/main/java/de/planmarshall/core/config/EffectiveConfigKeys.java[EffectiveConfigKeys],
+link:../pm-core/src/main/java/de/planmarshall/core/config/EffectiveConfigKey.java[EffectiveConfigKey],
+link:../pm-core/src/main/java/de/planmarshall/core/config/ConfigValueDomain.java[ConfigValueDomain]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactKindTest.java[DerivedFactKindTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactKeyTest.java[DerivedFactKeyTest],
@@ -2781,9 +2799,17 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactFailureTest.
 link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactStoreConcurrencyTest.java[DerivedFactStoreConcurrencyTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactModelFacingTest.java[DerivedFactModelFacingTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/lock/DerivedFactStoreLockTest.java[DerivedFactStoreLockTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/DerivedFactGuardsTest.java[DerivedFactGuardsTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/DerivedFactGuardsTest.java[DerivedFactGuardsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/EffectiveConfigKeysTest.java[EffectiveConfigKeysTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/EffectiveConfigKeysSchemaParityTest.java[EffectiveConfigKeysSchemaParityTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_derived_facts_store[Developer Guide § Derived Facts Store],
+link:../pm-core/doc/developer/core-config.adoc#_the_effective_configuration_key_table[Developer Guide § The Effective Configuration Key Table],
+link:../pm-core/doc/adr/core-config/004-the-key-table-is-compiled-code-pinned-by-a-parity-test.adoc[ADR core-config/004],
+link:../pm-core/doc/adr/core-config/005-the-stems-are-the-three-configuration-files.adoc[ADR core-config/005],
+link:../pm-core/doc/adr/core-config/006-a-key-is-any-addressable-node.adoc[ADR core-config/006],
+link:../pm-core/doc/adr/core-config/007-a-compiled-default-is-the-keyword-or-a-classified-prose-default.adoc[ADR core-config/007],
+link:../pm-core/doc/adr/core-config/008-the-value-domain-is-the-closed-schema-subset-with-a-union.adoc[ADR core-config/008],
 link:../pm-core/doc/adr/core-store/053-the-fact-kinds-are-an-enumeration-bound-by-a-registry.adoc[ADR core-store/053],
 link:../pm-core/doc/adr/core-store/054-the-fact-value-is-the-jsonvalue-tree.adoc[ADR core-store/054],
 link:../pm-core/doc/adr/core-store/055-the-writer-emits-a-null-failure-for-a-current-entry.adoc[ADR core-store/055],
@@ -2800,7 +2826,7 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-7[PM-EXT-7]
 
 Implementation (the plan instance of the seventh bullet, as far as the library module `pm-workflow` carries it: the
 instance header that names the inputs of a version by digest, the level `machine` of a unit not yet among them; a new
-version composed only when it verifies and contains the current state and every state of the call stack, and otherwise
+version composed only when it verifies and contains, per unit, the current `(unit, state)` and every `(unit, state)` of the call stack, and otherwise
 refused as a value while the version in force stays; each version written once, with one line of the composition log
 per attempt. Not implemented yet: the candidate composed at the phase handshake, the configuration-drift condition with
 its audit record, and the engine's switch to an adopted version. The verification of a project's units on load is
