@@ -236,6 +236,9 @@ class InstanceVersionEngineTest {
     /** The results the composition port recorded, in the order the engine recorded them. */
     private final Capture<CompositionResult> recorded = newCapture(CaptureType.ALL);
 
+    /** The positions the composition port was handed, in the order the engine composed. */
+    private final Capture<InstancePosition> positions = newCapture(CaptureType.ALL);
+
     /**
      * @param triggers the server event of each state that composes one
      * @param results  the results the composition returns, in order; the last one for every later call
@@ -248,7 +251,7 @@ class InstanceVersionEngineTest {
         expect(composition.serverEventAt(anyString())).andReturn(Optional.empty()).anyTimes();
         for (var index = 0; index < results.length; index++) {
             var returned = expect(composition.compose(anyObject(CompositionEvent.class),
-                    anyObject(InstancePosition.class), anyInt())).andReturn(results[index]);
+                    capture(positions), anyInt())).andReturn(results[index]);
             if (index < results.length - 1) {
                 returned.times(1);
             } else {
@@ -308,6 +311,8 @@ class InstanceVersionEngineTest {
                             "the version in force is the composed one"),
                     () -> assertEquals("s.composed", ((EngineStep.Ended) step).status().state(),
                             "the transition was selected from the version in force"),
+                    () -> assertEquals(InstancePosition.at("s.one"), positions.getValues().getFirst(),
+                            "the port reads the position at the entering state"),
                     () -> assertTrue(history.read().records().stream()
                                     .anyMatch(line -> line.event() == PlanHistoryLine.Event.INSTANCE),
                             "the version's history line was written"));
