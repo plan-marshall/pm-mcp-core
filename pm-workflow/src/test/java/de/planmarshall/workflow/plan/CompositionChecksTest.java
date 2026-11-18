@@ -255,7 +255,7 @@ class CompositionChecksTest {
                         CompositionResult.Refusal.SKILL_UNRESOLVED.wireName(), "skill_unresolved is one spelling"),
                 () -> assertEquals(2, CompositionResult.Refusal.values().length
                                 - de.planmarshall.workflow.model.CompositionRefusal.Reason.values().length,
-                        "the two refusals without a model-check reason are the only others"));
+                        "the two refusals without a reason are the only others"));
     }
 
     @Test
