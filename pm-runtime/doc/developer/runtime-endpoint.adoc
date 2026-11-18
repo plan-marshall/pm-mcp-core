@@ -55,8 +55,9 @@ The server's own check of an answer against the result schema. The endpoint's `r
 check enforces the JSON Schema subset a result schema uses and refuses a schema with a keyword it does not implement,
 rather than passing it (ADR 003). The check runs as ordered private steps of the class — the depth and shape guard, the
 keyword guard, the `$ref` branch, the type of the answer, the `const` and `enum` guard, and the dispatch on the answer's
-kind — so one keyword is enforced in one place; the order of the steps and every refusal message are the contract
-`AnswerSchemaTest` pins.
+kind — so each keyword is enforced in one step, except `type`, whose shape the keyword guard checks and whose match
+against the answer the type guard checks. The order of the steps is the contract `AnswerSchemaTest` pins, and the
+refusals it states are pinned there with their message.
 
 [[enrolment]]
 `SocketOwner`::
