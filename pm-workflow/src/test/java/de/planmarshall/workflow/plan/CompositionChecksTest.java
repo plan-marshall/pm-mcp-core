@@ -23,11 +23,14 @@ import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleResolution;
 import de.planmarshall.core.role.RoleResolver;
+import de.planmarshall.workflow.model.ModelIdentity;
 import de.planmarshall.workflow.model.SkillCatalogue;
+import de.planmarshall.workflow.verify.InvariantFixtures;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
@@ -64,15 +67,18 @@ class CompositionChecksTest {
         return CompositionChecks.of(roles, skills);
     }
 
-    /** The position a server or operator event composes at: the lane is known and the plan sits before the split. */
-    private static final InstancePosition AT_LANE = InstancePosition.at("init.ready");
+    /** The position a server or operator event composes at: the lane is known and the plan sits in the outline phase. */
+    private static final InstancePosition AT_LANE = InstancePosition.of("phase-3-outline", "outline.deep");
+
+    /** The fixture file of the execute phase, the one the skill-clause mutation changes. */
+    private static final String EXECUTE_FILE = "execute.pmwf";
 
     private static CompositionResult compose(CompositionEvent event, CompositionChecks checks) {
         return compose(event, checks, List.of());
     }
 
     private static CompositionResult compose(CompositionEvent event, CompositionChecks checks,
-            List<de.planmarshall.workflow.verify.InvariantFixtures.Mutation> mutations) {
+            List<InvariantFixtures.Mutation> mutations) {
         var rules = ((CompositionRules.Loaded) CompositionRules.shipped()).rules();
         var start = PlanFixtures.mergedRequest(CompositionEvent.START, PlanFixtures.facts().build(), null, AT_INIT,
                 mutations);
@@ -90,7 +96,7 @@ class CompositionChecksTest {
     class Roles {
 
         @ParameterizedTest(name = "{0}")
-        @EnumSource(value = CompositionEvent.class, names = {"START"})
+        @EnumSource(value = CompositionEvent.class, names = {"START", "OUTLINE", "OVERRIDE"})
         @DisplayName("a missing role refuses the composition with role_undefined")
         void missingRole(CompositionEvent event) {
             var refused = assertInstanceOf(CompositionResult.Refused.class, compose(event,
@@ -103,9 +109,10 @@ class CompositionChecksTest {
                             "the violation carries the reason"));
         }
 
-        @Test
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = CompositionEvent.class, names = {"START", "OUTLINE", "OVERRIDE"})
         @DisplayName("a role of the wrong class refuses the composition with class_mismatch")
-        void wrongClass() {
+        void wrongClass(CompositionEvent event) {
             var implementer = resolver(java.util.Map.of("implementer",
                     role(RoleClass.ZERO_TOOL, "claude", "sonnet", null),
                     "outline", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
@@ -116,7 +123,7 @@ class CompositionChecksTest {
                     "architect", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                     "reviewer", role(RoleClass.READ_ONLY, "claude", "opus", null)));
             var refused = assertInstanceOf(CompositionResult.Refused.class,
-                    compose(CompositionEvent.START, checks(implementer, uri -> true)),
+                    compose(event, checks(implementer, uri -> true)),
                     "a zero-tool role in a model job is refused");
 
             assertAll(
@@ -126,9 +133,10 @@ class CompositionChecksTest {
                             "the violation carries the reason"));
         }
 
-        @Test
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = CompositionEvent.class, names = {"START", "OUTLINE", "OVERRIDE"})
         @DisplayName("a quorum on one model by model identity refuses the composition with quorum_not_diverse")
-        void quorumOnOneModel() {
+        void quorumOnOneModel(CompositionEvent event) {
             var sameModel = resolver(java.util.Map.of("implementer",
                     role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                     "outline", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
@@ -139,7 +147,7 @@ class CompositionChecksTest {
                     "architect", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                     "reviewer", role(RoleClass.READ_ONLY, "claude", "openrouter/claude/sonnet:free", null)));
             var refused = assertInstanceOf(CompositionResult.Refused.class,
-                    compose(CompositionEvent.START, checks(sameModel, uri -> true)),
+                    compose(event, checks(sameModel, uri -> true)),
                     "a quorum on one model is refused");
 
             assertAll(
@@ -151,20 +159,13 @@ class CompositionChecksTest {
                             "the refusal names the second role"));
         }
 
-        @Test
-        @DisplayName("matched control: two roles on different weights identities name different models")
-        void differentModelsCompose() {
-            var sonnet = role(RoleClass.READ_ONLY, "claude", "sonnet", "sonnet-weights");
-            var opus = role(RoleClass.READ_ONLY, "claude", "opus", "opus-weights");
-            var otherVendor = role(RoleClass.READ_ONLY, "other", "vendor/sonnet", "vendor-sonnet-weights");
-
-            assertAll(
-                    () -> assertEquals(Optional.empty(),
-                            de.planmarshall.workflow.model.ModelIdentity.shared(sonnet, opus),
-                            "two models on one harness name different models"),
-                    () -> assertEquals(Optional.empty(),
-                            de.planmarshall.workflow.model.ModelIdentity.shared(sonnet, otherVendor),
-                            "one identifier stem from two vendors names different models"));
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = CompositionEvent.class, names = {"START", "OUTLINE", "OVERRIDE"})
+        @DisplayName("matched control: two different models compose at every event")
+        void differentModelsCompose(CompositionEvent event) {
+            assertInstanceOf(CompositionResult.Composed.class,
+                    compose(event, checks(allRoles(), uri -> true)),
+                    "a quorum of two different models composes");
         }
     }
 
@@ -176,23 +177,37 @@ class CompositionChecksTest {
         @EnumSource(value = CompositionEvent.class, names = {"START", "OUTLINE", "OVERRIDE"})
         @DisplayName("an unresolved skill refuses the composition with skill_unresolved")
         void unresolvedSkill(CompositionEvent event) {
-            var refusal = de.planmarshall.workflow.model.CompositionRefusal.skillUnresolved(
-                    "skill://pm/project/x/SKILL.md", "execute.work");
+            var refused = assertInstanceOf(CompositionResult.Refused.class,
+                    compose(event, checks(allRoles(), uri -> false), List.of(skillClause())),
+                    "an unresolved skill refuses the composition");
 
             assertAll(
-                    () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.SKILL_UNRESOLVED,
-                            refusal.reason(), "the refusal names skill_unresolved"),
-                    () -> assertTrue(refusal.getMessage().contains("skill://pm/project/x/SKILL.md"),
-                            "the refusal names the skill"));
+                    () -> assertEquals(CompositionResult.Refusal.SKILL_UNRESOLVED, refused.refusal(),
+                            "the refusal names skill_unresolved"),
+                    () -> assertTrue(refused.violations().getFirst().contains("pm/project/x"),
+                            "the refusal names the skill"),
+                    () -> assertTrue(refused.violations().getFirst().contains("execute.envelope"),
+                            "the refusal names the state that carries the skill"));
         }
 
-        @Test
-        @DisplayName("matched control: a resolvable catalogue composes")
-        void resolvableSkillComposes() {
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = CompositionEvent.class, names = {"START", "OUTLINE", "OVERRIDE"})
+        @DisplayName("matched control: a catalogue that resolves the clause composes")
+        void resolvableSkillComposes(CompositionEvent event) {
             assertInstanceOf(CompositionResult.Composed.class,
-                    compose(CompositionEvent.START, checks(allRoles(), uri -> true)),
-                    "a resolvable catalogue composes");
+                    compose(event, checks(allRoles(), uri -> true), List.of(skillClause())),
+                    "a resolvable catalogue composes the version");
         }
+    }
+
+    /**
+     * @return a named change of the execute phase that gives its model job a {@code skill} clause of the project; the
+     *         smallest fixture that carries one, as no passing fixture states a skill
+     */
+    private static InvariantFixtures.Mutation skillClause() {
+        return new InvariantFixtures.Mutation("a skill clause", EXECUTE_FILE,
+                "state execute.envelope\n    job llm change role implementer",
+                "state execute.envelope\n    skill pm/project/x\n    job llm change role implementer");
     }
 
     /** @return a resolver that defines every role of the invariant fixtures */
@@ -208,12 +223,17 @@ class CompositionChecksTest {
                 "reviewer", role(RoleClass.READ_ONLY, "claude", "opus", null)));
     }
 
-    /** @return a mutation that gives a state of the plan a {@code skill} clause */
-    @SuppressWarnings("unused")
-    private static de.planmarshall.workflow.verify.InvariantFixtures.Mutation skillClause() {
-        return new de.planmarshall.workflow.verify.InvariantFixtures.Mutation("a skill clause",
-                de.planmarshall.workflow.verify.InvariantFixtures.PLAN_FILE,
-                "state execute.work", "state execute.work\n        skill skill://pm/project/x/SKILL.md");
+    @Test
+    @DisplayName("at start a refused composition returns the refusal and no version")
+    void refusedStartCreatesNothing() {
+        var result = compose(CompositionEvent.START, checks(resolver(java.util.Map.of()), uri -> true));
+
+        assertAll(
+                () -> assertInstanceOf(CompositionResult.Refused.class, result,
+                        "the start composition is refused as a value"),
+                () -> assertEquals(CompositionResult.Refusal.ROLE_UNDEFINED,
+                        ((CompositionResult.Refused) result).refusal(),
+                        "the caller of start has no version to create the plan from"));
     }
 
     @Test
@@ -274,5 +294,48 @@ class CompositionChecksTest {
                 () -> assertEquals(Optional.empty(),
                         Optional.ofNullable(CompositionChecks.NONE.skills()),
                         "the checks wire no skill catalogue"));
+    }
+
+    @Nested
+    @DisplayName("the model identity of a quorum (PM-WATCH-DISP-67)")
+    class ModelIdentities {
+
+        @ParameterizedTest(name = "{0} and {1} are one model: {2}")
+        @CsvSource({
+                "sonnet, openrouter/sonnet, sonnet",
+                "sonnet, openrouter/anthropic/sonnet, sonnet",
+                "sonnet, sonnet:free, sonnet",
+                "Sonnet, sonnet, sonnet",
+                "qwen3:32b, qwen3:8b, qwen3"})
+        @DisplayName("two identifiers of one model share its identity")
+        void oneModelByIdentifier(String first, String second, String identity) {
+            assertEquals(Optional.of(identity),
+                    ModelIdentity.shared(role(RoleClass.READ_ONLY, "claude", first, null),
+                            role(RoleClass.READ_ONLY, "claude", second, null)),
+                    "the two identifiers name one model");
+        }
+
+        @Test
+        @DisplayName("two roles of equal weights identities are one model under different names")
+        void equalWeightsIdentities() {
+            assertEquals(Optional.of("weights-1"),
+                    ModelIdentity.shared(role(RoleClass.READ_ONLY, "claude", "sonnet", "weights-1"),
+                            role(RoleClass.READ_ONLY, "other", "sonnet-v2", "weights-1")),
+                    "equal weights identities name one model");
+        }
+
+        @Test
+        @DisplayName("matched control: two different models name no shared identity")
+        void differentModels() {
+            assertAll(
+                    () -> assertEquals(Optional.empty(),
+                            ModelIdentity.shared(role(RoleClass.READ_ONLY, "claude", "sonnet", "weights-a"),
+                                    role(RoleClass.READ_ONLY, "claude", "opus", "weights-b")),
+                            "two models on one harness name different models"),
+                    () -> assertEquals(Optional.empty(),
+                            ModelIdentity.shared(role(RoleClass.READ_ONLY, "vendor-a", "shared-name", "weights-a"),
+                                    role(RoleClass.READ_ONLY, "vendor-b", "shared-name", "weights-b")),
+                            "one identifier stem from two vendors names different models"));
+        }
     }
 }
