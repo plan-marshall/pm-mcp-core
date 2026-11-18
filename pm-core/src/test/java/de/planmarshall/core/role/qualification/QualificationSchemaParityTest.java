@@ -101,7 +101,8 @@ class QualificationSchemaParityTest {
         return memberNames(schema).stream().filter(name -> !required.contains(name)).toList();
     }
 
-    private static Set<String> enumOf(Map<?, ?> schema, String name) {        return SchemaResource.array(member(schema, name).get("enum")).stream().filter(Objects::nonNull)
+    private static Set<String> enumOf(Map<?, ?> schema, String name) {
+        return SchemaResource.array(member(schema, name).get("enum")).stream().filter(Objects::nonNull)
                 .map(String::valueOf).collect(Collectors.toUnmodifiableSet());
     }
 

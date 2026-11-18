@@ -2605,12 +2605,14 @@ link:../pm-workflow/doc/developer/workflow-finalize.adoc[Finalize Pipeline Devel
 link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Instance Developer Guide],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_lane_pruning[Plan Instance Developer Guide § Lane Pruning],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_outcomes_settled_by_a_prune[§ Outcomes Settled by a Prune],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_verification_and_the_position_rule[§ Verification and the Position Rule],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_composed_set_of_files[§ The Composed Set of Files],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_diff_summary[§ The Diff Summary],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_rule_file[§ The Rule File],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#_inv_init_2_per_lane[Workflow Verification Developer Guide § INV-INIT-2 per Lane],
 link:../pm-workflow/doc/developer/workflow-dsl.adoc#call-values[Workflow DSL Developer Guide § Call Values and the Empty List],
 ADRs link:../pm-workflow/doc/adr/workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc[workflow-plan/012] to link:../pm-workflow/doc/adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[016], link:../pm-workflow/doc/adr/workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc[workflow-verify/029], link:../pm-workflow/doc/adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[workflow-dsl/006],
-link:../pm-workflow/doc/adr/workflow-plan/017-per-lane-rework-fixture.adoc[workflow-plan/017], link:../pm-workflow/doc/adr/workflow-verify/030-lane-entry-ids-in-one-holder.adoc[workflow-verify/030],
+link:../pm-workflow/doc/adr/workflow-plan/017-per-lane-rework-fixture.adoc[workflow-plan/017], link:../pm-workflow/doc/adr/workflow-plan/024-the-position-is-a-pair-of-unit-and-state.adoc[workflow-plan/024] to link:../pm-workflow/doc/adr/workflow-plan/027-the-plan-history-is-read-whole-until-it-is-long.adoc[027], link:../pm-workflow/doc/adr/workflow-verify/030-lane-entry-ids-in-one-holder.adoc[workflow-verify/030],
 link:../pm-workflow/doc/developer/workflow-diagram.adoc#instance-forms[Workflow Diagrams Developer Guide § Instance forms],
 link:../pm-core/doc/developer/core-spi.adoc#_the_contract_of_a_primitive[Developer Guide § The Contract of a Primitive], link:../pm-core/doc/developer/core-spi.adoc#_the_registry[Developer Guide § The Registry]
 
@@ -2824,7 +2826,7 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-7[PM-EXT-7]
 
 Implementation (the plan instance of the seventh bullet, as far as the library module `pm-workflow` carries it: the
 instance header that names the inputs of a version by digest, the level `machine` of a unit not yet among them; a new
-version composed only when it verifies and contains the current state and every state of the call stack, and otherwise
+version composed only when it verifies and contains, per unit, the current `(unit, state)` and every `(unit, state)` of the call stack, and otherwise
 refused as a value while the version in force stays; each version written once, with one line of the composition log
 per attempt. Not implemented yet: the candidate composed at the phase handshake, the configuration-drift condition with
 its audit record, and the engine's switch to an adopted version. The verification of a project's units on load is

@@ -34,10 +34,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -237,6 +241,7 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals("remediation.qgate-findings", call.unit(),
                             "the policy call names its unit"),
+                    () -> assertNull(call.inUnit(), "the plan unit's call carries no unit"),
                     () -> assertEquals(BoundArgument.fromTemplate(new CallValue.EnumList(List.of("retry", "fix",
                                     "loop_back")), TEMPLATE_FILE), call.args().get("actions"),
                             "the call binds actions from the template"),
@@ -774,7 +779,7 @@ class PlanInstanceComposerTest {
     @DisplayName("Lane routes")
     class LaneRoutes {
 
-        private static final InstancePosition AT_INIT = InstancePosition.at("init.begin");
+        private static final InstancePosition AT_INIT = InstancePosition.of("phase-1-init", "init.begin");
 
         private static PlanFacts factsOf(Lane lane) {
             return facts().lane(lane).build();
@@ -793,7 +798,8 @@ class PlanInstanceComposerTest {
         private static CompositionResult atOutline(Lane lane, String position,
                 List<InvariantFixtures.Mutation> mutations) {
             return PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.OUTLINE,
-                    factsOf(lane), mergedVersion1(lane), InstancePosition.at(position), mutations));
+                    factsOf(lane), mergedVersion1(lane), InstancePosition.of("phase-3-outline", position),
+                    mutations));
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -935,7 +941,7 @@ class PlanInstanceComposerTest {
     @DisplayName("Composed set")
     class ComposedSet {
 
-        private static final InstancePosition AT_INIT = InstancePosition.at("init.begin");
+        private static final InstancePosition AT_INIT = InstancePosition.of("phase-1-init", "init.begin");
 
         private static PlanInstance merged() {
             return composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
@@ -1170,19 +1176,179 @@ class PlanInstanceComposerTest {
         }
 
         @Test
+        @DisplayName("the header lists the policy calls of every composed phase with the unit that holds it, and the "
+                + "plan unit's own call carries no unit")
+        void nestedPolicyCallsInTheHeader() {
+            var instance = merged();
+            var composed = instance.header().policyCalls().stream()
+                    .filter(call -> call.inUnit() != null).toList();
+
+            assertAll(
+                    () -> assertEquals(List.of("refine.remediate", "outline.remediate", "plan.remediate",
+                                    "execute.remediate"),
+                            composed.stream().map(PolicyCall::callSite).toList(),
+                            "the composed calls follow the request's sub-units"),
+                    () -> assertEquals(List.of("phase-2-refine", "phase-3-outline", "phase-4-plan", "phase-5-execute"),
+                            composed.stream().map(PolicyCall::inUnit).distinct().toList(),
+                            "each call names the composed unit that holds it"),
+                    () -> assertEquals(new CallValue.IntValue(3),
+                            composed.stream().filter(call -> "execute.remediate".equals(call.callSite()))
+                                    .findFirst().orElseThrow().args().get("fix_budget").value(),
+                            "the effective argument comes from the composed body"),
+                    () -> assertTrue(instance.header().policyCalls().stream()
+                                    .filter(call -> call.inUnit() == null).findFirst().isEmpty(),
+                            "the merged plan unit holds no policy call of its own"));
+        }
+
+        @Test
+        @DisplayName("the plan unit's policy call is listed before a composed unit's call in one version")
+        void planUnitCallBeforeComposedCall() {
+            var instance = composed(composer().compose(PlanFixtures.requestWithComposedPolicyCall()));
+            var calls = instance.header().policyCalls();
+
+            assertAll(
+                    () -> assertEquals(2, calls.size(), "the version holds both calls"),
+                    () -> assertEquals("finalize.remediate", calls.getFirst().callSite(),
+                            "the plan unit's call is listed first"),
+                    () -> assertNull(calls.getFirst().inUnit(), "the plan unit's call carries no unit"),
+                    () -> assertEquals("ask.questions-only", calls.getLast().inUnit(),
+                            "the composed unit's call follows"),
+                    () -> assertEquals("questions-only.remediate", calls.getLast().callSite(),
+                            "the composed call is the variant's"));
+        }
+
+        @Test
+        @DisplayName("the plan unit's policy calls are listed before every composed unit's")
+        void planUnitCallsFirst() {
+            var planUnit = PolicyCall.of("finalize.remediate", "remediation.qgate-findings", Map.of());
+            var composed = PolicyCall.of("execute.remediate", "remediation.qgate-findings", Map.of())
+                    .withInUnit("phase-5-execute");
+
+            assertEquals(List.of(planUnit, composed),
+                    PlanInstanceComposer.policyCalls(List.of(planUnit), List.of(composed)),
+                    "the plan unit's calls come first");
+        }
+
+        @Test
+        @DisplayName("every policy call of a composed file's body has a header entry with equal arguments, both ways")
+        void headerAndComposedBodyAgree() {
+            var instance = merged();
+            var body = new LinkedHashMap<String, BodyCall>();
+            var header = new LinkedHashMap<String, BodyCall>();
+            var duplicates = new ArrayList<String>();
+            for (var unit : instance.units()) {
+                unit.definition().states().values().stream().filter(InstancePruner::isPolicyCall)
+                        .forEach(state -> {
+                            var call = (StateBehavior.SubWorkflowCall) state.behavior();
+                            if (body.put(unit.unit() + "/" + state.id(),
+                                    new BodyCall(call.subWorkflowId(), call.paramBindings())) != null) {
+                                duplicates.add(unit.unit() + "/" + state.id());
+                            }
+                        });
+            }
+            instance.header().policyCalls().stream().filter(call -> call.inUnit() != null).forEach(call -> {
+                var args = call.args().entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().value()));
+                if (header.put(call.inUnit() + "/" + call.callSite(), new BodyCall(call.unit(), args)) != null) {
+                    duplicates.add(call.inUnit() + "/" + call.callSite());
+                }
+            });
+
+            assertAll(
+                    () -> assertFalse(body.isEmpty(), "the composed files hold policy calls"),
+                    () -> assertEquals(List.of(), duplicates, "no call is listed twice"),
+                    () -> assertEquals(body, header, "the header lists every body call with equal arguments"));
+        }
+
+        /** A policy call's callee and its effective arguments, the same shape from the body and the header. */
+        private record BodyCall(String callee, Map<String, CallValue> args) {
+        }
+
+        @Test
+        @DisplayName("a call pruned inside a composed phase reaches nothing: its callee is composed as no file and its "
+                + "states are no position of the version")
+        void prunedCallInsideAComposedUnit() {
+            var rules = ((CompositionRules.Loaded) CompositionRules.parse("""
+                    {"format_version": 1, "revision": "t1", "rules": [
+                      {"id": "prune-replan-call",
+                       "when": {"fact": "lane", "equals": "deep"},
+                       "then": {"prune": [{"element": "call", "id": "execute.replan/replan",
+                                           "reason": "other_lane"}]}}]}
+                    """.getBytes(StandardCharsets.UTF_8))).rules();
+            var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null, AT_INIT, List.of())));
+            var refused = refused(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null,
+                    InstancePosition.of("replan", "replan.assess"), List.of())));
+
+            assertAll(
+                    () -> assertTrue(instance.composed("phase-5-execute").isPresent(),
+                            "the composed execute file is present"),
+                    () -> assertTrue(instance.header().inputs().subUnits().stream()
+                                    .noneMatch(reference -> "replan".equals(reference.unit())),
+                            "replan is no bound sub-unit"),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
+                            "the state of the pruned call is no position"),
+                    () -> assertEquals(List.of("position: version 1 does not contain the state 'replan.assess' of "
+                                    + "the unit 'replan'"),
+                            refused.violations(), "the refusal names the state and its unit"),
+                    () -> assertTrue(instance.header().pruned().stream().anyMatch(pruned ->
+                                    pruned.element() == PrunedElement.Kind.CALL
+                                            && "execute.replan/replan".equals(pruned.id())
+                                            && pruned.reason() == PruneReason.OTHER_LANE),
+                            "the prune records the pruned call"));
+        }
+
+        @Test
+        @DisplayName("the position rule reads each state in its own unit: a state only a composed unit declares is "
+                + "contained there and refused for the plan unit, and a call-stack frame is checked against its own unit")
+        void positionIsPerUnit() {
+            var inTheComposedUnit = composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null,
+                    InstancePosition.of("phase-6-finalize", "finalize.push-barrier"), List.of())));
+            var inThePlanUnit = refused(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null,
+                    InstancePosition.of("plan", "finalize.push-barrier"), List.of())));
+            var frameOfThePlanUnit = refused(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), null,
+                    InstancePosition.of("phase-6-finalize", "finalize.push-barrier",
+                            List.of(new InstancePosition.UnitState("plan", "finalize.push-barrier"))), List.of())));
+
+            assertAll(
+                    () -> assertTrue(inTheComposedUnit.composed("phase-6-finalize").isPresent(),
+                            "the composed finalize file is present"),
+                    () -> assertTrue(inTheComposedUnit.composed("phase-6-finalize").orElseThrow().definition()
+                                    .states().containsKey("finalize.push-barrier"),
+                            "the composed unit declares the state"),
+                    () -> assertFalse(inTheComposedUnit.unit().states().containsKey("finalize.push-barrier"),
+                            "the plan unit declares no such state"),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, inThePlanUnit.refusal(),
+                            "a state of another unit is no position of the plan unit"),
+                    () -> assertEquals(List.of("position: version 1 does not contain the state "
+                                    + "'finalize.push-barrier' of the unit 'plan'"), inThePlanUnit.violations(),
+                            "the refusal names the state and the unit the position names"),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, frameOfThePlanUnit.refusal(),
+                            "a call-stack frame is judged in its own unit"),
+                    () -> assertEquals(List.of("position: version 1 does not contain the state "
+                                    + "'finalize.push-barrier' of the unit 'plan'"), frameOfThePlanUnit.violations(),
+                            "the refusal names the frame's own unit"));
+        }
+
+        @Test
         @DisplayName("a state only a pruned call reaches is no position of the version, so a version that no longer "
                 + "contains the current state is refused position_not_contained")
         void positionOverTheSet() {
             var refused = refused(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
                     CompositionEvent.OUTLINE, facts().lane(Lane.DEEP).build(),
                     perLane(CompositionEvent.START, Lane.DEEP, "init.ready"),
-                    InstancePosition.at("phase-plan-light.begin"))));
+                    InstancePosition.of("phase-plan-light", "phase-plan-light.begin"))));
 
             assertAll(
                     () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
                             "a pruned call state is no position"),
                     () -> assertTrue(refused.violations().contains(
-                                    "position: version 2 does not contain the state 'phase-plan-light.begin'"),
+                                    "position: version 2 does not contain the state 'phase-plan-light.begin' of the "
+                                            + "unit 'phase-plan-light'"),
                             refused.violations()::toString));
         }
     }
@@ -1191,7 +1357,7 @@ class PlanInstanceComposerTest {
     @DisplayName("Refusals")
     class Refusals {
 
-        private static final InstancePosition AT_INIT = InstancePosition.at("init.begin");
+        private static final InstancePosition AT_INIT = InstancePosition.of("phase-1-init", "init.begin");
 
         /** The facts under which the shipped rule {@code merge-by-operator} prunes the merge execution. */
         private static PlanFacts mergePruned() {
@@ -1235,7 +1401,8 @@ class PlanInstanceComposerTest {
         void callStackStateMissing() {
             var refused = refused(composer().compose(request(CompositionEvent.WAIVER,
                     mergePruned(), version1(), List.of(),
-                    new InstancePosition("finalize.push-barrier", List.of("finalize.merge-dispatch")))));
+                    InstancePosition.of("plan", "finalize.push-barrier",
+                            List.of(new InstancePosition.UnitState("plan", "finalize.merge-dispatch"))))));
 
             assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
                     "a missing call stack state is refused");

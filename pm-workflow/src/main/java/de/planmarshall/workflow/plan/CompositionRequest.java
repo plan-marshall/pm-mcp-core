@@ -42,7 +42,7 @@ import org.jspecify.annotations.Nullable;
  * @param providersDigest         the SHA-256 over the provider configuration; {@code null} if the composition reads
  *                                none
  * @param waivers                 the waivers in force
- * @param position                the current state and the call stack of the plan
+ * @param position                the unit and state the plan is in and the call stack of its frames
  * @param previous                the version in force; {@code null} only for {@link CompositionEvent#START}
  * @param verificationSteps       the Phase 5 verification step ids of the plan, before pruning
  * @param finalizeSteps           the Phase 6 steps of the plan with their order, before pruning

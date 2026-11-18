@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -46,6 +47,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.SchemaResource;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The plan instance header model and its canonical JSON (PM-IMPL-5, PM-EXT-7). The {@code instance} line is one line of
@@ -313,6 +315,87 @@ class PlanInstanceHeaderTest {
 
             assertEquals(PlanInstanceHeaderTest.minimalHeader(), HeaderJson.read(json),
                     "absent members read like null values");
+        }
+
+        @Test
+        @DisplayName("a policy call's in_unit survives the round trip and is written only when present")
+        void inUnitSurvives() {
+            var header = nestedHeader("phase-6-finalize");
+            var json = HeaderJson.write(header);
+            var read = HeaderJson.read(json);
+
+            assertAll(
+                    () -> assertTrue(json.contains("\"in_unit\":\"phase-6-finalize\""),
+                            "the nested call writes its in_unit"),
+                    () -> assertEquals(json.indexOf("\"in_unit\""), json.lastIndexOf("\"in_unit\""),
+                            "only the nested call writes an in_unit"),
+                    () -> assertFalse(json.contains("\"in_unit\":null"),
+                            "the plan unit's call writes no in_unit"),
+                    () -> assertEquals("phase-6-finalize", read.policyCalls().getLast().inUnit(),
+                            "the in_unit reads back"),
+                    () -> assertEquals(header, read, "the nested call survives the round trip"),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(header),
+                            "a composed unit of the templates is accepted"));
+        }
+
+        @Test
+        @DisplayName("an in_unit that names no composed unit of the header's templates is refused")
+        void inUnitOfNoComposedUnitRefused() {
+            assertAll(
+                    () -> assertEquals(List.of(new HeaderViolation("/policy_calls/1/in_unit",
+                                    HeaderSchemaCheck.NOT_COMPOSED_UNIT)),
+                            HeaderSchemaCheck.check(nestedHeader("no-such-unit")),
+                            "an unknown unit is refused"),
+                    () -> assertEquals(List.of(new HeaderViolation("/policy_calls/1/in_unit",
+                                    HeaderSchemaCheck.NOT_COMPOSED_UNIT)),
+                            HeaderSchemaCheck.check(nestedHeader(PlanInstanceComposer.PLAN_UNIT)),
+                            "the plan unit is no composed unit"));
+        }
+
+        @Test
+        @DisplayName("a unit and call site listed twice is refused at the second entry")
+        void duplicateCallSiteRefused() {
+            var header = nestedHeader("phase-6-finalize");
+            var nested = header.policyCalls().getLast();
+            var twice = new PlanInstanceHeader(header.planId(), header.version(), header.event(),
+                    header.composedAt(), header.inputs(), header.lane(), header.posture(), header.steps(),
+                    header.pruned(), List.of(header.policyCalls().getFirst(), nested, nested), header.waivedGates());
+
+            assertEquals(List.of(new HeaderViolation("/policy_calls/2",
+                            HeaderSchemaCheck.DUPLICATE_CALL_SITE)), HeaderSchemaCheck.check(twice),
+                    "the second entry of the same unit and call site is refused");
+        }
+
+        @Test
+        @DisplayName("a template without a composed file supplies no in_unit")
+        void filelessTemplateIsNoComposedUnit() {
+            assertEquals(List.of(new HeaderViolation("/policy_calls/1/in_unit",
+                            HeaderSchemaCheck.NOT_COMPOSED_UNIT)),
+                    HeaderSchemaCheck.check(nestedHeader("phase-6-finalize", null)),
+                    "a fileless template is no composed unit");
+        }
+
+        /** A header whose templates name the plan unit and {@code phase-6-finalize}, with a nested policy call. */
+        private static PlanInstanceHeader nestedHeader(String inUnit) {
+            return nestedHeader(inUnit, "instance/phase-6-finalize.v2.pmwf");
+        }
+
+        private static PlanInstanceHeader nestedHeader(String inUnit, @Nullable String composedFile) {
+            var base = fullHeader("plan-24", 2, "lane");
+            var nested = PolicyCall.of("execute.remediate", "remediation.qgate-findings",
+                    Map.of("fix_budget", BoundArgument.fromTemplate(new CallValue.IntValue(3), "execute.pmwf")))
+                    .withInUnit(inUnit);
+            var inputs = new CompositionInputs(base.inputs().configHash(),
+                    List.of(new UnitReference("plan", ".marshall/config/plan.pmwf", DIGEST_B,
+                                    UnitOrigin.PROJECT),
+                            new UnitReference("phase-6-finalize", composedFile, DIGEST_C, UnitOrigin.DEFAULT)),
+                    base.inputs().subUnits(), base.inputs().compositionRulesRevision(),
+                    base.inputs().compositionRulesDigest(), base.inputs().planFactsDigest(),
+                    base.inputs().realizedFootprintDigest(), base.inputs().changeType(),
+                    base.inputs().providersDigest());
+            return new PlanInstanceHeader(base.planId(), base.version(), base.event(), base.composedAt(), inputs,
+                    base.lane(), base.posture(), base.steps(), base.pruned(),
+                    List.of(base.policyCalls().getFirst(), nested), base.waivedGates());
         }
     }
 

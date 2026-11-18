@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -190,6 +191,53 @@ class DiffSummaryTest {
                     () -> assertEquals(List.of(), removed.gatesWaived(), "the removed call waives no gate"));
         }
 
+        @Test
+        @DisplayName("a raised ceiling of a nested policy call is reported with the unit that holds the call")
+        void nestedCeiling() {
+            var before = withCalls(List.of(nested("phase-5-execute", 3)));
+            var after = withCalls(List.of(nested("phase-5-execute", 5)));
+
+            var summary = DiffSummary.between(before, after);
+
+            assertEquals(List.of(new CeilingChange("execute.remediate", "fix_budget",
+                            new CallValue.IntValue(3), new CallValue.IntValue(5), "phase-5-execute")),
+                    summary.ceilingsChanged(), "the nested raise names its unit");
+        }
+
+        @Test
+        @DisplayName("two policy calls with the same state id in two units are kept apart")
+        void sameStateInTwoUnits() {
+            var before = withCalls(List.of());
+            var after = withCalls(List.of(nested("phase-4-plan", "plan.remediate", 3),
+                    nested("phase-5-execute", "plan.remediate", 4)));
+
+            var changes = DiffSummary.between(before, after).ceilingsChanged();
+
+            assertEquals(List.of(
+                            new CeilingChange("plan.remediate", "fix_budget", null, new CallValue.IntValue(3),
+                                    "phase-4-plan"),
+                            new CeilingChange("plan.remediate", "fix_budget", null, new CallValue.IntValue(4),
+                                    "phase-5-execute")),
+                    changes, "each unit keeps its own ceiling value");
+        }
+
+        private static PolicyCall nested(String unit, int fixBudget) {
+            return nested(unit, "execute.remediate", fixBudget);
+        }
+
+        private static PolicyCall nested(String unit, String callSite, int fixBudget) {
+            return PolicyCall.of(callSite, "remediation.qgate-findings",
+                    Map.of("fix_budget", BoundArgument.fromTemplate(new CallValue.IntValue(fixBudget),
+                            "execute.pmwf"))).withInUnit(unit);
+        }
+
+        private static PlanInstanceHeader withCalls(List<PolicyCall> calls) {
+            var template = version1().header();
+            return new PlanInstanceHeader(template.planId(), template.version(), template.event(),
+                    template.composedAt(), template.inputs(), template.lane(), template.posture(), template.steps(),
+                    template.pruned(), calls, template.waivedGates());
+        }
+
         private static PlanInstanceHeader header(PlanInstanceHeader template, List<PrunedElement> pruned) {
             return new PlanInstanceHeader(template.planId(), template.version(), template.event(),
                     template.composedAt(), template.inputs(), template.lane(), template.posture(), template.steps(),
@@ -230,6 +278,27 @@ class DiffSummaryTest {
             assertEquals("{\"ceilings_changed\":[{\"argument\":\"fix_budget\",\"call_site\":\"finalize.remediate\","
                     + "\"previous\":null,\"value\":4}],\"gates_unwaived\":[],\"gates_waived\":[],\"pruned_added\":[],"
                     + "\"pruned_removed\":[]}", json, "the absent previous value is written as null");
+        }
+
+        @Test
+        @DisplayName("a nested ceiling is written with its in_unit and a plan-unit ceiling without one")
+        void nestedCeilingJson() {
+            var nested = new DiffSummary(List.of(), List.of(),
+                    List.of(new CeilingChange("execute.remediate", "fix_budget", new CallValue.IntValue(3),
+                            new CallValue.IntValue(4), "phase-5-execute")),
+                    List.of(), List.of());
+            var planUnit = new DiffSummary(List.of(), List.of(),
+                    List.of(new CeilingChange("finalize.remediate", "fix_budget", new CallValue.IntValue(3),
+                            new CallValue.IntValue(4))),
+                    List.of(), List.of());
+
+            assertAll(
+                    () -> assertTrue(HeaderJson.canonical(nested.toNode())
+                                    .contains("\"call_site\":\"execute.remediate\","
+                                            + "\"in_unit\":\"phase-5-execute\""),
+                            "the nested ceiling item names its unit"),
+                    () -> assertFalse(HeaderJson.canonical(planUnit.toNode()).contains("in_unit"),
+                            "a plan-unit ceiling writes no in_unit"));
         }
 
         @Test
