@@ -256,7 +256,8 @@ ending (Model Work § Continuing after a Question). The runtime carries the supe
   asking turn's budget while the generation still holds. The hold's wait is closed by whatever ends the hold —
   `holdClosed`, and `taskClosed` for a task that closes while it is held — and a bounded wait a holding generation opens
   is answered `wait again`, so it is never offered a second task, never re-points the lease and never closes the hold's
-  suppression: the hold, not that window, is why the worker is not silent.
+  suppression: the hold, not that window, is why the worker is not silent. An end already requested is answered `end`
+  from the hold too, so the transport can end the worker gracefully.
 * *The hold's end* — at its token budget a holding generation ends its hold before its recycle: `WorkerRecycling`
   reports `WorkerProtocol.holdEnded` once per generation, with the generation, the task, the attempt, the cause
   `token_budget` and the instant, and only then hands the generation to `WorkerEnding`. The protocol therefore sees the

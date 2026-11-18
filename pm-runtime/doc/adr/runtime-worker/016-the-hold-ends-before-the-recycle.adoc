@@ -62,7 +62,8 @@ detection:
 The hold's wait is closed by whatever ends the hold: `holdClosed`, and `taskClosed`, which ends the hold of a task that
 closes while it is held. A bounded wait a holding generation opens is answered `wait again` and keeps the hold's
 suppression of the silence limit: the hold, not the answer to that window, is the reason the worker is not silent, and a
-hold is never offered a second task.
+hold is never offered a second task. An end already requested for the generation is answered `end` from the hold too, so
+the transport can end the worker gracefully instead of waiting for the grace timer.
 
 **The runtime does not decide suspend or fall back.** The notification names the fact and the cause and leaves the
 decision to the adapter over `TaskProtocol`, which already holds `suspend` and `fallback`.

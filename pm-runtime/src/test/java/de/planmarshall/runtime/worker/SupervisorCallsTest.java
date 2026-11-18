@@ -551,11 +551,11 @@ class SupervisorCallsTest {
     }
 
     @Test
-    @DisplayName("a held wait that names a task is never offered and keeps the hold closable")
+    @DisplayName("a held wait that names another task is never offered and keeps the hold closable")
     void aHeldWaitIsNeverOfferedATask() {
         var generation = holdingGeneration();
 
-        var answer = calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        var answer = calls.waitOpened(generation.generationId(), OTHER_TASK, generation.configurationDigest());
         calls.holdClosed(generation.generationId(), TASK, fixture.clock.instant());
         var closed = supervisor.generation(generation.generationId()).orElseThrow();
 
@@ -565,6 +565,18 @@ class SupervisorCallsTest {
                 () -> assertEquals(TASK, closed.leasedTask(), "a held wait keeps the lease of the hold"),
                 () -> assertEquals(WorkerLifecycle.EXECUTING, closed.lifecycle(),
                         "the hold still closes after the held wait"));
+    }
+
+    @Test
+    @DisplayName("a held wait of a generation whose end is requested is answered end")
+    void aHeldWaitOfAnEndingGenerationIsAnsweredEnd() {
+        var generation = holdingGeneration();
+        ending.end(generation, EndCause.RECYCLE);
+
+        var answer = calls.waitOpened(generation.generationId(), OTHER_TASK, generation.configurationDigest());
+
+        assertEquals(new WorkerCalls.WaitAnswer.End(), answer,
+                "a held wait of an ending generation is told to end");
     }
 
     @Test

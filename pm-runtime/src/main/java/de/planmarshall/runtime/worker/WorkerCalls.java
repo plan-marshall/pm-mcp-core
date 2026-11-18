@@ -68,7 +68,8 @@ public interface WorkerCalls {
      * <p>
      * The transport reports the hold of the turn that asked before it reports that turn's completion, so the supervisor
      * decides the asking turn's token budget while the generation still holds. A bounded wait of a holding generation is
-     * answered {@link WaitAnswer.WaitAgain}: a hold keeps its task, so it is never offered a second one.
+     * answered {@link WaitAnswer.WaitAgain} — a hold keeps its task, so it is never offered a second one — unless its
+     * end is already requested, which is answered {@link WaitAnswer.End} as for any other generation.
      *
      * @param generationId the worker's generation
      * @param queueTaskId  the task the hold keeps
@@ -135,7 +136,7 @@ public interface WorkerCalls {
         }
 
         /**
-         * No task is queued: the worker waits again, which may be an idle wake-up.
+         * No task is queued, or the generation holds its task: the worker waits again, which may be an idle wake-up.
          *
          * @since 0.1
          */

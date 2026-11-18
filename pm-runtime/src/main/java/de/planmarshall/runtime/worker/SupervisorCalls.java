@@ -114,7 +114,12 @@ public final class SupervisorCalls implements WorkerCalls {
         detection.waitOpened(at);
         if (generation.lifecycle() == WorkerLifecycle.HOLDING) {
             // A hold keeps its task and its wait: a bounded wait of a holding generation is answered wait again, so it
-            // is never offered a second task and its hold stays closable by the task it names.
+            // is never offered a second task and its hold stays closable by the task it names. An end already requested
+            // is told to the transport, which is the only way the worker leaves gracefully from a hold.
+            if (ending.endRequested(generationId)) {
+                detection.waitClosed(at);
+                return new WaitAnswer.End();
+            }
             return new WaitAnswer.WaitAgain();
         }
         try {
