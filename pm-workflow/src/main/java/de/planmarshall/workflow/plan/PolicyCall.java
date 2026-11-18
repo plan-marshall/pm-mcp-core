@@ -15,6 +15,9 @@ import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
+
 /**
  * One call of a remediation policy unit in a plan instance with its effective bound arguments (PM-IMPL-5): one entry
  * of {@code policy_calls[]} in the instance header. One sub-unit serves every call site; the call site carries what it
@@ -24,9 +27,12 @@ import java.util.TreeMap;
  * @param unit     the remediation unit called, for example {@code remediation.ci-failure}
  * @param args     the effective arguments by name ({@code retry_budget}, {@code fix_budget},
  *                 {@code waiver_wait_seconds}, {@code actions}), each with its provenance, ordered by name
+ * @param inUnit   the composed unit that holds the call; {@code null} for a call of the plan unit
  * @since 0.1
  */
-public record PolicyCall(String callSite, String unit, SortedMap<String, BoundArgument> args) {
+@Builder
+public record PolicyCall(String callSite, String unit, SortedMap<String, BoundArgument> args,
+@Nullable String inUnit) {
 
     /**
      * Refuses a missing component and copies the arguments into an unmodifiable map ordered by name.
@@ -34,6 +40,7 @@ public record PolicyCall(String callSite, String unit, SortedMap<String, BoundAr
      * @param callSite the state id of the calling state
      * @param unit     the remediation unit called
      * @param args     the effective arguments by name
+     * @param inUnit   the composed unit that holds the call, {@code null} for the plan unit
      */
     public PolicyCall {
         Objects.requireNonNull(callSite, "callSite");
@@ -44,10 +51,27 @@ public record PolicyCall(String callSite, String unit, SortedMap<String, BoundAr
     /**
      * @param callSite the state id of the calling state
      * @param unit     the remediation unit called
+     * @param args     the effective arguments by name
+     */
+    public PolicyCall(String callSite, String unit, SortedMap<String, BoundArgument> args) {
+        this(callSite, unit, args, null);
+    }
+
+    /**
+     * @param callSite the state id of the calling state
+     * @param unit     the remediation unit called
      * @param args     the effective arguments by name, in any order
-     * @return the policy call with its arguments ordered by name
+     * @return the policy call of the plan unit with its arguments ordered by name
      */
     public static PolicyCall of(String callSite, String unit, Map<String, BoundArgument> args) {
         return new PolicyCall(callSite, unit, new TreeMap<>(args));
+    }
+
+    /**
+     * @param composedUnit the composed unit that holds the call
+     * @return the same call, held in the composed unit
+     */
+    public PolicyCall withInUnit(String composedUnit) {
+        return new PolicyCall(callSite, unit, args, Objects.requireNonNull(composedUnit, "composedUnit"));
     }
 }

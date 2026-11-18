@@ -810,7 +810,7 @@ class PlanInstanceStoreTest {
     @DisplayName("Composed set")
     class ComposedSet {
 
-        private static final InstancePosition AT_INIT = InstancePosition.at("init.ready");
+        private static final InstancePosition AT_INIT = InstancePosition.of("phase-1-init", "init.ready");
 
         private static PlanInstance merged() {
             var result = PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,

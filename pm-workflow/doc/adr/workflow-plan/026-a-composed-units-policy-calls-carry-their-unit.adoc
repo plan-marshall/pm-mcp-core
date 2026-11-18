@@ -1,0 +1,53 @@
+= ADR 026: A Composed Unit's Policy Calls Carry Their Unit
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-17
+
+== Context
+
+The remediation policy calls of a version live in the phase files as much as in the plan unit: `refine.remediate`,
+`outline.remediate`, `execute.remediate` and `plan.remediate` are calls of composed phase sub-workflows, while the
+plan unit's own `finalize.remediate` is the one the header recorded. `PlanInstanceComposer.composeUnit` discarded the
+policy calls of the composed unit's own pruning, so a raised retry or fix budget of a composed call never reached the
+header, and header and composed body disagreed.
+
+`DiffSummary.byCallSite` keyed a call by its call site alone (`putIfAbsent` on `call.callSite()`), so two calls with
+the same state id in two units collapsed into one.
+
+== Decision
+
+* `PolicyCall` carries an optional `inUnit`; absent means the plan unit. `composeUnit` returns the policy calls of the
+  composed unit's own pruning, each stamped with the unit's id.
+* The header lists the plan unit's calls first, then those of the composed units in the order of the request's
+  sub-units.
+* `HeaderJson` writes and reads `policy_calls[].in_unit`, and `HeaderSchemaCheck` accepts it only when it names a
+  composed unit of the header's templates.
+* `DiffSummary.byCallSite` keys a call by `(inUnit, callSite)`; `CeilingChange` carries `inUnit` and the record writes
+  the optional `in_unit`.
+* The format version stays 1: `in_unit` is optional and replaces version 1 in place (R13).
+
+== Alternatives Considered
+
+1. *Give the nested calls an inline expansion in the header.* Rejected: one sub-unit serves every call site, and the
+   call site carries what it binds.
+2. *Key the diff by call site and start a second array for nested calls.* Rejected: one array with a unit-qualified key
+   keeps the five flat arrays of ADR 014.
+
+== Consequences
+
+The header and the composed bodies agree on every policy call and its effective arguments. `PlanInstanceComposerTest`'s
+`headerAndComposedBodyAgree` checks the agreement, and `DiffSummaryTest` keeps two calls with the same state id in two
+units apart. A reader of an older header sees no `in_unit`, which is the plan unit's form; no reader of an older
+version is needed.
+
+== Source
+
+* Store Schemas 14 § Plan Instance (Header `policy_calls`, Composition Log `ceilings_changed`); Workflow DSL 09
+  § Plan Instance, the policy-call bullet.
+* PLAN-V2-82, Deliverable 3.

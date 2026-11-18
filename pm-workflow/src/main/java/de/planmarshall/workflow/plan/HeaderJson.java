@@ -91,6 +91,7 @@ final class HeaderJson {
     static final String SOURCE_FACT = "source_fact";
 
     static final String CALL_SITE = "call_site";
+    static final String IN_UNIT = "in_unit";
     static final String ARGS = "args";
     static final String VALUE = "value";
     static final String SOURCE = "source";
@@ -441,8 +442,14 @@ final class HeaderJson {
             members.put(WAIVER_ID, optional(argument.waiverId()));
             args.put(name, new ObjectNode(members));
         });
-        return new ObjectNode(Map.of(CALL_SITE, new StringNode(call.callSite()), UNIT, new StringNode(call.unit()),
-                ARGS, new ObjectNode(args)));
+        var members = new LinkedHashMap<String, Node>();
+        members.put(CALL_SITE, new StringNode(call.callSite()));
+        members.put(UNIT, new StringNode(call.unit()));
+        if (call.inUnit() != null) {
+            members.put(IN_UNIT, new StringNode(call.inUnit()));
+        }
+        members.put(ARGS, new ObjectNode(args));
+        return new ObjectNode(members);
     }
 
     /**
@@ -546,7 +553,8 @@ final class HeaderJson {
                     argument.get(FILE) instanceof StringNode(var file) ? file : null,
                     argument.get(WAIVER_ID) instanceof StringNode(var waiverId) ? waiverId : null));
         });
-        return new PolicyCall(text(members.get(CALL_SITE)), text(members.get(UNIT)), args);
+        var inUnit = members.get(IN_UNIT) instanceof StringNode(var unit) ? unit : null;
+        return new PolicyCall(text(members.get(CALL_SITE)), text(members.get(UNIT)), args, inUnit);
     }
 
     private static CallValue callValue(Node node, String name) {

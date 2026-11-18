@@ -1,0 +1,15 @@
+---
+name: verify.unknown-fact-kind
+description: A unit whose reads_fact names an unknown kind, never copied from the product.
+type: workflow
+icon: workflow.default
+reads_fact: push_remot
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+workflow verify.unknown-fact-kind version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry terminal done success

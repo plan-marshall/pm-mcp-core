@@ -12,10 +12,12 @@ package de.planmarshall.workflow.plan;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 
@@ -27,6 +29,7 @@ import de.planmarshall.workflow.plan.HeaderJson.NumberNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Checks a plan instance header against every constraint of the {@code PlanInstanceHeader} schema (PM-IMPL-5,
@@ -45,6 +48,10 @@ import lombok.experimental.UtilityClass;
  * hexadecimal characters), of the Phase 6 step ids and of the waiver ids, and {@code composed_at} as an RFC 3339
  * date-time that the reader can parse. A JSON text that is no single JSON value, or names a member of an object
  * twice, is one violation of the header as a whole or of that member.
+ * <p>
+ * Where one member's value must be one of a sibling array's values, the check reads that array: a
+ * {@code policy_calls[].in_unit} must name a composed unit of {@code inputs.templates}, the plan unit excluded, and a
+ * value outside the array is a violation of the member.
  * <p>
  * A violation names the JSON pointer of the member or element that breaks the constraint and what is wrong. A member
  * of the wrong type is reported once, and what lies inside it is not checked further.
@@ -65,6 +72,8 @@ public final class HeaderSchemaCheck {
     static final String BELOW_ONE = "must be at least 1";
     static final String NOT_DATE_TIME = "must be an RFC 3339 date-time the header reader can parse "
             + "(an offset within +-18:00, no leap second)";
+    static final String NOT_COMPOSED_UNIT = "must name a composed unit of the header's templates";
+    static final String DUPLICATE_CALL_SITE = "the unit and call site are listed twice";
 
     /** The remediation policy units a policy call may name. */
     static final List<String> POLICY_UNITS = List.of("remediation.ci-failure", "remediation.review-findings",
@@ -112,6 +121,7 @@ public final class HeaderSchemaCheck {
             HeaderJson.REASON, HeaderJson.SOURCE_FACT);
     private static final List<String> CALL_REQUIRED = List.of(HeaderJson.CALL_SITE, HeaderJson.UNIT,
             HeaderJson.ARGS);
+    private static final List<String> CALL_OPTIONAL = List.of(HeaderJson.IN_UNIT);
     private static final List<String> ARGUMENT_REQUIRED = List.of(HeaderJson.VALUE, HeaderJson.SOURCE);
     private static final List<String> ARGUMENT_OPTIONAL = List.of(HeaderJson.FILE, HeaderJson.WAIVER_ID);
     private static final List<String> GATE_REQUIRED = List.of(HeaderJson.GATE, HeaderJson.WAIVER_ID);
@@ -147,6 +157,7 @@ public final class HeaderSchemaCheck {
 
     static List<HeaderViolation> check(Node root) {
         var out = new ArrayList<HeaderViolation>();
+        var composedUnits = composedUnits(root);
         object(root, "", out).ifPresent(members -> {
             declared(members, "", ROOT_REQUIRED, ROOT_OPTIONAL, out);
             member(members, "", HeaderJson.FORMAT_VERSION, (node, pointer) -> integer(node, pointer, out)
@@ -168,11 +179,80 @@ public final class HeaderSchemaCheck {
             member(members, "", HeaderJson.PRUNED,
                     (node, pointer) -> each(node, pointer, out, (element, at) -> pruned(element, at, out)));
             member(members, "", HeaderJson.POLICY_CALLS,
-                    (node, pointer) -> each(node, pointer, out, (element, at) -> policyCall(element, at, out)));
+                    (node, pointer) -> {
+                        each(node, pointer, out,
+                                (element, at) -> policyCall(element, at, out, composedUnits));
+                        duplicateCallSites(node, pointer, out);
+                    });
             member(members, "", HeaderJson.WAIVED_GATES,
                     (node, pointer) -> each(node, pointer, out, (element, at) -> waivedGate(element, at, out)));
         });
         return List.copyOf(out);
+    }
+
+    /**
+     * @param root the header tree
+     * @return the ids of the composed units the header's inputs name by their composed file, the plan unit excluded;
+     *         empty where the inputs, the templates or the version are absent or of another type, which the check
+     *         reports on its own
+     */
+    private static Set<String> composedUnits(Node root) {
+        if (!(root instanceof ObjectNode(var members))
+                || !(members.get(HeaderJson.INPUTS) instanceof ObjectNode(var inputs))
+                || !(inputs.get(HeaderJson.TEMPLATES) instanceof ArrayNode(var templates))
+                || !(members.get(HeaderJson.VERSION) instanceof NumberNode version) || !version.integral()) {
+            return Set.of();
+        }
+        var number = version.value();
+        if (number.compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) > 0
+                || number.compareTo(BigDecimal.valueOf(Integer.MIN_VALUE)) < 0) {
+            return Set.of();
+        }
+        var versionNumber = number.intValueExact();
+        var units = new HashSet<String>();
+        for (var template : templates) {
+            if (template instanceof ObjectNode(var reference)
+                    && reference.get(HeaderJson.UNIT) instanceof StringNode(var unit)
+                    && !PlanInstanceComposer.PLAN_UNIT.equals(unit)
+                    && reference.get(HeaderJson.FILE) instanceof StringNode(var file)
+                    && PlanInstanceStore.unitPath(unit, versionNumber).equals(file)) {
+                units.add(unit);
+            }
+        }
+        return Set.copyOf(units);
+    }
+
+    /**
+     * @param node    the {@code policy_calls} array
+     * @param pointer the array's JSON pointer
+     * @param out     the violations found
+     */
+    private static void duplicateCallSites(Node node, String pointer, List<HeaderViolation> out) {
+        if (!(node instanceof ArrayNode(var elements))) {
+            return;
+        }
+        var seen = new HashSet<CallSiteKey>();
+        for (var index = 0; index < elements.size(); index++) {
+            if (!(elements.get(index) instanceof ObjectNode(var members))) {
+                continue;
+            }
+            var callSite = members.get(HeaderJson.CALL_SITE) instanceof StringNode(var site) ? site : null;
+            var inUnit = members.get(HeaderJson.IN_UNIT) instanceof StringNode(var unit) ? unit : null;
+            if (callSite != null && !seen.add(new CallSiteKey(inUnit, callSite))) {
+                out.add(new HeaderViolation(HeaderJson.child(pointer, Integer.toString(index)),
+                        DUPLICATE_CALL_SITE));
+            }
+        }
+    }
+
+    /**
+     * The key of a policy call in the duplicate check: the unit that holds it and the state that calls it. A record
+     * keeps an absent unit apart from a unit named {@code null}; a state id is unique only within its unit.
+     *
+     * @param inUnit   the composed unit that holds the call; {@code null} for a call of the plan unit
+     * @param callSite the state id of the calling state
+     */
+    private record CallSiteKey(@Nullable String inUnit, String callSite) {
     }
 
     /** A date-time is valid when it has the RFC 3339 shape and the header reader can parse it. */
@@ -244,11 +324,14 @@ public final class HeaderSchemaCheck {
         });
     }
 
-    private static void policyCall(Node node, String pointer, List<HeaderViolation> out) {
+    private static void policyCall(Node node, String pointer, List<HeaderViolation> out, Set<String> composedUnits) {
         object(node, pointer, out).ifPresent(members -> {
-            declared(members, pointer, CALL_REQUIRED, List.of(), out);
+            declared(members, pointer, CALL_REQUIRED, CALL_OPTIONAL, out);
             member(members, pointer, HeaderJson.CALL_SITE, (value, at) -> string(value, at, out));
             member(members, pointer, HeaderJson.UNIT, (value, at) -> enumerated(value, at, POLICY_UNITS, out));
+            member(members, pointer, HeaderJson.IN_UNIT, (value, at) -> string(value, at, out)
+                    .filter(unit -> !composedUnits.contains(unit))
+                    .ifPresent(unit -> out.add(new HeaderViolation(at, NOT_COMPOSED_UNIT))));
             member(members, pointer, HeaderJson.ARGS, (value, at) -> object(value, at, out)
                     .ifPresent(args -> args.forEach(
                             (name, argument) -> argument(argument, HeaderJson.child(at, name), out))));

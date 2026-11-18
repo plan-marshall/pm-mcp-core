@@ -11,7 +11,9 @@
  * The machine's and a project's stores that the onboarding writes and everything else reads: the consent store
  * {@code consents.json} with the consent-before-acting rule, the model catalogue {@code model-catalogue.json}, the role
  * assignments {@code role-assignments.json} with the release's default assignment and the proposal {@code roles.default}
- * shows, and the settings-conflict refusal that carries the value a change collided with. The machine's provider
+ * shows, the settings-conflict refusal that carries the value a change collided with, and the compiled table of the
+ * effective configuration keys of the three configuration files, each with its value domain and whether a compiled
+ * default exists. The machine's provider
  * defaults live in {@code de.planmarshall.runtime.config} of {@code pm-runtime}, because this package names no provider.
  * <p>
  * Specification:

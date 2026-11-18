@@ -18,6 +18,8 @@ import java.util.Optional;
 
 import de.planmarshall.workflow.ast.InputType;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The keys of the closed configuration a unit may read in its frontmatter (PM-WF-16, Rule 1), each with its value domain
  * and whether the configuration compiles a default for it.
@@ -49,22 +51,22 @@ public record ConfigKeyRegistry(Map<String, ConfigKey> keys) {
      * One key of the closed configuration.
      *
      * @param key             the effective-key form, {@code <file_stem>.<dotted path>}
-     * @param domain          the value domain of the key
+     * @param domain          the value domain of the key, {@code null} when the schema's domain is none of the three
+     *                        closed input types, so the key can never be the source of an input fallback
      * @param compiledDefault whether the configuration compiles a default for the key, so it is never absent
      */
-    public record ConfigKey(String key, InputType domain, boolean compiledDefault) {
+    public record ConfigKey(String key, @Nullable InputType domain, boolean compiledDefault) {
 
         /**
-         * Refuses a missing component.
+         * Refuses a missing key.
          *
          * @param key             the effective-key form
-         * @param domain          the value domain
+         * @param domain          the value domain, or {@code null} when no input type expresses it
          * @param compiledDefault whether the key has a compiled default
-         * @throws NullPointerException if a component is {@code null}
+         * @throws NullPointerException if the key is {@code null}
          */
         public ConfigKey {
             Objects.requireNonNull(key, "key");
-            Objects.requireNonNull(domain, "domain");
         }
     }
 
@@ -109,13 +111,14 @@ public record ConfigKeyRegistry(Map<String, ConfigKey> keys) {
 
     /**
      * Tells whether a configuration domain is assignable to an input type: every value the domain admits is a value the
-     * input type admits, so a fallback never supplies a value the input refuses.
+     * input type admits, so a fallback never supplies a value the input refuses. A key whose domain no input type
+     * expresses is assignable to nothing.
      *
      * @param type   the type of the input
-     * @param domain the value domain of the configuration key
+     * @param domain the value domain of the configuration key, {@code null} when no input type expresses it
      * @return whether the domain is assignable to the type
      */
-    public static boolean assignable(InputType type, InputType domain) {
+    public static boolean assignable(InputType type, @Nullable InputType domain) {
         return switch (type) {
             case InputType.Enumeration(var values) -> domain instanceof InputType.Enumeration(var admitted)
                     && values.containsAll(admitted);

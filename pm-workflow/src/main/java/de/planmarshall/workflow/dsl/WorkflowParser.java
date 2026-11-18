@@ -845,7 +845,7 @@ public final class WorkflowParser {
     }
 
     private String configKey(LineCursor line) {
-        var key = new StringBuilder(checkedIdentifier(line, "a configuration key"));
+        var key = new StringBuilder(requireIdentifier(line.next("a configuration key"), "a configuration key").text());
         while (line.consumeIf(DOT)) {
             key.append('.').append(checkedIdentifier(line, "a segment of a configuration key"));
         }

@@ -30,8 +30,8 @@ import org.jspecify.annotations.Nullable;
  * The {@code diff_summary} of a line of the composition log (PM-IMPL-5, PM-WF-1): a composed version relative to the
  * version before it, as five flat arrays. A pruned element, a waived gate and a bound argument value are compared as
  * the header writes them; a pruned element whose reason or source fact changed is removed and added. Each array keeps
- * the order of the header it comes from, the ceilings the order of the call sites, first those of the previous
- * version, and within a call site the order of the argument names.
+ * the order of the header it comes from, the ceilings the order of the call sites — a call site identified by its unit
+ * and its state id — first those of the previous version, and within a call site the order of the argument names.
  *
  * @param prunedAdded     pruned in this version, not in the previous one
  * @param prunedRemoved   pruned in the previous version, not in this one
@@ -115,7 +115,8 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
                 var is = currentArgument == null ? null : currentArgument.value();
                 if (!Objects.equals(was, is)) {
                     changes.add(CeilingChange.builder()
-                            .callSite(callSite)
+                            .callSite(callSite.callSite())
+                            .inUnit(callSite.inUnit())
                             .argument(name)
                             .previous(was)
                             .value(is)
@@ -126,11 +127,22 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
         return changes;
     }
 
-    /** @return the arguments of each policy call of the header by its call site, in the order of the header */
-    private static Map<String, Map<String, BoundArgument>> byCallSite(PlanInstanceHeader header) {
-        var calls = new LinkedHashMap<String, Map<String, BoundArgument>>();
-        header.policyCalls().forEach(call -> calls.putIfAbsent(call.callSite(), call.args()));
+    /** @return the arguments of each policy call of the header by its unit and call site, in the order of the header */
+    private static Map<CallKey, Map<String, BoundArgument>> byCallSite(PlanInstanceHeader header) {
+        var calls = new LinkedHashMap<CallKey, Map<String, BoundArgument>>();
+        header.policyCalls().forEach(call ->
+                calls.putIfAbsent(new CallKey(call.inUnit(), call.callSite()), call.args()));
         return calls;
+    }
+
+    /**
+     * The key of a policy call in the ceiling diff: the unit that holds it and the state that calls it. A state id is
+     * unique only within a unit, so two calls with the same id in two units are two keys.
+     *
+     * @param inUnit   the composed unit that holds the call; {@code null} for a call of the plan unit
+     * @param callSite the state id of the calling state
+     */
+    private record CallKey(@Nullable String inUnit, String callSite) {
     }
 
     /**
@@ -140,11 +152,23 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
      * @param argument the bound argument ({@code retry_budget}, {@code fix_budget}, {@code actions})
      * @param previous the value in the previous version; {@code null} where it did not bind the argument
      * @param value    the value in this version; {@code null} where it does not bind the argument
+     * @param inUnit   the composed unit that holds the call; {@code null} for a call of the plan unit
      * @since 0.1
      */
     @Builder
     public record CeilingChange(String callSite, String argument, @Nullable CallValue previous,
-    @Nullable CallValue value) {
+    @Nullable CallValue value, @Nullable String inUnit) {
+
+        /**
+         * @param callSite the calling state of the policy call
+         * @param argument the bound argument
+         * @param previous the value in the previous version, {@code null} if unbound
+         * @param value    the value in this version, {@code null} if unbound
+         */
+        public CeilingChange(String callSite, String argument, @Nullable CallValue previous,
+                @Nullable CallValue value) {
+            this(callSite, argument, previous, value, null);
+        }
 
         /**
          * Refuses a missing call site or argument and a change that changes nothing.
@@ -153,6 +177,7 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
          * @param argument the bound argument
          * @param previous the value in the previous version, {@code null} if unbound
          * @param value    the value in this version, {@code null} if unbound
+         * @param inUnit   the composed unit that holds the call, {@code null} for the plan unit
          * @throws IllegalArgumentException if the two values are equal
          */
         public CeilingChange {
@@ -167,6 +192,9 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
         private Node toNode() {
             var members = new LinkedHashMap<String, Node>();
             members.put("call_site", new StringNode(callSite));
+            if (inUnit != null) {
+                members.put(HeaderJson.IN_UNIT, new StringNode(inUnit));
+            }
             members.put("argument", new StringNode(argument));
             members.put(PREVIOUS, previous == null ? NullNode.INSTANCE : HeaderJson.callValue(previous));
             members.put("value", value == null ? NullNode.INSTANCE : HeaderJson.callValue(value));

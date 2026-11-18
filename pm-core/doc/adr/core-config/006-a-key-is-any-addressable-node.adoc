@@ -1,0 +1,49 @@
+= ADR 006: A Key Is Any Addressable Node, Not Only a Leaf
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+Some values of the operator file are objects a plan reads as one value: `local-config.commit_trailer` and
+`local-config.commit_identity` are objects, and the call-time inputs of a unit name them whole. Other nodes are maps
+whose member names are data: the finalize `steps` are keyed by step id, the `project_steps` by a `project:` id, the
+upstream MCP `servers` by a server id and the `derivation_resolvers` by a resolver name.
+
+== Decision
+
+Every addressable node of the three files is a key. A node with members is a key of domain `Object` beside its members; a
+map node contributes the wildcard segment `*`, which stands for exactly one non-empty segment
+(`workflow.plan.phase-6-finalize.steps.*.lane`). `EffectiveConfigKeys.find` answers the exact key, or the one key whose
+wildcard segment the form's segment stands for, and never a prefix of a key. The effective-key grammar admits an
+identifier segment (`[a-z][a-z0-9_-]*`) or the wildcard, so a concrete map member such as `steps.default:mutation.lane` is
+addressed by the wildcard form, not by its own key.
+
+== Alternatives Considered
+
+1. *Register leaves only.* Rejected: `reads_config: local-config.commit_trailer` names the object, and a verifier that
+   refused it would refuse a declaration the specification allows.
+2. *Register concrete map members.* Rejected: the member names are data a project owns, so the table would have to grow
+   with every project's steps and servers.
+
+== Consequences
+
+A node that gains members gains keys in the same change, and a map node is always a pair: the map key and the wildcard
+key below it. `find` never answers a prefix, so a misspelt key stays refused instead of matching a shorter one.
+
+The verifier's `ConfigKeyRegistry.contains` is an exact lookup, and the DSL's `config_key` grammar admits identifiers
+only, so a unit's `reads_config` can name no map member: the wildcard rows serve the effective-value machinery and the
+table's completeness, not a declaration. A unit that must read a per-step or per-server value is a change of the DSL's
+key grammar or of the registry's lookup, not a table row.
+
+== Source
+
+* Plan `PLAN-V2-10`, Decision 3 and Deliverable 1.
+* Store Schemas 08, Operator Local Configuration (`commit_identity`, `commit_trailer`, `servers`, `derivation_resolvers`).
+* Store Schemas 07, Team File `workflow.json` (`steps`, `project_steps`).
