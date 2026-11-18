@@ -191,6 +191,10 @@ public final class PlanInstanceStore {
             throw new IllegalArgumentException("the mark of version %d names the version %d"
                     .formatted(instance.version(), verified.version()));
         }
+        if (!verified.textDigest().equals(PlanFacts.sha256(instance.text()))) {
+            throw new IllegalArgumentException("the text of version %d is not the text the composer verified"
+                    .formatted(instance.version()));
+        }
     }
 
     /**

@@ -1142,6 +1142,16 @@ public final class WorkflowEngine {
             if (event == null || event.trigger() != CompositionEvent.Trigger.SERVER) {
                 return null;
             }
+            if (transaction == null || history == null) {
+                return Map.of("reason", PRECONDITION_UNMET, "detail",
+                        ("the event '%s' composes only in an advance that carries the transaction and the plan's "
+                                + "history").formatted(event.wireName()));
+            }
+            if (justComposed != null) {
+                return Map.of("reason", PRECONDITION_UNMET, "detail",
+                        ("the version composed earlier in this advance must be committed before '%s' composes another")
+                                .formatted(event.wireName()));
+            }
             return composeAndTakeForce(event);
         }
 

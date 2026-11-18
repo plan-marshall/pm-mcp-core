@@ -211,7 +211,15 @@ class PlanInstanceStoreTest {
                     .unit(composed.unit())
                     .text(composed.text())
                     .units(composed.units())
-                    .verified(Verified.of(composed.version() + 1))
+                    .verified(Verified.of(composed.version() + 1, PlanFacts.sha256(composed.text())))
+                    .build();
+            var changedText = PlanInstance.builder()
+                    .version(composed.version())
+                    .header(composed.header())
+                    .unit(composed.unit())
+                    .text(composed.text() + "\n# a line the composer did not print\n")
+                    .units(composed.units())
+                    .verified(composed.verified())
                     .build();
 
             assertAll(
@@ -232,6 +240,10 @@ class PlanInstanceStoreTest {
                 assertThrows(IllegalArgumentException.class,
                         () -> store.recordComposed(transaction, foreignMark, texts, foreignRecord),
                         "the mark of another version is refused");
+                var changedRecord = CompositionRecord.composed(changedText, null, COMPOSED_AT);
+                assertThrows(IllegalArgumentException.class,
+                        () -> store.recordComposed(transaction, changedText, texts, changedRecord),
+                        "a text the composer did not print is refused");
             }
         }
 
@@ -903,7 +915,7 @@ class PlanInstanceStoreTest {
         void headerNamesNoFile() {
             var instance = merged();
             var withoutUnits = new PlanInstance(instance.version(), instance.header(), instance.unit(),
-                    instance.text(), List.of(), Verified.of(instance.version()));
+                    instance.text(), List.of(), Verified.of(instance.version(), PlanFacts.sha256(instance.text())));
             var texts = textsOf(withoutUnits);
             var compositionRecord = CompositionRecord.composed(withoutUnits, null, COMPOSED_AT);
 
@@ -930,7 +942,7 @@ class PlanInstanceStoreTest {
                     InvariantFixtures.passingUnits(UnitOrigin.PROJECT).get("replan"));
             var mixed = new PlanInstance(instance.version(), instance.header(), instance.unit(), instance.text(),
                     Stream.concat(instance.units().stream(), Stream.of(extra)).toList(),
-                    Verified.of(instance.version()));
+                    Verified.of(instance.version(), PlanFacts.sha256(instance.text())));
             var texts = textsOf(mixed);
             var compositionRecord = CompositionRecord.composed(mixed, null, COMPOSED_AT);
 

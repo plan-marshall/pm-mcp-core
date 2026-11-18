@@ -339,8 +339,12 @@ The header line is canonical JSON: one line, UTF-8, members sorted by name, no i
 Re-serialising an unchanged header gives the same bytes and so the same digest.
 
 The store checks the composition record against the version, but it does not repeat the verification (link:../adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR 001]).
-The provenance is checked instead: a version carries the `Verified` mark only when the composer created it, and `recordComposed` refuses a version without the mark and a mark of another version before it stages anything (link:../adr/workflow-plan/028-only-a-version-the-composer-verified-is-stored.adoc[ADR 028]).
-The mark is created behind a package-private factory, so no caller of another package or module can build a version the store would accept.
+The provenance is checked instead: a version carries the `Verified` mark only when the composer created it, and the mark
+names the version and the digest of the text that was composed, so `recordComposed` refuses a version without the mark, a
+mark of another version and a text the composer did not print, before it stages anything
+(link:../adr/workflow-plan/028-only-a-version-the-composer-verified-is-stored.adoc[ADR 028]).
+The mark is created behind a package-private factory, so no caller of another package or module can build a version the
+store would accept.
 
 When the reader maps an integral header number to an `int` (the `version` and an integral policy-argument value), it checks the magnitude before the exact conversion.
 A number such as `1e999999999` is held as a mantissa and an exponent, and converting it would allocate every one of its digits; it is refused as out of range (`Instance header refused: '<name>' is out of range: <value>`) without that allocation.

@@ -226,17 +226,18 @@ public final class PlanInstanceComposer {
         if (!violations.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED, violations);
         }
-        var refusedRules = checkRules(unit, composed, request);
-        if (refusedRules.isPresent()) {
-            return refusedRules.get();
+        var refusal = checkRules(unit, composed, request);
+        if (refusal.isPresent()) {
+            return refusal.get();
         }
+        var text = WorkflowPrinter.print(unit);
         return new CompositionResult.Composed(PlanInstance.builder()
                 .version(version)
                 .header(header)
                 .unit(unit)
-                .text(WorkflowPrinter.print(unit))
+                .text(text)
                 .units(composed.units())
-                .verified(Verified.of(version))
+                .verified(Verified.of(version, PlanFacts.sha256(text)))
                 .build());
     }
 

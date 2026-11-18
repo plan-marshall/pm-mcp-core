@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.JournalScope;
@@ -68,6 +69,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * The composition events of a plan instance and the version in force (Workflow DSL § Versions &amp; Composition
@@ -290,6 +292,22 @@ class InstanceVersionEngineTest {
     }
 
     /**
+     * @return the server events of {@link CompositionEvent}, derived so a new event joins the cases
+     */
+    static Stream<CompositionEvent> serverEvents() {
+        return Stream.of(CompositionEvent.values())
+                .filter(event -> event.trigger() == CompositionEvent.Trigger.SERVER);
+    }
+
+    /**
+     * @return the operator and configuration events of {@link CompositionEvent}, derived so a new event joins the cases
+     */
+    static Stream<CompositionEvent> operatorEvents() {
+        return Stream.of(CompositionEvent.values())
+                .filter(event -> event.trigger() == CompositionEvent.Trigger.OPERATOR);
+    }
+
+    /**
      * @return the units port of a plan whose version's files are staged and not yet readable, as the store answers inside
      *         the transaction that composed the version
      */
@@ -320,7 +338,7 @@ class InstanceVersionEngineTest {
     class ServerEvents {
 
         @ParameterizedTest(name = "{0}")
-        @EnumSource(value = CompositionEvent.class, names = {"OUTLINE", "PLAN", "FALLBACK", "EMPTY_HARVEST", "REPLAN"})
+        @MethodSource("de.planmarshall.workflow.engine.InstanceVersionEngineTest#serverEvents")
         @DisplayName("composes its version in the entering transaction and the chain selects from it")
         void composesInTheEnteringTransaction(CompositionEvent event) {
             composedUnitsOf(2, units(Map.of(2, composedUnit(2)), Map.of()));
@@ -371,6 +389,37 @@ class InstanceVersionEngineTest {
         }
 
         @Test
+        @DisplayName("a second composing state in one advance reports precondition_unmet")
+        void secondCompositionInOneAdvanceIsRefused() {
+            var unit = EngineFixtures.plan("s.one", """
+                    state s.one
+                        auto test.mark
+                            done -> s.two
+                            failed -> s.two
+
+                    state s.two
+                        auto test.step
+                            done -> completed
+                            failed -> handed_back
+                    """);
+            composedUnitsOf(2, units(Map.of(2, unit), Map.of()));
+            var composition = composition(Map.of("s.one", CompositionEvent.OUTLINE, "s.two", CompositionEvent.PLAN),
+                    composed(2, CompositionEvent.OUTLINE), composed(3, CompositionEvent.PLAN));
+            var engine = fixtures.engine(unit, fixtures.instancePorts(composition, noFiles()));
+
+            var raised = assertInstanceOf(EngineStep.ConditionRaised.class,
+                    committedStep(transaction -> engine.advance(EngineFixtures.planStatus(EXECUTE, "s.one"), store,
+                            transaction, history)),
+                    "the second composition is a condition, not a fault");
+
+            assertAll(
+                    () -> assertEquals(WorkflowEngine.PRECONDITION_UNMET, raised.kind(),
+                            "the condition is precondition_unmet"),
+                    () -> assertTrue(raised.facts().contains("must be committed"),
+                            "the condition names the commit the first version needs"));
+        }
+
+        @Test
         @DisplayName("whose composition is refused raises precondition_unmet on the composing transition")
         void refusedRaisesPreconditionUnmet() {
             var refusal = new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED,
@@ -400,14 +449,16 @@ class InstanceVersionEngineTest {
     class OperatorEvents {
 
         @ParameterizedTest(name = "{0}")
-        @EnumSource(value = CompositionEvent.class, names = {"CONFIG_ADOPTED", "WAIVER", "OVERRIDE"})
+        @MethodSource("de.planmarshall.workflow.engine.InstanceVersionEngineTest#operatorEvents")
         @DisplayName("takes force from the next transition, never mid-state")
         void takesForceFromTheNextTransition(CompositionEvent event) {
-            composedUnitsOf(2, units(Map.of(2, composedUnit(2)), Map.of()));
+            var units = units(Map.of(2, composedUnit(2)), Map.of());
+            composedUnitsOf(2, units);
             var engine = fixtures.engine(builtUnit(),
-                    fixtures.instancePorts(composition(Map.of(), composed(2, event)), noFiles()));
+                    fixtures.instancePorts(composition(Map.of(), composed(2, event)), units));
 
             var after = committedOperator(engine, EngineFixtures.planStatus(EXECUTE, "s.one"), event);
+            var next = committedStep(transaction -> engine.advance(after.status(), store, transaction, history));
 
             assertAll(
                     () -> assertEquals("s.one", after.status().state(), "the state did not move"),
@@ -415,7 +466,9 @@ class InstanceVersionEngineTest {
                     () -> assertInstanceOf(CompositionResult.Composed.class, after.result(),
                             "the composition composed a version"),
                     () -> assertEquals(2, store.read().orElseThrow().instanceVersion(),
-                            "the status store carries the version"));
+                            "the status store carries the version"),
+                    () -> assertEquals("s.composed", ((EngineStep.Ended) next).status().state(),
+                            "the next transition runs the new version"));
         }
 
         @Test

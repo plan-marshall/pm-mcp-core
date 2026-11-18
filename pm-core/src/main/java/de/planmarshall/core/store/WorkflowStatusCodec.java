@@ -453,7 +453,7 @@ public class WorkflowStatusCodec {
                 case CALL_STACK -> status.callStack(StrictJson.array(parser, field, WorkflowStatusCodec::readFrame));
                 case LOOP_BACK_ITERATION -> status.loopBackIteration(integer(parser, field));
                 case INSTANCE_VERSION -> status.instanceVersion(
-                        isNull(parser) ? null : Math.toIntExact(integer(parser, field)));
+                        isNull(parser) ? null : intOf(integer(parser, field), field));
                 case RETRY_COUNTERS -> status.retryCounters(readRetryCounters(parser));
                 case OUTLINE_LOOP_BACKS -> status.outlineLoopBacks(integer(parser, field));
                 case POLICY_COUNTERS -> status.policyCounters(
@@ -505,8 +505,20 @@ public class WorkflowStatusCodec {
         return new CallFrame(callerWorkflowId, callerStateId, subworkflowId, entry, boundArgs, pushedAt);
     }
 
-    private static BoundArg readBoundArg(JsonParser parser, String name) throws IOException {
-        return switch (parser.currentToken()) {
+    /**
+     * @param value the read integer
+     * @param field the name of the field
+     * @return the value as an {@code int}
+     * @throws StoreRefusal if the value exceeds an {@code int}
+     */
+    private static int intOf(long value, String field) {
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
+            throw unreadable("'%s' is out of range: %d".formatted(field, value));
+        }
+        return (int) value;
+    }
+
+    private static BoundArg readBoundArg(JsonParser parser, String name) throws IOException {        return switch (parser.currentToken()) {
             case VALUE_STRING -> new BoundArg.StringArg(parser.getText());
             case VALUE_NUMBER_INT -> new BoundArg.IntegerArg(integer(parser, name));
             case START_ARRAY -> {

@@ -154,6 +154,12 @@ refused, because the version's `instance` line is part of taking force).
 The position the composition reads is the `InstancePosition` of the advance: the unit and state the run is in (the top
 frame's unit, or the plan unit when the stack is empty), plus the calling unit and state of every frame.
 
+A run that carries no transaction or no history — the recovery entry points `stepOut` and `unwindToFallback`, and the
+non-persisted `advance` overloads — reports `precondition_unmet` for a composing state instead of throwing, and an
+advance composes at most one version: a second server event in the same chain reports `precondition_unmet` with its
+reason until the first version is committed, because the store records a version against the one before it, which is
+still staged.
+
 === Selecting a Transition
 
 Of the transitions of a state that route the returned outcome, the engine takes the one without a result guard or

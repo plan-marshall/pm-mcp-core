@@ -22,8 +22,10 @@ value, not the store's will.
 
 The composer marks the versions it returns. `Verified` is a value with a private constructor and a package-private
 factory, so only code of `de.planmarshall.workflow.plan` can create one, and `PlanInstance` carries it as its
-`verified` component. `PlanInstanceComposer` sets it on every `CompositionResult.Composed`; `PlanInstanceStore`
-refuses a version whose mark is absent and a mark that names another version, before it stages anything.
+`verified` component. The mark names the version and the SHA-256 of the composed text, so a version whose text was
+changed after its composition is refused as well; `PlanInstanceComposer` sets it on every
+`CompositionResult.Composed`, and `PlanInstanceStore` refuses a version whose mark is absent, names another version or
+names another text, before it stages anything.
 
 The store keeps its other checks unchanged. It does not repeat the verification: the mark is the evidence that the
 verification ran, and re-running it would need the composer's registries, which the store does not hold.
