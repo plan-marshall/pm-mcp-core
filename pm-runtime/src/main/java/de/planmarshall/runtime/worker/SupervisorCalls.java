@@ -112,14 +112,16 @@ public final class SupervisorCalls implements WorkerCalls {
             firstCall(generation, detection, at);
         }
         detection.waitOpened(at);
+        if (generation.lifecycle() == WorkerLifecycle.HOLDING) {
+            // A hold keeps its task and its wait: a bounded wait of a holding generation is answered wait again, so it
+            // is never offered a second task and its hold stays closable by the task it names.
+            return new WaitAnswer.WaitAgain();
+        }
         try {
             return answerTo(generation, queueTaskId, roleDigest, at, detection);
         } finally {
-            // The answer closes the wait — except for a generation that holds: the hold keeps the wait open, and the
-            // hold's close re-arms the silence limit.
-            if (!holding(generationId)) {
-                detection.waitClosed(at);
-            }
+            // The answer closes the wait: a held wait suppresses the silence signal, and the answer re-arms it.
+            detection.waitClosed(at);
         }
     }
 
@@ -382,12 +384,6 @@ public final class SupervisorCalls implements WorkerCalls {
     private static boolean namesTheHeldTask(WorkerGeneration generation, String queueTaskId) {
         var leased = generation.leasedTask();
         return leased == null || leased.equals(queueTaskId);
-    }
-
-    /** @return whether the generation holds its task for an answer */
-    private boolean holding(String generationId) {
-        return supervisor.generation(generationId)
-                .map(current -> current.lifecycle() == WorkerLifecycle.HOLDING).orElse(false);
     }
 
     private static List<String> served(List<String> servedTasks, String queueTaskId) {

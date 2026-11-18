@@ -67,7 +67,8 @@ public interface WorkerCalls {
      * slot, and its wait suppresses the silence deadline as a consultation's wait does.
      * <p>
      * The transport reports the hold of the turn that asked before it reports that turn's completion, so the supervisor
-     * decides the asking turn's token budget while the generation still holds.
+     * decides the asking turn's token budget while the generation still holds. A bounded wait of a holding generation is
+     * answered {@link WaitAnswer.WaitAgain}: a hold keeps its task, so it is never offered a second one.
      *
      * @param generationId the worker's generation
      * @param queueTaskId  the task the hold keeps

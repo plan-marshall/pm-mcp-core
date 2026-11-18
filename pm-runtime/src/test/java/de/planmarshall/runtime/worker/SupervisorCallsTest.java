@@ -551,6 +551,23 @@ class SupervisorCallsTest {
     }
 
     @Test
+    @DisplayName("a held wait that names a task is never offered and keeps the hold closable")
+    void aHeldWaitIsNeverOfferedATask() {
+        var generation = holdingGeneration();
+
+        var answer = calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        calls.holdClosed(generation.generationId(), TASK, fixture.clock.instant());
+        var closed = supervisor.generation(generation.generationId()).orElseThrow();
+
+        assertAll(
+                () -> assertEquals(new WorkerCalls.WaitAnswer.WaitAgain(), answer,
+                        "a held wait is answered wait again"),
+                () -> assertEquals(TASK, closed.leasedTask(), "a held wait keeps the lease of the hold"),
+                () -> assertEquals(WorkerLifecycle.EXECUTING, closed.lifecycle(),
+                        "the hold still closes after the held wait"));
+    }
+
+    @Test
     @DisplayName("a held generation's bounded wait keeps the hold's silence suppression")
     void aHeldBoundedWaitKeepsTheSuppression() {
         var generation = holdingGeneration();
