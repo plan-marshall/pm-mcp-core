@@ -172,7 +172,7 @@ class EffectiveConfigKeysSchemaParityTest {
         assertEquals(Set.of("project", "workflow", "local-config"), EffectiveConfigKeys.stems(),
                 "The stems should be the three configuration files");
         assertEquals(new TreeSet<>(FILES.keySet()), new TreeSet<>(EffectiveConfigKeys.stems()),
-                "The schema files read should be the files whose stems are keys");
+                "The schema files read should be the key stems");
 
         var leftOut = LEFT_OUT.keySet().stream()
                 .filter(key -> EffectiveConfigKeys.find(key).isPresent())
