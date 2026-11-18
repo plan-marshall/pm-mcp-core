@@ -70,8 +70,9 @@ alone.
 link:{src}/WorkerLifecycle.java[`WorkerLifecycle`]:: The closed lifecycle state of a generation and its mapping onto the
 job record's `WorkerState.State`. The table allows `STARTING` to `WAITING`, `ENDING`, `LOST` or `START_FAILED`;
 `WAITING` to `OFFERED`, `ENDING` or `LOST`; `OFFERED` to `ACKNOWLEDGED`, `WAITING`, `ENDING` or `LOST`;
-`ACKNOWLEDGED` to `EXECUTING`, `CONSULTING`, `WAITING`, `ENDING` or `LOST`; `EXECUTING` to `CONSULTING`, `WAITING`,
-`ENDING` or `LOST`; `CONSULTING` to `EXECUTING`, `HOLDING`, `WAITING`, `ENDING` or `LOST`; `HOLDING` to `EXECUTING`,
+`ACKNOWLEDGED` to `EXECUTING`, `CONSULTING`, `WAITING`, `ENDING` or `LOST`; `EXECUTING` to `CONSULTING`, `HOLDING`,
+`WAITING`, `ENDING` or `LOST`; `CONSULTING` to `EXECUTING`, `HOLDING`, `WAITING`, `ENDING` or `LOST`; `HOLDING` to
+`EXECUTING`,
 `ENDING` or `LOST`; and `ENDING` to `ENDED` or `LOST`. Every other transition, and every transition out of a terminal
 state, is refused. The protocol's `SUBMITTED` is folded into `WAITING`, because a submitted task ends the attempt and
 the worker waits again.
@@ -215,7 +216,8 @@ logs `WORKER_GENERATION_RECYCLED` exactly once with its link:{src}/RecycleCause.
 * *Token budget* (`TOKEN_BUDGET`) — the context of the generation's latest turn reached the role's token budget. Only
   the latest turn's context is read, never a run total; an unmeasured context is ignored. A generation that still leases
   a task waits for the task to close, so the recycle lands on the wait after the task rather than in the middle of it;
-  the one exception is a generation that holds its task for an answer, which may be recycled at the budget. A generation
+  the one exception is a generation that holds its task for an answer, which may be recycled at the budget, and its hold
+  is ended through `WorkerProtocol.holdEnded` before the recycle (<<_the_hold>>). A generation
   that has closed no task yet is recycled only in that hold, because a worker's starting context can exceed a small
   budget.
 * *Tasks per generation* (`TASKS_PER_GENERATION`) — the generation closed the role's `recycling.tasks_per_generation`.
@@ -233,6 +235,34 @@ the transport closed first holds no lease, so the pass appends no attempt end at
 (`JobRecord.Fate`), so a mapping from a succeeded fate onto `TASK_DONE` is possible; it is an open specification decision
 (ADR `runtime-worker/014`), not a behaviour this package claims. The idle yield and the lease-aware idle rule are ADR
 008's; the deadlines and the timers are ADR 004's.
+
+== The Hold
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-2[PM-WORK-2], link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3]
+
+A worker that asks its task a question may keep it: the task stays leased and the worker waits for the answer instead of
+ending (Model Work § Continuing after a Question). The runtime carries the supervisor's half of that hold
+(link:../adr/runtime-worker/016-the-hold-ends-before-the-recycle.adoc[ADR `runtime-worker/016`]).
+
+* *The entries* — `WorkerCalls.holdOpened` moves the generation to `HOLDING` through the lifecycle table, keeps the
+  lease of the task it names and the model slot, and marks the detection's wait open, which suppresses the silence
+  deadline; `holdClosed` returns it to `EXECUTING` and closes that wait, so the silence limit counts again from the
+  close; `answerDelivered` arms the answer's acknowledgement deadline through `LossDetection.answerDelivered`
+  (link:../adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR 012]). A hold counts no idle
+  wake-up, because a generation holding a lease is never idle. The transport calls the entries; a call of a generation
+  the registry does not know is ignored, and a transition the table does not have — a hold from `STARTING` — is refused.
+* *The hold's end* — at its token budget a holding generation ends its hold before its recycle: `WorkerRecycling`
+  reports `WorkerProtocol.holdEnded` once per generation, with the generation, the task, the attempt, the cause
+  `token_budget` and the instant, and only then hands the generation to `WorkerEnding`. The protocol therefore sees the
+  hold end while the lease is still held and before the fence. A generation that is not `HOLDING`, or is under its
+  budget, sends nothing. The attempt comes from the `WorkerTaskActivity` port, the same facts the activity signals read,
+  because the generation does not carry it; a task whose facts can no longer be read names no attempt, so nothing is
+  reported and the recycle still runs.
+* *The budget* — the hold's time is not charged to the worker budget, and nothing subtracts it: the budget is the
+  context of the generation's latest turn (`WorkerRecycling` reads `generation.contextTokens()`), never an elapsed time,
+  and a hold produces no turn.
+* *What the runtime does not decide* — whether the task is suspended or falls back is the adapter's decision over
+  `TaskProtocol`, which already holds both. The notification carries the cause and leaves the choice there.
 
 == The Start-Failure Guard and the Start Spacing
 
@@ -433,7 +463,8 @@ the `SubprocessJobRunner` adapter, the `JobTokenStore`, the `SkillSource`, the e
 * `WorkerProtocol` — the module-boundary contract to the task protocol. `pm-runtime` may not reference `pm-workflow`, so
   the assembly `pm-mcp-server` adapts `de.planmarshall.workflow.task.TaskProtocol` to this interface. The protocol stays
   the owner of the fences, the re-offers and the `agent_started` security record: the supervisor reports the fact and
-  never writes those records itself.
+  never writes those records itself. Its notifications are `fence`, `agentStarted`, `offTrack`, `closeUnavailable` and
+  the ended hold, `holdEnded` (<<_the_hold>>).
 
 `StartGuard` and `EligibilityGate` are the two further seams of the start path. Their production implementations live
 beside the supervisor (`StartFailureGuard`, `ProfileWorkerEligibility`); their `open()` defaults hold for no role and
@@ -448,7 +479,8 @@ scheduler's admission transaction is the single decision.
 
 `WorkerCalls` is the supervisor's inbound API, consumed by the assembly's transport. It hands over a heartbeat, an opened
 wait with the role's current configuration digest, a completed turn with its context size, a closed task, a plan paused
-at once and a harness enrolled anew. A wait answer is one of the protocol's three: `Offered`, `WaitAgain` or `End`. Every
+at once and a harness enrolled anew, and the three facts of a hold — an opened hold, a closed hold and a delivered
+answer (<<_the_hold>>). A wait answer is one of the protocol's three: `Offered`, `WaitAgain` or `End`. Every
 call names the generation it concerns; the supervisor resolves it from its registry and ignores a call of a generation it
 does not know.
 
@@ -503,10 +535,11 @@ settled record, so nothing else can see the exit, and `StartFailureGuard.startFa
 guard does not count such a failure, while a guard rebuilt over the registry does, because the pass enters the
 `START_FAILED` state on that path. `AgentStartedDetector` needs a `forget` for a terminal generation, which the pass makes
 long-lived, and the pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed
-only by the pass's completion, so a generation retired from the registry another way is an owed cleanup. So does the
-acknowledgement entry ADR `runtime-worker/012` names — a `WorkerCalls` method that reaches `LossDetection.answerDelivered`
-— which the sibling plan `continuation-hold-and-budget` adds when it extends `SupervisorCalls`. The work packages
-`worker-activity` and
+only by the pass's completion, so a generation retired from the registry another way is an owed cleanup. So do the
+three hold entries of `WorkerCalls` and the `WorkerProtocol.holdEnded` notification ADR `runtime-worker/016` names — the
+assembly implements the notification as `TaskProtocol.suspend` where `QuestionContinuation` allows the resume and
+`fallback` otherwise, calls the entries from its transport, and passes the `WorkerTaskActivity` the `WorkerRecycling`
+constructor takes. The work packages `worker-activity` and
 `question-continuation` stay open.
 
 The landed-contract decision and its two seams are ADR 002's; the protocol adapter is ADR 009's; the one writer block is
