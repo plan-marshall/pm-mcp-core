@@ -1,4 +1,4 @@
-= ADR core-config/005: One Rule Decides Every Project Value Over the Machine's
+= ADR core-config/010: One Rule Decides Every Project Value Over the Machine's
 :nofooter:
 
 == Status

@@ -1,4 +1,4 @@
-= ADR core-config/004: A Remembered Checkout Consent Is Held With the Entry
+= ADR core-config/009: A Remembered Checkout Consent Is Held With the Entry
 :nofooter:
 
 == Status
