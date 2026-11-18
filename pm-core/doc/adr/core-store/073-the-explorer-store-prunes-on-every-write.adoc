@@ -24,12 +24,12 @@ The question was where the drops happen and what the caller has to pass.
 `ExplorerStore` prunes in the same transaction as the write that follows it: `prune(activity, enrolled, today)` drops the
 days older than `ACTIVITY_WINDOW_DAYS` (30) and every entry of a project the caller's `enrolled` set no longer names,
 keeping the last act of a project whose counted days all left the window, and `setFavourites` drops a favourite of such a
-project. `recordActivity` refuses an act of a project that is not enrolled rather than recording it. A write against
-another revision than the document's is a `SettingsConflict` carrying the current snapshot.
+project. `recordActivity` refuses an act of a project that is not enrolled rather than recording it.
 
-The document is read and written by `ExplorerCodec` against `explorer.schema.json`, with the projects and their days in a
-stable order; a write against another revision than the document's is a `SettingsConflict` carrying the current snapshot,
-as every operator file refuses it.
+The document is read and written by `ExplorerCodec` against `explorer.schema.json` through the one strictness of
+`StrictJson`: a document of another format version is refused as outdated or newer, content after it and a member the
+schema does not name as unreadable, and the projects and their days are written in a stable order so a write with the
+same content produces the same bytes.
 
 == Alternatives Considered
 

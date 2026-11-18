@@ -2735,11 +2735,15 @@ refused instead of recorded; a write happens only under the document's lock and 
 document's, and a change against an older one is a `SettingsConflict` carrying the current snapshot; the store is operator
 data only and never reaches a model.
 
-*Failure modes*: a document of another `format_version`, one that does not parse, a member the schema does not name, a
-project id outside the identifier grammar, a day that is no UTC date and a count below one are refused as unreadable
-rather than read as an empty store; a duplicate favourite and a duplicate day are refused.
+*Failure modes*: a document of another `format_version` is refused as outdated or newer, while one that does not parse,
+content after the document, a member the schema does not name, a project id outside the identifier grammar, a day that is
+no UTC date and a count below one are refused as unreadable rather than read as an empty store; a duplicate favourite and
+a duplicate day are refused.
 
 Tested by `ExplorerStoreTest`: the absent document, the order of the favourites, a move and a removal, the drop of an
-unenrolled project's favourite and activity, the stale revision, the UTC day's count, the window's drop, the refused act
-of an unenrolled project, the invalid input, `mostUsed`/`recent`, and an undeclared member.
+unenrolled project's favourite and activity, the stale revision, the UTC day's count, the window's drop with the idle
+project's last act kept, the refused act of an unenrolled project, the invalid input, `mostUsed`/`recent`, and an
+undeclared member. `ExplorerCodecTest` states one refusal per reader rule: content after the document, another format
+version as outdated or newer, a root that is no object, a missing member, a negative revision, a repeated or invalid
+favourite, an invalid day and a count below one.
 

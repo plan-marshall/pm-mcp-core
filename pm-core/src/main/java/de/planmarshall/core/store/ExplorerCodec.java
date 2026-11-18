@@ -61,36 +61,33 @@ final class ExplorerCodec {
      * @param file     the document's file, named by a refusal
      * @param document the document, UTF-8 encoded
      * @return the snapshot the document holds
-     * @throws StoreRefusal if the document declares another format version or is unreadable
+     * @throws StoreRefusal if the document declares another format version (outdated or newer), carries content after
+     *                      it, or is unreadable
      */
     static ExplorerStore.Snapshot read(Path file, byte[] document) {
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(document, "document");
-        try (var parser = StrictJson.factory().createParser(document)) {
-            if (parser.nextToken() != JsonToken.START_OBJECT) {
-                throw unreadable("the operator's projects are a JSON object");
+        return StrictJson.read(file, document, ExplorerStore.FORMAT_VERSION, ExplorerCodec::readDocument);
+    }
+
+    private static ExplorerStore.Snapshot readDocument(JsonParser parser) throws IOException {
+        requireObject(parser, "explorer");
+        long revision = -1;
+        List<String> favourites = List.of();
+        Map<String, ExplorerStore.Activity> activity = Map.of();
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case FIELD_FORMAT_VERSION -> requireVersion(parser);
+                case FIELD_REVISION -> revision = revision(parser);
+                case FIELD_FAVOURITES -> favourites = favourites(parser);
+                case FIELD_ACTIVITY -> activity = map(parser, field, ExplorerCodec::activity);
+                default -> throw undeclared(field);
             }
-            long revision = -1;
-            List<String> favourites = List.of();
-            Map<String, ExplorerStore.Activity> activity = Map.of();
-            var seen = new HashSet<String>();
-            while (parser.nextToken() == JsonToken.FIELD_NAME) {
-                var field = nextField(parser, seen);
-                switch (field) {
-                    case FIELD_FORMAT_VERSION -> requireVersion(parser);
-                    case FIELD_REVISION -> revision = revision(parser);
-                    case FIELD_FAVOURITES -> favourites = favourites(parser);
-                    case FIELD_ACTIVITY -> activity = map(parser, field, ExplorerCodec::activity);
-                    default -> throw undeclared(field);
-                }
-            }
-            requireFields(seen, "explorer", FIELD_FORMAT_VERSION, FIELD_REVISION, FIELD_FAVOURITES, FIELD_ACTIVITY);
-            return new ExplorerStore.Snapshot(favourites, activity, revision);
-        } catch (StrictJson.Malformed e) {
-            throw StoreRefusal.unreadable(file, ExplorerStore.FORMAT_VERSION, String.valueOf(e.getMessage()), e);
-        } catch (IOException e) {
-            throw StoreRefusal.unreadable(file, ExplorerStore.FORMAT_VERSION, String.valueOf(e.getMessage()), e);
         }
+        requireFields(seen, "explorer", FIELD_FORMAT_VERSION, FIELD_REVISION, FIELD_FAVOURITES, FIELD_ACTIVITY);
+        return new ExplorerStore.Snapshot(favourites, activity, revision);
     }
 
     /**
