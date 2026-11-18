@@ -44,7 +44,8 @@ class WorkflowEngineRecordsTest {
         QuestionRecordReader questions = createMock(QuestionRecordReader.class);
         replay(jobs, tasks, questions);
         var clock = new EngineFixtures.ManualClock(Instant.EPOCH);
-        var constructed = new WorkflowEngine.Ports(jobs, tasks, questions, clock);
+        var constructed = WorkflowEngine.Ports.builder().jobs(jobs).tasks(tasks).questions(questions).clock(clock)
+                .build();
         var built = WorkflowEngine.Ports.builder()
                 .jobs(jobs)
                 .tasks(tasks)

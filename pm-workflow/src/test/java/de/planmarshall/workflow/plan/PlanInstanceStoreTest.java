@@ -862,7 +862,7 @@ class PlanInstanceStoreTest {
         void headerNamesNoFile() {
             var instance = merged();
             var withoutUnits = new PlanInstance(instance.version(), instance.header(), instance.unit(),
-                    instance.text());
+                    instance.text(), List.of(), Verified.of(instance.version()));
             var texts = textsOf(withoutUnits);
             var compositionRecord = CompositionRecord.composed(withoutUnits, null, COMPOSED_AT);
 
@@ -888,7 +888,8 @@ class PlanInstanceStoreTest {
             var extra = ComposedUnit.of("replan",
                     InvariantFixtures.passingUnits(UnitOrigin.PROJECT).get("replan"));
             var mixed = new PlanInstance(instance.version(), instance.header(), instance.unit(), instance.text(),
-                    Stream.concat(instance.units().stream(), Stream.of(extra)).toList());
+                    Stream.concat(instance.units().stream(), Stream.of(extra)).toList(),
+                    Verified.of(instance.version()));
             var texts = textsOf(mixed);
             var compositionRecord = CompositionRecord.composed(mixed, null, COMPOSED_AT);
 

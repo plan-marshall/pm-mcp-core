@@ -50,6 +50,8 @@ import de.planmarshall.core.id.RoleName;
  * @param phase              the phase of the state
  * @param state              the fully qualified identifier of the current state
  * @param callStack          the active sub-workflow call frames, bottom to top, at most {@value #MAX_CALL_DEPTH}
+ * @param instanceVersion    the plan instance version in force (PM-IMPL-5); plan scopes only, {@code null} before the
+ *                           plan's creation transaction composed version 1 and for every non-plan scope
  * @param loopBackIteration  the loop-back iterations begun; never reset
  * @param outlineLoopBacks   the {@code loop_back_outline} transitions taken; plan scopes only, 0 otherwise
  * @param policyCounters     the consumed budgets per remediation policy class; plan scopes only, empty otherwise
@@ -73,6 +75,7 @@ JournalScopeType scopeType,
 String phase,
 String state,
 List<CallFrame> callStack,
+@Nullable Integer instanceVersion,
 long loopBackIteration,
 long outlineLoopBacks,
 Map<String, PolicyCounter> policyCounters,
@@ -121,10 +124,11 @@ Map<String, String> retained) {
      * @throws NullPointerException     if a required component is {@code null}
      * @throws IllegalArgumentException if a value lies outside the schema: the lesson store as scope type, a scope id
      *                                  missing for a plan or epic or present for a scope that has none, a phase outside
-     *                                  the schema, a blank state, more than {@value #MAX_CALL_DEPTH} frames, a negative
-     *                                  counter, loop-back accounting or waiver requests outside a plan scope, an
-     *                                  unknown policy class, the same waiver request id twice, a second pending
-     *                                  request, or a binding of another state than the current one
+     *                                  the schema, a blank state, more than {@value #MAX_CALL_DEPTH} frames, an instance
+     *                                  version below 1 or outside a plan scope, a negative counter, loop-back accounting
+     *                                  or waiver requests outside a plan scope, an unknown policy class, the same waiver
+     *                                  request id twice, a second pending request, or a binding of another state than the
+     *                                  current one
      */
     public WorkflowStatus {
         Objects.requireNonNull(scopeType, "scopeType");
@@ -147,6 +151,14 @@ Map<String, String> retained) {
         if (callStack.size() > MAX_CALL_DEPTH) {
             throw new IllegalArgumentException("'call_stack' has %d frames, at most %d are allowed"
                     .formatted(callStack.size(), MAX_CALL_DEPTH));
+        }
+        if (instanceVersion != null) {
+            if (instanceVersion < 1) {
+                throw new IllegalArgumentException("'instance_version' must be at least 1: " + instanceVersion);
+            }
+            if (scopeType != JournalScopeType.PLAN) {
+                throw new IllegalArgumentException("'instance_version' is kept for plan scopes only");
+            }
         }
         requireNotNegative(loopBackIteration, "loop_back_iteration");
         requireNotNegative(outlineLoopBacks, "outline_loop_backs");
@@ -180,6 +192,14 @@ Map<String, String> retained) {
     /** @return the condition overlay of the current state; empty when there is none */
     public Optional<PendingCondition> condition() {
         return Optional.ofNullable(pendingCondition);
+    }
+
+    /**
+     * @return the plan instance version in force; empty before the creation transaction composed version 1, and for
+     *         every non-plan scope
+     */
+    public Optional<Integer> instanceVersionInForce() {
+        return Optional.ofNullable(instanceVersion);
     }
 
     /**

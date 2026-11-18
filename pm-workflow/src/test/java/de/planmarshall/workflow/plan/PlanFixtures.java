@@ -240,7 +240,7 @@ final class PlanFixtures {
         defaults.add(parse(TEMPLATE_FILE, read(TEMPLATE_FILE), UnitOrigin.DEFAULT));
         subUnits().forEach(subUnit -> defaults.add(subUnit.definition()));
         return new PlanInstanceComposer(context(), defaults, InvariantFixtures.defaultRoster(), rules,
-                Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                CompositionChecks.NONE, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
     }
 
     /**
@@ -359,9 +359,24 @@ final class PlanFixtures {
      * @param rules the composition rules
      * @return a composer over the plan unit of the invariant fixtures and its phase units
      */
+    /**
+     * @param rules  the composition rules
+     * @param checks the role and skill ports of Rules 13 and 14
+     * @return a composer over the plan unit of the invariant fixtures and its phase units
+     */
+    static PlanInstanceComposer mergedComposer(CompositionRules rules, CompositionChecks checks) {
+        return new PlanInstanceComposer(context(), InvariantFixtures.passingUnits(UnitOrigin.DEFAULT).values(),
+                InvariantFixtures.defaultRoster(), rules, checks, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+    }
+
+    /**
+     * @param rules the composition rules
+     * @return a composer over the plan unit of the invariant fixtures and its phase units
+     */
     static PlanInstanceComposer mergedComposer(CompositionRules rules) {
         return new PlanInstanceComposer(context(), InvariantFixtures.passingUnits(UnitOrigin.DEFAULT).values(),
-                InvariantFixtures.defaultRoster(), rules, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                InvariantFixtures.defaultRoster(), rules, CompositionChecks.NONE,
+                Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
     }
 
     /**
@@ -418,7 +433,7 @@ final class PlanFixtures {
         defaults.add(parse(PER_LANE_FILE, read(PER_LANE_FILE), UnitOrigin.DEFAULT));
         phaseUnits().forEach(subUnit -> defaults.add(subUnit.definition()));
         return new PlanInstanceComposer(context(), defaults, InvariantFixtures.defaultRoster(), rules,
-                Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                CompositionChecks.NONE, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
     }
 
     /**

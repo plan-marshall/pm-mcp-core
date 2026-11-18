@@ -121,8 +121,8 @@ class PlanHistoryEngineTest {
     void linesOfOneAdvance() {
         var engine = fixtures.engine(plan("execute.first", CHAIN));
 
-        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.first"), store, transaction, history,
-                INSTANCE_VERSION));
+        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.first", INSTANCE_VERSION), store,
+                transaction, history));
 
         var lines = history.read().records();
         assertAll(
@@ -147,10 +147,10 @@ class PlanHistoryEngineTest {
     @DisplayName("a second advance continues the sequence, one line number per line")
     void sequenceContinues() {
         var engine = fixtures.engine(plan("execute.first", CHAIN));
-        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.first"), store, transaction, history,
-                INSTANCE_VERSION));
-        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.second"), store, transaction, history,
-                INSTANCE_VERSION));
+        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.first", INSTANCE_VERSION), store,
+                transaction, history));
+        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.second", INSTANCE_VERSION), store,
+                transaction, history));
 
         var lines = history.read().records();
         assertAll(
@@ -172,14 +172,13 @@ class PlanHistoryEngineTest {
                         killed -> handed_back
                 """ + EngineFixtures.OTHER_FATES;
         var engine = fixtures.engine(plan("execute.run", states));
-        var resting = planStatus(EXECUTE, "execute.run").toBuilder()
+        var resting = planStatus(EXECUTE, "execute.run", INSTANCE_VERSION).toBuilder()
                 .activeJob(new WorkflowStatus.ActiveJob("execute.run",
                         "b-0000000000000001"))
                 .build();
 
         committed(transaction -> engine.advance(resting,
-                new EngineEvent.JobSettled("b-0000000000000001", "succeeded"), store, transaction, history,
-                INSTANCE_VERSION));
+                new EngineEvent.JobSettled("b-0000000000000001", "succeeded"), store, transaction, history));
 
         var lines = history.read().records();
         assertAll(
@@ -204,8 +203,8 @@ class PlanHistoryEngineTest {
                 """ + EngineFixtures.PLAN_RETURN);
         var engine = fixtures.engine(caller, sub);
 
-        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.commit"), store, transaction, history,
-                INSTANCE_VERSION));
+        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.commit", INSTANCE_VERSION), store,
+                transaction, history));
 
         var lines = history.read().records();
         assertAll(

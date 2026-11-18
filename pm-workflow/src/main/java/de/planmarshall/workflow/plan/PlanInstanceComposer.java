@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.workflow.ast.CallValue;
+import de.planmarshall.workflow.ast.DecisionDeclaration;
 import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.InstanceInputs;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -34,6 +35,11 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.WorkflowPrinter;
 import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
+import de.planmarshall.workflow.model.CompositionRefusal;
+import de.planmarshall.workflow.model.ModelIdentity;
+import de.planmarshall.workflow.model.RoleComposition;
+import de.planmarshall.workflow.model.RoleUse;
+import de.planmarshall.workflow.model.SkillCatalogue;
 import de.planmarshall.workflow.unit.VerificationContext;
 import de.planmarshall.workflow.verify.CompiledInvariants;
 import de.planmarshall.workflow.verify.DeclarationBounds;
@@ -105,6 +111,8 @@ public final class PlanInstanceComposer {
 
     private final CompositionRules rules;
 
+    private final CompositionChecks checks;
+
     private final Clock clock;
 
     /**
@@ -113,16 +121,18 @@ public final class PlanInstanceComposer {
      *                      them
      * @param defaultRoster the descriptors of the default finalize steps
      * @param rules         the composition rules
+     * @param checks        the effective role set and the project's skill catalogue of Rules 13 and 14
      * @param clock         the clock of {@code composed_at}
      * @throws NullPointerException if an argument or an element is {@code null}
      */
     public PlanInstanceComposer(VerificationContext context, Collection<WorkflowDefinition> defaultUnits,
-            List<FinalizeStepDescriptor> defaultRoster, CompositionRules rules, Clock clock) {
+            List<FinalizeStepDescriptor> defaultRoster, CompositionRules rules, CompositionChecks checks, Clock clock) {
         this.context = Objects.requireNonNull(context, "context");
         this.defaultRoster = List.copyOf(defaultRoster);
         this.invariants = new CompiledInvariants(context.registry(), defaultUnits, this.defaultRoster,
                 CompiledInvariants.Subject.COMPOSED_INSTANCE);
         this.rules = Objects.requireNonNull(rules, "rules");
+        this.checks = Objects.requireNonNull(checks, "checks");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -213,12 +223,17 @@ public final class PlanInstanceComposer {
         if (!violations.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED, violations);
         }
+        var refusedRules = checkRules(unit, composed, request);
+        if (refusedRules.isPresent()) {
+            return refusedRules.get();
+        }
         return new CompositionResult.Composed(PlanInstance.builder()
                 .version(version)
                 .header(header)
                 .unit(unit)
                 .text(WorkflowPrinter.print(unit))
                 .units(composed.units())
+                .verified(Verified.of(version))
                 .build());
     }
 
@@ -519,6 +534,105 @@ public final class PlanInstanceComposer {
                 .origin(UnitReference.wireName(reference.origin()))
                 .build())
                 .toList();
+    }
+
+    /**
+     * Runs the checks beyond the tree (Workflow DSL § Static AST Verification Rules, Rules 13 and 14) over the composed
+     * plan unit and every unit it calls: every role a {@code job llm} state or a {@code consult role} clause names
+     * resolves in the effective role set and fits its use, every quorum declaration lists defined {@code read_only}
+     * roles on pairwise different models by their model identity, and every skill a {@code skill} clause names resolves
+     * in the project's skill catalogue.
+     *
+     * @param planUnit the composed plan unit
+     * @param composed the composed files and the digest-bound units the version reaches
+     * @return the refusal of the first check that fails, empty when every check passes or no check is wired
+     */
+    private Optional<CompositionResult.Refused> checkRules(WorkflowDefinition planUnit, Composed composed,
+            CompositionRequest request) {
+        var reachable = reachableUnits(planUnit, composed, request);
+        try {
+            if (checks.roles() != null) {
+                new RoleComposition(checks.roles()).check(roleUses(reachable));
+                for (var unit : reachable) {
+                    ModelIdentity.check(checks.roles(), quorumsOf(unit), unit.id());
+                }
+            }
+            if (checks.skills() != null) {
+                checkSkills(reachable, checks.skills());
+            }
+        } catch (CompositionRefusal refusal) {
+            return Optional.of(new CompositionResult.Refused(refusalOf(refusal.reason()),
+                    List.of(refusal.getMessage())));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * @return the composed plan unit, the composed files of the version and the digest-bound sub-units its kept calls
+     *         reach
+     */
+    private static List<WorkflowDefinition> reachableUnits(WorkflowDefinition planUnit, Composed composed,
+            CompositionRequest request) {
+        var reachable = new ArrayList<WorkflowDefinition>();
+        reachable.add(planUnit);
+        composed.units().forEach(unit -> reachable.add(unit.definition()));
+        request.subUnits().stream()
+                .filter(subUnit -> composed.subUnits().contains(subUnit.definition().id())
+                        || DeclarationBounds.ADJUDICATION_UNIT.equals(subUnit.definition().id()))
+                .forEach(subUnit -> reachable.add(subUnit.definition()));
+        return reachable;
+    }
+
+    /** @return every role the units name, a model state's own role and the roles it consults */
+    private static List<RoleUse> roleUses(List<WorkflowDefinition> units) {
+        var uses = new ArrayList<RoleUse>();
+        for (var unit : units) {
+            for (var state : unit.states().values()) {
+                if (state.behavior() instanceof StateBehavior.ModelJob job) {
+                    if (job.roleName() != null) {
+                        uses.add(RoleUse.forModelJob(state.id(), job.entityKind(), job.roleName()));
+                    }
+                    job.consultRoles().forEach(role -> uses.add(RoleUse.forConsultation(state.id(), role)));
+                }
+            }
+        }
+        return uses;
+    }
+
+    /** @return the quorum declarations of a unit, in the order of their decision kinds */
+    private static List<ModelIdentity.ListedQuorum> quorumsOf(WorkflowDefinition unit) {
+        var quorums = new ArrayList<ModelIdentity.ListedQuorum>();
+        unit.decisions().forEach((decisionKind, declaration) -> {
+            if (declaration instanceof DecisionDeclaration.Quorum quorum) {
+                quorums.add(new ModelIdentity.ListedQuorum(decisionKind, quorum.roles()));
+            }
+        });
+        return quorums;
+    }
+
+    /**
+     * @throws CompositionRefusal {@code skill_unresolved} at the first {@code skill} clause the project's catalogue
+     *                             does not resolve
+     */
+    private static void checkSkills(List<WorkflowDefinition> units, SkillCatalogue catalogue) {
+        for (var unit : units) {
+            for (var state : unit.states().values()) {
+                var skill = state.skillPath();
+                if (skill != null && !catalogue.resolves(skill)) {
+                    throw CompositionRefusal.skillUnresolved(skill, state.id());
+                }
+            }
+        }
+    }
+
+    private static CompositionResult.Refusal refusalOf(CompositionRefusal.Reason reason) {
+        return switch (reason) {
+            case ROLE_UNDEFINED -> CompositionResult.Refusal.ROLE_UNDEFINED;
+            case CLASS_MISMATCH -> CompositionResult.Refusal.CLASS_MISMATCH;
+            case QUORUM_INVALID -> CompositionResult.Refusal.QUORUM_INVALID;
+            case QUORUM_NOT_DIVERSE -> CompositionResult.Refusal.QUORUM_NOT_DIVERSE;
+            case SKILL_UNRESOLVED -> CompositionResult.Refusal.SKILL_UNRESOLVED;
+        };
     }
 
     /**

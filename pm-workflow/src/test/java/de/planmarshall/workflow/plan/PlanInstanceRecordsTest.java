@@ -43,7 +43,7 @@ class PlanInstanceRecordsTest {
         var text = Generators.letterStrings(1, 40).next();
         var units = List.of(ComposedUnit.of(unit.id(), unit));
 
-        var constructed = new PlanInstance(version, header, unit, text, units);
+        var constructed = new PlanInstance(version, header, unit, text, units, null);
         var built = PlanInstance.builder()
                 .version(version)
                 .header(header)

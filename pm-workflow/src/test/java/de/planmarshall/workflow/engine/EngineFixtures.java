@@ -366,7 +366,8 @@ final class EngineFixtures {
 
     /** @return the ports of the engine: the EasyMock doubles and the manual clock of this fixture */
     WorkflowEngine.Ports ports() {
-        return new WorkflowEngine.Ports(jobStarter, taskCreator, questionReader, clock);
+        return WorkflowEngine.Ports.builder().jobs(jobStarter).tasks(taskCreator).questions(questionReader)
+                .clock(clock).build();
     }
 
     /** @return the address resolver over this fixture's pending entry port and {@link #entityKinds()} */
@@ -488,8 +489,50 @@ final class EngineFixtures {
      * @return the engine
      */
     WorkflowEngine engine(WorkflowDefinition unit, WorkflowDefinition... callees) {
+        return engine(unit, ports(), callees);
+    }
+
+    /**
+     * @param unit    the top-level unit
+     * @param ports   the ports of the engine, the instance ports included
+     * @param callees the sub-workflows the unit calls
+     * @return the engine
+     */
+    WorkflowEngine engine(WorkflowDefinition unit, WorkflowEngine.Ports ports, WorkflowDefinition... callees) {
         return new WorkflowEngine(unit, WorkflowCatalog.of(callees), validator(callees), registry(),
-                (primitive, status) -> new NoParams(), ports());
+                (primitive, status) -> new NoParams(), ports);
+    }
+
+    /**
+     * @param composition the instance composition port
+     * @param units       the units of a version in force
+     * @return the four ports of this fixture, with the two instance ports mounted
+     */
+    WorkflowEngine.Ports instancePorts(de.planmarshall.workflow.plan.InstanceComposition composition,
+            de.planmarshall.workflow.plan.InstanceUnits units) {
+        return WorkflowEngine.Ports.builder().jobs(jobStarter).tasks(taskCreator).questions(questionReader)
+                .clock(clock).composition(composition).units(units).build();
+    }
+
+    /**
+     * A lock transaction that holds every key: the test is the only writer of its scope.
+     */
+    static final class HoldingEverything implements de.planmarshall.core.service.LockTransaction {
+
+        @Override
+        public void acquire(de.planmarshall.core.store.LockKey key) {
+            // every key is held already
+        }
+
+        @Override
+        public boolean holds(de.planmarshall.core.store.LockKey key) {
+            return true;
+        }
+
+        @Override
+        public void close() {
+            // nothing to release
+        }
     }
 
     /**
@@ -514,6 +557,18 @@ final class EngineFixtures {
                 .updatedAt(T0)
                 .retained(Map.of())
                 .build();
+    }
+
+    /**
+     * A status of the fixture plan at a state, with no frame and an instance version in force.
+     *
+     * @param phase           the phase of the status store
+     * @param state           the current state
+     * @param instanceVersion the instance version in force
+     * @return the status
+     */
+    static WorkflowStatus planStatus(String phase, String state, int instanceVersion) {
+        return planStatus(phase, state).toBuilder().instanceVersion(instanceVersion).build();
     }
 
     /** @return the tree of {@link #WORKSPACE_UNIT} */

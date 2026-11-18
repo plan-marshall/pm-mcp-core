@@ -57,6 +57,12 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.plan.CompositionEvent;
+import de.planmarshall.workflow.plan.CompositionResult;
+import de.planmarshall.workflow.plan.InstanceComposition;
+import de.planmarshall.workflow.plan.InstancePosition;
+import de.planmarshall.workflow.plan.InstanceUnits;
+import de.planmarshall.workflow.plan.PlanInstanceComposer;
 import de.planmarshall.workflow.verify.VerificationResult;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
@@ -116,6 +122,9 @@ public final class WorkflowEngine {
     /** The outcome a sub-workflow returns when it is left early. */
     public static final String STEPPED_OUT = "stepped_out";
 
+    /** The condition a refused composition of a server event raises on the composing transition. */
+    public static final String PRECONDITION_UNMET = "precondition_unmet";
+
     /** The transitions one advance may chain at most; a verified unit never comes near it. */
     static final int MAX_CHAIN = 1_000;
 
@@ -152,20 +161,27 @@ public final class WorkflowEngine {
     private final QueueTaskCreator tasks;
     private final QuestionRecordReader questions;
     private final WorkflowClock clock;
+    private final @Nullable InstanceComposition composition;
+    private final @Nullable InstanceUnits versionUnits;
 
     /**
      * The ports through which the engine causes and observes what lies outside the status store.
      *
-     * @param jobs      starts the job of a job state
-     * @param tasks     creates the queue task of a task state
-     * @param questions reads the question record a question state waits on
-     * @param clock     the clock of {@code updated_at}, {@code pushed_at}, {@code raised_at} and a job's start
+     * @param jobs        starts the job of a job state
+     * @param tasks       creates the queue task of a task state
+     * @param questions   reads the question record a question state waits on
+     * @param clock       the clock of {@code updated_at}, {@code pushed_at}, {@code raised_at} and a job's start
+     * @param composition composes and records the plan instance versions; {@code null} for a scope that composes none
+     * @param units       reads the units of the version in force; {@code null} runs the verified unit the engine was
+     *                    built with
      * @since 0.1
      */
     @Builder
-    public record Ports(JobStarter jobs, QueueTaskCreator tasks, QuestionRecordReader questions, WorkflowClock clock) {
+    public record Ports(JobStarter jobs, QueueTaskCreator tasks, QuestionRecordReader questions, WorkflowClock clock,
+    de.planmarshall.workflow.plan.@Nullable InstanceComposition composition,
+    de.planmarshall.workflow.plan.@Nullable InstanceUnits units) {
 
-        /** @throws NullPointerException if a port is {@code null} */
+        /** @throws NullPointerException if a port other than the two instance ports is {@code null} */
         public Ports {
             Objects.requireNonNull(jobs, "jobs");
             Objects.requireNonNull(tasks, "tasks");
@@ -235,6 +251,8 @@ public final class WorkflowEngine {
         this.tasks = ports.tasks();
         this.questions = ports.questions();
         this.clock = ports.clock();
+        this.composition = ports.composition();
+        this.versionUnits = ports.units();
         var verified = new LinkedHashMap<String, WorkflowDefinition>();
         verifyWithCallees(unit, catalog, validator, verified);
         this.units = Collections.unmodifiableMap(verified);
@@ -255,15 +273,42 @@ public final class WorkflowEngine {
      *                                  started), or the scope does not fit the status store
      */
     public EngineStep start(JournalScopeType scopeType, @Nullable String scopeId) {
-        var startStateId = unit.startState();
-        if (startStateId == null) {
-            throw new IllegalArgumentException(
-                    "the unit '%s' declares no start state; a unit with entries is called, never started"
-                            .formatted(unit.id()));
-        }
-        var startState = stateOf(unit, startStateId);
+        var status = initialStatus(scopeType, scopeId);
+        return new Run(status).chain(startStateOf(unit).id());
+    }
+
+    /**
+     * Starts a scope at the unit's start state, composing version 1 of a plan instance in the same creation
+     * transaction, and chains from there.
+     * <p>
+     * {@code start} is the creation's composition event (Workflow DSL § Versions &amp; Composition Events): the version
+     * is composed before the first state is entered, so it is in force from the plan's first state, and a refused
+     * creation composition creates no plan.
+     *
+     * @param scopeType   the type of the scope
+     * @param scopeId     the plan or epic id; {@code null} for the workspace and the machine scope
+     * @param store       the status store of the scope
+     * @param transaction the transaction that creates the scope
+     * @param history     the plan's history
+     * @return the step the start ends in, with the first status of the scope
+     * @throws IllegalArgumentException if the unit declares no start state, or the scope does not fit the status store
+     * @throws IllegalStateException    if the creation composition of {@code start} is refused
+     */
+    public EngineStep start(JournalScopeType scopeType, @Nullable String scopeId, WorkflowStatusStore store,
+            ScopeTransaction transaction, PlanHistory history) {
+        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(transaction, "transaction");
+        Objects.requireNonNull(history, "history");
+        var before = initialStatus(scopeType, scopeId);
+        var run = new Run(before, history, transaction);
+        run.composeStart();
+        return persisted(before, run.chain(startStateOf(run.unitOf(CallStack.empty())).id()), store, transaction);
+    }
+
+    private WorkflowStatus initialStatus(JournalScopeType scopeType, @Nullable String scopeId) {
+        var startState = startStateOf(unit);
         var now = clock.now();
-        var status = WorkflowStatus.builder()
+        return WorkflowStatus.builder()
                 .scopeType(scopeType)
                 .scopeId(scopeId)
                 .phase(initialPhase(scopeType))
@@ -277,7 +322,70 @@ public final class WorkflowEngine {
                 .updatedAt(now)
                 .retained(Map.of())
                 .build();
-        return new Run(status).chain(startState.id());
+    }
+
+    private static StateNode startStateOf(WorkflowDefinition definition) {
+        var startStateId = definition.startState();
+        if (startStateId == null) {
+            throw new IllegalArgumentException(
+                    "the unit '%s' declares no start state; a unit with entries is called, never started"
+                            .formatted(definition.id()));
+        }
+        return stateOf(definition, startStateId);
+    }
+
+    /**
+     * Composes an operator or configuration event ({@code config_adopted}, {@code waiver}, {@code override}) at the
+     * scope's position and puts its version in force from the next transition: the state does not move, and a version
+     * is never in force mid-state (Workflow DSL § Versions &amp; Composition Events, item 1).
+     * <p>
+     * The status and the version's history line are written in {@code transaction}; a refused version leaves the
+     * version in force and is returned as the result, its attempt logged in the same transaction.
+     *
+     * @param status      the status of the scope
+     * @param event       the operator or configuration event
+     * @param store       the status store of the scope
+     * @param transaction the transaction of the advance
+     * @param history     the plan's history
+     * @return the status after the composition, with the version in force, and the composition's result
+     * @throws IllegalArgumentException if the event is a server event
+     * @throws IllegalStateException    if the engine carries no instance composition
+     */
+    public OperatorComposition composeOperatorEvent(WorkflowStatus status, CompositionEvent event,
+            WorkflowStatusStore store, ScopeTransaction transaction, PlanHistory history) {
+        Objects.requireNonNull(status, "status");
+        Objects.requireNonNull(event, "event");
+        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(transaction, "transaction");
+        Objects.requireNonNull(history, "history");
+        if (event.trigger() != CompositionEvent.Trigger.OPERATOR) {
+            throw new IllegalArgumentException("the event '%s' is no operator or configuration event"
+                    .formatted(event.wireName()));
+        }
+        var run = new Run(status, history, transaction);
+        var result = run.composeOperator(event);
+        var composed = run.flush();
+        store.write(transaction, composed);
+        return new OperatorComposition(composed, result);
+    }
+
+    /**
+     * The outcome of composing an operator or configuration event: the status with the version in force, and the
+     * composition's result, the refusal of a version the position rule or a check refused included.
+     *
+     * @param status the status after the composition
+     * @param result the composition's result
+     * @since 0.1
+     */
+    public record OperatorComposition(WorkflowStatus status, CompositionResult result) {
+
+        /**
+         * @throws NullPointerException if a component is {@code null}
+         */
+        public OperatorComposition {
+            Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(result, "result");
+        }
     }
 
     /**
@@ -300,7 +408,7 @@ public final class WorkflowEngine {
             return EngineStep.ConditionRaised.of(status);
         }
         var stack = CallStack.fromStore(status.callStack());
-        var node = stateOf(unitOf(stack), status.state());
+        var node = stateOf(run.unitOf(stack), status.state());
         return switch (node.behavior()) {
             case StateBehavior.AutoStep _, StateBehavior.SubWorkflowCall _ -> run.chain(node.id());
             case StateBehavior.TerminalState _ -> stack.isEmpty() ? ended(status, node) : run.chain(node.id());
@@ -334,7 +442,7 @@ public final class WorkflowEngine {
         if (status.condition().isPresent()) {
             return EngineStep.ConditionRaised.of(status);
         }
-        var node = stateOf(unitOf(CallStack.fromStore(status.callStack())), status.state());
+        var node = stateOf(run.unitOf(CallStack.fromStore(status.callStack())), status.state());
         var wait = RestingWait.of(status, awaitedEventOf(node.behavior()));
         if (!wait.accepts(event)) {
             throw new IllegalArgumentException("the state '%s' waits for %s and does not accept %s"
@@ -382,15 +490,13 @@ public final class WorkflowEngine {
      * @param store           the status store of the scope
      * @param transaction     the open transaction of the scope
      * @param history         the plan's history
-     * @param instanceVersion the instance version in force
      * @return the step the advance ends in
      * @throws InternalFaultException see {@link #advance(WorkflowStatus)}
      */
     public EngineStep advance(WorkflowStatus status, WorkflowStatusStore store, ScopeTransaction transaction,
-            PlanHistory history, int instanceVersion) {
+            PlanHistory history) {
         Objects.requireNonNull(history, "history");
-        return persisted(status, advance(status, new Run(status, history, transaction, instanceVersion)), store,
-                transaction);
+        return persisted(status, advance(status, new Run(status, history, transaction)), store, transaction);
     }
 
     /**
@@ -417,15 +523,13 @@ public final class WorkflowEngine {
      * @param store           the status store of the scope
      * @param transaction     the open transaction of the scope
      * @param history         the plan's history
-     * @param instanceVersion the instance version in force
      * @return the step the advance ends in
      * @throws IllegalArgumentException see {@link #advance(WorkflowStatus, EngineEvent)}
      */
     public EngineStep advance(WorkflowStatus status, EngineEvent event, WorkflowStatusStore store,
-            ScopeTransaction transaction, PlanHistory history, int instanceVersion) {
+            ScopeTransaction transaction, PlanHistory history) {
         Objects.requireNonNull(history, "history");
-        return persisted(status,
-                advance(status, event, new Run(status, history, transaction, instanceVersion)), store, transaction);
+        return persisted(status, advance(status, event, new Run(status, history, transaction)), store, transaction);
     }
 
     /**
@@ -434,7 +538,8 @@ public final class WorkflowEngine {
      */
     public Optional<RestingWait> restingWait(WorkflowStatus status) {
         Objects.requireNonNull(status, "status");
-        var node = stateOf(unitOf(CallStack.fromStore(status.callStack())), status.state());
+        var run = new Run(status);
+        var node = stateOf(run.unitOf(CallStack.fromStore(status.callStack())), status.state());
         return switch (node.behavior()) {
             case StateBehavior.InteractiveLinks _, StateBehavior.JobStep _, StateBehavior.ModelJob _,
                 StateBehavior.QuestionWait _ -> Optional.of(RestingWait.of(status, awaitedEventOf(node.behavior())));
@@ -498,12 +603,12 @@ public final class WorkflowEngine {
         if (stack.isEmpty()) {
             throw new IllegalStateException("the scope is in no sub-workflow; there is no frame to step out of");
         }
-        var node = stateOf(unitOf(stack), status.state());
+        var run = new Run(status);
+        var node = stateOf(run.unitOf(stack), status.state());
         if (!(node.behavior() instanceof StateBehavior.InteractiveLinks)) {
             throw new IllegalStateException("only a resting link state offers the step-out, not '%s'"
                     .formatted(node.id()));
         }
-        var run = new Run(status);
         return run.chain(run.returnFromFrame(STEPPED_OUT));
     }
 
@@ -578,10 +683,6 @@ public final class WorkflowEngine {
             case StateBehavior.AutoStep _, StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ ->
                 AwaitedEvent.NONE;
         };
-    }
-
-    private WorkflowDefinition unitOf(CallStack stack) {
-        return stack.top().map(frame -> verifiedUnit(frame.subWorkflowId())).orElse(unit);
     }
 
     private WorkflowDefinition verifiedUnit(String unitId) {
@@ -757,7 +858,11 @@ public final class WorkflowEngine {
 
         private final @Nullable ScopeTransaction transaction;
 
-        private final int instanceVersion;
+        /** The instance version in force from here on; the status's, or the version a composition just took force. */
+        private int instanceVersion;
+
+        /** The units of the version in force, read once per advance by unit id. */
+        private final Map<String, WorkflowDefinition> unitsInForce = new HashMap<>();
 
         /** The history lines of this advance, in the order the advance produced them. */
         private final List<Pending> lines = new ArrayList<>();
@@ -766,22 +871,73 @@ public final class WorkflowEngine {
         private @Nullable String spawnedJobId;
 
         Run(WorkflowStatus status) {
-            this(status, null, null, 1);
+            this(status, null, null);
         }
 
-        Run(WorkflowStatus status, @Nullable PlanHistory history, @Nullable ScopeTransaction transaction,
-                int instanceVersion) {
-            if (instanceVersion < 1) {
-                throw new IllegalArgumentException("the instance version %d is not from 1".formatted(instanceVersion));
-            }
+        Run(WorkflowStatus status, @Nullable PlanHistory history, @Nullable ScopeTransaction transaction) {
             this.status = status;
             this.stack = CallStack.fromStore(status.callStack());
             this.history = history;
             this.transaction = transaction;
-            this.instanceVersion = instanceVersion;
+            this.instanceVersion = status.instanceVersionInForce().orElse(1);
             for (var index = 0; index < stack.depth(); index++) {
                 results.push(new LinkedHashMap<>());
             }
+        }
+
+        /**
+         * The unit a state belongs to: the version in force's unit where the version is readable, else the verified
+         * unit the engine was built with.
+         *
+         * @param stack the call stack at the state
+         * @return the unit that declares the state
+         */
+        private WorkflowDefinition unitOf(CallStack stack) {
+            return unitById(stack.top().map(frame -> frame.subWorkflowId()).orElse(unit.id()));
+        }
+
+        /**
+         * @param unitId the id of a unit
+         * @return the unit as the version in force carries it, else the verified unit the engine was built with
+         */
+        private WorkflowDefinition unitById(String unitId) {
+            return unitsInForce.computeIfAbsent(unitId, this::loadUnit);
+        }
+
+        /**
+         * Reads one unit of the version in force: its own plan unit, the composed file of a phase sub-workflow or bound
+         * axis variant, or the stored text of a unit the header binds by digest.
+         *
+         * @param unitId the id of the unit
+         * @return the unit as the version carries it
+         * @throws InternalFaultException if the version carries no such unit
+         */
+        private WorkflowDefinition loadUnit(String unitId) {
+            var version = status.instanceVersionInForce().orElse(null);
+            if (version == null || versionUnits == null) {
+                return verifiedUnit(unitId);
+            }
+            var plan = versionUnits.planUnit(version).orElseThrow(() -> fault(Reason.UNRESOLVED_NAME,
+                    "the version %d in force carries no plan unit", version));
+            if (unitId.equals(plan.id())) {
+                return plan;
+            }
+            return versionUnits.composedUnit(version, unitId)
+                    .or(() -> versionUnits.subUnit(version, unitId))
+                    .orElseThrow(() -> fault(Reason.UNRESOLVED_NAME,
+                            "the version %d in force carries no unit '%s'", version, unitId));
+        }
+
+
+        /**
+         * @return where the scope stands: the unit and state it is in, and the calling unit and state of every frame
+         */
+        InstancePosition position() {
+            return InstancePosition.of(unitOf(stack).id(), status.state(),
+                    stack.frames().stream()
+                            .map(frame -> new InstancePosition.UnitState(frame.callerWorkflowId(),
+                                    frame.callerStateId()))
+                            .toList());
         }
 
         /** Records a history line of the advance; a run without a history records nothing. */
@@ -840,7 +996,12 @@ public final class WorkflowEngine {
                             MAX_CHAIN, stateId);
                 }
                 var node = stateOf(unitOf(stack), stateId);
-                enter(node);
+                var refusedComposition = enter(node);
+                if (refusedComposition != null) {
+                    return EngineStep.ConditionRaised.raise(finish(), PRECONDITION_UNMET, refusedComposition,
+                            clock.now());
+                }
+                node = stateOf(unitOf(stack), stateId);
                 var spawned = spawnedJobId;
                 spawnedJobId = null;
                 switch (node.behavior()) {
@@ -937,7 +1098,7 @@ public final class WorkflowEngine {
         }
 
         /** Makes the state current: its phase applies, and the bindings of the state left are cleared. */
-        private void enter(StateNode node) {
+        private @Nullable Map<String, String> enter(StateNode node) {
             var phase = phaseOf(unitOf(stack), node.id(), stack, status);
             status = status.toBuilder()
                     .state(node.id())
@@ -948,6 +1109,124 @@ public final class WorkflowEngine {
                     .activeTasks(Map.of())
                     .build();
             record(PlanHistoryLine.Event.ENTERED, node.id(), null);
+            return composeAtEntry(node);
+        }
+
+        /**
+         * Composes the version of the server event whose target state the state is, in the transaction that enters it,
+         * so the version is in force for the rest of this chain (Workflow DSL § Versions &amp; Composition Events).
+         *
+         * @return the facts of a refused composition, which the signal raises as {@code precondition_unmet}; {@code
+         *         null} when the state composes no event or the version composed
+         */
+        private @Nullable Map<String, String> composeAtEntry(StateNode node) {
+            if (composition == null) {
+                return null;
+            }
+            var event = composition.serverEventAt(node.id()).orElse(null);
+            if (event == null || event.trigger() != CompositionEvent.Trigger.SERVER) {
+                return null;
+            }
+            return composeAndTakeForce(event);
+        }
+
+        /**
+         * Composes the event at the position and puts a composed version in force; a refused version leaves the version
+         * in force and is reported as the condition facts.
+         *
+         * @param event the composition event
+         * @return the facts of the refusal, {@code null} when a version took force
+         */
+        private @Nullable Map<String, String> composeAndTakeForce(CompositionEvent event) {
+            if (composition == null) {
+                throw new IllegalStateException("no plan instance composition is wired");
+            }
+            var composing = transaction;
+            if (composing == null) {
+                throw new IllegalStateException(
+                        "the event '%s' composes in the transaction of an advance".formatted(event.wireName()));
+            }
+            var result = composition.compose(event, position(), status.instanceVersionInForce().orElse(0));
+            return switch (result) {
+                case CompositionResult.Composed composed -> {
+                    takeForce(composing, composed);
+                    yield null;
+                }
+                case CompositionResult.Refused refused -> {
+                    composition.record(composing, refused);
+                    yield refusalFacts(event, refused);
+                }
+            };
+        }
+
+        /**
+         * Puts a composed version in force from here on: records it and its history line in the transaction, switches
+         * the units to the version's composed files, and leaves every counter and every history line as they are.
+         *
+         * @param composing the transaction of the advance
+         * @param composed  the composed version
+         */
+        private void takeForce(ScopeTransaction composing, CompositionResult.Composed composed) {
+            var version = composed.instance().version();
+            instanceVersion = version;
+            composition.record(composing, composed);
+            unitsInForce.clear();
+            status = status.toBuilder().instanceVersion(version).build();
+            record(PlanHistoryLine.Event.INSTANCE, PlanInstanceComposer.PLAN_UNIT, null);
+        }
+
+        private static Map<String, String> refusalFacts(CompositionEvent event, CompositionResult.Refused refused) {
+            var facts = new LinkedHashMap<String, String>();
+            facts.put("event", event.wireName());
+            facts.put("reason", refused.refusal().wireName());
+            if (!refused.violations().isEmpty()) {
+                facts.put("violation", refused.violations().getFirst());
+            }
+            return facts;
+        }
+
+        /**
+         * Composes version 1 of a plan in its creation transaction: {@code start} is the creation's event, so a refused
+         * creation composition creates no plan.
+         */
+        void composeStart() {
+            if (composition == null) {
+                return;
+            }
+            if (composeAndTakeForce(CompositionEvent.START) != null) {
+                throw new IllegalStateException("the creation composition of 'start' was refused");
+            }
+        }
+
+        /**
+         * Composes an operator or configuration event at the current position and puts its version in force from the
+         * next transition: the state does not move.
+         *
+         * @param event the operator or configuration event
+         * @return the composition's result
+         */
+        CompositionResult composeOperator(CompositionEvent event) {
+            if (composition == null) {
+                throw new IllegalStateException("no plan instance composition is wired");
+            }
+            var composing = transaction;
+            if (composing == null) {
+                throw new IllegalStateException(
+                        "the event '%s' composes in a transaction".formatted(event.wireName()));
+            }
+            var result = composition.compose(event, position(), status.instanceVersionInForce().orElse(1));
+            switch (result) {
+                case CompositionResult.Composed composed -> takeForce(composing, composed);
+                case CompositionResult.Refused refused -> composition.record(composing, refused);
+            }
+            return result;
+        }
+
+        /** Writes the status and the pending history lines of an operator composition. */
+        WorkflowStatus flush() {
+            status = status.toBuilder().updatedAt(clock.now()).build();
+            recordHistory();
+            return status;
         }
 
         /**
@@ -988,7 +1267,7 @@ public final class WorkflowEngine {
         }
 
         private String call(StateNode node, StateBehavior.SubWorkflowCall call) {
-            var callee = verifiedUnit(call.subWorkflowId());
+            var callee = unitById(call.subWorkflowId());
             var entry = entryOf(callee, call);
             var frame = CallFrame.builder()
                     .callerWorkflowId(unitOf(stack).id())

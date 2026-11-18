@@ -19,10 +19,14 @@ import de.planmarshall.core.role.RoleValidationReason;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A composition refused because a model state or a consultation clause names a role it cannot use (PM-WORK-1, Composition
- * Check): {@code role_undefined} when the role is absent or invalid — naming the role, the state and the validation reason
- * where there is one — and {@code class_mismatch} when the role's class does not fit its use, naming the role, its class,
- * the state and the required class.
+ * A composition refused because a model state, a consultation clause, a quorum declaration or a {@code skill} clause
+ * names something it cannot use (PM-WORK-1, Composition Check; Workflow DSL § Static AST Verification Rules, Rules 13
+ * and 14): {@code role_undefined} when the role is absent or invalid — naming the role, the state and the validation
+ * reason where there is one — {@code class_mismatch} when the role's class does not fit its use, naming the role, its
+ * class, the state and the required class, {@code quorum_invalid} when a quorum lists a role that is undefined or not
+ * {@code read_only}, {@code quorum_not_diverse} when two listed roles of one declaration name the same model by their
+ * model identity, naming both roles, both identifiers and the shared identity, and {@code skill_unresolved} when a
+ * skill a {@code skill} clause names does not resolve in the project's skill catalogue.
  *
  * @since 0.1
  */
@@ -36,7 +40,13 @@ public final class CompositionRefusal extends RuntimeException {
         /** The role is absent from the effective role set, or its artifact is invalid. */
         ROLE_UNDEFINED("role_undefined"),
         /** The role's class does not fit the use. */
-        CLASS_MISMATCH("class_mismatch");
+        CLASS_MISMATCH("class_mismatch"),
+        /** A quorum lists a role that is undefined or not {@code read_only}. */
+        QUORUM_INVALID("quorum_invalid"),
+        /** Two listed roles of one quorum declaration name the same model by their model identity. */
+        QUORUM_NOT_DIVERSE("quorum_not_diverse"),
+        /** A skill a {@code skill} clause names does not resolve in the project's skill catalogue. */
+        SKILL_UNRESOLVED("skill_unresolved");
 
         private final String wireName;
 
@@ -97,6 +107,44 @@ public final class CompositionRefusal extends RuntimeException {
                 .formatted(roleClass == null ? "of no class" : roleClass.wireName(), required));
     }
 
+    /**
+     * @param role      the role the quorum lists
+     * @param site      the unit that declares the quorum
+     * @param roleClass the class of the role; {@code null} when the role is undefined
+     * @param detail    what is wrong
+     * @return the refusal
+     */
+    public static CompositionRefusal quorumInvalid(String role, String site, @Nullable RoleClass roleClass,
+            String detail) {
+        return new CompositionRefusal(Reason.QUORUM_INVALID, role, site, roleClass, Set.of(), null, detail);
+    }
+
+    /**
+     * @param firstRole      the first listed role
+     * @param firstModel     the identifier of the first role's model
+     * @param secondRole     the second listed role
+     * @param secondModel    the identifier of the second role's model
+     * @param identity       the identity both roles share
+     * @param site           the unit that declares the quorum
+     * @return the refusal
+     */
+    public static CompositionRefusal quorumNotDiverse(String firstRole, String firstModel, String secondRole,
+            String secondModel, String identity, String site) {
+        return new CompositionRefusal(Reason.QUORUM_NOT_DIVERSE, firstRole, site, null, Set.of(), null,
+                "the roles '%s' (%s) and '%s' (%s) name the same model by the identity '%s'"
+                        .formatted(firstRole, firstModel, secondRole, secondModel, identity));
+    }
+
+    /**
+     * @param skill   the skill URI the {@code skill} clause names
+     * @param stateId the state that names it
+     * @return the refusal
+     */
+    public static CompositionRefusal skillUnresolved(String skill, String stateId) {
+        return new CompositionRefusal(Reason.SKILL_UNRESOLVED, skill, stateId, null, Set.of(), null,
+                "the project's skill catalogue does not resolve the skill");
+    }
+
     /** @return why the composition was refused */
     public Reason reason() {
         return reason;
@@ -134,6 +182,17 @@ public final class CompositionRefusal extends RuntimeException {
 
     private static String message(Reason reason, String role, String stateId, @Nullable RoleClass roleClass,
             @Nullable RoleValidationReason validationReason, String detail) {
+        if (reason == Reason.SKILL_UNRESOLVED) {
+            return "%s: skill_unresolved: the state names the skill '%s': %s".formatted(stateId, role, detail);
+        }
+        if (reason == Reason.QUORUM_INVALID) {
+            var classes = roleClass == null ? "" : " [%s]".formatted(roleClass.wireName());
+            return "%s: quorum_invalid: the quorum lists the role '%s'%s: %s"
+                    .formatted(stateId, role, classes, detail);
+        }
+        if (reason == Reason.QUORUM_NOT_DIVERSE) {
+            return "%s: quorum_not_diverse: %s".formatted(stateId, detail);
+        }
         var validation = validationReason == null ? "" : " (%s)".formatted(validationReason.wireName());
         var classes = roleClass == null ? "" : " [%s]".formatted(roleClass.wireName());
         return "%s: %s names the role '%s'%s%s: %s".formatted(stateId, reason.wireName(), role, validation, classes,
