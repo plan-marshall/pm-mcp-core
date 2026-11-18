@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Locale;
@@ -62,7 +61,8 @@ class EnrichmentOfferTest {
 
         assertAll(
                 () -> assertEquals("6000 tokens", line, "The cost line is the compiled token count"),
-                () -> assertFalse(line.matches(".*[$€£¥].*"), "The cost line carries no currency"),
+                () -> assertFalse(line.codePoints().anyMatch(c -> "$€£¥".indexOf(c) >= 0),
+                        "The cost line carries no currency"),
                 () -> assertFalse(line.toLowerCase(Locale.ROOT).contains("usd"),
                         "The cost line names no money unit"));
     }
@@ -70,11 +70,13 @@ class EnrichmentOfferTest {
     @Test
     @DisplayName("Should refuse an offer of no module and a negative estimate")
     void refusesWhatItCannotOffer() {
+        List<String> noModule = List.of();
+        var oneModule = List.of(module());
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> EnrichmentOffer.of(List.of()),
+                () -> assertThrows(IllegalArgumentException.class, () -> EnrichmentOffer.of(noModule),
                         "An enrichment offers at least one module"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new EnrichmentOffer(List.of(module()), -1),
+                () -> assertThrows(IllegalArgumentException.class, () -> new EnrichmentOffer(oneModule, -1),
                         "The expected tokens are not negative"),
                 () -> assertThrows(IllegalArgumentException.class, () -> EnrichmentOffer.expectedTokens(-1),
                         "A module count is not negative"));

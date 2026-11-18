@@ -81,62 +81,61 @@ class PendingConsentTest {
     @Test
     @DisplayName("Should refuse a machine kind, which is never held before an enrolment")
     void refusesAMachineKind() {
-        assertThrows(IllegalArgumentException.class,
-                () -> PendingConsent.builder()
-                        .kind(ConsentKind.SCAN_HARNESSES)
-                        .scripts(List.of())
-                        .grantedAt(GRANTED)
-                        .channel(Consent.Channel.CLI)
-                        .build(),
+        var builder = PendingConsent.builder()
+                .kind(ConsentKind.SCAN_HARNESSES)
+                .scripts(List.of())
+                .grantedAt(GRANTED)
+                .channel(Consent.Channel.CLI);
+
+        assertThrows(IllegalArgumentException.class, builder::build,
                 "A machine kind cannot be held before a project's id");
     }
 
     @Test
     @DisplayName("Should refuse a kind that is never remembered")
     void refusesANeverRememberedKind() {
-        assertThrows(IllegalArgumentException.class,
-                () -> PendingConsent.builder()
-                        .kind(ConsentKind.AUTO_RUN)
-                        .scripts(List.of())
-                        .grantedAt(GRANTED)
-                        .channel(Consent.Channel.CLI)
-                        .build(),
+        var builder = PendingConsent.builder()
+                .kind(ConsentKind.AUTO_RUN)
+                .scripts(List.of())
+                .grantedAt(GRANTED)
+                .channel(Consent.Channel.CLI);
+
+        assertThrows(IllegalArgumentException.class, builder::build,
                 "A never-remembered kind has no yes_remember hold");
     }
 
     @Test
     @DisplayName("Should refuse scripts where its kind covers none and the empty list where it does")
     void refusesScriptsAndKindThatDoNotBelongTogether() {
+        var withScript = PendingConsent.builder()
+                .kind(ConsentKind.INSPECT_CHECKOUT)
+                .scripts(List.of(script()))
+                .grantedAt(GRANTED)
+                .channel(Consent.Channel.CLI);
+        var withoutScript = PendingConsent.builder()
+                .kind(ConsentKind.RUN_CHECKOUT_SCRIPTS)
+                .scripts(List.of())
+                .grantedAt(GRANTED)
+                .channel(Consent.Channel.CLI);
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> PendingConsent.builder()
-                                .kind(ConsentKind.INSPECT_CHECKOUT)
-                                .scripts(List.of(script()))
-                                .grantedAt(GRANTED)
-                                .channel(Consent.Channel.CLI)
-                                .build(),
+                () -> assertThrows(IllegalArgumentException.class, withScript::build,
                         "An inspection consent covers no scripts"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> PendingConsent.builder()
-                                .kind(ConsentKind.RUN_CHECKOUT_SCRIPTS)
-                                .scripts(List.of())
-                                .grantedAt(GRANTED)
-                                .channel(Consent.Channel.CLI)
-                                .build(),
+                () -> assertThrows(IllegalArgumentException.class, withoutScript::build,
                         "A script consent lists the scripts it covers"));
     }
 
     @Test
     @DisplayName("Should refuse a paired device on an answer that did not come through web")
     void refusesADeviceOnACliAnswer() {
-        assertThrows(IllegalArgumentException.class,
-                () -> PendingConsent.builder()
-                        .kind(ConsentKind.INSPECT_CHECKOUT)
-                        .scripts(List.of())
-                        .grantedAt(GRANTED)
-                        .channel(Consent.Channel.CLI)
-                        .deviceId("dev-0123456789ab")
-                        .build(),
+        var builder = PendingConsent.builder()
+                .kind(ConsentKind.INSPECT_CHECKOUT)
+                .scripts(List.of())
+                .grantedAt(GRANTED)
+                .channel(Consent.Channel.CLI)
+                .deviceId("dev-0123456789ab");
+
+        assertThrows(IllegalArgumentException.class, builder::build,
                 "Only a web answer names a paired device");
     }
 

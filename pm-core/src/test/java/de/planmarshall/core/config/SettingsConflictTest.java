@@ -48,8 +48,9 @@ class SettingsConflictTest {
     @Test
     @DisplayName("Should refuse a conflict that names the current revision")
     void refusesNoConflict() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new SettingsConflict(directory.resolve("local-config.json"), 2L, 2L, "text"),
+        var file = directory.resolve("local-config.json");
+
+        assertThrows(IllegalArgumentException.class, () -> new SettingsConflict(file, 2L, 2L, "text"),
                 "A conflict names another revision than the current one");
     }
 }

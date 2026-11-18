@@ -37,8 +37,11 @@ class TranscribeMethodsTest {
     @Test
     @DisplayName("Should refuse a method the machine does not allow")
     void refusesAWidenedMethod() {
+        var chosenMethods = List.of("provider");
+        var machineMethods = List.of("local");
+
         var refusal = assertThrows(IllegalArgumentException.class,
-                () -> TranscribeMethods.chosen(List.of("provider"), List.of("local")),
+                () -> TranscribeMethods.chosen(chosenMethods, machineMethods),
                 "A method the machine does not allow is refused");
 
         assertTrue(refusal.getMessage().contains(TranscribeMethods.INVALID_ARGUMENTS),
@@ -48,11 +51,14 @@ class TranscribeMethodsTest {
     @Test
     @DisplayName("Should refuse a project that allows no method")
     void refusesNoMethod() {
+        List<String> none = List.of();
+        var machineMethods = List.of("local");
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> new TranscribeMethods(List.of()),
+                () -> assertThrows(IllegalArgumentException.class, () -> new TranscribeMethods(none),
                         "A project allows at least one method"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> TranscribeMethods.chosen(List.of(), List.of("local")),
+                        () -> TranscribeMethods.chosen(none, machineMethods),
                         "The chosen subset is not empty"));
     }
 }

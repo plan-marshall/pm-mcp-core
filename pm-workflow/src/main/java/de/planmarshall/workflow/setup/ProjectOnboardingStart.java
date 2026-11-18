@@ -110,11 +110,15 @@ public final class ProjectOnboardingStart {
     public static Decision start(MachineOnboarding onboarding, CheckoutInspection checkout) {
         Objects.requireNonNull(onboarding, "onboarding");
         Objects.requireNonNull(checkout, "checkout");
-        var gate = SetupGate.decide(SetupGate.Act.START_PROJECT_ONBOARDING, onboarding);
-        if (gate instanceof SetupGate.Refused refused) {
-            return new MachineNotOnboarded(refused.reason(), refused.httpStatus(), refused.missingStep(),
-                    refused.clients());
-        }
-        return checkout.inspect().map(Decision.class::cast).orElseGet(Admitted::new);
+        return switch (gate(onboarding)) {
+            case SetupGate.Refused refused -> new MachineNotOnboarded(refused.reason(), refused.httpStatus(),
+                    refused.missingStep(), refused.clients());
+            case SetupGate.Admitted _ -> checkout.inspect().map(Decision.class::cast).orElseGet(Admitted::new);
+        };
+    }
+
+    /** Asks the machine onboarding's one guard; the start builds no second gate. */
+    private static SetupGate.Decision gate(MachineOnboarding onboarding) {
+        return SetupGate.decide(SetupGate.Act.START_PROJECT_ONBOARDING, onboarding);
     }
 }

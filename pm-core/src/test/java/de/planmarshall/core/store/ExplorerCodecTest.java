@@ -121,7 +121,9 @@ class ExplorerCodecTest {
     }
 
     private StoreRefusal refusal(String json) {
-        return assertThrows(StoreRefusal.class, () -> ExplorerCodec.read(file(), json.getBytes(UTF_8)),
+        var document = json.getBytes(UTF_8);
+        var path = file();
+        return assertThrows(StoreRefusal.class, () -> ExplorerCodec.read(path, document),
                 "The document is refused as a store refusal");
     }
 }

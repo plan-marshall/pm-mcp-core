@@ -114,10 +114,12 @@ class ExplorerStoreTest {
     @DisplayName("Should refuse a change against an older revision with the current value")
     void refusesAStaleRevision() {
         var project = id();
-        store.setFavourites(List.of(project), Set.of(project), 0);
+        var favourites = List.of(project);
+        var enrolled = Set.of(project);
+        store.setFavourites(favourites, enrolled, 0);
 
         var conflict = assertThrows(SettingsConflict.class,
-                () -> store.setFavourites(List.of(project), Set.of(project), 0),
+                () -> store.setFavourites(favourites, enrolled, 0),
                 "A change against the read revision is refused");
 
         assertAll(
@@ -207,13 +209,17 @@ class ExplorerStoreTest {
     @DisplayName("Should refuse a duplicate favourite and a project id outside the grammar")
     void refusesWhatIsNoFavourite() {
         var project = id();
+        var twice = List.of(project, project);
+        var enrolled = Set.of(project);
+        var invalid = List.of("No-Project");
+        var invalidEnrolled = Set.of("No-Project");
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> store.setFavourites(List.of(project, project), Set.of(project), 0),
+                        () -> store.setFavourites(twice, enrolled, 0),
                         "A favourite names a project once"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> store.setFavourites(List.of("No-Project"), Set.of("No-Project"), 0),
+                        () -> store.setFavourites(invalid, invalidEnrolled, 0),
                         "A favourite is a valid project id"));
     }
 

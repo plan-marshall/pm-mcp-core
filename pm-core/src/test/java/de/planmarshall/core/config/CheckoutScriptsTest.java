@@ -73,32 +73,26 @@ class CheckoutScriptsTest {
     @Test
     @DisplayName("Should refuse a path that leaves the checkout or is absolute")
     void refusesAPathOutsideTheCheckout() {
-        var absolute = checkout.resolve("outside.sh").toString();
+        var parentRelative = List.of("../outside.sh");
+        var absolute = List.of(checkout.resolve("outside.sh").toString());
+        var checkoutItself = List.of(".");
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> CheckoutScripts.digest(checkout, List.of("../outside.sh")),
-                        "A parent-relative script is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> CheckoutScripts.digest(checkout, List.of(absolute)),
-                        "An absolute script path is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> CheckoutScripts.digest(checkout, List.of(".")),
-                        "The checkout itself is no script"));
+                () -> assertRefused(parentRelative, "A parent-relative script is refused"),
+                () -> assertRefused(absolute, "An absolute script path is refused"),
+                () -> assertRefused(checkoutItself, "The checkout itself is no script"));
     }
 
     @Test
     @DisplayName("Should refuse an absent script and a directory as script")
     void refusesWhatIsNoRegularFile() throws IOException {
         Files.createDirectories(checkout.resolve("scripts"));
+        var absent = List.of("scripts/absent.sh");
+        var directory = List.of("scripts");
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> CheckoutScripts.digest(checkout, List.of("scripts/absent.sh")),
-                        "An absent script is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> CheckoutScripts.digest(checkout, List.of("scripts")),
-                        "A directory is refused as a script"));
+                () -> assertRefused(absent, "An absent script is refused"),
+                () -> assertRefused(directory, "A directory is refused as a script"));
     }
 
     @Test
@@ -107,20 +101,18 @@ class CheckoutScriptsTest {
     void refusesASymbolicLink() throws IOException {
         Files.write(checkout.resolve("real.sh"), "#!/bin/sh\n".getBytes(UTF_8));
         Files.createSymbolicLink(checkout.resolve("link.sh"), checkout.resolve("real.sh"));
+        var link = List.of("link.sh");
 
-        assertThrows(IllegalArgumentException.class,
-                () -> CheckoutScripts.digest(checkout, List.of("link.sh")),
-                "A symbolic link is refused as a consent script");
+        assertRefused(link, "A symbolic link is refused as a consent script");
     }
 
     @Test
     @DisplayName("Should refuse the same script named twice")
     void refusesADuplicatePath() throws IOException {
         Files.write(checkout.resolve("run.sh"), "#!/bin/sh\n".getBytes(UTF_8));
+        var twice = List.of("run.sh", "./run.sh");
 
-        assertThrows(IllegalArgumentException.class,
-                () -> CheckoutScripts.digest(checkout, List.of("run.sh", "./run.sh")),
-                "A consent names each script once");
+        assertRefused(twice, "A consent names each script once");
     }
 
     @Test
@@ -136,6 +128,10 @@ class CheckoutScriptsTest {
                         List.of(first)), "The remembered list passes the scripts it covers"),
                 () -> assertFalse(snapshot.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, "my-project",
                         List.of(first, added)), "An added script asks again"));
+    }
+
+    private void assertRefused(List<String> paths, String message) {
+        assertThrows(IllegalArgumentException.class, () -> CheckoutScripts.digest(checkout, paths), message);
     }
 
     private static String sha256(byte[] content) {
