@@ -265,7 +265,7 @@ It holds five flat arrays, all present and empty where nothing changed (link:../
 |The pruned elements of one version and not the other, in the shape of the header's `pruned[]` (`element`, `id`, `reason`, `source_fact`); an element whose reason or source fact changed is removed and added.
 
 |`ceilings_changed`
-|Each bound argument of a policy call whose value differs: `call_site`, `in_unit`, `argument`, `previous` and `value`, `null` where a version does not bind the argument. A call site is keyed by its unit and its state id, so two calls with the same state id in two units are two keys.
+|Each bound argument of a policy call whose value differs: `call_site`, `in_unit`, `argument`, `previous` and `value`, `null` where a version does not bind the argument; `in_unit` is absent for a call of the plan unit (not `null`). A call site is keyed by its unit and its state id, so two calls with the same state id in two units are two keys.
 
 |`gates_waived`, `gates_unwaived`
 |The waived gates of one version and not the other (`gate`, `waiver_id`).
@@ -289,7 +289,7 @@ A line of an attempt that composed no version writes no `diff_summary`.
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 A version is checked in full before anyone may write it (link:../adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR 001]), and a version that fails is a `CompositionResult.Refused` value, never an exception (link:../adr/workflow-plan/002-refused-composition-is-a-value.adoc[ADR 002]).
-State ids are stable per unit across versions, so the position maps onto the new version unchanged; a version that drops the current `(unit, state)` or a calling `(unit, state)` of the call stack would strand the plan, so it is refused before the other checks (link:../adr/workflow-plan/024-the-position-is-a-pair-of-unit-and-state.adoc[ADR 024]).
+State ids are stable per unit across versions, so the position maps onto the new version unchanged; a version that drops the current `(unit, state)` or a calling `(unit, state)` of the call stack would strand the plan, so it is refused before the header and workflow verification — the landing-compatibility check of a known project and the unresolved-callee refusal precede it (link:../adr/workflow-plan/024-the-position-is-a-pair-of-unit-and-state.adoc[ADR 024]).
 
 The reference of the compiled invariants is the set of verified default units passed to the constructor; the composed unit is checked against them as a project plan unit would be, with the lane of the version as the input of `CompiledInvariants.check`.
 

@@ -295,8 +295,9 @@ class DiffSummaryTest {
 
             assertAll(
                     () -> assertTrue(HeaderJson.canonical(nested.toNode())
-                                    .contains("\"in_unit\":\"phase-5-execute\""),
-                            "the nested ceiling names its unit"),
+                                    .contains("\"call_site\":\"execute.remediate\","
+                                            + "\"in_unit\":\"phase-5-execute\""),
+                            "the nested ceiling item names its unit"),
                     () -> assertFalse(HeaderJson.canonical(planUnit.toNode()).contains("in_unit"),
                             "a plan-unit ceiling writes no in_unit"));
         }

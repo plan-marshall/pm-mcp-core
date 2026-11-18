@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,6 +73,7 @@ public final class HeaderSchemaCheck {
     static final String NOT_DATE_TIME = "must be an RFC 3339 date-time the header reader can parse "
             + "(an offset within +-18:00, no leap second)";
     static final String NOT_COMPOSED_UNIT = "must name a composed unit of the header's templates";
+    static final String DUPLICATE_CALL_SITE = "the unit and call site are listed twice";
 
     /** The remediation policy units a policy call may name. */
     static final List<String> POLICY_UNITS = List.of("remediation.ci-failure", "remediation.review-findings",
@@ -177,8 +179,11 @@ public final class HeaderSchemaCheck {
             member(members, "", HeaderJson.PRUNED,
                     (node, pointer) -> each(node, pointer, out, (element, at) -> pruned(element, at, out)));
             member(members, "", HeaderJson.POLICY_CALLS,
-                    (node, pointer) -> each(node, pointer, out,
-                            (element, at) -> policyCall(element, at, out, composedUnits)));
+                    (node, pointer) -> {
+                        each(node, pointer, out,
+                                (element, at) -> policyCall(element, at, out, composedUnits));
+                        duplicateCallSites(node, pointer, out);
+                    });
             member(members, "", HeaderJson.WAIVED_GATES,
                     (node, pointer) -> each(node, pointer, out, (element, at) -> waivedGate(element, at, out)));
         });
@@ -197,9 +202,33 @@ public final class HeaderSchemaCheck {
             return Set.of();
         }
         return templates.stream().filter(ObjectNode.class::isInstance).map(ObjectNode.class::cast)
+                .filter(reference -> reference.members().get(HeaderJson.FILE) instanceof StringNode)
                 .map(reference -> reference.members().get(HeaderJson.UNIT)).filter(StringNode.class::isInstance)
                 .map(StringNode.class::cast).map(StringNode::value)
                 .filter(unit -> !PlanInstanceComposer.PLAN_UNIT.equals(unit)).collect(Collectors.toSet());
+    }
+
+    /**
+     * @param node    the {@code policy_calls} array
+     * @param pointer the array's JSON pointer
+     * @param out     the violations found
+     */
+    private static void duplicateCallSites(Node node, String pointer, List<HeaderViolation> out) {
+        if (!(node instanceof ArrayNode(var elements))) {
+            return;
+        }
+        var seen = new HashSet<String>();
+        for (var index = 0; index < elements.size(); index++) {
+            if (!(elements.get(index) instanceof ObjectNode(var members))) {
+                continue;
+            }
+            var callSite = members.get(HeaderJson.CALL_SITE) instanceof StringNode(var site) ? site : null;
+            var inUnit = members.get(HeaderJson.IN_UNIT) instanceof StringNode(var unit) ? unit : null;
+            if (callSite != null && !seen.add(inUnit + "\u0000" + callSite)) {
+                out.add(new HeaderViolation(HeaderJson.child(pointer, Integer.toString(index)),
+                        DUPLICATE_CALL_SITE));
+            }
+        }
     }
 
     /** A date-time is valid when it has the RFC 3339 shape and the header reader can parse it. */

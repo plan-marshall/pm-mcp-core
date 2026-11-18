@@ -535,14 +535,24 @@ final class PlanFixtures {
             """;
 
     /**
+     * The transitions of the template's asking call the policy-call fixture rewrites: it routes the variant's
+     * {@code returned} exit beside {@code continue}.
+     */
+    private static final String ASK_CONTINUE = "        continue -> finalize.remediate\n";
+
+    /** See {@link #ASK_CONTINUE}. */
+    private static final String ASK_RETURNED = "        returned -> finalize.hand-back\n";
+
+    /** See {@link #ASK_CONTINUE}. */
+    private static final String ASK_STEPPED_OUT = "        stepped_out -> finalize.hand-back\n";
+
+    /**
      * @return the start request over the template whose bound asking variant carries a policy call, so the version
      *         holds the plan unit's own call beside a composed unit's call
      */
     static CompositionRequest requestWithComposedPolicyCall() {
-        var templateText = read(TEMPLATE_FILE).replace(
-                "        continue -> finalize.remediate\n        stepped_out -> finalize.hand-back\n",
-                "        continue -> finalize.remediate\n        returned -> finalize.hand-back\n"
-                        + "        stepped_out -> finalize.hand-back\n");
+        var templateText = read(TEMPLATE_FILE).replace(ASK_CONTINUE + ASK_STEPPED_OUT,
+                ASK_CONTINUE + ASK_RETURNED + ASK_STEPPED_OUT);
         var template = parse(TEMPLATE_FILE, templateText, UnitOrigin.PROJECT);
         var request = request(CompositionEvent.START, facts().build(), null, List.of(),
                 InstancePosition.at("finalize.push-barrier"));

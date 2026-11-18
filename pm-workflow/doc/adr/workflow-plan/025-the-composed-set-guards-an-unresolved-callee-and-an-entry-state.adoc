@@ -38,10 +38,11 @@ review restores the one test #236 removed with the old premise and records the o
 
 == Consequences
 
-A request that omits a reached callee is refused before anything is verified, and a composed file never keeps an
-entry that points at a removed state. The guards are exercised by `PlanInstanceComposerTest`'s `unresolvedCallRefused`
+A request that omits a reached callee is refused before the position rule and the header and workflow verification
+(though the landing-compatibility check of a known project precedes it), and a composed file never keeps an entry
+that points at a removed state. The guards are exercised by `PlanInstanceComposerTest`'s `unresolvedCallRefused`
 and `entryStatesSurviveAPrune`; the restored `prunedCallInsideAComposedUnit` covers the call-pruned-inside-a-unit
-case with a callee that is not entry-bound.
+case with a calling state that is not entry-bound.
 
 == Source
 

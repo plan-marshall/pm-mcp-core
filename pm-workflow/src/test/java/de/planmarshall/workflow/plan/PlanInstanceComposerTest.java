@@ -35,11 +35,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -1228,36 +1230,38 @@ class PlanInstanceComposerTest {
         }
 
         @Test
-        @DisplayName("every policy call of a composed file's body has a header entry with equal arguments")
+        @DisplayName("every policy call of a composed file's body has a header entry with equal arguments, both ways")
         void headerAndComposedBodyAgree() {
             var instance = merged();
-            var bodyCalls = new ArrayList<String>();
-            var mismatches = new ArrayList<String>();
+            var body = new LinkedHashMap<String, BodyCall>();
+            var header = new LinkedHashMap<String, BodyCall>();
+            var duplicates = new ArrayList<String>();
             for (var unit : instance.units()) {
                 unit.definition().states().values().stream().filter(InstancePruner::isPolicyCall)
                         .forEach(state -> {
-                            bodyCalls.add(unit.unit() + " " + state.id());
-                            var binding = ((StateBehavior.SubWorkflowCall) state.behavior()).paramBindings();
-                            var header = instance.header().policyCalls().stream()
-                                    .filter(call -> unit.unit().equals(call.inUnit())
-                                            && state.id().equals(call.callSite()))
-                                    .findFirst();
-                            if (header.isEmpty()) {
-                                mismatches.add(unit.unit() + " " + state.id() + ": no header entry");
-                                return;
+                            var call = (StateBehavior.SubWorkflowCall) state.behavior();
+                            if (body.put(unit.unit() + "/" + state.id(),
+                                    new BodyCall(call.subWorkflowId(), call.paramBindings())) != null) {
+                                duplicates.add(unit.unit() + "/" + state.id());
                             }
-                            binding.forEach((name, value) -> {
-                                var argument = header.get().args().get(name);
-                                if (argument == null || !value.equals(argument.value())) {
-                                    mismatches.add(unit.unit() + " " + state.id() + " " + name);
-                                }
-                            });
                         });
             }
+            instance.header().policyCalls().stream().filter(call -> call.inUnit() != null).forEach(call -> {
+                var args = call.args().entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().value()));
+                if (header.put(call.inUnit() + "/" + call.callSite(), new BodyCall(call.unit(), args)) != null) {
+                    duplicates.add(call.inUnit() + "/" + call.callSite());
+                }
+            });
 
             assertAll(
-                    () -> assertFalse(bodyCalls.isEmpty(), "the composed files hold policy calls"),
-                    () -> assertEquals(List.of(), mismatches, "no mismatch between header and body"));
+                    () -> assertFalse(body.isEmpty(), "the composed files hold policy calls"),
+                    () -> assertEquals(List.of(), duplicates, "no call is listed twice"),
+                    () -> assertEquals(body, header, "the header lists every body call with equal arguments"));
+        }
+
+        /** A policy call's callee and its effective arguments, the same shape from the body and the header. */
+        private record BodyCall(String callee, Map<String, CallValue> args) {
         }
 
         @Test

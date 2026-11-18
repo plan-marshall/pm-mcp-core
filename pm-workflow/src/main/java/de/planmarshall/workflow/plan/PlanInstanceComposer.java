@@ -247,7 +247,6 @@ public final class PlanInstanceComposer {
             int version) {
         var byId = new LinkedHashMap<String, CompositionRequest.SubUnit>();
         request.subUnits().forEach(subUnit -> byId.put(subUnit.definition().id(), subUnit));
-        var units = new LinkedHashMap<String, ComposedUnit>();
         var compositions = new LinkedHashMap<String, UnitComposition>();
         var positionStates = new LinkedHashMap<String, Set<String>>();
         var bound = new LinkedHashSet<String>();
@@ -266,7 +265,6 @@ public final class PlanInstanceComposer {
                     var composition = composeUnit(subUnit.definition(), request, effects, boundVariants, lane,
                             version);
                     compositions.put(id, composition);
-                    units.put(id, composition.file());
                     prunes.addAll(composition.pruned());
                     positionStates.put(id, composition.file().definition().states().keySet());
                     composition.file().definition().states().values()
@@ -280,14 +278,11 @@ public final class PlanInstanceComposer {
             }
         }
         var ordered = request.subUnits().stream().map(subUnit -> subUnit.definition().id())
-                .filter(units::containsKey).distinct().map(units::get).toList();
-        var policyCalls = request.subUnits().stream().map(subUnit -> subUnit.definition().id()).distinct()
-                .map(compositions::get).filter(Objects::nonNull)
-                .flatMap(composition -> composition.policyCalls().stream()).toList();
+                .filter(compositions::containsKey).distinct().map(compositions::get).toList();
         return Composed.builder()
-                .units(ordered)
+                .units(ordered.stream().map(UnitComposition::file).toList())
                 .positionStates(positionStates)
-                .policyCalls(policyCalls)
+                .policyCalls(ordered.stream().flatMap(composition -> composition.policyCalls().stream()).toList())
                 .subUnits(bound)
                 .pruned(prunes)
                 .unresolved(unresolved)

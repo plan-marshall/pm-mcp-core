@@ -46,10 +46,14 @@ class PlanInstanceComposerRecordsTest {
                 .sourceFact(Generators.letterStrings(1, 8).next())
                 .build());
         var unresolved = Set.of(Generators.letterStrings(1, 8).next());
-        var constructor = composedClass.getDeclaredConstructor(List.class, Map.class, List.class, Set.class,
-                List.class, Set.class);
+        var components = composedClass.getRecordComponents();
+        var constructor = composedClass.getDeclaredConstructor(
+                Arrays.stream(components).map(component -> component.getType()).toArray(Class[]::new));
         constructor.setAccessible(true);
-        var constructed = constructor.newInstance(units, positionStates, policyCalls, subUnits, pruned, unresolved);
+        var values = Map.of("units", units, "positionStates", positionStates, "policyCalls", policyCalls,
+                "subUnits", subUnits, "pruned", pruned, "unresolved", unresolved);
+        var constructed = constructor.newInstance(
+                Arrays.stream(components).map(component -> values.get(component.getName())).toArray());
         var builderFactory = composedClass.getDeclaredMethod("builder");
         builderFactory.setAccessible(true);
         var builder = builderFactory.invoke(null);
