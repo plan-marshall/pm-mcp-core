@@ -175,6 +175,32 @@ unit is verified on, so the load reports every other finding of it as well, and 
 only). The check follows with that loader, together with `INV-GEN-1` for a machine's unit.
 |===
 
+== Product Registries
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+`ProductRegistries` is the one factory that builds a production `VerificationContext`:
+
+[source,java]
+----
+var context = ProductRegistries.context(primitiveRegistry, compiledUnits);
+----
+
+It supplies the default entity kinds, question classes and schemas, the compiled configuration keys and the derived fact
+kinds. `configKeys()` builds the registry from `EffectiveConfigKeys.all()` of `de.planmarshall.core.config` and
+`factKinds()` from the wire names of `DerivedFactKind`, so neither closed set is restated here (ADR 009). The empty
+registries stay the default of the five-argument `VerificationContext` constructor, so the three verifier call sites fail
+closed unless the assembly passes the product context (ADR 010).
+
+Rule 1 reads the two registries: a `reads_config` key the table does not hold is refused `CONFIG_KEY_BINDING`, a
+`reads_fact` kind outside the enumeration `FACT_KIND_BINDING`, and an `input_fallback` to a key without a compiled
+default `INPUT_DECLARATION`.
+
+The registry's `ConfigKey.domain` is `@Nullable InputType`: the configuration domains are seven, the input types three,
+and a domain no input type expresses (text, an object, a list of text, a union, a one-sided range) is converted to no
+domain, so such a key can never be a fallback (ADR 011). An enumeration, a bounded or unbounded range and a list of an
+enumeration are converted as they are.
+
 == Findings and the Lifecycle Refusal
 
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
@@ -192,8 +218,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 
 [source,java]
 ----
-var context = new VerificationContext(primitiveRegistry, EntityKindRegistry.defaults(),
-        QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), compiledUnits);
+var context = ProductRegistries.context(primitiveRegistry, compiledUnits);
 
 var defaults = new DefaultUnitLoader(classLoader, "workflows/", unitFiles, context, releasedStates).load();
 // a refused default load is a build defect

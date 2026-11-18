@@ -1,0 +1,50 @@
+= ADR 004: The Effective Configuration Key Table Is Compiled Code, Pinned by a Parity Test
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+Store Schemas 07, Effective Configuration and Sources, states that the effective key of a value is
+`<file_stem>.<dotted path>` and that the pinned compiled defaults live in a table every effective-configuration
+computation starts from, and that a test pins that table
+(link:../../../../doc/specification/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas
+§ Project Configuration]). The configuration schemas are class-path resources of this module
+(`config-project.schema.json`, `config-workflow.schema.json`, `local-config.schema.json`), and `doc/` is not on the
+class path of a JAR: a reader in the module can read the schemas, but a production class may not read the
+specification tree.
+
+== Decision
+
+The key table is compiled code of `de.planmarshall.core.config`: `EffectiveConfigKey` holds one key with its value
+domain and the existence of a compiled default, `EffectiveConfigKeys` holds the closed table with `all()`, `find(...)`
+and `stems()`, and `ConfigValueDomain` holds the domain model. `EffectiveConfigKeysSchemaParityTest` walks the three
+schema resources and asserts the key set, each domain and each default flag key by key. Adding a key to a schema without
+a table row fails that test.
+
+== Alternatives Considered
+
+1. *Derive the key set at run time from a copy of the schema in a resource.* Rejected: it is a second copy of the schema
+   beside the first, and the two drift while both look authoritative.
+2. *Read the schema blocks of the `.adoc` specification at run time.* Rejected: the specification is not on the class
+   path of the JARs (CLAUDE.md, model-facing content), and reading it from a file path would make production code depend
+   on a checkout layout.
+
+== Consequences
+
+The table is the only production statement of the key set, and the parity test is the only place that may read the
+schemas. A schema change and its table row are one change: the test fails until both are present. The compiled default
+VALUES the specification also describes are not part of this table; it carries only whether a default exists.
+
+== Source
+
+* Plan `PLAN-V2-10`, Deliverables 1 and 2.
+* Store Schemas 07, Effective Configuration and Sources (the effective key and the pinned table).
+* Store Schemas 07, Team File `project.json`, `workflow.json`; Store Schemas 08, Operator Local Configuration (the
+  schemas read).

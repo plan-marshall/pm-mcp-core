@@ -1,0 +1,47 @@
+= ADR 011: A Configuration Key Whose Domain No Input Type Expresses Carries None
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+`ConfigKeyRegistry.ConfigKey` carries its value domain as `de.planmarshall.workflow.ast.InputType`, the sealed type of
+the three inputs a unit can declare: `Enumeration`, `IntRange` (both bounds or none) and `EnumList`. The production key
+table has seven domains, and only three of them fit: most keys are `Text`, `Object`, a list of text, a union or a
+one-sided integer range (`envelope_budget_tokens` states a minimum only). The plan's text assumed the registry could
+hold the table's domain directly; it cannot, and the operator chose the nullable domain over a lossy conversion or an
+extension of the DSL's input type system.
+
+== Decision
+
+`ConfigKey.domain` is `@Nullable InputType`. `ProductRegistries` converts a domain where a closed input type expresses it
+an enumeration, a bounded range, an unbounded range and a list of an enumeration — and yields `null` otherwise.
+`ConfigKeyRegistry.assignable` answers `false` for a key without a domain, and `WorkflowValidator`'s refusal says "no
+closed input type" instead of reading the domain. A key without a domain can therefore never be the source of an
+`input_fallback`, which is correct: no input type admits its values.
+
+== Alternatives Considered
+
+1. *Convert lossily into the three input types.* Rejected: `Text` and `Object` have no counterpart, and mapping them to
+   an arbitrary enumeration would let the assignability check pass by accident.
+2. *Extend `InputType` with the missing members.* Rejected: `InputType` is the DSL's declaration vocabulary (the parser,
+   the printer and the frontmatter reader all switch over it), and this plan changes no declaration.
+
+== Consequences
+
+This is a surface delta against the plan's read-only list: `ConfigKeyRegistry` and `WorkflowValidator` are edited, and
+both edits are named in the landing. The two classes' existing tests pass unchanged, because the constructor never
+refused a `null` domain that a caller supplied. A domain that becomes expressible needs no change here: the conversion
+is written once, in the factory.
+
+== Source
+
+* Plan `PLAN-V2-10`, Deliverable 3; the operator's answer of 2026-11-18 (nullable domain).
+* Workflow DSL, Unit Declarations (the three input types).
+* ADR `workflow-verify/015` (the closed configuration lives outside `pm-workflow`).

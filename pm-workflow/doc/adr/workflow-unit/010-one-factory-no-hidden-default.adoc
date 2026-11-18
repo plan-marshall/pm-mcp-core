@@ -1,0 +1,46 @@
+= ADR 010: One Factory, No Hidden Default
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+Three call sites verify units: `DefaultUnitLoader` reads the compiled units, `ProjectUnitLoader` the project's copies
+and `PlanInstanceComposer` the composed plan instance. All three read a `VerificationContext` whose `configKeys` and
+`factKinds` are arguments. Before this change the only production context was a five-argument constructor that supplied
+the empty registries, so the production verifier refused every unit that declared a read.
+
+== Decision
+
+`ProductRegistries.context(PrimitiveRegistry, List<WorkflowDefinition>)` is the one place that builds a production
+context: the default entity kinds, question classes and schemas, the compiled key table and the derived fact kinds, over
+the primitives and the compiled units the assembly supplies. No production class builds a context with empty registries.
+The five-argument constructor and the empty registries stay exactly as they are, as the default of the existing test
+constructors, and a test proves that the unit which passes under the product context is refused under the empty one.
+
+== Alternatives Considered
+
+1. *Fill the empty registries lazily inside `VerificationContext`.* Rejected: it would make the test default and the
+   production default the same object, and the fail-closed control (a unit that declares a read must be refused without a
+   supplied registry) would disappear.
+2. *Let each call site assemble its own registries.* Rejected: three assemblies drift, and the assignability rules would
+   be applied against three possibly different key sets.
+
+== Consequences
+
+The assembly (`pm-mcp-server` in `plan-marshall-mcp`) calls the one factory. The composer builds its own validator from
+the context's components rather than through `VerificationContext.validator`, so the factory reaches it through the
+context alone; a change to the composition of a context is a change in one place. The next call site that verifies a unit
+takes the context, not the registries.
+
+== Source
+
+* Plan `PLAN-V2-10`, Decision 7 and Deliverable 3.
+* Workflow DSL, Static AST Verification Rules, Rule 1.
+* ADR `workflow-verify/015` (the closed configuration lives outside `pm-workflow`).

@@ -1,0 +1,43 @@
+= ADR 009: The Fact-Kind Registry Has No List of Its Own
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+A unit declares the derived facts it reads with `reads_fact`, and the verifier refuses a kind the closed set does not
+hold. The closed set exists once already: the enumeration `DerivedFactKind` of `de.planmarshall.core.store`, each
+constant with its wire name (ADR `core-store/053`). Beside it the store package holds `DerivedFactKinds`, the registry
+that binds a kind to its value schema, and the store `DerivedFactStore`.
+
+== Decision
+
+`ProductRegistries.factKinds()` builds the registry from `DerivedFactKind.values()` by wire name and from nothing else.
+The value-schema registry and the store are not read: a unit's `reads_fact` names a kind, never a value. The
+completeness test derives its expected set from the enumeration at run time, so a kind added to the enumeration is
+registered without an edit.
+
+== Alternatives Considered
+
+1. *Keep a list of the sixteen names in `pm-workflow`.* Rejected: it is a second list of one closed set, and it would
+   drift in silence.
+2. *Build the registry from the registered value schemas.* Rejected: registration is a store concern, and a kind with no
+   registered schema would silently leave the registry.
+
+== Consequences
+
+A fact kind is added once, in the enumeration, and reaches the verifier through this factory. A kind whose value schema
+is not registered still passes the verifier's kind check, which is correct: the check is about the declaration's
+vocabulary, not about the store's readiness.
+
+== Source
+
+* Plan `PLAN-V2-10`, Decision 6 and Deliverable 3.
+* Store Schemas 09, Derived Facts Store (the closed kind enumeration).
+* Workflow DSL, Static AST Verification Rules, Rule 1 (`reads_fact`).

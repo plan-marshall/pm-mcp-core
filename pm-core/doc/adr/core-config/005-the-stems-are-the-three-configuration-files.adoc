@@ -1,0 +1,42 @@
+= ADR 005: The Stems Are the Three Configuration Files
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+The configuration files are five: the team files `project.json`, `workflow.json`, `domains.json` and `build-map.json`
+(Store Schemas 07) and the operator file `local-config.json` (Store Schemas 08). A unit's `reads_config` names a key of
+the form `<file_stem>.<dotted path>`, and `derived.` names a fact, not a configuration value.
+
+== Decision
+
+The stems are `project`, `workflow` and `local-config`, and `EffectiveConfigKey` refuses every other stem, naming the
+three it accepts. `domains.json` is an open map of domain overrides and `build-map.json` an open map of route tables:
+both hold records whose names a discovery produces, and no guard or unit reads one by name. `format_version` (all three
+files read) and `revision` (the operator file) are file metadata, not configuration values. The parity test asserts the
+stem set and each of the four left-out names, so leaving one out is a statement and not an omission.
+
+== Alternatives Considered
+
+1. *Register `domains` and `build-map` with wildcard keys.* Rejected: their members are keyed by a detected domain and
+   by a route, not by a closed name, so every such key would be a wildcard over a set the schema does not close.
+2. *Register `format_version` and `revision` as ordinary keys.* Rejected: they are the file's own carrying facts, and the
+   specification's version rule reads them before any value.
+
+== Consequences
+
+A new configuration file that holds values needs a stem here, a table, and a parity walk; a file whose members are
+data is added to the left-out assertion instead.
+
+== Source
+
+* Plan `PLAN-V2-10`, Decision 2.
+* Store Schemas 07, Project Configuration (the file table and the version rule).
+* Store Schemas 08, Operator Local Configuration (the revision rule).
