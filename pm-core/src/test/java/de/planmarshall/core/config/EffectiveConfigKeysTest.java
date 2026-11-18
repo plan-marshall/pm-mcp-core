@@ -198,13 +198,14 @@ class EffectiveConfigKeysTest {
         @DisplayName("Should refuse a change to the table and to the stems")
         void shouldBeImmutable() {
             var keys = EffectiveConfigKeys.all();
+            var stems = EffectiveConfigKeys.stems();
             var extra = new EffectiveConfigKey("project.extra", new ConfigValueDomain.Text(), false);
 
             assertThrows(UnsupportedOperationException.class,
                     () -> keys.add(extra),
                     "The table should refuse an addition");
             assertThrows(UnsupportedOperationException.class,
-                    () -> EffectiveConfigKeys.stems().add("derived"),
+                    () -> stems.add("derived"),
                     "The stem set should refuse an addition");
         }
     }
