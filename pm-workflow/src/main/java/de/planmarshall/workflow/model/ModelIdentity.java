@@ -79,29 +79,50 @@ public final class ModelIdentity {
      */
     public static void check(RoleResolver resolver, List<ListedQuorum> declarations, String site) {
         for (var declaration : declarations) {
-            var roles = new ArrayList<EffectiveRole>();
-            for (var roleName : declaration.roles()) {
-                var resolution = resolver.resolve(roleName);
-                if (resolution instanceof RoleResolution.Undefined undefined) {
-                    throw CompositionRefusal.quorumInvalid(roleName, site, null,
-                            "the role is not defined by the effective role set: " + undefined.detail());
-                }
-                var role = ((RoleResolution.Defined) resolution).role();
-                if (role.roleClass() != RoleClass.READ_ONLY) {
-                    throw CompositionRefusal.quorumInvalid(roleName, site, role.roleClass(),
-                            "a quorum lists only read_only roles");
-                }
-                roles.add(role);
+            requireDiverse(declaration, resolvedRoles(declaration, resolver, site), site);
+        }
+    }
+
+    /**
+     * @param declaration the declaration
+     * @param resolver    the resolver of the plan's effective role set
+     * @param site        the unit the declaration belongs to, named by a refusal
+     * @return the effective roles the declaration lists, in source order
+     * @throws CompositionRefusal {@code quorum_invalid} for a listed role that is undefined or not {@code read_only}
+     */
+    private static List<EffectiveRole> resolvedRoles(ListedQuorum declaration, RoleResolver resolver, String site) {
+        var roles = new ArrayList<EffectiveRole>();
+        for (var roleName : declaration.roles()) {
+            var resolution = resolver.resolve(roleName);
+            if (resolution instanceof RoleResolution.Undefined undefined) {
+                throw CompositionRefusal.quorumInvalid(roleName, site, null,
+                        "the role is not defined by the effective role set: " + undefined.detail());
             }
-            for (var first = 0; first < roles.size(); first++) {
-                for (var second = first + 1; second < roles.size(); second++) {
-                    var firstRole = roles.get(first);
-                    var secondRole = roles.get(second);
-                    var identity = shared(firstRole, secondRole);
-                    if (identity.isPresent()) {
-                        throw CompositionRefusal.quorumNotDiverse(declaration.roles().get(first), firstRole.model(),
-                                declaration.roles().get(second), secondRole.model(), identity.get(), site);
-                    }
+            var role = ((RoleResolution.Defined) resolution).role();
+            if (role.roleClass() != RoleClass.READ_ONLY) {
+                throw CompositionRefusal.quorumInvalid(roleName, site, role.roleClass(),
+                        "a quorum lists only read_only roles");
+            }
+            roles.add(role);
+        }
+        return roles;
+    }
+
+    /**
+     * @param declaration the declaration
+     * @param roles       its effective roles, in source order
+     * @param site        the unit the declaration belongs to, named by the refusal
+     * @throws CompositionRefusal {@code quorum_not_diverse} for the first pair that names one model
+     */
+    private static void requireDiverse(ListedQuorum declaration, List<EffectiveRole> roles, String site) {
+        for (var first = 0; first < roles.size(); first++) {
+            for (var second = first + 1; second < roles.size(); second++) {
+                var firstRole = roles.get(first);
+                var secondRole = roles.get(second);
+                var identity = shared(firstRole, secondRole);
+                if (identity.isPresent()) {
+                    throw CompositionRefusal.quorumNotDiverse(declaration.roles().get(first), firstRole.model(),
+                            declaration.roles().get(second), secondRole.model(), identity.get(), site);
                 }
             }
         }

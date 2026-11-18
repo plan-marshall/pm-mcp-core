@@ -217,12 +217,12 @@ class PlanInstanceStoreTest {
             assertAll(
                     () -> assertEquals(Optional.empty(), Optional.ofNullable(unmarked.verified()),
                             "the value carries no composer mark"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> recordComposed(unmarked, texts()),
-                            "a version the composer did not return is refused"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> recordComposed(foreignMark, texts()),
-                            "the mark of another version is refused"),
                     () -> assertEquals(Optional.empty(), store.readVersion(1),
                             "nothing was written for a version without its mark"));
+            assertThrows(IllegalArgumentException.class, () -> recordComposed(unmarked, texts()),
+                    "a version the composer did not return is refused");
+            assertThrows(IllegalArgumentException.class, () -> recordComposed(foreignMark, texts()),
+                    "the mark of another version is refused");
         }
 
         @Test

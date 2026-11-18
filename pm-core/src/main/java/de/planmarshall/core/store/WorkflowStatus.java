@@ -153,12 +153,7 @@ Map<String, String> retained) {
                     .formatted(callStack.size(), MAX_CALL_DEPTH));
         }
         if (instanceVersion != null) {
-            if (instanceVersion < 1) {
-                throw new IllegalArgumentException("'instance_version' must be at least 1: " + instanceVersion);
-            }
-            if (scopeType != JournalScopeType.PLAN) {
-                throw new IllegalArgumentException("'instance_version' is kept for plan scopes only");
-            }
+            requireInstanceVersion(scopeType, instanceVersion);
         }
         requireNotNegative(loopBackIteration, "loop_back_iteration");
         requireNotNegative(outlineLoopBacks, "outline_loop_backs");
@@ -532,6 +527,22 @@ Map<String, String> retained) {
     private static void requireNotNegative(long value, String name) {
         if (value < 0) {
             throw new IllegalArgumentException("'%s' must be at least 0: %d".formatted(name, value));
+        }
+    }
+
+    /**
+     * The instance version is a plan's: an integer from {@code 1}, and absent for every other scope.
+     *
+     * @param scopeType       the scope the status belongs to
+     * @param instanceVersion the version in force
+     * @throws IllegalArgumentException if the version is below {@code 1} or the scope is no plan scope
+     */
+    private static void requireInstanceVersion(JournalScopeType scopeType, int instanceVersion) {
+        if (instanceVersion < 1) {
+            throw new IllegalArgumentException("'instance_version' must be at least 1: " + instanceVersion);
+        }
+        if (scopeType != JournalScopeType.PLAN) {
+            throw new IllegalArgumentException("'instance_version' is kept for plan scopes only");
         }
     }
 }

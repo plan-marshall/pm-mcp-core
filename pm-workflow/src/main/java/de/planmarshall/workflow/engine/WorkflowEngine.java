@@ -1176,7 +1176,7 @@ public final class WorkflowEngine {
                     yield null;
                 }
                 case CompositionResult.Refused refused -> {
-                    composition.record(composing, refused);
+                    composition.recordOutcome(composing, refused);
                     yield refusalFacts(event, refused);
                 }
             };
@@ -1192,7 +1192,7 @@ public final class WorkflowEngine {
         private void takeForce(ScopeTransaction composing, CompositionResult.Composed composed) {
             var version = composed.instance().version();
             instanceVersion = version;
-            composition.record(composing, composed);
+            composition.recordOutcome(composing, composed);
             justComposed = composition.unitsOf(composed);
             unitsInForce.clear();
             status = status.toBuilder().instanceVersion(version).build();
@@ -1241,7 +1241,7 @@ public final class WorkflowEngine {
             var result = composition.compose(event, position(), status.instanceVersionInForce().orElse(0));
             switch (result) {
                 case CompositionResult.Composed composed -> takeForce(composing, composed);
-                case CompositionResult.Refused refused -> composition.record(composing, refused);
+                case CompositionResult.Refused refused -> composition.recordOutcome(composing, refused);
             }
             return result;
         }

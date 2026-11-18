@@ -265,7 +265,7 @@ class InstanceVersionEngineTest {
                 returned.anyTimes();
             }
         }
-        composition.record(anyObject(ScopeTransaction.class), capture(recorded));
+        composition.recordOutcome(anyObject(ScopeTransaction.class), capture(recorded));
         expectLastCall().anyTimes();
         expect(composition.unitsOf(anyObject(CompositionResult.Composed.class))).andAnswer(
                 () -> composedUnits.get(((CompositionResult.Composed) getCurrentArguments()[0]).instance().version()))
@@ -473,7 +473,7 @@ class InstanceVersionEngineTest {
             composedUnitsOf(2, units);
             var engine = fixtures.engine(built, fixtures.instancePorts(composition, noFiles()), projectCopy);
 
-            var step = committedStep(transaction -> engine.advance(EngineFixtures.planStatus(EXECUTE, "s.invoke"),
+            committedStep(transaction -> engine.advance(EngineFixtures.planStatus(EXECUTE, "s.invoke"),
                     store, transaction, history));
 
             var written = history.read().records();

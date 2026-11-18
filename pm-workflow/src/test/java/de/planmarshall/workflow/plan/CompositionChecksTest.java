@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.role.EffectiveRole;
