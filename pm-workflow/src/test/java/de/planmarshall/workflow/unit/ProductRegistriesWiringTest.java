@@ -261,8 +261,8 @@ class ProductRegistriesWiringTest {
 
     private static List<String> violations(CompositionResult result) {
         return switch (result) {
-            case CompositionResult.Refused(var refusal, var messages) -> messages;
-            case CompositionResult.Composed(var composed) -> List.of();
+            case CompositionResult.Refused(_, var messages) -> messages;
+            case CompositionResult.Composed(_) -> List.of();
         };
     }
 

@@ -85,10 +85,10 @@ public final class ProductRegistries {
             case ConfigValueDomain.Enumeration(var values) -> Optional.of(new InputType.Enumeration(values));
             case ConfigValueDomain.IntegerRange(var min, var max) -> range(min, max);
             case ConfigValueDomain.ListOf(var element) -> listOf(element);
-            case ConfigValueDomain.Bool ignored -> Optional.empty();
-            case ConfigValueDomain.Text ignored -> Optional.empty();
-            case ConfigValueDomain.Object ignored -> Optional.empty();
-            case ConfigValueDomain.Union ignored -> Optional.empty();
+            case ConfigValueDomain.Bool _ -> Optional.empty();
+            case ConfigValueDomain.Text _ -> Optional.empty();
+            case ConfigValueDomain.Object _ -> Optional.empty();
+            case ConfigValueDomain.Union _ -> Optional.empty();
         };
     }
 

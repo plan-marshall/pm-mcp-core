@@ -33,6 +33,7 @@ import de.planmarshall.core.SchemaResource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -195,7 +196,7 @@ class EffectiveConfigKeysSchemaParityTest {
     void shouldReadTheCleanupDurationFromMachineConfig() {
         var expected = walk().get("local-config.cleanup.plans_after_days");
 
-        assertTrue(expected != null, "The cleanup duration should be a key");
+        assertNotNull(expected, "The cleanup duration should be a key");
         assertEquals(new ConfigValueDomain.Union(List.of(new ConfigValueDomain.IntegerRange(7, null),
                         new ConfigValueDomain.Enumeration(List.of("never")))),
                 expected.domain(), "The union should follow machine-config's definition");
@@ -249,12 +250,12 @@ class EffectiveConfigKeysSchemaParityTest {
             var name = String.valueOf(entry.getKey());
             var childPath = path.isEmpty() ? name : path + "." + name;
             var child = asObject(entry.getValue());
-            record(childPath, child, into, document);
+            recordNode(childPath, child, into, document);
             walkNode(child, childPath, into, document);
         }
         for (var entry : additionalProperties(schema, document).entrySet()) {
             var childPath = path.isEmpty() ? "*" : path + ".*";
-            record(childPath, entry.getValue(), into, document);
+            recordNode(childPath, entry.getValue(), into, document);
             walkNode(entry.getValue(), childPath, into, document);
         }
     }
@@ -279,7 +280,7 @@ class EffectiveConfigKeysSchemaParityTest {
         walkObject(resolved, path, into, document);
     }
 
-    private static void record(String path, Map<?, ?> node, Map<String, SchemaNode> into, Map<?, ?> document) {
+    private static void recordNode(String path, Map<?, ?> node, Map<String, SchemaNode> into, Map<?, ?> document) {
         var resolved = resolve(node, document);
         var description = resolved.get("description");
         into.put(path, new SchemaNode(domain(resolved, document), resolved.containsKey("default"),

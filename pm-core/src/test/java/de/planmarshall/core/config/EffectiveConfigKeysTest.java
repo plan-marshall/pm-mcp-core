@@ -53,8 +53,9 @@ class EffectiveConfigKeysTest {
                 "project.re-view.x*y" })
         @DisplayName("Should refuse a key whose effective-key form breaks the grammar")
         void shouldRefuseMalformedKey(String source) {
+            var domain = new ConfigValueDomain.Text();
             var exception = assertThrows(IllegalArgumentException.class,
-                    () -> new EffectiveConfigKey(source, new ConfigValueDomain.Text(), false),
+                    () -> new EffectiveConfigKey(source, domain, false),
                     "Malformed effective key should be refused");
 
             assertNotNull(exception.getMessage(), "Refusal should state its reason");
@@ -65,8 +66,9 @@ class EffectiveConfigKeysTest {
         @Test
         @DisplayName("Should name the derived-fact reading of a derived stem")
         void shouldExplainTheDerivedStem() {
+            var domain = new ConfigValueDomain.Bool();
             var exception = assertThrows(IllegalArgumentException.class,
-                    () -> new EffectiveConfigKey("derived.push_remote", new ConfigValueDomain.Bool(), false),
+                    () -> new EffectiveConfigKey("derived.push_remote", domain, false),
                     "A derived stem should be refused");
 
             assertTrue(exception.getMessage().contains("derived fact"),
@@ -76,8 +78,9 @@ class EffectiveConfigKeysTest {
         @Test
         @DisplayName("Should refuse a missing key or a missing domain")
         void shouldRefuseMissingComponents() {
+            var domain = new ConfigValueDomain.Text();
             assertThrows(NullPointerException.class,
-                    () -> new EffectiveConfigKey(null, new ConfigValueDomain.Text(), false),
+                    () -> new EffectiveConfigKey(null, domain, false),
                     "A missing key should be refused");
             assertThrows(NullPointerException.class,
                     () -> new EffectiveConfigKey("project.base_branch", null, false),
@@ -92,11 +95,13 @@ class EffectiveConfigKeysTest {
         @Test
         @DisplayName("Should refuse an empty and a duplicated enumeration")
         void shouldRefuseBrokenEnumeration() {
+            var empty = List.<String>of();
+            var duplicated = List.of("a", "a");
             assertThrows(IllegalArgumentException.class,
-                    () -> new ConfigValueDomain.Enumeration(List.of()),
+                    () -> new ConfigValueDomain.Enumeration(empty),
                     "An empty value set should be refused");
             assertThrows(IllegalArgumentException.class,
-                    () -> new ConfigValueDomain.Enumeration(List.of("a", "a")),
+                    () -> new ConfigValueDomain.Enumeration(duplicated),
                     "A duplicated value should be refused");
         }
 
@@ -111,8 +116,9 @@ class EffectiveConfigKeysTest {
         @Test
         @DisplayName("Should refuse a union of fewer than two alternatives")
         void shouldRefuseShortUnion() {
+            var alternatives = List.<ConfigValueDomain>of(new ConfigValueDomain.Text());
             assertThrows(IllegalArgumentException.class,
-                    () -> new ConfigValueDomain.Union(List.of(new ConfigValueDomain.Text())),
+                    () -> new ConfigValueDomain.Union(alternatives),
                     "A one-member union should be refused");
         }
 
@@ -192,9 +198,10 @@ class EffectiveConfigKeysTest {
         @DisplayName("Should refuse a change to the table and to the stems")
         void shouldBeImmutable() {
             var keys = EffectiveConfigKeys.all();
+            var extra = new EffectiveConfigKey("project.extra", new ConfigValueDomain.Text(), false);
 
             assertThrows(UnsupportedOperationException.class,
-                    () -> keys.add(new EffectiveConfigKey("project.extra", new ConfigValueDomain.Text(), false)),
+                    () -> keys.add(extra),
                     "The table should refuse an addition");
             assertThrows(UnsupportedOperationException.class,
                     () -> EffectiveConfigKeys.stems().add("derived"),
