@@ -264,7 +264,7 @@ class EndpointVerificationTest {
     @Test
     @DisplayName("a models listing whose body is not JSON fails the identity stage instead of the run")
     void malformedModelsListing() {
-        on("GET", profile.endpoint().modelsPath(), fixed(200, word()));
+        on("GET", profile.endpoint().modelsPath(), fixed(200, "{"));
 
         var result = verification().verify(profile, MODEL, word(), toolTask(), decoy, schema);
 
@@ -275,9 +275,9 @@ class EndpointVerificationTest {
     }
 
     @Test
-    @DisplayName("an answer whose body is not JSON still launches the endpoint and is measured advisory")
+    @DisplayName("an answer whose body is not JSON fails the launch and is measured advisory")
     void malformedAnswer() {
-        on("POST", EndpointClient.CHAT_PATH, fixed(200, word()));
+        on("POST", EndpointClient.CHAT_PATH, fixed(200, "{"));
 
         var result = verification().verify(profile, MODEL, word(), toolTask(), decoy, schema);
 

@@ -49,9 +49,15 @@ one-member guard is the behaviour the specification states in the *Unreadable St
 
 == Consequences
 
-A truncated `harnesses.json` now refuses every read with `harness_store_unreadable` and therefore every worker launch
-that verifies the store, which counts as a start failure of the role on that harness until a new enrolment re-baselines
-the file — the same flow a tampered file takes.
+A `harnesses.json` that fails its integrity check — a truncated file whose sidecar no longer matches included — refuses
+every read with `harness_tampered` before `decode` runs. A document that passes the integrity check but carries no
+`harnesses` object refuses every read with `harness_store_unreadable`, and therefore every worker launch that verifies
+the store, until a new enrolment re-baselines the file.
+
+Store Schemas § Unreadable Store also requires such a refusal to count as a start failure of the role on that harness.
+The launch refusal path records the fate without calling `StartFailureGuard.startFailed`, which no production code calls
+today, so that part of the requirement — shared with the tampered-file refusal — remains owed and is reported in the
+run's landing rather than changed here.
 
 A later writer that adds a top-level member adds it to `harnesses.schema.json`, which declares
 `additionalProperties: false`. This guard checks only that `harnesses` is present and is an object: a top-level member

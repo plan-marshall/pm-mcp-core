@@ -61,8 +61,9 @@ public final class AnswerSchema {
     /**
      * The check, in the order the refusals are stated: the depth and shape guard, the keyword guard, the {@code $ref}
      * branch, the type of the answer, the {@code const} and {@code enum} guard, and the dispatch on the answer's kind.
-     * The steps are separate methods so no one of them carries the whole of the check; their order is the contract
-     * {@code AnswerSchemaTest} pins, and every refusal a case states is pinned there with its message.
+     * The steps are separate methods so no one of them carries the whole of the check; their order is observable
+     * through {@code AnswerSchemaTest}, which pins a type refusal ahead of a const refusal on the same answer, and the
+     * refusals no earlier case reached are pinned there with their message.
      */
     private static Check check(JsonNode root, JsonNode schema, JsonNode answer, String pointer, int depth) {
         var shape = guardDepthAndShape(schema, pointer, depth);

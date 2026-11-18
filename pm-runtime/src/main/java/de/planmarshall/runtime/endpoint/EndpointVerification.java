@@ -241,16 +241,14 @@ public final class EndpointVerification {
         if (answered.isEmpty()) {
             return ADVISORY;
         }
-        // contentOf parsed exactly these bytes, so the content is a JSON document and no refusal can be raised here.
-        var document = JsonDocument.parse(answered.get().getBytes(StandardCharsets.UTF_8), "answer");
-        return AnswerSchema.validate(contradicted, document).valid() ? ENFORCED : ADVISORY;
+        return AnswerSchema.validate(contradicted, answered.get()).valid() ? ENFORCED : ADVISORY;
     }
 
     /**
-     * @return the content of one answer, or empty when the endpoint did not answer, did not answer successfully, or
-     *         answered with something that is not a JSON document
+     * @return the content of one answer as the document it was parsed to, or empty when the endpoint did not answer,
+     *         did not answer successfully, or answered with something that is not a JSON document
      */
-    private Optional<String> content(EndpointProfile profile, String model, String task, @Nullable JsonNode schema) {
+    private Optional<JsonNode> content(EndpointProfile profile, String model, String task, @Nullable JsonNode schema) {
         var request = EndpointRequest.builder()
                 .model(model)
                 .system("")
@@ -262,7 +260,7 @@ public final class EndpointVerification {
         return contentOf(client.post(profile, EndpointClient.CHAT_PATH, request.body()));
     }
 
-    private static Optional<String> contentOf(EndpointClient.Response response) {
+    private static Optional<JsonNode> contentOf(EndpointClient.Response response) {
         if (response.failure() != EndpointClient.Failure.NONE || !response.successful()) {
             return Optional.empty();
         }
@@ -276,8 +274,7 @@ public final class EndpointVerification {
             if (content.isEmpty() || content.get().isEmpty()) {
                 return Optional.empty();
             }
-            JsonDocument.parse(content.get().getBytes(StandardCharsets.UTF_8), "content");
-            return content;
+            return Optional.of(JsonDocument.parse(content.get().getBytes(StandardCharsets.UTF_8), "content"));
         } catch (ProfileRefusal _) {
             return Optional.empty();
         }

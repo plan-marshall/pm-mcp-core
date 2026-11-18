@@ -273,7 +273,7 @@ class EndpointHarnessTest {
     @DisplayName("a models listing whose body is not JSON is no listing")
     void malformedListing() {
         var profile = EndpointFixtures.profile(base);
-        on("GET", profile.endpoint().modelsPath(), 200, word());
+        on("GET", profile.endpoint().modelsPath(), 200, "{");
 
         assertTrue(enrolledHarness().listing(profile).isEmpty(), "a body that is no JSON yields no models");
     }
