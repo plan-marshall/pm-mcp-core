@@ -39,16 +39,16 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WOR
 Hazard:: A rubric score parsed from free text, or from a judge that could read the repository or reach the server,
 qualifies a configuration on a grade nobody can trust; a missing score counted as zero or as met skews the
 agreement either way.
-Guard:: `WorkerJudgeScorer` reads a judge reply for its `score` alone: an object whose `score` lies in zero to one
-closes `submitted` with that score, and a reply without such a `score` — prose, a non-object, a score outside the
-range — closes the task `lost`, leaves the item ungraded, and raises the record's `ungraded` count so that it
-qualifies no form; the next grading run re-grades only that item while the qualification digest and the corpus
-revision are unchanged (`WorkerJudgeScorerTest`, `RoleGraderTest`). The judge's job runs in the empty `cwd/` with no
-MCP connection and one turn (`LaunchComposerTest`, `WorkerGradingHarnessTest`, `WorkerVectorCheckTest`).
-Matched control: a reply that carries a `score` in the range closes `submitted` and its `score` is the item's score.
+Guard:: `WorkerJudgeScorer` reads a judge reply for its `score` alone: a `judge-score` object whose `score` lies in
+zero to one is the item's score, and an object without such a `score` leaves the item ungraded although the task ends
+`submitted` (`WorkerJudgeScorerTest` submits `{"score": 2}` and gets an ungraded item). An ungraded item raises the
+record's `ungraded` count, for which no form qualifies (`QualificationCheckTest`), and the next grading run re-grades
+only that item while the qualification digest and the corpus revision are unchanged (`RoleGraderTest`). The judge's
+job keeps the zero-tool launch rule: the job-private `cwd/`, no tool and no MCP connection (`LaunchComposerTest`),
+one turn (`WorkerVectorCheckTest`).
+Matched control: a reply that carries a `score` in the range is the item's score.
 Remaining: the members of `judge-score` beyond `score` are validated by no reader, so a reply that carries an
-undeclared member, or omits one, is accepted; validating the reply against its schema
-(`judge-score-v1.schema.json`, read by `QualificationSchemaParityTest` for the record alone) is what is left.
+undeclared member, or omits one, is accepted; validating the reply against its schema is what is left.
 Source:: design review.
 
 [#PM-WATCH-DISP-57]
