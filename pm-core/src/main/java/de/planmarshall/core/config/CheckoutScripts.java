@@ -37,13 +37,15 @@ import lombok.experimental.UtilityClass;
  * checkout, and the remembered entry is passed only while it lists each of them with that digest.
  * <p>
  * The digests come from the checkout and change nothing. A script is read as the regular file it is, at its
- * repository-relative path, and the whole path is checked without following a link: a symbolic link between the checkout
- * root and the script, a path that leaves the checkout, an absent file and a directory are refused rather than digested,
- * so no consent ever covers a file outside the checkout. The digest itself is read through directory handles opened from
- * the checkout root ({@link java.nio.file.SecureDirectoryStream}), so no component can be replaced by a symbolic link
- * between the check and the read — the handles denote the directories that were checked. A file system whose provider
- * offers no secure traversal is refused rather than read by path, because the check and the read would otherwise be two
- * different lookups. The recorded path is spelled with {@code /} on every platform.
+ * repository-relative path, and the path is checked without following a link: a symbolic link between the checkout root
+ * and the script, a path that leaves the checkout, an absent file and a directory are refused rather than digested, so no
+ * consent ever covers a file outside the checkout. The digest itself is read through directory handles opened from the
+ * checkout root ({@link java.nio.file.SecureDirectoryStream}): each component is opened relative to its parent with
+ * {@code NOFOLLOW_LINKS}, and the script with the same option on the parent handle, so no component of the read can be a
+ * symbolic link and no directory can be exchanged for a link between opening it and reading below it. The up-front check
+ * names the path; the handles make the read itself link-free. A file system whose provider offers no secure traversal is
+ * refused rather than read by path, because the check and the read would otherwise be two different lookups. The recorded
+ * path is spelled with {@code /} on every platform.
  *
  * @since 0.1
  */
