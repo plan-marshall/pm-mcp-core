@@ -94,7 +94,7 @@ class CompositionChecksTest {
         @DisplayName("a missing role refuses the composition with role_undefined")
         void missingRole(CompositionEvent event) {
             var refused = assertInstanceOf(CompositionResult.Refused.class, compose(event,
-                    checks(resolver(java.util.Map.of()), uri -> true)));
+                    checks(resolver(java.util.Map.of()), uri -> true)), "a missing role refuses the composition");
 
             assertAll(
                     () -> assertEquals(CompositionResult.Refusal.ROLE_UNDEFINED, refused.refusal(),
@@ -116,7 +116,8 @@ class CompositionChecksTest {
                     "architect", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                     "reviewer", role(RoleClass.READ_ONLY, "claude", "opus", null)));
             var refused = assertInstanceOf(CompositionResult.Refused.class,
-                    compose(CompositionEvent.START, checks(implementer, uri -> true)));
+                    compose(CompositionEvent.START, checks(implementer, uri -> true)),
+                    "a zero-tool role in a model job is refused");
 
             assertAll(
                     () -> assertEquals(CompositionResult.Refusal.CLASS_MISMATCH, refused.refusal(),
@@ -138,7 +139,8 @@ class CompositionChecksTest {
                     "architect", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                     "reviewer", role(RoleClass.READ_ONLY, "claude", "openrouter/claude/sonnet:free", null)));
             var refused = assertInstanceOf(CompositionResult.Refused.class,
-                    compose(CompositionEvent.START, checks(sameModel, uri -> true)));
+                    compose(CompositionEvent.START, checks(sameModel, uri -> true)),
+                    "a quorum on one model is refused");
 
             assertAll(
                     () -> assertEquals(CompositionResult.Refusal.QUORUM_NOT_DIVERSE, refused.refusal(),
@@ -219,7 +221,7 @@ class CompositionChecksTest {
     void noChecksComposes() {
         assertInstanceOf(CompositionResult.Composed.class,
                 compose(CompositionEvent.START, CompositionChecks.NONE),
-                "a composition without a project checks neither role nor skill");
+                "a composition without a project checks no role");
     }
 
     @Test
@@ -235,7 +237,8 @@ class CompositionChecksTest {
                 "architect", role(RoleClass.READ_ONLY, "claude", "qwen3:32b", null),
                 "reviewer", role(RoleClass.READ_ONLY, "claude", "qwen3:8b", null)));
         var refused = assertInstanceOf(CompositionResult.Refused.class,
-                compose(CompositionEvent.START, checks(sameModel, uri -> true)));
+                compose(CompositionEvent.START, checks(sameModel, uri -> true)),
+                "the adjudication unit's quorum is checked");
 
         assertEquals(CompositionResult.Refusal.QUORUM_NOT_DIVERSE, refused.refusal(),
                 "two tags of one model name count as one model");
@@ -254,7 +257,8 @@ class CompositionChecksTest {
                 "architect", role(RoleClass.WRITER, "claude", "sonnet", null),
                 "reviewer", role(RoleClass.READ_ONLY, "claude", "opus", null)));
         var refused = assertInstanceOf(CompositionResult.Refused.class,
-                compose(CompositionEvent.START, checks(writer, uri -> true)));
+                compose(CompositionEvent.START, checks(writer, uri -> true)),
+                "a writer role in a quorum is refused");
 
         assertEquals(CompositionResult.Refusal.QUORUM_INVALID, refused.refusal(),
                 "a writer role in a quorum is quorum_invalid");
@@ -264,9 +268,11 @@ class CompositionChecksTest {
     @DisplayName("a composition reads no catalogue when the checks name none")
     void answeredAbsence() {
         assertAll(
-                () -> assertEquals(Optional.empty(), CompositionChecks.NONE.roles() == null ? Optional.empty()
-                        : Optional.of(CompositionChecks.NONE.roles()), "no roles are wired"),
-                () -> assertTrue(CompositionChecks.NONE.skills() == null, "no catalogue is wired"),
-                () -> assertEquals(Set.of(), Set.of()));
+                () -> assertEquals(Optional.empty(),
+                        Optional.ofNullable(CompositionChecks.NONE.roles()),
+                        "the checks wire no role resolver"),
+                () -> assertEquals(Optional.empty(),
+                        Optional.ofNullable(CompositionChecks.NONE.skills()),
+                        "the checks wire no skill catalogue"));
     }
 }

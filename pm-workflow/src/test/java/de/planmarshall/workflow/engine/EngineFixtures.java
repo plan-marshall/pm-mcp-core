@@ -12,6 +12,7 @@ package de.planmarshall.workflow.engine;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.createNiceMock;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.getCurrentArguments;
 import static org.easymock.EasyMock.newCapture;
@@ -33,6 +34,7 @@ import java.util.Set;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
 
+import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.FreeParam;
@@ -56,6 +58,7 @@ import de.planmarshall.core.spi.WorkflowClock;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScopeType;
+import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.workflow.ast.UnitOrigin;
@@ -515,24 +518,17 @@ final class EngineFixtures {
     }
 
     /**
-     * A lock transaction that holds every key: the test is the only writer of its scope.
+     * A lock transaction that holds every key: the test is the only writer of its scope, so every store it writes
+     * passes the held-key guard. A nice EasyMock double, so {@code acquire} and {@code close} answer nothing and
+     * {@code holds} answers {@code true} for every key (ADR 026: no hand-written double).
+     *
+     * @return the lock transaction of a test that owns its scope
      */
-    static final class HoldingEverything implements de.planmarshall.core.service.LockTransaction {
-
-        @Override
-        public void acquire(de.planmarshall.core.store.LockKey key) {
-            // every key is held already
-        }
-
-        @Override
-        public boolean holds(de.planmarshall.core.store.LockKey key) {
-            return true;
-        }
-
-        @Override
-        public void close() {
-            // nothing to release
-        }
+    static LockTransaction holdingEverything() {
+        LockTransaction lock = createNiceMock(LockTransaction.class);
+        expect(lock.holds(anyObject(LockKey.class))).andStubReturn(true);
+        replay(lock);
+        return lock;
     }
 
     /**

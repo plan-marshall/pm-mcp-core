@@ -10,6 +10,16 @@
 package de.planmarshall.workflow.engine;
 
 import static de.planmarshall.workflow.engine.EngineFixtures.PLAN_ID;
+import static org.easymock.EasyMock.anyInt;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.eq;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -21,8 +31,6 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,7 +47,6 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.plan.CompositionEvent;
 import de.planmarshall.workflow.plan.CompositionInputs;
-import de.planmarshall.workflow.plan.CompositionRecord;
 import de.planmarshall.workflow.plan.CompositionResult;
 import de.planmarshall.workflow.plan.InstanceComposition;
 import de.planmarshall.workflow.plan.InstancePosition;
@@ -48,6 +55,8 @@ import de.planmarshall.workflow.plan.PlanInstance;
 import de.planmarshall.workflow.plan.PlanInstanceComposer;
 import de.planmarshall.workflow.plan.PlanInstanceHeader;
 import de.planmarshall.workflow.plan.UnitReference;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -202,7 +211,7 @@ class InstanceVersionEngineTest {
     }
 
     private void committed(java.util.function.Consumer<ScopeTransaction> writing) {
-        try (var lock = new EngineFixtures.HoldingEverything()) {
+        try (var lock = EngineFixtures.holdingEverything()) {
             var transaction = ScopeTransaction.open(lock, scope, event -> {
                 // no audit record is owed
             }, Clock.fixed(T0, ZoneOffset.UTC));
@@ -224,81 +233,55 @@ class InstanceVersionEngineTest {
         return result[0];
     }
 
-    /** The composition port of a test: the triggers it declares, the result it returns and what it recorded. */
-    private static final class FakeComposition implements InstanceComposition {
+    /** The results the composition port recorded, in the order the engine recorded them. */
+    private final Capture<CompositionResult> recorded = newCapture(CaptureType.ALL);
 
-        private final Map<String, CompositionEvent> triggers = new LinkedHashMap<>();
-
-        private final List<CompositionResult> recorded = new ArrayList<>();
-
-        private final List<InstancePosition> positions = new ArrayList<>();
-
-        private CompositionResult result;
-
-        FakeComposition triggering(String stateId, CompositionEvent event, CompositionResult result) {
-            triggers.put(stateId, event);
-            this.result = result;
-            return this;
+    /**
+     * @param triggers the server event of each state that composes one
+     * @param results  the results the composition returns, in order; the last one for every later call
+     * @return the composition port: an EasyMock double, so a call it was not recorded for fails the test
+     */
+    private InstanceComposition composition(Map<String, CompositionEvent> triggers, CompositionResult... results) {
+        InstanceComposition composition = createMock(InstanceComposition.class);
+        triggers.forEach((stateId, event) ->
+                expect(composition.serverEventAt(stateId)).andReturn(Optional.of(event)).anyTimes());
+        expect(composition.serverEventAt(anyString())).andReturn(Optional.empty()).anyTimes();
+        for (var index = 0; index < results.length; index++) {
+            var returned = expect(composition.compose(anyObject(CompositionEvent.class),
+                    anyObject(InstancePosition.class), anyInt())).andReturn(results[index]);
+            if (index < results.length - 1) {
+                returned.times(1);
+            } else {
+                returned.anyTimes();
+            }
         }
-
-        FakeComposition returning(CompositionResult result) {
-            this.result = result;
-            return this;
-        }
-
-        @Override
-        public Optional<CompositionEvent> serverEventAt(String stateId) {
-            return Optional.ofNullable(triggers.get(stateId));
-        }
-
-        @Override
-        public CompositionResult compose(CompositionEvent event, InstancePosition position, int versionInForce) {
-            positions.add(position);
-            return result;
-        }
-
-        @Override
-        public void record(ScopeTransaction transaction, CompositionResult attempt) {
-            recorded.add(attempt);
-        }
-
-        @Override
-        public void recordKept(ScopeTransaction transaction, CompositionEvent event, CompositionRecord.Result kept) {
-            // a configuration candidate is recorded by the caller that compares it
-        }
+        composition.record(anyObject(ScopeTransaction.class), capture(recorded));
+        expectLastCall().anyTimes();
+        replay(composition);
+        return composition;
     }
 
-    /** The units port of a test: the plan units by version and the stored sub-unit texts by digest. */
-    private static final class FakeUnits implements InstanceUnits {
+    /** @return the outcomes the composition port recorded, in order */
+    private List<CompositionResult> recorded() {
+        return recorded.getValues();
+    }
 
-        private final Map<Integer, WorkflowDefinition> plans = new LinkedHashMap<>();
-
-        private final Map<String, WorkflowDefinition> subUnits = new LinkedHashMap<>();
-
-        FakeUnits plan(int version, WorkflowDefinition unit) {
-            plans.put(version, unit);
-            return this;
-        }
-
-        FakeUnits subUnit(String unit, WorkflowDefinition definition) {
-            subUnits.put(unit, definition);
-            return this;
-        }
-
-        @Override
-        public Optional<WorkflowDefinition> planUnit(int version) {
-            return Optional.ofNullable(plans.get(version));
-        }
-
-        @Override
-        public Optional<WorkflowDefinition> composedUnit(int version, String unit) {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<WorkflowDefinition> subUnit(int version, String unit) {
-            return Optional.ofNullable(subUnits.get(unit));
-        }
+    /**
+     * @param plans    the plan unit of every version the engine may read
+     * @param subUnits the stored text of each sub-unit, by unit id
+     * @return the units port: an EasyMock double over the versions, with no composed file
+     */
+    private static InstanceUnits units(Map<Integer, WorkflowDefinition> plans,
+            Map<String, WorkflowDefinition> subUnits) {
+        InstanceUnits units = createMock(InstanceUnits.class);
+        plans.forEach((version, unit) -> expect(units.planUnit(version)).andReturn(Optional.of(unit)).anyTimes());
+        expect(units.planUnit(anyInt())).andReturn(Optional.empty()).anyTimes();
+        subUnits.forEach((unit, definition) -> expect(units.subUnit(anyInt(), eq(unit)))
+                .andReturn(Optional.of(definition)).anyTimes());
+        expect(units.subUnit(anyInt(), anyString())).andReturn(Optional.empty()).anyTimes();
+        expect(units.composedUnit(anyInt(), anyString())).andReturn(Optional.empty()).anyTimes();
+        replay(units);
+        return units;
     }
 
     @Nested
@@ -309,17 +292,17 @@ class InstanceVersionEngineTest {
         @EnumSource(value = CompositionEvent.class, names = {"OUTLINE", "PLAN", "FALLBACK", "EMPTY_HARVEST", "REPLAN"})
         @DisplayName("composes its version in the entering transaction and the chain selects from it")
         void composesInTheEnteringTransaction(CompositionEvent event) {
-            var composition = new FakeComposition().triggering("s.one", event, composed(2, event));
+            var composition = composition(Map.of("s.one", event), composed(2, event));
             var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition,
-                    new FakeUnits().plan(2, composedUnit(2))));
+                    units(Map.of(2, composedUnit(2)), Map.of())));
 
             var step = committedStep(transaction -> engine.advance(EngineFixtures.planStatus(EXECUTE, "s.one"),
                     store, transaction, history));
 
             assertAll(
-                    () -> assertEquals(1, composition.recorded.size(),
-                            "the composed version was recorded in the advance's transaction"),
-                    () -> assertInstanceOf(CompositionResult.Composed.class, composition.recorded.getFirst(),
+                    () -> assertEquals(1, recorded().size(),
+                            "the version was recorded in the advance's transaction"),
+                    () -> assertInstanceOf(CompositionResult.Composed.class, recorded().getFirst(),
                             "the recorded outcome is the composed version"),
                     () -> assertEquals(2, store.read().orElseThrow().instanceVersion().intValue(),
                             "the version in force is the composed one"),
@@ -335,8 +318,8 @@ class InstanceVersionEngineTest {
         void refusedRaisesPreconditionUnmet() {
             var refusal = new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED,
                     List.of("position: version 2 does not contain the state 's.one' of the unit 'plan'"));
-            var composition = new FakeComposition().triggering("s.one", CompositionEvent.OUTLINE, refusal);
-            var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition, new FakeUnits()));
+            var composition = composition(Map.of("s.one", CompositionEvent.OUTLINE), refusal);
+            var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition, units(Map.of(), Map.of())));
 
             var raised = assertInstanceOf(EngineStep.ConditionRaised.class,
                     committedStep(transaction -> engine.advance(EngineFixtures.planStatus(EXECUTE, "s.one"), store,
@@ -364,8 +347,8 @@ class InstanceVersionEngineTest {
         @DisplayName("takes force from the next transition, never mid-state")
         void takesForceFromTheNextTransition(CompositionEvent event) {
             var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(
-                    new FakeComposition().returning(composed(2, event)),
-                    new FakeUnits().plan(2, composedUnit(2))));
+                    composition(Map.of(), composed(2, event)),
+                    units(Map.of(2, composedUnit(2)), Map.of())));
 
             var after = committedOperator(engine, EngineFixtures.planStatus(EXECUTE, "s.one"), event);
 
@@ -383,8 +366,8 @@ class InstanceVersionEngineTest {
         void refusedIsReturnedAndLogged() {
             var refusal = new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED,
                     List.of("position: version 2 does not contain the state 's.one' of the unit 'plan'"));
-            var composition = new FakeComposition().returning(refusal);
-            var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition, new FakeUnits()));
+            var composition = composition(Map.of(), refusal);
+            var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition, units(Map.of(), Map.of())));
 
             var after = committedOperator(engine, EngineFixtures.planStatus(EXECUTE, "s.one"),
                     CompositionEvent.OVERRIDE);
@@ -392,9 +375,9 @@ class InstanceVersionEngineTest {
             assertAll(
                     () -> assertInstanceOf(CompositionResult.Refused.class, after.result(),
                             "the refusal is returned to the caller"),
-                    () -> assertEquals(1, composition.recorded.size(),
+                    () -> assertEquals(1, recorded().size(),
                             "the refused attempt was recorded in the transaction"),
-                    () -> assertInstanceOf(CompositionResult.Refused.class, composition.recorded.getFirst(),
+                    () -> assertInstanceOf(CompositionResult.Refused.class, recorded().getFirst(),
                             "the recorded attempt is the refusal"),
                     () -> assertTrue(after.status().instanceVersionInForce().isEmpty(),
                             "no version took force"));
@@ -426,11 +409,11 @@ class InstanceVersionEngineTest {
 
                     state completed terminal merged success
                     """);
-            var composition = new FakeComposition().triggering("s.invoke", CompositionEvent.PLAN,
+            var composition = composition(Map.of("s.invoke", CompositionEvent.PLAN),
                     new CompositionResult.Composed(instance(2, CompositionEvent.PLAN, composedPlan,
                             List.of(reference))));
             var engine = fixtures.engine(built, fixtures.instancePorts(composition,
-                    new FakeUnits().plan(2, composedPlan).subUnit("sub", storedText)), projectCopy);
+                    units(Map.of(2, composedPlan), Map.of("sub", storedText))), projectCopy);
 
             var step = committedStep(transaction -> engine.advance(EngineFixtures.planStatus(EXECUTE, "s.invoke"),
                     store, transaction, history));
@@ -450,16 +433,15 @@ class InstanceVersionEngineTest {
         @Test
         @DisplayName("writes its history line and resets no counter of the version before it")
         void rewritesNoHistoryAndNoCounter() {
-            var composition = new FakeComposition().triggering("s.one", CompositionEvent.OUTLINE,
-                    composed(2, CompositionEvent.OUTLINE));
+            var composition = composition(Map.of("s.one", CompositionEvent.OUTLINE),
+                    composed(2, CompositionEvent.OUTLINE), composed(3, CompositionEvent.OVERRIDE));
             var engine = fixtures.engine(builtUnit(), fixtures.instancePorts(composition,
-                    new FakeUnits().plan(2, composedUnit(2))));
+                    units(Map.of(2, composedUnit(2), 3, composedUnit(3)), Map.of())));
             var first = EngineFixtures.planStatus(EXECUTE, "s.one");
 
             var step = committedStep(transaction -> engine.advance(first, store, transaction, history));
             var after = store.read().orElseThrow();
             var written = history.read().records();
-            composition.returning(composed(3, CompositionEvent.OVERRIDE));
             var next = committedOperator(engine, after.toBuilder().state("s.one").build(),
                     CompositionEvent.OVERRIDE);
 
