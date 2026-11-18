@@ -53,7 +53,10 @@ screening leaves its sources `unscreened`.
 `AnswerSchema`::
 The server's own check of an answer against the result schema. The endpoint's `result_schema` value is never trusted: the
 check enforces the JSON Schema subset a result schema uses and refuses a schema with a keyword it does not implement,
-rather than passing it (ADR 003).
+rather than passing it (ADR 003). The check runs as ordered private steps of the class — the depth and shape guard, the
+keyword guard, the `$ref` branch, the type of the answer, the `const` and `enum` guard, and the dispatch on the answer's
+kind — so one keyword is enforced in one place; the order of the steps and every refusal message are the contract
+`AnswerSchemaTest` pins.
 
 [[enrolment]]
 `SocketOwner`::
@@ -117,7 +120,13 @@ task, then hand the harness's enrolment and the request to `EndpointHarness.task
 
 A new protocol is a change of the closed `protocol` list of the endpoint profile and of the code, made once for all
 endpoints: a new `EndpointClient` call for its request format, and the answer reading in `EndpointOutcome`. A new keyword
-of the result-schema subset is added to `AnswerSchema` together with the refusal that ends an answer.
+of the result-schema subset is added to `AnswerSchema.KEYWORDS` and to the step that enforces it — the guard of the
+answer's kind — together with the refusal that ends an answer, which `AnswerSchemaTest` pins.
+
+The documents the package reads are untrusted: `JsonDocument.parse` and `JsonPointer.resolve` state one refusal,
+`ProfileRefusal`, and that is the only exception a read of this package catches. A listing, an answer or a pointer that
+does not read leaves the value unread (an empty `Optional`, an empty listing, or the measurement `advisory`); it never
+ends the run with a generic exception, and a new read catches `ProfileRefusal` by name.
 
 == Invariants and failure modes
 
@@ -129,4 +138,7 @@ of the result-schema subset is added to `AnswerSchema` together with the refusal
 - A model whose weights identity changed is unqualified until it is graded again; the change is audited.
 - The readiness check that does not answer is a start failure, and the attempt that does not end with a valid answer ends
   like a worker without a valid result.
+- A document the package reads is untrusted: a malformed models listing leaves `Optional.empty()` or an empty model
+  list, a malformed answer leaves the answer unread, and a weights pointer that does not resolve leaves the identity
+  unread. The one exception caught is `ProfileRefusal`.
 - No log line, audit line or error text holds a request body.

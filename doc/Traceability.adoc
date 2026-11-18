@@ -1598,8 +1598,11 @@ Implementation (the harness enrolment store and its launch-time verification, `r
 `harnesses.json` with its HMAC sidecar and the canonical write under `locks/harnesses.lock`, the single store API of the
 onboarding's `harness.enrol` and `pm-operator enrol-harness`, the re-baseline of a tampered file with the named client
 only, the re-digest of the executable before every spawn, the evidence check before the version probe, the accepted
-self-update with `harness_updated`, and the refusals `harness_not_enrolled`, `harness_update_unverified`,
-`harness_version_unsupported` and `harness_tampered` (with the `security` audit record `enrolment_tampered`):
+self-update with `harness_updated`, the refusal of a document whose top-level `harnesses` member is missing, `null` or
+not an object as `harness_store_unreadable` instead of reading it as an empty map (ADR
+link:../pm-runtime/doc/adr/runtime-launch/011-a-store-without-a-top-level-harnesses-object-is-unreadable.adoc[runtime-launch/011]),
+and the refusals `harness_not_enrolled`, `harness_update_unverified`, `harness_version_unsupported` and
+`harness_tampered` (with the `security` audit record `enrolment_tampered`):
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.java[HarnessVerifier],
