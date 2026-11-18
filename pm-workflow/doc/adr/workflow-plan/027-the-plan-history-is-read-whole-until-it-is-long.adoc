@@ -1,0 +1,43 @@
+= ADR 027: The Plan History Is Read Whole Until It Is Long
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-17
+
+== Context
+
+`PlanHistory.nextSeq()` decodes the whole of a plan's `mcp/history.jsonl` on every history-bearing advance, to number
+the next line. Review flagged it twice; the answer was "not changed". The file grows by a line per state entered and
+left, per sub-workflow called and returned, and per instance version taking force, so it is tens of lines per phase
+for a normal plan.
+
+A bounded backwards read would be new code in `core.store`. It would also have to keep the semantics the full read
+gives for free: a torn tail and a refused line. `core/queue/ActivityJournal` was named as a private seek primitive to
+promote; it has none — it reads the whole journal and bounds it by compaction (`ActivityJournal` lines 195 to 215).
+
+== Decision
+
+* No tail-read primitive is added now. The cost is one linear read per advance of a file of tens of lines, for a plan.
+* The hazard is recorded as a Watch item in the store-schemas watch, with the measure that would make it a deliverable
+  and the remedy it would take.
+
+== Alternatives Considered
+
+1. *Add a bounded backwards read to `PlanHistory` now.* Deferred: it is new `core.store` code with a torn-tail and a
+   refused-line path of its own, and no plan is near the measure.
+2. *Promote a seek primitive from `ActivityJournal`.* Rejected: there is none to promote.
+
+== Consequences
+
+The linear read stays until a plan's history passes the measure the Watch item states. The Watch item names the
+hazard, the measure and the remedy, and records that no test covers it today.
+
+== Source
+
+* Store Schemas 02 § Workflow State Store (`mcp/history.jsonl`); Store Schemas watch, the plan-history item.
+* PLAN-V2-82, Decision 4; `pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java` lines 70-75, 117-120.

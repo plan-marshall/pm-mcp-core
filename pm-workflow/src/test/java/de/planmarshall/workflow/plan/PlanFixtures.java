@@ -492,4 +492,97 @@ final class PlanFixtures {
                 state %2$s.returned terminal returned failure
                 """.formatted(id, prefix);
     }
+
+    /**
+     * An asking variant whose body holds a policy call, so one version carries the plan unit's own policy call beside
+     * a composed unit's call. Its declarations are the shipped {@code ask.questions-only} ones.
+     */
+    private static final String VARIANT_WITH_POLICY_CALL = """
+            ---
+            name: ask.questions-only
+            description: An asking variant holding a policy call, written for the composer tests.
+            type: subworkflow
+            icon: workflow.default
+            entry: main
+            exit: continue
+            exit: returned
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow ask.questions-only version 1 format 1
+            scope subworkflow
+            declare wait_after = []
+            declare outline_review = false
+            declare self_merge = true
+            entry main -> questions-only.pass
+
+            state questions-only.pass
+                auto test.proceed
+                    done -> questions-only.remediate
+
+            state questions-only.remediate
+                call remediation.qgate-findings(retry_budget = 3, fix_budget = 3, waiver_wait_seconds = 3600, actions = [retry, fix])
+                    resolved -> questions-only.done
+                    waived -> questions-only.done
+                    exhausted -> questions-only.returned
+                    fix_requested -> questions-only.returned
+                    stepped_out -> questions-only.returned
+
+            state questions-only.done terminal continue success
+
+            state questions-only.returned terminal returned failure
+            """;
+
+    /**
+     * The transitions of the template's asking call the policy-call fixture rewrites: it routes the variant's
+     * {@code returned} exit beside {@code continue}.
+     */
+    private static final String ASK_CONTINUE = "        continue -> finalize.remediate\n";
+
+    /** See {@link #ASK_CONTINUE}. */
+    private static final String ASK_RETURNED = "        returned -> finalize.hand-back\n";
+
+    /** See {@link #ASK_CONTINUE}. */
+    private static final String ASK_STEPPED_OUT = "        stepped_out -> finalize.hand-back\n";
+
+    /**
+     * @return the start request over the template whose bound asking variant carries a policy call, so the version
+     *         holds the plan unit's own call beside a composed unit's call
+     */
+    static CompositionRequest requestWithComposedPolicyCall() {
+        var templateText = read(TEMPLATE_FILE).replace(ASK_CONTINUE + ASK_STEPPED_OUT,
+                ASK_CONTINUE + ASK_RETURNED + ASK_STEPPED_OUT);
+        var template = parse(TEMPLATE_FILE, templateText, UnitOrigin.PROJECT);
+        var request = request(CompositionEvent.START, facts().build(), null, List.of(),
+                InstancePosition.at("finalize.push-barrier"));
+        var withTemplate = new CompositionRequest(request.planId(), request.event(), template,
+                List.of(new UnitReference("plan", TEMPLATE_FILE, PlanFacts.sha256(templateText),
+                        UnitOrigin.PROJECT)),
+                request.subUnits(), request.facts(), request.configHash(), request.realizedFootprintDigest(),
+                request.providersDigest(), request.waivers(), request.position(), request.previous(),
+                request.verificationSteps(), request.finalizeSteps());
+        return withSubUnit(withTemplate, QUESTIONS_ONLY, fileOf(QUESTIONS_ONLY), VARIANT_WITH_POLICY_CALL);
+    }
+
+    /**
+     * @param request the request to change
+     * @param id      the id of the sub-unit to replace
+     * @param file    the file the replacement is parsed from, and names
+     * @param text    the replacement's text
+     * @return the request with the sub-unit of that id replaced
+     */
+    private static CompositionRequest withSubUnit(CompositionRequest request, String id, String file,
+            String text) {
+        var definition = parse(file, text, UnitOrigin.DEFAULT);
+        var reference = new UnitReference(definition.id(), file, PlanFacts.sha256(text), UnitOrigin.DEFAULT);
+        var replaced = request.subUnits().stream()
+                .map(subUnit -> id.equals(subUnit.definition().id())
+                        ? new CompositionRequest.SubUnit(reference, definition) : subUnit)
+                .toList();
+        return new CompositionRequest(request.planId(), request.event(), request.template(), request.templates(),
+                replaced, request.facts(), request.configHash(), request.realizedFootprintDigest(),
+                request.providersDigest(), request.waivers(), request.position(), request.previous(),
+                request.verificationSteps(), request.finalizeSteps());
+    }
 }
