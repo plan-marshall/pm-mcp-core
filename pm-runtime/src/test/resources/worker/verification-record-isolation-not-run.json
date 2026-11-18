@@ -26,6 +26,9 @@
     "egress": {
       "status": "passed"
     },
+    "paths": {
+      "status": "passed"
+    },
     "classes": {
       "status": "passed"
     },
@@ -33,7 +36,8 @@
       "status": "not_run"
     },
     "faults": {
-      "status": "passed"
+      "status": "passed",
+      "trials": 10
     }
   },
   "values": [

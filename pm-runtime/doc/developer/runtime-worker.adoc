@@ -324,25 +324,59 @@ No value of a profile is believed because the profile says so:
 * A *shipped* profile is trusted — the release compiled its document.
 * A profile that makes *no claim* (`worker.eligible: false` and no `zero_tool` class) passes untouched.
 * A claimed profile makes up to three claims. `worker.eligible: true` is honoured only when the record carries `faults`
-  and `egress` as `passed`. A non-null `zero_tool` class is honoured only when `classes` and `isolation` passed. An
-  `enforced` tool set on `writer` or `read_only` is honoured only when the record measured the `classes` stage that
-  establishes it. Beyond the claim's own stages, every stage the record carries must be `passed`: a record that measured
-  a failure anywhere does not establish the profile's claims.
-* The gate refuses a claimed profile with `RECORD_ABSENT`, `OTHER_PLATFORM`, `CLAIM_STAGE_ABSENT`, `STAGE_FAILED` or
-  `STAGE_NOT_RUN`. The stages the claim rests on are examined first, so the refusal names the stage that decided the
-  claim where one exists. link:{src}/EligibilityRefusal.java[`EligibilityRefusal`] carries the closed reason, the stage
-  (when a stage decided it) and the profile's client id; link:{src}/EligibilityVerdict.java[`EligibilityVerdict`] has
-  exactly two members, `Eligible` and `Refused`, so a caller cannot read a third state into it.
+  with `trials` of at least 10, the confinement its operating system's verification records (`landlock` on `linux`, the
+  sandbox `sandbox` on `darwin`), and `paths` and `egress` as `passed` — or an `egress` whose `results` state
+  `"enforcement": "unenforced"` while the machine has accepted unenforced egress. A non-null `zero_tool` class is
+  honoured only when `classes` and `isolation` passed. An `enforced` tool set on `writer` or `read_only` is honoured only
+  when the record measured the `classes` and `isolation` stages that establish it. Beyond the claim's own stages, every
+  stage the record carries must be `passed`: a record that measured a failure anywhere does not establish the profile's
+  claims.
+* The record must be the one written for this document: its `profile_digest` is compared with the canonical-JSON digest
+  of the loaded profile, so a record verified for another document of the same harness refuses.
+* The `egress` stage states unenforced egress in its `results` as `"enforcement": "unenforced"`, and states
+  `"enforced"` when it measured enforcement; a stage that states neither is the specification's plain `passed`. The
+  specification's closed-data sentence enumerates the results of `events` and `usage` only, so that spelling is ADR
+  015's contract until the verification runner's plan names the `egress` carrier in the specification.
+* The gate refuses a claimed profile with `RECORD_ABSENT`, `OTHER_PLATFORM`, `DIGEST_MISMATCH`, `NO_CONFINEMENT`,
+  `CLAIM_STAGE_ABSENT`, `FAULTS_TRIALS_INSUFFICIENT`, `EGRESS_UNENFORCED`, `STAGE_FAILED` or `STAGE_NOT_RUN`. The stages
+  the claim rests on are examined first, so the refusal names the stage that decided the claim where one exists, and the
+  reason identifies the deciding fact (the platform, the record's digest) where no single stage decided it.
+  link:{src}/EligibilityRefusal.java[`EligibilityRefusal`] carries the closed reason, the stage (when a stage decided it)
+  and the profile's client id; link:{src}/EligibilityVerdict.java[`EligibilityVerdict`] has exactly two members,
+  `Eligible` and `Refused`, so a caller cannot read a third state into it.
+* The refusal never depends on the order in which the record lists its stages, and none reads the host's clock: the
+  claimed stages are examined in the order the claim names them, and every other recorded stage in its name's order. The
+  confinement must be the one its operating system's verification records — `landlock` on `linux`, `sandbox` on `darwin`
+  — so `none`, the confinement of the other operating system and every other value name none.
 
 link:{src}/RuntimePlatform.java[`RuntimePlatform`] is the operating system and architecture in the record's spelling
 (`linux`, `darwin`; `x86_64`, `aarch64`), normalised from `os.name` and `os.arch`. It compares the record's `platform`
 with the machine the runtime runs on; the record's `platform.confinement` is not part of the value, because confinement
-is decided per job by the launcher. A record written on another operating system or architecture refuses, leaving the
-profile usable for detection and rendering but its harness ineligible for workers.
+is decided per job by the launcher, and the gate reads it as its own condition. A record written on another operating
+system or architecture refuses, leaving the profile usable for detection and rendering but its harness ineligible for
+workers.
 
-The egress-acceptance half of the specification is deliberately not here: whether the operator accepts unenforced egress
-is a machine-level decision the egress owner holds, and this gate only requires the record's `egress` stage to be
-`passed`. The gate is ADR 006's; the controls its claims rest on are ADR 007's.
+The acceptance of unenforced egress is an input value of the gate:
+`of(profile, platform, unenforcedEgressAccepted)` and `evaluate(profile, platform, facts, unenforcedEgressAccepted)`
+default to not accepted, and the gate builds neither the consent `accept_unenforced_egress` nor the record of it —
+PLAN-V2-59 builds those and supplies the value at the start path. The gate is ADR 006's; the five facts it checks are
+ADR 015's, and the controls its claims rest on are ADR 007's.
+
+== What Is Not Wired
+
+The gate is the library module's; what would consult it is not in this repository:
+
+* *The start-path wiring* of `SupervisorEnvironment.EligibilityGate`: owner `plan-marshall-mcp` (the assembly), no work
+  package here. `SupervisorEnvironment` offers the gate and the assembly wires it; nothing in this repository consults
+  it before a start.
+* *The loader that carries the record*: already wired. `ProfileLoader.readVerified` binds the verification record to the
+  loaded profile (link:../../../pm-core/src/main/java/de/planmarshall/core/profile/ProfileLoader.java[`ProfileLoader`,
+  `readVerified`]), and `LoadedProfile.verificationRecord()` carries the record with its platform and its stages, so the
+  gate reads them from the value it is handed. Nothing is owed here.
+* *The acceptance of unenforced egress*: PLAN-V2-59 (the consent kind `accept_unenforced_egress` and the record of the
+  acceptance). Until it lands the gate takes the value as a boolean that defaults to not accepted.
+* *The stage runner that writes the records this gate reads*: the plans of the verification runner staged 2026-11-14
+  behind the job-confinement plan; no work package in this repository yet.
 
 == The Three Verification Controls
 

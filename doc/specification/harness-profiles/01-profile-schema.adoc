@@ -468,7 +468,7 @@ apart (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Harness §
 ** `tool_result_limit_chars` is the largest offered size that passed when a larger one failed, and `null` only when every offered size passed; when the smallest one fails, the stage `limits` fails.
 ** A value whose stage did not run keeps the draft's value with `status: declared` where the schema requires one, and the three claims above fall back to their closed side.
 * *Install*: `pm-operator profile install <harness_id>` shows the candidate against the effective profile value by value, lists every value that is `declared` or `not_measured`, asks the operator to confirm the proposed detection signals, and on confirmation moves candidate and record into the machine set (<<profile-sets>>) under the lock of the machine store. The runtime loads it for workers started afterwards; running workers keep the profile of their job record.
-* *Runtime check on load*: the runtime honours a machine profile's `worker.eligible: true` and a non-null `zero_tool` only when its record shows the stages above as `passed` for the platform the runtime runs on, the `egress` stage as `passed` or as `unenforced` while the operator's acceptance of unenforced egress holds for the machine (link:../job-runtime/02-confinement-and-environment.adoc#worker-egress[Job Runtime Specification, Worker Egress Proxy]; when the acceptance is withdrawn, no further worker of that harness starts); a record from another platform leaves the profile usable for detection and rendering and its harness ineligible for workers.
+* *Runtime check on load*: the runtime honours a machine profile's `worker.eligible: true` and a non-null `zero_tool` only when its record shows the stages above as `passed` for the platform the runtime runs on, the `egress` stage as `passed` or as `unenforced` while the operator's acceptance of unenforced egress holds for the machine (link:../job-runtime/02-confinement-and-environment.adoc#worker-egress[Job Runtime Specification, Worker Egress Proxy]; when the acceptance is withdrawn, no further worker of that harness starts); a record from another platform leaves the profile usable for detection and rendering and its harness ineligible for workers. _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]_
 
 [#unknown-harness]
 === Unknown Harness
@@ -492,7 +492,7 @@ model-readable character set, the launch and path rules, and one pattern per str
 class and an `enforced` tool set count only with the stages of the bound record `passed` on the runtime's platform
 (<<profile-verification>>). The profile loader carries the record, its platform and its stages with the loaded profile,
 and the runtime consults it before every start and refuses an ineligible profile
-(link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker Developer Guide]).
+(link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker Developer Guide]). _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]_
 
 [#profile-override-hierarchy]
 === Profile Override Hierarchy
