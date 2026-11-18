@@ -1,0 +1,56 @@
+= ADR core-config/005: One Rule Decides Every Project Value Over the Machine's
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-18.
+
+== Context
+
+"One rule decides for every key and aspect: the nearest level wins, and a level that says nothing defers to the next"
+(Store Schemas § Project Values over Machine Values). `project.operator` shows the operator's values of the project with
+the machine's value as the proposal; accepting a proposal records nothing for the project, which keeps following the
+machine, and only a changed value is recorded. The one exception is the transcription methods, which a project may only
+narrow; a method the machine does not allow is refused `invalid_arguments`.
+
+A per-key implementation would state the same rule a dozen times, with a dozen chances to record the proposal or to let a
+project widen the machine's methods.
+
+== Decision
+
+`ProjectValueProposal<T>` carries the machine's value and the project's own, if any. `effective()` answers the project's
+value or the machine's, `followsMachine()` says whether the project records none, and `recorded(chosen)` answers the value
+to record: empty for the machine's own value, the chosen value otherwise. Every key and aspect of the operator's level
+uses this one type.
+
+`TranscribeMethods.chosen(methods, machineMethods)` is the exception: it accepts a subset of the machine's methods and
+refuses anything else with `invalid_arguments`, so the one value a project may only narrow cannot widen.
+
+The revision rule is the stores': a change names the revision it was made against, and `SettingsConflict` carries the
+current revision and the current value when another change came first (ADR core-config/001).
+
+== Alternatives Considered
+
+* *A typed `ProjectValues` record with a per-key fallback*: not taken for the rule itself. It would repeat the fallback
+  per key and invite a key that records its proposal; a document model is a separate concern of the store that writes it.
+* *Treat the transcription methods like every other key*: not taken. The specification makes them the one value a project
+  may only narrow, so widening must be refused rather than recorded.
+
+== Consequences
+
+* "Accepting the proposal records nothing" is a property of one type, tested once, and every caller inherits it.
+* The transcription methods carry their own refusal and cannot be recorded through the generic path without the narrowing
+  step.
+
+== Source
+
+The pull request of PLAN-V2-17 (`feature/v2-17-project-onboarding-unit`); work package
+link:../../../../doc/plans/project-onboarding-unit.adoc[`project-onboarding-unit`];
+link:../../../../doc/specification/store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas § Project
+Values over Machine Values];
+link:../../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#concurrent-changes[CLI
+& Security § Concurrent Changes of a Setting].

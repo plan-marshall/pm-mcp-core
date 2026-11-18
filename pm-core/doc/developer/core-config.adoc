@@ -113,6 +113,47 @@ role's own values and for its escalation, with the reason of the validation tabl
 proposal, and `model_not_allowed` never applies to it: its configuration comes from the machine's default harness and
 that harness's tier `standard`, which `StewardConfiguration` and `RoleCatalog` resolve.
 
+== The Project Onboarding's Values and Consents
+
+The project onboarding's framework-free parts live here, beside the stores they write through; the unit that drives
+them (`project-onboarding.pmwf`) is content of `plan-marshall-mcp`
+(link:../../../doc/specification/state-catalogue/15-project-onboarding.adoc#state-catalogue-project-onboarding[State
+Catalogue § Project Onboarding]).
+
+`CheckoutScripts`:: The digests a `run_checkout_scripts` consent is keyed by
+(link:../../../doc/specification/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting]).
+`digest(checkoutRoot, scriptPaths)` reads each script at its repository-relative path without following a symbolic link
+and answers one `ConsentScript` per path, in the state's order; a path that leaves the checkout, an absolute path, an
+absent file, a directory, a symbolic link and a repeated path are refused rather than digested, so no consent covers a
+script the state cannot run.
+
+`PendingConsent`:: A `yes_remember` of a project-scoped kind given before the project has its id: the hold lives with the
+onboarding's entry, and `resolvedFor(projectId)` materializes it under the confirmed id at `project.enrol`. It carries
+the kind, the scripts a script consent covers, the grant instant, the channel and the paired device; a machine kind, a
+never-remembered kind, scripts on a kind that covers none, an empty script list on `run_checkout_scripts` and a device on
+a `cli` answer are refused (link:../../doc/adr/core-config/004-a-remembered-checkout-consent-is-held-with-the-entry.adoc[ADR
+004]).
+
+`RunConsents`:: The kinds one onboarding run already answered `no`: `asksAgain(kind)` is false for a refused optional
+consent, so `project.run-consent` goes on without the scripts and does not ask again in that run. It records the answer of
+the run, never a store entry.
+
+`ProjectIdentityProposal`:: The id and display name proposed at `project.identity`, from the remote: the id from the
+remote's name, made valid by the identifier grammar of `LockKey` and unique on the machine (`-2`, `-3`, …), the display
+name `<owner>/<name>`. A remote without owner and name, and a name no valid id can be made from, propose nothing.
+
+`SetupRun`, `SetupAspect`:: The closed lists of the setup's four entries and six aspects, read by the unit that routes a
+run and by the runtime that serves the links, so the names exist once. `workflow.setup`'s `SetupRunDerivation` decides
+which run a call records.
+
+`ProjectValueProposal`:: One value of a project over the machine's
+(link:../../../doc/specification/store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas § Project
+Values over Machine Values]): the machine's value is the proposal, accepting it records nothing, and a changed value is
+the one the project records. The rule is the same for every key and aspect, so no key carries a rule of its own.
+
+`TranscribeMethods`:: The one value a project may only narrow. `chosen(methods, machineMethods)` accepts a subset of the
+machine's and refuses a method the machine does not allow with `invalid_arguments`.
+
 == A Change Against an Older Revision
 
 Every one of the stores takes the revision its caller read. The first change wins; a later one against an older revision
@@ -135,6 +176,11 @@ value, which the store-refusal vocabulary has no field for
   stores write the files inside them.
 * `ConsentGate` refuses a `yes_remember` for `verify_harness_profile` and `auto_run`, so a caller that offers the link
   fails loudly instead of remembering a kind the specification says is never remembered.
+* A `PendingConsent` is never a store entry: it is held with the onboarding's entry and written under the confirmed
+  `project_id` in the transaction of `project.enrol`, so an onboarding that abandons before its enrolment remembers
+  nothing.
+* `ProjectValueProposal.recorded` answers empty for the machine's own value, so accepting a proposal writes no key and the
+  project keeps following the machine.
 
 == Testing
 

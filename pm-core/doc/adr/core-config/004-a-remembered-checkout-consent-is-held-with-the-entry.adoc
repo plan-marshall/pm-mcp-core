@@ -1,0 +1,60 @@
+= ADR core-config/004: A Remembered Checkout Consent Is Held With the Entry
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-18.
+
+== Context
+
+The two checkout consents (`inspect_checkout`, `run_checkout_scripts`) are asked before the project has its id, and a
+`yes_remember` is written to `consents.json` under the confirmed `project_id` at `project.enrol`; an onboarding that does
+not reach its enrolment remembers nothing (Store Schemas § Consent Before Acting; State Catalogue § Project Onboarding).
+`ConsentStore.grant` needs a `Consent`, and `Consent` refuses a project kind without a valid `project_id`, so the answer
+cannot be stored as a `Consent` when it is given. The consent's remembered scope for `run_checkout_scripts` is the project
+and the digest of each script, and the digest list changes with the checkout.
+
+The question was what holds the answer in the meantime and how a later run decides that a question is not needed.
+
+== Decision
+
+`PendingConsent` holds the answer with the onboarding's entry: kind, covered scripts (each with its digest), grant
+instant, channel and paired device. It refuses a machine kind, a never-remembered kind, scripts on a kind that covers
+none, an empty list on `run_checkout_scripts`, and a device on a `cli` answer. `resolvedFor(projectId)` materializes the
+`Consent` under the confirmed id at `project.enrol`, so the hold itself is never a store entry and dies with the entry.
+
+`CheckoutScripts.digest(checkoutRoot, scriptPaths)` computes the digests from the checkout, refusing a path outside it, an
+absolute path, a symbolic link, an absent file, a directory and a repeated path; `ConsentStore.Snapshot.isRemembered`
+then passes the state only when every script is listed for this project with that digest, so a changed script, an added
+script and another project's entry each ask again.
+
+`RunConsents` records the kinds a run answered `no`, so a refused optional consent goes on without the scripts and is not
+asked again in that run.
+
+== Alternatives Considered
+
+* *Write the consent with a placeholder project id and rename it at enrolment*: not taken. It would put an entry into
+  `consents.json` whose project does not exist, and an abandoned onboarding would leave it behind.
+* *Hold the answer in the enrolment*: not taken. The specification says the enrolment holds no remembered consent, and
+  the trust that runs a checkout's scripts is per project and per digest.
+* *Re-ask always*: not taken. The specification makes `yes_remember` the operator's standing answer until a script
+  changes.
+
+== Consequences
+
+* An abandoned onboarding leaves no entry, no enrolment and no remembered consent, which is the property the Done-when
+  tests.
+* A consent covers exactly the digests it was granted for, so editing a script re-opens the question without touching the
+  store.
+
+== Source
+
+The pull request of PLAN-V2-17 (`feature/v2-17-project-onboarding-unit`); work package
+link:../../../../doc/plans/project-onboarding-unit.adoc[`project-onboarding-unit`];
+link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting];
+link:../../../../doc/specification/credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[Credentials
+& Enrolment § Onboarding a Project as One Process].

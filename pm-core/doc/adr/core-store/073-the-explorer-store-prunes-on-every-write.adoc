@@ -1,0 +1,56 @@
+= ADR core-store/073: The Explorer Store Prunes on Every Write
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-18.
+
+== Context
+
+`explorer.json` holds the operator's favourite projects and their order, and per project the last act and how often the
+operator acted on each UTC day within a compiled window. The specification says an act counts on the day it happened,
+days older than the window are dropped by the next write, and an entry of a project no longer enrolled is dropped by the
+next write (Store Schemas § The Operator's Projects). The store is written on the operator's acts and on a favourite's
+set, move or removal.
+
+The question was where the drops happen and what the caller has to pass.
+
+== Decision
+
+`ExplorerStore` prunes in the same transaction as the write that follows it: `prune(activity, enrolled, today)` drops the
+days older than `ACTIVITY_WINDOW_DAYS` (30) and every entry of a project the caller's `enrolled` set no longer names, and
+`setFavourites` drops a favourite of such a project. `recordActivity` refuses an act of a project that is not enrolled
+rather than recording it. The caller passes the write's `enrolled` set and the revision it read; the store takes the
+day and the instant from its `Clock`, so a test states both.
+
+The document is read and written by `ExplorerCodec` against `explorer.schema.json`, with the projects and their days in a
+stable order; a write against another revision than the document's is a `StoreRefusal` of outcome `CONFLICT`.
+
+== Alternatives Considered
+
+* *Prune in a periodic sweep*: not taken. The specification puts the drop on the next write, and a sweep would leave
+  unenrolled projects visible in the operator's list until it ran.
+* *Let the store read the enrolment files itself*: not taken. The store would gain a dependency on the enrolment store and
+  its integrity checks, and the caller already knows the projects it serves.
+* *A derived "recent"/"most used" from the metrics stores*: not taken. The specification keeps the operator's activity as
+  operator data in `explorer.json`, never as model-visible metrics.
+
+== Consequences
+
+* The document never holds an unenrolled project or a day outside the window after any write, so a read needs no pruning.
+* `Snapshot.mostUsed` and `Snapshot.recent` are pure over the window, with a total order (more acts, then the later act,
+  then the id), so two clients agree on a list.
+* A new write surface must pass the `enrolled` set and the revision, or it cannot write.
+
+== Source
+
+The pull request of PLAN-V2-17 (`feature/v2-17-project-onboarding-unit`); work package
+link:../../../../doc/plans/project-onboarding-unit.adoc[`project-onboarding-unit`];
+link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#explorer-store[Store Schemas § The Operator's
+Projects];
+link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#project-explorer[Runtime
+& Interaction Model § The Projects of the Machine].
