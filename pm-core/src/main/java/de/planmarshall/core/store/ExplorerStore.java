@@ -55,7 +55,7 @@ public final class ExplorerStore {
     private static final long NO_DOCUMENT = 0L;
 
     /** The grammar of a counted UTC day, a four-digit year included. */
-    private static final Pattern DAY = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    private static final Pattern DAY = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
     private static final String FILE = "explorer.json";
     private static final String PROJECT_ID = "projectId";
