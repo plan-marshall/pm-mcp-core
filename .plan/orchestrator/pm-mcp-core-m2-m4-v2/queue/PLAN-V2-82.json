@@ -2,10 +2,10 @@
   "id": "PLAN-V2-82",
   "slug": "instance-composition-residue",
   "workstream": "WS-02",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-82-instance-composition-residue",
+  "pr": "#492",
+  "landing": "landings/PLAN-V2-82.md",
   "seq": 82
 }
