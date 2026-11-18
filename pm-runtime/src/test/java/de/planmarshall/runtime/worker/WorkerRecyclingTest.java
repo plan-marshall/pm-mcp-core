@@ -206,6 +206,81 @@ class WorkerRecyclingTest {
     }
 
     @Test
+    @DisplayName("a holding worker at the budget sends one hold-ended before its fence and release")
+    void holdingWorkerSendsHoldEndedBeforeItsRecycle() {
+        var holding = warm().withLifecycle(WorkerLifecycle.HOLDING).withLeasedTask(firstTask)
+                .withContextTokens(ContextTokens.measured(TOKEN_BUDGET));
+
+        var cause = recycling.afterTurnCompleted(holding);
+        var beforeTheExit = List.copyOf(fixture.order);
+        ending.exited(holding);
+        var afterTheExit = List.copyOf(fixture.order);
+        var report = fixture.holdEnds.getFirst();
+
+        assertAll(
+                () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), cause,
+                        "the holding generation is recycled at the budget"),
+                () -> assertEquals(1, fixture.holdEnds.size(), "the hold is ended exactly once"),
+                () -> assertEquals(holding.generationId(), report.generationId(),
+                        "the notification names the generation"),
+                () -> assertEquals(firstTask, report.queueTaskId(), "the notification names the held task"),
+                () -> assertEquals(1, report.attempt(), "the notification names the attempt"),
+                () -> assertEquals(WorkerProtocol.HoldEndCause.TOKEN_BUDGET, report.cause(),
+                        "the cause of the ended hold is the token budget"),
+                () -> assertEquals("token_budget", report.cause().wireName(),
+                        "the cause carries the closed wire value of the record"),
+                () -> assertEquals(List.of("hold_ended"), beforeTheExit,
+                        "the notification is sent before the end path runs"),
+                () -> assertEquals(List.of("hold_ended", "fence", "release", "write"), afterTheExit,
+                        "the protocol sees the hold end before fence and release"));
+    }
+
+    @Test
+    @DisplayName("a holding worker one token under the budget sends no hold-ended")
+    void holdingWorkerUnderTheBudgetSendsNothing() {
+        var holding = warm().withLifecycle(WorkerLifecycle.HOLDING).withLeasedTask(firstTask)
+                .withContextTokens(ContextTokens.measured(TOKEN_BUDGET - 1L));
+
+        assertAll(
+                () -> assertTrue(recycling.afterTurnCompleted(holding).isEmpty(),
+                        "a context under the budget recycles nothing"),
+                () -> assertTrue(fixture.holdEnds.isEmpty(), "a hold under the budget is not ended"));
+    }
+
+    @Test
+    @DisplayName("an executing or waiting generation at the budget sends no hold-ended")
+    void aGenerationThatDoesNotHoldSendsNothing() throws IOException {
+        var executing = warm().withLifecycle(WorkerLifecycle.EXECUTING).withLeasedTask(firstTask)
+                .withServedTasks(List.of(firstTask)).withContextTokens(ContextTokens.measured(TOKEN_BUDGET));
+        var waiting = warm(Files.createDirectories(base.resolve(otherWorktree)))
+                .withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(firstTask))
+                .withContextTokens(ContextTokens.measured(TOKEN_BUDGET));
+
+        assertAll(
+                () -> assertTrue(recycling.afterTurnCompleted(executing).isEmpty(),
+                        "an executing worker waits for its task to close"),
+                () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), recycling.afterTurnCompleted(waiting),
+                        "the waiting worker is recycled at the budget"),
+                () -> assertTrue(fixture.holdEnds.isEmpty(), "a generation that does not hold sends nothing"));
+    }
+
+    @Test
+    @DisplayName("a turn reported twice sends one hold-ended and recycles once")
+    void theHoldIsEndedOnce() {
+        var holding = warm().withLifecycle(WorkerLifecycle.HOLDING).withLeasedTask(firstTask)
+                .withContextTokens(ContextTokens.measured(TOKEN_BUDGET));
+
+        var first = recycling.afterTurnCompleted(holding);
+        var second = recycling.afterTurnCompleted(holding);
+
+        assertAll(
+                () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), first,
+                        "the first report recycles the generation"),
+                () -> assertTrue(second.isEmpty(), "a generation is recycled once"),
+                () -> assertEquals(1, fixture.holdEnds.size(), "the hold is ended once"));
+    }
+
+    @Test
     @DisplayName("a changed configuration digest recycles after the task and clears the start-failure guard")
     void changedConfigurationRecyclesAfterTheTask() {
         var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(firstTask))
@@ -313,7 +388,7 @@ class WorkerRecyclingTest {
 
     private WorkerRecycling recycling(RoleArtifact.Recycling bounds) {
         return new WorkerRecycling(environment, ending, supervisor::generations, role -> Optional.of(bounds),
-                PARAMETERS);
+                fixture.tasks, PARAMETERS);
     }
 
     private WorkerGeneration warm() {

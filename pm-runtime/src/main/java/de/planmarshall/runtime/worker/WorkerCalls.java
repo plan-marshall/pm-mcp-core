@@ -59,6 +59,36 @@ public interface WorkerCalls {
     void taskClosed(String generationId, String queueTaskId);
 
     /**
+     * A generation opened a hold: its task stays leased while the worker waits for the answer to its question (Model
+     * Work § Continuing after a Question). The generation moves to
+     * {@link WorkerLifecycle#HOLDING} through the lifecycle table, keeps its lease and its model slot, and its wait
+     * suppresses the silence deadline as a consultation's wait does.
+     *
+     * @param generationId the worker's generation
+     * @param queueTaskId  the task the hold keeps
+     * @param at           the instant the hold opened
+     */
+    void holdOpened(String generationId, String queueTaskId, Instant at);
+
+    /**
+     * A generation closed its hold and continues its task; the silence limit counts again from the close.
+     *
+     * @param generationId the worker's generation
+     * @param queueTaskId  the task the hold kept
+     * @param at           the instant the hold closed
+     */
+    void holdClosed(String generationId, String queueTaskId, Instant at);
+
+    /**
+     * The answer to the generation's question was delivered: the acknowledgement is due within the host's deadline
+     * (Model Work § Answer acknowledgement; ADR {@code runtime-worker/012}).
+     *
+     * @param generationId the worker's generation
+     * @param at           the instant the answer was delivered
+     */
+    void answerDelivered(String generationId, Instant at);
+
+    /**
      * A plan was paused with the pause point <em>now</em>: its workers are ended by force at once and its tasks are
      * queued again without counting a re-offer.
      *

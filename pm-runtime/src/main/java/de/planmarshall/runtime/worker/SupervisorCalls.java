@@ -175,6 +175,42 @@ public final class SupervisorCalls implements WorkerCalls {
     }
 
     @Override
+    public synchronized void holdOpened(String generationId, String queueTaskId, Instant at) {
+        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(at, "at");
+        var generation = known(generationId).orElse(null);
+        if (generation == null) {
+            return;
+        }
+        // The table decides: a generation that cannot hold is refused before any state or detection is touched.
+        var holding = generation.advanceTo(WorkerLifecycle.HOLDING).withLeasedTask(queueTaskId);
+        detection(generation).waitOpened(at);
+        supervisor.replaced(holding);
+    }
+
+    @Override
+    public synchronized void holdClosed(String generationId, String queueTaskId, Instant at) {
+        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(at, "at");
+        var generation = known(generationId).orElse(null);
+        if (generation == null) {
+            return;
+        }
+        var executing = generation.advanceTo(WorkerLifecycle.EXECUTING);
+        detection(generation).waitClosed(at);
+        supervisor.replaced(executing);
+    }
+
+    @Override
+    public synchronized void answerDelivered(String generationId, Instant at) {
+        Objects.requireNonNull(at, "at");
+        var generation = known(generationId).orElse(null);
+        if (generation != null) {
+            detection(generation).answerDelivered(at);
+        }
+    }
+
+    @Override
     public synchronized void planPaused(String planId) {
         Objects.requireNonNull(planId, "planId");
         for (var generation : supervisor.generations()) {

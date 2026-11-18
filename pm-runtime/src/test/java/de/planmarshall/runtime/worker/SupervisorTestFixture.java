@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import javax.crypto.SecretKey;
@@ -151,6 +152,9 @@ final class SupervisorTestFixture {
     /** The role and harness of every closed-unavailable report, in order. */
     final List<String> closedUnavailable = new CopyOnWriteArrayList<>();
 
+    /** The hold-ended notifications the protocol received, in order. */
+    final List<WorkerProtocol.HoldEndedReport> holdEnds = new CopyOnWriteArrayList<>();
+
     /** The terminal-state writes, in order. */
     final List<Write> writes = new CopyOnWriteArrayList<>();
 
@@ -169,6 +173,9 @@ final class SupervisorTestFixture {
     final ModelSlots slots = slots();
 
     final WorkerProtocol protocol = protocol();
+
+    /** The facts of a served task the recycling reads, at the first attempt while a test needs one. */
+    final WorkerTaskActivity tasks = taskActivity();
 
     final SupervisorEnvironment.WorkerStateWriter stateWriter = stateWriter();
 
@@ -403,8 +410,20 @@ final class SupervisorTestFixture {
             closedUnavailable.add(getCurrentArguments()[0] + "/" + getCurrentArguments()[1]);
             return null;
         }).anyTimes();
+        mock.holdEnded(anyObject(WorkerProtocol.HoldEndedReport.class));
+        expectLastCall().andAnswer(() -> {
+            holdEnds.add((WorkerProtocol.HoldEndedReport) getCurrentArguments()[0]);
+            order.add("hold_ended");
+            return null;
+        }).anyTimes();
         replay(mock);
         return mock;
+    }
+
+    /** @return the facts of a served task, as the assembly's adapter answers them from the queue record */
+    private WorkerTaskActivity taskActivity() {
+        var artifact = role(RoleClass.WRITER, RoleForm.WARM, 2).artifact();
+        return _ -> Optional.of(new WorkerTaskActivity.TaskActivity(1, artifact, Set.of(), null, -1));
     }
 
     /**

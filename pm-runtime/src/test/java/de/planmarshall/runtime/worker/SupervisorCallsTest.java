@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -59,6 +60,9 @@ class SupervisorCallsTest {
 
     private static final int IDLE_WAKEUPS = 3;
 
+    /** The acknowledgement deadline of the fixture parameters, in seconds. */
+    private static final int ACK_DEADLINE_SECONDS = 270;
+
     private static final String TASK = "qt-0123456789abcdef";
 
     private static final String DIGEST = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -102,8 +106,8 @@ class SupervisorCallsTest {
     }
 
     private static WorkerParameters parameters(int idleWakeups) {
-        return new WorkerParameters(true, OptionalInt.of(270), false, SILENCE_GRACE_SECONDS, idleWakeups,
-                BOUNDED_WAIT_SECONDS, false);
+        return new WorkerParameters(true, OptionalInt.of(ACK_DEADLINE_SECONDS), false, SILENCE_GRACE_SECONDS,
+                idleWakeups, BOUNDED_WAIT_SECONDS, false);
     }
 
     private SupervisorCalls calls(WorkerEnding end, WorkerRecycling recycling, WorkerParameters workerParameters) {
@@ -117,12 +121,22 @@ class SupervisorCallsTest {
 
     private WorkerRecycling recycling(WorkerEnding end, RoleArtifact.@Nullable Recycling bounds) {
         return new WorkerRecycling(environment, end, supervisor::generations, _ -> Optional.ofNullable(bounds),
-                parameters);
+                fixture.tasks, parameters);
     }
 
     private WorkerGeneration started(EffectiveRole role) {
         var outcomes = supervisor.start(List.of(fixture.warmRequest(role, fixture.workdir)));
         return ((WorkerSupervisor.StartOutcome.Started) outcomes.getFirst()).generation();
+    }
+
+    /** @return a warm generation that went through an offer and a turn and now holds its task */
+    private WorkerGeneration holdingGeneration() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        calls.turnCompleted(generation.generationId(), 1_000L);
+        calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant());
+        return generation;
     }
 
     private List<WorkerGeneration> startedFresh(EffectiveRole role, int count) {
@@ -377,6 +391,107 @@ class SupervisorCallsTest {
                         "the bound's closed task recycles the generation"),
                 () -> assertNull(supervisor.generation(generation.generationId()).orElseThrow().leasedTask(),
                         "the recycling generation holds no task"));
+    }
+
+    @Test
+    @DisplayName("a hold moves the generation to holding, keeps its lease and its slot")
+    void aHoldMovesTheGenerationToHolding() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        calls.turnCompleted(generation.generationId(), 1_000L);
+
+        calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant());
+        var holding = supervisor.generation(generation.generationId()).orElseThrow();
+        fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
+
+        assertAll(
+                () -> assertEquals(WorkerLifecycle.HOLDING, holding.lifecycle(),
+                        "the hold moves the generation to holding"),
+                () -> assertEquals(TASK, holding.leasedTask(), "a hold keeps the lease of its task"),
+                () -> assertEquals(generation.slot(), holding.slot(), "a hold keeps the model slot"),
+                () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
+                        "a held wait suppresses the silence signal"));
+    }
+
+    @Test
+    @DisplayName("a closed hold resumes the execution and re-arms the silence limit")
+    void aClosedHoldResumesTheExecution() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        calls.turnCompleted(generation.generationId(), 1_000L);
+        calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant());
+
+        calls.holdClosed(generation.generationId(), TASK, fixture.clock.instant());
+        var resumed = supervisor.generation(generation.generationId()).orElseThrow();
+        fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
+
+        assertAll(
+                () -> assertEquals(WorkerLifecycle.EXECUTING, resumed.lifecycle(),
+                        "the close resumes the execution"),
+                () -> assertEquals(Optional.of(EndCause.LOST), ending.requestedCause(generation.generationId()),
+                        "the close re-arms the silence limit"));
+    }
+
+    @Test
+    @DisplayName("a hold the transition table cannot admit is refused and leaves the state")
+    void aRefusedHoldTransitionIsRefused() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+
+        assertAll(
+                () -> assertThrows(IllegalStateException.class,
+                        () -> calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant()),
+                        "a hold out of starting is refused"),
+                () -> assertEquals(WorkerLifecycle.STARTING,
+                        supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                        "the refused hold leaves the generation starting"));
+    }
+
+    @Test
+    @DisplayName("the hold entries of an unknown generation are ignored")
+    void theHoldEntriesIgnoreAnUnknownGeneration() {
+        calls.holdOpened("unknown", TASK, fixture.clock.instant());
+        calls.holdClosed("unknown", TASK, fixture.clock.instant());
+        calls.answerDelivered("unknown", fixture.clock.instant());
+
+        assertAll(
+                () -> assertTrue(supervisor.generations().isEmpty(), "no generation is created by the call"),
+                () -> assertTrue(calls.loss("unknown").isEmpty(), "no detection is created for the call"),
+                () -> assertTrue(fixture.fences.isEmpty(), "no generation is fenced by the call"));
+    }
+
+    @Test
+    @DisplayName("an answer's deadline fires the missed acknowledgement at it and not before")
+    void anUnacknowledgedAnswerIsLostAtItsDeadline() {
+        var generation = holdingGeneration();
+
+        calls.answerDelivered(generation.generationId(), fixture.clock.instant());
+        fixture.advance(Duration.ofSeconds(ACK_DEADLINE_SECONDS - 1));
+        var beforeTheDeadline = ending.requestedCause(generation.generationId());
+        fixture.advance(Duration.ofSeconds(1));
+
+        assertAll(
+                () -> assertTrue(beforeTheDeadline.isEmpty(), "the answer's deadline has not fired yet"),
+                () -> assertEquals(Optional.of(EndCause.LOST), ending.requestedCause(generation.generationId()),
+                        "the missed answer acknowledgement ends the worker"),
+                () -> assertEquals(Optional.of(LossReason.ACK_MISSED),
+                        calls.loss(generation.generationId()).map(LossSignal::reason),
+                        "the loss names the missed acknowledgement"));
+    }
+
+    @Test
+    @DisplayName("an acknowledged answer clears the deadline before it fires")
+    void anAcknowledgedAnswerClearsTheDeadline() {
+        var generation = holdingGeneration();
+
+        calls.answerDelivered(generation.generationId(), fixture.clock.instant());
+        fixture.advance(Duration.ofSeconds(ACK_DEADLINE_SECONDS - 1));
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        fixture.advance(Duration.ofSeconds(2));
+
+        assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
+                "an acknowledged answer never fires the deadline");
     }
 
     @Test
