@@ -2,10 +2,10 @@
   "id": "PLAN-V2-145",
   "slug": "harness-eligibility-gate",
   "workstream": "WS-04",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-145-harness-eligibility-gate",
+  "pr": "#490",
+  "landing": "landings/PLAN-V2-145.md",
   "seq": 133
 }

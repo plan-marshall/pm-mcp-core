@@ -221,7 +221,7 @@ final class QualificationFixtures {
             forms.put(RoleForm.WARM, form(warmAgreements, ITEM_COUNT));
         }
         return new QualificationRecord(ROLE, DIGEST, configuration(), CORPUS_REVISION, List.of(), forms,
-                warmAgreements.isEmpty() ? null : gap, 0, GRADED_AT, List.of());
+                warmAgreements.isEmpty() ? null : gap, 0, null, GRADED_AT, List.of());
     }
 
     /**
@@ -234,7 +234,7 @@ final class QualificationFixtures {
                 topics(agreements, baseline, ITEM_COUNT), ITEM_COUNT, TokenTotal.measured(TOTAL_TOKENS),
                 DURATION_MILLIS);
         return new QualificationRecord(ROLE, DIGEST, configuration(), CORPUS_REVISION, List.of(),
-                Map.of(RoleForm.FRESH, form), null, 0, GRADED_AT, List.of());
+                Map.of(RoleForm.FRESH, form), null, 0, null, GRADED_AT, List.of());
     }
 
     static QualificationRecord.FormResult form(Map<Topic, BigDecimal> agreements, int items) {

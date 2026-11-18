@@ -57,15 +57,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/project-onboarding-unit.adoc` § What, Trace, Done When on `origin/main` at `4617865` (8 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/project-onboarding-unit.adoc at HEAD has Tasks, Trace, Done When, no What; the spec Grounding corrections Claim 0 state it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: project-onboarding-unit.adoc now has Tasks (7 numbered), Trace, Done When; no What section or 8 bullets
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`)) — read at `doc/plans/project-onboarding-unit.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/README.adoc:102-106 row is open and depends on nothing, not on PLAN-42/PLAN-46; the spec Grounding corrections Claim 1 state the changed dependency
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc:102-106 row project-onboarding-unit is open, depends on nothing, Milestone 7; no longer depends on PLAN-42 or PLAN-46
 - OBSERVED: the enrolment store, lifecycle gate and integrity shipped with PLAN-11 (#30): `core.store` (`EnrolmentStore`, `ProjectEnrolment`, `LifecycleGate`) and the new package `runtime.enrolment` — directory listing at 99971f3 on 2026-10-21
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: EnrolmentStore, ProjectEnrolment, LifecycleGate in pm-core/store; runtime/enrolment holds Enrolments, EnrolmentCheck, EnrolmentSidecars and more
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: EnrolmentStore, ProjectEnrolment, LifecycleGate in core.store and runtime/enrolment/package-info.java exist at origin/main
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about the Expected Surface; core/config and workflow/setup now exist but no onboarding-unit code does (grep project-onboarding in src/main finds RoleEnvironment only)
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about Expected Surface inferred from the Where line; confirm-at-outline, not settled by reading
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:104 status is open not blocked; use-case agreement and shipped-since status of restructured packages not readable here
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README row is open (no longer blocked); remaining parts (use cases agreed, shipped restructured packages) are procedural
 
 ## Expected Surface
 
@@ -160,6 +160,13 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-42 (`operator-wait-and-machine-scope`, shipped #199 and #203: met); PLAN-46 (`machine-onboarding-unit`, part 1 of 3, shipped #233: met); PLAN-V2-43 (`machine-settings-and-axes`, staged: the last part of `machine-onboarding-unit`, the one package the index row names as this package's dependency; it lists this plan in its Blocks); PLAN-V2-12 (`ci-contract-module`) (`ci.whoami` for `setup.verify-credentials` and the probe variants; operator decision 2 of 18: the contract is the module `pm-provider-ci`); PLAN-V2-05 (`derived-facts-store-operations`) (the Derived Facts Store: records, kind registry, derivation and staleness rules; operator decision 12 of 18)
 - Blocks: PLAN-V2-24 (`start-from-clients`); PLAN-V2-21 (`plan-and-epic-control`); PLAN-V2-74 (`cleanup`); PLAN-V2-22 (`start-source-intake`)
 - Overlaps with: the `core.store` plans; PLAN-11's `runtime.enrolment`
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): project-onboarding-unit.adoc now has Tasks (7 numbered), Trace, Done When; no What section or 8 bullets Correction: The package file holds seven numbered Tasks, a Trace and a Done When (Watch, Tests); no What section.
+- Claim 1 (contradicted): README.adoc:102-106 row project-onboarding-unit is open, depends on nothing, Milestone 7; no longer depends on PLAN-42 or PLAN-46 Correction: The index row is open, depends on nothing, serves Milestone 7 and the client work of pm-mcp-clients.
 
 ## Hand-Off Command
 

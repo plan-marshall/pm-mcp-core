@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -214,21 +215,50 @@ class RoleGraderTest {
         }
 
         @Test
-        @DisplayName("a judge that does not follow the reference refuses the grading judge_unchecked")
+        @DisplayName("a judge that does not follow the reference is recorded failed and the grading still runs")
         void judgeUnchecked() {
             var fixtures = new Fixtures();
             fixtures.judge.scores(prompt -> Optional.of(BigDecimal.ONE));
             var plan = plan(fixtures, GraderFixtures.complete());
 
-            var refused = assertInstanceOf(GradingOutcome.Refused.class,
+            var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED),
-                    "a judge off the reference is refused");
+                    "a judge off the reference no longer refuses the run");
 
-            assertEquals(GradingOutcome.Refused.JUDGE_UNCHECKED, refused.reason(),
-                    "the refusal names the unchecked judge");
-            assertTrue(fixtures.harness.offered().isEmpty(), "an unchecked judge offers no item");
-            assertEquals(Optional.empty(), fixtures.store.lookup(GraderFixtures.ROLE),
-                    "an unchecked judge writes no record");
+            assertEquals(QualificationRecord.JudgeCheckResult.FAILED, graded.entry().judgeCheck(),
+                    "the record names the failed instrument check");
+            assertEquals(4, fixtures.harness.offered().size(), "the items are offered all the same");
+            assertEquals(Optional.of(graded.entry()), fixtures.store.lookup(GraderFixtures.ROLE),
+                    "the grading writes its record");
+        }
+
+        @Test
+        @DisplayName("a grading whose corpus holds no judge item records no judge check")
+        void judgeCheckAbsent() {
+            var fixtures = new Fixtures();
+            var judge = new JudgeConfiguration(GraderFixtures.judge(), Set.of(), List.of());
+            var plan = GraderFixtures.plan(GraderFixtures.role(), corpus(), judge, GraderFixtures.complete());
+
+            var graded = assertInstanceOf(GradingOutcome.Graded.class,
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "a judge without an item still grades the role");
+
+            assertNull(graded.entry().judgeCheck(), "a check that could not run records no result");
+        }
+
+        @Test
+        @DisplayName("a stored passing check is no result when the corpus holds no judge item")
+        void judgeCheckAbsentDespiteAStoredPass() {
+            var fixtures = new Fixtures();
+            var judge = new JudgeConfiguration(GraderFixtures.judge(), Set.of(), List.of());
+            var plan = GraderFixtures.plan(GraderFixtures.role(), corpus(), judge, GraderFixtures.complete());
+            fixtures.judgeChecks.holds(GraderFixtures.passingJudgeCheck());
+
+            var graded = assertInstanceOf(GradingOutcome.Graded.class,
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED),
+                    "the stored record does not stand in for a check");
+
+            assertNull(graded.entry().judgeCheck(), "no item means no recorded check");
         }
 
         @Test
@@ -440,8 +470,8 @@ class RoleGraderTest {
                     "the first run grades every item");
             var previous = new QualificationRecord(first.entry().role(), first.entry().qualificationDigest(),
                     first.entry().configuration(), first.entry().corpusRevision(), first.entry().missedSources(),
-                    first.entry().forms(), first.entry().warmFreshGap(), 0, first.entry().gradedAt(),
-                    first.entry().items());
+                    first.entry().forms(), first.entry().warmFreshGap(), 0, first.entry().judgeCheck(),
+                    first.entry().gradedAt(), first.entry().items());
             fixtures.harness.offered().clear();
             var rerun = GraderFixtures.plan(GraderFixtures.role(), corpus(), fixtures.judgeConfiguration(),
                     GraderFixtures.complete(), GradingProfile.single(), Optional.of(previous), ItemCheckout.none());
@@ -551,7 +581,7 @@ class RoleGraderTest {
                 TokenTotal.measured(1_000), 100L);
         return new QualificationRecord(role.artifact().name(), role.qualificationDigest(),
                 GradedConfiguration.of(role),
-                GraderFixtures.CORPUS_REVISION, List.of(), Map.of(RoleForm.FRESH, form), null, 0,
+                GraderFixtures.CORPUS_REVISION, List.of(), Map.of(RoleForm.FRESH, form), null, 0, null,
                 GraderFixtures.NOW, List.of(result));
     }
 

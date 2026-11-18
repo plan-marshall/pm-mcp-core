@@ -35,6 +35,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.ClampedValue;
 import de.planmarshall.core.store.JobRecord.Confinement;
+import de.planmarshall.core.store.JobRecord.Egress;
 import de.planmarshall.core.store.JobRecord.Execution;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.GitMetadata;
@@ -80,7 +81,8 @@ class JobRecordCodecTest {
 
     /** The write-ahead record of a worker with its worker block. */
     static JobRecord workerAhead(JobId jobId, Scope scope, String worker) {
-        return base(jobId, scope).status(Status.RUNNING).worker(worker).gitMetadata(GitMetadata.UNENFORCED).build();
+        return base(jobId, scope).status(Status.RUNNING).worker(worker).egress(Egress.UNENFORCED)
+                .gitMetadata(GitMetadata.UNENFORCED).build();
     }
 
     /** The write-ahead record of the job: running, neither PID nor process start. */
@@ -207,6 +209,26 @@ class JobRecordCodecTest {
                     () -> assertTrue(documents.get(0).contains("\"git_metadata\":\"enforced\""),
                             "the enforced value is written by its wire name"),
                     () -> assertTrue(documents.get(1).contains("\"git_metadata\":\"unenforced\""),
+                            "the unenforced value is written by its wire name"));
+        }
+
+        @Test
+        @DisplayName("a worker's egress round-trips for each value")
+        void workerEgressRoundTrip() {
+            var worker = new JobId("l-00000000000000ff");
+            var scope = new Scope(Scope.Type.PROJECT, null);
+            var documents = Stream.of(Egress.values()).map(value -> {
+                var job = workerAhead(worker, scope, "{}").withEgress(value);
+                var document = JobRecordCodec.write(job);
+                assertEquals(job, JobRecordCodec.read(FILE, document), "the record is read back equal");
+                return new String(document, StandardCharsets.UTF_8);
+            }).toList();
+
+            assertAll("every egress value round-trips",
+                    () -> assertEquals(Egress.values().length, documents.size(), "every value is covered"),
+                    () -> assertTrue(documents.get(0).contains("\"egress\":\"enforced\""),
+                            "the enforced value is written by its wire name"),
+                    () -> assertTrue(documents.get(1).contains("\"egress\":\"unenforced\""),
                             "the unenforced value is written by its wire name"));
         }
 
@@ -375,6 +397,29 @@ class JobRecordCodecTest {
         }
 
         @Test
+        @DisplayName("a worker record without egress is refused")
+        void workerWithoutEgressRefused() {
+            var document = text(workerAhead(new JobId("l-00000000000000ff"),
+                    new Scope(Scope.Type.PROJECT, null), "{}"));
+            var without = replace(document, "\"egress\":\"unenforced\",", "");
+
+            var refusal = refusalOf(without);
+
+            assertTrue(refusal.getMessage().contains("egress"), refusal.getMessage());
+        }
+
+        @Test
+        @DisplayName("a non-worker record that carries egress is refused")
+        void nonWorkerWithEgressRefused() {
+            var document = text(queued(BUILD_ID, PLAN_SCOPE));
+            var with = replace(document, "\"egress\":null", "\"egress\":\"unenforced\"");
+
+            var refusal = refusalOf(with);
+
+            assertTrue(refusal.getMessage().contains("egress"), refusal.getMessage());
+        }
+
+        @Test
         @DisplayName("a worker record without git_metadata is refused")
         void workerWithoutGitMetadataRefused() {
             var document = text(workerAhead(new JobId("l-00000000000000ff"),
@@ -405,6 +450,8 @@ class JobRecordCodecTest {
             var projectScope = new Scope(Scope.Type.PROJECT, null);
             var machineScope = new Scope(Scope.Type.MACHINE, null);
             var contradiction = new SelfReportContradiction("passed", null, "failed");
+            var workerWithEgress = workerAhead(worker, projectScope, "{}");
+            var buildRecord = queued(BUILD_ID, PLAN_SCOPE);
 
             assertAll("the kind decides the worker block and the scope",
                     () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(worker, projectScope),
@@ -413,6 +460,11 @@ class JobRecordCodecTest {
                             "a worker does not belong to a plan scope"),
                     () -> assertDoesNotThrow(() -> workerAhead(worker, projectScope, "{}"),
                             "a worker belongs to a project scope"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> workerWithEgress.withEgress(null),
+                            "a worker records whether its egress is enforced"),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> buildRecord.withEgress(Egress.UNENFORCED),
+                            "only a worker records egress"),
                     () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(probe, PLAN_SCOPE),
                             "a probe is no plain write-ahead job"),
                     () -> assertDoesNotThrow(() -> writeAhead(probe, machineScope),
@@ -516,11 +568,12 @@ class JobRecordCodecTest {
         void gitMetadataKindRule() {
             var worker = new JobId("l-0000000000000001");
             var projectScope = new Scope(Scope.Type.PROJECT, null);
-            var workerWithoutMetadata = base(worker, projectScope).status(Status.RUNNING).worker("{}");
+            var workerWithoutMetadata = base(worker, projectScope).status(Status.RUNNING).worker("{}")
+                    .egress(Egress.UNENFORCED);
             var buildWithMetadata = queued(BUILD_ID, PLAN_SCOPE).toBuilder()
                     .gitMetadata(GitMetadata.UNENFORCED);
             var workerWithMetadata = base(worker, projectScope).status(Status.RUNNING).worker("{}")
-                    .gitMetadata(GitMetadata.ENFORCED);
+                    .egress(Egress.UNENFORCED).gitMetadata(GitMetadata.ENFORCED);
             var buildWithoutMetadata = base(BUILD_ID, PLAN_SCOPE);
 
             assertAll("the kind decides whether git_metadata is recorded",

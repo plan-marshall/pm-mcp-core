@@ -66,15 +66,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/decision-engine.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: decision-engine.adoc at 3d453e6c has 7 Tasks and Done When of Watch and Tests, no What with 9 bullets (#286); re-ground record states it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: Package file now has sections Tasks, Trace, Done When (no What); 7 numbered tasks, 4 trace bullets, 2 done bullets.
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-22 (`start-source-intake`) (the entry's decision stores and their move)) — read at `doc/plans/decision-engine.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc:84-88 decision-engine row open, depends only on start-source-intake; PLAN-42 no longer listed; record states it
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/README.adoc index row of decision-engine: `open`; depends only on `start-source-intake` (PLAN-42 no longer listed).
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: workflow/question has QuestionBound, QuestionContinuation, workflow-question.adoc and 2 ADRs (not package-info only); workflow/decision is package-info only; DecisionRecord absent; QuestionRecord/Log/Refusal exist
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Expected Surface is a statement of the spec itself, not of the repository; the package file Where line exists but how the surface was inferred is not reachable by reading.
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: README.adoc:86 decision-engine status is open, not blocked; use-case agreement and shipped restructured packages are not readable here
+  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: doc/plans/README.adoc: decision-engine is `open`, not blocked; it depends on start-source-intake.
 - OBSERVED: the specification parts above carry the added content — `rationale_origin` and `probabilities` in the vote schema of `store-schemas/18-decision-records.adoc`, the adjudication sentence of `model-work/11-decision-records.adoc` and § Judgment Votes of `model-work/10-decision-quorum.adoc` — read at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: git grep finds rationale_origin and probabilities nowhere in doc or pm-core; model-work/10 has no Judgment Votes section (headings :12-:204); record states #286 deleted them
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: git grep rationale_origin, probabilities and Judgment Votes over doc finds no hit at origin/main or 3d453e6c; store-schemas/18, model-work/10 and 11 carry no such content.
 
 ## Expected Surface
 
@@ -171,6 +171,14 @@ Written by the `cleanup` verb after a read-only leaf compared every claim of thi
 Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
 
 - The section "Specification Added Since The Package File" is stale: `rationale_origin` and `probabilities` no longer exist anywhere in `doc` or `pm-core`.
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): Package file now has sections Tasks, Trace, Done When (no What); 7 numbered tasks, 4 trace bullets, 2 done bullets. Correction: Cite doc/plans/decision-engine.adoc as Tasks (7 numbered), Trace (4 bullets), Done When; the section What and the bullet counts of 4617865 are gone.
+- Claim 1 (contradicted): doc/plans/README.adoc index row of decision-engine: `open`; depends only on `start-source-intake` (PLAN-42 no longer listed). Correction: Index row now reads `open`; depends only on `start-source-intake` (PLAN-42 no longer listed).
+- Claim 4 (contradicted): git grep rationale_origin, probabilities and Judgment Votes over doc finds no hit at origin/main or 3d453e6c; store-schemas/18, model-work/10 and 11 carry no such content. Correction: Remove the claim or say rationale_origin, probabilities and the Judgment Votes section are not in the specification at d506e818.
 
 ## Hand-Off Command
 

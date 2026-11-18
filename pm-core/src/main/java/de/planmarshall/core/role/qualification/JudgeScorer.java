@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The port through which a grading run sends a rubric answer to a task of the judge role (Model Work § Grading): the
@@ -41,7 +42,7 @@ public interface JudgeScorer {
      * @since 0.1
      */
     @Builder
-    record JudgePrompt(String itemId, String question, String facts, String reference, String answer) {
+    record JudgePrompt(String itemId, String question, String facts, @Nullable String reference, String answer) {
 
         /**
          * @throws NullPointerException if a required value is {@code null}

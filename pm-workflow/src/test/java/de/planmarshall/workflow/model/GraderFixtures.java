@@ -33,6 +33,7 @@ import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.corpus.ImportResult;
 import de.planmarshall.core.role.corpus.ImportedItem;
 import de.planmarshall.core.role.corpus.JsonValue;
+import de.planmarshall.core.role.qualification.Grade;
 import de.planmarshall.core.role.qualification.GradedConfiguration;
 import de.planmarshall.core.role.qualification.GradingConsent;
 import de.planmarshall.core.role.qualification.GradingHarness;
@@ -215,6 +216,33 @@ final class GraderFixtures {
     }
 
     /**
+     * @return a passing judge check record bound to the fixture judge's digest and the fixture corpus revision: the oracle
+     *         at 100, the blind at 50 and the constant baseline at 50, so the oracle exceeds both by the margin
+     */
+    static JudgeCheck.Record passingJudgeCheck() {
+        var judge = judge();
+        return JudgeCheck.Record.builder()
+                .qualificationDigest(judge.qualificationDigest())
+                .harness(judge.harness())
+                .model(judge.model())
+                .corpusRevision(CORPUS_REVISION)
+                .oracleAccuracy(new BigDecimal("100"))
+                .blindAccuracy(new BigDecimal("50"))
+                .constantBaseline(new BigDecimal("50"))
+                .unscored(0)
+                .checkedAt(NOW)
+                .items(List.of(JudgeCheck.ItemScore.builder()
+                        .itemId("judge/right-1")
+                        .label(JudgeCheck.Label.RIGHT)
+                        .oracleScore(Grade.scored(BigDecimal.ONE))
+                        .blindScore(Grade.scored(new BigDecimal("0.5")))
+                        .totalTokens(TokenTotal.measured(100))
+                        .durationMs(10L)
+                        .build()))
+                .build();
+    }
+
+    /**
      * @param role      the graded role
      * @param items     the corpus items
      * @param judge     the judge configuration
@@ -264,7 +292,7 @@ final class GraderFixtures {
                 new QualificationRecord.TopicResult(agreement, BigDecimal.ZERO, 10)));
         var form = new QualificationRecord.FormResult(topics, 10, TokenTotal.measured(1_000), 100);
         return new QualificationRecord(ROLE, role().qualificationDigest(), configuration(), CORPUS_REVISION,
-                List.of(), Map.of(RoleForm.FRESH, form), null, 0, NOW, List.of());
+                List.of(), Map.of(RoleForm.FRESH, form), null, 0, null, NOW, List.of());
     }
 
     /** @return the graded members of the fixture role */

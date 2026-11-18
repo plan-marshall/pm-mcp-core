@@ -36,6 +36,7 @@ class QualificationRecordBuilderContractTest {
                 .qualificationDigest(canonical.qualificationDigest()).configuration(canonical.configuration())
                 .corpusRevision(canonical.corpusRevision()).missedSources(canonical.missedSources())
                 .forms(canonical.forms()).warmFreshGap(canonical.warmFreshGap()).ungraded(canonical.ungraded())
+                .judgeCheck(canonical.judgeCheck())
                 .gradedAt(canonical.gradedAt()).items(canonical.items()).build();
 
         assertAll(
@@ -45,7 +46,8 @@ class QualificationRecordBuilderContractTest {
                             () -> new QualificationRecord(null, canonical.qualificationDigest(),
                                     canonical.configuration(), canonical.corpusRevision(),
                                     canonical.missedSources(), canonical.forms(), canonical.warmFreshGap(),
-                                    canonical.ungraded(), canonical.gradedAt(), canonical.items()),
+                                    canonical.ungraded(), canonical.judgeCheck(), canonical.gradedAt(),
+                                    canonical.items()),
                             "the constructor refuses a null role");
                     var incomplete = QualificationRecord.builder()
                             .qualificationDigest(canonical.qualificationDigest())
@@ -53,6 +55,7 @@ class QualificationRecordBuilderContractTest {
                             .corpusRevision(canonical.corpusRevision())
                             .missedSources(canonical.missedSources()).forms(canonical.forms())
                             .warmFreshGap(canonical.warmFreshGap()).ungraded(canonical.ungraded())
+                            .judgeCheck(canonical.judgeCheck())
                             .gradedAt(canonical.gradedAt()).items(canonical.items());
                     var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing role");

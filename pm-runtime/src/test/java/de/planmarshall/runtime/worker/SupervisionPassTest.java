@@ -200,6 +200,7 @@ class SupervisionPassTest {
     private JobRecord running(@Nullable Long pid) {
         var builder = JobRecord.builder().jobId(generation.jobId()).execution(JobRecord.Execution.PROCESS)
                 .scope(new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null)).worker("{}")
+                .egress(JobRecord.Egress.UNENFORCED)
                 .gitMetadata(JobRecord.GitMetadata.UNENFORCED)
                 .budgetKey("worker:implementer").budgetSeconds(60)
                 .budgetDerivation(new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null))

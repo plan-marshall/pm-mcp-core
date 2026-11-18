@@ -1,0 +1,65 @@
+= ADR 010: The Refused Destination Is a Server Entry of Its Own Kind
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-17
+
+== Context
+
+The specification requires that every destination a worker's egress proxy refuses is recorded ("Every refused
+destination is an activity entry of the worker", link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[Job
+Runtime Specification, Worker Egress Proxy]). The activity kinds are a closed list, and the entry members are bound to
+their kinds, so the refusal needs a member of its own in that list. The proxy (`WorkerEgressProxy`) already hands the
+destination to its `Consumer<String> activity` sink; no code turns that text into an entry yet, and the journal has no
+kind to write it under, so this decision defines the kind the future producer writes.
+
+Two operator decisions bound the shape. The operator decided on 2026-10-29 (decision 14 of 18, option 3) that this plan
+records the refusal and builds no enforcement; and on the same walk (decision 28, option 1) that "every refused
+destination" is read as every *distinct* destination per attempt, so a worker that keeps asking for one refused host
+writes one entry, not one per request. That reading is a requirement for the future producer; neither the record nor
+the codec de-duplicates, and the producer is listed in the remainder of
+link:../../../../doc/plans/job-confinement-and-environment.adoc[the package file].
+
+== Decision
+
+`ActivityEntry.Kind.EGRESS("egress", Source.SERVER)` is a server kind. `ActivityEntry.Egress(String destination)` is a
+nested record with a non-empty `host:port` of 3 to 259 characters and no line break (259 is a 253-character host, a colon
+and a five-digit port), and the entry carries it as a `@Nullable Egress egress` component directly after `signal`. The
+compact constructor holds the member to its kind (`onlyOn(kind, Kind.EGRESS, egress, "egress")`) and requires it on that
+kind. `ActivityEntryCodec` writes and reads the object (`destination` required, nothing else admitted) in its place
+between `signal` and `end` in `FIELDS`; `SecretRedactor.redact(ActivityEntry)` masks and cuts `destination` like a link
+target, because the journal masks every text and target at its write boundary
+(link:../core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]). No producer is added by this plan.
+
+== Alternatives Considered
+
+A `text` entry was rejected. The schema admits `text` for harness entries only, and the entry is cut to 2,000 characters
+and marked truncated; a refused destination is neither harness output nor a fragment that may be cut, and the journal's
+`text` member belongs to the harness kind by the same per-kind rule the new member needs.
+
+A `link` entry was rejected: a link names a task link (`ack`, `submit`, `ask`, `consult`, `yield`, `infeasible`) with a
+target of at most 128 characters, so it would misname the fact and lose a destination of up to 259 characters.
+
+A field of the `signal` entry was rejected. A signal is an off-track measurement with an action of a closed set; a
+refused destination is neither, and adding a member to `signal` would make every signal entry carry a member that
+belongs to one case of the runtime's proxy.
+
+== Consequences
+
+`format_version` stays 1 (R13). The activity-parity test pins the kind, the member and its place in `FIELDS`;
+`ActivityEntryValidationTest`, `ActivityEntryTest` and the journal-masking test pin the rules, the round trip and the
+masking. `ActivityEventMapping` and `HarnessEventVerification` iterate the kinds and skip every non-harness one, so a
+profile that declares an `egress` event maps nothing for it; a test pins that. Because a server entry is never cut, a
+worker that keeps trying refused hosts grows the journal without bound: that growth is the open operator question of
+`doc/plans/job-confinement-and-environment.adoc`, answered for the count by decision 28 and otherwise not decided here.
+
+== Source
+
+PLAN-V2-59, `doc/plans/job-confinement-and-environment.adoc`;
+`doc/specification/store-schemas/16-task-queue.adoc#activity-journal`;
+`doc/specification/job-runtime/02-confinement-and-environment.adoc#worker-egress`.

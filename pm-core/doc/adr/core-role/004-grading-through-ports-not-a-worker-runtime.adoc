@@ -3,7 +3,9 @@
 
 == Status
 
-Accepted
+Accepted. Superseded in part by ADR `core-role/007`: the adapter now exists, it offers its items through the task protocol's
+port and runs them through the runtime's supervisor, and a role grading records the judge instrument check's result instead
+of refusing `judge_unchecked`.
 
 == Date
 
