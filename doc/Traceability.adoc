@@ -2885,7 +2885,7 @@ link:../pm-workflow/doc/adr/workflow-plan/002-refused-composition-is-a-value.ado
 link:../pm-workflow/doc/adr/workflow-plan/003-versions-and-log-over-scope-transaction.adoc[ADR workflow-plan/003],
 link:../pm-workflow/doc/adr/workflow-plan/028-only-a-version-the-composer-verified-is-stored.adoc[ADR workflow-plan/028],
 link:../pm-workflow/doc/adr/workflow-engine/016-the-composition-runs-in-the-entering-transactions.adoc[ADR workflow-engine/016],
-link:../pm-core/doc/adr/core-store/073-the-instance-version-is-a-field-of-the-workflow-state.adoc[ADR core-store/073]
+link:../pm-core/doc/adr/core-store/074-the-instance-version-is-a-field-of-the-workflow-state.adoc[ADR core-store/074]
 
 == link:../../plan-marshall-documentation/doc/requirements/16-model-work.adoc[Model Work]
 

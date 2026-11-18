@@ -1,4 +1,4 @@
-= ADR core-store 073: The Instance Version Is a Field of the Workflow State
+= ADR core-store 074: The Instance Version Is a Field of the Workflow State
 :nofooter:
 
 == Status
