@@ -10,7 +10,7 @@ release:
   create-github-release: false
 
 maven-build:
-  java-versions: '["25","26"]'
+  java-versions: '["25","27"]'
   java-version: '25'
   # The parent POM and pm-api are resolved from the organisation registry, which answers no anonymous request: every
   # Maven step gets the workflow token, which the server of .mvn/settings.xml reads.
