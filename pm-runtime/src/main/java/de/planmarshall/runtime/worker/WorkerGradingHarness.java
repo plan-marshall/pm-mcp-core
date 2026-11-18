@@ -19,7 +19,6 @@ import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.EffectiveRole;
-import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleSkill;
 import de.planmarshall.core.role.corpus.ImportedItem;

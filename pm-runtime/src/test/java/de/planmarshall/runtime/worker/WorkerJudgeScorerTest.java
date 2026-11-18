@@ -131,10 +131,11 @@ class WorkerJudgeScorerTest {
     @DisplayName("a judge role that is not zero-tool is refused before any worker starts")
     void aToolUsingJudgeRoleIsRefused() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
+        var supervisor = fixture.supervisor();
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new WorkerJudgeScorer(role, fixture.supervisor(), offers),
+                        () -> new WorkerJudgeScorer(role, supervisor, offers),
                         "a tool-using role cannot be the judge"),
                 () -> assertTrue(fixture.starts.isEmpty(), "no worker starts for it"));
     }
