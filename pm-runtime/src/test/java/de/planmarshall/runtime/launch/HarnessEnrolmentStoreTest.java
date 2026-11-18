@@ -139,6 +139,32 @@ class HarnessEnrolmentStoreTest {
     }
 
     private void assertUnreadable(String document) throws Exception {
+        writeVerifiable(document);
+        var refusal = assertThrows(HarnessEnrolmentStore.StoreException.class, () -> store.find("claude"),
+                "a malformed store document is refused");
+        assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(),
+                "the malformed document is refused as unreadable");
+    }
+
+    @Test
+    @DisplayName("a missing, null or non-object top-level harnesses is refused, not read as empty")
+    void topLevelHarnessesRefused() throws Exception {
+        assertUnreadable("{\"format_version\":1}");
+        assertUnreadable("{\"format_version\":1,\"harnesses\":null}");
+        assertUnreadable("{\"format_version\":1,\"harnesses\":[]}");
+        assertUnreadable("{\"format_version\":1,\"harnesses\":\"claude\"}");
+    }
+
+    @Test
+    @DisplayName("an empty harnesses object is a valid empty store")
+    void emptyHarnessesObjectReadsAsEmptyStore() throws Exception {
+        writeVerifiable("{\"format_version\":1,\"harnesses\":{}}");
+
+        assertTrue(store.all().isEmpty(), "an empty harnesses object reads as an empty store");
+    }
+
+    /** Writes a document and its sidecar the way a verified store file is read: owner-only, HMAC over the bytes. */
+    private void writeVerifiable(String document) throws Exception {
         var bytes = document.getBytes(StandardCharsets.UTF_8);
         var file = base.resolve(STORE_FILE);
         var sidecar = base.resolve(SIDECAR_FILE);
@@ -147,10 +173,6 @@ class HarnessEnrolmentStoreTest {
         var restricted = PosixFilePermissions.fromString("rw-------");
         Files.setPosixFilePermissions(file, restricted);
         Files.setPosixFilePermissions(sidecar, restricted);
-        var refusal = assertThrows(HarnessEnrolmentStore.StoreException.class, () -> store.find("claude"),
-                "a malformed store document is refused");
-        assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(),
-                "the malformed document is refused as unreadable");
     }
 
     /**
