@@ -195,6 +195,37 @@ class PlanInstanceStoreTest {
         }
 
         @Test
+        @DisplayName("a version the composer did not return is refused before any write")
+        void unverifiedVersionRefused() {
+            var composed = version1();
+            var unmarked = PlanInstance.builder()
+                    .version(composed.version())
+                    .header(composed.header())
+                    .unit(composed.unit())
+                    .text(composed.text())
+                    .units(composed.units())
+                    .build();
+            var foreignMark = PlanInstance.builder()
+                    .version(composed.version())
+                    .header(composed.header())
+                    .unit(composed.unit())
+                    .text(composed.text())
+                    .units(composed.units())
+                    .verified(Verified.of(composed.version() + 1))
+                    .build();
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), Optional.ofNullable(unmarked.verified()),
+                            "the value carries no composer mark"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> recordComposed(unmarked, texts()),
+                            "a version the composer did not return is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> recordComposed(foreignMark, texts()),
+                            "the mark of another version is refused"),
+                    () -> assertEquals(Optional.empty(), store.readVersion(1),
+                            "nothing was written for a version without its mark"));
+        }
+
+        @Test
         @DisplayName("a second write of the same version is refused and the file stays as it was")
         void writtenOnce() {
             var instance = version1();
