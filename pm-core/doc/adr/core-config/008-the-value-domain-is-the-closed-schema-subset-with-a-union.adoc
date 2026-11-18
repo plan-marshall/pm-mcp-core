@@ -44,6 +44,10 @@ A new schema keyword needs a member here, a derivation in the parity test and a 
 makes the compiler name every place that switches over the domains. The union is the only member that nests another
 member rather than a value.
 
+The schema keyword `not` is not modelled: `project_steps.*.order` excludes 11 and 70, and the table's
+`IntegerRange(3, 989)` admits them. The over-approximation is conservative for assignment — a fallback is refused more
+often, never admitted wrongly — and it is stated here rather than modelled.
+
 == Source
 
 * Plan `PLAN-V2-10`, Decision 5; the operator's answer of 2026-11-18 (add a `Union` member).

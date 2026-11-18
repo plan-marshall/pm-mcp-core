@@ -37,6 +37,11 @@ addressed by the wildcard form, not by its own key.
 A node that gains members gains keys in the same change, and a map node is always a pair: the map key and the wildcard
 key below it. `find` never answers a prefix, so a misspelt key stays refused instead of matching a shorter one.
 
+The verifier's `ConfigKeyRegistry.contains` is an exact lookup, and the DSL's `config_key` grammar admits identifiers
+only, so a unit's `reads_config` can name no map member: the wildcard rows serve the effective-value machinery and the
+table's completeness, not a declaration. A unit that must read a per-step or per-server value is a change of the DSL's
+key grammar or of the registry's lookup, not a table row.
+
 == Source
 
 * Plan `PLAN-V2-10`, Decision 3 and Deliverable 1.

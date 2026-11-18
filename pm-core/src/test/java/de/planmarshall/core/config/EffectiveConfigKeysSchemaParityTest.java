@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -212,7 +213,7 @@ class EffectiveConfigKeysSchemaParityTest {
         files.put("project", "config-project.schema.json");
         files.put("workflow", "config-workflow.schema.json");
         files.put("local-config", "local-config.schema.json");
-        return files;
+        return Collections.unmodifiableMap(files);
     }
 
     /**
@@ -224,9 +225,22 @@ class EffectiveConfigKeysSchemaParityTest {
         var walked = new LinkedHashMap<String, SchemaNode>();
         for (var file : FILES.entrySet()) {
             var schema = SchemaResource.load(CONFIG_DIRECTORY + file.getValue());
+            guardRoot(schema, file.getKey());
             walkObject(schema, file.getKey(), walked, schema);
         }
         return walked;
+    }
+
+    /**
+     * Refuses a construct the walk does not model at the root of a file, where {@code walkObject} would read only its
+     * {@code properties} and {@code allOf}.
+     */
+    private static void guardRoot(Map<?, ?> schema, String stem) {
+        for (var unsupported : List.of("oneOf", "anyOf", "if", "patternProperties")) {
+            if (schema.containsKey(unsupported)) {
+                fail("The root of '" + stem + "' uses " + unsupported + ", which the walk does not model");
+            }
+        }
     }
 
     private static void walkObject(Map<?, ?> schema, String path, Map<String, SchemaNode> into,
@@ -250,7 +264,7 @@ class EffectiveConfigKeysSchemaParityTest {
         var oneOf = resolved.get("oneOf");
         if (oneOf != null) {
             for (var entry : SchemaResource.array(oneOf)) {
-                var alternative = asObject(entry);
+                var alternative = resolve(asObject(entry), document);
                 if (alternative.containsKey("properties") || alternative.containsKey("additionalProperties")) {
                     fail("The oneOf alternative of '" + path + "' holds members the walk does not enumerate");
                 }

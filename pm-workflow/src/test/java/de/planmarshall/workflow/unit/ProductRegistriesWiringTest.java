@@ -46,6 +46,7 @@ import de.planmarshall.workflow.verify.InvariantFixtures;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -204,6 +205,21 @@ class ProductRegistriesWiringTest {
 
             assertTrue(product.stream().anyMatch(violation -> violation.contains("CONFIG_KEY_BINDING")),
                     () -> "The product context should refuse the misspelt key: " + product);
+        }
+
+        @Test
+        @DisplayName("Should refuse the other undeclared reads at the composer too")
+        void shouldRefuseTheOtherUndeclaredReads() {
+            assertAll("Composer refusals",
+                    () -> assertTrue(violations(compose(PRODUCT, UNKNOWN_FACT)).stream()
+                                    .anyMatch(violation -> violation.contains("FACT_KIND_BINDING")),
+                            "The composer should refuse the unknown fact kind"),
+                    () -> assertTrue(violations(compose(PRODUCT, DERIVED_KEY)).stream()
+                                    .anyMatch(violation -> violation.contains("CONFIG_KEY_BINDING")),
+                            "The composer should refuse the derived fact as a key"),
+                    () -> assertTrue(violations(compose(PRODUCT, NO_DEFAULT)).stream()
+                                    .anyMatch(violation -> violation.contains("INPUT_DECLARATION")),
+                            "The composer should refuse the fallback without a default"));
         }
 
         @Test

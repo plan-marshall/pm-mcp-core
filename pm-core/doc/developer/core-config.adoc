@@ -145,7 +145,10 @@ dotted path are refused.
 the `project_steps`, the upstream MCP `servers`, the `derivation_resolvers` — contributes the wildcard segment `*`, which
 stands for exactly one non-empty segment: `workflow.plan.phase-6-finalize.steps.*.lane`. `EffectiveConfigKeys.find`
 answers the exact key or the one key whose wildcard the form's segment stands for, never a prefix of a key, so a misspelt
-key resolves to nothing instead of to a shorter one.
+key resolves to nothing instead of to a shorter one. The verifier's registry is an exact lookup and a unit's
+`config_key` admits identifiers only, so a wildcard row serves the effective-value machinery rather than a
+`reads_config` declaration; the schema keyword `not` is not modelled, which over-approximates a range by the values it
+excludes (`project_steps.*.order` admits 11 and 70).
 
 *The domain.* `ConfigValueDomain` is sealed with seven members: `Enumeration(values)` (`enum` and `const`),
 `IntegerRange(min?, max?)` (either bound may be absent), `Bool`, `Text`, `ListOf(element)`, `Object` and
