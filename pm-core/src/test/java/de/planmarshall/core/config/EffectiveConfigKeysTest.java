@@ -123,6 +123,15 @@ class EffectiveConfigKeysTest {
         }
 
         @Test
+        @DisplayName("Should refuse a union that repeats an alternative")
+        void shouldRefuseRepeatedUnionAlternative() {
+            var repeated = List.<ConfigValueDomain>of(new ConfigValueDomain.Text(), new ConfigValueDomain.Text());
+            assertThrows(IllegalArgumentException.class,
+                    () -> new ConfigValueDomain.Union(repeated),
+                    "A repeated union alternative should be refused");
+        }
+
+        @Test
         @DisplayName("Should refuse a list without an element domain")
         void shouldRefuseListWithoutElement() {
             assertThrows(NullPointerException.class,
