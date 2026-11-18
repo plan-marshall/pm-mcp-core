@@ -11,6 +11,7 @@ package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -111,6 +112,30 @@ class ActivityEventMappingTest {
                 "a null stop_reason keeps no pointer");
         assertNull(mapping.kinds().get(ActivityEntry.Kind.TOOL_RESULT).isErrorPointer(),
                 "a null is_error keeps no pointer");
+    }
+
+    @Test
+    @DisplayName("a profile that declares the kind egress maps no harness kind for it")
+    void declaredEgressMapsNothing() {
+        var mapping = ActivityEventMapping.of(JsonDocument.parse("""
+                {
+                  "kind_pointer": "/type",
+                  "kinds": {
+                    "text": { "match": [], "text": "/text" },
+                    "tool_call": { "match": [], "tool": "/tool", "target": [] },
+                    "tool_result": { "match": [], "size": "/size", "is_error": null },
+                    "file_changed": { "match": [], "path": "/path" },
+                    "turn": { "match": [], "stop_reason": null },
+                    "egress": { "match": ["egress"], "destination": "/destination" }
+                  }
+                }
+                """.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow();
+
+        assertAll("an egress declaration maps nothing",
+                () -> assertEquals(Optional.empty(), mapping.kindOf("egress"),
+                        "a server kind is never mapped from the harness stream"),
+                () -> assertFalse(mapping.kinds().containsKey(ActivityEntry.Kind.EGRESS),
+                        "the egress kind is not part of the harness mapping"));
     }
 
     @Test

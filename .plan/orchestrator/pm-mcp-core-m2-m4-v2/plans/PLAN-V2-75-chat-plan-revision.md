@@ -55,13 +55,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/chat-plan-revision.adoc` § What, Trace, Done When on `origin/main` at `4617865` (5 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/chat-plan-revision.adoc at 3d453e6c has 5 Tasks, Trace, Done When (Watch note plus Tests); no What section with 5 bullets (#286)
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/chat-plan-revision.adoc now has Tasks (5 numbered tasks), Trace, Done When; the What section the regeneration read no longer exists
 - OBSERVED: the package file and its index row (`blocked`; depends on PLAN-V2-29 (`chat`); PLAN-V2-01 (`primitive-failure-reasons`) (`chat.apply` and `replan.apply-revision` follow the settled SPI); the re-planning of a running plan, its unit `replan` and its guards (no work package)) — read at `doc/plans/chat-plan-revision.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc chat-plan-revision row is open (not blocked), depends on chat and re-planning; PLAN-V2-01 edge gone; doc/plans/re-planning.adoc exists
+  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc row chat-plan-revision is open (not blocked) and depends on chat and re-planning (now a package); primitive-failure-reasons (PLAN-V2-01) is not listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the class names of § What, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis on the Expected Surface; workflow/primitive not a trace-matrix result here, judgement is for verify-at-outline
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Provenance of the plan's own Expected Surface; settled only at the trace matrix
 - Verify-first clause: before scoping, list the open pull requests for one that names `chat-plan-revision`, check in `doc/plans/README.adoc` that every dependency is `done`, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
-  - verdict: unverifiable | checked_at: 3d453e6c45a8b2a28f3a74155292fa6f23bc9a0c | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause; README.adoc shows chat and re-planning rows open (not done), open-PR list and roadmap coverage not readable
+  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause: open pull request search and dependency status check are run-time steps
 
 ## Expected Surface
 
@@ -169,6 +169,13 @@ Applicability:
 Written by the `cleanup` verb after a read-only leaf compared every claim of this spec with `origin/main` `393b0210`. The leaf's statements below are not re-read by the orchestrator; the executing plan re-reads each at its outline before relying on it. A claim not named here was corroborated or could not be checked by reading (`corpus verdicts` carries each).
 
 - Claim 0 (contradicted at HEAD): doc/plans/chat-plan-revision.adoc at HEAD (restructured by #286) has a Tasks section (5 tasks that only name specification sections), no section What; the spec Deliverables still quote the old wording in its words and omit the Watch line; no section of the spec says so.
+
+## Re-ground record (cleanup 2026-11-17, second pass at `d506e818`, BINDING over any contradicting older text of this spec)
+
+Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
+
+- Claim 0 (contradicted): doc/plans/chat-plan-revision.adoc now has Tasks (5 numbered tasks), Trace, Done When; the What section the regeneration read no longer exists Correction: Cite the package file's Tasks (five tasks), Trace and Done When sections.
+- Claim 1 (contradicted): README.adoc row chat-plan-revision is open (not blocked) and depends on chat and re-planning (now a package); primitive-failure-reasons (PLAN-V2-01) is not listed Correction: The index row is open and depends on chat and re-planning; re-planning is a work package and PLAN-V2-01 is no longer a dependency.
 
 ## Hand-Off Command
 

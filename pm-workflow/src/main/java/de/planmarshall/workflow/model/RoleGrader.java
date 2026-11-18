@@ -50,8 +50,9 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * A run starts only on the operator's consent, and never on a failed corpus import. It validates the judge as an
  * instrument first — running the check when the project holds no valid record for the judge's qualification digest and
- * the corpus revision, and refusing {@code judge_unchecked} when the check has no verdict or does not pass — and
- * refuses {@code scorer_not_independent} when the judge runs the graded model or a declared sibling. Every item of the
+ * the corpus revision and recording its result in the record — and refuses {@code scorer_not_independent} when the
+ * judge runs the graded model or a declared sibling. The check blocks no grading: a failed check is recorded and
+ * reported, and a grading whose corpus holds no {@code judge/} item records no result at all. Every item of the
  * role's topics is then offered to the graded configuration in the fresh form and, unless the role is a
  * {@code zero_tool} role, in the warm form; the screener's items are offered as often as its profile says, each in its
  * own worker.
@@ -123,10 +124,7 @@ public final class RoleGrader {
         if (topics.isEmpty()) {
             return refused(GradingOutcome.Refused.NO_TOPICS, "the corpus holds no item for the role");
         }
-        var judgeRefusal = ensureJudgeCheck(plan);
-        if (judgeRefusal.isPresent()) {
-            return judgeRefusal.get();
-        }
+        var judgeCheck = judgeCheck(plan);
         var runs = GradingOffer.runs(plan);
         // pm-core boundary: GradingPlan.previous() is nullable and filtered here, once
         var recorded = plan.previous();
@@ -148,6 +146,7 @@ public final class RoleGrader {
         var entry = QualificationRecord.builder().role(name).qualificationDigest(role.qualificationDigest())
                 .configuration(GradedConfiguration.of(role)).corpusRevision(plan.corpusRevision())
                 .missedSources(missedSources(plan)).forms(forms).warmFreshGap(warmFreshGap(forms).orElse(null))
+                .judgeCheck(judgeCheck)
                 .ungraded(ungraded(results)).gradedAt(clock.instant()).items(results).build();
         records.write(entry);
         return new GradingOutcome.Graded(entry);
@@ -157,25 +156,32 @@ public final class RoleGrader {
         return plan.role().zeroTool() ? List.of(RoleForm.FRESH) : List.of(RoleForm.FRESH, RoleForm.WARM);
     }
 
-    private Optional<GradingOutcome.Refused> ensureJudgeCheck(GradingPlan plan) {
+    /**
+     * Runs or reads the judge instrument check and reports its result. The check blocks no grading: a record the check
+     * did not run (the corpus holds no {@code judge/} item) answers {@code null}, and a failed check answers
+     * {@link QualificationRecord.JudgeCheckResult#FAILED}, which the record carries beside the measurements.
+     *
+     * @param plan a grading plan
+     * @return the check's result; {@code null} where no check ran
+     */
+    private QualificationRecord.@Nullable JudgeCheckResult judgeCheck(GradingPlan plan) {
+        if (plan.judge().items().isEmpty()) {
+            // The corpus holds no judge item: no check can run, so no result is recorded, whatever a stored record holds.
+            return null;
+        }
         var judge = plan.judge().role();
         var digest = judge.qualificationDigest();
         var stored = judgeChecks.lookup().orElse(null);
         var verdict = stored == null ? null : JudgeCheck.Verdict.of(stored, digest, plan.corpusRevision());
         if (verdict != null && verdict.passes()) {
-            return Optional.empty();
-        }
-        if (plan.judge().items().isEmpty()) {
-            return Optional.of(refused(GradingOutcome.Refused.JUDGE_UNCHECKED,
-                    "the corpus holds no judge item to check the judge with"));
+            return QualificationRecord.JudgeCheckResult.PASSED;
         }
         var checkRecord = instrumentCheck.run(judge, plan.judge().items(), plan.corpusRevision());
         judgeChecks.write(checkRecord);
         var checked = JudgeCheck.Verdict.of(checkRecord, digest, plan.corpusRevision());
-        if (checked.passes()) {
-            return Optional.empty();
-        }
-        return Optional.of(refused(GradingOutcome.Refused.JUDGE_UNCHECKED, String.join(", ", checked.reasons())));
+        return checked.passes()
+                ? QualificationRecord.JudgeCheckResult.PASSED
+                : QualificationRecord.JudgeCheckResult.FAILED;
     }
 
     private List<QualificationRecord.ItemResult> gradeForm(GradingPlan plan, RoleTopics topics, RoleForm form,

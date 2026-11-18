@@ -75,12 +75,6 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`worker-activity`; `question-continuation`
 |Milestone 4
 
-|link:qualification-evidence.adoc[`qualification-evidence`]
-|What a role's qualification figures rest on: the `thin` mark of a topic and its record member, and the record member `judge_check` with a grading the judge instrument check does not refuse (the rest is deferred, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-37[L-37])
-|`open`
-|`z3-deferred-code-removal` (the same record and codec)
-|Milestone 4
-
 |link:decision-engine.adoc[`decision-engine`]
 |Decisions as the operator meets them: structure, interpretation, support, channels
 |`open`

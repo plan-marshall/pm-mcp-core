@@ -93,6 +93,8 @@ public class QualificationRecordCodec {
 
     private static final String AGREEMENT = "agreement";
     private static final String CONSTANT_BASELINE = "constant_baseline";
+    private static final String THIN = "thin";
+    private static final String JUDGE_CHECK = "judge_check";
 
     private static final String ITEM_ID = "item_id";
     private static final String FORM = "form";
@@ -104,6 +106,9 @@ public class QualificationRecordCodec {
     static final List<String> MEMBERS = List.of(FORMAT_VERSION, ROLE, QUALIFICATION_DIGEST, CONFIGURATION,
             CORPUS_REVISION, MISSED_SOURCES, FORMS, WARM_FRESH_GAP, UNGRADED, GRADED_AT, ITEMS);
 
+    /** The optional members of a record, in the order of its schema: written where measured, absent otherwise. */
+    static final List<String> OPTIONAL_MEMBERS = List.of(JUDGE_CHECK);
+
     /** The members of the configuration block, in the order of its schema. */
     static final List<String> CONFIGURATION_MEMBERS = List.of(HARNESS, HARNESS_VERSION, MODEL, EFFORT, TOOLS, CLASS,
             SKILL_DIGESTS);
@@ -112,7 +117,7 @@ public class QualificationRecordCodec {
     static final List<String> FORM_MEMBERS = List.of(TOPICS, FORM_ITEMS, TOTAL_TOKENS, DURATION_MS);
 
     /** The members of a topic result, in the order of its schema. */
-    static final List<String> TOPIC_MEMBERS = List.of(AGREEMENT, CONSTANT_BASELINE, FORM_ITEMS);
+    static final List<String> TOPIC_MEMBERS = List.of(AGREEMENT, CONSTANT_BASELINE, FORM_ITEMS, THIN);
 
     /** The members of an item result, in the order of its schema. */
     static final List<String> ITEM_MEMBERS = List.of(ITEM_ID, FORM, CHECKOUT, ANSWER, SCORE, TOTAL_TOKENS,
@@ -151,6 +156,7 @@ public class QualificationRecordCodec {
         @Nullable Map<RoleForm, FormResult> forms = null;
         @Nullable BigDecimal gap = null;
         int ungraded = -1;
+        QualificationRecord.@Nullable JudgeCheckResult judgeCheck = null;
         @Nullable Instant gradedAt = null;
         @Nullable List<ItemResult> items = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -165,6 +171,8 @@ public class QualificationRecordCodec {
                 case FORMS -> forms = readForms(parser);
                 case WARM_FRESH_GAP -> gap = nullableDecimal(parser, field).orElse(null);
                 case UNGRADED -> ungraded = count(parser, field);
+                case JUDGE_CHECK -> judgeCheck = closed(parser, field,
+                        QualificationRecord.JudgeCheckResult::fromWireName);
                 case GRADED_AT -> gradedAt = instant(parser, field);
                 case ITEMS -> items = StrictJson.array(parser, field, QualificationRecordCodec::readItem);
                 default -> throw undeclared(field);
@@ -173,7 +181,7 @@ public class QualificationRecordCodec {
         requireFields(seen, "qualification record", MEMBERS.toArray(String[]::new));
         try {
             return new QualificationRecord(role, digest, configuration, corpusRevision, missedSources, forms, gap,
-                    ungraded, gradedAt, items);
+                    ungraded, judgeCheck, gradedAt, items);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }
@@ -269,20 +277,37 @@ public class QualificationRecordCodec {
         @Nullable BigDecimal agreement = null;
         @Nullable BigDecimal baseline = null;
         int items = -1;
+        var thin = false;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
                 case AGREEMENT -> agreement = decimal(parser, field);
                 case CONSTANT_BASELINE -> baseline = decimal(parser, field);
                 case FORM_ITEMS -> items = count(parser, field);
+                case THIN -> thin = StrictJson.bool(parser, field);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, "topic", TOPIC_MEMBERS.toArray(String[]::new));
         try {
-            return new TopicResult(agreement, baseline, items);
+            var result = new TopicResult(agreement, baseline, items);
+            requireMark(result, thin);
+            return result;
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Refuses a document whose {@code thin} mark contradicts the count it is written beside, so a record has one shape.
+     *
+     * @param result the topic result the count gives
+     * @param thin   the mark the document carries
+     */
+    private static void requireMark(TopicResult result, boolean thin) {
+        if (thin != result.thin()) {
+            throw new IllegalArgumentException("'%s' is %s for %d graded items: %s"
+                    .formatted(THIN, result.thin(), result.items(), thin));
         }
     }
 
@@ -436,6 +461,9 @@ public class QualificationRecordCodec {
                 ? JsonNode.nullValue()
                 : JsonNode.decimal(entry.warmFreshGap()));
         members.put(UNGRADED, JsonNode.integer(entry.ungraded()));
+        if (entry.judgeCheck() != null) {
+            members.put(JUDGE_CHECK, JsonNode.string(entry.judgeCheck().wireName()));
+        }
         members.put(GRADED_AT, JsonNode.string(entry.gradedAt().toString()));
         members.put(ITEMS, JsonNode.array(entry.items().stream().map(QualificationRecordCodec::item).toList()));
         return JsonNode.object(members);
@@ -473,6 +501,7 @@ public class QualificationRecordCodec {
         members.put(AGREEMENT, JsonNode.decimal(result.agreement()));
         members.put(CONSTANT_BASELINE, JsonNode.decimal(result.constantBaseline()));
         members.put(FORM_ITEMS, JsonNode.integer(result.items()));
+        members.put(THIN, JsonNode.bool(result.thin()));
         return JsonNode.object(members);
     }
 

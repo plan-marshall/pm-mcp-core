@@ -156,6 +156,18 @@ class ProbeJobTest {
     }
 
     @Test
+    @DisplayName("a probe records no egress, only a worker does")
+    void noEgress() {
+        var jobId = started(onMachine(Set.of(0), "version"));
+
+        var settled = settled(jobId);
+
+        assertAll("a probe records no egress",
+                () -> assertEquals(JobId.Kind.PROBE, jobId.kind(), "the job id is of the probe kind"),
+                () -> assertNull(settled.egress(), "the record leaves the member null"));
+    }
+
+    @Test
     @DisplayName("an exit code the probe declares settles it succeeded, its record and log in the machine store")
     void declaredExitSucceeds() {
         var jobId = started(onMachine(Set.of(declared), "declared"));

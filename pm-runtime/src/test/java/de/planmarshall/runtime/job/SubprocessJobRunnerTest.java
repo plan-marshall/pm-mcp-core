@@ -287,6 +287,19 @@ class SubprocessJobRunnerTest {
 
     @Test
     @EnabledOnOs(OS.LINUX)
+    @DisplayName("a git job records no egress, only a worker does")
+    void gitJobRecordsNoEgress() {
+        var jobId = started(runner.start(git(30, "ok")));
+
+        var settled = settled(jobId);
+
+        assertAll("a git job records no egress",
+                () -> assertEquals(JobId.Kind.GIT, jobId.kind(), "the job is a git job"),
+                () -> assertNull(settled.egress(), "the record leaves the member null"));
+    }
+
+    @Test
+    @EnabledOnOs(OS.LINUX)
     @DisplayName("the launch carries the composed confinement to the launcher")
     void confinementIsPassedToTheLauncher() throws Exception {
         FakePmExec.install(home, FakePmExec.Mode.REPORT_ARGV);
@@ -1984,6 +1997,18 @@ class SubprocessJobRunnerTest {
                     fixture.request(fixture.root.toString(), target), null));
             return assertInstanceOf(JobRunner.StartResult.Started.class, result,
                     "the build job of the budget key starts").jobId();
+        }
+
+        @Test
+        @DisplayName("a build job records no egress, only a worker does")
+        void buildRecordsNoEgress() throws Exception {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var jobId = startedBuild("maven:verify",
+                    new JobRequest.HostToolCall(HostToolName.GIT, List.of("ok")));
+
+            assertAll("a build job records no egress",
+                    () -> assertEquals(JobId.Kind.BUILD, jobId.kind(), "the job is a build job"),
+                    () -> assertNull(settled(jobId).egress(), "the record leaves the member null"));
         }
 
         @ParameterizedTest(name = "{0}")

@@ -512,6 +512,34 @@ acknowledgement entry ADR `runtime-worker/012` names — a `WorkerCalls` method 
 The landed-contract decision and its two seams are ADR 002's; the protocol adapter is ADR 009's; the one writer block is
 ADR 003's.
 
+== The Grading Adapter
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+`WorkerGradingHarness` implements `core.role.qualification`'s `GradingHarness`, `WorkerJudgeScorer` its `JudgeScorer`, and
+`QualificationService` is the runtime side of the entry `pm-operator roles qualify`. They are ADR
+`core-role/007`'s decision: the adapter belongs to this package because the launch contract is here, and the two facts the
+module cannot reach come in through ports.
+
+* `ItemTaskOffers` offers one item as a task of the task protocol. The answer is not in the queue record — the server
+  applies it to the task's entity — so the port answers the submitted answer with its tokens and its time, and an empty
+  answer leaves the item ungraded. The assembly implements it over `workflow.task.TaskProtocol`.
+* `ItemWorktrees` materialises an item's origin commit as a job-private detached worktree. An empty answer means the commit
+  is not present or not creatable, and the item is left ungraded rather than run in the checkout under a record that would
+  claim `item_commit`.
+
+The per-form behaviour is the specification's. A fresh form starts one supervisor worker per item with the item's contract
+envelope. A warm form keeps one supervised worker for the items it serves in order, and the contamination rule ends that
+worker's service: an item whose `contamination` note names an item the worker served, or one whose note names the
+candidate, is never offered to it, and neither is one whose working directory differs. Such an item gets a worker of its
+own where the role's `count` still admits one; where it does not, the worker the run no longer needs is asked to end and
+the item is left ungraded. A `zero_tool` role runs each item in its job-private directory with the server-fixed prompt. A
+declined start answers empty, so no task is offered without a worker. The engine offers both forms through one harness,
+while a role artifact declares one form: the adapter derives the other form of the same configuration for its start.
+
+`QualificationService` takes the assembly's `GradingEngine` — `offer` and `grade` — instead of a `RoleGrader`, because
+`pm-runtime` may not depend on `pm-workflow`; `pm-workflow` is where the engine and the record's measurements live.
+
 == The Test Harness
 
 _Requirements:_ link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4], link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3]

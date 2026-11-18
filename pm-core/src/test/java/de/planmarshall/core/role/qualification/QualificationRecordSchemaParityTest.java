@@ -27,10 +27,9 @@ import de.planmarshall.core.store.SchemaParity;
 /**
  * The qualification record keeps parity with {@code qualification-record.schema.json}: the codec writes the file's
  * members in its order, every required member of the record, the form and the item is written, the closed enumerations
- * are the file's, and the bounds are the record's own limits. The optional {@code judge_check} member the codec neither
- * writes nor reads is pinned here (owner: the work package {@code qualification-evidence}); the required {@code thin}
- * mark of a topic result is pinned in {@link QualificationSchemaParityTest}. The codec writes no token split, as the file
- * declares only {@code total_tokens}.
+ * are the file's, and the bounds are the record's own limits. The optional {@code judge_check} member is written where
+ * the record carries a result and absent otherwise; the {@code thin} mark of a topic result is derived from the count
+ * and written with it. The codec writes no token split, as the file declares only {@code total_tokens}.
  */
 @DisplayName("Qualification record schema parity")
 class QualificationRecordSchemaParityTest {
@@ -41,8 +40,18 @@ class QualificationRecordSchemaParityTest {
         return QualificationFixtures.qualification(Map.of(Topic.OWN, BigDecimal.valueOf(90)));
     }
 
+    private static QualificationRecord judged() {
+        var base = sample();
+        return QualificationRecord.builder().role(base.role())
+                .qualificationDigest(base.qualificationDigest()).configuration(base.configuration())
+                .corpusRevision(base.corpusRevision()).missedSources(base.missedSources()).forms(base.forms())
+                .warmFreshGap(base.warmFreshGap()).ungraded(base.ungraded())
+                .judgeCheck(QualificationRecord.JudgeCheckResult.PASSED).gradedAt(base.gradedAt())
+                .items(base.items()).build();
+    }
+
     private static byte[] written() {
-        return QualificationRecordCodec.write(sample());
+        return QualificationRecordCodec.write(judged());
     }
 
     private static Map<?, ?> document() {
@@ -50,21 +59,31 @@ class QualificationRecordSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the codec writes the file's members, with the optional member pinned")
+    @DisplayName("the codec writes the file's members, the optional judge check included")
     void membersAreTheFiles() {
         var schema = SchemaParity.load(SCHEMA);
 
-        assertEquals(List.of("file-only:judge_check"),
-                SchemaParity.memberDiffs(SchemaParity.members(written()), schema),
-                "the member drift is pinned to qualification-evidence");
+        assertEquals(List.of(), SchemaParity.memberDiffs(SchemaParity.members(written()), schema),
+                "the codec writes exactly the file's members");
+    }
+
+    @Test
+    @DisplayName("a record without a judge check writes no such member")
+    void optionalMemberIsAbsent() {
+        var schema = SchemaParity.load(SCHEMA);
+        var withoutCheck = SchemaParity.members(QualificationRecordCodec.write(sample()));
+
+        assertEquals(List.of("file-only:judge_check"), SchemaParity.memberDiffs(withoutCheck, schema),
+                "the optional member is the one the record does not carry");
     }
 
     @Test
     @DisplayName("every required member is written")
     void requiredAreWritten() {
         var schema = SchemaParity.load(SCHEMA);
+        var withoutCheck = SchemaParity.members(QualificationRecordCodec.write(sample()));
 
-        assertEquals(Set.copyOf(SchemaParity.required(schema)), Set.copyOf(SchemaParity.members(written())),
+        assertEquals(Set.copyOf(SchemaParity.required(schema)), Set.copyOf(withoutCheck),
                 "the required members should be written");
     }
 
@@ -131,7 +150,7 @@ class QualificationRecordSchemaParityTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new QualificationRecord(role, digest, configuration,
                                 corpusRevision, missedSources, forms, warmFreshGap,
-                                -1, gradedAt, items),
+                                -1, null, gradedAt, items),
                         "the record should refuse a negative count"));
     }
 
@@ -142,10 +161,10 @@ class QualificationRecordSchemaParityTest {
         var members = SchemaParity.members(written());
 
         assertAll(
-                () -> assertEquals(List.of("file-only:judge_check", "file-only:synthetic_member"),
+                () -> assertEquals(List.of("file-only:synthetic_member"),
                         SchemaParity.withFileOnly(members, schema, "synthetic_member"),
                         "a file-only member should be reported"),
-                () -> assertEquals(List.of("file-only:judge_check", "record-only:role"),
+                () -> assertEquals(List.of("record-only:role"),
                         SchemaParity.withRecordOnly(members, schema, "role"),
                         "a record-only member should be reported"));
     }

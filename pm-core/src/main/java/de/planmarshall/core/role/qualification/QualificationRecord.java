@@ -11,6 +11,7 @@ package de.planmarshall.core.role.qualification;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -34,7 +35,8 @@ import de.planmarshall.core.role.RoleForm;
  * A record holds no pass flag. Whether it qualifies a form is evaluated at every check against the project's current
  * agreement level and allowed gap, so a changed level applies to every existing record at once; a record with an
  * ungraded item qualifies no form. It is bound to the role's qualification digest and to the corpus revision: a change
- * of either makes it stale.
+ * of either makes it stale. The result of the judge instrument check the grading's judge ran is recorded beside the
+ * measurements where the check ran; it blocks no grading.
  *
  * @param role                the graded role
  * @param qualificationDigest the digest of the graded members the record is bound to
@@ -45,6 +47,9 @@ import de.planmarshall.core.role.RoleForm;
  * @param warmFreshGap        the largest fresh-minus-warm agreement over the topics; {@code null} when only one form
  *                            was graded
  * @param ungraded            the number of items whose judge task closed {@code lost}
+ * @param judgeCheck          the result of the judge instrument check the grading's judge ran; {@code null} where no
+ *                            check ran (while the corpus holds no topic {@code judge/}) and in every record written
+ *                            before the member existed
  * @param gradedAt            when the grading finished
  * @param items               every offered item and run
  * @since 0.1
@@ -52,7 +57,8 @@ import de.planmarshall.core.role.RoleForm;
 @Builder
 public record QualificationRecord(String role, String qualificationDigest, GradedConfiguration configuration,
 String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> forms,
-@Nullable BigDecimal warmFreshGap, int ungraded, Instant gradedAt, List<ItemResult> items) {
+@Nullable BigDecimal warmFreshGap, int ungraded, @Nullable JudgeCheckResult judgeCheck, Instant gradedAt,
+List<ItemResult> items) {
 
     /** The format version of a qualification record. */
     public static final int FORMAT_VERSION = 1;
@@ -173,6 +179,10 @@ String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> for
 
     /**
      * The agreement of one topic (Store Schemas § Role Qualification Record, {@code topicResult}).
+     * <p>
+     * The mark {@code thin} is no component: the specification derives it from the count ("a topic with fewer than a
+     * compiled {@code 20} graded items"), so it is answered here and never becomes a second state that could contradict
+     * the count. The codec writes it as the schema requires.
      *
      * @param agreement        the percent of the topic's graded items answered right
      * @param constantBaseline the agreement of the best constant answerer over the same items
@@ -180,6 +190,9 @@ String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> for
      * @since 0.1
      */
     public record TopicResult(BigDecimal agreement, BigDecimal constantBaseline, int items) {
+
+        /** The compiled graded-item count below which a topic result is marked {@code thin}. */
+        public static final int THIN_LIMIT = 20;
 
         /**
          * @throws IllegalArgumentException if a value lies outside {@code 0} to {@code 100}, or no item is measured
@@ -190,6 +203,11 @@ String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> for
             if (items < 1) {
                 throw new IllegalArgumentException("A topic measures at least one item: " + items);
             }
+        }
+
+        /** @return {@code true} when the figure rests on fewer graded items than the compiled limit */
+        public boolean thin() {
+            return items < THIN_LIMIT;
         }
 
         private static void require(BigDecimal value, String field) {
@@ -232,6 +250,41 @@ String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> for
             if (durationMs != null && durationMs < 0) {
                 throw new IllegalArgumentException("'duration_ms' must not be negative: " + durationMs);
             }
+        }
+    }
+
+    /**
+     * The result of the judge instrument check a grading's judge ran (Model Work § Judge Instrument Check): the check
+     * blocks no grading, so a failed check is recorded beside the measurements and reported, never turned into a
+     * refusal of the role's grading.
+     *
+     * @since 0.1
+     */
+    public enum JudgeCheckResult {
+        /** The judge followed the reference: oracle above the baseline and above the blind accuracy, both by the margin. */
+        PASSED("passed"),
+        /** The judge did not: the figures are recorded and the role's grading still runs. */
+        FAILED("failed");
+
+        private final String wireName;
+
+        JudgeCheckResult(String wireName) {
+            this.wireName = wireName;
+        }
+
+        /** @return the name of the result in a record */
+        public String wireName() {
+            return wireName;
+        }
+
+        /**
+         * @param wireName the name of a result in a document
+         * @return the result; empty if the name is not one
+         */
+        public static Optional<JudgeCheckResult> fromWireName(String wireName) {
+            return Arrays.stream(values())
+                    .filter(result -> result.wireName.equals(wireName))
+                    .findFirst();
         }
     }
 }

@@ -191,7 +191,7 @@ class RecordedQualificationTest {
         }
         GradedConfiguration configuration = GradedConfiguration.of(GraderFixtures.role());
         return new QualificationRecord(GraderFixtures.ROLE, digest(), configuration,
-                GraderFixtures.CORPUS_REVISION, List.of(), forms, gap, 0, GraderFixtures.NOW, List.of());
+                GraderFixtures.CORPUS_REVISION, List.of(), forms, gap, 0, null, GraderFixtures.NOW, List.of());
     }
 
     private static QualificationRecord.FormResult form(Map<Topic, BigDecimal> agreements) {
