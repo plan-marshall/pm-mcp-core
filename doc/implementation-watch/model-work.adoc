@@ -39,12 +39,17 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WOR
 Hazard:: A rubric score parsed from free text, or from a judge that could read the repository or reach the server,
 qualifies a configuration on a grade nobody can trust; a missing score counted as zero or as met skews the
 agreement either way.
-Guard:: The score half is covered: a judge reply without `score`, with `score` above `1`, or with a member outside
-`judge-score` is not accepted; the task closes `lost`, the item is recorded `ungraded`, the record's `ungraded` count
-rises, and the record qualifies no form; the next grading run re-grades only that item while the qualification digest
-and the corpus revision are unchanged (`WorkerJudgeScorerTest`, `RoleGraderTest`, `QualificationSchemaParityTest`).
-Matched control: a reply that validates against `judge-score` closes `submitted` and its `score` is the item's score.
-Remaining: the isolation half — that the judge's own job runs in the empty `cwd/` with no MCP connection and one turn.
+Guard:: A judge reply without `score`, with `score` above `1`, or with a member outside `judge-score` is not accepted;
+the task closes `lost`, the item is recorded `ungraded`, the record's `ungraded` count rises, and the record qualifies
+no form; the next grading run re-grades only that item while the qualification digest and the corpus revision are
+unchanged (`WorkerJudgeScorerTest`, `RoleGraderTest`, `QualificationSchemaParityTest`). The judge's job runs in the
+empty `cwd/` with no MCP connection and one turn (`LaunchComposerTest`, `WorkerGradingHarnessTest`,
+`WorkerVectorCheckTest`). Matched control: a reply that validates against `judge-score` closes `submitted` and its
+`score` is the item's score. Kept: every clause of the guard now has a passing test, so the item is ready to be
+deleted, but its deletion must move the `PM-WATCH-DISP-51` reference of
+`plan-marshall-documentation/doc/requirements/16-model-work.adoc` and the model-work count of this repository's watch
+index with it; that pair of edits is no part of this plan's surface, so the deletion is left to the plan that owns
+them.
 Source:: design review.
 
 [#PM-WATCH-DISP-57]
