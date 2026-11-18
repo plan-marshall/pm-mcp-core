@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 
@@ -128,7 +129,7 @@ class CheckoutScriptsTest {
         var first = new ConsentScript("scripts/first.sh", sha256("first".getBytes(UTF_8)));
         var added = new ConsentScript("scripts/added.sh", sha256("added".getBytes(UTF_8)));
         var snapshot = new ConsentStore.Snapshot(List.of(Consent.checkoutScripts("my-project", List.of(first),
-                java.time.Instant.parse("2026-11-18T00:00:00Z"), Consent.Channel.CLI, null)), 1);
+                Instant.parse("2026-11-18T00:00:00Z"), Consent.Channel.CLI, null)), 1);
 
         assertAll(
                 () -> assertTrue(snapshot.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, "my-project",

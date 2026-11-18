@@ -96,7 +96,7 @@ class ProjectIdentityProposalTest {
     }
 
     @Test
-    @DisplayName("Should propose nothing when the name cannot form an identifier")
+    @DisplayName("Should propose nothing when no identifier can be formed")
     void proposesNothingForANameTooShort() {
         assertAll(
                 () -> assertTrue(ProjectIdentityProposal.fromRemote("https://example.org/owner/ui.git",

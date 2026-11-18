@@ -61,7 +61,7 @@ class EnrichmentOfferTest {
         var line = EnrichmentOffer.of(List.of("pm-core")).costLine();
 
         assertAll(
-                () -> assertTrue(line.equals("6000 tokens"), "The cost line is the compiled token count"),
+                () -> assertEquals("6000 tokens", line, "The cost line is the compiled token count"),
                 () -> assertFalse(line.matches(".*[$€£¥].*"), "The cost line carries no currency"),
                 () -> assertFalse(line.toLowerCase(Locale.ROOT).contains("usd"),
                         "The cost line names no money unit"));

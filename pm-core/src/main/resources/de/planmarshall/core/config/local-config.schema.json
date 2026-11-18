@@ -39,7 +39,7 @@
       "additionalProperties": false,
       "description": "The speech transcription methods the project allows: a subset of the machine's methods, so a project may narrow and never widen (a method the machine does not allow is refused invalid_arguments).",
       "properties": {
-        "methods": { "type": "array", "uniqueItems": true, "minItems": 1, "items": { "type": "string", "enum": ["local", "provider"] }, "description": "The methods the project allows; absent: the machine's transcribe.methods." }
+        "methods": { "type": "array", "uniqueItems": true, "minItems": 1, "items": { "type": "string", "enum": ["browser", "local", "provider"] }, "description": "The methods the project allows; absent: the project records no narrowing and the machine's methods apply." }
       }
     },
     "plan_defaults": {

@@ -14,8 +14,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The run a project setup records as {@code setup_run} (State Catalogue § Project Setup, {@code setup.entry}): the first
- * run, the continuation of it after the project's operator values, a reconcile run, or one aspect alone.
+ * The run a project setup records as {@code setup_run}, or the entry the caller named (State Catalogue § Project Setup,
+ * {@code setup.entry}): the first run, a reconcile run, one aspect alone, and the {@code integrations} entry that
+ * continues a first run after the project's operator values. The {@code integrations} entry is never a recorded run.
  * <p>
  * The value is recorded from server facts, never from a model, and every later fork of the run follows it, so an
  * interrupted first run keeps its first-run path. The closed list lives here because the unit, the runtime and the

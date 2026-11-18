@@ -40,9 +40,6 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public final class CheckoutScripts {
 
-    /** The largest script the consent digests; a larger file is refused rather than read. */
-    public static final long MAX_SCRIPT_BYTES = 8L * 1024 * 1024;
-
     /**
      * Digests the scripts a {@code run_checkout_scripts} state would run.
      *
@@ -88,10 +85,6 @@ public final class CheckoutScripts {
             throw new IllegalArgumentException("A checkout script is a regular file: " + given);
         }
         try {
-            if (Files.size(file) > MAX_SCRIPT_BYTES) {
-                throw new IllegalArgumentException(
-                        "A checkout script is at most %d bytes: %s".formatted(MAX_SCRIPT_BYTES, given));
-            }
             return new ConsentScript(path.toString(), sha256(file));
         } catch (IOException e) {
             throw new UncheckedIOException("A checkout script cannot be read: " + given, e);

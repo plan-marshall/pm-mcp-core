@@ -200,8 +200,8 @@ public final class ExplorerStore {
      * @param revision   the revision the caller read
      * @throws IllegalArgumentException if a favourite is not a project id or names a project twice
      * @throws SettingsConflict         if the document holds another revision than {@code revision}, carrying the current
-     *                                  snapshot as its current value; if the document is unreadable or has another format
-     *                                  version as a {@link StoreRefusal}
+     *                                  snapshot as its current value
+     * @throws StoreRefusal             if the document is unreadable or has another format version
      * @throws UncheckedIOException     if the document cannot be read or written
      * @throws InternalFaultException   if the lock of the document must not be acquired by the transaction
      */
