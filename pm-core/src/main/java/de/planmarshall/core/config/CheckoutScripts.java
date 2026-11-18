@@ -17,6 +17,7 @@ import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.SecureDirectoryStream;
 import java.nio.file.StandardOpenOption;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
@@ -38,8 +39,11 @@ import lombok.experimental.UtilityClass;
  * The digests come from the checkout and change nothing. A script is read as the regular file it is, at its
  * repository-relative path, and the whole path is checked without following a link: a symbolic link between the checkout
  * root and the script, a path that leaves the checkout, an absent file and a directory are refused rather than digested,
- * so no consent ever covers a file outside the checkout. The file is opened with the same no-follow rule as the check, so
- * the file digested is the file that was checked. The recorded path is spelled with {@code /} on every platform.
+ * so no consent ever covers a file outside the checkout. The digest itself is read through directory handles opened from
+ * the checkout root ({@link java.nio.file.SecureDirectoryStream}), so no component can be replaced by a symbolic link
+ * between the check and the read — the handles denote the directories that were checked. A file system whose provider
+ * offers no secure traversal is refused rather than read by path, because the check and the read would otherwise be two
+ * different lookups. The recorded path is spelled with {@code /} on every platform.
  *
  * @since 0.1
  */
@@ -54,7 +58,8 @@ public final class CheckoutScripts {
      * @return one {@link ConsentScript} per path, in the same order
      * @throws NullPointerException     if an argument or a path is {@code null}
      * @throws IllegalArgumentException if a path is not relative, leaves the checkout, names no script or repeats
-     *                                  another path, names no regular file, or reaches it through a symbolic link
+     *                                  another path, names no regular file, reaches it through a symbolic link, or the
+     *                                  file system offers no secure directory traversal
      * @throws UncheckedIOException     if a script exists and cannot be read
      */
     public static List<ConsentScript> digest(Path checkoutRoot, List<String> scriptPaths) {
@@ -92,7 +97,7 @@ public final class CheckoutScripts {
             throw new IllegalArgumentException("A checkout script is a regular file: " + given);
         }
         try {
-            return new ConsentScript(portable(path), sha256(file));
+            return new ConsentScript(portable(path), sha256(root, path));
         } catch (IOException e) {
             throw new UncheckedIOException("A checkout script cannot be read: " + given, e);
         }
@@ -115,14 +120,34 @@ public final class CheckoutScripts {
         return relative.toString().replace(File.separatorChar, '/');
     }
 
-    private static String sha256(Path file) throws IOException {
-        try (var channel = Files.newByteChannel(file, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
-                var digest = new DigestInputStream(Channels.newInputStream(channel),
-                        MessageDigest.getInstance("SHA-256"))) {
-            digest.transferTo(OutputStream.nullOutputStream());
-            return HexFormat.of().formatHex(digest.getMessageDigest().digest());
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("The JVM carries SHA-256", e);
+    /**
+     * Digests the script through directory handles opened from the checkout root, so every component is the directory
+     * that was checked and no component can be replaced by a symbolic link in between.
+     */
+    private static String sha256(Path root, Path relative) throws IOException {
+        var stream = Files.newDirectoryStream(root);
+        if (!(stream instanceof SecureDirectoryStream<Path> secureRoot)) {
+            stream.close();
+            throw new IllegalArgumentException(
+                    "The checkout's file system offers no secure directory traversal: " + root);
+        }
+        try (secureRoot) {
+            var components = new ArrayList<Path>();
+            relative.forEach(components::add);
+            var current = secureRoot;
+            for (var index = 0; index < components.size() - 1; index++) {
+                current = current.newDirectoryStream(components.get(index), LinkOption.NOFOLLOW_LINKS);
+            }
+            var last = components.getLast();
+            try (var channel = current.newByteChannel(last,
+                    Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
+                    var digest = new DigestInputStream(Channels.newInputStream(channel),
+                            MessageDigest.getInstance("SHA-256"))) {
+                digest.transferTo(OutputStream.nullOutputStream());
+                return HexFormat.of().formatHex(digest.getMessageDigest().digest());
+            } catch (NoSuchAlgorithmException e) {
+                throw new IllegalStateException("The JVM carries SHA-256", e);
+            }
         }
     }
 }
