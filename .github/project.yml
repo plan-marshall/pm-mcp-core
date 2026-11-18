@@ -39,6 +39,8 @@ sonar:
   project-key: plan-marshall_pm-mcp-core
   enabled: true
   skip-on-dependabot: true
+  # pilot of cuioss-organization#340: the analysis runs in the Java 25 build leg, there is no sonar-build job
+  run-in-build: true
 
 pages:
   reference: pm-mcp-core

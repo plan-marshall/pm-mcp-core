@@ -27,3 +27,5 @@
 package de.planmarshall.core.profile;
 
 import org.jspecify.annotations.NullMarked;
+
+// pilot of cuioss-organization#340 (not to be merged)
