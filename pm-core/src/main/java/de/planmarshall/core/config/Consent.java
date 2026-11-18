@@ -169,6 +169,15 @@ Channel channel, @Nullable String deviceId) {
     }
 
     /**
+     * @param deviceId a paired device id as an answer or a consent carries it; may be {@code null}
+     * @return whether the value is a paired device id of the web channel
+     * @since 0.1
+     */
+    public static boolean isPairedDevice(@Nullable String deviceId) {
+        return deviceId != null && DEVICE_ID.matcher(deviceId).matches();
+    }
+
+    /**
      * @param projectId the project an entry is scoped to
      * @return whether the entry belongs to the project
      */

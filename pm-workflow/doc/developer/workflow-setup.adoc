@@ -35,6 +35,23 @@ A caller that finds no machine status passes no `WorkflowStatus`; it treats the 
 `done`, and the missing step is the entry state of the machine unit — and lets the gate refuse the start. The gate does
 not invent a status.
 
+`ProjectOnboardingStart`:: The start of a project's onboarding, as `project.checkout` reaches it
+(link:../../../doc/specification/state-catalogue/15-project-onboarding.adoc#state-catalogue-project-onboarding[State
+Catalogue § Project Onboarding]). `start(onboarding, inspection)` asks `SetupGate.decide` first and answers a
+`MachineNotOnboarded` with the gate's reason, status, missing step and clients, or, once the machine is onboarded, the
+checkout inspection's own `CheckoutRefused` (`enrolment_root_conflict` among its reasons) or `Admitted`. The inspection
+is a functional interface, so the call site owns what it reads; the gate is consulted before it runs
+(link:../adr/workflow-setup/002-the-start-consults-the-gate-before-the-checkout.adoc[ADR 002]).
+
+`SetupRunDerivation`:: The `setup_run` a setup call records at `setup.entry`
+(link:../../../doc/specification/state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue § Project
+Setup]). `derive(entry, configDirectoryPresent, recorded)` takes the entry the caller named — one value of `SetupRun`,
+where `integrations` is an entry that derives `FIRST_RUN` and is never a recorded run — and keeps the run an interrupted
+call already recorded; otherwise an `integrations` entry continues the first run, a primary checkout without
+`.marshall/config/` is a first run, an `aspect` entry is that one aspect, and every other call reconciles. The four
+entries (`SetupRun`) and the six aspects (`SetupAspect`) are closed lists of `core.config`, so the names exist once
+(link:../adr/workflow-setup/003-the-setup-run-is-derived-from-server-facts.adoc[ADR 003]).
+
 == Invariants
 
 * *Admission is read, never assumed*: only `onboard.completed` or a reconfigure run opens the gate; an absent or `null`
@@ -44,6 +61,11 @@ not invent a status.
   operator verb.
 * *One status, one scope*: `MachineOnboarding.fromStatus` refuses a status that is not the machine scope's.
 * *No time limit, no fallback*: the gate itself decides nothing by time; it is re-read on every act.
+* *The machine's guard comes before the checkout*: `ProjectOnboardingStart` consults the gate first, so a refusal of the
+  machine cannot be masked by anything the requested checkout would have answered, and an unreadable checkout is never
+  touched while the machine is still being onboarded.
+* *The recorded run wins*: a `setup_run` already recorded is never re-derived, so an interrupted first run whose
+  `.marshall/config/` already exists stays a first run rather than turning into a reconcile.
 
 == Failure Modes
 
@@ -60,6 +82,10 @@ machine state rather than admitting a start.
 
 |A later run of one aspect is in progress
 |The gate stays open: the status carries `reconfigure`, and every start and act is admitted.
+
+|The machine is onboarded and the requested checkout is refused
+|`ProjectOnboardingStart` answers `CheckoutRefused` with the inspection's reason (for example
+`enrolment_root_conflict`) and its detail, and opens no entry.
 |===
 
 == Specification Tracing
@@ -68,9 +94,17 @@ machine state rather than admitting a start.
 * link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the
   Operator]
 * link:../../../doc/specification/domain-extensions/04-setup-state-machine.adoc[Domain Extensions § Setup State Machine]
+* link:../../../doc/specification/state-catalogue/15-project-onboarding.adoc#state-catalogue-project-onboarding[State
+  Catalogue § Project Onboarding]
+* link:../../../doc/specification/state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue §
+  Project Setup]
 
 == Decisions
 
 * link:../adr/workflow-setup/001-the-setup-gate-reads-the-machine-status.adoc[ADR workflow-setup/001]: the setup gate
   reads the machine's status through `MachineOnboarding` and refuses with the two reasons of the specification, rather
   than through a second machine-state store.
+* link:../adr/workflow-setup/002-the-start-consults-the-gate-before-the-checkout.adoc[ADR workflow-setup/002]: the start of
+  a project's onboarding consults the gate before it inspects the checkout.
+* link:../adr/workflow-setup/003-the-setup-run-is-derived-from-server-facts.adoc[ADR workflow-setup/003]: the `setup_run`
+  is derived from the entry and server facts, and a recorded run is kept.

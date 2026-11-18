@@ -1,0 +1,53 @@
+= ADR core-architecture/001: The Enrichment Cost Is a Compiled Token Estimate
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-18.
+
+== Context
+
+`setup.enrich-consent` asks the operator's `model_cost` consent before the architecture enrichment runs, and the state
+shows "the modules to describe and the expected tokens of their enrichment" (State Catalogue § Project Setup; Domain
+Extensions § Setup Enrichment). Usage is stated in tokens and never in money (Harness Profiles § Tokens, Not Money), and
+a `no` skips the step with its reason and leaves the project ready without the descriptions.
+
+The question was what the offer states before anything has run, and where the figure comes from. The qualification's
+offer (`GradingOffer`) already compiles its estimate per item and per judge task; the enrichment had no such value.
+
+== Decision
+
+`EnrichmentOffer` carries the modules to describe and the expected tokens of their enrichment, estimated as the compiled
+`PER_MODULE` tokens per module — one module's description is one task that writes its responsibility, its purpose and its
+key packages. `expectedTokens(int)` states the estimate, `of(modules)` builds the offer, and `costLine()` renders it as
+`<n> tokens`, never as money. An offer of no module, a negative count and negative tokens are refused.
+
+== Alternatives Considered
+
+* *Measure a sample module and extrapolate*: not taken. It spends the tokens the consent is meant to authorise, and a
+  single module's measurement would be presented as the estimate of every module.
+* *Derive the figure from the model's per-token price*: not taken. The specification forbids stating money; usage is
+  tokens, and a price would also make the offer depend on a provider's tariff rather than on the work.
+* *Reuse `GradingOffer`*: not taken. Its components are a role's items, forms and judge tasks; an enrichment counts
+  modules, and one type that meant two things would blur both.
+
+== Consequences
+
+* The offer is reproducible and needs no run, so a consent state can show it before any token is spent.
+* A change of the estimate is a compiled-constant change, reviewed as such; a measured usage of an enrichment run stays
+  in the runtime's usage records and never replaces the offer.
+
+== Source
+
+The pull request of PLAN-V2-17 (`feature/v2-17-project-onboarding-unit`); work package
+link:../../../../doc/plans/project-onboarding-unit.adoc[`project-onboarding-unit`];
+link:../../../../doc/specification/domain-extensions/04-setup-state-machine.adoc#setup-enrichment[Domain Extensions § Setup
+Enrichment];
+link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#token-usage[Harness Profiles § Tokens, Not
+Money];
+link:../../../../doc/specification/state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue § Project
+Setup].
