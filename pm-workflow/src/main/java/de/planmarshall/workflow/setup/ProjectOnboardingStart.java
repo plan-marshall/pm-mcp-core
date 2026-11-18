@@ -111,8 +111,8 @@ public final class ProjectOnboardingStart {
         Objects.requireNonNull(onboarding, "onboarding");
         Objects.requireNonNull(checkout, "checkout");
         return switch (gate(onboarding)) {
-            case SetupGate.Refused refused -> new MachineNotOnboarded(refused.reason(), refused.httpStatus(),
-                    refused.missingStep(), refused.clients());
+            case SetupGate.Refused(var reason, var httpStatus, var missingStep, var clients) ->
+                    new MachineNotOnboarded(reason, httpStatus, missingStep, clients);
             case SetupGate.Admitted _ -> checkout.inspect().map(Decision.class::cast).orElseGet(Admitted::new);
         };
     }
