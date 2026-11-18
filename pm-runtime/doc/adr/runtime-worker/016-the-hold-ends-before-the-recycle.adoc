@@ -40,6 +40,11 @@ once per generation, and only then hands the generation to `WorkerEnding`: the p
 while the generation still leases its task and before the fence, and an executing or waiting generation, or one under
 its budget, sends nothing.
 
+The budget is decided on the asking turn, so the transport reports the hold of the turn that asked **before** it reports
+that turn's completion (`WorkerCalls.holdOpened` states the order): a generation that already left `HOLDING` when its
+turn is reported is no longer holding, and the notification would have no hold to end. `SupervisorCalls.turnCompleted`
+therefore keeps a `HOLDING` generation in its hold while it records the turn's context, so the recycling still sees it.
+
 `WorkerCalls` gains the three facts the transport owes the supervisor: `holdOpened`, `holdClosed` and `answerDelivered`.
 `SupervisorCalls` implements them as the rest of the class does, through the lifecycle table and the generation's loss
 detection:
@@ -47,7 +52,9 @@ detection:
 * `holdOpened` moves the generation to `HOLDING` through the table — which gains `EXECUTING` to `HOLDING`, because a
   worker asks its question while it executes its task — keeps the lease of the task it names and its model slot, marks
   the detection's wait open (which suppresses the silence deadline as a consultation's wait does) and counts no idle
-  wake-up. A transition the table does not have, from `STARTING` for example, is refused as everywhere.
+  wake-up. A transition the table does not have, from `STARTING` for example, and a call that names another task than
+  the generation leases are refused as every other call of the port is refused: the state stays as it is and nothing is
+  recorded, because the inbound API never throws at the transport.
 * `holdClosed` moves the generation from `HOLDING` to `EXECUTING` and closes the detection's wait, so the silence limit
   counts again from the close.
 * `answerDelivered` calls `LossDetection.answerDelivered`, which arms the answer's acknowledgement deadline (ADR 012).
@@ -83,10 +90,15 @@ budget accounting reads the context tokens of the latest turn, never an elapsed 
   records the reason `not_allowed`, the specification's standing decision of 2026-10-29, because the fallback branch is
   the one where the suspension is not allowed.
 * The assembly owes `WorkerProtocol.holdEnded` — `TaskProtocol.suspend` where `QuestionContinuation` allows the resume,
-  `fallback` otherwise — and the calls of the three entries. Adding the abstract method breaks its compile until it
-  follows, so the plan names the follow-up rather than hiding it behind a default method.
+  `fallback` otherwise — and the calls of the three entries, in the order this decision requires: the hold of a turn
+  before that turn's completion. Adding the abstract method breaks its compile until it follows, so the plan names the
+  follow-up rather than hiding it behind a default method.
 * The assembly also owes the `WorkerTaskActivity` argument of the `WorkerRecycling` constructor; it constructs the same
   instance it already gives `SupervisionPass`.
+* The trigger covers the warm worker, because `WorkerRecycling.afterTurnCompleted` decides a warm generation's budget. A
+  fresh worker's hold is bounded by its role's `context_budget_tokens` (Model Work § Continuing after a Question,
+  Budget), a bound the recycling does not read today; that branch is owed with the assembly's wiring and is not claimed
+  here.
 * A hold no longer outlives its worker's budget silently: the notification and the recycle reach the protocol in that
   order, which the recording protocol of `WorkerRecyclingTest` asserts as `hold_ended`, `fence`, `release`.
 * `doc/plans/question-continuation.adoc` stays open: the resume, the restart sweep, the engine's `asked` state, the

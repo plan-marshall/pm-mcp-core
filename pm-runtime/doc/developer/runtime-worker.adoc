@@ -250,14 +250,18 @@ ending (Model Work § Continuing after a Question). The runtime carries the supe
   close; `answerDelivered` arms the answer's acknowledgement deadline through `LossDetection.answerDelivered`
   (link:../adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR 012]). A hold counts no idle
   wake-up, because a generation holding a lease is never idle. The transport calls the entries; a call of a generation
-  the registry does not know is ignored, and a transition the table does not have — a hold from `STARTING` — is refused.
+  the registry does not know, a call that names another task than the generation leases and a transition the table does
+  not have — a hold from `STARTING` — all leave the state as it is, because the inbound API never throws at the
+  transport. The transport reports the hold of a turn before that turn's completion, so the supervisor decides the
+  asking turn's budget while the generation still holds.
 * *The hold's end* — at its token budget a holding generation ends its hold before its recycle: `WorkerRecycling`
   reports `WorkerProtocol.holdEnded` once per generation, with the generation, the task, the attempt, the cause
   `token_budget` and the instant, and only then hands the generation to `WorkerEnding`. The protocol therefore sees the
   hold end while the lease is still held and before the fence. A generation that is not `HOLDING`, or is under its
   budget, sends nothing. The attempt comes from the `WorkerTaskActivity` port, the same facts the activity signals read,
   because the generation does not carry it; a task whose facts can no longer be read names no attempt, so nothing is
-  reported and the recycle still runs.
+  reported and the recycle still runs. A fresh worker's hold is bounded by its role's `context_budget_tokens`, a bound
+  the recycling does not read: that branch is owed with the assembly's wiring.
 * *The budget* — the hold's time is not charged to the worker budget, and nothing subtracts it: the budget is the
   context of the generation's latest turn (`WorkerRecycling` reads `generation.contextTokens()`), never an elapsed time,
   and a hold produces no turn.

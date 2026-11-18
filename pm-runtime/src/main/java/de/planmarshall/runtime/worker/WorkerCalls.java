@@ -17,8 +17,9 @@ import java.util.Objects;
  * recycling and the start-failure guard need, handed over without the supervisor ever reading a transport.
  * <p>
  * Every call names the generation it concerns; the supervisor resolves the generation from its registry and ignores a
- * call of a generation it does not know. A wait answer is one of the protocol's three: an offer, another wait, or the
- * end of the worker.
+ * call it cannot apply: a generation it does not know, a task the generation does not lease and a transition the
+ * lifecycle table does not have all leave the state as it is, so a call of an ended or an ending generation never throws
+ * at the transport. A wait answer is one of the protocol's three: an offer, another wait, or the end of the worker.
  *
  * @since 0.1
  */
@@ -61,8 +62,11 @@ public interface WorkerCalls {
     /**
      * A generation opened a hold: its task stays leased while the worker waits for the answer to its question (Model
      * Work § Continuing after a Question). The generation moves to
-     * {@link WorkerLifecycle#HOLDING} through the lifecycle table, keeps its lease and its model slot, and its wait
-     * suppresses the silence deadline as a consultation's wait does.
+     * {@link WorkerLifecycle#HOLDING} through the lifecycle table, keeps the lease of the task it names and its model
+     * slot, and its wait suppresses the silence deadline as a consultation's wait does.
+     * <p>
+     * The transport reports the hold of the turn that asked before it reports that turn's completion, so the supervisor
+     * decides the asking turn's token budget while the generation still holds.
      *
      * @param generationId the worker's generation
      * @param queueTaskId  the task the hold keeps

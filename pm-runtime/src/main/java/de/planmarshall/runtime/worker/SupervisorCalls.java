@@ -156,9 +156,12 @@ public final class SupervisorCalls implements WorkerCalls {
         if (generation == null) {
             return;
         }
-        var updated = executing(generation.withContextTokens(WorkerState.ContextTokens.measured(contextTokens)));
-        supervisor.replaced(updated);
-        recycling.afterTurnCompleted(updated);
+        var updated = generation.withContextTokens(WorkerState.ContextTokens.measured(contextTokens));
+        // A turn reported while the generation holds leaves the hold as it is: the recycling decides the hold's budget
+        // on that turn, and the generation holds until its hold ends or the end path runs.
+        var next = generation.lifecycle() == WorkerLifecycle.HOLDING ? updated : executing(updated);
+        supervisor.replaced(next);
+        recycling.afterTurnCompleted(next);
     }
 
     @Override
@@ -179,10 +182,10 @@ public final class SupervisorCalls implements WorkerCalls {
         Objects.requireNonNull(queueTaskId, "queueTaskId");
         Objects.requireNonNull(at, "at");
         var generation = known(generationId).orElse(null);
-        if (generation == null) {
+        if (generation == null || !namesTheHeldTask(generation, queueTaskId)
+                || !mayAdvance(generation, WorkerLifecycle.HOLDING)) {
             return;
         }
-        // The table decides: a generation that cannot hold is refused before any state or detection is touched.
         var holding = generation.advanceTo(WorkerLifecycle.HOLDING).withLeasedTask(queueTaskId);
         detection(generation).waitOpened(at);
         supervisor.replaced(holding);
@@ -193,7 +196,8 @@ public final class SupervisorCalls implements WorkerCalls {
         Objects.requireNonNull(queueTaskId, "queueTaskId");
         Objects.requireNonNull(at, "at");
         var generation = known(generationId).orElse(null);
-        if (generation == null) {
+        if (generation == null || !namesTheHeldTask(generation, queueTaskId)
+                || !mayAdvance(generation, WorkerLifecycle.EXECUTING)) {
             return;
         }
         var executing = generation.advanceTo(WorkerLifecycle.EXECUTING);
@@ -360,6 +364,16 @@ public final class SupervisorCalls implements WorkerCalls {
 
     private static boolean mayAdvance(WorkerGeneration generation, WorkerLifecycle next) {
         return generation.lifecycle().canTransitionTo(next);
+    }
+
+    /**
+     * @param generation   the generation
+     * @param queueTaskId  the task the call names
+     * @return whether the call names the task the generation leases, or a generation that leases none
+     */
+    private static boolean namesTheHeldTask(WorkerGeneration generation, String queueTaskId) {
+        var leased = generation.leasedTask();
+        return leased == null || leased.equals(queueTaskId);
     }
 
     private static List<String> served(List<String> servedTasks, String queueTaskId) {

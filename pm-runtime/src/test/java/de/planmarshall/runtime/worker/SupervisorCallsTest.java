@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -64,6 +63,11 @@ class SupervisorCallsTest {
     private static final int ACK_DEADLINE_SECONDS = 270;
 
     private static final String TASK = "qt-0123456789abcdef";
+
+    /** A second task, which no generation of these tests leases. */
+    private static final String OTHER_TASK = "qt-fedcba9876543210";
+
+    private static final int TOKEN_BUDGET = 20_000;
 
     private static final String DIGEST = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
@@ -439,13 +443,65 @@ class SupervisorCallsTest {
     void aRefusedHoldTransitionIsRefused() {
         var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
 
+        calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant());
+        var refused = supervisor.generation(generation.generationId()).orElseThrow();
+
         assertAll(
-                () -> assertThrows(IllegalStateException.class,
-                        () -> calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant()),
-                        "a hold out of starting is refused"),
-                () -> assertEquals(WorkerLifecycle.STARTING,
+                () -> assertEquals(WorkerLifecycle.STARTING, refused.lifecycle(),
+                        "the refused hold leaves the generation starting"),
+                () -> assertNull(refused.leasedTask(), "the refused hold leases nothing"));
+    }
+
+    @Test
+    @DisplayName("a close of a generation that holds nothing is refused")
+    void aCloseOfANonHoldingGenerationIsRefused() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+
+        calls.holdClosed(generation.generationId(), TASK, fixture.clock.instant());
+
+        assertEquals(WorkerLifecycle.STARTING,
+                supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                "the refused close leaves the generation starting");
+    }
+
+    @Test
+    @DisplayName("a hold that names another task than the lease is refused")
+    void aHoldOfAnotherTaskIsRefused() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        calls.turnCompleted(generation.generationId(), 1_000L);
+
+        calls.holdOpened(generation.generationId(), OTHER_TASK, fixture.clock.instant());
+        var refused = supervisor.generation(generation.generationId()).orElseThrow();
+
+        assertAll(
+                () -> assertEquals(WorkerLifecycle.EXECUTING, refused.lifecycle(),
+                        "the refused hold leaves the execution"),
+                () -> assertEquals(TASK, refused.leasedTask(), "the refused hold keeps the lease it had"));
+    }
+
+    @Test
+    @DisplayName("a held generation that reports its budget ends the hold and is recycled")
+    void aHeldTurnAtTheBudgetEndsTheHold() {
+        withBounds(new RoleArtifact.Recycling(null, TOKEN_BUDGET, null), parameters(IDLE_WAKEUPS));
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        calls.turnCompleted(generation.generationId(), 1_000L);
+        calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant());
+
+        calls.turnCompleted(generation.generationId(), TOKEN_BUDGET);
+
+        assertAll(
+                () -> assertEquals(1, fixture.holdEnds.size(), "the held turn reports one hold end"),
+                () -> assertEquals(TASK, fixture.holdEnds.getFirst().queueTaskId(),
+                        "the hold end names the held task"),
+                () -> assertEquals(WorkerLifecycle.HOLDING,
                         supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
-                        "the refused hold leaves the generation starting"));
+                        "the generation holds until the end path runs"),
+                () -> assertEquals(Optional.of(EndCause.RECYCLE),
+                        ending.requestedCause(generation.generationId()), "the budget recycles the generation"));
     }
 
     @Test

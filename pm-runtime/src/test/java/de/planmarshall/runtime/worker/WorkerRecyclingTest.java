@@ -281,6 +281,23 @@ class WorkerRecyclingTest {
     }
 
     @Test
+    @DisplayName("a hold whose task cannot be read is recycled without a notification")
+    void aHoldWhoseTaskCannotBeReadIsRecycled() {
+        var withoutFacts = new WorkerRecycling(environment, ending, supervisor::generations,
+                _ -> Optional.of(new RoleArtifact.Recycling(null, TOKEN_BUDGET, null)), _ -> Optional.empty(),
+                PARAMETERS);
+        var holding = warm().withLifecycle(WorkerLifecycle.HOLDING).withLeasedTask(firstTask)
+                .withContextTokens(ContextTokens.measured(TOKEN_BUDGET));
+
+        var cause = withoutFacts.afterTurnCompleted(holding);
+
+        assertAll(
+                () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), cause,
+                        "the hold's generation is recycled without a notification"),
+                () -> assertTrue(fixture.holdEnds.isEmpty(), "a task without facts ends no hold"));
+    }
+
+    @Test
     @DisplayName("a changed configuration digest recycles after the task and clears the start-failure guard")
     void changedConfigurationRecyclesAfterTheTask() {
         var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(firstTask))
