@@ -12,6 +12,11 @@ package de.planmarshall.workflow.engine;
 import static de.planmarshall.workflow.engine.EngineFixtures.PLAN_ID;
 import static de.planmarshall.workflow.engine.EngineFixtures.T0;
 import static de.planmarshall.workflow.engine.EngineFixtures.parse;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -25,9 +30,7 @@ import org.junit.jupiter.api.Test;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.store.JournalScopeType;
-import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 
@@ -108,7 +111,21 @@ class SlotFillTest {
      */
     private WorkflowEngine operatorEngine(WorkflowDefinition unit) {
         return new WorkflowEngine(unit, WorkflowCatalog.of(), fixtures.validator(), fixtures.registry(),
-                new NoteBinder(), fixtures.ports());
+                noteBinder(), fixtures.ports());
+    }
+
+    /**
+     * @return an EasyMock binder that fills the free {@code note} of the fixture primitive {@code test.note} from the
+     *         operator's submission, and binds the empty record for every other primitive
+     */
+    @SuppressWarnings("unchecked")
+    private static WorkflowEngine.ParameterBinder noteBinder() {
+        WorkflowEngine.ParameterBinder binder = createMock(WorkflowEngine.ParameterBinder.class);
+        expect(binder.bind(anyObject(), anyObject())).andReturn(new EngineFixtures.NoParams()).anyTimes();
+        expect(binder.bind(anyObject(), anyObject(), anyObject())).andAnswer(() -> new EngineFixtures.NoteParams(
+                ((Map<String, String>) getCurrentArguments()[2]).get("note"))).anyTimes();
+        replay(binder);
+        return binder;
     }
 
     @Nested
@@ -184,23 +201,6 @@ class SlotFillTest {
                     Map.of("other", other))).status();
 
             assertTrue(filled.slots().isEmpty(), "an act without the parameter fills no slot");
-        }
-    }
-
-    /**
-     * The binder of the operator tests: a primitive bindings no free parameter gets the empty record, and the fixture
-     * link primitive {@code test.note} takes its free {@code note} from the operator's submission.
-     */
-    private record NoteBinder() implements WorkflowEngine.ParameterBinder {
-
-        @Override
-        public Record bind(Primitive<?, ?> primitive, WorkflowStatus status) {
-            return new EngineFixtures.NoParams();
-        }
-
-        @Override
-        public Record bind(Primitive<?, ?> primitive, WorkflowStatus status, Map<String, String> parameters) {
-            return new EngineFixtures.NoteParams(parameters.get("note"));
         }
     }
 }
