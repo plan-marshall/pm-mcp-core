@@ -243,8 +243,12 @@ class LessonFrontMatterTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new Claim("Not A Plan", instant),
                         "A plan id outside its pattern is refused"),
-                () -> assertThrows(IllegalArgumentException.class, wrongVersion::build,
-                        "A format version above one is refused"));
+                () -> {
+                    var ex = assertThrows(IllegalArgumentException.class, wrongVersion::build,
+                            "A format version above one is refused");
+                    assertTrue(ex.getMessage().contains(String.valueOf(LessonFrontMatter.FORMAT_VERSION + 1)),
+                            "The message names the version found");
+                });
     }
 
     @Test

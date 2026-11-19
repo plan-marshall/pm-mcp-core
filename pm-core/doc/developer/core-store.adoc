@@ -742,7 +742,7 @@ body.
 
 `LessonCodec` reads and writes one file: the line `---`, the front matter, the line `---`, the body verbatim. The front
 matter is written as one JSON object in the order of the schema — a JSON object is a YAML 1.2 flow mapping — and read
-through a YAML library with the YAML 1.2 core schema (ADR core-store/061). The writer escapes every non-ASCII character,
+through a YAML library whose scalar resolution is restricted to the 1.2 core schema (ADR core-store/061). The writer escapes every non-ASCII character,
 so a title, a statement or a source that carries a YAML line break (U+0085, U+2028, U+2029), a C1 control or a
 noncharacter reads back unchanged instead of being folded or refused by the YAML reader.
 The reader refuses an anchor, an alias, a tag, a second document, a duplicate or unknown

@@ -148,7 +148,7 @@ List<Revision> revisions, List<MergedFrom> mergedFrom, @Nullable Claim claim, @N
         requireText(toolVersion, "tool_version");
         if (formatVersion != FORMAT_VERSION) {
             throw new IllegalArgumentException(
-                    "A lesson front matter is format version %d, not %d".formatted(FORMAT_VERSION, formatVersion));
+                    "A lesson front matter is format version %d, not %d".formatted(formatVersion, FORMAT_VERSION));
         }
         if ((category == Category.ARCH_CONSTRAINT) != (rule != null)) {
             throw new IllegalArgumentException(
