@@ -42,14 +42,13 @@ class CallFrameRecordsTest {
         var correlationId = de.planmarshall.core.id.CorrelationId.random();
 
         var constructed = new CallFrame(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs,
-                Map.of(), commandId, correlationId, pushedAt);
+                commandId, correlationId, pushedAt);
         var built = CallFrame.builder()
                 .callerWorkflowId(callerWorkflowId)
                 .callerStateId(callerStateId)
                 .subWorkflowId(subWorkflowId)
                 .entry(entry)
                 .boundArgs(boundArgs)
-                .argSources(Map.of())
                 .commandId(commandId)
                 .correlationId(correlationId)
                 .pushedAt(pushedAt)

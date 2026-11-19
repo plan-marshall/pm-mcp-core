@@ -463,7 +463,8 @@ final class EngineFixtures {
     static WorkflowStatus.CallFrame frame(String callerWorkflowId, String callerStateId, String subworkflowId,
             String entry) {
         return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, subworkflowId, entry, Map.of(),
-                T0);
+                Map.of(), de.planmarshall.core.id.CommandId.random(),
+                de.planmarshall.core.id.CorrelationId.random(), T0);
     }
 
     /**

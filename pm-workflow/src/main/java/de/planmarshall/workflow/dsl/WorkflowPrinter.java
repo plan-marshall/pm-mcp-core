@@ -339,6 +339,7 @@ public final class WorkflowPrinter {
             case CallValue.EnumValue(var enumValue) -> enumValue;
             case CallValue.IntValue(var intValue) -> String.valueOf(intValue);
             case CallValue.EnumList(var values) -> "[" + String.join(LIST_SEPARATOR, values) + "]";
+            case CallValue.SlotRef(var name) -> "slot." + name;
         };
     }
 

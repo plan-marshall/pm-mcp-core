@@ -178,7 +178,7 @@ Map<String, String> retained) {
         activeJobs = orderedCopy(activeJobs, "activeJobs", (name, job) -> requireNonBlank(name, "active_jobs key"));
         activeTasks = orderedCopy(activeTasks, "activeTasks",
                 (entity, task) -> requireNonBlank(entity, "active_tasks key"));
-        slots = orderedCopy(slots, "slots", (key, slot) -> requireNonBlank(key, "slots key"));
+        slots = slots == null ? Map.of() : orderedCopy(slots, "slots", (key, slot) -> requireNonBlank(key, "slots key"));
         Objects.requireNonNull(updatedAt, "updatedAt");
         retained = orderedCopy(retained, "retained", (member, raw) -> requireNonBlank(raw, member));
     }
@@ -228,8 +228,8 @@ Map<String, String> retained) {
             requireNonBlank(subworkflowId, "subworkflow_id");
             requireNonBlank(entry, "entry");
             boundArgs = orderedCopy(boundArgs, "boundArgs", (name, arg) -> requireNonBlank(name, "bound_args key"));
-            argSources = orderedCopy(argSources, "argSources",
-                    (name, source) -> requireNonBlank(name, "arg_sources key"));
+            argSources = argSources == null ? Map.of()
+                    : orderedCopy(argSources, "argSources", (name, source) -> requireNonBlank(name, "arg_sources key"));
             Objects.requireNonNull(commandId, "commandId");
             Objects.requireNonNull(correlationId, "correlationId");
             Objects.requireNonNull(pushedAt, "pushedAt");

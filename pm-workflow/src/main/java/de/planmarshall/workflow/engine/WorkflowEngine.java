@@ -162,6 +162,8 @@ public final class WorkflowEngine {
     private final QueueTaskCreator tasks;
     private final QuestionRecordReader questions;
     private final WorkflowClock clock;
+    private final RandomGenerator ids;
+    private final @Nullable InputBindingContext bindingContext;
     private final @Nullable InstanceComposition composition;
     private final @Nullable InstanceUnits versionUnits;
 
@@ -255,6 +257,8 @@ public final class WorkflowEngine {
         this.tasks = ports.tasks();
         this.questions = ports.questions();
         this.clock = ports.clock();
+        this.ids = ports.ids();
+        this.bindingContext = ports.bindingContext();
         this.composition = ports.composition();
         this.versionUnits = ports.units();
         var verified = new LinkedHashMap<String, WorkflowDefinition>();
@@ -896,7 +900,7 @@ public final class WorkflowEngine {
             this.history = history;
             this.transaction = transaction;
             this.instanceVersion = status.instanceVersionInForce().orElse(1);
-            this.correlationId = de.planmarshall.core.id.CorrelationId.random(ports.ids);
+            this.correlationId = de.planmarshall.core.id.CorrelationId.random(ids);
             for (var index = 0; index < stack.depth(); index++) {
                 results.push(new LinkedHashMap<>());
             }
@@ -1317,7 +1321,7 @@ public final class WorkflowEngine {
                     .subWorkflowId(callee.id())
                     .entry(entry)
                     .boundArgs(call.paramBindings())
-                    .commandId(de.planmarshall.core.id.CommandId.random(ports.ids))
+                    .commandId(de.planmarshall.core.id.CommandId.random(ids))
                     .correlationId(correlationId)
                     .pushedAt(clock.now().toString())
                     .build();

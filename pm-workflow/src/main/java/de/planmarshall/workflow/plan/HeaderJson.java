@@ -461,6 +461,7 @@ final class HeaderJson {
             case CallValue.EnumValue(var text) -> new StringNode(text);
             case CallValue.IntValue(var integer) -> number(integer);
             case CallValue.EnumList(var values) -> strings(values);
+            case CallValue.SlotRef(var name) -> new StringNode("slot." + name);
         };
     }
 

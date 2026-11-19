@@ -346,12 +346,21 @@ class SubWorkflowExecutionTest {
             expectedArgs.put("mode", new BoundArg.StringArg("strict"));
             expectedArgs.put("rounds", new BoundArg.IntegerArg(2));
             expectedArgs.put("targets", new BoundArg.StringSetArg(new LinkedHashSet<>(List.of("origin", "mirror"))));
+            var frame = resting.status().callStack().getFirst();
             assertAll(
                     () -> assertEquals("sub.wait", resting.stateId(), "call rests in the callee's entry state"),
                     () -> assertEquals(EXECUTE, resting.status().phase(), "call keeps the caller's phase"),
-                    () -> assertEquals(List.of(new WorkflowStatus.CallFrame("plan", "execute.invoke",
-                                    "sub.args", "main", expectedArgs, pushedAt)), resting.status().callStack(),
-                            "frame records the callee, entry, arguments and pushed_at"));
+                    () -> assertEquals("plan", frame.callerWorkflowId(), "frame records the caller"),
+                    () -> assertEquals("execute.invoke", frame.callerStateId(), "frame records the calling state"),
+                    () -> assertEquals("sub.args", frame.subworkflowId(), "frame records the callee"),
+                    () -> assertEquals("main", frame.entry(), "frame records the entry"),
+                    () -> assertEquals(expectedArgs, frame.boundArgs(), "frame records the bound arguments"),
+                    () -> assertEquals(pushedAt, frame.pushedAt(), "frame records the push instant"),
+                    () -> assertTrue(de.planmarshall.core.id.CommandId.parse(frame.commandId().toString()).isPresent(),
+                            "frame carries a command id of the grammar"),
+                    () -> assertTrue(de.planmarshall.core.id.CorrelationId.parse(
+                            frame.correlationId().toString()).isPresent(),
+                            "frame carries a correlation id of the grammar"));
         }
 
         @ParameterizedTest(name = "entry {0} -> {1}")
@@ -714,7 +723,8 @@ class SubWorkflowExecutionTest {
             args.put("rounds", new CallValue.IntValue(Generators.integers(1, 5).next()));
             args.put("targets", new CallValue.EnumList(List.of("origin", "mirror")));
             var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", "sub.args", "repair",
-                    args, null, null, T0.toString()));
+                    args, de.planmarshall.core.id.CommandId.random(),
+                    de.planmarshall.core.id.CorrelationId.random(), T0.toString()));
 
             var stored = stack.toStore();
 
@@ -727,7 +737,9 @@ class SubWorkflowExecutionTest {
         @DisplayName("Should refuse a stored integer argument outside the range of a call value")
         void shouldRefuseOversizedInteger() {
             var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", "sub.args", "main",
-                    Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), T0);
+                    Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), Map.of(),
+                    de.planmarshall.core.id.CommandId.random(),
+                    de.planmarshall.core.id.CorrelationId.random(), T0);
             var storedFrames = List.of(stored);
 
             assertThrows(ArithmeticException.class, () -> CallStack.fromStore(storedFrames),

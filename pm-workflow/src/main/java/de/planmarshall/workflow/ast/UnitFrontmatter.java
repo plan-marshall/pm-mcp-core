@@ -87,7 +87,7 @@ SourceLocation location) {
         readsConfig = List.copyOf(readsConfig);
         readsFact = List.copyOf(readsFact);
         inputs = List.copyOf(inputs);
-        slots = List.copyOf(slots);
+        slots = slots == null ? List.of() : List.copyOf(slots);
     }
 
     /**

@@ -1840,8 +1840,7 @@ public final class WorkflowValidator {
                             .build());
                 }
             }
-            case InputType.Text ignored, InputType.CommitMessage ignored2, InputType.Path ignored3,
-                    InputType.PathList ignored4 -> {
+            case InputType.Text _, InputType.CommitMessage _, InputType.Path _, InputType.PathList _ -> {
                 violations.add(Violation.builder()
                         .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                         .stateId(state.id())

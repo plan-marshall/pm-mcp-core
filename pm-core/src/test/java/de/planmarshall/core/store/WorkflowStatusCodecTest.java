@@ -76,7 +76,10 @@ class WorkflowStatusCodecTest {
             + "\"caller_state_id\":\"finalize.settle-commit\","
             + "\"subworkflow_id\":\"git.commit_and_push\",\"entry\":\"commit\","
             + "\"bound_args\":{\"message_mode\":\"step_or_fallback\","
-            + "\"attempts\":3,\"paths\":[\"a.txt\",\"b.txt\"]},\"pushed_at\":\"2026-10-12T10:00:00Z\"}],"
+            + "\"attempts\":3,\"paths\":[\"a.txt\",\"b.txt\"]},"
+            + "\"arg_sources\":{\"message_mode\":{\"source\":\"literal\",\"source_ref\":null}},"
+            + "\"command_id\":\"cmd-0123456789abcdef\",\"correlation_id\":\"cor-0123456789abcdef\","
+            + "\"pushed_at\":\"2026-10-12T10:00:00Z\"}],\"slots\":{},"
             + "\"loop_back_iteration\":2," + COUNTERS + ","
             + "\"retry_counters\":{\"sync_failed\":{\"state_id\":\"finalize.merge-sync\",\"attempts\":1}},"
             + "\"outline_loop_backs\":1,\"policy_counters\":{\"ci-failure\":{\"retry_used\":1,\"renewed_from\":"
@@ -94,7 +97,7 @@ class WorkflowStatusCodecTest {
     /** A workspace status in the canonical form, the matched control of the scope id refusals (golden document). */
     static final String WORKSPACE = "{\"format_version\":1,\"scope_type\":\"workspace\",\"scope_id\":null,"
             + "\"phase\":\"workspace\",\"instance_version\":null,"
-            + "\"state\":\"setup.entry\",\"call_stack\":[],\"loop_back_iteration\":0,"
+            + "\"state\":\"setup.entry\",\"call_stack\":[],\"slots\":{},\"loop_back_iteration\":0,"
             + "\"retry_counters\":{},\"active_jobs\":{},\"active_job\":null,\"active_tasks\":{},"
             + "\"pending_condition\":null,\"updated_at\":\"2026-10-12T10:04:00Z\"}";
 
@@ -325,7 +328,8 @@ class WorkflowStatusCodecTest {
     private static String frame() {
         return "{\"caller_workflow_id\":\"w\",\"caller_state_id\":\"s\","
                 + "\"subworkflow_id\":\"x\",\"entry\":\"main\",\"bound_args\":{},"
-                + "\"pushed_at\":\"2026-10-12T10:00:00Z\"}";
+                + "\"arg_sources\":{},\"command_id\":\"cmd-0123456789abcdef\","
+                + "\"correlation_id\":\"cor-0123456789abcdef\",\"pushed_at\":\"2026-10-12T10:00:00Z\"}";
     }
 
     @Nested

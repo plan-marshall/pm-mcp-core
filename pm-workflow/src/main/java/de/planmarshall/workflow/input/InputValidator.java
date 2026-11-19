@@ -45,7 +45,14 @@ public final class InputValidator {
         }
         int min = 0;
         int max = Integer.MAX_VALUE;
-        if (type instanceof InputType.Text(var lo, var hi) || type instanceof InputType.CommitMessage(var lo2, var hi2)) {
+        if (type instanceof InputType.Text(var lo, var hi)) {
+            if (lo != null) {
+                min = lo;
+            }
+            if (hi != null) {
+                max = hi;
+            }
+        } else if (type instanceof InputType.CommitMessage(var lo, var hi)) {
             if (lo != null) {
                 min = lo;
             }

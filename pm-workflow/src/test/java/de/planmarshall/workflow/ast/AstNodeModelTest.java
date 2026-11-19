@@ -749,6 +749,7 @@ class AstNodeModelTest {
             case CallValue.EnumValue enumValue -> enumValue.value();
             case CallValue.IntValue intValue -> Integer.toString(intValue.value());
             case CallValue.EnumList list -> list.values().toString();
+            case CallValue.SlotRef slotRef -> "slot." + slotRef.name();
         };
     }
 

@@ -56,6 +56,10 @@ public sealed interface CallValue permits CallValue.EnumValue, CallValue.IntValu
                 if (!seen.add(value)) {
                     throw new IllegalArgumentException("the value '%s' occurs twice in the list".formatted(value));
                 }
+            }
+        }
+    }
+
     /**
      * A reference to a slot: {@code slot.<param_name>}.
      *

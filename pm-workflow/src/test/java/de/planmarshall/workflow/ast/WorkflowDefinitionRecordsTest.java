@@ -38,7 +38,7 @@ class WorkflowDefinitionRecordsTest {
         var modificationDate = LocalDate.ofEpochDay(Generators.longs(0, 20_000).next());
         var frontmatter = new UnitFrontmatter(Generators.letterStrings(1, 20).next(),
                 Generators.letterStrings(1, 40).next(), Generators.enumValues(UnitType.class).next(),
-                Generators.letterStrings(1, 20).next(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                Generators.letterStrings(1, 20).next(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 modificationDate, Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 20).next(), null,
                 location);
         var id = Generators.letterStrings(1, 20).next();

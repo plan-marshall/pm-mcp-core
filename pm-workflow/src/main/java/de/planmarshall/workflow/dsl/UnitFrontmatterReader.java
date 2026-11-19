@@ -117,6 +117,7 @@ public final class UnitFrontmatterReader {
     private static final String KEY_SLOT = "slot";
     private static final String KEY_SLOT_TYPE = "slot_type";
     private static final String KEY_SLOT_DESCRIPTION = "slot_description";
+    private static final String KEY_MODIFICATION_DATE = "modification_date";
     private static final String KEY_VERSION = "version";
     private static final String KEY_AUTHOR = "author";
     private static final String KEY_SIGNATURE = "signature";
@@ -775,8 +776,7 @@ public final class UnitFrontmatterReader {
                         && (min == null || integer >= min) && (max == null || integer <= max);
                 case InputType.EnumList(var values) -> value instanceof CallValue.EnumList(var list)
                         && values.containsAll(list);
-                case InputType.Text ignored, InputType.CommitMessage ignored2, InputType.Path ignored3,
-                        InputType.PathList ignored4 -> false;
+                case InputType.Text _, InputType.CommitMessage _, InputType.Path _, InputType.PathList _ -> false;
             };
         }
 
