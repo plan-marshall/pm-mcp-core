@@ -1,0 +1,59 @@
+= ADR workflow-input 002: The Path Rules in Two Layers
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+A path that reaches a sub-workflow comes from outside the unit: a task submission or an operator answer. It is used to
+stage files, and it is the kind of value that turns into a command line if nothing refuses it: git reads a leading `:`
+as pathspec magic and a leading `-` as an option, `..` leaves the worktree, NUL truncates a string at the system
+boundary, and a bidi override reorders what the operator sees.
+
+Some of those rules need nothing but the value; others need the worktree. A rule that needs the filesystem cannot be
+decided by the package that reads the value, and a rule that needs nothing but the value must not wait for the engine,
+because the same value is checked at the submit, where no worktree of a call exists yet.
+
+== Decision
+
+* The pure, syntactic rules live in `PathRules` of `workflow.input` and are decidable from the value alone: non-empty,
+  relative with `/` only, no empty, `.` or `..` segment, no NUL, control or format character (the character classes of
+  ADR `workflow-dsl/007`), no leading `:` (git pathspec magic) or `-`, no `.git` segment in any case, at most 1024
+  characters, and no duplicate in a `list<path>`.
+* The environmental rules are the engine's bind: `PathConfinement.confine` against the worktree root, whose refusal is
+  the value `ConfinementOutcome.Rejected` (R09, no exception), and membership in the scope's staging set
+  (link:../workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017]).
+* Both layers return a value: `Optional<InputRefusal>` (or `null` for the accepted path) here, `ConfinementOutcome` and
+  the condition `precondition_unmet` at the bind.
+
+== Alternatives Considered
+
+* *One layer, all rules at the bind.* Not taken: the submit and the operator act validate a value when no worktree of the
+  call exists, and a corpus of path values could not be tested without a repository.
+* *One layer, all rules here.* Not taken: the package is pure by design, and the confinement needs the real worktree and
+  its live linked worktrees.
+* *Let JGit's `addFilepattern` decide.* Not taken: it expands a directory, and it accepts pathspec magic, so a value
+  could address the whole worktree or exclude paths it never named.
+
+== Consequences
+
+* A directory can never pass: the staging set is a set of files and the syntactic rules refuse what a directory entry
+  would need.
+* A value that passed both layers is a bound file of the scope; it still never reaches a command line, because the
+  commit message and the paths go to git over its API or over stdin
+  (link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract], Stage 4).
+* A new rule is added in the layer that can decide it, with its own rule identifier; the split is never blurred to make a
+  check convenient.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 4)
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store]
+* link:../../developer/workflow-input.adoc[Workflow Input Developer Guide]; `PLAN-V2-15` deliverable 1

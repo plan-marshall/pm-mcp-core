@@ -721,6 +721,53 @@ link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Dev
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
 link:../pm-core/doc/developer/core-store.adoc#_the_call_stack[Scope Stores Developer Guide § The Call Stack]
 
+Implementation (the call-time channel: the closed `text`, `commit_message`, `path` and `list<path>` input types and their validation; the caller's slots with the state-level `fills` clause and the `slot.<name>` call value; the bind at the call that resolves every declared input in the order call site, configuration, default, optional absence, validates it against its type and the scope's staging set, records its provenance in `arg_sources` and consumes the slot in the same transaction; the `InputBindingContext` port; the commit and correlation identity of a call frame; and, in the provider, the commit set of the listed paths): link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputValidator.java[InputValidator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputRefusal.java[InputRefusal],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/PathRules.java[PathRules],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/InputType.java[InputType],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/CallValue.java[CallValue],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateNode.java[StateNode],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/UnitFrontmatterReader.java[UnitFrontmatterReader],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/InputBindingContext.java[InputBindingContext],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EngineEvent.java[EngineEvent],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java[WorkflowStatusCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/id/CommandId.java[CommandId],
+link:../pm-core/src/main/java/de/planmarshall/core/id/CorrelationId.java[CorrelationId],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitOperations.java[GitOperations],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations]
+
+Verified by (the call-time channel): link:../pm-workflow/src/test/java/de/planmarshall/workflow/input/InputValidatorTest.java[InputValidatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/input/PathRulesTest.java[PathRulesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/InputBindingTest.java[InputBindingTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/UnitFrontmatterReaderTest.java[UnitFrontmatterReaderTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTest.java[WorkflowPrinterTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTest.java[JGitOperationsTest]
+
+Documentation (the call-time channel): link:../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide],
+link:../pm-workflow/doc/developer/workflow-dsl.adoc#slots-and-fills[Workflow DSL Developer Guide § Slots, `fills` and the Typed Inputs],
+link:../pm-workflow/doc/developer/workflow-engine.adoc#_the_input_bind[Workflow Engine Developer Guide § The Input Bind at a Call],
+link:../pm-workflow/doc/developer/workflow-verify.adoc#_rule_6_the_sub_workflow_call_contract[Workflow Verification Developer Guide § Rule 6],
+link:../pm-core/doc/developer/core-store.adoc#_the_frame_identity_and_the_provenance_of_its_arguments[Scope Stores Developer Guide § The Frame's Identity and the Provenance of Its Arguments],
+link:../pm-core/doc/developer/core-store.adoc#_the_slots_of_a_scope[§ The Slots of a Scope],
+link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc#_the_commit_set[`pm-provider-git` Developer Guide § The Commit Set],
+link:../pm-workflow/doc/adr/workflow-input/001-commit-message-is-a-closed-type-of-its-own.adoc[ADR workflow-input/001],
+link:../pm-workflow/doc/adr/workflow-input/002-the-path-rules-in-two-layers.adoc[ADR workflow-input/002],
+link:../pm-workflow/doc/adr/workflow-dsl/015-the-fills-clause-sits-on-the-state.adoc[ADR workflow-dsl/015],
+link:../pm-workflow/doc/adr/workflow-dsl/016-literal-text-stays-out-of-the-grammar.adoc[ADR workflow-dsl/016],
+link:../pm-workflow/doc/adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017],
+link:../pm-workflow/doc/adr/workflow-engine/018-the-bind-lives-in-the-call.adoc[ADR workflow-engine/018],
+link:../pm-workflow/doc/adr/workflow-verify/038-the-commit-modes-stay-required-inputs.adoc[ADR workflow-verify/038],
+link:../pm-core/doc/adr/core-store/075-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR core-store/075],
+link:../pm-core/doc/adr/core-store/076-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git/003]
+
 [#PM-WF-17]
 === PM-WF-17: Dynamic Re-Planning of a Running Plan
 

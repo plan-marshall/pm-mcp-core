@@ -1,0 +1,59 @@
+= ADR provider-git 003: The Commit Commits Exactly the Listed Paths
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+`GitOperations.commit` staged every change of the worktree: `JGitOperations.commit` ran `addFilepattern(".")` twice
+(with and without `--update`) and committed the index. With the call-time channel the unit that commits may name a subset
+of the scope's staging set (`files`), and the specification's Stage 4 makes the commit set a subset of the staging set —
+a dirty path outside `files` is left unstaged and is no violation.
+
+The provider is the one place that touches the index, and the two variants stage differently: JGit controls the index
+in process, a `git` CLI stages what its pathspecs name.
+
+== Decision
+
+* `CommitInput` gains the component `paths` (a list of repository-relative paths); empty means every change, as today, so
+  the four existing construction sites keep their behaviour.
+* `JGitOperations.commit` stages each listed path (additions and modifications with `addFilepattern(path)`, deletions with
+  the same pattern and `setUpdate(true)`) and commits exactly those paths: `CommitCommand.setOnly(path)` for every listed
+  path, so a path staged earlier by someone else is not carried into the commit.
+* A directory never arrives: the bind admits only files of the scope's staging set
+  (link:../../../../../pm-workflow/doc/adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017]).
+* The CLI variant, which is not in this repository, passes the paths to `git` on stdin with literal pathspecs
+  (`--pathspec-from-file=- --pathspec-file-nul`), never on the command line: a path that starts with `-` is an option to a
+  shell and to `git`, and a pathspec with `:(…)` magic names more than it says.
+
+== Alternatives Considered
+
+* *A temporary index for the subset commit.* Not taken in the first step: `setOnly` was confirmed by a fixture to commit
+  exactly the named paths and to leave other index entries; a temporary index stays the fallback if a JGit version
+  diverges.
+* *Removing the other staged entries before the commit.* Not taken: it mutates the index of the operator's checkout and
+  would make the provider the owner of state it did not create.
+* *Paths as command-line arguments in the CLI variant.* Not taken: no shell quoting rule survives a value from outside, and
+  the syntactic rules alone cannot make an argument safe.
+
+== Consequences
+
+* The unit's `files` narrows the commit; absent `files` keeps the whole staging set, and the footprint check of Stage 4
+  keeps judging the whole set.
+* `JGitOperationsTest` commits a subset with an unrelated pre-staged file and an unrelated dirty file left out, and a
+  deletion; `JGitCacheRepositoryTest`, `GitIdentityTest` and `WorktreeShaScenario` build a `CommitInput` with `paths`
+  empty and keep their expectation.
+* The commit message still reaches the repository in memory, never through a file (`PM-EXEC-5`).
+
+== Source
+
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 4)
+* link:../../../../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
+* link:../../developer/provider-git.adoc#_the_commit_set[`pm-provider-git` Developer Guide § The Commit Set]
+* `PLAN-V2-15` deliverable 4

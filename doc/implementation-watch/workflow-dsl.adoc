@@ -381,12 +381,12 @@ Source:: plan-marshall process-compliance inbox module-budget-campaign-completio
 
 Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (stages 3, 4)
 Hazard:: A commit trailer from a non-authoritative channel could override the configured resolver.
-Guard:: Only the trailer the server appends passes: a matched test per trailer source asserts that any
-`Co-Authored-By:` line in model-supplied text (commit `message`, step-supplied message, answer payload), including
-one identical to the resolved value, is refused with `invalid_link_args` naming the line, and that the commit carries
-exactly one trailer, the resolved one. The same fixture commits through the native and the CLI variant and asserts
-identical metadata: author the operator's `commit_identity`, committer the resolved agent identity (or the compiled
-fallback identity), never the operator's git `user.*` configuration.
+Guard:: The trailer is the server's alone. The input side is guarded: `commit_message` refuses any `Co-Authored-By:` line
+in any case and at any position, through `ConventionalCommitValidator` (`InputValidatorTest`,
+link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]). Open: the matched test per
+trailer source that the submit refuses the line with `invalid_link_args` naming it, and the fixture that commits through
+the native and the CLI variant and asserts identical metadata — author the operator's `commit_identity`, committer the
+resolved agent identity (or the compiled fallback identity), never the operator's git `user.*` configuration.
 Source:: plan-marshall truthful-signals PLAN-TRUTH-154 D9.
 
 [#PM-WATCH-DSL-10]
@@ -546,6 +546,61 @@ non-zero fails a predicate over those calls; a trace whose only failure is a loa
 Source:: bartek-890/superpowers-evals (commit `c3617b0`), README change log and `docs/RESULTS.md` (the `tool_used`
 grader on a broken sandbox, the `saw-red` false positive).
 
+[#PM-WATCH-DSL-41]
+=== PM-WATCH-DSL-41: A bound value never reaches a command line
+
+Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 4),
+link:../specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter],
+link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
+Hazard:: A bound text or path concatenated into a shell command or into the argument list of a tool: a path that starts
+with `:` is read by git as pathspec magic (`:(exclude)x` names everything but `x`), a path or a message that starts with
+`-` is read as an option (`-rf`), a message with a newline becomes a second command, and no quoting rule survives a value
+that comes from outside the unit.
+Guard:: Every value of a typed input reaches the tool over a channel that takes data: the commit message through the JGit
+API or `git commit -F -` over stdin, the paths in the CLI variant on stdin with literal pathspecs
+(`--pathspec-from-file=- --pathspec-file-nul`). `PathRules` refuses a leading `:` and `-` and every control character
+before the value is bound (link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]).
+Tests: a CLI-variant fixture commits a file named `-rf` and a file named `:(glob)**` that the operator created in the
+worktree, and asserts both are staged as files; a message holding a newline and a shell metacharacter commits verbatim;
+the native variant commits the same fixture with identical metadata.
+Source:: design review (PLAN-V2-15).
+
+[#PM-WATCH-DSL-42]
+=== PM-WATCH-DSL-42: A stale slot is reused
+
+Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3),
+link:../specification/workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL § Formal EBNF Grammar] (`fills_clause`),
+link:../specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store] (`slots`)
+Hazard:: A slot filled once is bound twice — by a retry of the same call, by a loop-back, or by a second call state of the
+unit — so a message the operator wrote for an earlier attempt or a path that no longer exists is committed again; or a
+slot survives its call and a later state of the unit binds a value nobody filled for it.
+Guard:: The bind consumes the slot in the transaction of the call that read it, and a call of a state whose slot is not
+filled is refused with `input_unbound`; a slot key names the declaring unit, so no unit inherits another's value
+(`InputBindingTest` of `pm-workflow`, link:../../pm-workflow/doc/developer/workflow-engine.adoc#_the_input_bind[Workflow
+Engine Developer Guide § The Input Bind at a Call]). Tests: two calls of one state, the second refused; a resumed call
+after a restart between the fill and the call binds the value once; the status holds no slot after the call;
+`WorkflowStatusCodecTest` refuses a slot whose provenance lies outside the closed set.
+Source:: design review (PLAN-V2-15).
+
+[#PM-WATCH-DSL-43]
+=== PM-WATCH-DSL-43: A project copy weakens a type
+
+Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow Units, Levels & Compiled Invariants] (`INV-GEN-1`),
+link:../specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+Hazard:: A copy declares `text[1..2000]` where its default unit declares `commit_message[1..2000]`, or `path` where the
+default declares `list<path>`. The validator is chosen by the type, so the copy drops the Conventional Commit and trailer
+check — or admits one path where the unit stages a set — while its bounds, its optional form and its order look identical.
+A comparison of the ranges alone passes the copy.
+Guard:: `INV-GEN-1` compares an input's type by its closed identity, the `InputType` member with its bounds, and names
+the input (`CompiledInvariantsTest` of `pm-workflow`, a refusing case per weakened type beside
+`INTERFACE_INPUT_WIDENED`, and
+link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
+Developer Guide § INV-GEN-1 over Type and Interface]). Tests: a copy that swaps `commit_message` for `text` and one that
+swaps `list<path>` for `path` are refused naming the input; an identical control passes; `InputValidatorTest` shows the
+value the weakened copy admits is one the validator refuses for the default's type
+(link:../../pm-workflow/doc/adr/workflow-input/001-commit-message-is-a-closed-type-of-its-own.adoc[ADR workflow-input/001]).
+Source:: design review (PLAN-V2-15).
+
 == Positioned Layout
 
 [#PM-WATCH-DSL-37]
@@ -593,7 +648,8 @@ and a missing input are refused (`CompiledInvariantsTest`, the cases `INTERFACE_
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
 Developer Guide § INV-GEN-1 over Type and Interface]). Open: a project unit that changes an input's default or
 fallback, its optional form, or the order of the inputs fails naming the input; matched control: a copy that only
-rewords an input's description passes.
+rewords an input's description passes. The type is compared by its closed identity, so a copy that swaps `text` for
+`commit_message` is refused too (link:../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-43[PM-WATCH-DSL-43]).
 
 Source:: design review (PLAN-V2-04).
 

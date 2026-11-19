@@ -63,7 +63,7 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 Below the definition the tree is built from these nodes:
 
 * *States*: a `StateNode` carries its id, an optional `TerminalOutcome` (the outcome id with the `OutcomeClass` of
-  `pm-core`), optional `skill` and `facts` clauses, its `SourceLocation` and exactly one `StateBehavior`:
+  `pm-core`), optional `skill`, `facts` and `fills` clauses, its `SourceLocation` and exactly one `StateBehavior`:
   `InteractiveLinks`, `AutoStep`, `JobStep` (with `composite` for a `composite_job`), `ModelJob` (a `job llm` task
   state with its entity kind, role, `each` or `role each` primitive, asking axis and consulted roles),
   `SubWorkflowCall` (with its entry and its bound `CallValue` arguments), `QuestionWait` or `TerminalState`.
@@ -130,6 +130,11 @@ configuration and refuses the `derived.` stem
 |`List<InputDecl>`
 |The inputs a caller binds, in declaration order.
 
+|`slots`
+|`List<InputDecl>`
+|The slots a state of the unit fills and a call binds, in declaration order; a slot carries no default, no fallback and
+no optional form (<<_slots_and_the_typed_inputs>>).
+
 |`modificationDate`
 |`LocalDate`
 |The date of the last change of the file.
@@ -161,18 +166,39 @@ no comparison reads them.
 trailing `?`), its `defaultValue` (a `CallValue`, `null` when there is none), its `fallback` configuration key, its
 optional `description` and the location of its `input` line. `required()` is the one place that decides whether a call
 must bind the input: it is false for the optional form, a default or a fallback. `InputType` is the sealed type of the
-three closed forms:
-
-* `InputType.Enumeration(List<String> values)` — `enum[…]`;
-* `InputType.IntRange(@Nullable Integer min, @Nullable Integer max)` — `int` with its optional range, both bounds or
-  none;
-* `InputType.EnumList(List<String> values)` — `list<enum[…]>`, a list of distinct members; the empty list is admitted as
-  an `input_default`, and a call site binds a non-empty one.
+seven closed forms: `Enumeration(List<String> values)` (`enum[…]`), `IntRange(@Nullable Integer min, @Nullable Integer
+max)` (`int` with its optional range, both bounds or none), `EnumList(List<String> values)` (`list<enum[…]>`, a list of
+distinct members; the empty list is admitted as an `input_default`, and a call site binds a non-empty one), and the four
+types of the call-time channel (<<_slots_and_the_typed_inputs>>).
 
 `InputType.sourceText()` is the source form the printer writes, so the type has one spelling in the tree and in the
 source. The optional form is a component of the declaration, not a fourth type
 (link:../adr/workflow-dsl/013-input-type-carries-the-optional-form.adoc[ADR 013]); an input name is a `param_name`
 (link:../adr/workflow-ast/004-input-name-is-a-param-name.adoc[ADR 004]).
+
+[#_slots_and_the_typed_inputs]
+=== Slots and the Typed Inputs
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+A text, a commit message or a path is model input: it reaches a unit at call time and never stands in the source of the
+unit. The tree therefore carries four types for such a value, and a slot as its declaration:
+
+* `InputType.Text(@Nullable Integer min, @Nullable Integer max)` — `text[<low>..<high>]`, a text whose length in code
+  points lies within the bounds;
+* `InputType.CommitMessage(@Nullable Integer min, @Nullable Integer max)` — `commit_message[<low>..<high>]`, a text that
+  is a Conventional Commit without a `Co-Authored-By:` line; it is a type of its own so that a project copy cannot drop
+  the check while keeping the type (link:../adr/workflow-input/001-commit-message-is-a-closed-type-of-its-own.adoc[ADR
+  workflow-input/001]);
+* `InputType.Path()` — `path`, a relative path inside the worktree;
+* `InputType.PathList(@Nullable Integer min, @Nullable Integer max)` — `list<path>[<low>..<high>]`, a list of distinct
+  relative paths; written with a low bound because the range form needs one.
+
+`UnitFrontmatter.slots()` holds the slots in declaration order as `InputDecl` values too: a slot has a name, a type, a
+description, a location — and never a default, a fallback or the optional form, because a slot holds a value or holds
+none. `StateNode.Fills(slotName, fromParam)` is the state-level clause that fills one, and `CallValue.SlotRef(name)` is
+the call value that binds one. The verification of the three is Rule 6's
+(link:workflow-verify.adoc#_rule_6_the_sub_workflow_call_contract[Workflow Verification § Rule 6]); the validation of a
+value against a type is `workflow.input` (link:workflow-input.adoc[Workflow Input]).
 
 [#unit-types]
 == Unit Types
@@ -347,3 +373,8 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   optional, absent for a unit with entries, with no empty-string stand-in.
 * link:../adr/workflow-ast/003-the-phase-is-the-phase-unit-on-the-call-stack.adoc[ADR 003]: the phase is the phase
   unit on the call stack; no state and no frontmatter declares one.
+* link:../adr/workflow-input/001-commit-message-is-a-closed-type-of-its-own.adoc[ADR workflow-input/001]: `text`,
+  `commit_message`, `path` and `list<path>` are types of their own, and `commit_message` is never an attribute of `text`.
+* link:../../../pm-core/doc/adr/core-store/076-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076]: a persisted
+  call frame carries the identity of the command it is (a `command_id` and a `correlation_id`, `core.id`), which the
+  engine fills when it pushes the frame.

@@ -1,0 +1,61 @@
+= ADR core-store 076: A Call Frame Is a Command and Carries Its Identity
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+A call frame records the caller, the callee, the entry, the bound arguments and the instant of the push. Once the
+command model arrives — a `Command` value, the dispatch of primitives through it, the settlement and the persisted command
+log — a frame on the stack is a command that has not settled yet, and it needs the identity such a command is addressed
+and correlated by. Adding that identity later would be a second migration of the same frame, and a frame written before
+it would be unreadable to the later reader.
+
+The two facts are distinct: one identifies the command (a frame), the other groups the commands one engine advance
+pushes, so an advance that calls a unit which calls another shows the two frames as one act.
+
+== Decision
+
+* `WorkflowStatus.CallFrame` gains the required, non-null members `commandId` and `correlationId`, of the new types
+  `CommandId` and `CorrelationId` in `core.id`, beside `argSources` (input name to `ArgSource`, the provenance
+  `literal`, `config`, `default`, `task_submit` or `operator_answer`, with an optional `source_ref`).
+* The grammar: `command_id` is `^cmd-[0-9a-f]{16}$` (20 characters), `correlation_id` is `^cor-[0-9a-f]{16}$` (20
+  characters); a constructor and `parse` refuse anything else, and `random` draws 16 lower-case hexadecimal digits.
+* The engine draws them from the new component `ids` of `WorkflowEngine.Ports` (a `java.util.random.RandomGenerator`):
+  one `correlation_id` per `Run`, that is per engine advance, and one `command_id` per pushed frame. A frame already on
+  the stack keeps its own.
+* `WorkflowStatusCodec` writes and reads both strictly; a missing or malformed value is refused with the member's name.
+  The pinned frame block of `store-schemas/02` requires `arg_sources`, `command_id` and `correlation_id` and declares
+  their properties in that order. Format version 1 stays.
+
+== Alternatives Considered
+
+* *Ids derived from the state and a counter.* Not taken: a counter collides across scopes and restarts, and a state-based
+  id is not unique when one state calls twice.
+* *One correlation id per call, drawn when the call is pushed.* Not taken: the advance is the unit of work, and two frames
+  pushed by one advance must be recognizable as one advance.
+* *The ids minted by the assembly and passed in.* Not taken: the engine mints them at the push, where the frame is built;
+  a test seeds the generator and the assembly passes a `SecureRandom`.
+
+== Consequences
+
+* A frame is the whole identity of the command while it is on the stack, so the later plans add no second frame migration.
+* The ids are references, not secrets and not capabilities: unique within the scope that owns the status, never reused,
+  and they name no permission.
+* Two engines built with identically seeded generators push identical frames, which is what makes the frame testable;
+  `SubWorkflowExecutionTest` and a new `InputBindingTest` show one advance's two frames sharing a correlation id and
+  differing in their command ids.
+* A frame written before this change is refused, not upgraded: no reader of the earlier shape exists (R13).
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store] (`call_stack`)
+* link:../../../../doc/specification/identifiers/01-general-rules-and-registry.adoc#id-command-id[Identifiers § Registry, `command_id` and `correlation_id`]
+* link:../../developer/core-store.adoc#_the_frame_identity_and_the_provenance_of_its_arguments[Scope Stores Developer Guide § The Frame's Identity and the Provenance of Its Arguments]
+* `PLAN-V2-15` deliverables 3 and 6; operator decision (h) of 2026-10-29

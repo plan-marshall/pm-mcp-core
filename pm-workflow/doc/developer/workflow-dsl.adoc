@@ -194,9 +194,9 @@ anchor, alias or merge key is ever resolved
   cannot carry is written double-quoted.
 * *Closed keys*: the keys are `name`, `description`, `type`, `icon`, `entry`, `entry_description`, `exit`,
   `exit_description`, `reads_config`, `reads_fact`, `input`, `input_type`, `input_default`, `input_fallback`,
-  `input_description`, `modification_date`, `version`, `author` and `signature`; any other key is refused. `name`,
-  `description`, `type`, `icon`, `modification_date`, `version` and `author` occur exactly once, `signature` at most
-  once.
+  `input_description`, `slot`, `slot_type`, `slot_description`, `modification_date`, `version`, `author` and `signature`;
+  any other key is refused. `name`, `description`, `type`, `icon`, `modification_date`, `version` and `author` occur
+  exactly once, `signature` at most once.
 * *Repeated `entry`, `exit`, `reads_config`, `reads_fact` and `input`*: a unit declares zero or more entries, exits,
   configuration keys, fact kinds and inputs, one value per line, the key repeated per value, kept in order and never
   collapsed. This is the one point where the frontmatter is not a YAML mapping. A `reads_config` value is an effective
@@ -208,11 +208,13 @@ anchor, alias or merge key is ever resolved
   refused.
 * *The input block*: an `input` line opens one input; `input_type` stands directly below it, exactly once, then
   `input_default`, `input_fallback` and `input_description`, each at most once and in that order. A sub-key out of that
-  order, a second one of its kind and an input without its `input_type` are refused. The type is one of `enum[…]`,
-  `int` with its optional range and `list<enum[…]>`, with the trailing `?` of the optional form
+  order, a second one of its kind and an input without its `input_type` are refused. The type is one of the seven closed
+  forms: `enum[…]`, `int` with its optional range and `list<enum[…]>` for a value a call site binds literally, and
+  `text`, `commit_message`, `path` and `list<path>` for a value that arrives at the bind (<<slots-and-fills>>), each with
+  the trailing `?` of the optional form
   (link:../adr/workflow-dsl/013-input-type-carries-the-optional-form.adoc[ADR 013]); a default or a fallback beside the
   `?` is refused as two ways to say the same. `input_default: []` is the empty list of a `list<enum[…]>` input, the one
-  bracket form the reader admits at the start of a value.
+  bracket form the reader admits at the start of a value, and a typed input takes no `input_default`.
 * *Order*: apart from the descriptions and the input sub-keys, the order of the lines is free. The printer writes the
   order of the field table below.
 
@@ -301,6 +303,20 @@ the verifier checks against the input type, and whose compiled default an input 
 |What an absent input means and what a caller may assume, 1 to 500 characters. Shown to the caller and not part of the
 `INV-GEN-1` contract.
 
+|`slot`
+|0..16
+|The name of one slot, a `param_name` that is never a reserved keyword, declared once and never twice with the name of an
+input of the same unit. Its sub-keys follow, in order (<<slots-and-fills>>).
+
+|`slot_type`
+|1 per slot
+|The closed type of the slot, directly below its `slot` line: any `InputType` of the seven forms
+(<<slots-and-fills>>), never with the optional form, because a slot holds a value or holds none.
+
+|`slot_description`
+|0..1 per slot
+|What the slot holds and when a state fills it, 1 to 500 characters. Shown to the caller; no check reads it.
+
 |`modification_date`
 |1
 |The date of the last change of the file, `YYYY-MM-DD`, a valid calendar date not after the day of the validation,
@@ -370,7 +386,7 @@ grammar or declared twice, more than 32 of either
 |An `input` name outside the `param_name` grammar, a reserved keyword, an input declared twice, more than 16 inputs
 |the line, the column of the value
 
-|An `input_type` outside its three types, a repeated enum value, an empty enum, a range that is no `[<low>..<high>]`, an
+|An `input_type` outside its closed types, a repeated enum value, an empty enum, a range that is no `[<low>..<high>]`, an
 `input_type` that does not stand directly below its `input` or a second one
 |the line, the column of the value, or column 1 of its own line
 
@@ -424,6 +440,86 @@ The empty list is the one change: every other list refusal of the parser stays (
 values without a comma between them, a trailing comma or a comma alone; a value listed twice), and what a list may hold where it is bound or declared
 stays the verifier's and the declaration bounds' (link:../adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[ADR 006]).
 The printer writes the empty list back as `[]`, so it survives the round trip.
+
+[#slots-and-fills]
+== Slots, `fills` and the Typed Inputs
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+A text, a commit message and a path are model input. They reach a unit at call time and never stand in the source of a
+unit: there is no text or path literal in the grammar
+(link:../adr/workflow-dsl/016-literal-text-stays-out-of-the-grammar.adoc[ADR workflow-dsl/016]). The carrier is a SLOT,
+declared by the caller, filled by a state of the caller, and bound at the call.
+
+=== The Slot in the Frontmatter
+
+A slot is declared in the style of an input: `slot` opens one, `slot_type` stands directly below it exactly once, and
+`slot_description` may follow. At most 16 slots, each name once, a name never repeated for an input of the same unit, and
+the type never optional.
+
+[source,yaml]
+----
+slot: commit_message
+slot_type: commit_message[1..2000]
+slot_description: The commit message the submitted work asks for.
+slot: files
+slot_type: list<path>[0..500]
+----
+
+The types are the closed `InputType` forms: the four literal-bound ones (`enum[…]`, `int`, `list<enum[…]>` — a slot of
+those is legal but pointless, because a call site may bind the literal) and the four typed ones (`text`,
+`commit_message`, `path`, `list<path>`). The compiled caps a unit may narrow and never widen: `text` and `commit_message`
+at most 2000 characters, a `path` at most 1024, a `list<path>` at most 500 entries
+(link:../adr/workflow-input/001-commit-message-is-a-closed-type-of-its-own.adoc[ADR workflow-input/001]).
+`list<path>` is written with a low bound, `list<path>[0..500]`, because the range form of the reader has two bounds.
+
+=== The `slot_ref` Call Value
+
+`call_value` gains `slot_ref = "slot" "." param_name`, so a call binds a slot explicitly:
+
+[source]
+----
+call git.commit_and_push entry commit (message_mode = step_or_fallback, push_mode = push, message = slot.commit_message, files = slot.files)
+----
+
+`slot` is a keyword where a `call_value` starts and a reserved word everywhere; `fills` and `from` are reserved words
+too. The tree holds a `CallValue.SlotRef(name)`, and the printer writes `slot.<name>` back, so the round trip holds.
+
+=== The `fills` Clause
+
+A state between its `facts` clause and its body carries at most one `fills` clause per slot:
+`fills slot.<name> from <param>`. In a `job llm` state `<param>` is the name of an argument of the accepted submission;
+in an operator wait it is the free parameter of the link the operator followed
+(link:../adr/workflow-dsl/015-the-fills-clause-sits-on-the-state.adoc[ADR workflow-dsl/015]).
+
+[source]
+----
+state finalize.compose-message
+skill pm/git/compose-message
+facts git.compose-message
+fills slot.commit_message from message
+job llm task role implement
+  submitted -> finalize.settle-commit
+----
+
+The value is validated against the slot's type when it arrives — at the submit or at the operator's act, where a worker
+or the operator can correct it (`invalid_link_args`) — and again at the bind, because the staging set may have changed
+since.
+
+=== What the Verifier Checks
+
+Rule 6 owns the slot checks and no other rule repeats them
+(link:workflow-verify.adoc#_rule_6_the_sub_workflow_call_contract[Workflow Verification § Rule 6]): a bound slot exists,
+its type is assignable to the input type (equal bounds or narrower), a `fills` target exists, one clause per state and
+slot, the `from` parameter exists on a link of the operator wait that carries the clause, and every path from the unit's
+start to a call that reads a slot passes a state that fills it. Rule 6 also refuses a literal binding of a typed input.
+
+=== What the Reader and the Printer Do
+
+The reader parses the slot block in the order of the input block, refusing a missing `slot_type`, a second one, an
+out-of-order key, a duplicate slot name, a type with the optional form, a name outside the `param_name` grammar and more
+than 16 slots — each with its line and column. The printer writes each `slot`, its `slot_type` and its
+`slot_description` after the inputs, and the `fills` clause between the `facts` line and the state body, so a unit
+round-trips.
 
 == The Asking Axis of a Task State
 _Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-12[PM-WF-12]_
@@ -570,3 +666,7 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   (`none`, `ask`, `ask fresh`), and `ask fresh` is refused on a `role each` state exactly as `ask` is.
 * link:../adr/workflow-dsl/011-the-grammar-carries-no-phase-clause.adoc[ADR 011]: the grammar and the printer carry no
   `phase` clause; `phase` stays a reserved word and is refused.
+* link:../adr/workflow-dsl/015-the-fills-clause-sits-on-the-state.adoc[ADR 015]: a slot is filled by a state-level
+  `fills` clause between the `facts` clause and the body, from a submission argument or a link's free parameter.
+* link:../adr/workflow-dsl/016-literal-text-stays-out-of-the-grammar.adoc[ADR 016]: no text or path literal enters the
+  grammar; a typed input is bound from a slot only.

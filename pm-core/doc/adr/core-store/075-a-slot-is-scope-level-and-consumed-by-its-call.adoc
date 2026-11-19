@@ -1,0 +1,57 @@
+= ADR core-store 075: A Slot Is Scope-Level Data and Is Consumed by Its Call
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+A caller fills a typed slot before it calls a sub-workflow with it
+(link:../../../../pm-workflow/doc/adr/workflow-dsl/015-the-fills-clause-sits-on-the-state.adoc[ADR workflow-dsl/015]). The
+value has to survive the write that fills it and the write of the call, and it has to be visible in every scope: the
+epic, the workspace and the plan unit itself call `git.commit_and_push` and have no call frame of their own, so a frame
+is no home for it.
+
+Two lifetimes are possible: a slot the scope keeps beside the current state, and a slot carried in the frame of the call
+that reads it.
+
+== Decision
+
+* `mcp/status.json` gains the member `slots` at scope level: an object keyed `<declaring unit id>:<slot name>`, each value
+  `{value, source, source_ref?, filled_at}`. A key names the unit that declared the slot, so two units that declare a
+  slot of the same name never collide, and `input.<name>` stays unit-local (operator decision (f) of 2026-10-29).
+* A slot is CONSUMED by the call that binds it and cleared in the same transaction, so a stale message is never reused
+  (operator decision (b) of 2026-10-29).
+* `WorkflowStatus` carries `slots` as a typed member with the record `WorkflowStatus.Slot`; `WorkflowStatusCodec` writes
+  and reads it strictly, and a document without the member reads as no slot. Format version 1 stays: the member is added
+  in place, with no reader of an earlier shape.
+
+== Alternatives Considered
+
+* *The slot in the call frame.* Not taken: an epic, workspace or plan unit that calls a sub-workflow has no frame of its
+  own, and a frame is written at the push, after the fill.
+* *Delete the slot at the submit instead of at the call.* Not taken: a call that fails and retries would find its value
+  gone, and the answer the operator gives is not consumed by being given.
+* *A slot store of its own.* Not taken: the slot is part of the position of the scope, written in the same transaction as
+  the state that filled it, and a second store would need a second lock and a second digest.
+
+== Consequences
+
+* A restart between the fill and the call resumes from the pair (state, slot recorded), and the call binds the value
+  once; the decision is persisted, never re-derived.
+* A slot holds a text or a list of paths; the value is the string the frame writes, and a `list<path>` arrives as the
+  JSON array text of the link parameter.
+* `WorkflowStatusCodecTest` round-trips a status with a slot and refuses an unknown provenance; the pinned schema of
+  `store-schemas/02` carries the member.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store]
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL § Formal EBNF Grammar] (`fills_clause`)
+* link:../../developer/core-store.adoc#_the_slots_of_a_scope[Scope Stores Developer Guide § The Slots of a Scope]
+* `PLAN-V2-15` deliverable 3; operator decisions (b) and (f) of 2026-10-29

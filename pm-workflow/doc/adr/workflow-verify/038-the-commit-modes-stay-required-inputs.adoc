@@ -1,0 +1,54 @@
+= ADR workflow-verify 038: `message_mode` and `push_mode` Stay Required Inputs
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+With the call-time channel the inputs of `git.commit_and_push` become frontmatter inputs, and an input may take its value
+from an `input_fallback` configuration key. That made a proposal attractive: `message_mode` could fall back to
+`project.git.commit.message_mode` and the call sites would bind less.
+
+No such key exists in the configuration specification (`store-schemas/07`). The specification says "No configuration key
+suppresses a push" (`06-reusable-sub-workflows.adoc`, line 44), and `INV-FIN-4` reads the literal `push_mode` of the call
+site (`FinalizeInvariants.java`): a value that comes from configuration would be invisible to the invariant that guarantees
+the push barrier.
+
+== Decision
+
+* `message_mode` and `push_mode` stay REQUIRED enum inputs of `git.commit_and_push`, with no `input_default` and no
+  `input_fallback`; every call site binds them, as it does today.
+* The fallback mechanism itself is built and tested — `InputBindingContext.configValue` resolves an `input_fallback` in
+  the order of ADR `workflow-dsl/014` — but this unit does not use it.
+* The invariant keeps reading the literal value at the call site, so a push decision is visible in the unit that takes it.
+
+== Alternatives Considered
+
+* *A fallback to `project.git.commit.message_mode`.* Not taken: the key does not exist, and a push policy read from
+  configuration would make the barrier depend on a file the plan does not show.
+* *A compiled default for both modes.* Not taken: a default push mode would decide a push where the unit that calls the
+  commit did not say it, and `INV-FIN-4` would have to stop reading the call site.
+* *Leaving both out of the frontmatter.* Not taken: a body `param` is refused, and an input that is not declared cannot be
+  bound or checked by Rule 6.
+
+== Consequences
+
+* A call that omits either mode is refused by Rule 6, naming the input; the roughly dozen shipped call sites keep
+  verifying unchanged.
+* A project copy cannot drop the modes or give them a fallback: `INV-GEN-1` compares the inputs of the copy with those of
+  the default unit, the fallback included.
+* The mechanism is available where a value may legitimately come from configuration; the commit modes are the one place
+  the specification keeps literal.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (the unit block, line 44)
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow Units, Levels & Compiled Invariants] (`INV-FIN-4`)
+* link:../../developer/workflow-verify.adoc#_rule_6_the_sub_workflow_call_contract[Workflow Verification Developer Guide § Rule 6]
+* `PLAN-V2-15` deliverable 4; operator decision (c) of 2026-10-29
