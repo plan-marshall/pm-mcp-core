@@ -1,0 +1,52 @@
+= ADR core-store 074: The Instance Version Is a Field of the Workflow State
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+`status.schema.json` declares `instance_version` (integer or null, minimum 1) and `WorkflowStatusCodec` keeps it as a
+member name, but `WorkflowStatus` had no field for it: `WorkflowEngine.advance` took the version as an `int` parameter.
+A caller therefore had to know the version in force from somewhere else, and no status document showed which version a
+running plan executes — the one fact every read of a plan's process needs (`PlanInstanceResources`, the diagram of the
+version in force), and the one fact a restart must not lose.
+
+== Decision
+
+`instance_version` is a typed member of the workflow state. `WorkflowStatus` carries it as a `@Nullable Integer`
+component, the codec reads and writes it strictly in its schema position, and `instanceVersionInForce()` answers
+`Optional<Integer>`: an absent member, or a document of a scope that composes no instances, reads as no version. The
+engine writes the member in the transaction that puts a version in force, beside the version's files and the `instance`
+line of the plan's history.
+
+The format version stays 1: the member was declared all along, so a document written before this change reads as no
+version and is rewritten with the member on its next write (R13).
+
+== Alternatives Considered
+
+* *Keep the version as an `advance` parameter.* Rejected: every caller would have to read it from somewhere else, a
+  restart would need a second read, and a status document would not say which version it describes.
+* *Derive the version from the history's last `instance` line.* Rejected: a read of the diagram or of the status would
+  need the history, and the history is the record of transitions, not the state.
+* *Keep it in `retained()` as raw JSON.* Rejected: the engine and the resources read it, so the value needs the type,
+  the check and the `Optional` answer every other typed member has.
+
+== Consequences
+
+* A status document names the version in force, and a plan that never composed shows no version, as a scope that
+  composes no instances does.
+* The engine no longer needs a version parameter: it reads the status it was handed, so a version another session
+  committed is in force without a restart.
+* A composition writes the member, the version's files and its history line in one transaction; a crash leaves the
+  previous version in force, never a status that names a version whose files are absent.
+
+== Source
+
+The plan `PLAN-V2-13` (`plan-instance-versions`) of the epic `pm-mcp-core-m2-m4-v2`, deliverable 2; Store Schemas §
+Workflow State Store (`instance_version`); the status schema at line 76.

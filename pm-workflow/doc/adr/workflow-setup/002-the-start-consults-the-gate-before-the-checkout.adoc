@@ -1,0 +1,54 @@
+= ADR workflow-setup/002: The Start Consults the Gate Before the Checkout
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-18.
+
+== Context
+
+A project's onboarding starts at `POST /api/v1/project-onboardings` with the checkout path, and the machine's onboarding
+must be complete first (State Catalogue § Project Onboarding; Credentials & Enrolment § Onboarding a Project as One
+Process). The requested checkout carries its own refusals — a path that no canonical git top-level resolves, a checkout
+another enrolment already names (`enrolment_root_conflict`), one that lies under a project's worktrees — and reading it
+costs file-system access. The specification makes the machine's refusal the first condition of the start and names both
+clients where the operator finishes the machine's onboarding.
+
+The setup gate (`SetupGate`, ADR workflow-setup/001) already decides `START_PROJECT_ONBOARDING`; the question was where
+the start evaluates the checkout relative to it.
+
+== Decision
+
+`ProjectOnboardingStart.start(onboarding, inspection)` asks `SetupGate.decide(Act.START_PROJECT_ONBOARDING,
+onboarding)` first. A refusal is returned as `MachineNotOnboarded` carrying the gate's reason
+(`machine_not_onboarded`), the HTTP status `409`, the missing step and both clients; the `CheckoutInspection` passed by
+the call site is then not invoked at all. Only an admitted start runs the inspection, whose refusal comes back as
+`CheckoutRefused` with its own reason and detail. The type builds no second gate.
+
+== Alternatives Considered
+
+* *Inspect the checkout first and report both refusals together*: not taken. The specification makes the machine's state
+  the condition of the start, and a checkout read while the machine is still being onboarded costs access the operator
+  has not reached the point of granting.
+* *A second start gate beside `SetupGate`*: not taken. `SetupGate` is the one guard of the epic (ADR workflow-setup/001);
+  a second gate would let the two drift.
+
+== Consequences
+
+* A machine refusal can never be masked by a checkout refusal, and the checkout is untouched while the machine is
+  incomplete.
+* The call site owns what the inspection reads; the order is the admitted property, and `ProjectOnboardingStartTest`
+  proves it with an inspection that records whether it ran.
+
+== Source
+
+The pull request of PLAN-V2-17 (`feature/v2-17-project-onboarding-unit`); work package
+link:../../../../doc/plans/project-onboarding-unit.adoc[`project-onboarding-unit`];
+link:../../../../doc/specification/state-catalogue/15-project-onboarding.adoc#state-catalogue-project-onboarding[State
+Catalogue § Project Onboarding];
+link:../../../../doc/specification/credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[Credentials
+& Enrolment § Onboarding a Project as One Process].

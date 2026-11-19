@@ -51,7 +51,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/R
 position (`scope_type`, `scope_id`, `phase`, `state`, `call_stack` with its `CallFrame` records and `BoundArg` values),
 the loop-back accounting (`loop_back_iteration`, `outline_loop_backs`, `policy_counters`), the retry counts
 (`retry_counters`), the bindings of the current state (`active_job`, `active_jobs`, `active_tasks`), the condition
-overlay (`pending_condition`), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>) and
+overlay (`pending_condition`), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>), the instance
+version in force of a plan (`instance_version`, see <<_the_instance_version_in_force>>) and
 `updated_at`. Every other member of the closed schema is kept in `retained()` as the raw JSON text it was read with. The engine updates the record through its `with…` and `toBuilder()` copies; the
 constructor checks every closed value, so a copy with a value outside the schema cannot be built.
 `RetryCounters`:: The typed value of the member `retry_counters` (see <<_retry_counters>>).
@@ -127,6 +128,16 @@ format change:
   round trip and its refusals.
 
 A document written before the change still reads, because the member was declared and kept verbatim all along.
+
+=== The Instance Version in Force
+
+`instance_version` is a typed member of the workflow state, not a name the codec keeps verbatim: an integer from `1`, or
+`null` while no version is in force, and `null`/absent for every scope that composes no instances. A plan's engine
+writes it in the transaction that puts a version in force, beside the version's files and the `instance` line of its
+history, so the status and the version are one journaled write; `instanceVersionInForce()` answers `Optional<Integer>`
+and an absent member reads as no version. It resets no other member: the retry counters, the loop-back accounting and the
+history lines are the ones the previous version left
+(link:../adr/core-store/074-the-instance-version-is-a-field-of-the-workflow-state.adoc[ADR core-store 074]).
 
 === The Machine Scope
 
@@ -2710,3 +2721,42 @@ which is not part of this package.
 
 Tested by `ProtectedPathsTest`: each of the six patterns, a nested file, the case variants, a decomposed name, a declared
 path that lifts only itself, the near misses and the matched control (`README.md`, `CLAUDE.md`).
+
+== The Operator's Projects
+
+_Requirements: link:{docs}/Requirements.adoc#PM-EXT-8[PM-EXT-8]_
+
+`ExplorerStore` is the reader and writer of `<PM_MCP_BASE>/explorer.json`, the operator's projects
+(link:../adr/core-store/073-the-explorer-store-prunes-on-every-write.adoc[ADR 073];
+link:../../../doc/specification/store-schemas/12-machine-stores.adoc#explorer-store[Store Schemas § The Operator's
+Projects]): the favourite project ids in the operator's order, and per project the last act and the count of acts on each
+UTC day of the window. `LockKey.explorer` guards it below `locks/explorer.lock`; the document is the closed contract of
+`explorer.schema.json`, read and written by `ExplorerCodec`, which writes the projects and their days in a stable order so
+a write with the same content produces the same bytes.
+
+A favourite is set, moved or removed by writing the whole ordered list (`setFavourites`), so the operator's order is the
+document's order and never a derived one. `recordActivity` counts one act on the UTC day of the store's clock, and a
+`Snapshot` answers `mostUsed(limit)` and `recent(limit)` from the window: a tie in `mostUsed` goes to the more recent act,
+and then to the project id, so the order is total and repeatable.
+
+*Invariants*: the window is the compiled `ACTIVITY_WINDOW_DAYS` (30), so a day older than `today - 29` is dropped by the
+next write while the project's last act stays, so `recent` never loses a project that merely went quiet; an entry, and a
+favourite, of a project no longer enrolled is dropped by the next write, whichever of the two writes comes first; an act
+of a project that is not enrolled is refused instead of recorded; the day counts are `long` and a count or a revision that
+cannot advance is refused rather than wrapped; a write happens only under the document's lock and only while the caller's
+revision is the document's, and a change against an older one is a `SettingsConflict` carrying the current snapshot; the
+store is operator data only and never reaches a model.
+
+*Failure modes*: a document of another `format_version` is refused as outdated or newer, while one that does not parse,
+content after the document, a member the schema does not name, a project id outside the identifier grammar, a day that is
+no UTC date and a count below one are refused as unreadable rather than read as an empty store; a duplicate favourite and
+a duplicate day are refused.
+
+Tested by `ExplorerStoreTest`: the absent document, the order of the favourites, a move and a removal, the drop of an
+unenrolled project's favourite (on the favourites write and on an activity write) and of its activity, the stale revision,
+the UTC day's count, the window's drop with the idle project's last act kept, the refused act of an unenrolled project, the
+invalid input, an exhausted revision and an exhausted day count, `mostUsed`/`recent`, and an undeclared member.
+`ExplorerCodecTest` states the reader's refusals: content after the document, another format version as outdated or newer,
+a root that is no object, a missing member, a negative revision, a repeated or invalid favourite, a day that is no date or
+named twice, and a count below one.
+

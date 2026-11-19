@@ -44,7 +44,7 @@ class WorkflowEngineRecordsTest {
         QuestionRecordReader questions = createMock(QuestionRecordReader.class);
         replay(jobs, tasks, questions);
         var clock = new EngineFixtures.ManualClock(Instant.EPOCH);
-        var constructed = new WorkflowEngine.Ports(jobs, tasks, questions, clock);
+        var constructed = new WorkflowEngine.Ports(jobs, tasks, questions, clock, null, null);
         var built = WorkflowEngine.Ports.builder()
                 .jobs(jobs)
                 .tasks(tasks)
@@ -81,10 +81,11 @@ class WorkflowEngineRecordsTest {
         var callPath = List.of(Generators.letterStrings(1, 8).next());
         var phase = Generators.letterStrings(1, 8).next();
         var outcome = Generators.letterStrings(1, 8).next();
+        var instanceVersion = Generators.integers(1, 9).next();
         var constructor = pendingClass.getDeclaredConstructor(PlanHistoryLine.Event.class, String.class, List.class,
-                String.class, String.class);
+                String.class, String.class, int.class);
         constructor.setAccessible(true);
-        var constructed = constructor.newInstance(event, node, callPath, phase, outcome);
+        var constructed = constructor.newInstance(event, node, callPath, phase, outcome, instanceVersion);
         var builderFactory = pendingClass.getDeclaredMethod("builder");
         builderFactory.setAccessible(true);
         var builder = builderFactory.invoke(null);
@@ -93,6 +94,7 @@ class WorkflowEngineRecordsTest {
         invokeSetter(builder, "callPath", callPath);
         invokeSetter(builder, "phase", phase);
         invokeSetter(builder, "outcome", outcome);
+        invokeSetter(builder, "instanceVersion", instanceVersion);
         var build = builder.getClass().getDeclaredMethod("build");
         build.setAccessible(true);
         var built = build.invoke(builder);

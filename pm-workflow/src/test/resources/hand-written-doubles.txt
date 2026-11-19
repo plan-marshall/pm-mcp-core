@@ -21,7 +21,6 @@ de/planmarshall/workflow/engine/EngineFixtures.java#StepOutcome#1
 de/planmarshall/workflow/engine/EngineResumeTest.java#HoldingEverything#1
 de/planmarshall/workflow/engine/GuardEvaluatorTest.java#Facts#1
 de/planmarshall/workflow/engine/OperatorWaitTest.java#anonymous:ParameterBinder#1
-de/planmarshall/workflow/engine/PlanHistoryEngineTest.java#HoldingEverything#1
 de/planmarshall/workflow/model/GraderFixtures.java#Harness#1
 de/planmarshall/workflow/model/GraderFixtures.java#Judge#1
 de/planmarshall/workflow/model/GraderFixtures.java#JudgeCheckMemory#1

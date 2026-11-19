@@ -92,6 +92,7 @@ public class WorkflowStatusCodec {
     private static final String LOOP_BACK_ITERATION = "loop_back_iteration";
     private static final String RETRY_COUNTERS = "retry_counters";
     private static final String OUTLINE_LOOP_BACKS = "outline_loop_backs";
+    private static final String INSTANCE_VERSION = "instance_version";
     private static final String POLICY_COUNTERS = "policy_counters";
     private static final String WAIVER_REQUESTS = "waiver_requests";
     private static final String ACTIVE_JOBS = "active_jobs";
@@ -144,7 +145,7 @@ public class WorkflowStatusCodec {
 
     /** Every member of the closed schema, in the order it declares them. */
     static final List<String> MEMBERS = List.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, "main_sha", "origin",
-            PHASE, OUTCOME, "instance_version", "setup_run", "onboard_run", "onboard_steps", STATE, CALL_STACK,
+            PHASE, OUTCOME, INSTANCE_VERSION, "setup_run", "onboard_run", "onboard_steps", STATE, CALL_STACK,
             "worktree_path", "entry_baseline", "merge_outcome", "owed", "branch_name", "branch_pushed_at",
             LOOP_BACK_ITERATION, "counters", RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS,
             "gaps", "replan_pending", "replans", "follow_ups", "settle_trigger", "watch_restarts", "loop_backs",
@@ -156,8 +157,8 @@ public class WorkflowStatusCodec {
 
     /** The members this codec types. */
     static final Set<String> TYPED_MEMBERS = Set.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, PHASE, STATE,
-            CALL_STACK, LOOP_BACK_ITERATION, RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS,
-            ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, UPDATED_AT);
+            CALL_STACK, INSTANCE_VERSION, LOOP_BACK_ITERATION, RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS,
+            WAIVER_REQUESTS, ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, UPDATED_AT);
 
     /** The members of the schema that are kept as raw JSON text. */
     static final Set<String> RETAINED_MEMBERS = MEMBERS.stream().filter(member -> !TYPED_MEMBERS.contains(member))
@@ -226,6 +227,13 @@ public class WorkflowStatusCodec {
             case STATE -> generator.writeStringField(member, status.state());
             case CALL_STACK -> writeCallStack(generator, status.callStack());
             case LOOP_BACK_ITERATION -> generator.writeNumberField(member, status.loopBackIteration());
+            case INSTANCE_VERSION -> {
+                if (status.instanceVersion() == null) {
+                    generator.writeNullField(member);
+                } else {
+                    generator.writeNumberField(member, status.instanceVersion());
+                }
+            }
             case RETRY_COUNTERS -> writeRetryCounters(generator, status.retryCounters());
             case OUTLINE_LOOP_BACKS -> generator.writeNumberField(member, status.outlineLoopBacks());
             case POLICY_COUNTERS -> writePolicyCounters(generator, status.policyCounters());
@@ -444,6 +452,8 @@ public class WorkflowStatusCodec {
                 case STATE -> status.state(string(parser, field));
                 case CALL_STACK -> status.callStack(StrictJson.array(parser, field, WorkflowStatusCodec::readFrame));
                 case LOOP_BACK_ITERATION -> status.loopBackIteration(integer(parser, field));
+                case INSTANCE_VERSION -> status.instanceVersion(
+                        isNull(parser) ? null : intOf(integer(parser, field), field));
                 case RETRY_COUNTERS -> status.retryCounters(readRetryCounters(parser));
                 case OUTLINE_LOOP_BACKS -> status.outlineLoopBacks(integer(parser, field));
                 case POLICY_COUNTERS -> status.policyCounters(
@@ -495,8 +505,20 @@ public class WorkflowStatusCodec {
         return new CallFrame(callerWorkflowId, callerStateId, subworkflowId, entry, boundArgs, pushedAt);
     }
 
-    private static BoundArg readBoundArg(JsonParser parser, String name) throws IOException {
-        return switch (parser.currentToken()) {
+    /**
+     * @param value the read integer
+     * @param field the name of the field
+     * @return the value as an {@code int}
+     * @throws StoreRefusal if the value exceeds an {@code int}
+     */
+    private static int intOf(long value, String field) {
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
+            throw unreadable("'%s' is out of range: %d".formatted(field, value));
+        }
+        return (int) value;
+    }
+
+    private static BoundArg readBoundArg(JsonParser parser, String name) throws IOException {        return switch (parser.currentToken()) {
             case VALUE_STRING -> new BoundArg.StringArg(parser.getText());
             case VALUE_NUMBER_INT -> new BoundArg.IntegerArg(integer(parser, name));
             case START_ARRAY -> {

@@ -41,7 +41,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |server (on the operator verb `waive`)
 |Plan
 |Never reused; a revoked waiver keeps its identifier (`unwaive` appends a `revoked` line)
-|link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-record[Store Schemas, Waiver Record]; `pm-operator waive`, `unwaive`, `waivers` link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-waive[CLI & Security]; plan instance `waived_gates`, step `waiver_ref`
+|link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-record[Store Schemas, Waiver Record]; `pm-operator waive`, `unwaive`, `waivers` link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/02-operator-channel.adoc#operator-waive[CLI & Security]; plan instance `waived_gates`, step `waiver_ref`
 
 |[[id-waivable-gate]]Waivable gate identifier (`gate`)
 |Closed grammar: `review_evidence(:<bot_kind>)?`, `ci_check:<check_name>`, `analysis_gate:<provider>`, `findings:<class>`, `qgate_findings:(refine\|outline\|plan)`, and the budgets of a `raise`: `fix_budget:<policy>`, `retry_budget:<policy>`, and `fix_budget:outline-loop-back` (link:../timeouts/01-job-budgets-and-waits.adoc#loop-back-outline-budget[Timeouts & Budgets, Outline loop-back budget]). `<bot_kind>` as <<id-bot-kind>>; `<provider>` an analysis provider id `^[a-z][a-z0-9-]{0,31}$` (for example `sonar`, `codeql`); `<class>` a findings ledger `source` value or an analysis provider id; `<policy>` one of `ci-failure`, `review-findings`, `build-failure`, `merge-conflict`, `qgate-findings`, `analysis`; `<check_name>` the provider's check name verbatim, `^[\x20-\x7E]{1,128}$` (the only identifier that admits a space, because it is a provider value compared byte-exactly). At most 160.
@@ -189,7 +189,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |build (the event catalogue of `pm-api`)
 |Global
 |Closed; extended only with a release of `pm-api`
-|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/06-event-catalogue.adoc[Runtime Model, Event Catalogue]; the SSE `event` field of every event stream
+|link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/runtime-model/06-event-catalogue.adoc[Runtime Model, Event Catalogue]; the SSE `event` field of every event stream
 
 |[[id-message-key]]Message key
 |`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$`, at most 128 (for example `check.login.missing`): its first segment is the catalogue area. Never translated; the text it names is.
@@ -375,7 +375,7 @@ None of these identifiers is model-facing; they appear only on the Local API, in
 |server (runtime, at a worker's spawn)
 |One worker
 |Valid only while its job is `running`; revoked in the job's fate transaction (a later call is refused `job_ended`); stored only as SHA-256 (`worker.job_token_sha256`); its generation (xref:01-general-rules-and-registry.adoc#id-generation-id[`generation_id`]) is fenced in the same transaction; passed only in the job relay's environment `PM_MCP_JOB_TOKEN` and sent as `PM-MCP-Job-Token`; never logged
-|link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas, Job Record]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/03-relay.adoc#_connection_metadata[Runtime Model, Connection Metadata]
+|link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas, Job Record]; link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/runtime-model/03-relay.adoc#_connection_metadata[Runtime Model, Connection Metadata]
 
 |[[id-device-id]]`device_id`
 |`^dev-[0-9a-f]{12}$`, 16.

@@ -661,7 +661,8 @@ class WorkflowDiagramGeneratorTest {
                     List.of(new PrunedElement(PrunedElement.Kind.STEP, "default:\"quoted\"\nstep",
                             PruneReason.LOCAL_ONLY, "fact #1;\r\nline")),
                     List.of(), List.of(new WaivedGate("gate \"x\"\nnext", "W-1")));
-            var hostileLabels = new PlanInstance(fixture.version(), hostile, fixture.unit(), fixture.text());
+            var hostileLabels = new PlanInstance(fixture.version(), hostile, fixture.unit(), fixture.text(),
+                    List.of(), null);
 
             var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(hostileLabels, null);
 
@@ -700,7 +701,8 @@ class WorkflowDiagramGeneratorTest {
             var renamed = new PlanInstanceHeader(planId, header.version(), header.event(), header.composedAt(),
                     header.inputs(), header.lane(), header.posture(), header.steps(), header.pruned(),
                     header.policyCalls(), header.waivedGates());
-            return new PlanInstance(instance.version(), renamed, instance.unit(), instance.text());
+            return new PlanInstance(instance.version(), renamed, instance.unit(), instance.text(),
+                    instance.units(), null);
         }
 
         private static String frontMatter(String rendered) {
@@ -747,7 +749,8 @@ class WorkflowDiagramGeneratorTest {
                     List.of(new PrunedElement(PrunedElement.Kind.STEP, "default:x", PruneReason.LOCAL_ONLY,
                             "fact\u009B[31m\u0080end")),
                     List.of(), List.of());
-            var c1Instance = new PlanInstance(instance.version(), hostile, instance.unit(), instance.text());
+            var c1Instance = new PlanInstance(instance.version(), hostile, instance.unit(), instance.text(),
+                    instance.units(), null);
 
             var terminal = WorkflowDiagramGenerator.renderInstanceAscii(c1Instance, null);
             var asciiDoc = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(c1Instance, null);
@@ -769,7 +772,8 @@ class WorkflowDiagramGeneratorTest {
                     List.of(new PrunedElement(PrunedElement.Kind.STEP, "default:a|b\nc", PruneReason.LOCAL_ONLY,
                             "fact |\r\nnext\u2028line")),
                     List.of(), List.of(new WaivedGate("x\n|===", "W|1")));
-            return new PlanInstance(instance.version(), hostile, instance.unit(), instance.text());
+            return new PlanInstance(instance.version(), hostile, instance.unit(), instance.text(),
+                    instance.units(), null);
         }
 
         private static PlanInstance bareInstance() {
@@ -777,7 +781,7 @@ class WorkflowDiagramGeneratorTest {
             var header = fixture.header();
             var bare = new PlanInstanceHeader(header.planId(), header.version(), header.event(), header.composedAt(),
                     header.inputs(), null, null, header.steps(), List.of(), List.of(), List.of());
-            return new PlanInstance(fixture.version(), bare, fixture.unit(), fixture.text());
+            return new PlanInstance(fixture.version(), bare, fixture.unit(), fixture.text(), List.of(), null);
         }
     }
 

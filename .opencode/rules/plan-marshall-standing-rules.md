@@ -1,7 +1,7 @@
 # Plan Marshall standing rules (OpenCode bridge bridge-version: 1)
 
 source: CLAUDE.md
-source-sha256: b6c7c323a3a664a7a4225253363342fd433c0ea1de020be8ecfedd8de6458fce
+source-sha256: ef205657d4522bba014d1dc40aa3db7c65637c04dd8d5d49ca80c92c3b82f5da
 
 <!-- Generated from CLAUDE.md; edit the baseline, not this file. -->
 
@@ -94,7 +94,8 @@ its own pull request.
 
 Six modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
 `SNAPSHOT` like every other artifact of the repository. The five generator artifacts carry only their generator
-package, and `pm-core:tests` also the schema loader `SchemaResource` (ADR `doc/adr/016`); `pm-runtime:tests` carries
+package, and `pm-core:tests` also the schema loader `SchemaResource` (ADR `doc/adr/016`) and the assertion-message
+scanner (ADR `doc/adr/012`); `pm-runtime:tests` carries
 its whole test scope, because the assembly already consumes `TestBases` and the
 fakes there:
 
@@ -108,6 +109,10 @@ fakes there:
 The two provider artifacts `pm-provider-ci:tests` and `pm-provider-git:tests` are the operator's decision of
 2026-11-06 (PLAN-V2-92): a provider module that needs a generator for its own type in two or more of its own test
 classes publishes it.
+
+The assertion-message scanner (`de.planmarshall.core.testing.assertions`, PLAN-V2-103) is shared the same way: each
+module guards its own test tree with a thin test that names its base package and reads its own `src/test/java`; the
+scan logic is published once in `pm-core:tests`, never copied per module.
 
 A consumer declares the artifact as a test-scope dependency of type `test-jar`; its version comes from the root
 POM's `dependencyManagement`, never from a literal. The generators live in
@@ -131,6 +136,9 @@ convention and the consumers of each artifact are recorded in
 - Never add a dependency or a plugin without asking the user first. The six above are the operator's answers — the
   five of 2026-10-30 and the R04 dependency of 2026-10-09 — for the coding-skill conformance family (PLAN-V2-83 to
   PLAN-V2-108); anything else still needs a decision.
+- `com.tngtech.archunit:archunit-junit5` (test) in `pm-runtime` and in `pm-core`: the architecture guards
+  `OutboundCallsArchTest` of `pm-runtime` and the `*ArchTest` classes of `pm-core`. The operator gave the word for it on
+  2026-10-29 (decision A1 of the spec of PLAN-V2-53); the version comes from the parent POM.
 - Pre-1.0: no deprecation cycles, no backward-compatibility shims.
 
 ## Dependency Rules (enforced by the build)
@@ -148,9 +156,9 @@ them with a fixture project below `src/guard-controls`:
 - `pm-runtime` depends on `pm-core` and `pm-api` alone among the modules of the product, and it is the only module
   that depends on `commonmark` and LSP4J.
 - No class of `pm-runtime` or `pm-core` opens a connection (a client socket, an HTTP client, a URL connection)
-  except the four classes the exception map of the guard names with their reasons, and only the destination classes of
-  the closed list use `cui-http`'s client; `OutboundCallsArchTest` of `pm-runtime` proves both
-  (link:pm-runtime/doc/developer/runtime-guard.adoc[Outbound-Call Guard Developer Guide]).
+  except the four classes the exemption map of the guard names with their reasons, and only the destination classes of
+  the closed list use `cui-http`'s client; `OutboundCallsArchTest` of `pm-runtime` proves both within its set
+  ([Outbound-Call Guard Developer Guide](pm-runtime/doc/developer/runtime-guard.adoc)).
 - The coordinates of the product come from the organisation registry: `.mvn/settings.xml` lists it before Maven
   Central, and the group id filter of `.mvn/rrf` (switched on in `.mvn/maven.config`) lets it be asked for
   `de.planmarshall` only. This check is inherited from the parent POM; its fixture here has its own `.mvn` with Maven
@@ -182,8 +190,10 @@ them with a fixture project below `src/guard-controls`:
   only through its own holder and that of `pm-core`. Each record is documented in `doc/LogMessages.adoc` (of this
   repository).
 - JUnit 5 only (`@DisplayName`, `@Nested`, AAA, `@ParameterizedTest` for 3+ variants), on the JVM without Quarkus.
-  Forbidden: Mockito, PowerMock, Hamcrest; test doubles are EasyMock, and no new hand-written fake is added. No AAA
-  phase comments.
+  Forbidden: Mockito, PowerMock, Hamcrest; test doubles are EasyMock, and no new hand-written fake is added. The
+  hand-written doubles that remain are the closed list of ADR
+  `doc/adr/026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc` plus the population its scan baseline names
+  until PLAN-V2-125 and PLAN-V2-126 convert it; a new one needs that ADR amended. No AAA phase comments.
 - Test data come from `cui-test-generator` (`@EnableGeneratorController`, `Generators.*`, `@GeneratorsSource`). A
   literal stays only where it is the contract — a wire format, an error or reason code, a schema or specification
   string, a golden file or a fixture path — and the test says so in its display name or a one-line comment. No

@@ -117,6 +117,50 @@ role's own values and for its escalation, with the reason of the validation tabl
 proposal, and `model_not_allowed` never applies to it: its configuration comes from the machine's default harness and
 that harness's tier `standard`, which `StewardConfiguration` and `RoleCatalog` resolve.
 
+== The Project Onboarding's Values and Consents
+
+The project onboarding's framework-free parts live here, beside the stores they write through; the unit that drives
+them (`project-onboarding.pmwf`) is content of `plan-marshall-mcp`
+(link:../../../doc/specification/state-catalogue/15-project-onboarding.adoc#state-catalogue-project-onboarding[State
+Catalogue § Project Onboarding]).
+
+`CheckoutScripts`:: The digests a `run_checkout_scripts` consent is keyed by
+(link:../../../doc/specification/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting]).
+`digest(checkoutRoot, scriptPaths)` reads each script at its repository-relative path through directory handles opened from
+the checkout root (`SecureDirectoryStream`), so no component of the path can be replaced by a symbolic link between the
+check and the digest, and answers one `ConsentScript` per path in the state's order; a path that leaves the checkout, an
+absolute path, an absent file, a directory, a symbolic link, a file system without secure traversal and a repeated path
+are refused rather than digested, so no consent covers a script the state cannot run.
+
+`PendingConsent`:: A `yes_remember` of a project-scoped kind given before the project has its id: the hold lives with the
+onboarding's entry (the unit's), and `resolvedFor(projectId)` materializes it under the confirmed id. Recording it
+through `ConsentStore.grant` at `project.enrol`, in the consents store's own transaction, is the unit's step; this type
+holds the value and never writes a store.
+
+`RunConsents`:: The kinds one onboarding run already answered `no`: `asksAgain(kind)` is false for a refused optional
+consent, so `project.run-consent` goes on without the scripts and does not ask again in that run. It records the answer of
+the run, never a store entry.
+
+`ProjectIdentityProposal`:: The id and display name proposed at `project.identity`, from the remote: the id from the
+remote's name, made valid by the identifier grammar of `LockKey` and unique on the machine (`-2`, `-3`, …), the display
+name `<owner>/<name>`. A remote without owner and name, and a name no valid id can be made from, propose nothing.
+
+`SetupRun`, `SetupAspect`:: The closed lists of the setup's four entries and six aspects, read by the unit that routes a
+run and by the runtime that serves the links, so the names exist once. `workflow.setup`'s `SetupRunDerivation` decides
+which run a call records.
+
+`ProjectValueProposal`:: One value of a project over the machine's
+(link:../../../doc/specification/store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas § Project
+Values over Machine Values]): the machine's value is the proposal, accepting it records nothing, and a changed value is
+the one the project records. The rule is the same for every machine-backed key and aspect, so no such key carries a rule
+of its own. Two keys sit outside it: the transcription methods, which the project may only narrow (`TranscribeMethods`,
+called before an override is recorded), and the commit identity where neither the project nor the machine holds one — the
+specification proposes the operator's global git identity and records it on the operator's acceptance, and
+`ProjectValueProposal` covers only a value it can propose.
+
+`TranscribeMethods`:: The one value a project may only narrow. `chosen(methods, machineMethods)` accepts a subset of the
+machine's and refuses a method the machine does not allow with `invalid_arguments`.
+
 == A Change Against an Older Revision
 
 Every one of the stores takes the revision its caller read. The first change wins; a later one against an older revision
@@ -132,7 +176,7 @@ _Requirements: link:{docs}/Requirements.adoc#PM-EXT-6[PM-EXT-6]_
 
 `EffectiveConfigKeys` is the compiled table of the keys the effective configuration resolves
 ({spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective Configuration
-and Sources]). It holds 98 keys: 16 of `project.json`, 20 of `workflow.json` and 62 of `local-config.json`. Each is an
+and Sources]). It holds 100 keys: 16 of `project.json`, 20 of `workflow.json` and 64 of `local-config.json`. Each is an
 `EffectiveConfigKey` — the key, its `ConfigValueDomain` and whether the configuration compiles a default for it.
 
 *The grammar.* An effective key is `stem "." segment {"." segment}`. The stems are `project`, `workflow` and
@@ -181,6 +225,11 @@ neither has a key whose value is derived.
   stores write the files inside them.
 * `ConsentGate` refuses a `yes_remember` for `verify_harness_profile` and `auto_run`, so a caller that offers the link
   fails loudly instead of remembering a kind the specification says is never remembered.
+* A `PendingConsent` is never a store entry: it is held with the onboarding's entry and written under the confirmed
+  `project_id` at `project.enrol`, in the consents store's own transaction, so an onboarding that abandons before its
+  enrolment remembers nothing. The write is the unit's step; the type holds the value.
+* `ProjectValueProposal.recorded` answers empty for the machine's own value, so accepting a proposal writes no key and the
+  project keeps following the machine.
 
 == Testing
 
