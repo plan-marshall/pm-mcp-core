@@ -111,6 +111,7 @@ public final class WorkflowPrinter {
         frontmatter.readsConfig().forEach(key -> field("reads_config", key));
         frontmatter.readsFact().forEach(kind -> field("reads_fact", kind));
         frontmatter.inputs().forEach(this::input);
+        frontmatter.slots().forEach(this::slot);
         field("modification_date", frontmatter.modificationDate().toString());
         field("version", frontmatter.version());
         field("author", frontmatter.author());
@@ -132,6 +133,13 @@ public final class WorkflowPrinter {
         }
         optionalField("input_fallback", declaration.fallback());
         optionalField("input_description", declaration.description());
+    }
+
+    /** Prints one slot, its type and its optional description, in that order. */
+    private void slot(InputDecl declaration) {
+        field("slot", declaration.name());
+        field("slot_type", declaration.type().sourceText());
+        optionalField("slot_description", declaration.description());
     }
 
     private void field(String key, String value) {
