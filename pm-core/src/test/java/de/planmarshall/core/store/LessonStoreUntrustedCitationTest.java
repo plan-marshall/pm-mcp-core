@@ -210,7 +210,7 @@ class LessonStoreUntrustedCitationTest {
     }
 
     @Test
-    @DisplayName("a malformed lesson reference is refused and the lesson is left untouched")
+    @DisplayName("a malformed lesson reference is refused, naming the reference")
     void refusesMalformedLessonReference() {
         created(CITED);
         var lesson = created(REVISED);
