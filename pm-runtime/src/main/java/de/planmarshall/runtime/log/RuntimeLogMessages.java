@@ -1230,6 +1230,30 @@ public final class RuntimeLogMessages {
                 .identifier(148)
                 .template("The git metadata change of project '%s' could not be reported: %s")
                 .build();
+
+        /**
+         * Logged when one generation's step of a supervision pass fails: the failure is that generation's, and the
+         * later generations and the idle yield still run. Names the generation and the failure, never a store content.
+         * <p>
+         * The component is {@code SupervisionPass} of the worker package.
+         */
+        public static final LogRecord WORKER_ADVANCE_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(149)
+                .template("The supervision pass could not advance generation '%s': %s")
+                .build();
+
+        /**
+         * Logged when the idle yield of a supervision pass fails: the yield is reported instead of replacing the
+         * failure of a generation's step that is still in flight.
+         * <p>
+         * The component is {@code SupervisionPass} of the worker package.
+         */
+        public static final LogRecord WORKER_IDLE_YIELD_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(150)
+                .template("The idle yield of the supervision pass failed: %s")
+                .build();
     }
 
     /** ERROR level messages. */

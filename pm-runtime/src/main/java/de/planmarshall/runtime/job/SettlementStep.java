@@ -20,6 +20,7 @@ import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.LeaseOwner;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.StoreRefusal;
+import de.planmarshall.core.store.WorkerStateCodec;
 
 /**
  * One step of the settlement of a job at its end (PM-EXEC-4, PM-ARCH-7), in the fixed write order of
@@ -183,8 +184,10 @@ public interface SettlementStep {
 
     /**
      * The first step: the settled record replaces the job's record, in one transaction under the lock of the scope
-     * that owns the job. For a worker, the revocation of its job token and the fence of its generation are a seam
-     * reported with the step.
+     * that owns the job. For a worker, the terminal worker block is written with the fate in that same transaction, so
+     * a settled record carries its terminal state and no later write has to change it ({@link JobRecordStore} refuses
+     * a worker write into a settled record, and that refusal stays). The revocation of the job token and the fence of
+     * the generation stay a seam of the supervisor, reported with the step.
      *
      * @param store       the job records of the job's store
      * @param lockManager the lock manager of the runtime
@@ -203,17 +206,42 @@ public interface SettlementStep {
             @Override
             public Outcome run(Settled settled) {
                 var job = settled.job();
+                var record = withTerminalWorker(store, job);
                 try (var transaction = lockManager.openTransaction()) {
-                    store.writeFate(transaction, job);
+                    store.writeFate(transaction, record);
                 } catch (UncheckedIOException | StoreRefusal e) {
                     return new Outcome.Failed("the fate of %s was not recorded: %s".formatted(job.jobId(),
                             e.getMessage()));
                 }
                 var report = "fate %s recorded".formatted(job.fate().wireName());
                 return new Outcome.Done(job.jobId().kind() == JobId.Kind.LLM
-                        ? report + "; worker token and fence " + NOT_IMPLEMENTED : report);
+                        ? report + "; worker block terminal, token and fence " + NOT_IMPLEMENTED : report);
             }
         };
+    }
+
+    /**
+     * Replaces the worker block of a settled record with its terminal state; a job that is no worker keeps its record
+     * as it is, and so does a record whose block is terminal already or cannot be read — the fate is what must be
+     * durable, and a block the codec refuses is left for the reader that reports it.
+     *
+     * @param store the job records of the job's store
+     * @param job   the settled record
+     * @return the record the fate write stores
+     */
+    private static JobRecord withTerminalWorker(JobRecordStore store, JobRecord job) {
+        if (job.kind() != JobId.Kind.LLM || job.worker() == null) {
+            return job;
+        }
+        try {
+            var current = WorkerStateCodec.read(store.recordPath(job.jobId()), job.worker());
+            if (current.state().isTerminal()) {
+                return job;
+            }
+            return job.withWorker(WorkerStateCodec.write(WorkerTermination.terminal(current, job)));
+        } catch (StoreRefusal e) {
+            return job;
+        }
     }
 
     /**

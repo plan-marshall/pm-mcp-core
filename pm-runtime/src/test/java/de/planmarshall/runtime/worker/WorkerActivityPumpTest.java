@@ -131,9 +131,9 @@ class WorkerActivityPumpTest {
         append(log, "{\"type\":\"tool_use\",\"name\":\"read_file\",\"input\":{\"file_path\":\"" + file + "\"}}");
         var pump = pump(journal);
 
-        var first = pump.pump(task, generation, new JobLog(log));
+        var first = pump.pump(task, generation, 1, new JobLog(log));
         append(log, "{\"type\":\"file\",\"path\":\"" + file + "\"}");
-        var second = pump.pump(task, generation, new JobLog(log));
+        var second = pump.pump(task, generation, 1, new JobLog(log));
         var unmapped = pump.unmappedLines();
         var end = pump.finish(task, generation, QueueTaskRecord.AttemptEnd.OFF_TRACK);
 

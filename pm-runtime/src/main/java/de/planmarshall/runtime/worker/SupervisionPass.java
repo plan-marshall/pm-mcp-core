@@ -9,11 +9,14 @@
  */
 package de.planmarshall.runtime.worker;
 
+import de.cuioss.tools.logging.CuiLogger;
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -21,7 +24,11 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecordStore;
+import de.planmarshall.core.store.StoreRefusal;
+import de.planmarshall.core.store.WorkerState;
+import de.planmarshall.core.store.WorkerState.EndReason;
 import de.planmarshall.runtime.job.JobLog;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * One periodic step of the supervision (PM-WORK-3, PM-WORK-7): the part of the loop that reads the world and settles
@@ -30,9 +37,10 @@ import de.planmarshall.runtime.job.JobLog;
  * The class starts no thread and owns no timer: the deadlines of {@link LossDetection} keep running on
  * {@link WorkerTimers}, which already owns the supervisor's one scheduler thread, so {@link #run()} is a step a caller
  * drives from wherever its scheduling belongs. It takes one reading of the clock and, for every generation that is not
- * terminal, reads the generation's job record from the store the terminal-state writer reads. A job the record reports
- * as ended settles its detection with {@link LossDetection#exit(Instant)} and completes the end through
- * {@link WorkerEnding#exited(WorkerGeneration)}, a loss going through
+ * terminal, creates the generation's loss detection — so a worker that never calls is lost at the deadline of "silent
+ * from spawn", not at the runner's budget — and reads the generation's job record from the store the terminal-state
+ * writer writes. A job the record reports as ended settles its detection with {@link LossDetection#exit(Instant)} and
+ * completes the end through {@link WorkerEnding#exited(WorkerGeneration)}, a loss going through
  * {@link WorkerEnding#end(WorkerGeneration, LossSignal)} first. A generation that holds a task reads its job log from
  * the offset its pump last read, hands the complete lines to that generation's {@link WorkerActivityPump} and runs
  * {@link AgentStartedDetector#detect(WorkerGeneration, long, AgentStartedDetector.HeldTask)} with the PID of the job
@@ -41,12 +49,20 @@ import de.planmarshall.runtime.job.JobLog;
  * A pass that finds nothing to do reads the job records and their logs and writes nothing; a log that is unreadable or
  * truncated appends nothing and is read again at the next pass (ADR {@code runtime-worker/011}). Every state change of
  * a generation is written through {@link WorkerSupervisor#replaced(WorkerGeneration)} and its {@link WorkerLifecycle}
- * transition table. {@link #run()} holds this instance's monitor and, while it completes an end, the monitor of
- * {@link SupervisorCalls}, so the terminal write and a transport call are one writer at a time.
+ * transition table.
+ * <p>
+ * The monitor of {@link SupervisorCalls} is taken only to claim a generation's end and to record its result; the end
+ * work itself — the fence, the token revoke, the slot release and the read of the terminal state — runs outside it, so
+ * a deadline that fires on the supervisor's one timer thread while an end is written is dispatched instead of waiting
+ * for the store ({@code SupervisorCalls}). A failure of one generation's step is reported as that generation's failure
+ * and the pass goes on to the later generation, and the idle yield's own failure is reported as well, never in place of
+ * the generation's.
  *
  * @since 0.1
  */
 public final class SupervisionPass {
+
+    private static final CuiLogger LOGGER = new CuiLogger(SupervisionPass.class);
 
     private final WorkerSupervisor supervisor;
     private final SupervisorCalls calls;
@@ -81,9 +97,9 @@ public final class SupervisionPass {
     }
 
     /**
-     * Runs one step of the supervision over the supervisor's registry, the job records and the job logs. The idle yield
-     * runs even when one generation's step throws, so a single failing generation never starves a role that waits for a
-     * slot.
+     * Runs one step of the supervision over the supervisor's registry, the job records and the job logs. A failure of
+     * one generation's step is reported and the later generations still run, and the idle yield runs even then, so a
+     * single failing generation neither hides the others nor starves a role that waits for a slot.
      */
     public synchronized void run() {
         var environment = supervisor.environment();
@@ -91,32 +107,60 @@ public final class SupervisionPass {
         var jobs = JobRecordStore.ofProject(environment.base(), environment.projectId());
         try {
             for (var generation : supervisor.generations()) {
-                advance(generation, now, jobs);
+                advanceReported(generation, now, jobs);
             }
         } finally {
-            recycling.yieldIdleSlot();
+            yieldIdleSlot();
         }
     }
 
     /**
-     * Advances one generation of the registry: a terminal one is left alone, an ended job completes its end, and a
-     * running worker's log and process tree are read.
+     * Advances one generation and reports a failure of its step as that generation's: a store that refuses the record
+     * or a resource whose read or write fails stops this generation's step alone.
+     */
+    private void advanceReported(WorkerGeneration generation, Instant now, JobRecordStore jobs) {
+        try {
+            advance(generation, now, jobs);
+        } catch (StoreRefusal | UncheckedIOException | IllegalStateException failure) {
+            LOGGER.warn(failure, WARN.WORKER_ADVANCE_FAILED, generation.generationId(), failure.getMessage());
+        }
+    }
+
+    /**
+     * Yields an idle slot to a waiting role and reports a failure of the yield instead of letting it replace the
+     * failure of a generation's step that is still in flight.
+     */
+    private void yieldIdleSlot() {
+        try {
+            recycling.yieldIdleSlot();
+        } catch (StoreRefusal | UncheckedIOException | IllegalStateException failure) {
+            LOGGER.warn(failure, WARN.WORKER_IDLE_YIELD_FAILED, failure.getMessage());
+        }
+    }
+
+    /**
+     * Advances one generation of the registry: a terminal one is left alone, a running one gets its detection, an
+     * ended job completes its end, and a running worker's log and process tree are read. A generation that closed its
+     * task without an end path first closes the attempt whose log its pump still holds.
      */
     private void advance(WorkerGeneration generation, Instant now, JobRecordStore jobs) {
         if (generation.terminal()) {
             return;
         }
+        calls.detection(generation);
         var job = jobs.read(generation.jobId());
         if (job.isEmpty()) {
             return;
         }
         if (job.get().status().isSettled()) {
-            completeEnd(generation, now, jobs);
+            completeEnd(generation, now, jobs, job.get());
             return;
         }
         var task = generation.leasedTask();
         if (task != null) {
             observe(generation, task, job.get(), jobs);
+        } else {
+            closeAttempt(generation, jobs);
         }
     }
 
@@ -140,12 +184,14 @@ public final class SupervisionPass {
      * and the pass moves on instead of failing every later pass.
      */
     private void pump(WorkerGeneration generation, String task, JobRecordStore jobs) {
-        if (tasks.facts(task).isEmpty()) {
+        var facts = tasks.facts(task).orElse(null);
+        if (facts == null) {
             return;
         }
         var pump = active.computeIfAbsent(generation.generationId(), ignored -> pumps.apply(generation));
         try {
-            pump.pump(task, generation.generationId(), new JobLog(jobs.logPath(generation.jobId())));
+            pump.pump(task, generation.generationId(), facts.attempt(),
+                    new JobLog(jobs.logPath(generation.jobId())));
         } catch (IllegalStateException _) {
             // The task closed between the read of its facts and the append: the recorder refuses an unknown or closed
             // task, and that refusal is a benign race of the pass, not a defect of the worker.
@@ -153,11 +199,25 @@ public final class SupervisionPass {
     }
 
     /**
+     * Closes the attempt a generation's pump still holds after its task closed without an end path: the tail the worker
+     * wrote before the close and the attempt's end go to the task that produced them, never to the next one.
+     */
+    private void closeAttempt(WorkerGeneration generation, JobRecordStore jobs) {
+        var pump = active.get(generation.generationId());
+        if (pump == null) {
+            return;
+        }
+        pump.close(generation.generationId(), new JobLog(jobs.logPath(generation.jobId())));
+    }
+
+    /**
      * Settles a generation whose job record is settled: a deadline or the observed exit decides the loss, an exit
      * before the first call is the start failure, and the one end path completes the end exactly once. The generation's
-     * log is read once more first, so the tail a worker wrote before its exit is appended before the attempt ends.
+     * log is read once more first, so the tail a worker wrote before its exit is appended before the attempt ends. The
+     * generation is claimed under the calls' monitor, the end work runs outside it, and its result is recorded under
+     * the monitor again.
      */
-    private void completeEnd(WorkerGeneration generation, Instant now, JobRecordStore jobs) {
+    private void completeEnd(WorkerGeneration generation, Instant now, JobRecordStore jobs, JobRecord job) {
         var generationId = generation.generationId();
         var task = generation.leasedTask();
         if (task != null && !finished.contains(generationId)) {
@@ -165,11 +225,31 @@ public final class SupervisionPass {
             // monitor must not hold the supervisor's timer thread for the length of a log read.
             pump(generation, task, jobs);
         }
-        // One writer at a time: a transport call and this completion both write the generation, and a call that read it
-        // before the terminal write must not land after it. The calls object is the monitor every call holds.
+        claimEnd(generation, now, jobs, job);
+        WorkerGeneration terminal = null;
+        try {
+            terminal = ending.exited(generation);
+        } finally {
+            recordEnd(generation, terminal);
+        }
+    }
+
+    /**
+     * Claims a generation's end under the monitor of the calls: the detection settles, the requested end is read, the
+     * attempt's end is appended once and the generation is marked as ending, so a retry after a failed end neither
+     * re-pumps the log nor appends a second end.
+     */
+    private void claimEnd(WorkerGeneration generation, Instant now, JobRecordStore jobs, JobRecord job) {
+        var generationId = generation.generationId();
         synchronized (calls) {
+            if (finished.contains(generationId)) {
+                return;
+            }
+            var recorded = recordedEnd(jobs, job);
             var detection = calls.detection(generation);
-            var exit = detection.exit(now);
+            // An exit is a loss only while the generation still leases a task: that is the task the loss offers again.
+            // A worker that ended without a task has no attempt to lose, and the settled record names its end.
+            var exit = generation.leasedTask() != null ? detection.exit(now) : Optional.<LossSignal>empty();
             exit.ifPresent(signal -> ending.end(generation, signal));
             var loss = exit.or(() -> calls.loss(generationId)).orElse(null);
             var requested = ending.requestedCause(generationId).orElse(null);
@@ -177,29 +257,46 @@ public final class SupervisionPass {
                 ending.end(generation, EndCause.START_FAILURE);
                 requested = ending.requestedCause(generationId).orElse(null);
             }
-            if (!finished.contains(generationId)) {
-                // The attempt's end is appended once, before the terminal write, so a refused end cannot swallow it and a
-                // retried completion neither re-pumps the log nor appends a second one.
-                finishAttempt(generation, requested, loss);
-                finished.add(generationId);
+            // The attempt's end is appended once, before the terminal state is recorded, so a refused end cannot
+            // swallow it and a retried completion neither re-pumps the log nor appends a second one.
+            finishAttempt(generation, requested, loss, recorded);
+            finished.add(generationId);
+        }
+    }
+
+    /**
+     * Records the result of an end under the monitor of the calls: the terminal generation replaces the registered one
+     * and the per-generation values are forgotten. A failed end keeps them, and the generation, for the next pass.
+     */
+    private void recordEnd(WorkerGeneration generation, @Nullable WorkerGeneration terminal) {
+        var generationId = generation.generationId();
+        synchronized (calls) {
+            if (terminal == null) {
+                // The end failed and stays owed: the generation keeps its claim, so the retry neither re-reads the log
+                // nor appends a second attempt end.
+                return;
             }
-            supervisor.replaced(ending.exited(generation));
-            calls.forget(generationId);
-            finished.remove(generationId);
+            try {
+                supervisor.replaced(terminal);
+                calls.forget(generationId);
+            } finally {
+                finished.remove(generationId);
+                active.remove(generationId);
+            }
         }
     }
 
     /**
      * Appends the attempt's end to the journal of the task the generation held, through the pump that read its log; a
-     * generation whose log was never pumped appends nothing, because the attempt has no journal in this run. The append
-     * happens before the terminal state is written, so a store that refuses the end cannot swallow the journal entry.
+     * generation whose log was never pumped appends nothing, because the attempt has no journal in this run.
      */
-    private void finishAttempt(WorkerGeneration generation, @Nullable EndCause cause, @Nullable LossSignal loss) {
+    private void finishAttempt(WorkerGeneration generation, @Nullable EndCause cause, @Nullable LossSignal loss,
+            @Nullable EndReason recorded) {
         var task = generation.leasedTask();
         var pump = active.get(generation.generationId());
         if (task != null && pump != null && tasks.facts(task).isPresent()) {
             try {
-                pump.finish(task, generation.generationId(), attemptEnd(cause, loss));
+                pump.finish(task, generation.generationId(), attemptEnd(cause, loss, recorded));
             } catch (IllegalStateException _) {
                 // The same race as the pump's: a task that closed first has no journal entry to append.
             }
@@ -210,12 +307,17 @@ public final class SupervisionPass {
     }
 
     /**
-     * @param cause why the generation was ended; {@code null} when the registry holds no requested end
-     * @param loss  the signal that settled its detection; {@code null} when it was not lost
+     * @param cause    why the generation was ended; {@code null} when the registry holds no requested end
+     * @param loss     the signal that settled its detection; {@code null} when it was not lost
+     * @param recorded the end reason the settled record carries; {@code null} when it carries none
      * @return how the attempt of the held task ended
      */
-    static QueueTaskRecord.AttemptEnd attemptEnd(@Nullable EndCause cause, @Nullable LossSignal loss) {
-        return switch (cause == null ? EndCause.LOST : cause) {
+    static QueueTaskRecord.AttemptEnd attemptEnd(@Nullable EndCause cause, @Nullable LossSignal loss,
+            @Nullable EndReason recorded) {
+        if (cause == null) {
+            return recorded == null ? QueueTaskRecord.AttemptEnd.WORKER_LOST : attemptEndOf(recorded);
+        }
+        return switch (cause) {
             case TASK_DONE, RECYCLE -> QueueTaskRecord.AttemptEnd.CLOSED;
             case DRAIN -> QueueTaskRecord.AttemptEnd.DRAIN;
             case PAUSE_AT_ONCE -> QueueTaskRecord.AttemptEnd.PAUSED;
@@ -223,5 +325,35 @@ public final class SupervisionPass {
             case START_FAILURE -> QueueTaskRecord.AttemptEnd.START_FAILURE;
             case LOST -> loss == null ? QueueTaskRecord.AttemptEnd.WORKER_LOST : loss.reason().attemptEnd();
         };
+    }
+
+    /**
+     * The end of an attempt whose worker ended without an end the supervisor requested, as the settlement recorded it:
+     * a task the worker finished closes its attempt, a loss ends it without its submit, and a budget, a drain, a start
+     * failure and a withdrawal carry their own end.
+     *
+     * @param recorded the end reason the settled record carries
+     * @return how the attempt ended
+     */
+    private static QueueTaskRecord.AttemptEnd attemptEndOf(EndReason recorded) {
+        return switch (recorded) {
+            case TASK_DONE, IDLE_RECYCLE, IDLE_YIELD, TOKEN_BUDGET, TASKS_PER_GENERATION, ARTIFACT_CHANGED ->
+                    QueueTaskRecord.AttemptEnd.CLOSED;
+            case EXITED -> QueueTaskRecord.AttemptEnd.EXITED_WITHOUT_SUBMIT;
+            case ACK_MISSED, SILENCE -> QueueTaskRecord.AttemptEnd.WORKER_LOST;
+            case BUDGET -> QueueTaskRecord.AttemptEnd.BUDGET;
+            case DRAIN -> QueueTaskRecord.AttemptEnd.DRAIN;
+            case START_FAILURE -> QueueTaskRecord.AttemptEnd.START_FAILURE;
+            case WITHDRAWN -> QueueTaskRecord.AttemptEnd.PAUSED;
+        };
+    }
+
+    /**
+     * @param jobs the job records of the generation's project
+     * @param job  the settled record of the generation's job
+     * @return the end reason the record carries; {@code null} when it carries none
+     */
+    private static @Nullable EndReason recordedEnd(JobRecordStore jobs, JobRecord job) {
+        return WorkerEnding.recordedTerminal(jobs, job.jobId()).map(WorkerState::endReason).orElse(null);
     }
 }

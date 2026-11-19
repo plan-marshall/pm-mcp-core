@@ -99,6 +99,8 @@
 |PM_RUNTIME-146 |The credential store move of the aspect failed: %s
 |PM_RUNTIME-147 |Git metadata of project '%s' changed at %s: %s part(s) differ
 |PM_RUNTIME-148 |The git metadata change of project '%s' could not be reported: %s
+|PM_RUNTIME-149 |The supervision pass could not advance generation '%s': %s
+|PM_RUNTIME-150 |The idle yield of the supervision pass failed: %s
 |===
 
 === ERROR Level (200-299)

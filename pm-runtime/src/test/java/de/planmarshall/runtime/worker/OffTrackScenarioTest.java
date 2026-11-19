@@ -185,7 +185,7 @@ class OffTrackScenarioTest {
         try (var harness = FixtureHarness.start(directory, arguments(stream))) {
             for (var index = 0; index < stream.size(); index++) {
                 append(log, awaitLine(harness));
-                pump.pump(task, generation, new JobLog(log));
+                pump.pump(task, generation, 1, new JobLog(log));
                 counts.add(reports.size());
             }
         }

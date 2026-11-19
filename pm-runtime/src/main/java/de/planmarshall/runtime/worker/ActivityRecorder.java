@@ -106,6 +106,30 @@ public final class ActivityRecorder {
     }
 
     /**
+     * Appends one entry of an attempt whose task closed, with the attempt the caller read while it was open: the task's
+     * facts are gone by then, so no off-track signal is evaluated on a closed attempt, and the entry still carries the
+     * attempt it belongs to. Used for the tail a worker wrote before its task closed and for that attempt's end.
+     *
+     * @param queueTaskId  the task
+     * @param generationId the worker's generation
+     * @param attempt      the attempt the entry belongs to
+     * @param builder      the entry, without its sequence, attempt and instant
+     * @return the entry as the journal wrote it
+     */
+    public ActivityEntry appendClosed(String queueTaskId, String generationId, int attempt,
+            ActivityEntry.ActivityEntryBuilder builder) {
+        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(builder, "builder");
+        var at = clock.instant();
+        var written = new ActivityEntry[1];
+        journal.appendNext(queueTaskId, seq -> {
+            written[0] = builder.seq(seq).attempt(attempt).at(at).build();
+            return written[0];
+        });
+        return SecretRedactor.redact(written[0]);
+    }
+
+    /**
      * Forgets the signals reported for a task whose attempt ended, so a successor attempt and a long-lived runtime do
      * not accumulate entries.
      *
