@@ -176,7 +176,7 @@ class SlotBindingVerifierTest {
     }
 
     private static String slot(String slotType) {
-        return "slot: value\nslot_type: %s\n".formatted(slotType);
+        return "slot: value\nslot_type: " + slotType + "\n";
     }
 
     @Nested

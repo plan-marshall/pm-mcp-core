@@ -517,12 +517,6 @@ public final class UnitFrontmatterReader {
                         throw outOfOrder(key, KEY_SLOT, number);
                     }
                     open.type = inputType(value, number, column);
-                    if (open.type instanceof InputType.Enumeration || open.type instanceof InputType.IntRange
-                            || open.type instanceof InputType.EnumList || open.type instanceof InputType.Text
-                            || open.type instanceof InputType.CommitMessage || open.type instanceof InputType.Path
-                            || open.type instanceof InputType.PathList) {
-                        // any InputType is allowed for a slot, but it must not be optional
-                    }
                     if (value.endsWith("?")) {
                         throw new Refusal(number, column, "a slot_type must not be optional");
                     }
