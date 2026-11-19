@@ -215,6 +215,10 @@ public final class WorkflowPrinter {
         if (factsPrimitiveId != null) {
             line(1, "facts " + factsPrimitiveId);
         }
+        var fills = state.fills();
+        if (fills != null) {
+            line(1, "fills slot." + fills.slotName() + " from " + fills.fromParam());
+        }
         printBehavior(state.behavior());
     }
 
