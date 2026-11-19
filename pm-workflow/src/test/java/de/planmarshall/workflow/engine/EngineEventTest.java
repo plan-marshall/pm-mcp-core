@@ -70,7 +70,7 @@ class EngineEventTest {
     }
 
     private WorkflowStatus atQuestion() {
-        return engine.advance(atReview(), new EngineEvent.TasksSettled(Map.of("change", "submitted"), "approved"))
+        return engine.advance(atReview(), new EngineEvent.TasksSettled(Map.of("change", "submitted"), Map.of(), "approved"))
                 .status();
     }
 
@@ -81,7 +81,7 @@ class EngineEventTest {
 
     static Stream<EngineEvent> foreignEventsOfJob() {
         return Stream.of(new EngineEvent.JobSettled("b-00000000000000ff", "succeeded"),
-                new EngineEvent.TasksSettled(Map.of("change", "submitted"), "approved"),
+                new EngineEvent.TasksSettled(Map.of("change", "submitted"), Map.of(), "approved"),
                 new EngineEvent.QuestionResolved("Q-001", "answered"),
                 new EngineEvent.TimeElapsed(T0));
     }
@@ -199,10 +199,9 @@ class EngineEventTest {
         void shouldResumeBySettledTasks() {
             var atReview = atReview();
 
-            var asked = engine.advance(atReview, new EngineEvent.TasksSettled(Map.of("change", "submitted"),
-                    "approved"));
-            var lost = engine.advance(atReview, new EngineEvent.TasksSettled(Map.of("change", "lost"), "lost"));
-            var otherEntity = new EngineEvent.TasksSettled(Map.of("other", "submitted"), "approved");
+            var asked = engine.advance(atReview, new EngineEvent.TasksSettled(Map.of("change", "submitted"), Map.of(), "approved"));
+            var lost = engine.advance(atReview, new EngineEvent.TasksSettled(Map.of("change", "lost"), Map.of(), "lost"));
+            var otherEntity = new EngineEvent.TasksSettled(Map.of("other", "submitted"), Map.of(), "approved");
             var elapsed = new EngineEvent.TimeElapsed(T0);
 
             assertAll(
@@ -343,13 +342,13 @@ class EngineEventTest {
                             () -> new EngineEvent.JobSettled(SPAWNED, "vanished"),
                             "an unknown job outcome is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.TasksSettled(noTasks, "approved"),
+                            () -> new EngineEvent.TasksSettled(noTasks, Map.of(), "approved"),
                             "an empty task map is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.TasksSettled(unknownTaskOutcome, "approved"),
+                            () -> new EngineEvent.TasksSettled(unknownTaskOutcome, Map.of(), "approved"),
                             "an unknown task outcome is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.TasksSettled(submitted, " "),
+                            () -> new EngineEvent.TasksSettled(submitted, Map.of(), " "),
                             "a blank task outcome is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new EngineEvent.QuestionResolved("Q-1", "answered"),

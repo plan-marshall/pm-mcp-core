@@ -242,7 +242,7 @@ class DefaultPlanRunTest {
         var kind = InvariantFixtures.entityKinds().find(job.entityKind()).orElseThrow();
         var outcomes = new LinkedHashMap<String, String>();
         wait.taskEntities().forEach(entity -> outcomes.put(entity, "submitted"));
-        return new EngineEvent.TasksSettled(outcomes,
+        return new EngineEvent.TasksSettled(outcomes, Map.of(),
                 primitives.evaluate(kind.returnEvaluationPrimitiveId(), Optional.ofNullable(status.scopeId())));
     }
 

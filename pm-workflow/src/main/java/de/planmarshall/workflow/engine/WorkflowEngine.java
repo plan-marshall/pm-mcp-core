@@ -463,7 +463,7 @@ public final class WorkflowEngine {
             case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(_, var fate) ->
                 run.chain(run.leftTo(node, transitionOf(node, job.transitions(), fate, Map.of()).targetStateId(),
                         fate));
-            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(_, var outcome) ->
+            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(_, _, var outcome) ->
                 run.chain(run.leftTo(node, transitionOf(node, modelJob.transitions(), outcome, Map.of())
                         .targetStateId(), outcome));
             case StateBehavior.QuestionWait question when event instanceof EngineEvent.QuestionResolved resolved ->
