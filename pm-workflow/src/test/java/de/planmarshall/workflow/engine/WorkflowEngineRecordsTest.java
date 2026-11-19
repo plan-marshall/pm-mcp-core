@@ -44,12 +44,14 @@ class WorkflowEngineRecordsTest {
         QuestionRecordReader questions = createMock(QuestionRecordReader.class);
         replay(jobs, tasks, questions);
         var clock = new EngineFixtures.ManualClock(Instant.EPOCH);
-        var constructed = new WorkflowEngine.Ports(jobs, tasks, questions, clock, null, null);
+        var ids = new java.util.SplittableRandom(0L);
+        var constructed = new WorkflowEngine.Ports(jobs, tasks, questions, clock, ids, null, null);
         var built = WorkflowEngine.Ports.builder()
                 .jobs(jobs)
                 .tasks(tasks)
                 .questions(questions)
                 .clock(clock)
+                .ids(ids)
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same engine ports");

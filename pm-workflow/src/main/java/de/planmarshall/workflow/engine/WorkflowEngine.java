@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.random.RandomGenerator;
 import java.util.Optional;
 import java.util.Set;
 
@@ -178,6 +179,7 @@ public final class WorkflowEngine {
      */
     @Builder
     public record Ports(JobStarter jobs, QueueTaskCreator tasks, QuestionRecordReader questions, WorkflowClock clock,
+    RandomGenerator ids,
     @Nullable InstanceComposition composition,
     @Nullable InstanceUnits units) {
 
@@ -187,6 +189,7 @@ public final class WorkflowEngine {
             Objects.requireNonNull(tasks, "tasks");
             Objects.requireNonNull(questions, "questions");
             Objects.requireNonNull(clock, "clock");
+            Objects.requireNonNull(ids, "ids");
         }
     }
 

@@ -285,6 +285,9 @@ final class EngineFixtures {
     /** The clock of the engine. */
     final ManualClock clock = new ManualClock(T0);
 
+    /** The seeded generator of command and correlation ids. */
+    final java.util.random.RandomGenerator ids = new java.util.SplittableRandom(0L);
+
     /** The job requests the job port is handed, in order. */
     final Capture<StartRequest> jobRequests = newCapture(CaptureType.ALL);
 
@@ -371,7 +374,7 @@ final class EngineFixtures {
     /** @return the ports of the engine: the EasyMock doubles and the manual clock of this fixture */
     WorkflowEngine.Ports ports() {
         return WorkflowEngine.Ports.builder().jobs(jobStarter).tasks(taskCreator).questions(questionReader)
-                .clock(clock).build();
+                .clock(clock).ids(ids).build();
     }
 
     /** @return the address resolver over this fixture's pending entry port and {@link #entityKinds()} */
@@ -515,7 +518,7 @@ final class EngineFixtures {
     WorkflowEngine.Ports instancePorts(InstanceComposition composition,
             InstanceUnits units) {
         return WorkflowEngine.Ports.builder().jobs(jobStarter).tasks(taskCreator).questions(questionReader)
-                .clock(clock).composition(composition).units(units).build();
+                .clock(clock).ids(ids).composition(composition).units(units).build();
     }
 
     /**

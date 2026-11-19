@@ -198,6 +198,8 @@ final class ScenarioFixtures {
     /** The clock of the engine and of the transactions. */
     final ManualClock clock = new ManualClock(T0);
 
+    final java.util.random.RandomGenerator ids = new java.util.SplittableRandom(0L);
+
     /** The job requests the job port is handed, in order. */
     final Capture<StartRequest> jobRequests = newCapture(CaptureType.ALL);
 
@@ -437,7 +439,7 @@ final class ScenarioFixtures {
         var validator = new WorkflowValidator(registry, List.of(), entityKinds(), QuestionClassRegistry.defaults(),
                 SchemaRegistry.defaults(), WorkflowCatalog.of());
         var ports = WorkflowEngine.Ports.builder().jobs(jobStarter).tasks(queueTasks).questions(questionReader)
-                .clock(clock).build();
+                .clock(clock).ids(ids).build();
         return new WorkflowEngine(unit, WorkflowCatalog.of(), validator, registry, new ScenarioParameterBinder(), ports);
     }
 
