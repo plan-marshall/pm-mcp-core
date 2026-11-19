@@ -1,4 +1,4 @@
-= ADR 063: The Lesson Id Is the UTC Hour and a Per-Hour Sequence, Drawn Under the Lesson Store Lock
+= ADR 075: The Lesson Id Is the UTC Hour and a Per-Hour Sequence, Drawn Under the Lesson Store Lock
 :nofooter:
 
 == Status
