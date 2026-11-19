@@ -338,7 +338,7 @@ public final class SupervisionPass {
     private static QueueTaskRecord.AttemptEnd attemptEndOf(EndReason recorded) {
         return switch (recorded) {
             case TASK_DONE, IDLE_RECYCLE, IDLE_YIELD, TOKEN_BUDGET, TASKS_PER_GENERATION, ARTIFACT_CHANGED ->
-                    QueueTaskRecord.AttemptEnd.CLOSED;
+                QueueTaskRecord.AttemptEnd.CLOSED;
             case EXITED -> QueueTaskRecord.AttemptEnd.EXITED_WITHOUT_SUBMIT;
             case ACK_MISSED, SILENCE -> QueueTaskRecord.AttemptEnd.WORKER_LOST;
             case BUDGET -> QueueTaskRecord.AttemptEnd.BUDGET;

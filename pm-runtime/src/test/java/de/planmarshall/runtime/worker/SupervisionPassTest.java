@@ -36,7 +36,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -582,7 +581,7 @@ class SupervisionPassTest {
                 () -> assertTrue(fixture.jobTokens.revoked(started.generationId()),
                         "the end path revokes the job token once"),
                 () -> assertEquals(1, fixture.released.stream()
-                        .filter(lease -> lease.generationId().equals(started.generationId())).count(),
+                                .filter(lease -> lease.generationId().equals(started.generationId())).count(),
                         "the end path releases the model slot once"));
     }
 
