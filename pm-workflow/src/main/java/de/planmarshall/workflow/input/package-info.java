@@ -7,8 +7,10 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-@org.jspecify.annotations.NullMarked
+@NullMarked
 package de.planmarshall.workflow.input;
+
+import org.jspecify.annotations.NullMarked;
 
 /**
  * The closed input types a unit declares in its frontmatter, and the value-level validation that rejects a value that

@@ -31,7 +31,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.SplittableRandom;
 import java.util.function.Function;
+import java.util.random.RandomGenerator;
 
 
 import org.easymock.Capture;
@@ -198,7 +200,7 @@ final class ScenarioFixtures {
     /** The clock of the engine and of the transactions. */
     final ManualClock clock = new ManualClock(T0);
 
-    final java.util.random.RandomGenerator ids = new java.util.SplittableRandom(0L);
+    final RandomGenerator ids = new SplittableRandom(0L);
 
     /** The job requests the job port is handed, in order. */
     final Capture<StartRequest> jobRequests = newCapture(CaptureType.ALL);

@@ -56,7 +56,7 @@ public final class PathRules {
         if (value.startsWith(":") || value.startsWith("-")) {
             return new InputRefusal("path.magic", value);
         }
-        for (int i = 0; i < value.length();) {
+        for (int i = 0; i < value.length(); ) {
             int cp = value.codePointAt(i);
             if (cp < 0x20 || (cp >= 0x7f && cp <= 0x9f)) {
                 return new InputRefusal("path.control", value);
@@ -67,7 +67,7 @@ public final class PathRules {
             i += Character.charCount(cp);
         }
         // bidi and format characters
-        for (int i = 0; i < value.length();) {
+        for (int i = 0; i < value.length(); ) {
             int cp = value.codePointAt(i);
             if (cp == 0x202a || cp == 0x202b || cp == 0x202c || cp == 0x202d || cp == 0x202e
                     || cp == 0x2066 || cp == 0x2067 || cp == 0x2068 || cp == 0x2069) {
@@ -80,10 +80,10 @@ public final class PathRules {
             if (segment.isEmpty()) {
                 return new InputRefusal("path.empty-segment", value);
             }
-            if (segment.equals(".") || segment.equals("..")) {
+            if (".".equals(segment) || "..".equals(segment)) {
                 return new InputRefusal("path.dot-segment", value);
             }
-            if (segment.equalsIgnoreCase(".git")) {
+            if (".git".equalsIgnoreCase(segment)) {
                 return new InputRefusal("path.git", value);
             }
         }

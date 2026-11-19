@@ -33,6 +33,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.transport.URIish;
+import org.eclipse.jgit.treewalk.TreeWalk;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -222,7 +223,7 @@ class JGitOperationsTest {
             try (var jgit = Git.open(repo.toFile())) {
                 var tree = jgit.getRepository().parseCommit(
                         jgit.getRepository().resolve(commitId)).getTree();
-                return org.eclipse.jgit.treewalk.TreeWalk.forPath(jgit.getRepository(), path, tree) != null;
+                return TreeWalk.forPath(jgit.getRepository(), path, tree) != null;
             }
         }
 

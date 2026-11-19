@@ -30,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
@@ -193,10 +196,10 @@ class WorkflowStatusCodecTest {
                             frame.boundArgs(), "the bound arguments should be typed"),
                     () -> assertEquals(Instant.parse("2026-10-12T10:00:00Z"), frame.pushedAt(),
                             "the push instant should be typed"),
-                    () -> assertEquals(de.planmarshall.core.id.CommandId.parse("cmd-0123456789abcdef"),
-                            java.util.Optional.of(frame.commandId()), "the command id should be typed"),
-                    () -> assertEquals(de.planmarshall.core.id.CorrelationId.parse("cor-0123456789abcdef"),
-                            java.util.Optional.of(frame.correlationId()), "the correlation id should be typed"),
+                    () -> assertEquals(CommandId.parse("cmd-0123456789abcdef"),
+                            Optional.of(frame.commandId()), "the command id should be typed"),
+                    () -> assertEquals(CorrelationId.parse("cor-0123456789abcdef"),
+                            Optional.of(frame.correlationId()), "the correlation id should be typed"),
                     () -> assertEquals("literal", frame.argSources().get("message_mode").source(),
                             "the arg provenance should be typed"),
                     () -> assertEquals(2, status.loopBackIteration(), "the loop-back iteration should be typed"),

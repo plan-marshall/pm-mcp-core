@@ -13,8 +13,6 @@ import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
 
-import org.jspecify.annotations.Nullable;
-
 /**
  * The binding context of a call: the worktree root, the staging set of the scope, and the configuration value by key.
  * <p>

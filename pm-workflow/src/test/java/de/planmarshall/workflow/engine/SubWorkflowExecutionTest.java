@@ -43,6 +43,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
@@ -356,10 +358,10 @@ class SubWorkflowExecutionTest {
                     () -> assertEquals("main", frame.entry(), "frame records the entry"),
                     () -> assertEquals(expectedArgs, frame.boundArgs(), "frame records the bound arguments"),
                     () -> assertEquals(pushedAt, frame.pushedAt(), "frame records the push instant"),
-                    () -> assertTrue(de.planmarshall.core.id.CommandId.parse(frame.commandId().toString()).isPresent(),
+                    () -> assertTrue(CommandId.parse(frame.commandId().toString()).isPresent(),
                             "frame carries a command id of the grammar"),
-                    () -> assertTrue(de.planmarshall.core.id.CorrelationId.parse(
-                            frame.correlationId().toString()).isPresent(),
+                    () -> assertTrue(CorrelationId.parse(
+                                    frame.correlationId().toString()).isPresent(),
                             "frame carries a correlation id of the grammar"));
         }
 
@@ -723,8 +725,8 @@ class SubWorkflowExecutionTest {
             args.put("rounds", new CallValue.IntValue(Generators.integers(1, 5).next()));
             args.put("targets", new CallValue.EnumList(List.of("origin", "mirror")));
             var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", "sub.args", "repair",
-                    args, de.planmarshall.core.id.CommandId.random(),
-                    de.planmarshall.core.id.CorrelationId.random(), T0.toString()));
+                    args, CommandId.random(),
+                    CorrelationId.random(), T0.toString()));
 
             var stored = stack.toStore();
 
@@ -738,8 +740,8 @@ class SubWorkflowExecutionTest {
         void shouldRefuseOversizedInteger() {
             var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", "sub.args", "main",
                     Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), Map.of(),
-                    de.planmarshall.core.id.CommandId.random(),
-                    de.planmarshall.core.id.CorrelationId.random(), T0);
+                    CommandId.random(),
+                    CorrelationId.random(), T0);
             var storedFrames = List.of(stored);
 
             assertThrows(ArithmeticException.class, () -> CallStack.fromStore(storedFrames),

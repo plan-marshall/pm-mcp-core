@@ -15,8 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Optional;
+import java.util.SplittableRandom;
 import java.util.random.RandomGenerator;
-
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @DisplayName("Correlation id")
 class CorrelationIdTest {
 
-    private static final java.util.regex.Pattern FORM = java.util.regex.Pattern.compile("^cor-[0-9a-f]{16}$");
+    private static final Pattern FORM = Pattern.compile("^cor-[0-9a-f]{16}$");
 
     @Nested
     @DisplayName("refusals")
@@ -89,18 +90,18 @@ class CorrelationIdTest {
         @Test
         @DisplayName("random(seeded) is deterministic")
         void seeded() {
-            var id = CorrelationId.random(new java.util.SplittableRandom(42L));
+            var id = CorrelationId.random(new SplittableRandom(42L));
 
             assertAll("A seeded draw is deterministic",
                     () -> assertTrue(FORM.matcher(id.value()).matches(), "The drawn id matches the grammar"),
-                    () -> assertEquals(id, CorrelationId.random(new java.util.SplittableRandom(42L)),
+                    () -> assertEquals(id, CorrelationId.random(new SplittableRandom(42L)),
                             "Two draws with the same seed agree"));
         }
 
         @Test
         @DisplayName("every drawn value parses back to itself")
         void roundTrip() {
-            var id = CorrelationId.random(new java.util.SplittableRandom(7L));
+            var id = CorrelationId.random(new SplittableRandom(7L));
 
             assertEquals(Optional.of(id), CorrelationId.parse(id.toString()),
                     "A drawn id parses back to itself");

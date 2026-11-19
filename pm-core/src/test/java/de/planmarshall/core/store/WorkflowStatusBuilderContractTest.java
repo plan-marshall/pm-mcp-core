@@ -19,6 +19,8 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
 import de.planmarshall.core.store.WorkflowStatus.CallFrame;
 import de.planmarshall.core.store.WorkflowStatus.Integrity;
@@ -85,7 +87,7 @@ class WorkflowStatusBuilderContractTest {
     void builderBuildsCallFrame() {
         var canonical = new CallFrame("finalize", "finalize.settle", "git.commit_and_push", "commit",
                 Map.<String, BoundArg>of("message_mode", new BoundArg.StringArg("step_or_fallback")), Map.of(),
-                de.planmarshall.core.id.CommandId.random(), de.planmarshall.core.id.CorrelationId.random(), AT);
+                CommandId.random(), CorrelationId.random(), AT);
 
         var built = CallFrame.builder().callerWorkflowId(canonical.callerWorkflowId())
                 .callerStateId(canonical.callerStateId()).subworkflowId(canonical.subworkflowId())

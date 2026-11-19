@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
 import de.planmarshall.workflow.ast.CallFrame;
@@ -154,9 +156,9 @@ public record CallStack(List<CallFrame> frames) {
     private static WorkflowStatus.CallFrame toStoreFrame(CallFrame frame) {
         var args = new LinkedHashMap<String, BoundArg>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toBoundArg(value)));
-        var commandId = frame.commandId() != null ? frame.commandId() : de.planmarshall.core.id.CommandId.random();
+        var commandId = frame.commandId() != null ? frame.commandId() : CommandId.random();
         var correlationId = frame.correlationId() != null ? frame.correlationId()
-                : de.planmarshall.core.id.CorrelationId.random();
+                : CorrelationId.random();
         return WorkflowStatus.CallFrame.builder().callerWorkflowId(frame.callerWorkflowId())
                 .callerStateId(frame.callerStateId()).subworkflowId(frame.subWorkflowId()).entry(frame.entry())
                 .boundArgs(args).argSources(Map.of()).commandId(commandId).correlationId(correlationId)

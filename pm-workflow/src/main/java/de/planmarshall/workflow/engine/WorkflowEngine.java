@@ -22,10 +22,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.random.RandomGenerator;
 import java.util.Optional;
 import java.util.Set;
+import java.util.random.RandomGenerator;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
@@ -463,7 +465,7 @@ public final class WorkflowEngine {
                     .formatted(node.id(), wait, event));
         }
         return switch (node.behavior()) {
-                case StateBehavior.JobStep job when job.composite() ->
+            case StateBehavior.JobStep job when job.composite() ->
                 run.chain(run.runPrimitive(node, job.primitiveId(), job.transitions()));
             case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(_, var fate) ->
                 run.chain(run.leftTo(node, transitionOf(node, job.transitions(), fate, Map.of()).targetStateId(),
@@ -482,7 +484,7 @@ public final class WorkflowEngine {
             }
             default -> throw new IllegalStateException("the state '%s' accepted %s, which it cannot route"
                     .formatted(node.id(), event));
-            };
+        };
     }
 
     /**
@@ -896,7 +898,7 @@ public final class WorkflowEngine {
         }
 
         /** The correlation id of this advance: one per Run, shared by every frame it pushes. */
-        private final de.planmarshall.core.id.CorrelationId correlationId;
+        private final CorrelationId correlationId;
 
         Run(WorkflowStatus status, @Nullable PlanHistory history, @Nullable ScopeTransaction transaction) {
             this.status = status;
@@ -904,7 +906,7 @@ public final class WorkflowEngine {
             this.history = history;
             this.transaction = transaction;
             this.instanceVersion = status.instanceVersionInForce().orElse(1);
-            this.correlationId = de.planmarshall.core.id.CorrelationId.random(ids);
+            this.correlationId = CorrelationId.random(ids);
             for (var index = 0; index < stack.depth(); index++) {
                 results.push(new LinkedHashMap<>());
             }
@@ -1358,7 +1360,7 @@ public final class WorkflowEngine {
                     .subWorkflowId(callee.id())
                     .entry(entry)
                     .boundArgs(call.paramBindings())
-                    .commandId(de.planmarshall.core.id.CommandId.random(ids))
+                    .commandId(CommandId.random(ids))
                     .correlationId(correlationId)
                     .pushedAt(clock.now().toString())
                     .build();

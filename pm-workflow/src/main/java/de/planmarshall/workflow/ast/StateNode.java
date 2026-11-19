@@ -25,13 +25,13 @@ import org.jspecify.annotations.Nullable;
  */
 @Builder
 public record StateNode(
-        String id,
-        @Nullable TerminalOutcome terminalOutcome,
-        @Nullable String skillPath,
-        @Nullable String factsPrimitiveId,
-        @Nullable Fills fills,
-        StateBehavior behavior,
-        SourceLocation location) {
+String id,
+@Nullable TerminalOutcome terminalOutcome,
+@Nullable String skillPath,
+@Nullable String factsPrimitiveId,
+@Nullable Fills fills,
+StateBehavior behavior,
+SourceLocation location) {
 
     /**
      * A {@code fills slot.<name> from <param>} clause of a state.

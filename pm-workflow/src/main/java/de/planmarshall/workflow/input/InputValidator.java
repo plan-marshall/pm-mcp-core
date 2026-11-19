@@ -9,13 +9,13 @@
  */
 package de.planmarshall.workflow.input;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import de.planmarshall.core.spi.validation.ConventionalCommitValidator;
 import de.planmarshall.workflow.ast.InputType;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -116,7 +116,7 @@ public final class InputValidator {
         if (values.size() < min || values.size() > max) {
             return Optional.of(new InputRefusal("input.count", values.toString()));
         }
-        var seen = new java.util.HashSet<String>();
+        var seen = new HashSet<String>();
         for (var value : values) {
             var refusal = PathRules.check(value);
             if (refusal != null) {

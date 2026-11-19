@@ -28,11 +28,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SplittableRandom;
+import java.util.random.RandomGenerator;
 
 
 import org.easymock.Capture;
 import org.easymock.CaptureType;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CycleMeasure;
@@ -286,7 +290,7 @@ final class EngineFixtures {
     final ManualClock clock = new ManualClock(T0);
 
     /** The seeded generator of command and correlation ids. */
-    final java.util.random.RandomGenerator ids = new java.util.SplittableRandom(0L);
+    final RandomGenerator ids = new SplittableRandom(0L);
 
     /** The job requests the job port is handed, in order. */
     final Capture<StartRequest> jobRequests = newCapture(CaptureType.ALL);
@@ -463,8 +467,8 @@ final class EngineFixtures {
     static WorkflowStatus.CallFrame frame(String callerWorkflowId, String callerStateId, String subworkflowId,
             String entry) {
         return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, subworkflowId, entry, Map.of(),
-                Map.of(), de.planmarshall.core.id.CommandId.random(),
-                de.planmarshall.core.id.CorrelationId.random(), T0);
+                Map.of(), CommandId.random(),
+                CorrelationId.random(), T0);
     }
 
     /**

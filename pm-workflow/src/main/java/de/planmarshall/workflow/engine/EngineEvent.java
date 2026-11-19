@@ -70,7 +70,7 @@ public sealed interface EngineEvent
      * @since 0.1
      */
     record TasksSettled(Map<String, String> taskOutcomes, Map<String, Map<String, String>> submissions,
-            String evaluatedOutcome) implements EngineEvent {
+    String evaluatedOutcome) implements EngineEvent {
 
         /** The closed outcomes of a task. */
         public static final Set<String> TASK_OUTCOMES = Set.of("submitted", "asked", "infeasible", "lost");

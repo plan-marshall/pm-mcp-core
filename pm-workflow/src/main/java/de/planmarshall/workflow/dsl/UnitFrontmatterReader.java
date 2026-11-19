@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -147,8 +148,8 @@ public final class UnitFrontmatterReader {
 
     /** Every admitted key: the fields of this reader plus the input sub-keys and slot sub-keys, which are defined once. */
     private static final Set<String> KEYS = Stream.concat(Stream.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON,
-            KEY_ENTRY, KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_READS_CONFIG, KEY_READS_FACT,
-            KEY_INPUT, KEY_SLOT, KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE),
+                    KEY_ENTRY, KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_READS_CONFIG, KEY_READS_FACT,
+                    KEY_INPUT, KEY_SLOT, KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE),
             Stream.concat(INPUT_KEYS.stream(), SLOT_KEYS.stream()))
             .collect(Collectors.toUnmodifiableSet());
 
@@ -692,7 +693,7 @@ public final class UnitFrontmatterReader {
         }
 
         private static InputType textRange(String text, int number, int column,
-                java.util.function.BiFunction<Integer, Integer, InputType> factory) {
+                BiFunction<Integer, Integer, InputType> factory) {
             var separator = text.indexOf("..");
             if (separator < 0) {
                 throw new Refusal(number, column,

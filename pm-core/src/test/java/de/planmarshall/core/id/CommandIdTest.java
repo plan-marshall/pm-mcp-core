@@ -15,9 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Optional;
+import java.util.SplittableRandom;
 import java.util.random.RandomGenerator;
 import java.util.regex.Pattern;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -90,19 +90,19 @@ class CommandIdTest {
         @Test
         @DisplayName("random(seeded) is deterministic")
         void seeded() {
-            var gen = new java.util.SplittableRandom(42L);
+            var gen = new SplittableRandom(42L);
             var id = CommandId.random(gen);
 
             assertAll("A seeded draw is deterministic",
                     () -> assertTrue(FORM.matcher(id.value()).matches(), "The drawn id matches the grammar"),
-                    () -> assertEquals(id, CommandId.random(new java.util.SplittableRandom(42L)),
+                    () -> assertEquals(id, CommandId.random(new SplittableRandom(42L)),
                             "Two draws with the same seed agree"));
         }
 
         @Test
         @DisplayName("every drawn value parses back to itself")
         void roundTrip() {
-            var id = CommandId.random(new java.util.SplittableRandom(7L));
+            var id = CommandId.random(new SplittableRandom(7L));
 
             assertEquals(Optional.of(id), CommandId.parse(id.toString()),
                     "A drawn id parses back to itself");
