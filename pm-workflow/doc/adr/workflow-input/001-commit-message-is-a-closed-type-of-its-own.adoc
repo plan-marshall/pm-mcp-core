@@ -1,0 +1,60 @@
+= ADR workflow-input 001: `commit_message` Is a Closed Type of Its Own
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+The call-time channel lets a text and a path reach a sub-workflow. A commit message is the first text a unit takes, and
+it is unlike a free text: it must be a Conventional Commit, and it must not carry a `Co-Authored-By:` line, because the
+server alone appends the trailer (`PM-WF-16`, Stage 3).
+
+The validator of a value is chosen by the input's type. A project copy may weaken a unit's interface — `INV-GEN-1`
+compares the interface of a copy with that of its default unit — so a check that is an attribute of a type, or a rule
+beside a type, can be dropped by a copy that keeps the "same" type. A check that *is* a type cannot: a copy that declares
+another type changes the type, and `INV-GEN-1` names it.
+
+== Decision
+
+* `InputType` gains the closed types `Text`, `CommitMessage`, `Path` and `PathList`, beside the three literal-bound forms
+  `Enumeration`, `IntRange` and `EnumList`; each carries its optional range and its optional form as the older types do.
+* `commit_message` is a type of its own beside `text`, never an attribute of `text` and never a flag on the declaration.
+  Its validator is `ConventionalCommitValidator` of `core.spi.validation`, whose rule `RULE_CO_AUTHORED_BY` already
+  refuses the trailer line in any case and at any position.
+* The compiled caps, which a unit may narrow and never widen: `text` and `commit_message` at most 2000 characters, a
+  `path` at most 1024, a `list<path>` at most 500 entries.
+* `InputValidator` of the new package `workflow.input` is the one validator of these types; the refusal is the value
+  `InputRefusal`, never an exception.
+
+== Alternatives Considered
+
+* *A `commit_message` attribute of a `text` input.* Not taken: a project copy could drop the attribute while keeping the
+  type, and `INV-GEN-1` compares the type, so the weakened copy would verify.
+* *A boolean `input_commit_message` key of the frontmatter.* Not taken: a second way to spell a type, on a frontmatter
+  capped at 200 lines, and invisible to a comparison of the types.
+* *The check in the primitive that resolves the message.* Not taken: the bind is the one place every value passes, the
+  primitive does not exist for every caller yet, and a project copy could route around it.
+
+== Consequences
+
+* A project copy that declares `text` where its default declares `commit_message` is refused, naming the input
+  (`INV-GEN-1`, link:../../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-43[PM-WATCH-DSL-43]).
+* The reader and the printer carry the four forms (`input_type: commit_message[1..2000]?`,
+  `input_type: list<path>[0..500]?`); `list<path>` is written with a low bound because the existing range form needs one.
+* `InputValidator` switches exhaustively over `InputType`, so a further type is a compile error here until it has its
+  check.
+* A bound text is typed data: it is never concatenated into a command line (link:../workflow-dsl/016-literal-text-stays-out-of-the-grammar.adoc[ADR
+  workflow-dsl/016]).
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3)
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow Units, Levels & Compiled Invariants] (`INV-GEN-1`)
+* link:../../developer/workflow-input.adoc[Workflow Input Developer Guide]; `PLAN-V2-15` deliverable 1

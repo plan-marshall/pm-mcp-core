@@ -70,6 +70,7 @@ final class AstWithoutLocations {
                 frontmatter.icon(), frontmatter.entries(), frontmatter.exits(), frontmatter.readsConfig(),
                 frontmatter.readsFact(),
                 frontmatter.inputs().stream().map(AstWithoutLocations::strip).toList(),
+                frontmatter.slots().stream().map(AstWithoutLocations::strip).toList(),
                 frontmatter.modificationDate(), frontmatter.version(), frontmatter.author(), frontmatter.signature(),
                 NOWHERE);
     }
@@ -89,7 +90,7 @@ final class AstWithoutLocations {
 
     private static StateNode strip(StateNode state) {
         return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
-                state.factsPrimitiveId(), strip(state.behavior()), NOWHERE);
+                state.factsPrimitiveId(), state.fills(), strip(state.behavior()), NOWHERE);
     }
 
     private static StateBehavior strip(StateBehavior behavior) {

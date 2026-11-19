@@ -131,7 +131,8 @@ public final class WorkflowParser {
             "skill", "facts", "auto", "job", KEYWORD_COMPOSITE_JOB, "call", KEYWORD_QUESTION,
             KEYWORD_LINK, KEYWORD_GUARD, "depends_on_config", "do", "llm", "role", KEYWORD_EACH, KEYWORD_CONSULT,
             "completes", "as", "and", "or", KEYWORD_NOT, "in_worktree", "has_open_findings", "all_tasks_completed",
-            "predicate", "text", KEYWORD_INT, KEYWORD_ENUM, KEYWORD_SCHEMA, KEYWORD_LIST);
+            "predicate", "text", KEYWORD_INT, KEYWORD_ENUM, KEYWORD_SCHEMA, KEYWORD_LIST,
+            "slot", "fills", "from");
 
     private static final Set<String> DECISION_KINDS = Set.copyOf(DecisionDeclaration.DECISION_KINDS);
 
@@ -396,8 +397,9 @@ public final class WorkflowParser {
         line.expectEnd();
         @Nullable String skillPath = nextStatementIs("skill") ? parseSkill() : null;
         @Nullable String factsPrimitiveId = nextStatementIs("facts") ? parseFacts() : null;
+        StateNode.Fills fills = nextStatementIs("fills") ? parseFills() : null;
         StateBehavior behavior = terminal != null ? new StateBehavior.TerminalState() : parseBody();
-        states.put(id, new StateNode(id, terminal, skillPath, factsPrimitiveId, behavior, location(keyword)));
+        states.put(id, new StateNode(id, terminal, skillPath, factsPrimitiveId, fills, behavior, location(keyword)));
     }
 
     /** Reads the {@code skill} line; the caller has seen that the next statement is one. */
@@ -421,6 +423,19 @@ public final class WorkflowParser {
         var primitive = primitiveId(line);
         line.expectEnd();
         return primitive;
+    }
+
+    /** Reads the {@code fills slot.<name> from <param>} line; the caller has seen that the next statement is one. */
+    private StateNode.Fills parseFills() {
+        var line = nextLine();
+        line.next("the keyword 'fills'");
+        line.expect("slot");
+        line.expect(DOT);
+        var slotName = paramName(line);
+        line.expect("from");
+        var fromParam = paramName(line);
+        line.expectEnd();
+        return new StateNode.Fills(slotName.text(), fromParam.text());
     }
 
     private StateBehavior parseBody() {
@@ -786,6 +801,12 @@ public final class WorkflowParser {
     }
 
     private CallValue callValue(LineCursor line) {
+        if (line.hasNext() && line.peek().is("slot") && line.peekIs(1, DOT)) {
+            line.next("the keyword 'slot'");
+            line.expect(DOT);
+            var name = paramName(line);
+            return new CallValue.SlotRef(name.text());
+        }
         if (line.consumeIf(OPEN_BRACKET)) {
             var values = new ArrayList<String>();
             if (line.consumeIf(CLOSE_BRACKET)) {

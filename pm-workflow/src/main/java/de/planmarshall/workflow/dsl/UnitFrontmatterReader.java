@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -114,6 +115,9 @@ public final class UnitFrontmatterReader {
     private static final String KEY_INPUT_DEFAULT = "input_default";
     private static final String KEY_INPUT_FALLBACK = "input_fallback";
     private static final String KEY_INPUT_DESCRIPTION = "input_description";
+    private static final String KEY_SLOT = "slot";
+    private static final String KEY_SLOT_TYPE = "slot_type";
+    private static final String KEY_SLOT_DESCRIPTION = "slot_description";
     private static final String KEY_MODIFICATION_DATE = "modification_date";
     private static final String KEY_VERSION = "version";
     private static final String KEY_AUTHOR = "author";
@@ -140,10 +144,13 @@ public final class UnitFrontmatterReader {
     private static final Set<String> INPUT_KEYS = Set.of(KEY_INPUT_TYPE, KEY_INPUT_DEFAULT, KEY_INPUT_FALLBACK,
             KEY_INPUT_DESCRIPTION);
 
-    /** Every admitted key: the fields of this reader plus the input sub-keys, which are defined once. */
+    private static final Set<String> SLOT_KEYS = Set.of(KEY_SLOT_TYPE, KEY_SLOT_DESCRIPTION);
+
+    /** Every admitted key: the fields of this reader plus the input sub-keys and slot sub-keys, which are defined once. */
     private static final Set<String> KEYS = Stream.concat(Stream.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON,
-            KEY_ENTRY, KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_READS_CONFIG, KEY_READS_FACT,
-            KEY_INPUT, KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE), INPUT_KEYS.stream())
+                    KEY_ENTRY, KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_READS_CONFIG, KEY_READS_FACT,
+                    KEY_INPUT, KEY_SLOT, KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE),
+            Stream.concat(INPUT_KEYS.stream(), SLOT_KEYS.stream()))
             .collect(Collectors.toUnmodifiableSet());
 
     /** The outcome id of the implicit control exit, which no frontmatter declares. */
@@ -239,10 +246,13 @@ public final class UnitFrontmatterReader {
         private final Set<String> entryNames = new HashSet<>();
         private final Set<String> exitNames = new HashSet<>();
         private final Set<String> inputNames = new HashSet<>();
+        private final Set<String> slotNames = new HashSet<>();
         private @Nullable UnitType type;
         private @Nullable LocalDate modificationDate;
         private @Nullable String previousKey;
         private @Nullable Input input;
+        private @Nullable Slot slot;
+        private final List<Slot> slots = new ArrayList<>();
 
         private Fields(String resourceName) {
             this.resourceName = resourceName;
@@ -338,6 +348,17 @@ public final class UnitFrontmatterReader {
                 inputField(key, value, number, column);
                 return;
             }
+            if (KEY_SLOT.equals(key)) {
+                closeSlot(number, 1);
+                closeInput(number, 1);
+                openSlot(value, number, column);
+                return;
+            }
+            if (SLOT_KEYS.contains(key)) {
+                slotField(key, value, number, column);
+                return;
+            }
+            closeSlot(number, 1);
             closeInput(number, 1);
             if (SINGLE_KEYS.contains(key) && singles.containsKey(key)) {
                 throw new Refusal(number, 1, "the key '%s' is repeated in the frontmatter".formatted(echo(key)));
@@ -387,6 +408,10 @@ public final class UnitFrontmatterReader {
             }
             if (WorkflowParser.RESERVED_KEYWORDS.contains(value)) {
                 throw new Refusal(number, column, "the input '%s' is a reserved keyword".formatted(echo(value)));
+            }
+            if (slotNames.contains(value)) {
+                throw new Refusal(number, column,
+                        "the input '%s' is the name of a slot of this unit".formatted(echo(value)));
             }
             if (!inputNames.add(value)) {
                 throw new Refusal(number, column, "the input '%s' is declared twice".formatted(echo(value)));
@@ -467,6 +492,73 @@ public final class UnitFrontmatterReader {
             input = null;
         }
 
+        /** Opens the declaration of one slot: its name, the first of its lines. */
+        private void openSlot(String value, int number, int column) {
+            if (slots.size() >= MAX_INPUTS) {
+                throw new Refusal(number, column,
+                        "the frontmatter declares more than %d slots".formatted(MAX_INPUTS));
+            }
+            if (!PARAM_NAME.matcher(value).matches()) {
+                throw new Refusal(number, column,
+                        "the slot '%s' is no name of lowercase letters, digits and underscores, at most 32"
+                                .formatted(echo(value)));
+            }
+            if (WorkflowParser.RESERVED_KEYWORDS.contains(value)) {
+                throw new Refusal(number, column, "the slot '%s' is a reserved keyword".formatted(echo(value)));
+            }
+            if (inputNames.contains(value)) {
+                throw new Refusal(number, column,
+                        "the slot '%s' is the name of an input of this unit".formatted(echo(value)));
+            }
+            if (!slotNames.add(value)) {
+                throw new Refusal(number, column, "the slot '%s' is declared twice".formatted(echo(value)));
+            }
+            slot = new Slot(value, new SourceLocation(resourceName, number, column));
+        }
+
+        /** Applies one sub-key of the slot its {@code slot} line opened. */
+        private void slotField(String key, String value, int number, int column) {
+            var open = requireSlot(key, number);
+            switch (key) {
+                case KEY_SLOT_TYPE -> {
+                    if (!KEY_SLOT.equals(previousKey)) {
+                        throw outOfOrder(key, KEY_SLOT, number);
+                    }
+                    open.type = inputType(value, number, column);
+                    if (value.endsWith("?")) {
+                        throw new Refusal(number, column, "a slot_type must not be optional");
+                    }
+                }
+                default -> {
+                    if (!KEY_SLOT_TYPE.equals(previousKey)) {
+                        throw outOfOrder(key, KEY_SLOT_TYPE, number);
+                    }
+                    checkLength(key, value, 1, MAX_INPUT_DESCRIPTION, number, column);
+                    open.description = value;
+                }
+            }
+        }
+
+        private Slot requireSlot(String key, int number) {
+            if (slot == null) {
+                throw new Refusal(number, 1, "the %s does not stand below a 'slot' line".formatted(key));
+            }
+            return slot;
+        }
+
+        /** Ends the declaration of the slot its {@code slot} line opened, requiring the type it must carry. */
+        private void closeSlot(int number, int column) {
+            if (slot == null) {
+                return;
+            }
+            if (slot.type == null) {
+                throw new Refusal(number, column,
+                        "the slot '%s' lacks its slot_type".formatted(slot.name));
+            }
+            slots.add(slot);
+            slot = null;
+        }
+
         /** Adds a repeatable read value, refusing a value the list already holds and one past the bound. */
         private static String read(String key, List<String> values, String value, int number, int column) {
             if (values.size() >= MAX_READS) {
@@ -529,8 +621,36 @@ public final class UnitFrontmatterReader {
                 return new InputType.EnumList(enumValues(
                         text.substring("list<enum[".length(), text.length() - 2), number, column));
             }
+            if ("text".equals(text)) {
+                return new InputType.Text(null, null);
+            }
+            if (text.startsWith("text[") && text.endsWith("]")) {
+                return textRange(text.substring("text[".length(), text.length() - 1), number, column, InputType.Text::new);
+            }
+            if ("commit_message".equals(text)) {
+                return new InputType.CommitMessage(null, null);
+            }
+            if (text.startsWith("commit_message[") && text.endsWith("]")) {
+                return textRange(text.substring("commit_message[".length(), text.length() - 1), number, column,
+                        InputType.CommitMessage::new);
+            }
+            if ("path".equals(text)) {
+                return new InputType.Path();
+            }
+            if (text.startsWith("list<path")) {
+                var inner = text.substring("list<path".length()).trim();
+                if (">".equals(inner)) {
+                    return new InputType.PathList(null, null);
+                }
+                if (inner.startsWith(">[") && inner.endsWith("]")) {
+                    return pathListRange(inner.substring(2, inner.length() - 1), number, column);
+                }
+                throw new Refusal(number, column,
+                        "the input_type '%s' is no list<path> or list<path>[<low>..<high>]"
+                                .formatted(echo(value)));
+            }
             throw new Refusal(number, column,
-                    "the input_type '%s' is none of enum[...], int with its optional range and list<enum[...]>"
+                    "the input_type '%s' is none of enum[...], int, text, commit_message, path and list<...>"
                             .formatted(echo(value)));
         }
 
@@ -574,6 +694,57 @@ public final class UnitFrontmatterReader {
             }
         }
 
+        private static InputType textRange(String text, int number, int column,
+                BiFunction<Integer, Integer, InputType> factory) {
+            var separator = text.indexOf("..");
+            if (separator < 0) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no '[<low>..<high>]'".formatted(echo(text)));
+            }
+            var low = text.substring(0, separator);
+            var high = text.substring(separator + 2);
+            if (!RANGE_LOW.matcher(low).matches() || !RANGE_HIGH.matcher(high).matches()) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no '[<low>..<high>]'".formatted(echo(text)));
+            }
+            try {
+                var min = Integer.parseInt(low);
+                var max = Integer.parseInt(high);
+                if (min > max) {
+                    throw new Refusal(number, column,
+                            "the input_type range '%s' has its low bound above its high bound".formatted(echo(text)));
+                }
+                return factory.apply(min, max);
+            } catch (NumberFormatException _) {
+                throw new Refusal(number, column, "the input_type range '%s' is out of range".formatted(echo(text)));
+            }
+        }
+
+        private static InputType pathListRange(String text, int number, int column) {
+            var separator = text.indexOf("..");
+            if (separator < 0) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no '[<low>..<high>]'".formatted(echo(text)));
+            }
+            var low = text.substring(0, separator);
+            var high = text.substring(separator + 2);
+            if (!RANGE_LOW.matcher(low).matches() || !RANGE_HIGH.matcher(high).matches()) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no '[<low>..<high>]'".formatted(echo(text)));
+            }
+            try {
+                var min = Integer.parseInt(low);
+                var max = Integer.parseInt(high);
+                if (min > max) {
+                    throw new Refusal(number, column,
+                            "the input_type range '%s' has its low bound above its high bound".formatted(echo(text)));
+                }
+                return new InputType.PathList(min, max);
+            } catch (NumberFormatException _) {
+                throw new Refusal(number, column, "the input_type range '%s' is out of range".formatted(echo(text)));
+            }
+        }
+
         /** Reads an {@code input_default} and refuses one outside the input's type. */
         private static CallValue inputDefault(Input input, String value, int number, int column) {
             CallValue parsed;
@@ -608,6 +779,7 @@ public final class UnitFrontmatterReader {
                         && (min == null || integer >= min) && (max == null || integer <= max);
                 case InputType.EnumList(var values) -> value instanceof CallValue.EnumList(var list)
                         && values.containsAll(list);
+                case InputType.Text _, InputType.CommitMessage _, InputType.Path _, InputType.PathList _ -> false;
             };
         }
 
@@ -664,6 +836,7 @@ public final class UnitFrontmatterReader {
         }
 
         private UnitFrontmatter complete(int closingLine) {
+            closeSlot(closingLine, 1);
             closeInput(closingLine, 1);
             for (var key : REQUIRED_KEYS) {
                 if (!singles.containsKey(key)) {
@@ -674,6 +847,7 @@ public final class UnitFrontmatterReader {
                     singles.get(KEY_ICON), entries.stream().map(Element::toInterfaceElement).toList(),
                     exits.stream().map(Element::toInterfaceElement).toList(), readsConfig, readsFact,
                     inputs.stream().map(Input::toInputDecl).toList(),
+                    slots.stream().map(Slot::toSlotDecl).toList(),
                     Objects.requireNonNull(modificationDate, "modificationDate"),
                     singles.get(KEY_VERSION), singles.get(KEY_AUTHOR),
                     singles.get(KEY_SIGNATURE), new SourceLocation(resourceName, 1, 1));
@@ -829,7 +1003,6 @@ public final class UnitFrontmatterReader {
 
     /** An input while its frontmatter is read; its sub-keys follow it in the order the grammar closes. */
     private static final class Input {
-
         private final String name;
         private final SourceLocation location;
         private @Nullable InputType type;
@@ -850,6 +1023,29 @@ public final class UnitFrontmatterReader {
                     .optional(optional)
                     .defaultValue(defaultValue)
                     .fallback(fallback)
+                    .description(description)
+                    .location(location)
+                    .build();
+        }
+    }
+
+    /** A slot while its frontmatter is read; its sub-keys follow it in the order the grammar closes. */
+    private static final class Slot {
+        private final String name;
+        private final SourceLocation location;
+        private @Nullable InputType type;
+        private @Nullable String description;
+
+        private Slot(String name, SourceLocation location) {
+            this.name = name;
+            this.location = location;
+        }
+
+        private InputDecl toSlotDecl() {
+            return InputDecl.builder()
+                    .name(name)
+                    .type(Objects.requireNonNull(type, "type"))
+                    .optional(false)
                     .description(description)
                     .location(location)
                     .build();

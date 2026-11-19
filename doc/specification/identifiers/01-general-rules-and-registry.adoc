@@ -220,6 +220,20 @@ The following rules apply to every identifier in the registry; a table row state
 |Never reused
 |Queue task record link:../store-schemas/16-task-queue.adoc#queue-task-record[Store Schemas, Queue Task Record]; `active_tasks`, task rows, findings, verdicts link:../store-schemas.adoc[Store Schemas]; the task entity of an offer link:../model-work/02-task-protocol.adoc[Model Work, Task Protocol]
 
+|[[id-command-id]]`command_id`
+|`^cmd-[0-9a-f]{16}$`, 20: the prefix `cmd-` and 16 random hex digits (64 bits).
+|server (random, drawn by the engine from the generator of its ports when it pushes a call frame; a primitive command and the persisted command log use the same id in the later plans)
+|Project (the scope that owns the status)
+|Never reused
+|The `call_stack` frame of the workflow state store link:../store-schemas/02-workflow-state-store.adoc[Store Schemas, Workflow State Store]; the command model (the later plans `command-record-and-dispatch`, `primitive-failure-reasons`, `engine-carries-reasons`)
+
+|[[id-correlation-id]]`correlation_id`
+|`^cor-[0-9a-f]{16}$`, 20: the prefix `cor-` and 16 random hex digits (64 bits).
+|server (random, drawn once per engine advance)
+|Project (the scope that owns the status)
+|Never reused
+|The `call_stack` frame of the workflow state store link:../store-schemas/02-workflow-state-store.adoc[Store Schemas, Workflow State Store]; shared by every frame, and later every primitive command, of one advance
+
 |[[id-envelope-id]]`envelope_id`
 |`^envelope-[0-9]+$`, at most 64.
 |server (envelope packing)

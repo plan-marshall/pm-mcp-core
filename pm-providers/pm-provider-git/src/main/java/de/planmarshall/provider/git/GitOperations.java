@@ -270,9 +270,15 @@ public interface GitOperations {
      * @param message   the full commit message (in memory, never a file)
      * @param author    the author (the operator's commit identity)
      * @param committer the committer (the agent identity)
+     * @param paths     the repository-relative paths to stage and commit; empty means every change
      */
     @Builder
-    record CommitInput(Path root, String message, Identity author, Identity committer) {
+    record CommitInput(Path root, String message, Identity author, Identity committer, List<String> paths) {
+
+        /** Copies the paths into an immutable list; empty means every change of the worktree. */
+        public CommitInput {
+            paths = List.copyOf(paths);
+        }
     }
 
     /**

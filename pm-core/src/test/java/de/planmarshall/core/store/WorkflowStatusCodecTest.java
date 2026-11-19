@@ -30,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
@@ -76,7 +79,10 @@ class WorkflowStatusCodecTest {
             + "\"caller_state_id\":\"finalize.settle-commit\","
             + "\"subworkflow_id\":\"git.commit_and_push\",\"entry\":\"commit\","
             + "\"bound_args\":{\"message_mode\":\"step_or_fallback\","
-            + "\"attempts\":3,\"paths\":[\"a.txt\",\"b.txt\"]},\"pushed_at\":\"2026-10-12T10:00:00Z\"}],"
+            + "\"attempts\":3,\"paths\":[\"a.txt\",\"b.txt\"]},"
+            + "\"arg_sources\":{\"message_mode\":{\"source\":\"literal\",\"source_ref\":null}},"
+            + "\"command_id\":\"cmd-0123456789abcdef\",\"correlation_id\":\"cor-0123456789abcdef\","
+            + "\"pushed_at\":\"2026-10-12T10:00:00Z\"}],\"slots\":{},"
             + "\"loop_back_iteration\":2," + COUNTERS + ","
             + "\"retry_counters\":{\"sync_failed\":{\"state_id\":\"finalize.merge-sync\",\"attempts\":1}},"
             + "\"outline_loop_backs\":1,\"policy_counters\":{\"ci-failure\":{\"retry_used\":1,\"renewed_from\":"
@@ -94,7 +100,7 @@ class WorkflowStatusCodecTest {
     /** A workspace status in the canonical form, the matched control of the scope id refusals (golden document). */
     static final String WORKSPACE = "{\"format_version\":1,\"scope_type\":\"workspace\",\"scope_id\":null,"
             + "\"phase\":\"workspace\",\"instance_version\":null,"
-            + "\"state\":\"setup.entry\",\"call_stack\":[],\"loop_back_iteration\":0,"
+            + "\"state\":\"setup.entry\",\"call_stack\":[],\"slots\":{},\"loop_back_iteration\":0,"
             + "\"retry_counters\":{},\"active_jobs\":{},\"active_job\":null,\"active_tasks\":{},"
             + "\"pending_condition\":null,\"updated_at\":\"2026-10-12T10:04:00Z\"}";
 
@@ -159,6 +165,18 @@ class WorkflowStatusCodecTest {
         }
 
         @Test
+        @DisplayName("a status with a filled slot round-trips through the codec")
+        void slotRoundTrip() {
+            var status = read(WORKSPACE).toBuilder().slots(Map.of("commit",
+                    new WorkflowStatus.Slot("feat: a message", "task_submit", "qt-0123456789abcdef",
+                            Instant.parse("2026-10-12T10:00:00Z")))).build();
+
+            var readBack = read(new String(WorkflowStatusCodec.write(status)));
+
+            assertEquals(status.slots(), readBack.slots(), "the slot round-trips through the codec");
+        }
+
+        @Test
         @DisplayName("the engine-owned members are typed (the values of the golden document)")
         void typedMembers() {
             var status = read(DOCUMENT);
@@ -178,6 +196,12 @@ class WorkflowStatusCodecTest {
                             frame.boundArgs(), "the bound arguments should be typed"),
                     () -> assertEquals(Instant.parse("2026-10-12T10:00:00Z"), frame.pushedAt(),
                             "the push instant should be typed"),
+                    () -> assertEquals(CommandId.parse("cmd-0123456789abcdef"),
+                            Optional.of(frame.commandId()), "the command id should be typed"),
+                    () -> assertEquals(CorrelationId.parse("cor-0123456789abcdef"),
+                            Optional.of(frame.correlationId()), "the correlation id should be typed"),
+                    () -> assertEquals("literal", frame.argSources().get("message_mode").source(),
+                            "the arg provenance should be typed"),
                     () -> assertEquals(2, status.loopBackIteration(), "the loop-back iteration should be typed"),
                     () -> assertEquals(1, status.outlineLoopBacks(), "the outline loop-backs should be typed"),
                     () -> assertEquals(2, status.policyCounters().get("ci-failure").fixUsed(),
@@ -325,7 +349,8 @@ class WorkflowStatusCodecTest {
     private static String frame() {
         return "{\"caller_workflow_id\":\"w\",\"caller_state_id\":\"s\","
                 + "\"subworkflow_id\":\"x\",\"entry\":\"main\",\"bound_args\":{},"
-                + "\"pushed_at\":\"2026-10-12T10:00:00Z\"}";
+                + "\"arg_sources\":{},\"command_id\":\"cmd-0123456789abcdef\","
+                + "\"correlation_id\":\"cor-0123456789abcdef\",\"pushed_at\":\"2026-10-12T10:00:00Z\"}";
     }
 
     @Nested

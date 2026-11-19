@@ -312,6 +312,7 @@ Map<String, Map<String, CallValue>> declarations) {
             case CallValue.EnumValue(var text) -> Optional.of(text);
             case CallValue.IntValue(var number) -> Optional.of(Integer.toString(number));
             case CallValue.EnumList _ -> Optional.empty();
+            case CallValue.SlotRef _ -> Optional.empty();
         };
     }
 

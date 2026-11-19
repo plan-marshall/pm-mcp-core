@@ -279,6 +279,7 @@ public final class WorkflowValidator {
         checkCalledUnitReturns(definition, violations);
         checkTypeFits(definition, violations);
         checkSubWorkflowCallContract(definition, violations);
+        checkSlots(definition, violations);
         checkCallGraphDag(definition, violations);
         checkGateProducerCoverage(definition, graph, violations);
         checkStepCompletion(definition, graph, violations);
@@ -1637,6 +1638,8 @@ public final class WorkflowValidator {
                                 .message("the input binding '%s' names an undeclared input of '%s'"
                                         .formatted(inputName, call.subWorkflowId()))
                                 .build());
+                    } else if (callValue instanceof CallValue.SlotRef slotRef) {
+                        checkSlotBinding(definition, state, call.subWorkflowId(), input, slotRef, violations);
                     } else {
                         checkInputValueMatch(state, call.subWorkflowId(), input, callValue, violations);
                     }
@@ -1840,7 +1843,126 @@ public final class WorkflowValidator {
                             .build());
                 }
             }
+            case InputType.Text _, InputType.CommitMessage _, InputType.Path _, InputType.PathList _ -> {
+                violations.add(Violation.builder()
+                        .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                        .stateId(state.id())
+                        .location(state.location())
+                        .message("the input '%s' of '%s' is a typed value and must be bound from a slot, not a literal"
+                                .formatted(input.name(), subWorkflowId))
+                        .build());
+            }
         }
+    }
+
+    private void checkSlotBinding(WorkflowDefinition definition, StateNode state, String subWorkflowId,
+            InputDecl input, CallValue.SlotRef slotRef, List<Violation> violations) {
+        var slot = definition.frontmatter().slots().stream()
+                .filter(candidate -> candidate.name().equals(slotRef.name())).findFirst();
+        if (slot.isEmpty()) {
+            violations.add(Violation.builder()
+                    .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                    .stateId(state.id())
+                    .location(state.location())
+                    .message("the slot '%s' bound to the input '%s' of '%s' is not declared in the frontmatter"
+                            .formatted(slotRef.name(), input.name(), subWorkflowId))
+                    .build());
+            return;
+        }
+        if (!assignable(slot.get().type(), input.type())) {
+            violations.add(Violation.builder()
+                    .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                    .stateId(state.id())
+                    .location(state.location())
+                    .message("the type %s of the slot '%s' is not assignable to the input type %s of '%s'"
+                            .formatted(slot.get().type().sourceText(), slotRef.name(), input.type().sourceText(),
+                                    subWorkflowId))
+                    .build());
+        }
+    }
+
+    private void checkSlots(WorkflowDefinition definition, List<Violation> violations) {
+        var slotNames = new LinkedHashSet<String>();
+        for (var slot : definition.frontmatter().slots()) {
+            slotNames.add(slot.name());
+        }
+        var filledSomewhere = new LinkedHashSet<String>();
+        for (var state : definition.states().values()) {
+            var fills = state.fills();
+            if (fills == null) {
+                continue;
+            }
+            if (!slotNames.contains(fills.slotName())) {
+                violations.add(Violation.builder()
+                        .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                        .stateId(state.id())
+                        .location(state.location())
+                        .message("the fills clause of '%s' names an undeclared slot '%s'"
+                                .formatted(state.id(), fills.slotName()))
+                        .build());
+            }
+            var isFiller = state.behavior() instanceof StateBehavior.ModelJob
+                    || state.behavior() instanceof StateBehavior.InteractiveLinks;
+            if (!isFiller) {
+                violations.add(Violation.builder()
+                        .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                        .stateId(state.id())
+                        .location(state.location())
+                        .message("the fills clause of '%s' is on a state that never fills a slot; only a task or an operator wait fills one"
+                                .formatted(state.id()))
+                        .build());
+            } else {
+                filledSomewhere.add(fills.slotName());
+            }
+            if (state.behavior() instanceof StateBehavior.InteractiveLinks links) {
+                var found = links.links().stream().anyMatch(link -> link.freeParams().stream()
+                        .anyMatch(param -> param.name().equals(fills.fromParam())));
+                if (!found) {
+                    violations.add(Violation.builder()
+                            .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                            .stateId(state.id())
+                            .location(state.location())
+                            .message("the fills clause of '%s' names the from-parameter '%s', which no operator link declares"
+                                    .formatted(state.id(), fills.fromParam()))
+                            .build());
+                }
+            }
+        }
+        for (var state : definition.states().values()) {
+            if (!(state.behavior() instanceof StateBehavior.SubWorkflowCall call)) {
+                continue;
+            }
+            for (var value : call.paramBindings().values()) {
+                if (value instanceof CallValue.SlotRef slotRef && slotNames.contains(slotRef.name())
+                        && !filledSomewhere.contains(slotRef.name())) {
+                    violations.add(Violation.builder()
+                            .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                            .stateId(state.id())
+                            .location(state.location())
+                            .message("the slot '%s' read at the call in '%s' is never filled in the unit"
+                                    .formatted(slotRef.name(), state.id()))
+                            .build());
+                }
+            }
+        }
+    }
+
+    private static boolean assignable(InputType slotType, InputType inputType) {
+        return switch (slotType) {
+            case InputType.Enumeration(var values) -> inputType instanceof InputType.Enumeration(var admitted)
+                    && admitted.containsAll(values);
+            case InputType.IntRange(var min, var max) -> inputType instanceof InputType.IntRange(var low, var high)
+                    && (low == null || min != null && min >= low) && (high == null || max != null && max <= high);
+            case InputType.EnumList(var values) -> inputType instanceof InputType.EnumList(var admitted)
+                    && admitted.containsAll(values);
+            case InputType.Text(var min, var max) -> inputType instanceof InputType.Text(var low, var high)
+                    && (low == null || min != null && min >= low) && (high == null || max != null && max <= high);
+            case InputType.CommitMessage(var min, var max) -> inputType instanceof InputType.CommitMessage(var low, var high)
+                    && (low == null || min != null && min >= low) && (high == null || max != null && max <= high);
+            case InputType.Path _ -> inputType instanceof InputType.Path;
+            case InputType.PathList(var min, var max) -> inputType instanceof InputType.PathList(var low, var high)
+                    && (low == null || min != null && min >= low) && (high == null || max != null && max <= high);
+        };
     }
 
     private void checkCallGraphDag(WorkflowDefinition definition, List<Violation> violations) {

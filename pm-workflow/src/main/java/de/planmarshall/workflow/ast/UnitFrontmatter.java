@@ -56,6 +56,7 @@ List<InterfaceElement> exits,
 List<String> readsConfig,
 List<String> readsFact,
 List<InputDecl> inputs,
+List<InputDecl> slots,
 LocalDate modificationDate,
 String version,
 String author,
@@ -86,6 +87,7 @@ SourceLocation location) {
         readsConfig = List.copyOf(readsConfig);
         readsFact = List.copyOf(readsFact);
         inputs = List.copyOf(inputs);
+        slots = slots == null ? List.of() : List.copyOf(slots);
     }
 
     /**
@@ -106,7 +108,7 @@ SourceLocation location) {
     public UnitFrontmatter(String name, String description, UnitType type, String icon,
             List<InterfaceElement> entries, List<InterfaceElement> exits, LocalDate modificationDate, String version,
             String author, @Nullable String signature, SourceLocation location) {
-        this(name, description, type, icon, entries, exits, List.of(), List.of(), List.of(), modificationDate,
+        this(name, description, type, icon, entries, exits, List.of(), List.of(), List.of(), List.of(), modificationDate,
                 version, author, signature, location);
     }
 

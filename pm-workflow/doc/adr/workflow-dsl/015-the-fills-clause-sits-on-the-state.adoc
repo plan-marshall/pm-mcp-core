@@ -1,0 +1,65 @@
+= ADR workflow-dsl 015: The `fills` Clause Sits on the State
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+A text or a path reaches a sub-workflow through a slot: the caller declares a typed slot in its frontmatter, a state of
+the caller fills it from what an event brought, and the call site binds it (`call git.commit_and_push entry commit
+(message = slot.commit_message, files = slot.files)`). Two events can carry the value: the accepted submission of a
+`job llm` state, which reaches the engine in the new `submissions` component of `EngineEvent.TasksSettled`, and the
+operator's free parameter of the link it followed, which already reaches the engine in `OperatorAct.parameters`.
+
+The clause that takes the value from the event has to sit somewhere in the grammar. A link clause is the natural carrier
+of an operator parameter, but a `job llm` state declares no link: its links belong to its task entities and are
+registered with the entity kind. A clause on the link would therefore leave the submission of a task with no carrier.
+
+== Decision
+
+* The body grammar gains `fills_clause = "fills" "slot" "." param_name "from" param_name EOL` between the `facts` clause
+  and the state body, and `slot_ref = "slot" "." param_name` as a `call_value`. `slot`, `fills` and `from` become
+  reserved keywords.
+* The frontmatter gains the repeated key `slot` (a `param_name`, each once), with `slot_type` directly below it exactly
+  once (any `InputType` without the optional form) and `slot_description` at most once, in the style of `input`.
+* `StateNode` gains `fills` (`StateNode.Fills(slotName, fromParam)`), `UnitFrontmatter` gains `slots`, and `CallValue`
+  gains `SlotRef`; `InstancePruner` and `SubWorkflowInvariants` follow the new shape.
+* In a `job llm` state the clause fills from the argument of the accepted submission; in an operator wait from the free
+  parameter of the link the operator followed. The value is validated against the slot type at the submit or the act — the
+  worker or the operator gets `invalid_link_args` and can correct it — and again at the bind, because the staging set may
+  have changed since.
+
+== Alternatives Considered
+
+* *The clause on the link* (`link submit submit (message: text) fills slot.message from message`). Not taken: a task
+  state declares no link, so the first user (`git.commit_and_push` under `step_or_fallback`) would have no carrier.
+* *A slot per call argument, declared at the call site.* Not taken: the slot is the caller's state data, and two calls
+  from one unit would need two declarations of the same value.
+* *Filling at the submit with no clause, by naming conventions.* Not taken: a name that matches by convention is no
+  declaration, and the verifier could not check the type or the source.
+
+== Consequences
+
+* The verifier checks the fills clause (Rule 6): the slot exists, its type fits the input type, one clause per state per
+  slot, the `from` parameter exists on a link of an operator wait that carries the clause, and every path to a call that
+  reads a slot passes a state that fills it — the weaker "filled somewhere" form with the runtime refusal
+  `input_unbound` where the dominance check proves too costly
+  (link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL §
+  Static AST Verification Rules], Rule 6).
+* The printer writes the clause back between the `facts` line and the body, so the round trip holds, and a CRLF twin of
+  the clause parses to the same tree.
+* A value filled by an operator answers a link's free parameter of the type the link declares; a `list<path>` arrives as
+  the JSON array text of the parameter, which the slot fill reads as a list.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL § Formal EBNF Grammar]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 6)
+* link:../../developer/workflow-dsl.adoc#slots-and-fills[Workflow DSL Developer Guide § Slots, `fills` and the Typed Inputs]
+* `PLAN-V2-15` deliverable 2; operator decision (e) of 2026-10-29

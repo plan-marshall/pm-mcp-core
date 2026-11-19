@@ -112,7 +112,7 @@ class EngineResumeTest {
     /** The events that move the scope from one resting state to the next, in order. */
     private static final List<EngineEvent> EVENTS = List.of(
             new EngineEvent.JobSettled("b-0000000000000001", "succeeded"),
-            new EngineEvent.TasksSettled(Map.of("change", "submitted"), "approved"),
+            new EngineEvent.TasksSettled(Map.of("change", "submitted"), Map.of(), "approved"),
             new EngineEvent.QuestionResolved("Q-001", "answered"),
             new EngineEvent.TimeElapsed(T0.plusSeconds(Generators.integers(1, 120).next())));
 

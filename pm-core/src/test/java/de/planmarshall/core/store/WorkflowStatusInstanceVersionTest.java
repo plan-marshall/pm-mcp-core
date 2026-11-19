@@ -32,7 +32,7 @@ class WorkflowStatusInstanceVersionTest {
     private static WorkflowStatus status(JournalScopeType scopeType, Integer instanceVersion) {
         return new WorkflowStatus(scopeType, scopeType == JournalScopeType.PLAN ? "plan-core" : null,
                 "phase-1-init", "init.begin", List.of(), instanceVersion, 0, 0, Map.of(), List.of(),
-                RetryCounters.empty(), null, Map.of(), Map.of(), null, AT, Map.of());
+                RetryCounters.empty(), null, Map.of(), Map.of(), null, Map.of(), AT, Map.of());
     }
 
     @Test

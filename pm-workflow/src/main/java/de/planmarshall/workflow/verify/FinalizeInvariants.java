@@ -230,6 +230,7 @@ final class FinalizeInvariants {
             case CallValue.EnumValue(var text) -> text;
             case CallValue.IntValue(var number) -> Integer.toString(number);
             case CallValue.EnumList(var values) -> values.toString();
+            case CallValue.SlotRef(var name) -> "slot." + name;
         }).orElse("unbound");
     }
 

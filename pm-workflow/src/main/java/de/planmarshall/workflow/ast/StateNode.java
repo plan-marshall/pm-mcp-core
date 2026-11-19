@@ -29,6 +29,16 @@ String id,
 @Nullable TerminalOutcome terminalOutcome,
 @Nullable String skillPath,
 @Nullable String factsPrimitiveId,
+@Nullable Fills fills,
 StateBehavior behavior,
 SourceLocation location) {
+
+    /**
+     * A {@code fills slot.<name> from <param>} clause of a state.
+     *
+     * @param slotName   the name of the slot being filled
+     * @param fromParam  the name of the parameter whose value fills it
+     */
+    public record Fills(String slotName, String fromParam) {
+    }
 }

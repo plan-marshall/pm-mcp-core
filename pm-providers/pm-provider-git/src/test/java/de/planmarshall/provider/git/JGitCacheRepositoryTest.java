@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.stream.Stream;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.CommitBuilder;
@@ -112,7 +113,7 @@ class JGitCacheRepositoryTest {
         Files.createDirectories(root.resolve("data"));
         Files.writeString(root.resolve(CSV_PATH), csv, UTF_8);
         Files.writeString(root.resolve(POINTER_PATH), pointer, UTF_8);
-        var committed = git.commit(new CommitInput(root, Generators.letterStrings(3, 30).next(), author, author));
+        var committed = git.commit(new CommitInput(root, Generators.letterStrings(3, 30).next(), author, author, List.of()));
         assertEquals(GitOutcome.OK, committed.outcome(), "the source repository's commit is made");
         try (Git jgit = Git.open(root.toFile())) {
             var config = jgit.getRepository().getConfig();

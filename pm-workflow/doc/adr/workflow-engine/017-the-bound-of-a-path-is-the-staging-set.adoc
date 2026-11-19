@@ -1,0 +1,60 @@
+= ADR workflow-engine 017: The Bound of a Path Is the Staging Set
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+A bound path names a file the commit stages. Two sets of the scope are candidates for the bound: the footprint the plan
+declared and the staging set the scope will commit from.
+
+The specification stages more than the footprint: paths inside the worktree beyond the declared footprint are staged and
+recorded as unplanned changes
+(link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
+DSL § Six-Stage Execution Contract], Stage 4). A bound of the footprint would therefore refuse exactly the values the
+specification tells the server to stage, and the operator confirmed the staging set as the bound (2026-10-29).
+
+The staging set is also the only one of the two that is a set of files: a plan stages the dirty paths of its worktree, an
+epic `.marshall/epics/**` and, while it archives, `.marshall/archived-epics/**`, the workspace the set of its setup call.
+A footprint names changed paths too, but it is a declaration about the change, not the set a commit may name.
+
+== Decision
+
+* The bound of a `path` and of a `list<path>` is the scope's STAGING SET, never its declared footprint.
+* The engine's bind checks membership in that set, after the syntactic rules of `workflow.input` and the confinement of
+  the worktree root (link:../../developer/workflow-input.adoc[Workflow Input Developer Guide]).
+* The footprint check of Stage 4 keeps judging the whole staging set: a dirty path outside the bound `files` but inside
+  the scope's set is left unstaged and is no violation, and a dirty path outside the scope's set stays a violation.
+* Absent `files` means every path of the staging set, as before
+  (link:../../../../pm-providers/pm-provider-git/doc/adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git/003]).
+
+== Alternatives Considered
+
+* *The declared footprint.* Not taken: it would refuse the unplanned changes the specification stages, and the operator
+  decided against it on 2026-10-29.
+* *The changed paths of the worktree as git reports them.* Not taken: that is the same set for a plan, but it is not the
+  set for an epic or the workspace, which have no worktree of their own; one rule over the scope's set covers all three.
+* *No environmental bound, the syntactic rules alone.* Not taken: a relative, plain path can still lie outside the
+  worktree or name a file the scope will never commit.
+
+== Consequences
+
+* A directory never passes: the staging set holds files, so JGit's `addFilepattern`, which would expand a directory, is
+  never handed one.
+* A refusal at the bound raises the condition `precondition_unmet` with the reason `input_refused`, naming the input and
+  the rule, and carries its bounded self-remedy, because its cause can clear — the dirty set changes.
+* The scope's set is read from the `InputBindingContext` port the assembly supplies, so the engine stays free of the
+  filesystem (link:018-the-bind-lives-in-the-call.adoc[ADR 018]).
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stages 3 and 4)
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 6)
+* link:../../developer/workflow-engine.adoc#_the_input_bind[Workflow Engine Developer Guide § The Input Bind at a Call]
+* `PLAN-V2-15` deliverable 3; operator decision (a) of 2026-10-29
