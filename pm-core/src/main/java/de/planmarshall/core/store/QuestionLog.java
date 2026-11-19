@@ -253,7 +253,7 @@ public final class QuestionLog {
     public Optional<QuestionRefusal> ask(ScopeTransaction transaction, List<QuestionRecord> questions) {
         requireEvent(questions, QuestionEvent.ASKED);
         var set = questions.getFirst().questionId();
-        if (questions.stream().anyMatch(question -> !set.equals(question.questionSet()))) {
+        if (questions.stream().anyMatch(question -> !set.equals(Objects.requireNonNull(question.questionSet())))) {
             throw new IllegalArgumentException("The questions asked together are the set named by its first question "
                     + set);
         }
@@ -437,7 +437,7 @@ public final class QuestionLog {
         var questions = new HashMap<String, Question>();
         for (var line : records) {
             if (line.event() == QuestionEvent.ASKED) {
-                questions.putIfAbsent(line.questionId(), new Question(line.questionSet(), line.revision()));
+                questions.putIfAbsent(line.questionId(), new Question(Objects.requireNonNull(line.questionSet()), line.revision()));
             }
             var question = questions.get(line.questionId());
             if (question == null) {
@@ -493,10 +493,10 @@ public final class QuestionLog {
             if (questions.containsKey(id)) {
                 throw new IllegalArgumentException("The question %s is asked already".formatted(id));
             }
-            if (!line.questionSet().equals(id)) {
-                requirePartOfNewSet(questions, askedBefore, id, line.questionSet());
+            if (!Objects.requireNonNull(line.questionSet()).equals(id)) {
+                requirePartOfNewSet(questions, askedBefore, id, Objects.requireNonNull(line.questionSet()));
             }
-            questions.put(id, new Question(line.questionSet(), line.revision()));
+            questions.put(id, new Question(Objects.requireNonNull(line.questionSet()), line.revision()));
             return Optional.empty();
         }
         var question = questions.get(id);

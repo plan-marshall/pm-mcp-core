@@ -77,12 +77,11 @@ import de.planmarshall.core.id.RoleName;
  * @since 0.1
  */
 @Builder(toBuilder = true)
-public record QuestionRecord(QuestionEvent event, String questionId, QuestionClass questionClass, Origin origin,
-String sourceEntity, @Nullable String askingRole, @Nullable String phase, String questionSet,
-@Nullable String planTaskId, @Nullable Integer revision, @Nullable Decision decision, @Nullable String envelope,
-@Nullable String decisionId, @Nullable Answer answer,
-@Nullable QuestionChannel channel, @Nullable String deviceId, @Nullable String amendmentId, @Nullable String reason,
-Instant at) {
+public record QuestionRecord(QuestionEvent event, String questionId, @Nullable QuestionClass questionClass,
+@Nullable Origin origin, @Nullable String sourceEntity, @Nullable String askingRole, @Nullable String phase,
+@Nullable String questionSet, @Nullable String planTaskId, @Nullable Integer revision, @Nullable Decision decision,
+@Nullable String envelope, @Nullable String decisionId, @Nullable Answer answer, @Nullable QuestionChannel channel,
+@Nullable String deviceId, @Nullable String amendmentId, @Nullable String reason, Instant at) {
 
     /** The format version of a question record that is read and written. */
     public static final int FORMAT_VERSION = 1;
@@ -442,7 +441,7 @@ Instant at) {
         requireForms(askingRole, phase, planTaskId, decisionId, deviceId, amendmentId, reason);
         if (event == QuestionEvent.ASKED) {
             requireAsked(questionId, questionClass, origin, sourceEntity, askingRole, questionSet, planTaskId,
-                    revision, decision);
+                    Objects.requireNonNull(revision, "revision"), decision);
         }
         if (channel != null && (channel == QuestionChannel.WEB) != (deviceId != null)) {
             throw new IllegalArgumentException("An answer names its device exactly when its channel is web");
@@ -450,8 +449,8 @@ Instant at) {
     }
 
     private static void requireAsked(String questionId, QuestionClass questionClass, Origin origin,
-            String sourceEntity, String askingRole, String questionSet, @Nullable String planTaskId,
-            Integer revision, Decision decision) {
+            String sourceEntity, @Nullable String askingRole, String questionSet, @Nullable String planTaskId,
+            Integer revision, @Nullable Decision decision) {
         Objects.requireNonNull(questionClass, "class");
         Objects.requireNonNull(origin, "origin");
         requireLength(Objects.requireNonNull(sourceEntity, SOURCE_ENTITY), SOURCE_ENTITY, 1, Integer.MAX_VALUE);
