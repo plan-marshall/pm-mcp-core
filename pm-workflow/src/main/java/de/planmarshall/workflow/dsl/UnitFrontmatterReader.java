@@ -635,13 +635,13 @@ public final class UnitFrontmatterReader {
             if ("path".equals(text)) {
                 return new InputType.Path();
             }
-            if (text.startsWith("list<path") && text.endsWith(">")) {
-                var inner = text.substring("list<path".length(), text.length() - 1).trim();
-                if (inner.isEmpty()) {
+            if (text.startsWith("list<path")) {
+                var inner = text.substring("list<path".length()).trim();
+                if (">".equals(inner)) {
                     return new InputType.PathList(null, null);
                 }
-                if (inner.startsWith("[") && inner.endsWith("]")) {
-                    return pathListRange(inner.substring(1, inner.length() - 1), number, column);
+                if (inner.startsWith(">[") && inner.endsWith("]")) {
+                    return pathListRange(inner.substring(2, inner.length() - 1), number, column);
                 }
                 throw new Refusal(number, column,
                         "the input_type '%s' is no list<path> or list<path>[<low>..<high>]"
