@@ -66,15 +66,15 @@ Five deliverables, one commit each, in this order.
 All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: `WorkerEgressProxy` matches lower-cased text (`pm-runtime/.../job/WorkerEgressProxy.java:158-159`) and connects with `new InetSocketAddress(host, port)` (`:205`); `AuditEvent.egressRefused` has no reason.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: WorkerEgressProxy.java :158 lower-cases the destination text, :205 remote.connect(new InetSocketAddress(host, port)); AuditEvent.egressRefused :378 takes only generationId and destination, no reason.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: WorkerEgressProxy:158, :205; AuditEvent.egressRefused :378
 - OBSERVED: `Confinement` has `PARTIAL_ABI_1` only (`JobRecord.java:238`); `job-record.schema.json:84` has no `abi=2`; the record has no `seccomp`, `egress` or `git_metadata` member.
-  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: JobRecord.Confinement :241-253 has six values (CONFINED, PARTIAL_ABI_1 :245, PARTIAL_CONTAINER_ENGINE, SEATBELT, UNAVAILABLE, NOT_APPLICABLE); JobRecord has a git_metadata member (:98, schema :92); only seccomp and egress are absent.
+  - verdict: contradicted | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: JobRecord is in pm-core store, not pm-runtime; egress (#487) and git_metadata (#469) members exist; only seccomp and abi=2 are absent; Confinement:244 still PARTIAL_ABI_1
 - OBSERVED: the real `pm-exec` report `{"pm_exec":"launched",...,"no_new_privs":b}` (`pm-mcp-clients` `Launcher.java:79-81`) against `LaunchReport.parse` (`:164`, refuses undeclared members) and `FakePmExec`.
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Rests on pm-mcp-clients Launcher.java:79-81 in another repository; in-repo LaunchReport.parse refuses undeclared members (StrictJson.undeclared :171).
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Launcher.java:79-81 against LaunchReport:171
 - OBSERVED: no self-check code (no grep hit); the JGit identity exists in `pm-provider-git` (`GitIdentity`, `GitOperations`), the CLI variant does not.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: No self-check/selfcheck hit in pm-core, pm-runtime or pm-providers src; GitIdentity.java, GitOperations.java, JGitOperations.java exist in pm-provider-git, which holds no CLI-variant class.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: no self-check hit in pm-core or pm-runtime main; GitIdentity is in pm-provider-git
 - HYPOTHESIS: PLAN-V2-59 and PLAN-V2-134 will have delivered the `egress` and `git_metadata` members before this plan is emitted; verify-first by reading their landing records; deliver only the difference.
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis on the future landing records of PLAN-V2-59 and PLAN-V2-134, which live in .plan and are not read here; the egress and seccomp members are absent from job-record.schema.json at origin/main.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 59 (#487) and 134 (#469) landed: egress and git_metadata are in JobRecord and the schema
 
 ## Expected Surface
 
@@ -85,9 +85,11 @@ All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; 
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 
+- OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java`, `pm-core/src/main/java/de/planmarshall/core/store/JobRecord.java`, `pm-core/src/main/java/de/planmarshall/core/store/JobRecordCodec.java`, `pm-core/src/test/java/de/planmarshall/core/store/JobRecordCodecTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/JobRecordSchemaParityTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/job/EgressJobTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/job/LaunchReportSchemaParityTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/job/LaunchReportTest.java`.
+
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-146 (the first slice of the package), PLAN-V2-59 and PLAN-V2-134 (**run first**: they edit `JobRecord`, `JobRecordCodec`, `SubprocessJobRunner`, `PmExecLauncher`, `LaunchReport` and `FakePmExec`; PLAN-V2-59 is stale against the schema files since #404 and needs a re-ground before its emit), PLAN-V2-27, 29, 30, 53 (shipped), PLAN-V2-83.
+- Depends on: PLAN-V2-146 (the first slice of the package), PLAN-V2-59 and PLAN-V2-134 (**run first**: they edit `JobRecord`, `JobRecordCodec`, `SubprocessJobRunner`, `PmExecLauncher`, `LaunchReport` and `FakePmExec`; PLAN-V2-59 is stale against the schema files since #404 and needs a re-ground before its emit), old PLAN-27, 29 and 30 (predecessor epic), PLAN-V2-53 (shipped), PLAN-V2-83.
 - Overlaps at class level, decided by the gate at emit: 59, 134, 146 (above), 148 (the `egress` stage reads the proxy and the record), 126 and 141 (the job test trees), 114 and 125.
 - Not here: the kernel enforcement and the self-check mode itself (`pm-exec` in `pm-mcp-clients`: `exec-hardening`), macOS Seatbelt (Task 8), the production wiring of the proxy, the concept document (the documentation repository).
 
@@ -105,6 +107,13 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`
 Written by the orchestrator from the verdicts of a read-only leaf (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass of the day (`3d453e6c`) the docs review #484 changed 128 documentation files (package files now carry Tasks, Trace and Done When instead of What; the index dependency sets changed; schema blocks are included JSON files); code under `pm-*/src` is unchanged. Each contradicted claim below is stamped `rescoped: yes` with this section as its record; where a claim and this section differ, this section is the later reading.
 
 - Claim 1 (contradicted): JobRecord.Confinement :241-253 has six values (CONFINED, PARTIAL_ABI_1 :245, PARTIAL_CONTAINER_ENGINE, SEATBELT, UNAVAILABLE, NOT_APPLICABLE); JobRecord has a git_metadata member (:98, schema :92); only seccomp and egress are absent. Correction: Say: Confinement has PARTIAL_ABI_1 among six values and no abi=2 value (schema :84 pattern), the record already has git_metadata (JobRecord.GitMetadata, schema :92) and lacks only seccomp and egress; #484 now makes an ABI-1-only kernel `unavailable`.
+
+## Re-ground record (cleanup 2026-11-19 at `e2ae8627`, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf over this spec (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass (`d506e818`) #484, #490, #494, #495, #496, #503, #504, #506, #511 and #512 merged. Where this section and an older text of this spec differ, this section is the later reading.
+
+- `JobRecord` and `JobRecordCodec` are in pm-core `.../store`, not pm-runtime (the surface mis-places them). D2 is mostly done: `egress` (#487, `JobRecord:101, 285`) and `git_metadata` (#469, `:318`) are in the record and `LaunchReport`; left: `seccomp`, `partial(abi=2)`, `pm_exec`, `no_new_privs`. #484 makes ABI 1 `unavailable`: `PARTIAL_ABI_1` (`Confinement:248`) is replaced, not extended. The "59 is stale, re-ground" line is moot.
+- Old-id correction as in PLAN-V2-146 for `PLAN-V2-27`, `PLAN-V2-29`, `PLAN-V2-30` (met). Understated: `AuditEvent`, `JobRecordSchemaParityTest`, `JobRecordCodecTest`, `JobRecordBuilderContractTest`, `LaunchReportTest`, `LaunchReportSchemaParityTest`, `EgressJobTest`.
 
 ## Hand-Off Command
 

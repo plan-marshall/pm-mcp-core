@@ -131,6 +131,8 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 
 Owed outside (not in this repository): `pm-mcp-clients` `pm-api/src/main/resources/profiles/*.json` (five files), `pm-api/.../process/ActivityEntryKind.java` and the clients' display; `plan-marshall-mcp` `pm-mcp-server` (the wiring of the watch and the row).
 
+- OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-core/src/main/resources/de/planmarshall/core/profile/harness-profile-v1.schema.json`, `pm-core/src/test/java/de/planmarshall/core/profile/HarnessProfileSchemaParityTest.java`, `pm-core/src/test/java/de/planmarshall/core/profile/ShippedProfilesTest.java`, `pm-core/src/test/java/de/planmarshall/core/profile/WorkerParametersTest.java`, `pm-core/src/test/java/de/planmarshall/core/queue/ActivityEntryBuilderContractTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/HarnessUsageBuilderContractTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/MetricsRowBuilderContractTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/UsagePointersBuilderContractTest.java`.
+
 ## Dependencies and Sequencing
 
 The shared-file rule of the orchestrator: a plan that shares a file with this one is a predecessor or a successor; the later reads the tree of the first. Collisions found by reading the Expected Surface of every spec in `plans/` (classes named, not directories):
@@ -150,6 +152,15 @@ The shared-file rule of the orchestrator: a plan that shares a file with this on
 Written by `pm-mcp-core-m2-m4-v2/cleanup`, measured against `main` at `3d453e6c`. The verdicts are stamped on the claims above (`checked_at: 3d453e6c`). Where this section and an older text of this spec differ, this section is the later reading; the outline re-reads every cited line at `main` before it relies on it. The evidence is the re-ground leaf's one-line reading, not a re-derivation.
 
 - The claim file held only the verify-first clause (index 0); `ProfileValidator.usage` still closes the block to the seven figures and the profile schema file already lists `usage.model`; no `served_models` or `model_differs` exists in main sources.
+
+## Re-ground record (cleanup 2026-11-19 at `e2ae8627`, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf over this spec (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass (`d506e818`) #484, #490, #494, #495, #496, #503, #504, #506, #511 and #512 merged. Where this section and an older text of this spec differ, this section is the later reading.
+
+- The numbered claim list of this spec is not parsed by the corpus (one claim is seen); the read-only re-ground of 2026-11-19 is recorded here instead of as verdicts.
+- #487 made `ActivityEntry.Kind` eleven (`EGRESS` `:136`): D4's "ten kinds" is wrong; insert beside `EGRESS` (the `onlyOn` table is `ActivityEntry.java:386-404`). #396/#397 (PLAN-V2-129): the `record-only:attempt_end` pin is gone and `NavigationFigures` is deleted (D5's proof is `OffTrackDetector` only). `UsagePointers` is `@Builder` (#363). #404 moved the schema block to an include (`harness-profile-v1.schema.json` already carries `model` `:304`). The spec bullet is at `01-profile-schema.adoc:296` (was `:862`); PM-WATCH-CLIENT-20 is `harness-profiles.adoc:202-217`; "The Turn's Usage Figures" is `runtime-worker.adoc:781`; the next free runtime-worker ADR is 017. `references.schema.json` already has `realized_state.head` (`:64`, #427): Carried Item 12 is moot. The pump is built by three tests (`WorkerActivityPumpTest:102`, `OffTrackScenarioTest:182`, `SupervisionPassTest:190`).
+- Understated: `HarnessProfileSchemaParityTest` (its pin `UNIMPLEMENTED_USAGE = {model, accumulation}` `:54` must be flipped), the builder-contract tests of `UsagePointers`, `MetricsRow`, `ActivityEntry`, `HarnessUsage`, `ShippedProfilesTest`, `WorkerParametersTest`. `headless.usage.accumulation` is owned by no plan (the pin's Javadoc `:40` names 135, which delivers only `model`): decide at the outline.
+- Hard predecessor still open: the pm-api profiles pull request in pm-mcp-clients (the shipped `claude.json` usage block has no `model`).
 
 ## Hand-Off Command
 

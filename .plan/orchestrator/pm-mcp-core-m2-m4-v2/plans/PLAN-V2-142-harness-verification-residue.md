@@ -64,19 +64,19 @@ Three deliverables, one commit each, in this order (the third on the final shape
 All lines read at `32a711f9` (`origin/main`) through the landing analysis of PLAN-V2-39; the outline re-reads each before it acts.
 
 - OBSERVED: no icon class exists in `pm-runtime/src/main` or `pm-core/src/main` (`git ls-tree` finds none); the lane message of PLAN-V2-39 lines 61-66 state the store as not built.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: git ls-tree origin/main finds no icon class in pm-runtime/pm-core src/main; only ConsentKind.FETCH_ICONS (:35) and ProfileValidator icon-field checks; the lane message (.plan) was not opened.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: no icon class or package in pm-runtime or pm-core src/main; only ConsentKind.FETCH_ICONS and the profile-validator icon checks
 - OBSERVED: `HarnessVerification.admit` (`HarnessVerification.java:100`) validates the draft with `ProfileValidator.validate` (`:106`) and returns a `JsonNode`; `Request` has eight components and no `@Builder` (`:72`).
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-core/.../profile/HarnessVerification.java: admit :100 returns JsonNode via ProfileValidator.validate :106; Request :72 has eight components and no @Builder (class is in pm-core, not pm-runtime).
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: HarnessVerification:100 admit, :106 ProfileValidator.validate, :72 record Request with 8 components and no @Builder
 - OBSERVED: `HarnessEnrolment.updated` (`HarnessEnrolment.java:96-114`) drops a report measured on another build and a DECLARED one alike.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: HarnessEnrolment.updated (:107-112) keeps usageReport only when version and sha256 are equal, else substitutes NO_REPORT_FOR_A_NEW_BUILD (a DECLARED empty report), so a measured and a DECLARED report are dropped alike.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: HarnessEnrolment.updated ~:106-112 keeps the report only for the same version and digest; lines drifted
 - OBSERVED: the schema file `harness-profile-v1.schema.json` requires `readable_paths` (`:356,420`) and no Java validates it (`HarnessProfileSchemaParityTest.java:49` pins it, owned by `job-confinement-and-environment`).
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: harness-profile-v1.schema.json defines readable_paths :359 and requires it :423 (lines drifted by 3); no Java in src/main reads it; HarnessProfileSchemaParityTest UNIMPLEMENTED_HEADLESS :53 pins it.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: harness-profile-v1.schema.json:359,423 declare and require readable_paths; no Java reads it; HarnessProfileSchemaParityTest:53 pins it
 - OBSERVED: `doc/plans/harness-renames.adoc` is `open` (milestone 4, no dependencies) and no staged plan owned it before 2026-11-17; the 28 main files above still carry the old spelling at `58f53566`; the package file names `JudgmentEndpoint`, which no longer exists.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: doc/plans/README.adoc :30-34 row harness-renames is `open`, dependencies nothing, Milestone 4; 28 main files with clientId/client_id at 58f53566 (29 at head: SupervisorCalls.java added by 3d453e6c); JudgmentEndpoint has no hit in pm-*.
+  - verdict: contradicted | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: count: old-spelling main files are 31 Java plus 1 schema, not 28; README:24 harness-renames is open
 - HYPOTHESIS: the JDK's StAX reader with DOCTYPE and external entities disabled is enough for an allow-list SVG filter; verify-first: write the negative controls against it before the filter. If it is not, stop and ask the operator (a dependency decision).
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis on the sufficiency of the JDK StAX reader for an SVG allow-list; decided only by writing the negative controls; no SVG filter exists in src/main.
+  - verdict: unverifiable | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: needs the negative controls written first
 - HYPOTHESIS: Store Schemas 12 § Harness Icon Store names the index members (`format_version`, entries); verify-first: read `doc/specification/store-schemas/12-machine-stores.adoc` and the schema file of the index (`icons/index.json`) at the head, which PLAN-V2-119 moved to files.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: store-schemas/12-machine-stores.adoc :135-137 names icons/index.json with format_version and per harness_id source URL, sha256, size, media type, fetched_at (prose only; no icon-index schema file exists in pm-core store resources).
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: store-schemas/12-machine-stores.adoc:137 names icons/index.json; no icon-index schema file exists
 
 ## Expected Surface
 
@@ -95,12 +95,22 @@ Declared per class where it exists, by directory where new (the first deliverabl
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 
+- OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-core/src/test/java/de/planmarshall/core/profile/HarnessProfileSchemaParityTest.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerification.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessListings.java`, `pm-runtime/src/main/resources/de/planmarshall/runtime/config/machine-config.schema.json`, `pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java`.
+
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-V2-39 (shipped, #412), PLAN-V2-06 (shipped, #410: `HarnessId`), PLAN-V2-83.
 - Overlaps at class level, decided by the gate at emit: PLAN-V2-43 (consumes `HarnessScan` and `HarnessList`; staged, waits for 39: its own spec decides), PLAN-V2-110 (null contract: `VerificationRecord`, `ProfileValidator`), PLAN-V2-114 (item 20 and the `ProfileStages` items), PLAN-V2-123 (the harness-profile parity), PLAN-V2-125 and 126 (test conformance of the trees this plan adds to), PLAN-V2-141 (test-design rework).
 - Not here: the confined jobs, the stage runner, the isolation stage and PM-WATCH-CLIENT-16, -17, -21 (no plan; operator decision), `readable_paths` in `ProfileValidator` (`job-confinement-and-environment`), the install verb that calls `VerifiedUsage.install` (`plan-marshall-mcp`).
 - **The rename of Deliverable 3 widens this plan's surface to 28 main files across `core.profile`, `core.role`, `core.config`, `core.service`, `runtime.launch`, `runtime.endpoint` and `runtime.worker`: the gate at emit sequences it after the staged plans that touch the same classes (PLAN-V2-145 to 149, 43, 110, 114, 123) or against them, and this plan is emitted as the last of that chain.**
+
+## Re-ground record (cleanup 2026-11-19 at `e2ae8627`, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf over this spec (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass (`d506e818`) #484, #490, #494, #495, #496, #503, #504, #506, #511 and #512 merged. Where this section and an older text of this spec differ, this section is the later reading.
+
+- The surface is wrong: `HarnessListings.java` is `pm-runtime/.../launch/HarnessListings.java`, not under pm-core `core/profile`.
+- Old-spelling main files are 31 Java plus 1 schema, not 28; `ProfileWorkerEligibility` grew from 3 to 5 old-spelling occurrences (#506, #486). `credential-file.schema.json`'s `client_id` is the GitHub App's and `harness-renames.adoc:16` says it stays, so D3's Done-when ("no `client_id` in pm-runtime main") conflicts with it: reword at the outline.
+- #494 made a missing `harnesses` member UNREADABLE (`HarnessEnrolmentStore`), which D3's old-key reader must account for. Understated: `EndpointVerification` (`identity()` `:134` tests `!lookup.isFound()`, no test covers a found lookup with a different executable name) and its test, `machine-config.schema.json`, `RuntimeLogMessages` (Javadoc `:487`), `HarnessProfileSchemaParityTest` (`:52`). Nothing is done by merged work; D2 (a)-(h) hold. Emit it last of its chain (its own Dependencies).
 
 ## Hand-Off Command
 
