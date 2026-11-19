@@ -115,13 +115,14 @@ public final class SupervisionPass {
     }
 
     /**
-     * Advances one generation and reports a failure of its step as that generation's: a store that refuses the record
-     * or a resource whose read or write fails stops this generation's step alone.
+     * Advances one generation and reports a failure of its step as that generation's: a store that refuses the record,
+     * a resource whose read or write fails and the settled-record refusal a fallback write meets stop this generation's
+     * step alone.
      */
     private void advanceReported(WorkerGeneration generation, Instant now, JobRecordStore jobs) {
         try {
             advance(generation, now, jobs);
-        } catch (StoreRefusal | UncheckedIOException | IllegalStateException failure) {
+        } catch (StoreRefusal | UncheckedIOException | IllegalStateException | IllegalArgumentException failure) {
             LOGGER.warn(failure, WARN.WORKER_ADVANCE_FAILED, generation.generationId(), failure.getMessage());
         }
     }

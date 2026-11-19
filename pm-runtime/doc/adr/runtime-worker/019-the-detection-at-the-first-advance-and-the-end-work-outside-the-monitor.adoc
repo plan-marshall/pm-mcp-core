@@ -44,8 +44,11 @@ is being completed.
 
 * A worker that never calls is lost at the deadline of "silent from spawn" (bounded wait plus silence grace), not at the
   runner's budget.
-* The lock order of ADR 018 and of the landing's N-5 is unchanged: a transport call still holds the calls' monitor and
-  then the ending's, and the end work runs without the calls' monitor.
+* The lock order the guide names is unchanged: a transport call still holds the calls' monitor and then the ending's,
+  and the end work runs without the calls' monitor. A deadline that fires while an end runs is dispatched through the
+  calls' monitor without waiting for the store, and waits for the ending's monitor only while that monitor is held —
+  which the end path holds for its whole duration, so a timer thread still waits for the end it fires during. That
+  residual wait is the residue of PLAN-V2-156's N-4, reported rather than hidden.
 * A concurrent transport call may write the generation while an end is being completed; the end's terminal replacement
   wins, and the finer race (a change made after the generation snapshot was taken) stays the residue of PLAN-V2-156.
 
