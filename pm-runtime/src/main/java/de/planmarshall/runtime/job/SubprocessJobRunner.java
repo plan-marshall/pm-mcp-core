@@ -1874,7 +1874,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
          */
         RunningJob(JobRecord latest, JobRecordStore store, JobBudget budget,
                 Set<Integer> successExitCodes, @Nullable Path projectRoot) {
-            this.latest = latest;
+            this.latest = Objects.requireNonNull(latest, "latest");
             this.store = store;
             this.budget = budget;
             this.successExitCodes = successExitCodes;
