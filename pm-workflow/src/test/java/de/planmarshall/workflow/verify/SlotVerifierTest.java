@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.workflow.ast.UnitOrigin;
@@ -99,5 +100,77 @@ class SlotVerifierTest {
 
         assertTrue(found.stream().anyMatch(violation -> violation.message().contains("is never filled")),
                 "the verifier refuses a slot read but never filled");
+    }
+
+    @Nested
+    @DisplayName("Fills clause")
+    class FillsClause {
+
+        @Test
+        @DisplayName("Should refuse a from-parameter that no operator link of the state declares")
+        void fromParameterWithoutLink() {
+            var found = violations("""
+                    ---
+                    name: Slot verify
+                    description: A unit written for the tests of pm-workflow.
+                    type: workflow
+                    icon: workflow.default
+                    slot: commit_message
+                    slot_type: commit_message[1..2000]
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
+                    workflow demo.slots version 1 format 1
+                    scope plan
+                    start demo.wait
+
+                    state demo.wait
+                        fills slot.commit_message from message
+                        link next proceed ()
+                            do test.proceed
+                                done -> demo.done
+
+                    state demo.done terminal done success
+                    """);
+
+            assertTrue(found.stream().anyMatch(violation -> violation.message().contains(
+                    "which no operator link declares")),
+                    "the verifier refuses a from-parameter no link declares");
+        }
+
+        @Test
+        @DisplayName("Should admit a from-parameter the free parameters of the link declare")
+        void fromParameterOfTheLink() {
+            var found = violations("""
+                    ---
+                    name: Slot verify
+                    description: A unit written for the tests of pm-workflow.
+                    type: workflow
+                    icon: workflow.default
+                    slot: commit_message
+                    slot_type: commit_message[1..2000]
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
+                    workflow demo.slots version 1 format 1
+                    scope plan
+                    start demo.choose
+
+                    state demo.choose
+                        fills slot.commit_message from note
+                        link submit choose [submit] (note: text[1..80], comment: text)
+                            do test.choose
+                                chosen -> demo.done
+                                declined -> demo.done
+
+                    state demo.done terminal done success
+                    """);
+
+            assertTrue(found.stream().noneMatch(violation -> violation.message().contains(
+                    "which no operator link declares")),
+                    "the verifier admits a from-parameter the link declares");
+        }
     }
 }
