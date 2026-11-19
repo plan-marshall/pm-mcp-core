@@ -739,23 +739,29 @@ public final class LessonStore {
      *                                  store cannot read is never recorded
      */
     private static void requireLessonReferences(List<Source> sources) {
-        sources.stream()
-                .filter(source -> source.kind() == Source.Kind.LESSON)
-                .filter(source -> LessonId.parse(source.ref()).isEmpty())
-                .findFirst()
-                .ifPresent(source -> {
-                    throw new IllegalArgumentException("A lesson source names a lesson id: '%s'"
-                            .formatted(source.ref()));
-                });
+        for (var source : sources) {
+            if (source.kind() == Source.Kind.LESSON) {
+                citedLesson(source);
+            }
+        }
+    }
+
+    /**
+     * @param source a source of the kind {@code lesson}
+     * @return the lesson the source cites
+     * @throws IllegalArgumentException if the reference is no lesson id
+     */
+    private static LessonId citedLesson(Source source) {
+        return LessonId.parse(source.ref())
+                .orElseThrow(() -> new IllegalArgumentException("A lesson source names a lesson id: '%s'"
+                        .formatted(source.ref())));
     }
 
     private boolean citesUntrustedLesson(ScopeTransaction transaction, Source source) {
         if (source.kind() != Source.Kind.LESSON) {
             return false;
         }
-        var cited = LessonId.parse(source.ref())
-                .orElseThrow(() -> new IllegalArgumentException("A lesson source names a lesson id: '%s'"
-                        .formatted(source.ref())));
+        var cited = citedLesson(source);
         var path = storePath(cited);
         var staged = transaction.targetContent(path);
         if (staged.isPresent()) {

@@ -227,20 +227,34 @@ class LessonStoreUntrustedCitationTest {
     }
 
     @Test
-    @DisplayName("a malformed lesson reference after a resolved citation is refused too")
+    @DisplayName("a malformed lesson reference after an untrusted citation is refused too")
     void refusesMalformedLessonReferenceAfterAResolvedCitation() {
-        var untrusted = created(REVISED);
+        var untrusted = inTransaction(write -> store.create(write, REVISED, LessonFixtures.newLesson()
+                .derivedFromUntrusted(true).build(), CLOCK)).frontMatter().lessonId();
         var lessonId = created(CITED).frontMatter().lessonId();
         var malformed = new Source(Source.Kind.LESSON, "not-a-lesson-id", null);
 
         assertThrows(IllegalArgumentException.class,
                 () -> inTransaction(write -> store.revise(write, lessonId, "# Cites\n",
-                        List.of(cites(untrusted.frontMatter().lessonId()), malformed), false, CLOCK.instant())),
+                        List.of(cites(untrusted), malformed), false, CLOCK.instant())),
                 "a resolved citation does not hide the malformed one");
     }
 
     @Test
-    @DisplayName("a create with a malformed lesson reference records no lesson")
+    @DisplayName("a malformed lesson reference is refused even for an absent lesson")
+    void refusesMalformedLessonReferenceOfAnAbsentLesson() {
+        created(CITED);
+        var absent = new LessonId("2026-11-02-09-777");
+        var malformed = new Source(Source.Kind.LESSON, "not-a-lesson-id", null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> inTransaction(write -> store.revise(write, absent, "# Cites\n", List.of(malformed), false,
+                        CLOCK.instant())),
+                "the refusal does not depend on the target lesson");
+    }
+
+    @Test
+    @DisplayName("a create with a malformed lesson reference is refused")
     void refusesMalformedLessonReferenceAtCreate() {
         var malformed = new Source(Source.Kind.LESSON, "not-a-lesson-id", null);
         var newLesson = LessonFixtures.newLesson().sources(List.of(malformed)).build();
@@ -248,6 +262,18 @@ class LessonStoreUntrustedCitationTest {
         assertThrows(IllegalArgumentException.class,
                 () -> inTransaction(write -> store.create(write, CITED, newLesson, CLOCK)),
                 "a create with a malformed lesson reference is refused");
+    }
+
+    @Test
+    @DisplayName("a create with a well-formed lesson reference records the citation")
+    void acceptsAWellFormedLessonReferenceAtCreate() {
+        created(CITED);
+        var newLesson = LessonFixtures.newLesson().sources(List.of(cites(CITED))).build();
+
+        var lesson = inTransaction(write -> store.create(write, REVISED, newLesson, CLOCK));
+
+        assertEquals(List.of(cites(CITED)), lesson.frontMatter().sources(),
+                "the create records the citation it was given");
     }
 
     /** Records the digest of a file written outside a transaction, as the operator's accept-edit does. */
