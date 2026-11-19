@@ -51,15 +51,15 @@ Q12 of the issues pass (settled 2026-11-10, answer 3) asked for a complete, sent
 - **Behaviour is not condensed away.** A cut is a restatement removed, never a requirement removed; a statement a test pins (`LaunchComposer`, `PromptComposer`, `TaskProtocol`, `ConsultationService` tests) stays where it is unless the plan says where it moved.
 - **The first pass's tables are not trusted as a baseline:** the plan measures the parts itself (Deliverable 1) and does not take a count from `landings/PLAN-V2-34.md` without re-measuring it.
 - **No new part, no renamed anchor, no new dependency.** Pre-1.0: no pointer left for an anchor removed (a removed anchor with a citing link is a finding, not a deletion).
-- **The item-35 residue stays PLAN-V2-114's:** the false and lost statements the first pass left are fixed by PLAN-V2-114 item 35, which runs before this plan; this plan reads its result and does not redo it.
+- **The item-35 residue stays PLAN-V2-156's:** the false and lost statements the first pass left are fixed by PLAN-V2-156 item 35, which runs before this plan; this plan reads its result and does not redo it.
 
 ## Claim Labels
 
 - OBSERVED: the sizes at the first pass — `02-task-protocol` 29 911 to 30 956 bytes, `05-consultation` 6 701 to 6 977, `04-worker-launch` 42 055 to 41 622 (+888 bytes, +1.13 % together), measured 2026-11-17 against the parent of `a62d4db2` at `origin/main` `58f53566` (Decisions 2026-11-17, item 3); **re-measured at the start of this plan** (carried from the Decisions record, not re-measured at `63e5e80a`; Deliverable 1 re-measures)
 - OBSERVED: `04-worker-launch.adoc` holds `=== Model & Effort` (line 119) and `=== Launch Prompt & Contract Envelope` (line 207) at `origin/main` `63e5e80a`; no `worker-states` heading was found by the heading scan (`^=\+ ` lines 12 to 266), so the "worker-states" of the first pass's tables names a different anchor or a text block — confirm or refute at the file (verify-at-outline)
 - HYPOTHESIS: `WorkerState.State` has no `awaiting_answer` constant — confirm or refute at `pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java` (verify-at-outline; the landing's reading, not re-read here)
-- HYPOTHESIS: PLAN-V2-114 item 35 is shipped before this plan is emitted and leaves the three parts in a state this plan can measure; its edit set overlaps this plan's three files — confirm at `plans/PLAN-V2-114-analysis-findings-fixes.md` item 35 and the queue row (verify at the emit)
-- Verify-first clause: before editing, list the open pull requests for one that touches `doc/specification/model-work/` (PLAN-V2-114 item 35 and PLAN-V2-150's `model-work/04:258` are the plans of this epic that do); re-read each cited line at `origin/main`; a refutation loops back to re-scope.
+- HYPOTHESIS: PLAN-V2-156 item 35 is shipped before this plan is emitted and leaves the three parts in a state this plan can measure; its edit set overlaps this plan's three files — confirm at `plans/PLAN-V2-156-analysis-findings-fixes.md` item 35 and the queue row (verify at the emit)
+- Verify-first clause: before editing, list the open pull requests for one that touches `doc/specification/model-work/` (PLAN-V2-156 item 35 and PLAN-V2-150's `model-work/04:258` are the plans of this epic that do); re-read each cited line at `origin/main`; a refutation loops back to re-scope.
 
 ## Expected Surface
 
@@ -70,8 +70,9 @@ Q12 of the issues pass (settled 2026-11-10, answer 3) asked for a complete, sent
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-114 item 35 (the false and lost statements of the first pass; PLAN-V2-114 is a staged row of this epic and holds item 35 among many: the emit waits until item 35 has shipped, however the operator cuts that plan).
-- **Overlaps with live plans (read 2026-11-17, re-read at the emit by `corpus cross-check`):** PLAN-V2-114 (`model-work/02`, `04`, `05`, `job-runtime.adoc`, `workflow-consult.adoc`: the same spec files, 3 or more; sequenced after it), PLAN-V2-150 (`model-work/04` line 258: one file, the same document part, and `doc/implementation-watch/model-work.adoc`), PLAN-V2-149 (documents of `job-runtime`: `doc/implementation-watch/job-runtime.adoc`). The gate decides; a multi-file overlap with a plan in flight is the operator's.
+- Depends on: PLAN-V2-156 item 35 (the false and lost statements of the first pass; PLAN-V2-156 is a staged row of this epic and holds item 35 among many: the emit waits until item 35 has shipped, however the operator cuts that plan).
+- Note 2026-11-19: PLAN-V2-114 shipped as #512 without item 35; item 35 and all its Carried Open Items moved unchanged to PLAN-V2-156 (`landings/PLAN-V2-114.md`), which this plan now waits for.
+- **Overlaps with live plans (read 2026-11-17, re-read at the emit by `corpus cross-check`):** PLAN-V2-156 (`model-work/02`, `04`, `05`, `job-runtime.adoc`, `workflow-consult.adoc`: the same spec files, 3 or more; sequenced after it), PLAN-V2-150 (`model-work/04` line 258: one file, the same document part, and `doc/implementation-watch/model-work.adoc`), PLAN-V2-149 (documents of `job-runtime`: `doc/implementation-watch/job-runtime.adoc`). The gate decides; a multi-file overlap with a plan in flight is the operator's.
 - Adjacent to: PLAN-V2-34 (shipped; its landing is the baseline), PLAN-V2-154 (its documents are the guides of `runtime-worker`, not these parts).
 
 ## Hand-Off Command

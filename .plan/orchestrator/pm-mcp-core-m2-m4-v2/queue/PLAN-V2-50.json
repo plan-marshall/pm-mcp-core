@@ -2,10 +2,10 @@
   "id": "PLAN-V2-50",
   "slug": "r05-reduction-role-sets",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-50-r05-reduction-role-sets",
+  "pr": "#504",
+  "landing": "landings/PLAN-V2-50.md",
   "seq": 50
 }
