@@ -50,6 +50,9 @@ import de.planmarshall.core.store.LessonResolution.Unavailable;
  * The revision of a lesson body (Store Schemas § Lesson Record, Revisions; PM-WATCH-STORE-17): the body is replaced
  * wholesale as the next revision, never edited in part, the new sources are never empty and are recorded with the
  * digest of the body they support, old bodies are not kept, and {@code derived_from_untrusted} never turns back.
+ * <p>
+ * The literals the assertions pin — the lesson ids at the fixed clock's hour and the stated bodies — are the contract
+ * the id grammar and the codec state; the project name is generated.
  */
 @EnableGeneratorController
 @DisplayName("Lesson revision")
@@ -274,8 +277,8 @@ class LessonRevisionTest {
 
             var found = assertInstanceOf(Found.class, store.get(lessonId),
                     "the revised lesson is listed as found");
-            assertTrue(found.lesson().frontMatter().derivedFromUntrusted(),
-                    "an unresolved citation marks the revision untrusted");
+            assertFalse(found.lesson().frontMatter().derivedFromUntrusted(),
+                    "an absent citation reads nothing and marks nothing");
         }
 
         @Test

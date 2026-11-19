@@ -59,6 +59,9 @@ import de.planmarshall.core.store.LessonStore.Claims;
  * sidecar are decided under the lock, and a lock-free read reports a difference as unverified and decides nothing — but
  * for one observed absence: a sidecar entry whose file is gone is {@code deleted_out_of_band} there too, and never
  * {@code absent}.
+ * <p>
+ * The literals the assertions pin — the lesson ids of the ported fixtures and of the fixed clock's hour — are the
+ * contract the id grammar states; the project name and the plan ids are generated.
  */
 @EnableGeneratorController
 @DisplayName("Lesson resolver")
@@ -464,6 +467,31 @@ class LessonResolverTest {
             assertEquals(List.of("2026-11-02-09-1000", "2026-11-02-09-999"),
                     candidates.stream().map(found -> found.lessonId().value()).toList(),
                     "the four-digit sequence is the newer one");
+        }
+
+        @Test
+        @DisplayName("unclaimed orders leading-zero sequences by their number, not by their length")
+        void unclaimedOrdersLeadingZeroSequences() {
+            create(new LessonId("2026-11-02-09-0010"));
+            create(new LessonId("2026-11-02-09-011"));
+
+            var candidates = store.unclaimed();
+
+            assertEquals(List.of("2026-11-02-09-011", "2026-11-02-09-0010"),
+                    candidates.stream().map(found -> found.lessonId().value()).toList(),
+                    "eleven is newer than ten however many zeros it carries");
+        }
+
+        @Test
+        @DisplayName("an allocation follows the number of a leading-zero sequence")
+        void allocationFollowsTheNormalizedSequence() {
+            create(new LessonId("2026-11-02-09-0010"));
+            create(new LessonId("2026-11-02-09-011"));
+
+            var allocated = withoutCommit(write -> store.allocate(write, CLOCK));
+
+            assertEquals("2026-11-02-09-012", allocated.value(),
+                    "the next number after eleven is twelve, not one past ten");
         }
 
         @Test
