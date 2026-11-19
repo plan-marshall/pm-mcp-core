@@ -741,8 +741,10 @@ public final class LessonStore {
     }
 
     private static boolean isUntrusted(byte[] content) {
-        return LessonCodec.decode(content) instanceof LessonCodec.Readable(Lesson lesson)
-                && lesson.frontMatter().derivedFromUntrusted();
+        return switch (LessonCodec.decode(content)) {
+            case LessonCodec.Readable(Lesson lesson) -> lesson.frontMatter().derivedFromUntrusted();
+            case LessonCodec.Unreadable _ -> true;
+        };
     }
 
     private static boolean isUntrusted(LessonResolution resolution) {
@@ -750,7 +752,8 @@ public final class LessonStore {
             case LessonResolution.Found(_, Lesson found, _, _) -> found.frontMatter().derivedFromUntrusted();
             case LessonResolution.EmptyShell(_, Lesson shell, _, _) -> shell.frontMatter().derivedFromUntrusted();
             case LessonResolution.PresentUnreadable _, LessonResolution.StoreTampered _,
-                    LessonResolution.DeletedOutOfBand _, LessonResolution.Absent _ -> true;
+                    LessonResolution.DeletedOutOfBand _, LessonResolution.Untracked _,
+                    LessonResolution.Absent _ -> true;
             default -> false;
         };
     }

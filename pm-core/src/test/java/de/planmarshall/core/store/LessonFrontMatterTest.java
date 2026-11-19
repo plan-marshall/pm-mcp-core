@@ -246,8 +246,9 @@ class LessonFrontMatterTest {
                 () -> {
                     var ex = assertThrows(IllegalArgumentException.class, wrongVersion::build,
                             "A format version above one is refused");
-                    assertTrue(ex.getMessage().contains(String.valueOf(LessonFrontMatter.FORMAT_VERSION + 1)),
-                            "The message names the version found");
+                    assertTrue(ex.getMessage().contains("format version " + (LessonFrontMatter.FORMAT_VERSION + 1)
+                                    + ", not " + LessonFrontMatter.FORMAT_VERSION),
+                            "The message names the found version before the expected one");
                 });
     }
 
