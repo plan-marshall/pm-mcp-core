@@ -70,15 +70,15 @@ Six deliverables, one commit each, in this order (the rationale for six: the sta
 All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: no production caller of `SubprocessJobRunner.startProbe` (`:649`) or `startWorker` (`:549`); `WorkerSupervisor.java:315` passes `egressProxy(null)`; no `WorkerEgressProxy` caller (PLAN-V2-59 says so too); `ProbeWorkspace`, `DecoyServers`, `VerifyingBinaryCheck`, `ProbeBudget`, `ProbeCandidate`, `ProbeVerification` exist with tests.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: startProbe has only test callers (ProbeJobTest, JobDrainParticipantTest); startWorker only via the unbuilt adapter WorkerStarter.over; WorkerSupervisor.java:315 egressProxy(null); WorkerEgressProxy no src/main caller; the six classes exist with tests.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: startProbe and startWorker have no production caller; WorkerSupervisor:315; WorkerEgressProxy has no caller outside itself
 - OBSERVED: in `plan-marshall-mcp` (`e2707f6`) nothing carries `verify-profile`, `VerificationRecord` or `ProfileVerification`; in `pm-mcp-clients` only `ConsentKind.VERIFY_HARNESS_PROFILE` and the mock scenario `harness.verify-profile` (`pm-mock-runtime/.../onboarding.json:~1193`).
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Concerns plan-marshall-mcp at e2707f6 and pm-mcp-clients; neither repository is readable at origin/main from here.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: plan-marshall-mcp origin/main has no verify-profile or VerificationRecord; pm-mcp-clients has ConsentKind.VERIFY_HARNESS_PROFILE :33
 - OBSERVED: the stage table is `01-profile-schema.adoc:355-410`, "How it runs" at about `:351` (the runtime runs the stages as jobs of its own: the real job launcher, the real relay `pm-mcp serve --job` and the real supervisor).
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 01-profile-schema.adoc stage table opens `[cols=...]` :355 and closes `|===` :410; `*How it runs.*` :351 states real job launcher, relay `pm-mcp serve --job` and real supervisor.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: stage table :355-410, How it runs :351
 - OBSERVED: the isolation stage's controls exist (`ProbeWorkspace`: canary, `0700`, outside path, `observe`; `DecoyServers`: loopback MCP and endpoint decoys with hit recording); its result `ProfileStages.IsolationResult(boolean, ...)` is hand-fed; the decoy placement in the home, the hook or plugin decoys and the fallback runs are absent.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProbeWorkspace (canary, 0700, outside read path, observation, :31-43) and DecoyServers (loopback MCP and endpoint decoys with hits) exist; IsolationResult hand-fed via ProfileStages.isolation :258; no hook/plugin decoys or fallback runs in src/main.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProbeWorkspace and DecoyServers exist; IsolationResult hand-fed :92/:258
 - HYPOTHESIS: the `DecoyServers` loopback servers are not blocked by the outbound-call guard (it covers client sockets); verify-first by running `OutboundCallsArchTest` on the new code and by reading its rule.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: OutboundCallsArchTest (pm-runtime/.../guard) :80-90: the set is client types (HttpClient, Socket, DatagramSocket...); listening types incl. com.sun.net.httpserver.HttpServer are excluded; DecoyServers imports HttpServer and passes the guard today.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: OutboundCallsArchTest Javadoc :84-86 excludes listening types; DecoyServers:12 imports HttpServer
 
 ## Expected Surface
 
@@ -89,6 +89,8 @@ All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; 
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 
+- OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-core/src/main/java/de/planmarshall/core/profile/HarnessProbe.java`, `pm-core/src/main/java/de/planmarshall/core/profile/HarnessScan.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/job/WorkerEgressProxy.java`.
+
 ## Dependencies and Sequencing
 
 - Depends on: **PLAN-V2-146** (the listed worker read set, the socket list and the complete probe jobs), **PLAN-V2-147** (the stage list, the evaluators and the writer), PLAN-V2-39 (shipped), PLAN-V2-145 (the gate over the records this runner's output yields; the order is free), PLAN-V2-59 (the egress record: the `egress` stage reads it), PLAN-V2-83. **Do not emit before 146 and 147 have landed** (PLAN-V2-39 showed what a plan without its base cannot build).
@@ -96,6 +98,12 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 - Not here: the `harness.verify-profile` sub-workflow, the verbs `pm-operator profile verify/install/show/remove` and the install verb (`plan-marshall-mcp` and `pm-mcp-clients`), the supervision loop, the kernel enforcement (`pm-exec`), the real recordings and live runs, Tasks 1 `abi=2`, 3 gaps, 9 to 12 of the confinement package (PLAN-V2-149).
 
 **Corrections of 2026-11-14 after the impact analysis of the specification pull requests #414, #417 and #419 (`landings/SPEC-PRS-2026-11-14.md`; BINDING over any contradicting older text of this spec).** (a) **Line shifts of #417:** the stage table is `01-profile-schema.adoc:356-411` and "How it runs" `:352` (each one line later than cited above). (b) **The `egress` stage and the loopback decoys now meet the extended `address_not_public` rule** (#419): a decoy that listens on the loopback and is reached through `WorkerEgressProxy` is an address the proxy refuses, so the stage needs either the injected resolver seam of PLAN-V2-149 Deliverable 1 or a decoy that is not on a non-public address; **this plan depends on PLAN-V2-149 Deliverable 1 for the `egress` stage** (the order: 149 before 148's Deliverable 5) and the outline states how the decoy is reached.
+
+## Re-ground record (cleanup 2026-11-19 at `e2ae8627`, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf over this spec (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass (`d506e818`) #484, #490, #494, #495, #496, #503, #504, #506, #511 and #512 merged. Where this section and an older text of this spec differ, this section is the later reading.
+
+- Still blocked: 146, 147 and 149 are staged. D5's `egress` stage runs through `WorkerEgressProxy` (pm-runtime/job); `HarnessScan` and `HarnessProbe` are in pm-core/profile; `ConsentKind` is in pm-api of pm-mcp-clients. 145 and 59 are shipped; the `ProbeBudget` values (15, 30, 120 s) hold; the `verify` package does not exist yet.
 
 ## Hand-Off Command
 

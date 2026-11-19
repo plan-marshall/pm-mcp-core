@@ -1841,7 +1841,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         // safely between the starting thread and the virtual thread that settles the job; Process is a thread-safe
         // handle that only launched() assigns, once.
         @SuppressWarnings("java:S3077")
-        private volatile @Nullable JobRecord latest;
+        private volatile JobRecord latest;
         @SuppressWarnings("java:S3077")
         private volatile @Nullable Process process;
 
@@ -1872,9 +1872,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         /**
          * @param successExitCodes the exit codes a probe declares as its success; empty for every other job
          */
-        RunningJob(@Nullable JobRecord latest, JobRecordStore store, JobBudget budget,
+        @SuppressWarnings("java:S2637") // sonar's symbolic execution misreads the volatile field's assignment here
+        RunningJob(JobRecord latest, JobRecordStore store, JobBudget budget,
                 Set<Integer> successExitCodes, @Nullable Path projectRoot) {
-            this.latest = latest;
+            this.latest = Objects.requireNonNull(latest, "latest");
             this.store = store;
             this.budget = budget;
             this.successExitCodes = successExitCodes;

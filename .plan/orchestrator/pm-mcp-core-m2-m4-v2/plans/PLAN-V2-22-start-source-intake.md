@@ -65,21 +65,21 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/start-source-intake.adoc` § What, Trace, Done When on `origin/main` at `4617865` (12 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: Package file now has sections Tasks, Trace, Done When (no What); 13 numbered tasks, 3 trace bullets, 2 done bullets.
+  - verdict: contradicted | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/start-source-intake.adoc now has Tasks :11, Trace :31, Done When :39 and 13 numbered tasks, no What
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-V2-17 (`project-onboarding-unit`)) — read at `doc/plans/start-source-intake.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: doc/plans/README.adoc index row of start-source-intake: `open`; depends only on `project-onboarding-unit` (PLAN-42 and PLAN-46 no longer listed).
+  - verdict: contradicted | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: README.adoc:96-100: open, depends only on project-onboarding-unit; that row (:90-93) is still open
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file and the class-level surfaces of the former specs, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Expected Surface is a statement of the spec itself, not of the repository; the package file Where line exists but how the surface was inferred is not reachable by reading.
+  - verdict: unverifiable | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: statement about how the spec was written
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5) — `static final LogRecord` counted on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: RuntimeLogMessages.java on origin/main has 97 static final LogRecord (Core 5, Workflow 5 hold); each holder has its own test.
+  - verdict: contradicted | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: log records at HEAD: Core 5, Workflow 5, Runtime 97 (not 81); PENDING_ENTRY_RECORDS_SWEPT at RuntimeLogMessages:322
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about a future log holder append; no code fact settles it before the trace matrix.
+  - verdict: unverifiable | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: forward-looking hypothesis
 - HYPOTHESIS: whether the package makes an HTTP call is decided at the specification sections of the trace starting set; the two HTTP constraints bind only if the trace matrix shows one, and only in `pm-runtime` or a provider module — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Hypothesis about HTTP calls of the package; decided at the trace matrix, not by reading the repository.
+  - verdict: unverifiable | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: decided at the trace matrix
 - OBSERVED: the specification and watch parts of the Expected Surface changed since the claims were last grounded at `c281f6c` only as listed in the verdict — `git diff --numstat c281f6c..4617865`; the executing plan re-reads them at its branch point
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Claims a diff c281f6c..4617865 against a list in the verdict that is not part of the claim; the specification parts were changed again by PR #484 (9a884882), so the executing plan must re-read.
+  - verdict: unverifiable | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: the diff list is not part of the claim; #484 changed the documents
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `start-source-intake`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Procedural clause (open pull requests, roadmap item, dependencies done); the open dependencies project-onboarding-unit and others are `open` in doc/plans/README.adoc but the PR list is unreachable.
+  - verdict: unverifiable | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: procedural clause; open pull requests are not readable from the tree
 
 ## Expected Surface
 
@@ -191,6 +191,8 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 - audit id pending_entry_removed and log record PM_RUNTIME-23 exist in code and doc/LogMessages.adoc but appear nowhere in doc/specification; the spec does not say whether the residue sweep keeps them
 - the Blocks line omits access-grants (index row added by #151 depends on start-source-intake)
 
+- OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-core/src/main/java/de/planmarshall/core/spi/QuestionRecordReader.java`, `pm-core/src/main/java/de/planmarshall/core/store/ScopeIntegrity.java`, `pm-core/src/main/java/de/planmarshall/core/store/StoreRefusal.java`, `pm-core/src/test/java/de/planmarshall/core/store/AuditSchemaParityTest.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/engine/EntityAddressResolver.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/engine/EntityIdGrammar.java`.
+
 ## Dependencies and Sequencing
 
 
@@ -217,6 +219,15 @@ Written by the orchestrator from the verdicts of a read-only leaf (its statement
 - Claim 0 (contradicted): Package file now has sections Tasks, Trace, Done When (no What); 13 numbered tasks, 3 trace bullets, 2 done bullets. Correction: Cite doc/plans/start-source-intake.adoc as Tasks (13 numbered), Trace (3 bullets), Done When; the section What and the bullet counts of 4617865 are gone.
 - Claim 1 (contradicted): doc/plans/README.adoc index row of start-source-intake: `open`; depends only on `project-onboarding-unit` (PLAN-42 and PLAN-46 no longer listed). Correction: Index row now reads `open`; depends only on `project-onboarding-unit` (PLAN-42 and PLAN-46 no longer listed).
 - Claim 3 (contradicted): RuntimeLogMessages.java on origin/main has 97 static final LogRecord (Core 5, Workflow 5 hold); each holder has its own test. Correction: State RuntimeLogMessages as 97 records at d506e818 (CoreLogMessages 5, WorkflowLogMessages 5 unchanged).
+
+## Re-ground record (cleanup 2026-11-19 at `e2ae8627`, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf over this spec (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass (`d506e818`) #484, #490, #494, #495, #496, #503, #504, #506, #511 and #512 merged. Where this section and an older text of this spec differ, this section is the later reading.
+
+- PLAN-V2-17's framework-free parts landed (#496), so "PLAN-V2-17 (staged)" is stale; the index row `project-onboarding-unit` is still `open` (README `:90-93`), so the dependency is only partly met.
+- Log records at HEAD: Core 5, Workflow 5, Runtime 97 (not 81). `doc/plans/start-source-intake.adoc` has Tasks, Trace and Done When and 13 numbered tasks (no What).
+- Consumers of what D4 and D13 replace, not in the surface: `EntityAddressResolver`, `EntityIdGrammar` (use `PendingEntryReader` and `EntryId`), `engine/package-info`, `WorkflowEngine.java:573` (builds `QuestionRecordReader.ReadRequest`, which D13(b) changes), the `core/store`, `core/spi` and `runtime/start` package-infos (the last cites `PENDING_ENTRY_MAX_AGE`), `AuditSchemaParityTest` (named in D12), `ScopeIntegrity`, `StoreRefusal`.
+- #512 moved the lesson anchors: `LessonStore` claim `:462`, release `:497`, endClaimApplied `:535`; `HttpClient` RATE_LIMITED `:241`. Nothing of D3-D5, D12 or D13 is done. The plan stays held for its split per repository (operator decision pending).
 
 ## Hand-Off Command
 

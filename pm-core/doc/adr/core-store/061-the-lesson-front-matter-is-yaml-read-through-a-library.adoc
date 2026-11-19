@@ -24,7 +24,7 @@ specification refuses.
 == Decision
 
 The front matter is written by the JSON generator as one object in the order of the schema — a YAML 1.2 flow mapping —
-and read through SnakeYAML with the YAML 1.2 core schema: duplicate keys are refused, a token scan refuses every anchor,
+and read through a YAML library whose scalar resolution is restricted to the 1.2 core schema: duplicate keys are refused, a token scan refuses every anchor,
 alias and tag, and a front matter of more than one document is refused. The loaded mapping is then validated against the
 `LessonFrontMatter` schema and the rules of its record, member by member and strictly.
 
@@ -49,7 +49,7 @@ alias and tag, and a front matter of more than one document is refused. The load
   public API (`ScannerImpl`, `StreamReader`, the token types). A SnakeYAML upgrade is therefore a breaking risk for
   that pre-scan, and the reader's tests are what detect it. A later version may move the check to the public node
   composer (`Node.getAnchor()` and `Node.getTag()`).
-* The reader resolves scalars by the YAML 1.2 core schema, without its `.inf` and `.nan` spellings: they have no value
+* The reader resolves scalars by a YAML library whose scalar resolution is restricted to the 1.2 core schema, without its `.inf` and `.nan` spellings: they have no value
   in the JSON data model and resolve as strings, which the record then refuses for a numeric member.
 * A CRLF file is decoded; its front matter is normalized and its body keeps its line endings.
 

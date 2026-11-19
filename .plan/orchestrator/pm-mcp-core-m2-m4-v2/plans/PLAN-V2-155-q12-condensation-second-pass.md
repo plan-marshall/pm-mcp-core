@@ -2,7 +2,7 @@
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-10
-origin: the landing of PLAN-V2-34 (`landings/PLAN-V2-34.md` L1-2, L1-3, L2-1 to L2-4; PR #456 `a62d4db2`) and the operator's decision of 2026-11-17 (`handle-open` item 3, answered 1: "Q12 gets a second pass as its own plan, after PLAN-V2-114 item 35, with 'condensed' defined as fewer sentences and a byte target per part, and a table of what was cut"; the word "stage it" of the same day)
+origin: the landing of PLAN-V2-34 (`landings/PLAN-V2-34.md` L1-2, L1-3, L2-1 to L2-4; PR #456 `a62d4db2`) and the operator's decision of 2026-11-17 (`handle-open` item 3, answered 1: "Q12 gets a second pass as its own plan, after PLAN-V2-156 item 35, with 'condensed' defined as fewer sentences and a byte target per part, and a table of what was cut"; the word "stage it" of the same day)
 
 > Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-155-q12-condensation-second-pass.md` and is queued as one row file, `queue/PLAN-V2-155.json`,
@@ -25,7 +25,7 @@ Plan parameters (the values the rules ask for):
 
 ## Objective
 
-Q12 of the issues pass (settled 2026-11-10, answer 3) asked for a complete, sentence-by-sentence condensation of the three `model-work` parts, with a floor that leaves no discretion to the lane. PLAN-V2-34 (#456) met the floor in its tables and not in the text: `02-task-protocol` grew from 29 911 to 30 956 bytes, `05-consultation` from 6 701 to 6 977, `04-worker-launch` fell from 42 055 to 41 622 (+888 bytes, +1.13 % together), and a row counted as condensed when the sentence only gained a guide link. This plan does the pass again with a definition the first one lacked: **"condensed" means fewer sentences, and each part ends below a byte target; every cut is listed in a table in the pull request body.** The false and lost statements of the first pass are PLAN-V2-114 item 35, which runs first.
+Q12 of the issues pass (settled 2026-11-10, answer 3) asked for a complete, sentence-by-sentence condensation of the three `model-work` parts, with a floor that leaves no discretion to the lane. PLAN-V2-34 (#456) met the floor in its tables and not in the text: `02-task-protocol` grew from 29 911 to 30 956 bytes, `05-consultation` from 6 701 to 6 977, `04-worker-launch` fell from 42 055 to 41 622 (+888 bytes, +1.13 % together), and a row counted as condensed when the sentence only gained a guide link. This plan does the pass again with a definition the first one lacked: **"condensed" means fewer sentences, and each part ends below a byte target; every cut is listed in a table in the pull request body.** The false and lost statements of the first pass are PLAN-V2-156 item 35, which runs first.
 
 ## Deliverables
 
@@ -51,15 +51,15 @@ Q12 of the issues pass (settled 2026-11-10, answer 3) asked for a complete, sent
 - **Behaviour is not condensed away.** A cut is a restatement removed, never a requirement removed; a statement a test pins (`LaunchComposer`, `PromptComposer`, `TaskProtocol`, `ConsultationService` tests) stays where it is unless the plan says where it moved.
 - **The first pass's tables are not trusted as a baseline:** the plan measures the parts itself (Deliverable 1) and does not take a count from `landings/PLAN-V2-34.md` without re-measuring it.
 - **No new part, no renamed anchor, no new dependency.** Pre-1.0: no pointer left for an anchor removed (a removed anchor with a citing link is a finding, not a deletion).
-- **The item-35 residue stays PLAN-V2-114's:** the false and lost statements the first pass left are fixed by PLAN-V2-114 item 35, which runs before this plan; this plan reads its result and does not redo it.
+- **The item-35 residue stays PLAN-V2-156's:** the false and lost statements the first pass left are fixed by PLAN-V2-156 item 35, which runs before this plan; this plan reads its result and does not redo it.
 
 ## Claim Labels
 
 - OBSERVED: the sizes at the first pass — `02-task-protocol` 29 911 to 30 956 bytes, `05-consultation` 6 701 to 6 977, `04-worker-launch` 42 055 to 41 622 (+888 bytes, +1.13 % together), measured 2026-11-17 against the parent of `a62d4db2` at `origin/main` `58f53566` (Decisions 2026-11-17, item 3); **re-measured at the start of this plan** (carried from the Decisions record, not re-measured at `63e5e80a`; Deliverable 1 re-measures)
 - OBSERVED: `04-worker-launch.adoc` holds `=== Model & Effort` (line 119) and `=== Launch Prompt & Contract Envelope` (line 207) at `origin/main` `63e5e80a`; no `worker-states` heading was found by the heading scan (`^=\+ ` lines 12 to 266), so the "worker-states" of the first pass's tables names a different anchor or a text block — confirm or refute at the file (verify-at-outline)
 - HYPOTHESIS: `WorkerState.State` has no `awaiting_answer` constant — confirm or refute at `pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java` (verify-at-outline; the landing's reading, not re-read here)
-- HYPOTHESIS: PLAN-V2-114 item 35 is shipped before this plan is emitted and leaves the three parts in a state this plan can measure; its edit set overlaps this plan's three files — confirm at `plans/PLAN-V2-114-analysis-findings-fixes.md` item 35 and the queue row (verify at the emit)
-- Verify-first clause: before editing, list the open pull requests for one that touches `doc/specification/model-work/` (PLAN-V2-114 item 35 and PLAN-V2-150's `model-work/04:258` are the plans of this epic that do); re-read each cited line at `origin/main`; a refutation loops back to re-scope.
+- HYPOTHESIS: PLAN-V2-156 item 35 is shipped before this plan is emitted and leaves the three parts in a state this plan can measure; its edit set overlaps this plan's three files — confirm at `plans/PLAN-V2-156-analysis-findings-fixes.md` item 35 and the queue row (verify at the emit)
+- Verify-first clause: before editing, list the open pull requests for one that touches `doc/specification/model-work/` (PLAN-V2-156 item 35 and PLAN-V2-150's `model-work/04:258` are the plans of this epic that do); re-read each cited line at `origin/main`; a refutation loops back to re-scope.
 
 ## Expected Surface
 
@@ -68,11 +68,23 @@ Q12 of the issues pass (settled 2026-11-10, answer 3) asked for a complete, sent
 - Read as the pinning sources, never edited: the classes WorkerState, TaskProtocol and ConsultationService.
 - Not surface (R19, shared bookkeeping): the Traceability document and the plan index. No code, no build file, no package file of the plans directory.
 
+- OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchComposer.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/launch/PromptComposer.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchComposerTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/launch/PromptComposerTest.java`.
+
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-114 item 35 (the false and lost statements of the first pass; PLAN-V2-114 is a staged row of this epic and holds item 35 among many: the emit waits until item 35 has shipped, however the operator cuts that plan).
-- **Overlaps with live plans (read 2026-11-17, re-read at the emit by `corpus cross-check`):** PLAN-V2-114 (`model-work/02`, `04`, `05`, `job-runtime.adoc`, `workflow-consult.adoc`: the same spec files, 3 or more; sequenced after it), PLAN-V2-150 (`model-work/04` line 258: one file, the same document part, and `doc/implementation-watch/model-work.adoc`), PLAN-V2-149 (documents of `job-runtime`: `doc/implementation-watch/job-runtime.adoc`). The gate decides; a multi-file overlap with a plan in flight is the operator's.
+- Depends on: PLAN-V2-156 item 35 (the false and lost statements of the first pass; PLAN-V2-156 is a staged row of this epic and holds item 35 among many: the emit waits until item 35 has shipped, however the operator cuts that plan).
+- Note 2026-11-19: PLAN-V2-114 shipped as #512 without item 35; item 35 and all its Carried Open Items moved unchanged to PLAN-V2-156 (`landings/PLAN-V2-114.md`), which this plan now waits for.
+- **Overlaps with live plans (read 2026-11-17, re-read at the emit by `corpus cross-check`):** PLAN-V2-156 (`model-work/02`, `04`, `05`, `job-runtime.adoc`, `workflow-consult.adoc`: the same spec files, 3 or more; sequenced after it), PLAN-V2-150 (`model-work/04` line 258: one file, the same document part, and `doc/implementation-watch/model-work.adoc`), PLAN-V2-149 (documents of `job-runtime`: `doc/implementation-watch/job-runtime.adoc`). The gate decides; a multi-file overlap with a plan in flight is the operator's.
 - Adjacent to: PLAN-V2-34 (shipped; its landing is the baseline), PLAN-V2-154 (its documents are the guides of `runtime-worker`, not these parts).
+
+## Re-ground record (cleanup 2026-11-19 at `e2ae8627`, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf over this spec (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass (`d506e818`) #484, #490, #494, #495, #496, #503, #504, #506, #511 and #512 merged. Where this section and an older text of this spec differ, this section is the later reading.
+
+- The Objective, the header and line 28 say "PLAN-V2-156 item 35, which runs first": PLAN-V2-114 shipped (#512) without it; it is item 35 of PLAN-V2-156 (running).
+- Deliverable 2 names `worker-states` in `04`: the anchor `[#worker-states]` is `== Worker States` in `02-task-protocol.adoc:128-129` (cited by `05:29`, `06:229`, `doc/plans/question-continuation.adoc:34`).
+- Sizes at HEAD: 02 = 30 956, 05 = 7 001, 04 = 42 451 bytes (04 +829 and 05 +24 since `a62d4db2`); targets: 02 below 29 911 (cut at least 1 046 B), 05 below 6 701 (301 B), 04 below 42 055 (397 B): reachable, but item 35 (d) and (f) restore text into 04 and 02: measure after item 35. `WorkerState.java:169-185` has no `AWAITING_ANSWER`; the spec defines it for the unbuilt question-continuation package: "corrected or removed" would delete a state that package, 05 and 06 cite, so keep it and mark it unbuilt.
+- Understated: `LaunchComposer`, `PromptComposer` and their tests (read-only), `landings/PLAN-V2-34.md`, `doc/Traceability.adoc` (the class tie `:2987`, `:3066`).
 
 ## Hand-Off Command
 

@@ -794,7 +794,7 @@ body.
 
 `LessonCodec` reads and writes one file: the line `---`, the front matter, the line `---`, the body verbatim. The front
 matter is written as one JSON object in the order of the schema — a JSON object is a YAML 1.2 flow mapping — and read
-through a YAML library with the YAML 1.2 core schema (ADR core-store/061). The writer escapes every non-ASCII character,
+through a YAML library whose scalar resolution is restricted to the 1.2 core schema (ADR core-store/061). The writer escapes every non-ASCII character,
 so a title, a statement or a source that carries a YAML line break (U+0085, U+2028, U+2029), a C1 control or a
 noncharacter reads back unchanged instead of being folded or refused by the YAML reader.
 The reader refuses an anchor, an alias, a tag, a second document, a duplicate or unknown
@@ -890,7 +890,7 @@ retirement without its verdict's members (`completely_covered` needs a non-blank
 `superseded` need `into`, no other verdict takes one) and a retirement of anything but a found, unclaimed lesson. `claim`
 sets `claim{plan_id, claimed_at}`; `release` clears it and does not retire the lesson; `endClaimApplied` retires it with
 the verdict `applied` and clears the claim, so the plan stays the author in `retired.by`, which is what reach is computed
-from (ADR core-store/064). The release and the end are authorized by the durable `claim.plan_id` alone, never by their
+from (ADR core-store/076). The release and the end are authorized by the durable `claim.plan_id` alone, never by their
 argument (R14 (2)); a transition that does not act returns `Unavailable` with the state it found — the resolution states,
 `claimed` with the claiming plan, `retired` and `unclaimed` (ADR core-store/065) — and a repeated end reports the
 retirement without writing.
@@ -1452,7 +1452,7 @@ A refresh made inside a scope transaction therefore takes `locks/derived-facts.l
 caller's lock is held, which is the place of `LockLevel.DERIVED_FACTS` in the total order. The lock manager asserts the
 order within one transaction only and does not see the caller's keys, so the order of a caller's transaction relative
 to the store's is a convention of the callers. An acquisition of a scope lock while the derived-facts lock is held,
-inside one transaction, is a violation the lock manager refuses.
+inside one transaction, is a violation the lock manager refuses (link:../adr/core-store/063-the-store-transaction-is-its-own-and-the-order-across-transactions-is-by-convention.adoc[ADR 063]).
 
 Two refreshers of the same fact do not overwrite a newer result with an older one: the write re-reads the entry and,
 when the stored entry carries the same digest with a later `derived_at`, keeps it and returns it

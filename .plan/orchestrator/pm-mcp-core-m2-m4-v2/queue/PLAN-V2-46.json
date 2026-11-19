@@ -2,10 +2,10 @@
   "id": "PLAN-V2-46",
   "slug": "runtime-endpoint-residues",
   "workstream": "WS-06",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-46-runtime-endpoint-residues",
+  "pr": "#494",
+  "landing": "landings/PLAN-V2-46.md",
   "seq": 46
 }

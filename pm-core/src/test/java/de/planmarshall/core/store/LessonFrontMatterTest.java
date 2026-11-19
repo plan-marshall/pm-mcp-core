@@ -243,8 +243,21 @@ class LessonFrontMatterTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new Claim("Not A Plan", instant),
                         "A plan id outside its pattern is refused"),
-                () -> assertThrows(IllegalArgumentException.class, wrongVersion::build,
-                        "A format version above one is refused"));
+                () -> {
+                    var ex = assertThrows(IllegalArgumentException.class, wrongVersion::build,
+                            "A format version above one is refused");
+                    assertTrue(ex.getMessage().contains("format version " + (LessonFrontMatter.FORMAT_VERSION + 1)
+                                    + ", not " + LessonFrontMatter.FORMAT_VERSION),
+                            "The message names the found version before the expected one");
+                });
+    }
+
+    @Test
+    @DisplayName("a title that carries the DEL control character is refused")
+    void titleRefusesDel() {
+        var frontMatter = LessonFixtures.frontMatterBuilder().title("a\u007Fb");
+        assertThrows(IllegalArgumentException.class, frontMatter::build,
+                "a DEL in the title is refused at construction");
     }
 
     @Test

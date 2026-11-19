@@ -2428,7 +2428,7 @@ Documentation: link:../pm-core/doc/developer/core-store.adoc#_lesson_record_and_
 link:../pm-core/doc/developer/core-store.adoc#_the_lesson_store[Developer Guide § The Lesson Store],
 link:../pm-core/doc/adr/core-store/061-the-lesson-front-matter-is-yaml-read-through-a-library.adoc[ADR core-store/061],
 link:../pm-core/doc/adr/core-store/062-the-lesson-classes-live-in-core-store.adoc[ADR core-store/062],
-link:../pm-core/doc/adr/core-store/063-the-lesson-id-is-the-utc-hour-and-a-per-hour-sequence.adoc[ADR core-store/063],
+link:../pm-core/doc/adr/core-store/075-the-lesson-id-is-the-utc-hour-and-a-per-hour-sequence.adoc[ADR core-store/075],
 link:../pm-core/doc/adr/core-store/065-the-vocabulary-of-the-unavailable-states.adoc[ADR core-store/065],
 link:../pm-core/doc/adr/core-store/066-the-lesson-store-reads-in-two-flavours-and-decides-under-the-lock.adoc[ADR core-store/066],
 link:../pm-core/doc/adr/core-store/067-the-lesson-store-builds-no-operator-act.adoc[ADR core-store/067]
@@ -2820,8 +2820,8 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[P
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
 link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../pm-runtime/doc/developer/runtime-lock.adoc[Developer Guide § The Lock Manager], link:../pm-core/doc/developer/core-store.adoc#_the_store_substrate[Developer Guide § Store Substrate], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, The Store],
 link:../pm-core/doc/developer/core-store.adoc#_the_lesson_store[Developer Guide § The Lesson Store],
-link:../pm-core/doc/adr/core-store/063-the-lesson-id-is-the-utc-hour-and-a-per-hour-sequence.adoc[ADR core-store/063],
-link:../pm-core/doc/adr/core-store/064-the-end-of-a-claim-clears-the-claim-and-keeps-the-retirement.adoc[ADR core-store/064],
+link:../pm-core/doc/adr/core-store/075-the-lesson-id-is-the-utc-hour-and-a-per-hour-sequence.adoc[ADR core-store/075],
+link:../pm-core/doc/adr/core-store/076-the-end-of-a-claim-clears-the-claim-and-keeps-the-retirement.adoc[ADR core-store/076],
 link:../pm-core/doc/adr/core-store/065-the-vocabulary-of-the-unavailable-states.adoc[ADR core-store/065],
 link:../pm-core/doc/adr/core-store/066-the-lesson-store-reads-in-two-flavours-and-decides-under-the-lock.adoc[ADR core-store/066]
 
