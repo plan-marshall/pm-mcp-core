@@ -162,6 +162,18 @@ class WorkflowStatusCodecTest {
         }
 
         @Test
+        @DisplayName("a status with a filled slot round-trips through the codec")
+        void slotRoundTrip() {
+            var status = read(WORKSPACE).toBuilder().slots(Map.of("commit",
+                    new WorkflowStatus.Slot("feat: a message", "task_submit", "qt-0123456789abcdef",
+                            Instant.parse("2026-10-12T10:00:00Z")))).build();
+
+            var readBack = read(new String(WorkflowStatusCodec.write(status)));
+
+            assertEquals(status.slots(), readBack.slots(), "the slot round-trips through the codec");
+        }
+
+        @Test
         @DisplayName("the engine-owned members are typed (the values of the golden document)")
         void typedMembers() {
             var status = read(DOCUMENT);
@@ -181,6 +193,12 @@ class WorkflowStatusCodecTest {
                             frame.boundArgs(), "the bound arguments should be typed"),
                     () -> assertEquals(Instant.parse("2026-10-12T10:00:00Z"), frame.pushedAt(),
                             "the push instant should be typed"),
+                    () -> assertEquals(de.planmarshall.core.id.CommandId.parse("cmd-0123456789abcdef"),
+                            java.util.Optional.of(frame.commandId()), "the command id should be typed"),
+                    () -> assertEquals(de.planmarshall.core.id.CorrelationId.parse("cor-0123456789abcdef"),
+                            java.util.Optional.of(frame.correlationId()), "the correlation id should be typed"),
+                    () -> assertEquals("literal", frame.argSources().get("message_mode").source(),
+                            "the arg provenance should be typed"),
                     () -> assertEquals(2, status.loopBackIteration(), "the loop-back iteration should be typed"),
                     () -> assertEquals(1, status.outlineLoopBacks(), "the outline loop-backs should be typed"),
                     () -> assertEquals(2, status.policyCounters().get("ci-failure").fixUsed(),
