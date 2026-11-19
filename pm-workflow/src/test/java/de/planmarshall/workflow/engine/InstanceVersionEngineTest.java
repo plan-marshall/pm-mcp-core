@@ -36,8 +36,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
+
+
+import org.easymock.Capture;
+import org.easymock.CaptureType;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.JournalScope;
@@ -60,15 +72,6 @@ import de.planmarshall.workflow.plan.PlanInstance;
 import de.planmarshall.workflow.plan.PlanInstanceComposer;
 import de.planmarshall.workflow.plan.PlanInstanceHeader;
 import de.planmarshall.workflow.plan.UnitReference;
-import org.easymock.Capture;
-import org.easymock.CaptureType;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * The composition events of a plan instance and the version in force (Workflow DSL § Versions &amp; Composition
@@ -215,7 +218,7 @@ class InstanceVersionEngineTest {
         return new CompositionResult.Composed(instance(version, event, composedUnit(version), List.of()));
     }
 
-    private void committed(java.util.function.Consumer<ScopeTransaction> writing) {
+    private void committed(Consumer<ScopeTransaction> writing) {
         try (var lock = EngineFixtures.holdingEverything()) {
             var transaction = ScopeTransaction.open(lock, scope, event -> {
                 // no audit record is owed

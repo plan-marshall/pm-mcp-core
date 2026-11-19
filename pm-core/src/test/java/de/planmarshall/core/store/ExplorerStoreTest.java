@@ -16,7 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -27,14 +28,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import de.cuioss.test.generator.Generators;
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.config.SettingsConflict;
 
 /**
@@ -257,7 +255,7 @@ class ExplorerStoreTest {
 
     @Test
     @DisplayName("Should refuse a write whose revision cannot advance")
-    void refusesAnExhaustedRevision() throws IOException {
+    void refusesAnExhaustedRevision() throws Exception {
         var project = id();
         var document = new ExplorerStore.Snapshot(List.of(), Map.of(), Long.MAX_VALUE);
         Files.write(base.resolve("explorer.json"), ExplorerCodec.write(base.resolve("explorer.json"), document));
@@ -270,7 +268,7 @@ class ExplorerStoreTest {
 
     @Test
     @DisplayName("Should refuse an act whose daily count cannot advance")
-    void refusesAnExhaustedDayCount() throws IOException {
+    void refusesAnExhaustedDayCount() throws Exception {
         var project = id();
         var day = LocalDate.ofInstant(NOW, ZoneOffset.UTC).toString();
         var document = new ExplorerStore.Snapshot(List.of(),
@@ -284,7 +282,7 @@ class ExplorerStoreTest {
 
     @Test
     @DisplayName("Should refuse a document with a member the schema does not name")
-    void refusesAnUndeclaredMember() throws IOException {
+    void refusesAnUndeclaredMember() throws Exception {
         var valid = "{\"format_version\": %d, \"revision\": 0, \"favourites\": [], \"activity\": {}}"
                 .formatted(ExplorerStore.FORMAT_VERSION);
         Files.writeString(base.resolve("explorer.json"),

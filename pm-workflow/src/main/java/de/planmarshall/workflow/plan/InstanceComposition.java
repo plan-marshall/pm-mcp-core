@@ -71,7 +71,9 @@ public interface InstanceComposition {
      * @param transaction the transaction of the advance
      * @param result      the composed version, or the refusal
      */
-    void recordOutcome(ScopeTransaction transaction, CompositionResult result);    /**
+    void recordOutcome(ScopeTransaction transaction, CompositionResult result);
+
+    /**
      * Records a configuration candidate that composed no version, so the log shows the adoption was resolved without
      * one: {@link CompositionRecord.Result#KEPT} or {@link CompositionRecord.Result#IDENTICAL_ADOPTED}. The decision
      * between the two belongs to the caller that compares the candidate with the version in force, never to the

@@ -178,8 +178,8 @@ public final class WorkflowEngine {
      */
     @Builder
     public record Ports(JobStarter jobs, QueueTaskCreator tasks, QuestionRecordReader questions, WorkflowClock clock,
-    de.planmarshall.workflow.plan.@Nullable InstanceComposition composition,
-    de.planmarshall.workflow.plan.@Nullable InstanceUnits units) {
+    @Nullable InstanceComposition composition,
+    @Nullable InstanceUnits units) {
 
         /** @throws NullPointerException if a port other than the two instance ports is {@code null} */
         public Ports {
@@ -1149,7 +1149,7 @@ public final class WorkflowEngine {
             }
             if (justComposed != null) {
                 return Map.of("reason", PRECONDITION_UNMET, "detail",
-                        ("the version composed earlier in this advance must be committed before '%s' composes another")
+                        "the version composed earlier in this advance must be committed before '%s' composes another"
                                 .formatted(event.wireName()));
             }
             return composeAndTakeForce(event);

@@ -518,7 +518,8 @@ public class WorkflowStatusCodec {
         return (int) value;
     }
 
-    private static BoundArg readBoundArg(JsonParser parser, String name) throws IOException {        return switch (parser.currentToken()) {
+    private static BoundArg readBoundArg(JsonParser parser, String name) throws IOException {
+        return switch (parser.currentToken()) {
             case VALUE_STRING -> new BoundArg.StringArg(parser.getText());
             case VALUE_NUMBER_INT -> new BoundArg.IntegerArg(integer(parser, name));
             case START_ARRAY -> {

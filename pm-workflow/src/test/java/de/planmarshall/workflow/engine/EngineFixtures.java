@@ -63,6 +63,8 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
+import de.planmarshall.workflow.plan.InstanceComposition;
+import de.planmarshall.workflow.plan.InstanceUnits;
 import de.planmarshall.workflow.testing.LockDoubles;
 import de.planmarshall.workflow.verify.EntityKind;
 import de.planmarshall.workflow.verify.EntityKindRegistry;
@@ -510,8 +512,8 @@ final class EngineFixtures {
      * @param units       the units of a version in force
      * @return the four ports of this fixture, with the two instance ports mounted
      */
-    WorkflowEngine.Ports instancePorts(de.planmarshall.workflow.plan.InstanceComposition composition,
-            de.planmarshall.workflow.plan.InstanceUnits units) {
+    WorkflowEngine.Ports instancePorts(InstanceComposition composition,
+            InstanceUnits units) {
         return WorkflowEngine.Ports.builder().jobs(jobStarter).tasks(taskCreator).questions(questionReader)
                 .clock(clock).composition(composition).units(units).build();
     }

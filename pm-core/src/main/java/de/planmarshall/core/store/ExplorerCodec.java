@@ -10,8 +10,8 @@
 package de.planmarshall.core.store;
 
 import static de.planmarshall.core.store.StrictJson.FIELD_FORMAT_VERSION;
-import static de.planmarshall.core.store.StrictJson.integer;
 import static de.planmarshall.core.store.StrictJson.instant;
+import static de.planmarshall.core.store.StrictJson.integer;
 import static de.planmarshall.core.store.StrictJson.map;
 import static de.planmarshall.core.store.StrictJson.nextField;
 import static de.planmarshall.core.store.StrictJson.requireFields;

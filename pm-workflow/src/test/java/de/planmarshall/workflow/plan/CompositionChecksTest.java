@@ -15,22 +15,30 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
-import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.core.role.EffectiveRole;
-import de.planmarshall.core.role.RoleClass;
-import de.planmarshall.core.role.RoleResolution;
-import de.planmarshall.core.role.RoleResolver;
-import de.planmarshall.workflow.model.ModelIdentity;
-import de.planmarshall.workflow.model.SkillCatalogue;
-import de.planmarshall.workflow.verify.InvariantFixtures;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.role.EffectiveRole;
+import de.planmarshall.core.role.EffortValue;
+import de.planmarshall.core.role.RoleArtifact;
+import de.planmarshall.core.role.RoleClass;
+import de.planmarshall.core.role.RoleForm;
+import de.planmarshall.core.role.RoleResolution;
+import de.planmarshall.core.role.RoleResolver;
+import de.planmarshall.workflow.model.CompositionRefusal;
+import de.planmarshall.workflow.model.ModelIdentity;
+import de.planmarshall.workflow.model.SkillCatalogue;
+import de.planmarshall.workflow.verify.InvariantFixtures;
 
 /**
  * Rules 13 and 14 at composition (Workflow DSL § Static AST Verification Rules): a missing role, a role of the wrong
@@ -45,19 +53,19 @@ class CompositionChecksTest {
 
     /** @return a role of the given class on the given model and harness */
     private static EffectiveRole role(RoleClass roleClass, String harness, String model, String weightsIdentity) {
-        var artifact = new de.planmarshall.core.role.RoleArtifact(1, "role", "A role written for the test.", roleClass,
-                List.of(), harness, model, new de.planmarshall.core.role.EffortValue("high"),
-                de.planmarshall.core.role.RoleForm.FRESH, 1,
+        var artifact = new RoleArtifact(1, "role", "A role written for the test.", roleClass,
+                List.of(), harness, model, new EffortValue("high"),
+                RoleForm.FRESH, 1,
                 List.of("skill://pm/role/role/SKILL.md"), null, 0, null,
-                new de.planmarshall.core.role.RoleArtifact.Questions(0, 0),
-                java.util.Map.of());
-        return new EffectiveRole(artifact, harness, model, new de.planmarshall.core.role.EffortValue("high"), List.of(),
-                "1.0", weightsIdentity, new de.planmarshall.core.role.RoleArtifact.Questions(0, 0),
-                java.util.Map.of(), 400_000, java.util.OptionalInt.empty());
+                new RoleArtifact.Questions(0, 0),
+                Map.of());
+        return new EffectiveRole(artifact, harness, model, new EffortValue("high"), List.of(),
+                "1.0", weightsIdentity, new RoleArtifact.Questions(0, 0),
+                Map.of(), 400_000, OptionalInt.empty());
     }
 
     /** @return a resolver that defines the given roles and refuses every other */
-    private static RoleResolver resolver(java.util.Map<String, EffectiveRole> roles) {
+    private static RoleResolver resolver(Map<String, EffectiveRole> roles) {
         return name -> roles.containsKey(name) ? new RoleResolution.Defined(roles.get(name))
                 : new RoleResolution.Undefined(name, null, "absent from the effective role set");
     }
@@ -99,7 +107,7 @@ class CompositionChecksTest {
         @DisplayName("a missing role refuses the composition with role_undefined")
         void missingRole(CompositionEvent event) {
             var refused = assertInstanceOf(CompositionResult.Refused.class, compose(event,
-                    checks(resolver(java.util.Map.of()), uri -> true)), "a missing role refuses the composition");
+                    checks(resolver(Map.of()), uri -> true)), "a missing role refuses the composition");
 
             assertAll(
                     () -> assertEquals(CompositionResult.Refusal.ROLE_UNDEFINED, refused.refusal(),
@@ -112,7 +120,7 @@ class CompositionChecksTest {
         @EnumSource(value = CompositionEvent.class, names = {"START", "OUTLINE", "OVERRIDE"})
         @DisplayName("a role of the wrong class refuses the composition with class_mismatch")
         void wrongClass(CompositionEvent event) {
-            var implementer = resolver(java.util.Map.of("implementer",
+            var implementer = resolver(Map.of("implementer",
                     role(RoleClass.ZERO_TOOL, "claude", "sonnet", null),
                     "outline", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                     "voter", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
@@ -136,7 +144,7 @@ class CompositionChecksTest {
         @EnumSource(value = CompositionEvent.class, names = {"START", "OUTLINE", "OVERRIDE"})
         @DisplayName("a quorum on one model by model identity refuses the composition with quorum_not_diverse")
         void quorumOnOneModel(CompositionEvent event) {
-            var sameModel = resolver(java.util.Map.of("implementer",
+            var sameModel = resolver(Map.of("implementer",
                     role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                     "outline", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                     "voter", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
@@ -211,7 +219,7 @@ class CompositionChecksTest {
 
     /** @return a resolver that defines every role of the invariant fixtures */
     private static RoleResolver allRoles() {
-        return resolver(java.util.Map.of("implementer",
+        return resolver(Map.of("implementer",
                 role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                 "outline", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                 "voter", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
@@ -228,7 +236,7 @@ class CompositionChecksTest {
      * @return a resolver that defines every role of the invariant fixtures and the quorum's two on the given identifiers
      */
     private static RoleResolver resolverWithPair(String architectModel, String reviewerModel) {
-        return resolver(java.util.Map.of("implementer",
+        return resolver(Map.of("implementer",
                 role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                 "outline", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                 "voter", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
@@ -243,25 +251,25 @@ class CompositionChecksTest {
     @DisplayName("the model-check refusals carry the reasons' wire names")
     void refusalWireNamesMatchTheReasons() {
         assertAll(
-                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.ROLE_UNDEFINED.wireName(),
+                () -> assertEquals(CompositionRefusal.Reason.ROLE_UNDEFINED.wireName(),
                         CompositionResult.Refusal.ROLE_UNDEFINED.wireName(), "role_undefined is one spelling"),
-                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.CLASS_MISMATCH.wireName(),
+                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH.wireName(),
                         CompositionResult.Refusal.CLASS_MISMATCH.wireName(), "class_mismatch is one spelling"),
-                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.QUORUM_INVALID.wireName(),
+                () -> assertEquals(CompositionRefusal.Reason.QUORUM_INVALID.wireName(),
                         CompositionResult.Refusal.QUORUM_INVALID.wireName(), "quorum_invalid is one spelling"),
-                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.QUORUM_NOT_DIVERSE.wireName(),
+                () -> assertEquals(CompositionRefusal.Reason.QUORUM_NOT_DIVERSE.wireName(),
                         CompositionResult.Refusal.QUORUM_NOT_DIVERSE.wireName(), "quorum_not_diverse is one spelling"),
-                () -> assertEquals(de.planmarshall.workflow.model.CompositionRefusal.Reason.SKILL_UNRESOLVED.wireName(),
+                () -> assertEquals(CompositionRefusal.Reason.SKILL_UNRESOLVED.wireName(),
                         CompositionResult.Refusal.SKILL_UNRESOLVED.wireName(), "skill_unresolved is one spelling"),
                 () -> assertEquals(2, CompositionResult.Refusal.values().length
-                                - de.planmarshall.workflow.model.CompositionRefusal.Reason.values().length,
+                        - CompositionRefusal.Reason.values().length,
                         "the two refusals without a reason are the only others"));
     }
 
     @Test
     @DisplayName("at start a refused composition returns the refusal and no version")
     void refusedStartCreatesNothing() {
-        var result = compose(CompositionEvent.START, checks(resolver(java.util.Map.of()), uri -> true));
+        var result = compose(CompositionEvent.START, checks(resolver(Map.of()), uri -> true));
 
         assertAll(
                 () -> assertInstanceOf(CompositionResult.Refused.class, result,
@@ -282,7 +290,7 @@ class CompositionChecksTest {
     @Test
     @DisplayName("the quorum check reads the adjudication unit although no call site calls it")
     void quorumIsReadFromTheAdjudicationUnit() {
-        var sameModel = resolver(java.util.Map.of("implementer",
+        var sameModel = resolver(Map.of("implementer",
                 role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                 "outline", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                 "voter", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
@@ -302,7 +310,7 @@ class CompositionChecksTest {
     @Test
     @DisplayName("a quorum of a role that is not read_only is quorum_invalid")
     void quorumInvalid() {
-        var writer = resolver(java.util.Map.of("implementer",
+        var writer = resolver(Map.of("implementer",
                 role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                 "outline", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
                 "voter", role(RoleClass.READ_ONLY, "claude", "sonnet", null),
