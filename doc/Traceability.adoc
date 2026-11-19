@@ -1182,6 +1182,7 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobEvidence.java[Jo
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/OutcomeDerivation.java[OutcomeDerivation],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobSettlement.java[JobSettlement],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SettlementStep.java[SettlementStep],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/WorkerTermination.java[WorkerTermination],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeCandidate.java[ProbeCandidate],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeVerification.java[ProbeVerification],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[ProbeBudget],
@@ -1206,7 +1207,8 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/LaunchReportTest.ja
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobLogTest.java[JobLogTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/TerminationProtocolTest.java[TerminationProtocolTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/OutcomeDerivationTest.java[OutcomeDerivationTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobSettlementTest.java[JobSettlementTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobSettlementTest.java[JobSettlementTest] (the write order, the seams, and the terminal worker block the fate step writes),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/WorkerTerminationTest.java[WorkerTerminationTest] (every fate's end reason and terminal state, the start failure and the zero-tool worker),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/BuildOutputParserTest.java[BuildOutputParserTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeJobTest.java[ProbeJobTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeVerificationTest.java[ProbeVerificationTest],
@@ -3092,8 +3094,10 @@ path with its fence, token revocation, slot release and terminal state; the drai
 and the idle yields; the start-failure guard with its bounded report and its probe; the machine-wide start spacing of one
 harness; the worker state of the generation written into the job record; the inbound calls that map the transport's facts
 onto detection, recycling, ending and the guard, the three facts of a hold among them, and the hold's end at the token
-budget reported through `WorkerProtocol.holdEnded`; and the scheduled supervision pass that settles an ended job, pumps a
-running worker's log and yields an idle slot. The transport, the scheduling of the pass and the assembly wiring are
+budget reported through `WorkerProtocol.holdEnded`; and the scheduled supervision pass, which reads an ended job's
+settled record — the terminal state the settlement wrote with the fate — and completes only the fence, the token
+revocation and the slot release, creates a running generation's loss detection at its first advance, pumps a running
+worker's log per attempt and yields an idle slot. The transport, the scheduling of the pass and the assembly wiring are
 `pm-mcp-server`'s, and the model slots are the landed scheduler's): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java[WorkerSupervisor],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerGeneration.java[WorkerGeneration],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerLifecycle.java[WorkerLifecycle],
@@ -3133,7 +3137,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartFailureGuar
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java[HarnessStartSpacingTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/AgentStartedDetectorTest.java[AgentStartedDetectorTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java[SupervisorCallsTest] (each call of `WorkerCalls` and its answer, the unknown generation, an end-requested wait, the three hold entries with the refused transition and the answer's deadline, the pause of a plan and the enrolment's clear),
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once — against the fixture's mocked `WorkerStateWriter`, because the landed writer refuses a settled record, see ADR `runtime-worker/014` — the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once and which reads the terminal state the settlement wrote through the project's real store writer, a worker that never calls is lost at its silence deadline, a failed end is reported and its retry keeps the cause and repeats nothing, a call is dispatched while another end runs, a fresh worker that served its task ends without a loss, each attempt of a warm worker keeps its own lines and its end, the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
 
 Documentation: link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
 link:../pm-runtime/doc/adr/runtime-worker/001-one-supervisor-per-project-and-role.adoc[ADR runtime-worker/001],
@@ -3143,7 +3147,11 @@ link:../pm-runtime/doc/adr/runtime-worker/008-lease-aware-idle-and-idle-yields.a
 link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009],
 link:../pm-runtime/doc/adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR runtime-worker/012],
 link:../pm-runtime/doc/adr/runtime-worker/014-the-inbound-calls-and-the-scheduled-pass.adoc[ADR runtime-worker/014],
-link:../pm-runtime/doc/adr/runtime-worker/016-the-hold-ends-before-the-recycle.adoc[ADR runtime-worker/016]
+link:../pm-runtime/doc/adr/runtime-worker/016-the-hold-ends-before-the-recycle.adoc[ADR runtime-worker/016],
+link:../pm-runtime/doc/adr/runtime-worker/017-the-settlement-writes-the-terminal-worker-block.adoc[ADR runtime-worker/017],
+link:../pm-runtime/doc/adr/runtime-worker/018-the-end-effects-run-once-and-one-generation-does-not-abort-the-pass.adoc[ADR runtime-worker/018],
+link:../pm-runtime/doc/adr/runtime-worker/019-the-detection-at-the-first-advance-and-the-end-work-outside-the-monitor.adoc[ADR runtime-worker/019],
+link:../pm-runtime/doc/adr/runtime-worker/020-the-loss-reason-maps-the-attempt-end.adoc[ADR runtime-worker/020]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server

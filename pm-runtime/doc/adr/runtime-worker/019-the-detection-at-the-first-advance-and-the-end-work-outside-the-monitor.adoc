@@ -1,0 +1,54 @@
+= ADR 019: The detection is created at the pass's first advance, and the end work runs outside the calls' monitor
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+`LossDetection.started` arms the "silent from spawn" deadline, and the specification says the detection is created at the
+first sight of the generation (ADR 014). `SupervisorCalls.detection` created it at a call, and `SupervisionPass` only
+inside `completeEnd` — for a generation whose job had already ended. A worker that hung at launch therefore made no call
+and owned no detection, so nothing but the runner's job budget could end it.
+
+`completeEnd` held `synchronized (calls)` across `WorkerEnding.exited`, which reads the store and can start a successor
+process. `SupervisorCalls.lost` takes the same monitor on the supervisor's one timer thread, so every deadline dispatch
+stalled for the length of an end — including the writes it does not need.
+
+== Decision
+
+`SupervisionPass.advance` creates the generation's detection for a non-terminal generation at its first advance, before
+it reads the job record. The detection is the same instance every later call sees (`computeIfAbsent`), so a deadline and
+an observed exit still decide one generation together.
+
+`completeEnd` takes the calls' monitor twice: to claim the end (settle the detection, read the requested end, append the
+attempt's end once) and to record its result (replace the generation, forget its values). The end work runs outside it.
+`WorkerEnding.exited` remains `synchronized` on its own instance, so a transport call cannot end a generation whose end
+is being completed.
+
+== Alternatives considered
+
+* **Creating the detection in `SupervisorCalls` at registration** (in `WorkerSupervisor.start`): rejected — the calls
+  object is not part of the start path, and the pass is the component that observes the running generation.
+* **A second monitor for the end work**: rejected — the claim/record protocol is two short critical sections on the
+  existing monitor, and a second monitor would introduce a lock order to keep.
+* **Holding the monitor and moving only the successor start out**: rejected — the store read is the long part of the
+  end, and the stall is on the timer thread.
+
+== Consequences
+
+* A worker that never calls is lost at the deadline of "silent from spawn" (bounded wait plus silence grace), not at the
+  runner's budget.
+* The lock order of ADR 018 and of the landing's N-5 is unchanged: a transport call still holds the calls' monitor and
+  then the ending's, and the end work runs without the calls' monitor.
+* A concurrent transport call may write the generation while an end is being completed; the end's terminal replacement
+  wins, and the finer race (a change made after the generation snapshot was taken) stays the residue of PLAN-V2-156.
+
+== Source
+
+The landing findings N-1 and N-4 of PLAN-V2-31; the plan's Deliverable 3.

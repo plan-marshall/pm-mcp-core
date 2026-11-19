@@ -1,0 +1,53 @@
+= ADR 018: The end's side effects run once per generation, and one failing generation does not abort the pass
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+`WorkerEnding.exited` fenced the generation, revoked its job token and released its model slot before the terminal write,
+and removed the generation's request at the start. A retry after a failed write therefore repeated all three side
+effects — a double `ModelSlots.release` is idempotent, a second fence and a second revoke are not — and, because the
+request was gone, re-derived the cause as `LOST`, so a drained generation was recorded lost.
+
+`SupervisionPass.run()` ran the generations of one pass and then the idle yield in a `finally`. A throwing generation's
+end aborted the loop, so the later generations went unobserved, and a throwing yield replaced the exception in flight.
+
+The standing rule forbids a generic `catch` in production code, so the pass has to report a named failure, not swallow
+every failure.
+
+== Decision
+
+The generation's own request carries the mark that the end's side effects ran (`Request.completed`). The request is
+removed only after a complete end, so a retry reads the same cause again and skips the three side effects.
+
+`SupervisionPass.run` reports a generation's named store failure — `StoreRefusal`, `UncheckedIOException` or the
+recorder's `IllegalStateException` — as `PM_RUNTIME-149` and goes on to the later generations; the idle yield's own
+failure is reported as `PM_RUNTIME-150` and never replaces the generation's. A generation whose end failed keeps its
+claim, so the retry neither re-reads its log nor appends a second attempt end.
+
+== Alternatives considered
+
+* **A separate "already ended" set in `WorkerEnding`**: rejected — the request already is the generation's own end state
+  and is consulted by `endRequested` and `requestedCause`; a second structure would have to be kept in step with it.
+* **Catching `RuntimeException` around the loop**: rejected by the standing rule; the pass names the failures it knows,
+  and a fault it does not name propagates to the caller that schedules it.
+* **Re-throwing the generation's failure after the loop**: rejected — the pass is a periodic step; a failure that is
+  reported and retried on the next pass is a store that is temporarily unavailable, not a fault of the run.
+
+== Consequences
+
+* Three side effects per generation at most, and the cause of a retried end survives the failure.
+* A generation whose end keeps failing is reported on every pass and keeps its claim; its slot is released once.
+* The idle yield runs on every pass, and its failure is visible in the log beside the generation's.
+
+== Source
+
+The landing findings N-3, M-2 and M-3 of PLAN-V2-31; the operator's decision of 2026-11-17 that the end path is designed
+here.

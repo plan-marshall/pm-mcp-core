@@ -22,8 +22,9 @@ Anchor:: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#out
 link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record] (Write order at job end)
 Hazard:: Settling a job in an arbitrary order lets a crash leave a released build slot with an unsettled record, or a
 ledger row that stamps a build whose job record never recorded its fate.
-Guard:: Crash injection after each step of the fixed order (job record fate with a worker's token revocation and
-fence, for a worker the queue task record with its attempt end and lease release, the metrics row of the attempt
+Guard:: Crash injection after each step of the fixed order (job record fate with a worker's terminal worker block, token
+revocation and fence, for a worker the queue task record with its attempt end and lease release, the metrics row of the
+attempt
 that ended with the job, change-ledger row, timing observation, slot release, and last a worker's job-private
 directory removal): after restart every store is consistent, and the only losses are a task's missing metrics row
 (`record-metrics` reports it as the divergence `row_absent_from_metrics`, never as `0`; the job record carries no
