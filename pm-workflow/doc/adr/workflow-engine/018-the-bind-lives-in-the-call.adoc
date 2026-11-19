@@ -29,7 +29,7 @@ at which the engine still knows which call is entering which callee.
   port `InputBindingContext` of `Ports` supplies: the worktree root, the staging set, and the configuration value by key
   (the last for the `input_fallback`).
 * It writes `bound_args` and `arg_sources` into the pushed frame, with the `command_id` it draws for the call and the
-  `correlation_id` of the current `Run` (link:../../../../pm-core/doc/adr/core-store/076-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076]),
+  `correlation_id` of the current `Run` (link:../../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076]),
   and clears the consumed slots in the same transaction.
 * A refusal raises the condition `precondition_unmet`: reason `input_refused` (naming the input and the rule) for a value
   that does not fit, reason `input_unbound` for an input no state filled. Both carry the bounded self-remedy, because

@@ -195,7 +195,7 @@ A frame is the identity of the command it is while it is on the stack, and it re
 * `command_id` and `correlation_id` are of the types `CommandId` and `CorrelationId` of `core.id`, each a record over its
   value with `parse` and `random`. The schema patterns are `^cmd-[0-9a-f]{16}$` and `^cor-[0-9a-f]{16}$` (20 characters
   each). The engine draws one correlation id per advance and one command id per frame
-  (link:../adr/core-store/076-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR 076]).
+  (link:../adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR 076]).
 * *Required and typed*: the record refuses a `null` component, the codec reads `arg_sources`, `command_id` and
   `correlation_id` strictly in their schema position after `bound_args`, and a missing or malformed value is a
   `StoreRefusal` naming the member — a `cmd-` value with 15 digits, an upper-case hexadecimal digit or a `cor-` value in
@@ -218,7 +218,7 @@ unit-local.
 * *Scope level, not a frame.* The epic, the workspace and the plan unit itself call `git.commit_and_push` and have no
   frame of their own, so the slot lives beside the current state. `WorkflowStatus` carries `slots` as an ordered map with
   the empty map for an absent member, the codec reads and writes it strictly, and the schema member is
-  `additionalProperties: false` per slot (link:../adr/core-store/075-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR
+  `additionalProperties: false` per slot (link:../adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR
   075]).
 * *Consumed by its call (deferred).* The intended design clears the slot in the transaction of the call that read it, so
   a stale message or a stale path is never reused, and a restart between the fill and the call resumes from the pair

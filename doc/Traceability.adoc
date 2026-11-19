@@ -764,8 +764,8 @@ link:../pm-workflow/doc/adr/workflow-dsl/016-literal-text-stays-out-of-the-gramm
 link:../pm-workflow/doc/adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017],
 link:../pm-workflow/doc/adr/workflow-engine/018-the-bind-lives-in-the-call.adoc[ADR workflow-engine/018],
 link:../pm-workflow/doc/adr/workflow-verify/038-the-commit-modes-stay-required-inputs.adoc[ADR workflow-verify/038],
-link:../pm-core/doc/adr/core-store/075-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR core-store/075],
-link:../pm-core/doc/adr/core-store/076-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076],
+link:../pm-core/doc/adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR core-store/075],
+link:../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git/003]
 
 [#PM-WF-17]

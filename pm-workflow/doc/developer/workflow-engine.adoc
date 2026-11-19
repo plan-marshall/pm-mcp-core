@@ -323,7 +323,7 @@ provenance is recorded, and the value is validated. It happens in `WorkflowEngin
   a filled slot names `task_submit` or `operator_answer`, never `literal`.
 * *The identity of the frame*: `call` draws one `command_id` for the call from `Ports.ids` and takes the `correlation_id`
   of the current `Run`, which the engine mints once per advance. Both are `core.id` records written and read by
-  `WorkflowStatusCodec` (link:../../../pm-core/doc/adr/core-store/076-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR
+  `WorkflowStatusCodec` (link:../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR
   core-store/076], link:../../../pm-core/doc/developer/core-store.adoc#_the_frame_identity_and_the_provenance_of_its_arguments[Scope
   Stores § The Frame's Identity and the Provenance of Its Arguments]).
 * *The consumption*: a slot the call read is cleared in the same transaction, so a later call never reuses a stale
