@@ -140,7 +140,8 @@ class SupervisionPassTest {
         supervisor = new WorkerSupervisor(environment);
         parameters = new WorkerParameters(true, OptionalInt.of(270), false, 600, 3, 300, false);
         recycling = new WorkerRecycling(environment, ending, supervisor::generations,
-                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), parameters);
+                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
+                parameters);
         calls = new SupervisorCalls(supervisor, ending, recycling, parameters, _ -> RoleClass.WRITER);
         role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
         generation = started(supervisor);
@@ -365,7 +366,8 @@ class SupervisionPassTest {
         var idleEnding = new WorkerEnding(environment, () -> false, () -> {
         });
         var idleRecycling = new WorkerRecycling(environment, idleEnding, idle::generations,
-                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), parameters);
+                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
+                parameters);
         var idleCalls = new SupervisorCalls(idle, idleEnding, idleRecycling, parameters, _ -> RoleClass.WRITER);
         var pass = new SupervisionPass(idle, idleCalls, idleEnding, idleRecycling, tasks, silentDetector(),
                 pumps(journal));

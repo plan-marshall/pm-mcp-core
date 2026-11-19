@@ -147,7 +147,7 @@ final class DiagramFixtures {
                 PlanInstanceHeader.Posture.STANDARD,
                 new PlanInstanceHeader.Steps(List.of(), List.of("default:archive-plan")), PRUNED, List.of(),
                 List.of(new WaivedGate(WAIVED_GATE, WAIVER_ID)));
-        return new PlanInstance(INSTANCE_VERSION, header, unit, text);
+        return new PlanInstance(INSTANCE_VERSION, header, unit, text, List.of(), null);
     }
 
     /**
@@ -175,7 +175,7 @@ final class DiagramFixtures {
 
                 state phase-x.done terminal done success
                 """));
-        return new PlanInstance(base.version(), base.header(), base.unit(), base.text(), List.of(composed));
+        return new PlanInstance(base.version(), base.header(), base.unit(), base.text(), List.of(composed), null);
     }
 
     /**

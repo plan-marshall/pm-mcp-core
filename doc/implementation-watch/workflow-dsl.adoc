@@ -256,6 +256,10 @@ Guard:: Scenario per server event (`outline`, `plan`, `fallback`, `empty_harvest
 transition that enters the composing target state records the new `instance_version`, and every state that chains on
 reads it (`finalize.next-step` after `plan.return` selects only post-run steps); an operator or configuration event
 composed mid-chain takes effect only from the next transition; the history keeps the version in force per firing.
+Kept (2026-11-18, PLAN-V2-13): `InstanceVersionEngineTest` guards the per-event scenario — the version is recorded in
+the entering transaction, the chain selects from it, its `instance` history line is written, and an operator event takes
+force from the next transition — but not yet the `finalize.next-step` half, which needs a fixture plan whose composed
+version prunes a finalize step below order `900`; the watch item stays until that scenario exists.
 Source:: design review.
 
 [#PM-WATCH-DSL-22]

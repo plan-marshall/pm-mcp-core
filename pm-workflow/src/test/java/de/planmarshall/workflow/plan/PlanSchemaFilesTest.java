@@ -20,9 +20,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
@@ -76,6 +78,21 @@ class PlanSchemaFilesTest {
                     collectRequiredViolations(schema, "#", violations);
                     assertEquals(List.of(), violations, "every required name should be a property");
                 });
+    }
+
+    @Test
+    @DisplayName("the composition log's refusal enum names every refusal value of the code")
+    void refusalEnumMatchesTheRefusalValues() {
+        var schema = SchemaResource.load("de/planmarshall/workflow/plan/composition-record.schema.json");
+        var properties = (Map<?, ?>) schema.get("properties");
+        var cause = (Map<?, ?>) ((Map<?, ?>) properties.get("cause")).get("properties");
+        var refusal = (Map<?, ?>) cause.get("refusal");
+        var declared = ((List<?>) refusal.get("enum")).stream().filter(Objects::nonNull).map(String::valueOf).toList();
+        var wireNames = Arrays.stream(CompositionResult.Refusal.values())
+                .map(CompositionResult.Refusal::wireName).toList();
+
+        assertEquals(new TreeSet<>(wireNames), new TreeSet<>(declared),
+                "the schema names every refusal value and nothing else");
     }
 
     private static void collectRequiredViolations(Object value, String pointer, List<String> violations) {

@@ -9,6 +9,12 @@
  */
 package de.planmarshall.workflow.unit;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -21,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,6 +39,7 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
+import de.planmarshall.workflow.plan.CompositionChecks;
 import de.planmarshall.workflow.plan.CompositionEvent;
 import de.planmarshall.workflow.plan.CompositionRequest;
 import de.planmarshall.workflow.plan.CompositionResult;
@@ -45,12 +53,6 @@ import de.planmarshall.workflow.verify.EntityKindRegistry;
 import de.planmarshall.workflow.verify.InvariantFixtures;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
-
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The three verifier call sites read the production registries: a unit that declares the real key
@@ -275,7 +277,7 @@ class ProductRegistriesWiringTest {
                 .finalizeSteps(List.of())
                 .build();
         var composer = new PlanInstanceComposer(context, List.of(template), List.of(), noRules(),
-                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
+                CompositionChecks.NONE, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
         return composer.compose(request);
     }
 

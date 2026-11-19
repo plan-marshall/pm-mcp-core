@@ -11,10 +11,9 @@ package de.planmarshall.workflow.setup;
 
 import java.util.Objects;
 
+import de.planmarshall.core.config.SetupRun;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
-
-import de.planmarshall.core.config.SetupRun;
 
 /**
  * The {@code setup_run} a project setup records at its start state (State Catalogue § Project Setup, {@code

@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.regex.Pattern;
-
 import org.jspecify.annotations.Nullable;
 
 /**

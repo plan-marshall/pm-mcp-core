@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -24,12 +23,11 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The digests a {@code run_checkout_scripts} consent is keyed by (Store Schemas § Consent Before Acting): every script
@@ -44,7 +42,7 @@ class CheckoutScriptsTest {
 
     @Test
     @DisplayName("Should digest every named script in the order of the state")
-    void digestsEachNamedScript() throws IOException {
+    void digestsEachNamedScript() throws Exception {
         var first = "#!/bin/sh\necho first\n".getBytes(UTF_8);
         var second = "#!/bin/sh\necho second\n".getBytes(UTF_8);
         Files.createDirectories(checkout.resolve("scripts"));
@@ -62,7 +60,7 @@ class CheckoutScriptsTest {
 
     @Test
     @DisplayName("Should digest a script named with a redundant relative prefix")
-    void normalizesTheRelativePath() throws IOException {
+    void normalizesTheRelativePath() throws Exception {
         Files.write(checkout.resolve("run.sh"), "#!/bin/sh\n".getBytes(UTF_8));
 
         var digests = CheckoutScripts.digest(checkout, List.of("./run.sh"));
@@ -85,7 +83,7 @@ class CheckoutScriptsTest {
 
     @Test
     @DisplayName("Should refuse an absent script and a directory as script")
-    void refusesWhatIsNoRegularFile() throws IOException {
+    void refusesWhatIsNoRegularFile() throws Exception {
         Files.createDirectories(checkout.resolve("scripts"));
         var absent = List.of("scripts/absent.sh");
         var directory = List.of("scripts");
@@ -98,7 +96,7 @@ class CheckoutScriptsTest {
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
     @DisplayName("Should refuse a symbolic link rather than follow it")
-    void refusesASymbolicLink() throws IOException {
+    void refusesASymbolicLink() throws Exception {
         Files.write(checkout.resolve("real.sh"), "#!/bin/sh\n".getBytes(UTF_8));
         Files.createSymbolicLink(checkout.resolve("link.sh"), checkout.resolve("real.sh"));
         var link = List.of("link.sh");
@@ -108,7 +106,7 @@ class CheckoutScriptsTest {
 
     @Test
     @DisplayName("Should refuse the same script named twice")
-    void refusesADuplicatePath() throws IOException {
+    void refusesADuplicatePath() throws Exception {
         Files.write(checkout.resolve("run.sh"), "#!/bin/sh\n".getBytes(UTF_8));
         var twice = List.of("run.sh", "./run.sh");
 
@@ -118,7 +116,7 @@ class CheckoutScriptsTest {
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
     @DisplayName("Should refuse a symbolic link in a parent directory of the script")
-    void refusesASymbolicParent() throws IOException {
+    void refusesASymbolicParent() throws Exception {
         var outside = Files.createDirectory(checkout.resolve("outside"));
         Files.write(outside.resolve("run.sh"), "#!/bin/sh\n".getBytes(UTF_8));
         Files.createSymbolicLink(checkout.resolve("linked"), outside);

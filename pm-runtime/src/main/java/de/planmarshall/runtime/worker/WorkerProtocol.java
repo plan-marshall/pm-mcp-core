@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.worker;
 
 import java.time.Instant;
+import java.util.Objects;
 import lombok.Builder;
 
 /**
@@ -68,6 +69,69 @@ public interface WorkerProtocol {
     @Builder
     record OffTrackReport(String generationId, String queueTaskId, int attempt, String signal, String action,
     double measurement, double threshold, Instant at) {
+    }
+
+    /**
+     * Reports that a generation's hold ended: its task is suspended where it may resume, else it falls back, and the
+     * worker is recycled (Model Work § Continuing after a Question, Budget).
+     * <p>
+     * The notification is sent before the recycle, while the generation still leases its task, so the protocol names
+     * the attempt it ends.
+     *
+     * @param report the ended hold and the facts the protocol decides from
+     * @since 0.1
+     */
+    void holdEnded(HoldEndedReport report);
+
+    /**
+     * One ended hold as the runtime reports it.
+     *
+     * @param generationId the worker's generation
+     * @param queueTaskId  the queue task the generation held
+     * @param attempt      the attempt of that task, from 1
+     * @param cause        why the hold ended
+     * @param at           the instant the hold ended
+     * @since 0.1
+     */
+    @Builder
+    record HoldEndedReport(String generationId, String queueTaskId, int attempt, HoldEndCause cause, Instant at) {
+
+        /**
+         * @throws NullPointerException     if a required component is {@code null}
+         * @throws IllegalArgumentException if the attempt is below 1
+         */
+        public HoldEndedReport {
+            Objects.requireNonNull(generationId, "generationId");
+            Objects.requireNonNull(queueTaskId, "queueTaskId");
+            Objects.requireNonNull(cause, "cause");
+            Objects.requireNonNull(at, "at");
+            if (attempt < 1) {
+                throw new IllegalArgumentException("'attempt' must not be below 1: " + attempt);
+            }
+        }
+    }
+
+    /**
+     * Why a hold ended, as the closed set this runtime raises: the token budget is the only cause a supervisor decides
+     * (Model Work § Continuing after a Question, Budget). A later cause extends this set, never a free string.
+     *
+     * @since 0.1
+     */
+    enum HoldEndCause {
+
+        /** The holding worker reached its token budget. */
+        TOKEN_BUDGET("token_budget");
+
+        private final String wireName;
+
+        HoldEndCause(String wireName) {
+            this.wireName = wireName;
+        }
+
+        /** @return the wire name the protocol's record carries */
+        public String wireName() {
+            return wireName;
+        }
     }
 
     /**

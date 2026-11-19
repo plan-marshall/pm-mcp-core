@@ -34,9 +34,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.JournalScope;
-import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.PlanHistory;
 import de.planmarshall.core.store.PlanHistoryLine;
 import de.planmarshall.core.store.ScopeTransaction;
@@ -77,25 +75,6 @@ class PlanHistoryEngineTest {
 
     private WorkflowStatusStore store;
 
-    /** A lock transaction that holds every key: the test is the only writer of its scope. */
-    private static final class HoldingEverything implements LockTransaction {
-
-        @Override
-        public void acquire(LockKey key) {
-            // every key is held already
-        }
-
-        @Override
-        public boolean holds(LockKey key) {
-            return true;
-        }
-
-        @Override
-        public void close() {
-            // nothing to release
-        }
-    }
-
     @BeforeEach
     void createScope() throws IOException {
         scope = JournalScope.plan(base, "pm-mcp-core", PLAN_ID);
@@ -106,7 +85,7 @@ class PlanHistoryEngineTest {
 
     /** Runs in one transaction of the plan and commits it, as one locked call of the runtime does. */
     private void committed(Consumer<ScopeTransaction> writing) {
-        try (var lock = new HoldingEverything()) {
+        try (var lock = EngineFixtures.holdingEverything()) {
             var transaction = ScopeTransaction.open(lock, scope, event -> {
                 // no audit record is owed
             }, Clock.fixed(T0, ZoneOffset.UTC));
@@ -121,8 +100,8 @@ class PlanHistoryEngineTest {
     void linesOfOneAdvance() {
         var engine = fixtures.engine(plan("execute.first", CHAIN));
 
-        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.first"), store, transaction, history,
-                INSTANCE_VERSION));
+        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.first", INSTANCE_VERSION), store,
+                transaction, history));
 
         var lines = history.read().records();
         assertAll(
@@ -147,10 +126,10 @@ class PlanHistoryEngineTest {
     @DisplayName("a second advance continues the sequence, one line number per line")
     void sequenceContinues() {
         var engine = fixtures.engine(plan("execute.first", CHAIN));
-        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.first"), store, transaction, history,
-                INSTANCE_VERSION));
-        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.second"), store, transaction, history,
-                INSTANCE_VERSION));
+        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.first", INSTANCE_VERSION), store,
+                transaction, history));
+        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.second", INSTANCE_VERSION), store,
+                transaction, history));
 
         var lines = history.read().records();
         assertAll(
@@ -172,14 +151,13 @@ class PlanHistoryEngineTest {
                         killed -> handed_back
                 """ + EngineFixtures.OTHER_FATES;
         var engine = fixtures.engine(plan("execute.run", states));
-        var resting = planStatus(EXECUTE, "execute.run").toBuilder()
+        var resting = planStatus(EXECUTE, "execute.run", INSTANCE_VERSION).toBuilder()
                 .activeJob(new WorkflowStatus.ActiveJob("execute.run",
                         "b-0000000000000001"))
                 .build();
 
         committed(transaction -> engine.advance(resting,
-                new EngineEvent.JobSettled("b-0000000000000001", "succeeded"), store, transaction, history,
-                INSTANCE_VERSION));
+                new EngineEvent.JobSettled("b-0000000000000001", "succeeded"), store, transaction, history));
 
         var lines = history.read().records();
         assertAll(
@@ -204,8 +182,8 @@ class PlanHistoryEngineTest {
                 """ + EngineFixtures.PLAN_RETURN);
         var engine = fixtures.engine(caller, sub);
 
-        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.commit"), store, transaction, history,
-                INSTANCE_VERSION));
+        committed(transaction -> engine.advance(planStatus(EXECUTE, "execute.commit", INSTANCE_VERSION), store,
+                transaction, history));
 
         var lines = history.read().records();
         assertAll(

@@ -158,6 +158,10 @@ to name it.
 * No new class starts a thread and none adds a timing literal: every value comes from the clock, the profile or the
   role artifact.
 
+NOTE: The sibling plan `continuation-hold-and-budget` landed: `WorkerCalls` carries `holdOpened`, `holdClosed` and
+`answerDelivered`, and `SupervisorCalls` implements them (ADR `runtime-worker/016`). What remains owed is the assembly's
+call of the entries.
+
 == Source
 
 Work package `worker-activity` and `runtime-control`; link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc[Model
