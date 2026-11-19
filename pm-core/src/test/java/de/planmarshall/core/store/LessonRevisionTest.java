@@ -191,6 +191,18 @@ class LessonRevisionTest {
         }
 
         @Test
+        @DisplayName("with a blank body is refused")
+        void withBlankBody() {
+            var lesson = create();
+            var lessonId = lesson.frontMatter().lessonId();
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> run(write -> store.revise(write, lessonId, "  \n", List.of(LessonFixtures.source()),
+                            false, CLOCK.instant())),
+                    "a revision with a blank body is refused");
+        }
+
+        @Test
         @DisplayName("of a retired lesson is refused and reports the state")
         void retired() {
             var lesson = create();

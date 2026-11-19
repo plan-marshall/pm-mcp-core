@@ -252,6 +252,14 @@ class LessonFrontMatterTest {
     }
 
     @Test
+    @DisplayName("a title that carries the DEL control character is refused")
+    void titleRefusesDel() {
+        var frontMatter = LessonFixtures.frontMatterBuilder().title("a\u007Fb");
+        assertThrows(IllegalArgumentException.class, frontMatter::build,
+                "a DEL in the title is refused at construction");
+    }
+
+    @Test
     @DisplayName("a claim and a merge origin are carried when the schema admits them")
     void optionalRecordsAreCarried() {
         var claimed = LessonFixtures.frontMatterBuilder()
