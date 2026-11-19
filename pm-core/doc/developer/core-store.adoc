@@ -1400,7 +1400,7 @@ A refresh made inside a scope transaction therefore takes `locks/derived-facts.l
 caller's lock is held, which is the place of `LockLevel.DERIVED_FACTS` in the total order. The lock manager asserts the
 order within one transaction only and does not see the caller's keys, so the order of a caller's transaction relative
 to the store's is a convention of the callers. An acquisition of a scope lock while the derived-facts lock is held,
-inside one transaction, is a violation the lock manager refuses.
+inside one transaction, is a violation the lock manager refuses (link:../adr/core-store/063-the-store-transaction-is-its-own-and-the-order-across-transactions-is-by-convention.adoc[ADR 063]).
 
 Two refreshers of the same fact do not overwrite a newer result with an older one: the write re-reads the entry and,
 when the stored entry carries the same digest with a later `derived_at`, keeps it and returns it

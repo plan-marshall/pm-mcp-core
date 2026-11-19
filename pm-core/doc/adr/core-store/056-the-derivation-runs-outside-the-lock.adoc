@@ -29,7 +29,8 @@ a newer result with an older one.
 The comparison is made on the callers' start instants: each caller passes its `now`, and `derived_at` records the
 instant its derivation started, not the instant it finished. The same-digest check runs before the outcome is applied,
 so a stored same-digest entry with a later `derived_at` is kept for a failure too. A failure has no further ordering
-check: when its stored entry has a different digest or no stored entry, it rewrites the entry `failed` (or `stale`,
+check: when its stored entry has a different digest or no stored entry, or a same-digest entry with an earlier or equal
+`derived_at` (where `isAfter(now)` is false and the failure is applied), it rewrites the entry `failed` (or `stale`,
 when it carried a value) whatever its start instant. A failure that started later and commits after an earlier-started
 success of the same digest wins; a failure that commits before that success can be overwritten by it. That gap of the
 write rule is reported by PLAN-V2-111 and not changed there, because the plan touches production only in `validated`.
