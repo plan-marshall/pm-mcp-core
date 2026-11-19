@@ -14,9 +14,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
 import de.planmarshall.workflow.ast.CallFrame;
@@ -153,9 +156,13 @@ public record CallStack(List<CallFrame> frames) {
     private static WorkflowStatus.CallFrame toStoreFrame(CallFrame frame) {
         var args = new LinkedHashMap<String, BoundArg>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toBoundArg(value)));
+        var commandId = frame.commandId() != null ? frame.commandId() : CommandId.random();
+        var correlationId = frame.correlationId() != null ? frame.correlationId()
+                : CorrelationId.random();
         return WorkflowStatus.CallFrame.builder().callerWorkflowId(frame.callerWorkflowId())
                 .callerStateId(frame.callerStateId()).subworkflowId(frame.subWorkflowId()).entry(frame.entry())
-                .boundArgs(args).pushedAt(Instant.parse(frame.pushedAt())).build();
+                .boundArgs(args).argSources(Map.of()).commandId(commandId).correlationId(correlationId)
+                .pushedAt(Instant.parse(frame.pushedAt())).build();
     }
 
     private static CallFrame fromStoreFrame(WorkflowStatus.CallFrame frame) {
@@ -167,6 +174,8 @@ public record CallStack(List<CallFrame> frames) {
                 .subWorkflowId(frame.subworkflowId())
                 .entry(frame.entry())
                 .boundArgs(args)
+                .commandId(frame.commandId())
+                .correlationId(frame.correlationId())
                 .pushedAt(frame.pushedAt().toString())
                 .build();
     }
@@ -176,6 +185,7 @@ public record CallStack(List<CallFrame> frames) {
             case CallValue.EnumValue(var text) -> new BoundArg.StringArg(text);
             case CallValue.IntValue(var number) -> new BoundArg.IntegerArg(number);
             case CallValue.EnumList(var texts) -> new BoundArg.StringSetArg(new LinkedHashSet<>(texts));
+            case CallValue.SlotRef(var name) -> new BoundArg.StringArg("slot." + name);
         };
     }
 

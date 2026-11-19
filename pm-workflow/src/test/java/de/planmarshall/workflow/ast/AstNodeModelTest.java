@@ -217,7 +217,7 @@ class AstNodeModelTest {
             var inputs = new ArrayList<>(List.of(pushMode));
             var frontmatter = new UnitFrontmatter(Generators.letterStrings(3, 100).next(),
                     Generators.letterStrings(1, 100).next(), UnitType.SUBWORKFLOW, "workflow.default", List.of(),
-                    List.of(), readsConfig, readsFact, inputs, LocalDate.of(2026, 1, 15), "0.1.0", "plan-marshall",
+                    List.of(), readsConfig, readsFact, inputs, List.of(), LocalDate.of(2026, 1, 15), "0.1.0", "plan-marshall",
                     null, LOCATION);
 
             readsConfig.clear();
@@ -423,7 +423,7 @@ class AstNodeModelTest {
         @Test
         @DisplayName("a state keeps a null terminal outcome, skill and facts primitive")
         void stateKeepsNull() {
-            var state = new StateNode(text(), null, null, null, new StateBehavior.InteractiveLinks(List.of()),
+            var state = new StateNode(text(), null, null, null, null, new StateBehavior.InteractiveLinks(List.of()),
                     LOCATION);
 
             assertAll(
@@ -496,7 +496,7 @@ class AstNodeModelTest {
             var call = new StateBehavior.SubWorkflowCall(Generators.letterStrings(1, 8).next(), null,
                     bindings, List.of());
             var frame = new CallFrame(Generators.letterStrings(1, 8).next(), Generators.letterStrings(1, 8).next(),
-                    Generators.letterStrings(1, 8).next(), entry, bindings, "2026-01-01T00:00:00Z");
+                    Generators.letterStrings(1, 8).next(), entry, bindings, null, null, "2026-01-01T00:00:00Z");
             var boundArgs = frame.boundArgs();
 
             assertAll(
@@ -680,7 +680,7 @@ class AstNodeModelTest {
     }
 
     private static StateNode terminalState(String id) {
-        return new StateNode(id, new TerminalOutcome(id, OutcomeClass.SUCCESS), null, null,
+        return new StateNode(id, new TerminalOutcome(id, OutcomeClass.SUCCESS), null, null, null,
                 new StateBehavior.TerminalState(), LOCATION);
     }
 
@@ -749,6 +749,7 @@ class AstNodeModelTest {
             case CallValue.EnumValue enumValue -> enumValue.value();
             case CallValue.IntValue intValue -> Integer.toString(intValue.value());
             case CallValue.EnumList list -> list.values().toString();
+            case CallValue.SlotRef slotRef -> "slot." + slotRef.name();
         };
     }
 

@@ -33,6 +33,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.transport.URIish;
+import org.eclipse.jgit.treewalk.TreeWalk;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -106,7 +107,7 @@ class JGitOperationsTest {
     }
 
     private CommitInfo commitIn(Path root, String message) {
-        GitResult<CommitInfo> result = git.commit(new CommitInput(root, message, author, agent));
+        GitResult<CommitInfo> result = git.commit(new CommitInput(root, message, author, agent, List.of()));
         assertEquals(GitOutcome.OK, result.outcome(), "the fixture commit is recorded");
         return result.value();
     }
@@ -148,7 +149,7 @@ class JGitOperationsTest {
                     () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.log(plain, HEAD, 1).outcome(),
                             "log refuses a plain directory"),
                     () -> assertEquals(GitOutcome.NOT_A_REPOSITORY,
-                            git.commit(new CommitInput(plain, text(), author, agent)).outcome(),
+                            git.commit(new CommitInput(plain, text(), author, agent, List.of())).outcome(),
                             "commit refuses a plain directory"),
                     () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.worktreeList(plain).outcome(),
                             "worktreeList refuses a plain directory"));
@@ -176,9 +177,66 @@ class JGitOperationsTest {
         @Test
         @DisplayName("reports nothing to commit")
         void nothingToCommit() {
-            var result = git.commit(new CommitInput(repo, text(), author, agent));
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
 
             assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(), "a clean tree has nothing to commit");
+        }
+
+        @Test
+        @DisplayName("commits only the listed paths, leaving a pre-staged and a dirty path out")
+        void commitsOnlyListedPaths() throws Exception {
+            var staged = file();
+            var listed = file();
+            var dirty = file();
+            write(staged, text());
+            write(listed, text());
+            write(dirty, text());
+            // pre-stage the unrelated file in the index, as another writer would
+            try (var jgit = Git.open(repo.toFile())) {
+                jgit.add().addFilepattern(staged).call();
+            }
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(listed)));
+
+            var commit = result.value();
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the subset commit is recorded"),
+                    () -> assertTrue(inCommit(commit.id(), listed), "the listed path is committed"),
+                    () -> assertFalse(inCommit(commit.id(), staged),
+                            "the pre-staged path is not carried into the commit"),
+                    () -> assertFalse(inCommit(commit.id(), dirty), "the dirty unlisted path is left out"));
+        }
+
+        @Test
+        @DisplayName("commits a deletion named in the listed paths")
+        void commitsListedDeletion() throws Exception {
+            Files.delete(repo.resolve("README.md"));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the deletion commit is recorded"),
+                    () -> assertFalse(inCommit(result.value().id(), "README.md"),
+                            "the deleted path is gone from the committed tree"));
+        }
+
+        @Test
+        @DisplayName("a listed path without a change reports nothing to commit")
+        void listedPathWithoutChange() {
+            // README.md was committed at setUp and is tracked and unchanged, so the subset staged for it is empty
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                            "a subset without a change commits nothing"),
+                    () -> assertEquals("no changes", result.detail(), "the refusal names the empty change set"));
+        }
+
+        private boolean inCommit(String commitId, String path) throws Exception {
+            try (var jgit = Git.open(repo.toFile())) {
+                var tree = jgit.getRepository().parseCommit(
+                        jgit.getRepository().resolve(commitId)).getTree();
+                return TreeWalk.forPath(jgit.getRepository(), path, tree) != null;
+            }
         }
 
         @Test
@@ -548,7 +606,7 @@ class JGitOperationsTest {
             String before = git.open(repo).value().head();
             write(file(), text());
 
-            var result = git.commit(new CommitInput(repo, text(), author, agent));
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
 
             assertAll(
                     () -> assertEquals(GitOutcome.CAPABILITY_MISSING, result.outcome(),
@@ -572,7 +630,7 @@ class JGitOperationsTest {
             }
             write(file(), text());
 
-            var result = git.commit(new CommitInput(repo, text(), author, agent));
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
 
             assertAll(
                     () -> assertEquals(GitOutcome.CAPABILITY_MISSING, result.outcome(),

@@ -19,6 +19,8 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
 import de.planmarshall.core.store.WorkflowStatus.CallFrame;
 import de.planmarshall.core.store.WorkflowStatus.Integrity;
@@ -39,7 +41,7 @@ class WorkflowStatusBuilderContractTest {
     void builderBuildsWorkflowStatus() {
         var canonical = new WorkflowStatus(JournalScopeType.PLAN, "plan-core", "phase-5-execute",
                 "execute.step", List.of(), 3, 0, 0, Map.of(), List.of(), RetryCounters.empty(), null, Map.of(),
-                Map.of(), null, AT, Map.of());
+                Map.of(), null, Map.of(), AT, Map.of());
 
         var built = WorkflowStatus.builder().scopeType(canonical.scopeType()).scopeId(canonical.scopeId())
                 .phase(canonical.phase()).state(canonical.state()).callStack(canonical.callStack())
@@ -50,6 +52,7 @@ class WorkflowStatusBuilderContractTest {
                 .waiverRequests(canonical.waiverRequests()).retryCounters(canonical.retryCounters())
                 .activeJob(canonical.activeJob()).activeJobs(canonical.activeJobs())
                 .activeTasks(canonical.activeTasks()).pendingCondition(canonical.pendingCondition())
+                .slots(canonical.slots())
                 .updatedAt(canonical.updatedAt()).retained(canonical.retained()).build();
 
         var fromConstructor = assertThrows(NullPointerException.class,
@@ -58,7 +61,7 @@ class WorkflowStatusBuilderContractTest {
                         canonical.outlineLoopBacks(), canonical.policyCounters(),
                         canonical.waiverRequests(), canonical.retryCounters(), canonical.activeJob(),
                         canonical.activeJobs(), canonical.activeTasks(), canonical.pendingCondition(),
-                        canonical.updatedAt(), canonical.retained()),
+                        canonical.slots(), canonical.updatedAt(), canonical.retained()),
                 "the constructor refuses an absent scope type");
         var incomplete = WorkflowStatus.builder().scopeId(canonical.scopeId()).phase(canonical.phase())
                 .state(canonical.state()).callStack(canonical.callStack())
@@ -68,7 +71,7 @@ class WorkflowStatusBuilderContractTest {
                 .waiverRequests(canonical.waiverRequests())
                 .retryCounters(canonical.retryCounters()).activeJob(canonical.activeJob())
                 .activeJobs(canonical.activeJobs()).activeTasks(canonical.activeTasks())
-                .pendingCondition(canonical.pendingCondition()).updatedAt(canonical.updatedAt())
+                .pendingCondition(canonical.pendingCondition()).slots(canonical.slots()).updatedAt(canonical.updatedAt())
                 .retained(canonical.retained());
         var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent scope type");
@@ -83,20 +86,26 @@ class WorkflowStatusBuilderContractTest {
     @DisplayName("the builder builds the constructor's call frame")
     void builderBuildsCallFrame() {
         var canonical = new CallFrame("finalize", "finalize.settle", "git.commit_and_push", "commit",
-                Map.<String, BoundArg>of("message_mode", new BoundArg.StringArg("step_or_fallback")), AT);
+                Map.<String, BoundArg>of("message_mode", new BoundArg.StringArg("step_or_fallback")), Map.of(),
+                CommandId.random(), CorrelationId.random(), AT);
 
         var built = CallFrame.builder().callerWorkflowId(canonical.callerWorkflowId())
                 .callerStateId(canonical.callerStateId()).subworkflowId(canonical.subworkflowId())
-                .entry(canonical.entry()).boundArgs(canonical.boundArgs()).pushedAt(canonical.pushedAt())
+                .entry(canonical.entry()).boundArgs(canonical.boundArgs())
+                .argSources(canonical.argSources()).commandId(canonical.commandId())
+                .correlationId(canonical.correlationId()).pushedAt(canonical.pushedAt())
                 .build();
 
         var fromConstructor = assertThrows(NullPointerException.class,
                 () -> new CallFrame(null, canonical.callerStateId(), canonical.subworkflowId(),
-                        canonical.entry(), canonical.boundArgs(), canonical.pushedAt()),
+                        canonical.entry(), canonical.boundArgs(), canonical.argSources(),
+                        canonical.commandId(), canonical.correlationId(), canonical.pushedAt()),
                 "the constructor refuses an absent caller workflow");
         var incomplete = CallFrame.builder().callerStateId(canonical.callerStateId())
                 .subworkflowId(canonical.subworkflowId()).entry(canonical.entry())
-                .boundArgs(canonical.boundArgs()).pushedAt(canonical.pushedAt());
+                .boundArgs(canonical.boundArgs()).argSources(canonical.argSources())
+                .commandId(canonical.commandId()).correlationId(canonical.correlationId())
+                .pushedAt(canonical.pushedAt());
         var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent caller workflow");
 

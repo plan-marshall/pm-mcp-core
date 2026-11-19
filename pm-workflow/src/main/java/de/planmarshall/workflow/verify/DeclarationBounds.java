@@ -284,6 +284,7 @@ public final class DeclarationBounds {
             case CallValue.IntValue(var number) -> Integer.toString(number);
             case CallValue.EnumValue(var text) -> "'%s'".formatted(text);
             case CallValue.EnumList(var values) -> values.toString();
+            case CallValue.SlotRef(var name) -> "slot." + name;
         };
     }
 

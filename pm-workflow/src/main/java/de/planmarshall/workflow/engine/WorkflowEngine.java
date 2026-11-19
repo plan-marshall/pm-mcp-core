@@ -24,7 +24,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.random.RandomGenerator;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
@@ -161,6 +164,8 @@ public final class WorkflowEngine {
     private final QueueTaskCreator tasks;
     private final QuestionRecordReader questions;
     private final WorkflowClock clock;
+    private final RandomGenerator ids;
+    private final @Nullable InputBindingContext bindingContext;
     private final @Nullable InstanceComposition composition;
     private final @Nullable InstanceUnits versionUnits;
 
@@ -178,6 +183,8 @@ public final class WorkflowEngine {
      */
     @Builder
     public record Ports(JobStarter jobs, QueueTaskCreator tasks, QuestionRecordReader questions, WorkflowClock clock,
+    RandomGenerator ids,
+    @Nullable InputBindingContext bindingContext,
     @Nullable InstanceComposition composition,
     @Nullable InstanceUnits units) {
 
@@ -187,6 +194,7 @@ public final class WorkflowEngine {
             Objects.requireNonNull(tasks, "tasks");
             Objects.requireNonNull(questions, "questions");
             Objects.requireNonNull(clock, "clock");
+            Objects.requireNonNull(ids, "ids");
         }
     }
 
@@ -251,6 +259,8 @@ public final class WorkflowEngine {
         this.tasks = ports.tasks();
         this.questions = ports.questions();
         this.clock = ports.clock();
+        this.ids = ports.ids();
+        this.bindingContext = ports.bindingContext();
         this.composition = ports.composition();
         this.versionUnits = ports.units();
         var verified = new LinkedHashMap<String, WorkflowDefinition>();
@@ -460,14 +470,18 @@ public final class WorkflowEngine {
             case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(_, var fate) ->
                 run.chain(run.leftTo(node, transitionOf(node, job.transitions(), fate, Map.of()).targetStateId(),
                         fate));
-            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(_, var outcome) ->
-                run.chain(run.leftTo(node, transitionOf(node, modelJob.transitions(), outcome, Map.of())
+            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(var outcomes, var submissions, var outcome) -> {
+                run.fillSlotFromTask(node, outcomes, submissions);
+                yield run.chain(run.leftTo(node, transitionOf(node, modelJob.transitions(), outcome, Map.of())
                         .targetStateId(), outcome));
+            }
             case StateBehavior.QuestionWait question when event instanceof EngineEvent.QuestionResolved resolved ->
                 resolve(run, status, node, question, resolved);
-            case StateBehavior.InteractiveLinks links when event instanceof EngineEvent.OperatorAct act ->
-                run.chain(run.runPrimitive(node, primitiveOf(linkOf(links, act)),
+            case StateBehavior.InteractiveLinks links when event instanceof EngineEvent.OperatorAct act -> {
+                run.fillSlotFromOperator(node, act);
+                yield run.chain(run.runPrimitive(node, primitiveOf(linkOf(links, act)),
                         linkOf(links, act).transitions(), act.parameters()));
+            }
             default -> throw new IllegalStateException("the state '%s' accepted %s, which it cannot route"
                     .formatted(node.id(), event));
         };
@@ -883,12 +897,16 @@ public final class WorkflowEngine {
             this(status, null, null);
         }
 
+        /** The correlation id of this advance: one per Run, shared by every frame it pushes. */
+        private final CorrelationId correlationId;
+
         Run(WorkflowStatus status, @Nullable PlanHistory history, @Nullable ScopeTransaction transaction) {
             this.status = status;
             this.stack = CallStack.fromStore(status.callStack());
             this.history = history;
             this.transaction = transaction;
             this.instanceVersion = status.instanceVersionInForce().orElse(1);
+            this.correlationId = CorrelationId.random(ids);
             for (var index = 0; index < stack.depth(); index++) {
                 results.push(new LinkedHashMap<>());
             }
@@ -969,6 +987,43 @@ public final class WorkflowEngine {
         /** Records that the state was left, with the outcome its transition was chosen by. */
         void leave(StateNode node, String outcome) {
             record(PlanHistoryLine.Event.LEFT, node.id(), outcome);
+        }
+
+        /** Fills the state's slot from the accepted task submission, when the state declares a fills clause. */
+        void fillSlotFromTask(StateNode node, Map<String, String> taskOutcomes,
+                Map<String, Map<String, String>> submissions) {
+            var fills = node.fills();
+            if (fills == null) {
+                return;
+            }
+            for (var entry : submissions.entrySet()) {
+                if (!taskOutcomes.containsKey(entry.getKey())) {
+                    continue;
+                }
+                var value = entry.getValue().get(fills.fromParam());
+                if (value != null) {
+                    storeSlot(fills.slotName(), value, "task_submit", entry.getKey());
+                    return;
+                }
+            }
+        }
+
+        /** Fills the state's slot from the operator act, when the state declares a fills clause. */
+        void fillSlotFromOperator(StateNode node, EngineEvent.OperatorAct act) {
+            var fills = node.fills();
+            if (fills == null) {
+                return;
+            }
+            var value = act.parameters().get(fills.fromParam());
+            if (value != null) {
+                storeSlot(fills.slotName(), value, "operator_answer", act.linkId());
+            }
+        }
+
+        private void storeSlot(String name, String value, String source, String sourceRef) {
+            var slots = new LinkedHashMap<>(status.slots());
+            slots.put(name, new WorkflowStatus.Slot(value, source, sourceRef, clock.now()));
+            status = status.toBuilder().slots(slots).build();
         }
 
         /** Records the state as left and returns the target its transition was chosen for. */
@@ -1309,6 +1364,8 @@ public final class WorkflowEngine {
                     .subWorkflowId(callee.id())
                     .entry(entry)
                     .boundArgs(call.paramBindings())
+                    .commandId(CommandId.random(ids))
+                    .correlationId(correlationId)
                     .pushedAt(clock.now().toString())
                     .build();
             record(PlanHistoryLine.Event.CALLED, callee.id(), null);

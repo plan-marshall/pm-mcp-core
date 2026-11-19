@@ -66,15 +66,15 @@ Five deliverables, one commit each, in this order (the rationale for five: each 
 All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: `JobConfinementComposer.forJob` (`:145`, case `LLM` `:176`, case `PROBE` `:182`) composes the write set; `JobConfinement` writes `--write`, `--read`, `--deny-read` (`pm-runtime/src/main/java/de/planmarshall/runtime/job/`).
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: JobConfinementComposer.forJob :151 (case LLM :183, case PROBE :190) composes the write set; JobConfinement constants WRITE `--write` :49, READ `--read` :52, DENY_READ `--deny-read` :58 (cited lines drifted by 6-8).
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: JobConfinementComposer.forJob :151, LLM :183, PROBE :190; JobConfinement WRITE :49, READ :52, DENY_READ :58, READ_ONLY :55
 - OBSERVED: `readable_paths` is required in `harness-profile-v1.schema.json` (`:356,420`), pinned as `UNIMPLEMENTED_HEADLESS` in `HarnessProfileSchemaParityTest.java:49`, absent from `ProfileValidator` and `HeadlessBlock`; `writablePaths()` has no credential rule (`ProfileValidator.java:~945-962`).
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: readable_paths required in schema :359/:423, pinned UNIMPLEMENTED_HEADLESS in HarnessProfileSchemaParityTest :53, no hit in ProfileValidator/HeadlessBlock; ProfileValidator.writablePaths :1005-1021 has no credential-location rule.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: schema :359 and required :423; pin HarnessProfileSchemaParityTest:53; no readable_paths in ProfileValidator or HeadlessBlock
 - OBSERVED: `SubprocessJobRunner.startProbe` (`:649`) and `startWorker` (`:549`) have no production caller; `forProbe` is called with `List.of()` (`:~709`); the hook flag is `false` (`:~960`); the data-home variable is `null` (`:578-579`); `WorkerSupervisor.java:315` passes `egressProxy(null)`.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: SubprocessJobRunner.startProbe :693 only tests call it; startWorker :577 is reached only via the forwarding adapter SupervisorEnvironment.WorkerStarter.over :147 that nothing in src/main builds; forProbe(...List.of()...) :753; WorkerSupervisor.java:315 egressProxy(null).
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: startProbe :694 and startWorker :578 have no production caller; forProbe :754-755; WorkerSupervisor:315
 - OBSERVED: the real `pm-exec` report is `{"pm_exec":"launched",...,"no_new_privs":b}` (`pm-mcp-clients` `Launcher.java:79-81`) while `LaunchReport.parse` refuses undeclared members (`:164`) and `FakePmExec` omits them: PLAN-V2-149 aligns it.
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Rests on pm-mcp-clients Launcher.java:79-81, another repository not reachable; in-repo LaunchReport.parse does throw StrictJson.undeclared (:171) for unknown members.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-exec Launcher.java:79-81 emits pm_exec and no_new_privs; LaunchReport.parse :171; FakePmExec:61-73 omits both
 - HYPOTHESIS: the credential-location list of the specification can be copied as a closed list into `CredentialLocations`; verify-first by reading `job-runtime/02-confinement-and-environment.adoc`; a location the specification names by pattern is carried as the pattern.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: job-runtime/02-confinement-and-environment.adoc :76 lists the compiled credential locations as explicit paths (~/.ssh ... ~/.config/glab-cli, macOS ~/Library/Keychains), no patterns; no CredentialLocations class exists yet; #484 left :76 unchanged.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: job-runtime/02:76 lists 16 explicit paths, no patterns; no CredentialLocations class
 
 ## Expected Surface
 
@@ -86,12 +86,22 @@ All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; 
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 
+- OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeCandidate.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HeadlessBlock.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java`, `pm-runtime/src/main/resources/de/planmarshall/runtime/start/login-environment.schema.json`.
+
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-27 (shipped, #161: the composition), PLAN-V2-29, 30, 53 (shipped), PLAN-V2-83; the `pm-mcp-clients` rows `exec-listed-read-set`, `exec-socket-list` (open: the enforcement, owed outside).
+- Depends on: old PLAN-27 (predecessor epic) (shipped, #161: the composition), old PLAN-29 (predecessor epic), old PLAN-30 (predecessor epic), PLAN-V2-53 (shipped), PLAN-V2-83; the `pm-mcp-clients` rows `exec-listed-read-set`, `exec-socket-list` (open: the enforcement, owed outside).
 - **Order: after PLAN-V2-134 (`git-metadata-out-of-workers-reach`) and PLAN-V2-59 (`egress-record`)** for the `JobConfinement`, `JobConfinementComposer`, `PmExecLauncher` and `FakePmExec` edits (134 adds `readOnlyPaths` and invents `--read-only`; 59 edits `JobRecord` and `SubprocessJobRunner`; PLAN-V2-59 is stale against the schema files since #404 and needs a re-ground before its emit); Deliverable 1 (the profile side) is independent and may run first. After PLAN-V2-137 where its builder call sites touch the job tests, and after the profile plans on `ProfileValidator` (68, 63, 71, 135).
 - Overlaps at class level, decided by the gate at emit: PLAN-V2-134, 59 (above), 145 (the gate reads the `paths` stage; this plan adds none), 147 (the stage model: owns the `paths` stage), 17 (consumes `JobConfinementComposer`, `JobEnvironmentComposer`, `ProbeCandidate`: must not break them), 126 and 141 (the job test trees).
 - Not here: the enforcement (`pm-exec` in `pm-mcp-clients`: listed read mode, socket list, seccomp, the self-check mode, namespaces, macOS Seatbelt), the relay `pm-mcp serve --job` and the supervision loop and wiring (the assembly), the production start of `WorkerEgressProxy` (PLAN-V2-59's spec forbids it), Tasks 1 `abi=2`, 3 gaps, 9 to 12 (PLAN-V2-149), the concept document (the documentation repository).
+
+## Re-ground record (cleanup 2026-11-19 at `e2ae8627`, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf over this spec (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass (`d506e818`) #484, #490, #494, #495, #496, #503, #504, #506, #511 and #512 merged. Where this section and an older text of this spec differ, this section is the later reading.
+
+- Dependency ids: `PLAN-V2-27`, `PLAN-V2-29` and `PLAN-V2-30` in the Depends-on line are OLD ids of the predecessor epic `pm-mcp-core-m2-m4` (old PLAN-27 job-confinement-and-environment #161, PLAN-29 worker-launch #172, PLAN-30 supervisor #190, PLAN-66 worker-activity #198), not the parked V2 plans of the same number; all are met at HEAD. `PLAN-V2-53` (`outbound-calls-guard`, #365) is correct. The Depends-on line is rewritten.
+- #469 (134) and #487 (59) are shipped; `--read-only` exists (`JobConfinement:55`) and the listed mode must coexist with it; the package file's Task 10 is now `confinement` and `seccomp` only and Task 11 (git metadata) is done (self-check 12, git identity 13, concept 14); #484: an ABI-1 kernel is `unavailable` (`job-runtime/02:51`). ProfileValidator HEADLESS sets are at `:212`, `:218`.
+- Understated: `HeadlessBlock.java`, `login-environment.schema.json`, `ProbeCandidate`, `ProbeBudget`, `WorkerSupervisor`.
 
 ## Hand-Off Command
 

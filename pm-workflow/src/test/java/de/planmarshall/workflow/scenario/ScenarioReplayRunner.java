@@ -522,7 +522,7 @@ final class ScenarioReplayRunner {
         } catch (IllegalArgumentException e) {
             throw new ScenarioFailure(line, "the worker of role %s: %s".formatted(task.role(), e.getMessage()));
         }
-        advanceAt(line, new EngineEvent.TasksSettled(Map.of(entities.getFirst(), taskOutcome), evaluated));
+        advanceAt(line, new EngineEvent.TasksSettled(Map.of(entities.getFirst(), taskOutcome), Map.of(), evaluated));
     }
 
     /** Asserts the state of a protocol worker's task, read from its queue record. */

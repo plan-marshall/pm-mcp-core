@@ -1,0 +1,71 @@
+= ADR workflow-engine 018: The Bind Lives in the Call
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+`WorkflowEngine.call` pushes a frame with the bound arguments of the call site as they were parsed and validates nothing.
+The order in which an omitted input takes its value — the call site, the `input_fallback` configuration value, the
+compiled default, absence under `?` — is stated by ADR `workflow-dsl/014` and by the Javadoc of `ast.InputDecl`, but no
+code resolves it: a unit whose call omits a defaulted input runs with the value absent.
+
+With typed inputs the bind also has to validate a value (its type, the worktree confinement, the scope's staging set),
+record where it came from, and consume the slot it read. All of that is one decision per call, and it is the last point
+at which the engine still knows which call is entering which callee.
+
+== Decision
+
+* The bind lives in `WorkflowEngine.call`. It resolves every declared input of the callee in the order of ADR
+  `workflow-dsl/014`: the value bound at the call site; else the `input_fallback` configuration value; else
+  `input_default`; else absent when the type carries the `?`; else the call is refused.
+* It validates every value it resolves with `InputValidator`, `PathConfinement.confine` and the staging set, which the new
+  port `InputBindingContext` of `Ports` supplies: the worktree root, the staging set, and the configuration value by key
+  (the last for the `input_fallback`).
+* It writes `bound_args` and `arg_sources` into the pushed frame, with the `command_id` it draws for the call and the
+  `correlation_id` of the current `Run` (link:../../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076]),
+  and clears the consumed slots in the same transaction.
+* A refusal raises the condition `precondition_unmet`: reason `input_refused` (naming the input and the rule) for a value
+  that does not fit, reason `input_unbound` for an input no state filled. Both carry the bounded self-remedy, because
+  their cause can clear.
+
+**Status of this decision: the target contract is stated above; the call-time bind itself is deferred (PLAN-V2-15 D3).**
+The persistence model (the frame's `bound_args`, `arg_sources`, `command_id`, `correlation_id`, and the scope-level
+`slots`), the slot fill and the provenance model are implemented. `WorkflowEngine.call` does not yet resolve, validate or
+record the inputs, and does not yet consume a slot; `InputBindingContext` exists as a port but is not yet read by the
+engine. The deferred bind is the D3 deliverable.
+
+== Alternatives Considered
+
+* *The bind in the primitive that consumes the value.* Not taken: a primitive sees one input, not the interface of the
+  callee; a call whose callee needs no primitive would never bind; and the frame must record the provenance at the
+  push, not later.
+* *The bind at the submit or the act only.* Not taken: the staging set may have changed between the fill and the call, and
+  the operator's answer is an act the caller records, not a call.
+* *An exception for a refused value.* Not taken: a refusal is a condition of the scope with a bounded remedy, and the
+  engine has no exception path for a value (R09, ADR `workflow-verify/013`).
+
+== Consequences
+
+* The call frame is the persisted decision: a restart between the fill and the call resumes from the pair (state, slot
+  recorded) and binds once, not once per attempt.
+* The engine opens no connection and reads no filesystem: the assembly implements `InputBindingContext` — the worktree
+  root, the staging set of the scope, and the effective configuration value by key.
+* `EngineEvent.TasksSettled` gains `submissions` (entity to argument name to text) so a task state can fill a slot; the
+  event's producer is outside this repository and learns of the change with the deployed `SNAPSHOT`.
+* A unit that declares a typed input without a `fills` clause on any path still verifies where the dominance check is not
+  afforded; the bind refuses with `input_unbound`.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 6)
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stages 3 and 4)
+* link:../../developer/workflow-engine.adoc#_the_input_bind[Workflow Engine Developer Guide § The Input Bind at a Call]
+* `PLAN-V2-15` deliverable 3

@@ -80,7 +80,7 @@ final class ScriptedFixtureWorker {
             throw new IllegalStateException("the worker of role %s: %s".formatted(role, e.getMessage()), e);
         }
         settled.add(outcome);
-        return new EngineEvent.TasksSettled(Map.of(entityKey, outcome), evaluated);
+        return new EngineEvent.TasksSettled(Map.of(entityKey, outcome), Map.of(), evaluated);
     }
 
     /** @return the outcome of the last task the worker settled; empty before its first */

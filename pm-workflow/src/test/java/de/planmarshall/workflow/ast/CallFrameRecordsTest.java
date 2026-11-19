@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 
 /**
  * Proves that the builder of {@link CallFrame} builds the value its canonical constructor builds. Every value is
@@ -38,14 +40,19 @@ class CallFrameRecordsTest {
         var boundArgs = Map.<String, CallValue>of(Generators.letterStrings(1, 20).next(),
                 new CallValue.EnumValue(Generators.letterStrings(1, 20).next()));
         var pushedAt = Generators.letterStrings(1, 20).next();
+        var commandId = CommandId.random();
+        var correlationId = CorrelationId.random();
 
-        var constructed = new CallFrame(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs, pushedAt);
+        var constructed = new CallFrame(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs,
+                commandId, correlationId, pushedAt);
         var built = CallFrame.builder()
                 .callerWorkflowId(callerWorkflowId)
                 .callerStateId(callerStateId)
                 .subWorkflowId(subWorkflowId)
                 .entry(entry)
                 .boundArgs(boundArgs)
+                .commandId(commandId)
+                .correlationId(correlationId)
                 .pushedAt(pushedAt)
                 .build();
 

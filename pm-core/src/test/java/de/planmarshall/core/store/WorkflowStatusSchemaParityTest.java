@@ -66,8 +66,10 @@ class WorkflowStatusSchemaParityTest {
         properties = SchemaResource.object(schema.get("properties"));
     }
 
-    @Disabled("the specification added members of the status store; "
-            + "re-enabled by the work package process-and-overview")
+    @Disabled("the schema carries members of the process-and-overview work package "
+            + "(title, created_at, phase_entered_at, pause, terminal_reason, setup_aspect, "
+            + "outline_review_revisions) that WorkflowStatusCodec.MEMBERS does not; reconciling them is that "
+            + "package's, not PLAN-V2-15's")
     @Test
     @DisplayName("the members of the codec are the members of the schema in schema order")
     void membersEqualSchema() {

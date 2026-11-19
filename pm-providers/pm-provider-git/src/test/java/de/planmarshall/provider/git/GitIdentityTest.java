@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.ObjectId;
@@ -74,7 +75,7 @@ class GitIdentityTest {
     }
 
     private CommitInfo commit() {
-        var result = git.commit(new CommitInput(repo, Generators.letterStrings(3, 30).next(), author, agent));
+        var result = git.commit(new CommitInput(repo, Generators.letterStrings(3, 30).next(), author, agent, List.of()));
         assertEquals(GitOutcome.OK, result.outcome(), "the fixture commit is recorded");
         return result.value();
     }

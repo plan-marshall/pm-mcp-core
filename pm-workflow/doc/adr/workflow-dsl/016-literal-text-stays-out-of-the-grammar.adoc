@@ -1,0 +1,55 @@
+= ADR workflow-dsl 016: Literal Text Stays Out of the Grammar
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+A call site binds literal values today: an enum value, a non-negative integer, and a list of enum values. There is no
+string token in the lexer, so a unit can never carry free text of its own, and a model that writes a unit can never
+smuggle a value into a call that the unit's interface did not declare.
+
+The call-time channel needs text and paths at a call. The obvious way to spell them is a quoted string literal at the
+call site: `call git.commit_and_push (message = "feat: …", files = ["a", "b"])`. That would put model-authored text into
+a command-bearing unit, bypass the typed slot, and give the printer a form whose escape rules would have to be invented.
+
+== Decision
+
+* The grammar keeps no string token and no text or path literal. A `text`, `commit_message`, `path` or `list<path>` input
+  is bound only from a slot, `param_name = slot.<name>`; Rule 6 refuses a literal binding of one of those types.
+* The provenance `literal` therefore keeps its meaning: it covers an enum value, an integer and a list of enum values,
+  and nothing else.
+* The value of a typed input arrives at the bind: from a task submission, from an operator answer, from an
+  `input_fallback` configuration key or from a compiled default, each recorded in the frame's `arg_sources`.
+
+== Alternatives Considered
+
+* *A quoted string literal at the call site.* Not taken: it carries model-authored text in a unit, skips the slot and the
+  typed check at the submit, and needs an escape grammar the DSL does not have.
+* *A block scalar for a multi-line message.* Not taken: the same objections, plus a second multi-line form in a
+  line-oriented grammar.
+* *An enum-like closed list of texts.* Not taken: a commit message and a path are open by nature; a closed list would be
+  a configuration key, not a type.
+
+== Consequences
+
+* The lexer, the parser and the printer stay free of string escapes; a `#` keeps starting a comment and a JSON header of
+  an `instance` keeps being one token.
+* A unit that needs a text declares a slot and a `fills` clause
+  (link:015-the-fills-clause-sits-on-the-state.adoc[ADR 015]); where no path fills it, the bind refuses with
+  `input_unbound`, and Rule 6 refuses a literal in its place.
+* A project copy cannot write the value into the unit: there is no text to write. It can only keep or change the type,
+  which `INV-GEN-1` compares.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL § Formal EBNF Grammar]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 6)
+* link:../../developer/workflow-dsl.adoc#slots-and-fills[Workflow DSL Developer Guide § Slots, `fills` and the Typed Inputs]
+* `PLAN-V2-15` deliverable 2

@@ -30,10 +30,15 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/R
 `WorkflowEngine`:: The interpreter of one top-level unit. The constructor takes the unit, the `WorkflowCatalog` of
 callable sub-workflows, the `WorkflowValidator`, the `PrimitiveRegistry`, a `ParameterBinder` that binds the
 parameter record of a primitive from the status, and the `Ports` record (`JobStarter`, `QueueTaskCreator`,
-`QuestionRecordReader`, `WorkflowClock`, and the optional `InstanceComposition` and `InstanceUnits` of a plan
-instance). Its operations are `start`, `advance` (with and without an event, each also
+`QuestionRecordReader`, `WorkflowClock`, the `RandomGenerator` `ids` the engine draws the command and correlation ids
+from, the optional `InputBindingContext` of a call's bind, and the optional `InstanceComposition` and `InstanceUnits` of
+a plan instance). Its operations are `start`, `advance` (with and without an event, each also
 in a form that writes the new status into a `ScopeTransaction`), `composeOperatorEvent`, `restingWait`, `stepOut`, `raise` and
 `unwindToFallback`.
+`InputBindingContext`:: The port of the bind: the worktree root a path is confined against, the scope's staging set of
+paths, and the configuration value by key (for an `input_fallback`). The engine keeps no filesystem and no
+configuration of its own; the assembly supplies the port, and an engine without one binds only the literal values
+(<<_the_input_bind>>).
 `OperatorComposition`:: The answer of `composeOperatorEvent`: the status after the composition, with the version in force, and the composition's `CompositionResult`.
 `EngineStep`:: The sealed result of one operation: `Resting` (the resting state and the `AwaitedEvent` it waits for),
 `Ended` (the outcome and outcome class of the top-level unit's terminal; the call stack is empty), and
@@ -54,7 +59,8 @@ missing value.
 `policyLoopBack` and `policyRetry` return `Charge.Granted` with the count raised, or `Charge.Exhausted` with the
 outcome `exhausted` and the status unchanged.
 `EngineEvent`:: The sealed event that resumes a resting state: `JobSettled(jobId, fate)`,
-`TasksSettled(taskOutcomes, evaluatedOutcome)`, `QuestionResolved(questionId, outcome)`,
+`TasksSettled(taskOutcomes, evaluatedOutcome, submissions)` (the submissions keyed by entity and argument name, from
+which a `fills` clause takes a slot's value), `QuestionResolved(questionId, outcome)`,
 `OperatorAct(stateId, linkId, parameters)` and `TimeElapsed(at)`.
 `RestingWait`:: What a resting state waits for, derived from the status alone: the `AwaitedEvent` kind, the jobs bound
 to the state (`active_job`, `active_jobs`) and the entities of its queue tasks (`active_tasks`). `accepts(event)`
@@ -251,9 +257,10 @@ Implements link:{dsl}/06-reusable-sub-workflows.adoc#_call_stack_execution_persi
 items 1 to 4 and link:{dsl}/01-grammar.adoc#sub-workflow-exits[Workflow DSL § Result Guards & Sub-Workflow Exit Contract].
 
 * *Call*: a `call` state pushes the frame `(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs,
-  pushedAt)`, the bound arguments of the call site and `pushed_at` from the clock, and enters the sub-workflow at the
-  state its entry binds (<<_entering_a_callee_through_its_entry>>). The callee carries the phase of the enclosing
-  phase unit, whatever its own identity.
+  argSources, commandId, correlationId, pushedAt)`, the arguments bound at the call site with their provenance, the ids
+  of the command the frame is, and `pushed_at` from the clock, and enters the sub-workflow at the state its entry binds
+  (<<_entering_a_callee_through_its_entry>>, <<_the_input_bind>>). The callee carries the phase of the enclosing phase
+  unit, whatever its own identity.
 * *Resting inside a sub-workflow*: the status is written with the active call stack and the sub-workflow's state; the
   engine resolves the current state against the unit of the top frame, so the wait survives a restart.
 * *Return*: a terminal of the sub-workflow pops exactly one frame, restores the caller's phase from the stack, drops the
@@ -295,6 +302,60 @@ and routes the outcome as before.
 The verifier makes the resolution total for a verified unit: a call names an entry its callee declares, or omits it
 only for a callee with exactly one (rule 5). A call the engine still cannot resolve, an entry the callee does not bind,
 or no entry named while the callee binds none or several, is the internal fault `unresolved_name`.
+
+[#_the_input_bind]
+=== The Input Bind at a Call
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+A call resolves the whole interface of its callee before it pushes the frame: every declared input gets its value, its
+provenance is recorded, and the value is validated. It happens in `WorkflowEngine.call` and nowhere else
+(link:../adr/workflow-engine/018-the-bind-lives-in-the-call.adoc[ADR workflow-engine/018]).
+
+* *The order of resolution*: the value bound at the call site; else the `input_fallback` configuration value through
+  `InputBindingContext.configValue`; else `input_default`; else absent when the type carries the `?`; else the call is
+  refused (link:../adr/workflow-dsl/014-order-of-input-resolution.adoc[ADR workflow-dsl/014]).
+* *The validation of a value*: `InputValidator` of `workflow.input` against the declared type
+  (link:workflow-input.adoc[Workflow Input]), then, for a path, `PathConfinement.confine` against the worktree root and
+  membership in the scope's staging set. The bound of a path is the staging set and not the footprint
+  (link:../adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017]).
+* *The provenance*: `arg_sources` of the frame records, per input, one of `literal`, `config`, `default`, `task_submit`
+  or `operator_answer`, with the queue task id or the act as `source_ref` where the source has one. A value that came from
+  a filled slot names `task_submit` or `operator_answer`, never `literal`.
+* *The identity of the frame*: `call` draws one `command_id` for the call from `Ports.ids` and takes the `correlation_id`
+  of the current `Run`, which the engine mints once per advance. Both are `core.id` records written and read by
+  `WorkflowStatusCodec` (link:../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR
+  core-store/076], link:../../../pm-core/doc/developer/core-store.adoc#_the_frame_identity_and_the_provenance_of_its_arguments[Scope
+  Stores § The Frame's Identity and the Provenance of Its Arguments]).
+* *The consumption*: a slot the call read is cleared in the same transaction, so a later call never reuses a stale
+  message or path.
+* *The refusal*: a value that does not fit raises the condition `precondition_unmet` with the reason `input_refused`,
+  naming the input and the rule; an input no state filled raises it with the reason `input_unbound`. Both are bounded by
+  the condition budget and carry the self-remedy of a re-check after the backoff, because their cause can clear — the
+  dirty set changes, the slot is filled.
+
+The slot is filled by the state that completed before the call, from the accepted submission
+(`EngineEvent.TasksSettled.submissions`) or from the free parameter of the operator's act
+(`OperatorAct.parameters`). The value is validated against the slot's type where it arrives, so the worker or the
+operator is told `invalid_link_args` and can correct it, and again at the bind, because the staging set may have changed
+between the two.
+
+==== Invariants
+
+* The bind is one decision per call, written once: a restart between the fill and the call resumes from the pair (state,
+  slot recorded) and binds the value once (<<_the_input_bind>>).
+* The engine reads no filesystem and no configuration: the worktree root, the staging set and the configuration value
+  come through `InputBindingContext`, and a seeded `RandomGenerator` makes two engines push identical frames.
+* A frame already on the stack keeps its own `command_id` and `correlation_id`; a later advance pushes frames with
+  another `correlation_id`.
+
+==== Failure Modes
+
+* *An engine without an `InputBindingContext`.* A typed input cannot be bound: the engine refuses it with
+  `precondition_unmet` instead of binding an unvalidated value, so a mis-wired assembly fails closed at the call.
+* *A slot filled for the wrong unit.* Slots are keyed `<declaring unit id>:<slot name>`; a fill that names another unit's
+  slot never reaches this unit's bind and the call reports `input_unbound`.
+* *A value bound twice.* A resume re-reads the frame's `bound_args`, it does not re-resolve the inputs, so a changed
+  configuration between the crash and the resume cannot change a value already bound.
 
 [#_the_phase_of_a_scope]
 == The Phase of a Scope
@@ -736,3 +797,7 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
   of a scope is derived from the phase unit on its stack.
 * link:../adr/workflow-engine/016-the-composition-runs-in-the-entering-transactions.adoc[ADR 016]: the composition of a
   server event runs in the transaction that enters its target state, and the engine reads a version through two ports.
+* link:../adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR 017]: the bound of a path is the
+  scope's staging set, not its declared footprint.
+* link:../adr/workflow-engine/018-the-bind-lives-in-the-call.adoc[ADR 018]: `call` resolves, validates, records and
+  consumes every input over the `InputBindingContext` port, and a refusal is the condition `precondition_unmet`.

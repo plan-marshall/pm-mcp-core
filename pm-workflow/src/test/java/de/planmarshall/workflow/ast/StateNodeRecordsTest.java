@@ -36,7 +36,7 @@ class StateNodeRecordsTest {
         var behavior = new StateBehavior.TerminalState();
         var location = WorkflowGenerators.sourceLocations().next();
 
-        var constructed = new StateNode(id, terminalOutcome, null, null, behavior, location);
+        var constructed = new StateNode(id, terminalOutcome, null, null, null, behavior, location);
         var built = StateNode.builder()
                 .id(id)
                 .terminalOutcome(terminalOutcome)

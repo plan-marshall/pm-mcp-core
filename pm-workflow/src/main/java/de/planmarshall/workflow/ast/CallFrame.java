@@ -13,7 +13,10 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One frame of a scope's call stack: the calling state, the sub-workflow it called, the entry of the sub-workflow the
@@ -36,6 +39,8 @@ String callerStateId,
 String subWorkflowId,
 String entry,
 Map<String, CallValue> boundArgs,
+@Nullable CommandId commandId,
+@Nullable CorrelationId correlationId,
 String pushedAt) {
 
     /**

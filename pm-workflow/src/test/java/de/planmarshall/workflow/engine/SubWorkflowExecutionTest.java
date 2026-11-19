@@ -43,6 +43,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
@@ -346,12 +348,21 @@ class SubWorkflowExecutionTest {
             expectedArgs.put("mode", new BoundArg.StringArg("strict"));
             expectedArgs.put("rounds", new BoundArg.IntegerArg(2));
             expectedArgs.put("targets", new BoundArg.StringSetArg(new LinkedHashSet<>(List.of("origin", "mirror"))));
+            var frame = resting.status().callStack().getFirst();
             assertAll(
                     () -> assertEquals("sub.wait", resting.stateId(), "call rests in the callee's entry state"),
                     () -> assertEquals(EXECUTE, resting.status().phase(), "call keeps the caller's phase"),
-                    () -> assertEquals(List.of(new WorkflowStatus.CallFrame("plan", "execute.invoke",
-                                    "sub.args", "main", expectedArgs, pushedAt)), resting.status().callStack(),
-                            "frame records the callee, entry, arguments and pushed_at"));
+                    () -> assertEquals("plan", frame.callerWorkflowId(), "frame records the caller"),
+                    () -> assertEquals("execute.invoke", frame.callerStateId(), "frame records the calling state"),
+                    () -> assertEquals("sub.args", frame.subworkflowId(), "frame records the callee"),
+                    () -> assertEquals("main", frame.entry(), "frame records the entry"),
+                    () -> assertEquals(expectedArgs, frame.boundArgs(), "frame records the bound arguments"),
+                    () -> assertEquals(pushedAt, frame.pushedAt(), "frame records the push instant"),
+                    () -> assertTrue(CommandId.parse(frame.commandId().toString()).isPresent(),
+                            "frame carries a command id of the grammar"),
+                    () -> assertTrue(CorrelationId.parse(
+                                    frame.correlationId().toString()).isPresent(),
+                            "frame carries a correlation id of the grammar"));
         }
 
         @ParameterizedTest(name = "entry {0} -> {1}")
@@ -671,7 +682,7 @@ class SubWorkflowExecutionTest {
     class CallStackValue {
 
         private final CallFrame frame = new CallFrame("plan", "execute.invoke", "sub.args", "main",
-                Map.of("mode", new CallValue.EnumValue("strict")), T0.toString());
+                Map.of("mode", new CallValue.EnumValue("strict")), null, null, T0.toString());
 
         @Test
         @DisplayName("Should push to five frames, the phase level adding one, and refuse a sixth")
@@ -691,7 +702,7 @@ class SubWorkflowExecutionTest {
         @Test
         @DisplayName("Should pop exactly one frame, unwind every frame top first, and refuse to pop an empty stack")
         void shouldPopAndUnwind() {
-            var other = new CallFrame("sub.args", "sub.wait", "sub.commit", "main", Map.of(), T0.toString());
+            var other = new CallFrame("sub.args", "sub.wait", "sub.commit", "main", Map.of(), null, null, T0.toString());
             var stack = CallStack.empty().push(frame).push(other);
 
             var popped = stack.pop();
@@ -714,7 +725,8 @@ class SubWorkflowExecutionTest {
             args.put("rounds", new CallValue.IntValue(Generators.integers(1, 5).next()));
             args.put("targets", new CallValue.EnumList(List.of("origin", "mirror")));
             var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", "sub.args", "repair",
-                    args, T0.toString()));
+                    args, CommandId.random(),
+                    CorrelationId.random(), T0.toString()));
 
             var stored = stack.toStore();
 
@@ -727,7 +739,9 @@ class SubWorkflowExecutionTest {
         @DisplayName("Should refuse a stored integer argument outside the range of a call value")
         void shouldRefuseOversizedInteger() {
             var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", "sub.args", "main",
-                    Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), T0);
+                    Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), Map.of(),
+                    CommandId.random(),
+                    CorrelationId.random(), T0);
             var storedFrames = List.of(stored);
 
             assertThrows(ArithmeticException.class, () -> CallStack.fromStore(storedFrames),

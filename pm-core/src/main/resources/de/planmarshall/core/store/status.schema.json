@@ -108,7 +108,7 @@
       "maxItems": 5,
       "items": {
         "type": "object",
-        "required": ["caller_workflow_id", "caller_state_id", "subworkflow_id", "entry", "bound_args", "pushed_at"],
+        "required": ["caller_workflow_id", "caller_state_id", "subworkflow_id", "entry", "bound_args", "arg_sources", "command_id", "correlation_id", "pushed_at"],
         "additionalProperties": false,
         "properties": {
           "caller_workflow_id": { "type": "string" },
@@ -126,7 +126,37 @@
               ]
             }
           },
+          "arg_sources": {
+            "type": "object",
+            "description": "The provenance of every bound value, keyed by sub-workflow param_name.",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["source"],
+              "additionalProperties": false,
+              "properties": {
+                "source": { "type": "string", "enum": ["literal", "config", "default", "task_submit", "operator_answer"] },
+                "source_ref": { "type": ["string", "null"] }
+              }
+            }
+          },
+          "command_id": { "type": "string", "pattern": "^cmd-[0-9a-f]{16}$" },
+          "correlation_id": { "type": "string", "pattern": "^cor-[0-9a-f]{16}$" },
           "pushed_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "slots": {
+      "type": "object",
+      "description": "Scope-level slots, keyed <declaring unit id>:<slot name>.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "source", "filled_at"],
+        "additionalProperties": false,
+        "properties": {
+          "value": { "type": "string" },
+          "source": { "type": "string", "enum": ["literal", "config", "default", "task_submit", "operator_answer"] },
+          "source_ref": { "type": ["string", "null"] },
+          "filled_at": { "type": "string", "format": "date-time" }
         }
       }
     },

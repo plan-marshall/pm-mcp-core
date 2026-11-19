@@ -1,0 +1,212 @@
+= Workflow Input (`workflow.input`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+Package `de.planmarshall.workflow.input` validates one value against the closed type of a unit input
+(link:workflow-dsl.adoc#unit-frontmatter[Workflow DSL § The Unit Frontmatter]): a text, a commit message, a path or a
+list of paths that reaches a unit at call time, from a task submission or from an operator answer. It is the pure half
+of the call-time channel: it decides what a value may be by its own shape and never looks at the filesystem, the
+repository or the configuration. The environmental half — the confinement of a path against the worktree root and its
+membership in the scope's staging set — is the engine's bind
+(link:workflow-engine.adoc#_the_input_bind[Workflow Engine § The Input Bind at a Call]).
+
+A refusal is a value, never an exception (link:../adr/workflow-verify/013-violations-are-values-never-exceptions.adoc[ADR
+workflow-verify/013]); a caller reads the refusal and turns it into a condition or a refusal message, and nothing in the
+package throws for a bad value.
+
+The types themselves live in `workflow.ast` (`InputType`, `InputDecl`, `CallValue.SlotRef`,
+link:workflow-ast.adoc#_slots_and_the_typed_inputs[Workflow AST § Slots and the Typed Inputs]); the grammar that carries
+them is link:{spec}/workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL § Formal EBNF
+Grammar]. The decisions are recorded in `pm-workflow/doc/adr/workflow-input/`.
+
+== Main Types
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+[horizontal]
+`InputValidator`:: A class of static checks, one per shape: `validateText(type, value)` for `text` and
+`commit_message`, `validatePath(value)` for `path` and `validatePathList(type, values)` for `list<path>`. Each returns
+`Optional<InputRefusal>`: empty when the value is accepted, the refusal otherwise. `validateText` counts code points
+(not UTF-16 units), so a surrogate pair counts once, and a lone surrogate never fits a bounded range by accident; for
+`commit_message` it additionally runs `ConventionalCommitValidator` of `core.spi.validation`, whose rule
+`RULE_CO_AUTHORED_BY` refuses a `Co-Authored-By:` line in any case and at any position.
+`InputRefusal`:: The refused value as a value: `ruleId` (which rule rejected it) and `inputValue` (the value as it was
+offered, cut to `MAX_ECHO_LENGTH` = 80 characters, so a long or sensitive value never leaves the refusal). `of(value,
+rule)` builds one from a value that may be `null`, echoing `<null>` for an absent value.
+`PathRules`:: The syntactic path rules, in the pure layer of Decision 3
+(link:../adr/workflow-input/002-the-path-rules-in-two-layers.adoc[ADR workflow-input/002]), as one static
+`check(value)` that returns an `InputRefusal` or `null`. `MAX_PATH_LENGTH` is 1024 characters. The rules: non-empty,
+relative (`/` only, never a leading `/`), no backslash, no NUL, no control character, no whitespace, no bidi or format
+character, no empty, `.` or `..` segment, no `.git` segment in any case, no leading `:` (git pathspec magic) or `-`, no
+`//`.
+
+[source]
+----
+value ──► InputValidator.validate* ── InputRefusal ──► the bind: precondition_unmet (input_refused)
+                 │                          │
+                 │                          └── the submit or the act: invalid_link_args, correctable
+                 └── PathRules.check ── InputRefusal (the syntactic layer)
+----
+
+=== The Rule Identifiers
+
+A refusal names the rule that rejected the value, so a caller can show or group it without parsing prose:
+
+[cols="1,3"]
+|===
+|Rule |Refused
+
+|`input.missing`
+|The value is absent, a null received where a value is required.
+
+|`input.too-short`, `input.too-long`
+|A text or commit message outside the code-point range of its type.
+
+|`input.commit-message`
+|A text that is no Conventional Commit, or that carries a `Co-Authored-By:` line.
+
+|`input.count`
+|A path list whose number of entries lies outside the range of its type.
+
+|`input.duplicate`
+|A path that occurs twice in one list.
+
+|`path.empty`
+|A path of zero characters.
+
+|`path.too-long`
+|A path longer than `PathRules.MAX_PATH_LENGTH`.
+
+|`path.absolute`
+|A path that starts with `/`.
+
+|`path.backslash`
+|A path that contains `\`.
+
+|`path.nul`, `path.control`, `path.whitespace`, `path.bidi`
+|A path that holds NUL, a control character, whitespace, or a bidi or format character.
+
+|`path.magic`
+|A path that starts with `:` (git pathspec magic) or `-` (which `git` would read as an option).
+
+|`path.empty-segment`, `path.dot-segment`, `path.double-slash`
+|A path with an empty, `.` or `..` segment, or with `//`.
+
+|`path.git`
+|A path with a `.git` segment in any case.
+|===
+
+== How the Two Layers Work Together
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+The pure layer of this package answers whether the value is well formed as a value. It cannot answer whether the value
+belongs to this scope: that needs the worktree root, the scope's staging set and the configuration, which the engine
+holds. The bind therefore runs three checks in order, and the first refusal wins:
+
+. *The type*: `InputValidator` against the declared `InputType`, so a text respects its range, a commit message is a
+  Conventional Commit without the trailer, and a path is relative, plain and bounded
+  (<<_main_types>>).
+. *The confinement*: `PathConfinement.confine(WorkspaceRoots, value)` of `core.store`, which resolves the path against
+  the worktree — passed as the enrolled root — and returns the value `ConfinementOutcome.Rejected` when it leaves it. No
+  exception is thrown (R09).
+. *The staging set*: the path must be a member of the set the scope stages — the dirty paths of a plan's worktree,
+  `.marshall/epics/**` (with `.marshall/archived-epics/**` while it archives) of an epic, or the set of the setup call for
+  the workspace. The set holds files, so a directory never passes, and the bound is the staging set and not the
+  footprint (link:../adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017]).
+
+== Using It
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+* *The bind calls all three layers.* A path value that passed `InputValidator` is not yet bound: a relative, plain path
+  that the scope does not stage is refused at the staging-set check, not here.
+* *A refusal is data.* Return it, name the input in the condition's facts, and let the caller decide the route. Never
+  throw for a value that does not fit.
+* *Echo the value, not the message.* `InputRefusal` echoes at most 80 characters. Do not build a second message that
+  quotes the value without that bound, and never log a refused value.
+* *Do not validate a literal at the verifier's level with `InputValidator`.* A typed input is bound from a slot only;
+  Rule 6 refuses a literal binding of a typed input before any value exists
+  (link:workflow-verify.adoc#_rule_6_the_sub_workflow_call_contract[Workflow Verification § Rule 6]).
+
+== Extending It
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+. *A new input type* is an `InputType` record with its `sourceText()`, its reader and printer form, and one branch here
+  that validates it. A type whose check needs the filesystem, the repository or the configuration does not belong in this
+  package: the pure layer has to be decidable from the value alone.
+. *A new path rule* is one branch of `PathRules.check` with its own rule identifier, refused before the segments are
+  read where it makes the segments meaningless (`NUL`, an absolute path, a magic prefix).
+. *A new rule identifier* is a lower-case dotted name in the shape `<area>.<rule>`, never reused and never renamed: it is
+  what a caller shows the operator and what a test asserts.
+. *Keep the order of the checks stable.* A value refused as too long must be refused as too long, not as no Conventional
+  Commit: the length check precedes the shape check, and the path checks run from the cheapest test to the segments.
+
+== Invariants
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+* *No exception for a value.* `InputValidator` and `PathRules` return `Optional<InputRefusal>` and `@Nullable
+  InputRefusal`; `InputRefusal` refuses only a `null` in its own components.
+* *Bounded echo.* An `InputRefusal` never holds more than 80 characters of the value, whatever the caller passed.
+* *Code points, not chars.* Every length is the value's `codePointCount`, so the bound a unit declares is the bound a
+  person counts (link:{spec}/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]).
+* *Pure.* The package calls no filesystem, no repository, no configuration and no clock, so its checks are decidable at
+  a boundary between two units and a fuzz corpus of values is meaningful.
+* *Closed type vocabulary.* The validator covers every `InputType` member: an enum value, an integer and an enum list
+  are checked by Rule 6 (they are literals), the four call-time types here. A new `InputType` without its branch fails
+  the exhaustive switch at compile time.
+
+== Failure Modes
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+* *An absent value reported as a malformed one.* `validateText`, `validatePath` and `validatePathList` refuse a `null`
+  value as `input.missing`; a caller that maps an absent value onto an empty string instead gets whichever rule the
+  empty value fails (`input.too-short`, `path.empty`), which names the wrong cause to the operator.
+* *One layer trusted for the other.* A value that passed `InputValidator` is a well-formed value, not a bound one: the
+  confinement and the staging set are the engine's. A caller that skips them admits a path outside the worktree or a
+  path the scope does not stage.
+* *A widened type in a project copy.* A project copy that declares `text` where its default declares `commit_message`
+  would drop the Conventional Commit check; `INV-GEN-1` compares the type identity, so the copy is refused
+  (link:workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification § INV-GEN-1 over Type and
+  Interface]).
+* *A refusal that names the rule and echoes the value must not be logged.* The refusal's `inputValue` is operator-facing
+  data at most 80 characters long; the bind raises the condition `precondition_unmet` with it, and logs nothing.
+
+== Testing
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+[cols="1,3"]
+|===
+|Test |Guards
+
+|`InputValidatorTest`
+|A generator-driven corpus of accepted and refused values per type: a blank commit message, a header without a type, a
+body without the blank line, a `Co-Authored-By:` line in any case and position, 2001 characters and a lone surrogate;
+the bounds of a text at and one past its range; a path list's count and its duplicate; and that every refusal carries
+its rule identifier and no more than `MAX_ECHO_LENGTH` characters.
+
+|`PathRulesTest`
+|A refused value per rule: an absolute path, `..` in every position, `a//b`, a trailing slash, a backslash, NUL, a bidi
+override, `:(exclude)x`, `-rf`, `.GIT/config`, `a/./b` and a 1025-character path; a matched accepted control for each.
+
+|`UnitFrontmatterReaderTest`, `WorkflowPrinterTest`
+|The four new types round-trip in the frontmatter and in a slot declaration; a type without its range where it needs
+one is refused.
+|===
+
+== Decisions
+
+* link:../adr/workflow-input/001-commit-message-is-a-closed-type-of-its-own.adoc[ADR workflow-input/001]: `commit_message`
+  is a closed type of its own, with the compiled caps of the text and path types.
+* link:../adr/workflow-input/002-the-path-rules-in-two-layers.adoc[ADR workflow-input/002]: the path rules are split into
+  a pure syntactic layer here and the environmental layer of the engine's bind.
+* link:../adr/workflow-dsl/015-the-fills-clause-sits-on-the-state.adoc[ADR workflow-dsl/015]: a slot is filled by a
+  state-level `fills` clause, from the accepted submission or the operator's answer.
+* link:../adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017]: the bound of a
+  path is the scope's staging set, not its footprint.
+* link:../adr/workflow-engine/018-the-bind-lives-in-the-call.adoc[ADR workflow-engine/018]: the bind is `WorkflowEngine.call`
+  over the `InputBindingContext` port, and a refusal is the condition `precondition_unmet`.
