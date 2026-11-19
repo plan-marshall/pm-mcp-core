@@ -36,6 +36,8 @@ String callerStateId,
 String subWorkflowId,
 String entry,
 Map<String, CallValue> boundArgs,
+@Nullable de.planmarshall.core.id.CommandId commandId,
+@Nullable de.planmarshall.core.id.CorrelationId correlationId,
 String pushedAt) {
 
     /**

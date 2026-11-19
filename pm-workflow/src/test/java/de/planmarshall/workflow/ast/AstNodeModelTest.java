@@ -496,7 +496,7 @@ class AstNodeModelTest {
             var call = new StateBehavior.SubWorkflowCall(Generators.letterStrings(1, 8).next(), null,
                     bindings, List.of());
             var frame = new CallFrame(Generators.letterStrings(1, 8).next(), Generators.letterStrings(1, 8).next(),
-                    Generators.letterStrings(1, 8).next(), entry, bindings, "2026-01-01T00:00:00Z");
+                    Generators.letterStrings(1, 8).next(), entry, bindings, null, null, "2026-01-01T00:00:00Z");
             var boundArgs = frame.boundArgs();
 
             assertAll(

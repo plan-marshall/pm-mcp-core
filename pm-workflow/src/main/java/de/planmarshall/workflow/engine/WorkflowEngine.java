@@ -887,12 +887,16 @@ public final class WorkflowEngine {
             this(status, null, null);
         }
 
+        /** The correlation id of this advance: one per Run, shared by every frame it pushes. */
+        private final de.planmarshall.core.id.CorrelationId correlationId;
+
         Run(WorkflowStatus status, @Nullable PlanHistory history, @Nullable ScopeTransaction transaction) {
             this.status = status;
             this.stack = CallStack.fromStore(status.callStack());
             this.history = history;
             this.transaction = transaction;
             this.instanceVersion = status.instanceVersionInForce().orElse(1);
+            this.correlationId = de.planmarshall.core.id.CorrelationId.random(ports.ids);
             for (var index = 0; index < stack.depth(); index++) {
                 results.push(new LinkedHashMap<>());
             }
@@ -1313,6 +1317,8 @@ public final class WorkflowEngine {
                     .subWorkflowId(callee.id())
                     .entry(entry)
                     .boundArgs(call.paramBindings())
+                    .commandId(de.planmarshall.core.id.CommandId.random(ports.ids))
+                    .correlationId(correlationId)
                     .pushedAt(clock.now().toString())
                     .build();
             record(PlanHistoryLine.Event.CALLED, callee.id(), null);
