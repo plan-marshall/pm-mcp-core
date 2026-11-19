@@ -2,10 +2,10 @@
   "id": "PLAN-V2-114",
   "slug": "analysis-findings-fixes",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-114-analysis-findings-fixes",
+  "pr": "#512",
+  "landing": "landings/PLAN-V2-114.md",
   "seq": 102
 }
