@@ -68,7 +68,7 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
  * PM-IMPL-2).
  * <p>
  * A lesson file is the line {@code ---}, the front matter, the line {@code ---} and the Markdown body. The front
- * matter is YAML restricted to the JSON data model (YAML 1.2 core schema; its {@code .inf} and {@code .nan} spellings
+ * matter is YAML restricted to the JSON data model (a YAML library whose scalar resolution is restricted to the 1.2 core schema; its {@code .inf} and {@code .nan} spellings
  * are not part of that data model and stay strings): anchors, aliases, tags and multiple documents are refused, and
  * every member is validated against the {@code LessonFrontMatter} schema on every read and write. The writer emits the
  * front matter as one JSON object in the order of the schema — a JSON object is a YAML 1.2 flow mapping — and the
@@ -821,7 +821,7 @@ public class LessonCodec {
     }
 
     /**
-     * The YAML 1.2 core schema, so that an unquoted {@code 2026-10-31} stays a string and {@code yes} stays a string:
+     * A YAML library whose scalar resolution is restricted to the 1.2 core schema, so that an unquoted {@code 2026-10-31} stays a string and {@code yes} stays a string:
      * the front matter is restricted to the JSON data model, and the resolver is what makes the reader honour it.
      */
     private static final class JsonModelResolver extends Resolver {

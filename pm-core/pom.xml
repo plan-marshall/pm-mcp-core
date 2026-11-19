@@ -46,7 +46,8 @@
             <artifactId>jackson-core</artifactId>
         </dependency>
         <!-- The YAML reader of the lesson file's front matter (operator decision 2026-11-01, ADR core-store/061):
-             the front matter is YAML restricted to the JSON data model, read with the YAML 1.2 library so that a
+             the front matter is YAML restricted to the JSON data model, read with a YAML library whose scalar
+              resolution is restricted to the 1.2 core schema so that a
              hand-edited block-style file is readable and anchors, aliases and tags can be refused. -->
         <dependency>
             <groupId>org.yaml</groupId>

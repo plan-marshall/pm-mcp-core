@@ -277,6 +277,10 @@ public final class DerivedFactStore {
         try {
             new DerivedFact.Source(derived.derivation(), derived.sourceClass());
         } catch (IllegalArgumentException _) {
+            if (key.kind().operatorOnly()) {
+                return new Failed("The operator-only fact kind '%s' has a derivation identifier outside its grammar"
+                        .formatted(key.kind().wireName()));
+            }
             return new Failed("The derivation identifier is outside its grammar: " + derived.derivation());
         }
         var violations = kinds.validate(key.kind(), derived.value());

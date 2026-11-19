@@ -342,6 +342,35 @@ class DerivedFactRefreshTest {
         }
 
         @Test
+        @DisplayName("an operator-only kind never repeats an invalid derivation identifier")
+        void operatorOnlyInvalidDerivationIsRedacted() {
+            var identifier = "Bad Id " + Generators.letterStrings(1, 8).next();
+            var key = new DerivedFactKey(DerivedFactKind.AGENT_IDENTITY, null);
+
+            var reading = store.refresh(key, DIGEST_A,
+                    () -> new Derived(value, identifier, DerivedFact.DerivationClass.LOCAL), NOW);
+
+            var reason = reading.couldNotEvaluate().orElseThrow();
+            assertAll("An operator-only identifier stays out of the reason",
+                    () -> assertFalse(reason.contains(identifier), "The identifier is not in the reason"),
+                    () -> assertTrue(reason.contains("The operator-only fact kind '" + key.kind().wireName()
+                                    + "' has a derivation identifier outside its grammar"),
+                            "The reason names the kind"));
+        }
+
+        @Test
+        @DisplayName("a non-operator kind names an invalid derivation identifier")
+        void nonOperatorInvalidDerivationIsNamed() {
+            var identifier = "Bad Id " + Generators.letterStrings(1, 8).next();
+
+            var reading = store.refresh(LOCAL_KEY, DIGEST_A,
+                    () -> new Derived(value, identifier, DerivedFact.DerivationClass.LOCAL), NOW);
+
+            assertTrue(reading.couldNotEvaluate().orElseThrow().contains(identifier),
+                    "The reason names the invalid identifier");
+        }
+
+        @Test
         @DisplayName("a non-operator kind still names the violating value in its reason")
         void nonOperatorValueStaysInTheReason() {
             var invalid = "not-a-remote-" + Generators.letterStrings(1, 20).next();

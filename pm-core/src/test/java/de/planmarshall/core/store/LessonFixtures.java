@@ -194,7 +194,7 @@ public class LessonFixtures {
                 .coveringInput(null)
                 .lessonState(LessonState.FOUND);
         return switch (verdict) {
-            case COMPLETELY_COVERED -> builder.coveringClause("ADR core-store/063")
+            case COMPLETELY_COVERED -> builder.coveringClause("ADR core-store/075")
                     .coveringInput(text());
             case MERGED, SUPERSEDED -> builder.into(new LessonId(WATCH_ID_NO_HEADER));
             case APPLIED, REDUNDANT, OBSOLETE -> builder;

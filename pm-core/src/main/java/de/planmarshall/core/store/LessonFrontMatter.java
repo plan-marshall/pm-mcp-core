@@ -144,11 +144,14 @@ List<Revision> revisions, List<MergedFrom> mergedFrom, @Nullable Claim claim, @N
         Objects.requireNonNull(audience, "audience");
         Objects.requireNonNull(remedy, "remedy");
         requireText(title, "title");
+        if (title.indexOf('\u007F') >= 0) {
+            throw new IllegalArgumentException("A title must not contain control characters");
+        }
         requireText(component, "component");
         requireText(toolVersion, "tool_version");
         if (formatVersion != FORMAT_VERSION) {
             throw new IllegalArgumentException(
-                    "A lesson front matter is format version %d, not %d".formatted(FORMAT_VERSION, formatVersion));
+                    "A lesson front matter is format version %d, not %d".formatted(formatVersion, FORMAT_VERSION));
         }
         if ((category == Category.ARCH_CONSTRAINT) != (rule != null)) {
             throw new IllegalArgumentException(

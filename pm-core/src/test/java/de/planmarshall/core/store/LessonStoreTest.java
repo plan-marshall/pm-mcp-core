@@ -745,6 +745,17 @@ class LessonStoreTest {
         }
 
         @Test
+        @DisplayName("refuses a create whose body is blank")
+        void createOfBlankBody() {
+            var lesson = LessonFixtures.newLesson().body("   \n\t").build();
+            var lessonId = new LessonId(CREATED_ID);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> createInTransaction(lessonId, lesson),
+                    "a create with a blank body is refused");
+        }
+
+        @Test
         @DisplayName("two draws before the first create of a transaction return the same id")
         void twoDrawsInOneTransaction() {
             try (var transaction = locks.openTransaction()) {
