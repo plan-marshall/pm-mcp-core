@@ -160,6 +160,9 @@ public final class LessonStore {
         Objects.requireNonNull(lessonId, LessonResolution.LESSON_ID);
         Objects.requireNonNull(newLesson, "newLesson");
         var now = Objects.requireNonNull(clock, "clock").instant();
+        if (newLesson.body().isBlank()) {
+            throw new IllegalArgumentException("A lesson body must not be blank");
+        }
         var hour = HOUR.format(now);
         if (!lessonId.hourPrefix().equals(hour)) {
             throw new IllegalArgumentException("The lesson id %s does not name the UTC hour %s of its creation"
@@ -371,6 +374,9 @@ public final class LessonStore {
             List<Source> sources, boolean derivedFromUntrusted, Instant now) {
         requireOwnScope(transaction);
         Objects.requireNonNull(body, "body");
+        if (body.isBlank()) {
+            throw new IllegalArgumentException("A lesson body must not be blank");
+        }
         Objects.requireNonNull(now, "now");
         var evidence = List.copyOf(Objects.requireNonNull(sources, "sources"));
         if (evidence.isEmpty()) {
@@ -740,12 +746,13 @@ public final class LessonStore {
     }
 
     private static boolean isUntrusted(LessonResolution resolution) {
-        var lesson = switch (resolution) {
-            case LessonResolution.Found(_, Lesson found, _, _) -> found;
-            case LessonResolution.EmptyShell(_, Lesson shell, _, _) -> shell;
-            default -> null;
+        return switch (resolution) {
+            case LessonResolution.Found(_, Lesson found, _, _) -> found.frontMatter().derivedFromUntrusted();
+            case LessonResolution.EmptyShell(_, Lesson shell, _, _) -> shell.frontMatter().derivedFromUntrusted();
+            case LessonResolution.PresentUnreadable _, LessonResolution.StoreTampered _,
+                    LessonResolution.DeletedOutOfBand _, LessonResolution.Absent _ -> true;
+            default -> false;
         };
-        return lesson != null && lesson.frontMatter().derivedFromUntrusted();
     }
 
     private static List<Revision> append(List<Revision> revisions, Revision next) {
