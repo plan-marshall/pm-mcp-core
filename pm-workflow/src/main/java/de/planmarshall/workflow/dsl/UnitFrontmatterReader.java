@@ -114,7 +114,9 @@ public final class UnitFrontmatterReader {
     private static final String KEY_INPUT_DEFAULT = "input_default";
     private static final String KEY_INPUT_FALLBACK = "input_fallback";
     private static final String KEY_INPUT_DESCRIPTION = "input_description";
-    private static final String KEY_MODIFICATION_DATE = "modification_date";
+    private static final String KEY_SLOT = "slot";
+    private static final String KEY_SLOT_TYPE = "slot_type";
+    private static final String KEY_SLOT_DESCRIPTION = "slot_description";
     private static final String KEY_VERSION = "version";
     private static final String KEY_AUTHOR = "author";
     private static final String KEY_SIGNATURE = "signature";
@@ -140,10 +142,13 @@ public final class UnitFrontmatterReader {
     private static final Set<String> INPUT_KEYS = Set.of(KEY_INPUT_TYPE, KEY_INPUT_DEFAULT, KEY_INPUT_FALLBACK,
             KEY_INPUT_DESCRIPTION);
 
-    /** Every admitted key: the fields of this reader plus the input sub-keys, which are defined once. */
+    private static final Set<String> SLOT_KEYS = Set.of(KEY_SLOT_TYPE, KEY_SLOT_DESCRIPTION);
+
+    /** Every admitted key: the fields of this reader plus the input sub-keys and slot sub-keys, which are defined once. */
     private static final Set<String> KEYS = Stream.concat(Stream.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON,
             KEY_ENTRY, KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_READS_CONFIG, KEY_READS_FACT,
-            KEY_INPUT, KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE), INPUT_KEYS.stream())
+            KEY_INPUT, KEY_SLOT, KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE),
+            Stream.concat(INPUT_KEYS.stream(), SLOT_KEYS.stream()))
             .collect(Collectors.toUnmodifiableSet());
 
     /** The outcome id of the implicit control exit, which no frontmatter declares. */
