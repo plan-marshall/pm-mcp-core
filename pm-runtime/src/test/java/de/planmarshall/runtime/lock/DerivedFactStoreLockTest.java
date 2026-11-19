@@ -205,10 +205,8 @@ class DerivedFactStoreLockTest {
                         "The refresh under the plan lock returns a value"),
                 () -> assertInstanceOf(DerivedFactReading.Value.class, secondResult.get(),
                         "The concurrent refresh returns a value"),
-                () -> assertTrue(payload(first).equals(stored.value()) || payload(second).equals(stored.value()),
-                        "The stored entry is one of the two results"),
-                () -> assertEquals(expectedDerivedAt, stored.derivedAt(),
-                        "The stored instant belongs to the stored value"),
+                () -> assertEquals(payload(second), stored.value(), "The stored entry is the second result"),
+                () -> assertEquals(now.plusSeconds(1), stored.derivedAt(), "The stored instant belongs to the stored value"),
                 () -> assertTrue(violations.isEmpty(), "No lock order violation was recorded"));
     }
 
