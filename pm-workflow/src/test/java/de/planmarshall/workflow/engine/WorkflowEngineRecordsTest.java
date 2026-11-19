@@ -45,7 +45,7 @@ class WorkflowEngineRecordsTest {
         replay(jobs, tasks, questions);
         var clock = new EngineFixtures.ManualClock(Instant.EPOCH);
         var ids = new java.util.SplittableRandom(0L);
-        var constructed = new WorkflowEngine.Ports(jobs, tasks, questions, clock, ids, null, null);
+        var constructed = new WorkflowEngine.Ports(jobs, tasks, questions, clock, ids, null, null, null);
         var built = WorkflowEngine.Ports.builder()
                 .jobs(jobs)
                 .tasks(tasks)

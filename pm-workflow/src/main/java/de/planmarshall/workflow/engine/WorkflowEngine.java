@@ -180,6 +180,7 @@ public final class WorkflowEngine {
     @Builder
     public record Ports(JobStarter jobs, QueueTaskCreator tasks, QuestionRecordReader questions, WorkflowClock clock,
     RandomGenerator ids,
+    @Nullable InputBindingContext bindingContext,
     @Nullable InstanceComposition composition,
     @Nullable InstanceUnits units) {
 
