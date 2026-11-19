@@ -241,9 +241,11 @@ ending (Model Work § Continuing after a Question). The runtime carries the supe
 (link:../adr/runtime-worker/016-the-hold-ends-before-the-recycle.adoc[ADR `runtime-worker/016`]).
 
 * *The entries* — `WorkerCalls.holdOpened` moves the generation to `HOLDING` through the lifecycle table, keeps the
-  lease of the task it names and the model slot, and marks the detection's wait open, which suppresses the silence
-  deadline; `holdClosed` returns it to `EXECUTING` and closes that wait, so the silence limit counts again from the
-  close; `answerDelivered` arms the answer's acknowledgement deadline through `LossDetection.answerDelivered`
+  lease of the task it names and the model slot, marks the detection's wait open, which suppresses the silence deadline,
+  and records the hold as the acknowledgement of the offer (a worker that asks has received its task), so the offer's
+  deadline never fires for a holding generation; `holdClosed` returns a holding generation to `EXECUTING` and closes that
+  wait, so the silence limit counts again from the close; `answerDelivered` closes the wait of the hold and arms the
+  answer's acknowledgement deadline through `LossDetection.answerDelivered`
   (link:../adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR 012]). A hold counts no idle
   wake-up, because a generation holding a lease is never idle. The transport calls the entries; a call of a generation
   the registry does not know, a call that names another task than the generation leases and a transition the table does
@@ -260,8 +262,10 @@ ending (Model Work § Continuing after a Question). The runtime carries the supe
   hold end while the lease is still held and before the fence. A generation that is not `HOLDING`, or is under its
   budget, sends nothing. The attempt comes from the `WorkerTaskActivity` port, the same facts the activity signals read,
   because the generation does not carry it; a task whose facts can no longer be read names no attempt, so nothing is
-  reported and the recycle still runs. A fresh worker's hold is bounded by its role's `context_budget_tokens`, a bound
-  the recycling does not read: that branch is owed with the assembly's wiring.
+  reported and the recycle still runs. A notification the protocol refuses does not keep the generation alive past its
+  budget either: the recycle runs in a `finally`, and the failure reaches the caller. A fresh worker's hold is bounded by
+  its role's `context_budget_tokens`, a bound the recycling does not read: that branch is owed with the assembly's
+  wiring.
 * *The budget* — the hold's time is not charged to the worker budget, and nothing subtracts it: the budget is the
   context of the generation's latest turn (`WorkerRecycling` reads `generation.contextTokens()`), never an elapsed time,
   and a hold produces no turn.

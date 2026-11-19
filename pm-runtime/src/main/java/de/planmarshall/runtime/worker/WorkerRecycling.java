@@ -154,10 +154,28 @@ public final class WorkerRecycling {
         if (generation.servedTasks().isEmpty() && generation.lifecycle() != WorkerLifecycle.HOLDING) {
             return Optional.empty();
         }
-        if (generation.lifecycle() == WorkerLifecycle.HOLDING) {
-            notifyHoldEnded(generation);
+        return recycleAtTheBudget(generation);
+    }
+
+    /**
+     * Ends the hold of a generation that reached its budget and recycles it in either case: a protocol that refuses the
+     * notification must not keep a generation alive past its budget, so the recycle runs in a {@code finally} and the
+     * failure still reaches the caller.
+     *
+     * @param generation the generation whose turn reached the budget
+     * @return why the turn recycled the generation; empty when it was already recycled
+     */
+    private Optional<RecycleCause> recycleAtTheBudget(WorkerGeneration generation) {
+        try {
+            if (generation.lifecycle() == WorkerLifecycle.HOLDING) {
+                notifyHoldEnded(generation);
+            }
+            return recycle(generation, RecycleCause.TOKEN_BUDGET);
+        } finally {
+            if (!recycled.contains(generation.generationId())) {
+                recycle(generation, RecycleCause.TOKEN_BUDGET);
+            }
         }
-        return recycle(generation, RecycleCause.TOKEN_BUDGET);
     }
 
     /**

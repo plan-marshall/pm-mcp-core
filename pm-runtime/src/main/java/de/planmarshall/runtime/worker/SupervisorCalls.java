@@ -205,7 +205,11 @@ public final class SupervisorCalls implements WorkerCalls {
             return;
         }
         var holding = generation.advanceTo(WorkerLifecycle.HOLDING).withLeasedTask(queueTaskId);
-        detection(generation).waitOpened(at);
+        var detection = detection(generation);
+        detection.waitOpened(at);
+        // A worker that asks has received its task: the hold is the acknowledgement of the offer, so the offer's
+        // acknowledgement deadline must not fire for a generation that holds.
+        detection.acknowledged(at);
         supervisor.replaced(holding);
     }
 

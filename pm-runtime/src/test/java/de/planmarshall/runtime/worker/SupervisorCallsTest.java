@@ -678,6 +678,19 @@ class SupervisorCallsTest {
     }
 
     @Test
+    @DisplayName("a first asking turn's hold is the offer's acknowledgement")
+    void aFirstTurnHoldAcknowledgesTheOffer() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant());
+
+        fixture.advance(Duration.ofSeconds(ACK_DEADLINE_SECONDS));
+
+        assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
+                "a first turn's hold never misses the offer's acknowledgement");
+    }
+
+    @Test
     @DisplayName("a pause at once ends every generation of the plan by force")
     void aPauseEndsEveryGenerationOfThePlan() {
         var generations = startedFresh(fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2), 2);

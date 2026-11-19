@@ -52,9 +52,11 @@ detection:
 * `holdOpened` moves the generation to `HOLDING` through the table — which gains `EXECUTING` to `HOLDING`, and `OFFERED`
   to `HOLDING` for the asking turn of a first offer, whose hold arrives before that turn's completion — keeps the lease
   of the task it names and its model slot, marks the detection's wait open (which suppresses the silence deadline as a
-  consultation's wait does) and counts no idle wake-up. A transition the table does not have, from `STARTING` for
-  example, and a call that names another task than the generation leases are refused as every other call of the port is
-  refused: the state stays as it is and nothing is recorded, because the inbound API never throws at the transport.
+  consultation's wait does), records the hold as the acknowledgement of the offer — a worker that asks has received its
+  task, so the offer's deadline never fires for a holding generation — and counts no idle wake-up. A transition the table
+  does not have, from `STARTING` for example, and a call that names another task than the generation leases are refused
+  as every other call of the port is refused: the state stays as it is and nothing is recorded, because the inbound API
+  never throws at the transport.
 * `holdClosed` moves a `HOLDING` generation to `EXECUTING` and closes the detection's wait, so the silence limit counts
   again from the close; a generation that does not hold is refused.
 * `answerDelivered` closes the wait of the hold and calls `LossDetection.answerDelivered`, which arms the answer's
