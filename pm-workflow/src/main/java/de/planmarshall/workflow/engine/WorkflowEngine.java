@@ -463,22 +463,26 @@ public final class WorkflowEngine {
                     .formatted(node.id(), wait, event));
         }
         return switch (node.behavior()) {
-            case StateBehavior.JobStep job when job.composite() ->
+                case StateBehavior.JobStep job when job.composite() ->
                 run.chain(run.runPrimitive(node, job.primitiveId(), job.transitions()));
             case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(_, var fate) ->
                 run.chain(run.leftTo(node, transitionOf(node, job.transitions(), fate, Map.of()).targetStateId(),
                         fate));
-            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(_, _, var outcome) ->
-                run.chain(run.leftTo(node, transitionOf(node, modelJob.transitions(), outcome, Map.of())
+            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(_, var submissions, var outcome) -> {
+                run.fillSlotFromTask(node, submissions);
+                yield run.chain(run.leftTo(node, transitionOf(node, modelJob.transitions(), outcome, Map.of())
                         .targetStateId(), outcome));
+            }
             case StateBehavior.QuestionWait question when event instanceof EngineEvent.QuestionResolved resolved ->
                 resolve(run, status, node, question, resolved);
-            case StateBehavior.InteractiveLinks links when event instanceof EngineEvent.OperatorAct act ->
-                run.chain(run.runPrimitive(node, primitiveOf(linkOf(links, act)),
+            case StateBehavior.InteractiveLinks links when event instanceof EngineEvent.OperatorAct act -> {
+                run.fillSlotFromOperator(node, act);
+                yield run.chain(run.runPrimitive(node, primitiveOf(linkOf(links, act)),
                         linkOf(links, act).transitions(), act.parameters()));
+            }
             default -> throw new IllegalStateException("the state '%s' accepted %s, which it cannot route"
                     .formatted(node.id(), event));
-        };
+            };
     }
 
     /**
@@ -981,6 +985,39 @@ public final class WorkflowEngine {
         /** Records that the state was left, with the outcome its transition was chosen by. */
         void leave(StateNode node, String outcome) {
             record(PlanHistoryLine.Event.LEFT, node.id(), outcome);
+        }
+
+        /** Fills the state's slot from the accepted task submission, when the state declares a fills clause. */
+        void fillSlotFromTask(StateNode node, Map<String, Map<String, String>> submissions) {
+            var fills = node.fills();
+            if (fills == null) {
+                return;
+            }
+            for (var entry : submissions.entrySet()) {
+                var value = entry.getValue().get(fills.fromParam());
+                if (value != null) {
+                    storeSlot(fills.slotName(), value, "task_submit", entry.getKey());
+                    return;
+                }
+            }
+        }
+
+        /** Fills the state's slot from the operator act, when the state declares a fills clause. */
+        void fillSlotFromOperator(StateNode node, EngineEvent.OperatorAct act) {
+            var fills = node.fills();
+            if (fills == null) {
+                return;
+            }
+            var value = act.parameters().get(fills.fromParam());
+            if (value != null) {
+                storeSlot(fills.slotName(), value, "operator_answer", act.linkId());
+            }
+        }
+
+        private void storeSlot(String name, String value, String source, String sourceRef) {
+            var slots = new LinkedHashMap<>(status.slots());
+            slots.put(name, new WorkflowStatus.Slot(value, source, sourceRef, clock.now()));
+            status = status.toBuilder().slots(slots).build();
         }
 
         /** Records the state as left and returns the target its transition was chosen for. */
