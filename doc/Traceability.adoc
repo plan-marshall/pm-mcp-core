@@ -2435,7 +2435,7 @@ link:../pm-core/doc/adr/core-store/065-the-vocabulary-of-the-unavailable-states.
 link:../pm-core/doc/adr/core-store/066-the-lesson-store-reads-in-two-flavours-and-decides-under-the-lock.adoc[ADR core-store/066],
 link:../pm-core/doc/adr/core-store/067-the-lesson-store-builds-no-operator-act.adoc[ADR core-store/067],
 link:../pm-core/doc/adr/core-store/076-the-end-of-a-claim-clears-the-claim-and-keeps-the-retirement.adoc[ADR core-store/076],
-link:../pm-core/doc/adr/core-store/077-the-lesson-store-refuses-a-blank-body-escapes-del-and-trusts-what-it-reads.adoc[ADR core-store/077]
+link:../pm-core/doc/adr/core-store/079-the-lesson-store-refuses-a-blank-body-escapes-del-and-trusts-what-it-reads.adoc[ADR core-store/079]
 
 [#PM-IMPL-3]
 === PM-IMPL-3: Deterministic Native TOON Encoder

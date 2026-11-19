@@ -1,4 +1,4 @@
-= ADR 077: The Lesson Store Refuses a Blank Body, Escapes DEL and Trusts Only What It Can Read
+= ADR 079: The Lesson Store Refuses a Blank Body, Escapes DEL and Trusts Only What It Can Read
 :nofooter:
 
 == Status
