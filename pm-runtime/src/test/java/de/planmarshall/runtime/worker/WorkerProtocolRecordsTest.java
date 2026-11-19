@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.worker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -18,12 +19,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Proves that the builder of {@link WorkerProtocol.OffTrackReport} builds the value its canonical constructor builds.
- * The report checks no component for null, so it has no refusal to mirror. Every value is generated; the signal and the
- * action name wire values, and the instant is a generated epoch second.
+ * Proves that the builders of {@link WorkerProtocol.OffTrackReport} and {@link WorkerProtocol.HoldEndedReport} build the
+ * value their canonical constructor builds. The off-track report checks no component for null and has no refusal to
+ * mirror; the hold-ended report refuses an attempt below one. Every value is generated; the signal and the action name
+ * wire values, and the instant is a generated epoch second.
  */
 @EnableGeneratorController
-@DisplayName("WorkerProtocol.OffTrackReport builder")
+@DisplayName("WorkerProtocol records")
 class WorkerProtocolRecordsTest {
 
     @Test
@@ -52,5 +54,39 @@ class WorkerProtocolRecordsTest {
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same off-track report");
+    }
+
+    @Test
+    @DisplayName("the hold-ended report builder builds the report the constructor builds")
+    void holdEndedReportBuilderEqualsConstructor() {
+        var generationId = Generators.letterStrings(1, 40).next();
+        var queueTaskId = Generators.letterStrings(1, 40).next();
+        var attempt = Generators.integers(1, 10).next();
+        var at = Instant.ofEpochSecond(Generators.longs(0, 1_900_000_000).next());
+
+        var constructed = new WorkerProtocol.HoldEndedReport(generationId, queueTaskId, attempt,
+                WorkerProtocol.HoldEndCause.TOKEN_BUDGET, at);
+        var built = WorkerProtocol.HoldEndedReport.builder()
+                .generationId(generationId)
+                .queueTaskId(queueTaskId)
+                .attempt(attempt)
+                .cause(WorkerProtocol.HoldEndCause.TOKEN_BUDGET)
+                .at(at)
+                .build();
+
+        assertEquals(constructed, built, "the builder builds the same hold-ended report");
+    }
+
+    @Test
+    @DisplayName("a hold-ended report refuses an attempt below one")
+    void holdEndedReportRefusesAttemptBelowOne() {
+        var generationId = Generators.letterStrings(1, 40).next();
+        var queueTaskId = Generators.letterStrings(1, 40).next();
+        var at = Instant.ofEpochSecond(Generators.longs(0, 1_900_000_000).next());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new WorkerProtocol.HoldEndedReport(generationId, queueTaskId, 0,
+                        WorkerProtocol.HoldEndCause.TOKEN_BUDGET, at),
+                "an attempt below one names no attempt");
     }
 }

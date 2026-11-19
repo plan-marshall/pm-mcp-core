@@ -31,6 +31,10 @@ assembly, which owes a `WorkerCalls` entry that the supervisor implements by cal
 entry without its assembly counterpart would leave the method uncalled, and the assembly lives in
 `plan-marshall-mcp`, which this work package keeps untouched.
 
+NOTE: The entry exists since the work package `continuation-hold-and-budget` (PLAN-V2-47): `WorkerCalls.answerDelivered`
+and `holdOpened`/`holdClosed` are implemented by `SupervisorCalls` (ADR `runtime-worker/016`). The assembly still owes the
+call, and the paragraph above records the state this decision was taken in.
+
 == Alternatives Considered
 
 * Arming the deadline when the wait closes: refused because a wait closes for a re-offer or a recycle as well, and those

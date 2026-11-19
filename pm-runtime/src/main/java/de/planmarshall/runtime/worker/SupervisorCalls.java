@@ -51,6 +51,9 @@ import de.planmarshall.core.store.WorkerState;
  */
 public final class SupervisorCalls implements WorkerCalls {
 
+    /** The name of the queue-task argument, as a null check reports it. */
+    private static final String QUEUE_TASK_ARGUMENT = "queueTaskId";
+
     private final WorkerSupervisor supervisor;
     private final WorkerEnding ending;
     private final WorkerRecycling recycling;
@@ -98,7 +101,7 @@ public final class SupervisorCalls implements WorkerCalls {
 
     @Override
     public synchronized WaitAnswer waitOpened(String generationId, String queueTaskId, String roleDigest) {
-        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(queueTaskId, QUEUE_TASK_ARGUMENT);
         Objects.requireNonNull(roleDigest, "roleDigest");
         var generation = known(generationId).orElse(null);
         if (generation == null) {
@@ -112,6 +115,16 @@ public final class SupervisorCalls implements WorkerCalls {
             firstCall(generation, detection, at);
         }
         detection.waitOpened(at);
+        if (generation.lifecycle() == WorkerLifecycle.HOLDING) {
+            // A hold keeps its task and its wait: a bounded wait of a holding generation is answered wait again, so it
+            // is never offered a second task and its hold stays closable by the task it names. An end already requested
+            // is told to the transport, which is the only way the worker leaves gracefully from a hold.
+            if (ending.endRequested(generationId)) {
+                detection.waitClosed(at);
+                return new WaitAnswer.End();
+            }
+            return new WaitAnswer.WaitAgain();
+        }
         try {
             return answerTo(generation, queueTaskId, roleDigest, at, detection);
         } finally {
@@ -156,22 +169,75 @@ public final class SupervisorCalls implements WorkerCalls {
         if (generation == null) {
             return;
         }
-        var updated = executing(generation.withContextTokens(WorkerState.ContextTokens.measured(contextTokens)));
-        supervisor.replaced(updated);
-        recycling.afterTurnCompleted(updated);
+        var updated = generation.withContextTokens(WorkerState.ContextTokens.measured(contextTokens));
+        // A turn reported while the generation holds leaves the hold as it is: the recycling decides the hold's budget
+        // on that turn, and the generation holds until its hold ends or the end path runs.
+        var next = generation.lifecycle() == WorkerLifecycle.HOLDING ? updated : executing(updated);
+        supervisor.replaced(next);
+        recycling.afterTurnCompleted(next);
     }
 
     @Override
     public synchronized void taskClosed(String generationId, String queueTaskId) {
-        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(queueTaskId, QUEUE_TASK_ARGUMENT);
         var generation = known(generationId).orElse(null);
         if (generation == null) {
             return;
         }
+        var at = supervisor.environment().clock().instant();
         var closed = generation.withServedTasks(served(generation.servedTasks(), queueTaskId)).withLeasedTask(null);
         var next = waiting(closed);
+        if (generation.lifecycle() == WorkerLifecycle.HOLDING) {
+            // A closed task ends the hold as well: its wait closes, so the silence limit counts again from here.
+            detection(generation).waitClosed(at);
+        }
         supervisor.replaced(next);
         recycling.afterTaskClosed(next, roleDigests.get(generationId));
+    }
+
+    @Override
+    public synchronized void holdOpened(String generationId, String queueTaskId, Instant at) {
+        Objects.requireNonNull(queueTaskId, QUEUE_TASK_ARGUMENT);
+        Objects.requireNonNull(at, "at");
+        var generation = known(generationId).orElse(null);
+        if (generation == null || !namesTheHeldTask(generation, queueTaskId)
+                || !mayAdvance(generation, WorkerLifecycle.HOLDING)) {
+            return;
+        }
+        var holding = generation.advanceTo(WorkerLifecycle.HOLDING).withLeasedTask(queueTaskId);
+        var detection = detection(generation);
+        detection.waitOpened(at);
+        // A worker that asks has received its task: the hold is the acknowledgement of the offer, so the offer's
+        // acknowledgement deadline must not fire for a generation that holds.
+        detection.acknowledged(at);
+        supervisor.replaced(holding);
+    }
+
+    @Override
+    public synchronized void holdClosed(String generationId, String queueTaskId, Instant at) {
+        Objects.requireNonNull(queueTaskId, QUEUE_TASK_ARGUMENT);
+        Objects.requireNonNull(at, "at");
+        var generation = known(generationId).orElse(null);
+        if (generation == null || generation.lifecycle() != WorkerLifecycle.HOLDING
+                || !namesTheHeldTask(generation, queueTaskId)) {
+            return;
+        }
+        var executing = generation.advanceTo(WorkerLifecycle.EXECUTING);
+        detection(generation).waitClosed(at);
+        supervisor.replaced(executing);
+    }
+
+    @Override
+    public synchronized void answerDelivered(String generationId, Instant at) {
+        Objects.requireNonNull(at, "at");
+        var generation = known(generationId).orElse(null);
+        if (generation != null) {
+            var detection = detection(generation);
+            // The answer ends the wait of the hold: the silence limit counts again from the answer, whichever way the
+            // host's acknowledgement is configured (ADR runtime-worker/012).
+            detection.waitClosed(at);
+            detection.answerDelivered(at);
+        }
     }
 
     @Override
@@ -324,6 +390,16 @@ public final class SupervisorCalls implements WorkerCalls {
 
     private static boolean mayAdvance(WorkerGeneration generation, WorkerLifecycle next) {
         return generation.lifecycle().canTransitionTo(next);
+    }
+
+    /**
+     * @param generation   the generation
+     * @param queueTaskId  the task the call names
+     * @return whether the call names the task the generation leases, or a generation that leases none
+     */
+    private static boolean namesTheHeldTask(WorkerGeneration generation, String queueTaskId) {
+        var leased = generation.leasedTask();
+        return leased == null || leased.equals(queueTaskId);
     }
 
     private static List<String> served(List<String> servedTasks, String queueTaskId) {

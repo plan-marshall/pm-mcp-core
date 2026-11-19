@@ -95,7 +95,8 @@ class PlanSchemaFilesTest {
                 "the schema names every refusal value and nothing else");
     }
 
-    private static void collectRequiredViolations(Object value, String pointer, List<String> violations) {        switch (value) {
+    private static void collectRequiredViolations(Object value, String pointer, List<String> violations) {
+        switch (value) {
             case null -> {
                 // a JSON null carries no declaration
             }

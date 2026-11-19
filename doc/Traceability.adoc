@@ -2972,10 +2972,11 @@ Implementation (the queue task record, the queue of a project below `projects/<p
 below `machine/queue/`, the persisted generation fence, the activity journal of a task, and the protocol that offers,
 acknowledges, leases, fences, settles `submitted` and `infeasible`, closes `lost`, re-offers, records the off-track
 signals with their `security` audit record and delivers skills; the continuation after a question as far as the library
-carries it — the form decided from the state, the role and the harness, the hold, the answer with its acknowledgement,
-the offer of a resumed suspension, the fallback and the question bound, and the form of that usage in the metrics row —
-whereas the supervisor that starts the resumed generation from the stored session, the losses of a continuing worker
-and the launch of a resumable role are not wired here; the runtime that serves a task to a
+and the supervisor already carry it — the form decided from the state, the role and the harness, the hold with its
+opening, closing and delivered-answer entries and its end at the token budget, the answer with its acknowledgement, the
+offer of a resumed suspension, the fallback and the question bound, and the form of that usage in the metrics row —
+whereas the supervisor that starts the resumed generation from the stored session and the launch of a resumable role
+are not wired here; the runtime that serves a task to a
 harness worker, the worker launch, the `worker-task` unit of the assembly and the MCP tools are not wired here): link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecord.java[QueueTaskRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecordCodec.java[QueueTaskRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueStore.java[QueueStore],
@@ -3040,7 +3041,8 @@ the three loss deadlines and the off-track `agent_started` signal, compared by e
 path with its fence, token revocation, slot release and terminal state; the drain participant; the four recycle triggers
 and the idle yields; the start-failure guard with its bounded report and its probe; the machine-wide start spacing of one
 harness; the worker state of the generation written into the job record; the inbound calls that map the transport's facts
-onto detection, recycling, ending and the guard; and the scheduled supervision pass that settles an ended job, pumps a
+onto detection, recycling, ending and the guard, the three facts of a hold among them, and the hold's end at the token
+budget reported through `WorkerProtocol.holdEnded`; and the scheduled supervision pass that settles an ended job, pumps a
 running worker's log and yields an idle slot. The transport, the scheduling of the pass and the assembly wiring are
 `pm-mcp-server`'s, and the model slots are the landed scheduler's): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java[WorkerSupervisor],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerGeneration.java[WorkerGeneration],
@@ -3076,11 +3078,11 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisor
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerLossDetectionTest.java[WorkerLossDetectionTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerEndingTest.java[WorkerEndingTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerDrainParticipantTest.java[WorkerDrainParticipantTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerRecyclingTest.java[WorkerRecyclingTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerRecyclingTest.java[WorkerRecyclingTest] (the four triggers, the idle yield, and the hold-ended notification before the fence and the release),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartFailureGuardTest.java[StartFailureGuardTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java[HarnessStartSpacingTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/AgentStartedDetectorTest.java[AgentStartedDetectorTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java[SupervisorCallsTest] (each call of `WorkerCalls` and its answer, the unknown generation, an end-requested wait, the pause of a plan and the enrolment's clear),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java[SupervisorCallsTest] (each call of `WorkerCalls` and its answer, the unknown generation, an end-requested wait, the three hold entries with the refused transition and the answer's deadline, the pause of a plan and the enrolment's clear),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once — against the fixture's mocked `WorkerStateWriter`, because the landed writer refuses a settled record, see ADR `runtime-worker/014` — the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
 
 Documentation: link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
@@ -3090,7 +3092,8 @@ link:../pm-runtime/doc/adr/runtime-worker/005-agent-started-reads-executable-pat
 link:../pm-runtime/doc/adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR runtime-worker/008],
 link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009],
 link:../pm-runtime/doc/adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR runtime-worker/012],
-link:../pm-runtime/doc/adr/runtime-worker/014-the-inbound-calls-and-the-scheduled-pass.adoc[ADR runtime-worker/014]
+link:../pm-runtime/doc/adr/runtime-worker/014-the-inbound-calls-and-the-scheduled-pass.adoc[ADR runtime-worker/014],
+link:../pm-runtime/doc/adr/runtime-worker/016-the-hold-ends-before-the-recycle.adoc[ADR runtime-worker/016]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server

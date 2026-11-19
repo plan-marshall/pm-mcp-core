@@ -9,22 +9,20 @@
  */
 package de.planmarshall.core.config;
 
-import java.util.List;
-import java.util.Set;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
-import de.cuioss.test.generator.junit.EnableGeneratorController;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The grammar and the lookup of the effective configuration keys. The keys themselves are the contract (Store Schemas
@@ -50,7 +48,7 @@ class EffectiveConfigKeysTest {
                 "project.review.",
                 "project.Review",
                 "project.*x",
-                "project.re-view.x*y" })
+                "project.re-view.x*y"})
         @DisplayName("Should refuse a key whose effective-key form breaks the grammar")
         void shouldRefuseMalformedKey(String source) {
             var domain = new ConfigValueDomain.Text();

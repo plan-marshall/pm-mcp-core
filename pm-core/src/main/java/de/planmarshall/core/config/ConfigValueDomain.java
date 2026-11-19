@@ -12,7 +12,6 @@ package de.planmarshall.core.config;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-
 import org.jspecify.annotations.Nullable;
 
 /**
