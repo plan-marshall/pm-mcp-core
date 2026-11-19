@@ -133,6 +133,6 @@ public final class InputValidator {
         if (high != null) {
             max = high;
         }
-        return new int[] {min, max};
+        return new int[]{min, max};
     }
 }

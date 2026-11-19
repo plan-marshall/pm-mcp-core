@@ -11,12 +11,14 @@ package de.planmarshall.workflow.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -164,7 +166,7 @@ class UnitFrontmatterSlotTest {
                             "the slot keeps the type of its source form"),
                     () -> assertEquals("The value the caller supplies.", slots.getFirst().description(),
                             "the slot keeps the description of its source"),
-                    () -> assertEquals(false, slots.getFirst().optional(), "a slot is never optional"));
+                    () -> assertFalse(slots.getFirst().optional(), "a slot is never optional"));
         }
 
         @Test
