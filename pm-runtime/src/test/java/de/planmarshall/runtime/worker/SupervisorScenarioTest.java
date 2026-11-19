@@ -237,7 +237,7 @@ class SupervisorScenarioTest {
         });
         var recycling = new WorkerRecycling(environment, ending, supervisor::generations,
                 name -> name.equals(role.artifact().name()) ? Optional.of(role.artifact().recycling()) : Optional.empty(),
-                parameters);
+                fixture.tasks, parameters);
 
         for (var failure = 1; failure <= StartFailureGuard.HOLD_THRESHOLD; failure++) {
             guard.startFailed(role.artifact().name(), SupervisorTestFixture.CLIENT, "the start failed");
@@ -371,7 +371,7 @@ class SupervisorScenarioTest {
         var ending = new WorkerEnding(environment, () -> false, () -> {
         });
         var recycling = new WorkerRecycling(environment, ending, supervisor::generations,
-                name -> Optional.of(role.artifact().recycling()), parameters);
+                name -> Optional.of(role.artifact().recycling()), fixture.tasks, parameters);
         var started = assertInstanceOf(StartOutcome.Started.class,
                 supervisor.start(List.of(fixture.warmRequest(role, base.resolve(worktreeName)))).getFirst(),
                 "the supervisor starts the warm generation").generation();

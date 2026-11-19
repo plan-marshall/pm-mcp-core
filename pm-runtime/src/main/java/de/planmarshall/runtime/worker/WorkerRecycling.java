@@ -35,6 +35,10 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * fences, revokes, releases the slot, writes the terminal state and starts a successor when work remains. Each recycle
  * logs {@code WORKER_GENERATION_RECYCLED} once with its {@link RecycleCause}.
  * <p>
+ * A generation that reached the budget while it holds its task for an answer ends its hold before the recycle, through
+ * {@link WorkerProtocol#holdEnded}: the task protocol decides there whether the task is suspended or falls back, and it
+ * sees the notification while the generation still leases the task (Model Work § Continuing after a Question, Budget).
+ * <p>
  * The decision reads the facts the supervisor records on the {@link WorkerGeneration} — its form, its lease, its idle
  * wake-ups, the context of its latest turn and the tasks it closed — and the recycling bounds of its role. A fresh
  * generation is never recycled: it ends after its one task. The token budget reads the context of the latest turn only
@@ -55,24 +59,29 @@ public final class WorkerRecycling {
     private final WorkerEnding ending;
     private final Supplier<List<WorkerGeneration>> generations;
     private final Function<String, Optional<RoleArtifact.Recycling>> roleBounds;
+    private final WorkerTaskActivity tasks;
     private final WorkerParameters parameters;
     private final Set<String> recycled = new HashSet<>();
+    private final Set<String> holdEnded = new HashSet<>();
 
     /**
      * @param environment the collaborators of the project, read for the model slots and the start-failure guard
      * @param ending      the one end path a recycle runs through
      * @param generations the registered generations of the supervisor, read by the idle yield
      * @param roleBounds  the recycling bounds of one role; empty for a fresh role
+     * @param tasks       the facts of a served task, which name the attempt an ended hold reports
      * @param parameters  the worker values of the harness's client profile, which bound the idle trigger
      * @throws NullPointerException if a collaborator is {@code null}
      */
     public WorkerRecycling(SupervisorEnvironment environment, WorkerEnding ending,
             Supplier<List<WorkerGeneration>> generations,
-            Function<String, Optional<RoleArtifact.Recycling>> roleBounds, WorkerParameters parameters) {
+            Function<String, Optional<RoleArtifact.Recycling>> roleBounds, WorkerTaskActivity tasks,
+            WorkerParameters parameters) {
         this.environment = Objects.requireNonNull(environment, "environment");
         this.ending = Objects.requireNonNull(ending, "ending");
         this.generations = Objects.requireNonNull(generations, "generations");
         this.roleBounds = Objects.requireNonNull(roleBounds, "roleBounds");
+        this.tasks = Objects.requireNonNull(tasks, "tasks");
         this.parameters = Objects.requireNonNull(parameters, "parameters");
     }
 
@@ -145,7 +154,28 @@ public final class WorkerRecycling {
         if (generation.servedTasks().isEmpty() && generation.lifecycle() != WorkerLifecycle.HOLDING) {
             return Optional.empty();
         }
-        return recycle(generation, RecycleCause.TOKEN_BUDGET);
+        return recycleAtTheBudget(generation);
+    }
+
+    /**
+     * Ends the hold of a generation that reached its budget and recycles it in either case: a protocol that refuses the
+     * notification must not keep a generation alive past its budget, so the recycle runs in a {@code finally} and the
+     * failure still reaches the caller.
+     *
+     * @param generation the generation whose turn reached the budget
+     * @return why the turn recycled the generation; empty when it was already recycled
+     */
+    private Optional<RecycleCause> recycleAtTheBudget(WorkerGeneration generation) {
+        try {
+            if (generation.lifecycle() == WorkerLifecycle.HOLDING) {
+                notifyHoldEnded(generation);
+            }
+            return recycle(generation, RecycleCause.TOKEN_BUDGET);
+        } finally {
+            if (!recycled.contains(generation.generationId())) {
+                recycle(generation, RecycleCause.TOKEN_BUDGET);
+            }
+        }
     }
 
     /**
@@ -201,6 +231,31 @@ public final class WorkerRecycling {
                 .min(Comparator.comparingLong(WorkerGeneration::idleWakeups).reversed()
                         .thenComparing(WorkerGeneration::startedAt));
         return candidate.flatMap(generation -> recycle(generation, RecycleCause.IDLE_YIELD));
+    }
+
+    /**
+     * Ends the hold of a generation that reached its budget, once per generation and before the recycle: the protocol
+     * suspends the task where it may resume and falls back otherwise, while the generation still leases the task and
+     * before the end path fences it (Model Work § Continuing after a Question, Budget). A task whose facts cannot be
+     * read names no attempt, so it is not reported; the end path still recycles the generation.
+     *
+     * @param generation the holding generation
+     */
+    private void notifyHoldEnded(WorkerGeneration generation) {
+        var queueTaskId = generation.leasedTask();
+        if (queueTaskId == null || holdEnded.contains(generation.generationId())) {
+            return;
+        }
+        tasks.facts(queueTaskId).ifPresent(facts -> {
+            environment.protocol().holdEnded(WorkerProtocol.HoldEndedReport.builder()
+                    .generationId(generation.generationId())
+                    .queueTaskId(queueTaskId)
+                    .attempt(facts.attempt())
+                    .cause(WorkerProtocol.HoldEndCause.TOKEN_BUDGET)
+                    .at(environment.clock().instant())
+                    .build());
+            holdEnded.add(generation.generationId());
+        });
     }
 
     /**

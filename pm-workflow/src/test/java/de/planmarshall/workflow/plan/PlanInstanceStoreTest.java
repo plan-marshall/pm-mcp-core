@@ -195,6 +195,59 @@ class PlanInstanceStoreTest {
         }
 
         @Test
+        @DisplayName("a version the composer did not return is refused before any write")
+        void unverifiedVersionRefused() {
+            var composed = version1();
+            var unmarked = PlanInstance.builder()
+                    .version(composed.version())
+                    .header(composed.header())
+                    .unit(composed.unit())
+                    .text(composed.text())
+                    .units(composed.units())
+                    .build();
+            var foreignMark = PlanInstance.builder()
+                    .version(composed.version())
+                    .header(composed.header())
+                    .unit(composed.unit())
+                    .text(composed.text())
+                    .units(composed.units())
+                    .verified(Verified.of(composed.version() + 1, PlanFacts.sha256(composed.text())))
+                    .build();
+            var changedText = PlanInstance.builder()
+                    .version(composed.version())
+                    .header(composed.header())
+                    .unit(composed.unit())
+                    .text(composed.text() + "\n# a line the composer did not print\n")
+                    .units(composed.units())
+                    .verified(composed.verified())
+                    .build();
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), Optional.ofNullable(unmarked.verified()),
+                            "the value carries no composer mark"),
+                    () -> assertEquals(Optional.empty(), store.readVersion(1),
+                            "nothing was written for a version without its mark"));
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                var texts = texts();
+                var unmarkedRecord = CompositionRecord.composed(unmarked, null, COMPOSED_AT);
+                var foreignRecord = CompositionRecord.composed(foreignMark, null, COMPOSED_AT);
+                assertThrows(IllegalArgumentException.class,
+                        () -> store.recordComposed(transaction, unmarked, texts, unmarkedRecord),
+                        "a version the composer did not return is refused");
+                assertThrows(IllegalArgumentException.class,
+                        () -> store.recordComposed(transaction, foreignMark, texts, foreignRecord),
+                        "the mark of another version is refused");
+                var changedRecord = CompositionRecord.composed(changedText, null, COMPOSED_AT);
+                assertThrows(IllegalArgumentException.class,
+                        () -> store.recordComposed(transaction, changedText, texts, changedRecord),
+                        "a text the composer did not print is refused");
+            }
+        }
+
+        @Test
         @DisplayName("a second write of the same version is refused and the file stays as it was")
         void writtenOnce() {
             var instance = version1();
@@ -862,7 +915,7 @@ class PlanInstanceStoreTest {
         void headerNamesNoFile() {
             var instance = merged();
             var withoutUnits = new PlanInstance(instance.version(), instance.header(), instance.unit(),
-                    instance.text());
+                    instance.text(), List.of(), Verified.of(instance.version(), PlanFacts.sha256(instance.text())));
             var texts = textsOf(withoutUnits);
             var compositionRecord = CompositionRecord.composed(withoutUnits, null, COMPOSED_AT);
 
@@ -888,7 +941,8 @@ class PlanInstanceStoreTest {
             var extra = ComposedUnit.of("replan",
                     InvariantFixtures.passingUnits(UnitOrigin.PROJECT).get("replan"));
             var mixed = new PlanInstance(instance.version(), instance.header(), instance.unit(), instance.text(),
-                    Stream.concat(instance.units().stream(), Stream.of(extra)).toList());
+                    Stream.concat(instance.units().stream(), Stream.of(extra)).toList(),
+                    Verified.of(instance.version(), PlanFacts.sha256(instance.text())));
             var texts = textsOf(mixed);
             var compositionRecord = CompositionRecord.composed(mixed, null, COMPOSED_AT);
 

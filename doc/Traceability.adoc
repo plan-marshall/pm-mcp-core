@@ -950,6 +950,26 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolRefu
 Documentation: link:../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide],
 link:../pm-workflow/doc/adr/workflow-task/004-the-delivery-record-is-a-runtime-projection.adoc[ADR workflow-task/004]
 
+[#PM-SKILL-5]
+=== PM-SKILL-5: Skill Resolution at Composition
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-5[PM-SKILL-5]
+
+Implementation (Rule 14 of the static verification rules at the composition of a plan instance: every skill a `skill`
+clause of the composed plan unit, of the version's composed files and of the sub-units it binds by digest names is
+resolved in the project's skill catalogue at the moment of the composition, and a skill the catalogue does not resolve
+refuses the version with `skill_unresolved`, naming the skill and the state; the catalogue itself is a port the assembly
+fills, and no level's copy of a skill is read here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/SkillCatalogue.java[SkillCatalogue],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/CompositionRefusal.java[CompositionRefusal],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionChecks.java[CompositionChecks],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionChecksTest.java[CompositionChecksTest] (an unresolved skill at `start`, at a server event and at an operator event, with the resolved control)
+
+Documentation: link:../pm-workflow/doc/developer/workflow-plan.adoc#_rules_13_and_14_at_composition[Plan Instance Developer Guide § Rules 13 and 14 at Composition],
+link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide],
+link:../pm-workflow/doc/adr/workflow-model/003-the-model-identity-of-a-quorum.adoc[ADR workflow-model/003]
+
 == link:../../plan-marshall-documentation/doc/requirements/04-tools.adoc[Tools]
 
 [#PM-TOOL-1]
@@ -2406,7 +2426,7 @@ link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-co
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
 
-Implementation (the parser of the workflow DSL with its refusals naming file and line, the immutable tree of a unit, the reading of a plan instance's header, and the printer; the static verifier with the checks of primitive binding, free-parameter match, outcome coverage of `auto`, `job`, `composite_job` and link actions, reachability, exit paths, unique link identifiers and released states, each violation a value naming the rule, the state, the file and the line; the seeded transition fuzzer; the deterministic interpreter of a verified unit and the sub-workflows it calls, which runs the primitives of `auto` states, starts the jobs of job states and creates the queue tasks of task states through ports, and is resumed by typed engine events, with three-valued guards and the persisted loop-back and remediation counters, not yet wired into the runtime `pm-mcpd`; the generator that renders a unit as a Mermaid state diagram with one composite state per phase, as AsciiDoc state, link and outcome tables per phase group with the columns of the State Catalogue, and as a table for terminal output, each form byte-stable in declaration order; the production registries of the configuration keys and of the fact kinds with the one factory that assembles the verifier context; the remaining validation rules, among them the vocabulary skills and the roles, and the committed diagrams with their drift tests are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
+Implementation (the parser of the workflow DSL with its refusals naming file and line, the immutable tree of a unit, the reading of a plan instance's header, and the printer; the static verifier with the checks of primitive binding, free-parameter match, outcome coverage of `auto`, `job`, `composite_job` and link actions, reachability, exit paths, unique link identifiers and released states, each violation a value naming the rule, the state, the file and the line; the seeded transition fuzzer; the deterministic interpreter of a verified unit and the sub-workflows it calls, which runs the primitives of `auto` states, starts the jobs of job states and creates the queue tasks of task states through ports, and is resumed by typed engine events, with three-valued guards and the persisted loop-back and remediation counters, not yet wired into the runtime `pm-mcpd`; the generator that renders a unit as a Mermaid state diagram with one composite state per phase, as AsciiDoc state, link and outcome tables per phase group with the columns of the State Catalogue, and as a table for terminal output, each form byte-stable in declaration order; the production registries of the configuration keys and of the fact kinds with the one factory that assembles the verifier context; the composition of the plan instance's versions on their events, the engine that runs the version in force and the resources that render it; the remaining validation rules, among them the vocabulary skills, and the committed diagrams with their drift tests are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowPrinter.java[WorkflowPrinter],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/WorkflowDefinition.java[WorkflowDefinition],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
@@ -2438,6 +2458,9 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagr
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/StateKindTest.java[StateKindTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceResourcesTest.java[PlanInstanceResourcesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionChecksTest.java[CompositionChecksTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/InstanceVersionEngineTest.java[InstanceVersionEngineTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessStatesTest.java[PlanProcessStatesTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest],
@@ -2486,7 +2509,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBou
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/FinalizePipelineValidatorTest.java[FinalizePipelineValidatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/FinalizeStepDescriptorTest.java[FinalizeStepDescriptorTest]
 
-Implementation (the plan instance of the fifth statement and its rendering of the sixth, as far as the library module `pm-workflow` carries them: the instance header with its canonical JSON line and the check of every constraint of the schema it implements; the shipped composition rule file with its revision and digest, and the evaluator of its rules over the plan facts and the effective configuration, each prune with its reason and source fact; the composer, which prunes and binds the merged plan template by the rules and the waivers in force, applies the position rule, verifies each version against Rules 1-12, the finalize pipeline, the compiled invariants and the header schema, and refuses a failing version as a value while the version in force stays; the store that writes each version once as `instance/plan.v<N>.pmwf`, one line of `instance/composition.jsonl` per composition attempt, and the text of each bound sub-unit once per digest as `mcp/units/<digest>.pmwf`, all through the plan's scope transaction; the rendering of an instance as a Mermaid diagram, AsciiDoc tables and a terminal table with the active state, the pruned elements with their reason and the waived gates with their waiver id; and the instance of a plan unit made of phase sub-workflows as the set of files the specification states: one composed file per phase sub-workflow and bound axis variant a kept call reaches, named by the header by digest and written with the plan unit's file in the composing transaction, a pruned call composing no file, with the position rule and the header-schema check over the set. Not implemented yet: the wiring of the landing step states into the assembly's finalize composition (the merge itself is `LandingStepComposition`); the level `machine` of a unit in the header; Rules 13 and 14 at composition, the triggers of the composition events, the engine's switch to a new version in force and its read of the stored sub-unit texts, and the read-only resources of an instance): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceHeader.java[PlanInstanceHeader],
+Implementation (the plan instance of the fifth statement and its rendering of the sixth, as far as the library module `pm-workflow` carries them: the instance header with its canonical JSON line and the check of every constraint of the schema it implements; the shipped composition rule file with its revision and digest, and the evaluator of its rules over the plan facts and the effective configuration, each prune with its reason and source fact; the composer, which prunes and binds the merged plan template by the rules and the waivers in force, applies the position rule, verifies each version against Rules 1-12, the finalize pipeline, the compiled invariants and the header schema, and refuses a failing version as a value while the version in force stays; the store that writes each version once as `instance/plan.v<N>.pmwf`, one line of `instance/composition.jsonl` per composition attempt, and the text of each bound sub-unit once per digest as `mcp/units/<digest>.pmwf`, all through the plan's scope transaction; the rendering of an instance as a Mermaid diagram, AsciiDoc tables and a terminal table with the active state, the pruned elements with their reason and the waived gates with their waiver id; and the instance of a plan unit made of phase sub-workflows as the set of files the specification states: one composed file per phase sub-workflow and bound axis variant a kept call reaches, named by the header by digest and written with the plan unit's file in the composing transaction, a pruned call composing no file, with the position rule and the header-schema check over the set; the composition of a version on each event — a server event in the transaction that enters its target state, an operator or configuration event in force from the next transition — with the engine running the version in force's composed files and stored sub-unit texts, `instance_version` as a field of the workflow state, the store writing only a version the composer returned as verified, Rules 13 and 14 at composition, and the instance resources of a version's text, the diagram of the version in force and its status. Not implemented yet: the wiring of the landing step states into the assembly's finalize composition (the merge itself is `LandingStepComposition`); the level `machine` of a unit in the header; the bindings of the resource URIs and of the plan's process resource, which are the assembly's in `plan-marshall-mcp`.): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceHeader.java[PlanInstanceHeader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaCheck.java[HeaderSchemaCheck],
 link:../pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json[composition-rules.json],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRules.java[CompositionRules],
@@ -2831,26 +2854,41 @@ Implementation (the plan instance of the seventh bullet, as far as the library m
 instance header that names the inputs of a version by digest, the level `machine` of a unit not yet among them; a new
 version composed only when it verifies and contains, per unit, the current `(unit, state)` and every `(unit, state)` of the call stack, and otherwise
 refused as a value while the version in force stays; each version written once, with one line of the composition log
-per attempt. Not implemented yet: the candidate composed at the phase handshake, the configuration-drift condition with
-its audit record, and the engine's switch to an adopted version. The verification of a project's units on load is
-traced with PM-IMPL-5; the other bullets are not traced here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceHeader.java[PlanInstanceHeader],
+per attempt; a server event composed in the transaction that enters its target state, an operator or configuration
+event in force from the next transition, and the engine running the version in force's composed files and stored
+sub-unit texts; the store writing only a version the composer returned as verified; the instance resources of the
+version's text, the diagram of the version in force and its status. Not implemented yet: the candidate composed at the
+phase handshake and the configuration-drift condition with its audit record. The verification of a project's units on
+load is traced with PM-IMPL-5; the other bullets are not traced here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceHeader.java[PlanInstanceHeader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionInputs.java[CompositionInputs],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/UnitReference.java[UnitReference],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionResult.java[CompositionResult],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java[PlanInstanceStore],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/Verified.java[Verified],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstanceComposition.java[InstanceComposition],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstanceUnits.java[InstanceUnits],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceVersions.java[PlanInstanceVersions],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceResources.java[PlanInstanceResources],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRecord.java[CompositionRecord]
 
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest] (the refusals `position_not_contained` and `invariant_failed`, and a refused version composing nothing),
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceHeaderTest.java[PlanInstanceHeaderTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/HeaderSchemaCheckTest.java[HeaderSchemaCheckTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest] (a version the composer did not return is refused),
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/InstanceVersionEngineTest.java[InstanceVersionEngineTest] (a server event of each kind in the entering transaction, an operator event from the next transition, the stored sub-unit text after a switch, the version's history line)
 
 Documentation: link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Instance Developer Guide],
 link:../pm-workflow/doc/developer/workflow-plan.adoc#_persistence[Plan Instance Developer Guide § Persistence],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_version_in_force_and_its_resources[§ The Version in Force and Its Resources],
+link:../pm-workflow/doc/developer/workflow-engine.adoc#_composition_events_and_the_version_in_force[Workflow Engine Developer Guide § Composition Events and the Version in Force],
 link:../pm-workflow/doc/adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR workflow-plan/001],
 link:../pm-workflow/doc/adr/workflow-plan/002-refused-composition-is-a-value.adoc[ADR workflow-plan/002],
-link:../pm-workflow/doc/adr/workflow-plan/003-versions-and-log-over-scope-transaction.adoc[ADR workflow-plan/003]
+link:../pm-workflow/doc/adr/workflow-plan/003-versions-and-log-over-scope-transaction.adoc[ADR workflow-plan/003],
+link:../pm-workflow/doc/adr/workflow-plan/028-only-a-version-the-composer-verified-is-stored.adoc[ADR workflow-plan/028],
+link:../pm-workflow/doc/adr/workflow-engine/016-the-composition-runs-in-the-entering-transactions.adoc[ADR workflow-engine/016],
+link:../pm-core/doc/adr/core-store/074-the-instance-version-is-a-field-of-the-workflow-state.adoc[ADR core-store/074]
 
 == link:../../plan-marshall-documentation/doc/requirements/16-model-work.adoc[Model Work]
 
@@ -2866,7 +2904,8 @@ machine and project sets with whole-artifact replacement, and the six resolution
 with the assignment stores, the plan override and the model catalogues read through the `RoleEnvironment` port; the
 effective model catalogue, the project's else the machine's, with `model_not_allowed`; validation against the client
 profile and the catalogue with the ten reasons of the table; the composition check with `role_undefined` and
-`class_mismatch`, at composition and at task creation; the one model caller with the judge and steward skipping Qualify,
+`class_mismatch`, at composition and at task creation, and the composition-time quorum clause with `quorum_invalid` and
+`quorum_not_diverse` by model identity; the one model caller with the judge and steward skipping Qualify,
 and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`; and an
 endpoint harness runs the class `zero_tool` alone, its projection carrying no other class (Harness Profiles § Endpoint
 Harness, ADR core-profile/011). Not
@@ -2886,7 +2925,8 @@ link:../pm-core/src/main/java/de/planmarshall/core/role/RoleValidation.java[Role
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleEnvironment.java[RoleEnvironment],
 link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/ModelCaller.java[ModelCaller],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleComposition.java[RoleComposition]
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleComposition.java[RoleComposition],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/ModelIdentity.java[ModelIdentity]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleArtifactValidatorTest.java[RoleArtifactValidatorTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleSetLoaderTest.java[RoleSetLoaderTest],
@@ -2895,13 +2935,15 @@ link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleDigestTest.java[RoleDigestTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleCompositionTest.java[RoleCompositionTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionChecksTest.java[CompositionChecksTest] (the quorum clause and the model identity at composition)
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
 link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide],
 link:../pm-core/doc/adr/core-role/001-role-sets-and-the-effective-configuration.adoc[ADR core-role/001],
 link:../pm-core/doc/adr/core-role/002-two-digests-over-the-effective-values.adoc[ADR core-role/002],
-link:../pm-workflow/doc/adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001]
+link:../pm-workflow/doc/adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001],
+link:../pm-workflow/doc/adr/workflow-model/003-the-model-identity-of-a-quorum.adoc[ADR workflow-model/003]
 
 Implementation (the writers and the proposal the model caller reads): the machine's and a project's
 `model-catalogue.json` and `role-assignments.json` written under their locks with the revision rule,
@@ -2933,10 +2975,11 @@ Implementation (the queue task record, the queue of a project below `projects/<p
 below `machine/queue/`, the persisted generation fence, the activity journal of a task, and the protocol that offers,
 acknowledges, leases, fences, settles `submitted` and `infeasible`, closes `lost`, re-offers, records the off-track
 signals with their `security` audit record and delivers skills; the continuation after a question as far as the library
-carries it — the form decided from the state, the role and the harness, the hold, the answer with its acknowledgement,
-the offer of a resumed suspension, the fallback and the question bound, and the form of that usage in the metrics row —
-whereas the supervisor that starts the resumed generation from the stored session, the losses of a continuing worker
-and the launch of a resumable role are not wired here; the runtime that serves a task to a
+and the supervisor already carry it — the form decided from the state, the role and the harness, the hold with its
+opening, closing and delivered-answer entries and its end at the token budget, the answer with its acknowledgement, the
+offer of a resumed suspension, the fallback and the question bound, and the form of that usage in the metrics row —
+whereas the supervisor that starts the resumed generation from the stored session and the launch of a resumable role
+are not wired here; the runtime that serves a task to a
 harness worker, the worker launch, the `worker-task` unit of the assembly and the MCP tools are not wired here): link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecord.java[QueueTaskRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecordCodec.java[QueueTaskRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueStore.java[QueueStore],
@@ -3001,7 +3044,8 @@ the three loss deadlines and the off-track `agent_started` signal, compared by e
 path with its fence, token revocation, slot release and terminal state; the drain participant; the four recycle triggers
 and the idle yields; the start-failure guard with its bounded report and its probe; the machine-wide start spacing of one
 harness; the worker state of the generation written into the job record; the inbound calls that map the transport's facts
-onto detection, recycling, ending and the guard; and the scheduled supervision pass that settles an ended job, pumps a
+onto detection, recycling, ending and the guard, the three facts of a hold among them, and the hold's end at the token
+budget reported through `WorkerProtocol.holdEnded`; and the scheduled supervision pass that settles an ended job, pumps a
 running worker's log and yields an idle slot. The transport, the scheduling of the pass and the assembly wiring are
 `pm-mcp-server`'s, and the model slots are the landed scheduler's): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java[WorkerSupervisor],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerGeneration.java[WorkerGeneration],
@@ -3037,11 +3081,11 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisor
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerLossDetectionTest.java[WorkerLossDetectionTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerEndingTest.java[WorkerEndingTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerDrainParticipantTest.java[WorkerDrainParticipantTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerRecyclingTest.java[WorkerRecyclingTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerRecyclingTest.java[WorkerRecyclingTest] (the four triggers, the idle yield, and the hold-ended notification before the fence and the release),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartFailureGuardTest.java[StartFailureGuardTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java[HarnessStartSpacingTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/AgentStartedDetectorTest.java[AgentStartedDetectorTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java[SupervisorCallsTest] (each call of `WorkerCalls` and its answer, the unknown generation, an end-requested wait, the pause of a plan and the enrolment's clear),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java[SupervisorCallsTest] (each call of `WorkerCalls` and its answer, the unknown generation, an end-requested wait, the three hold entries with the refused transition and the answer's deadline, the pause of a plan and the enrolment's clear),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once — against the fixture's mocked `WorkerStateWriter`, because the landed writer refuses a settled record, see ADR `runtime-worker/014` — the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
 
 Documentation: link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
@@ -3051,7 +3095,8 @@ link:../pm-runtime/doc/adr/runtime-worker/005-agent-started-reads-executable-pat
 link:../pm-runtime/doc/adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR runtime-worker/008],
 link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009],
 link:../pm-runtime/doc/adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR runtime-worker/012],
-link:../pm-runtime/doc/adr/runtime-worker/014-the-inbound-calls-and-the-scheduled-pass.adoc[ADR runtime-worker/014]
+link:../pm-runtime/doc/adr/runtime-worker/014-the-inbound-calls-and-the-scheduled-pass.adoc[ADR runtime-worker/014],
+link:../pm-runtime/doc/adr/runtime-worker/016-the-hold-ends-before-the-recycle.adoc[ADR runtime-worker/016]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server

@@ -15,12 +15,6 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 [cols="3,4,1,3,2",options="header"]
 |===
 |Package |Deliverable |Status |Depends on |Serves
-|link:plan-instance-versions.adoc[`plan-instance-versions`]
-|Plan instance versions: the triggers of the composition events, the engine's switch to the version in force, `instance_version`, Rules 13 and 14 at composition, the instance resources
-|`open`
-|nothing
-|Milestones 3 and 4
-
 |`z3-deferred-code-removal`
 |The code of the deferred mechanisms removed (capability specs and EARS, interfaces and key links, the protocol `system_one` and the judgment vote, the qualification and decision members beyond the baseline, the navigation figures; link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-36[L-36] to link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-41[L-41]), and stale class documentation corrected
 |`done`
@@ -276,7 +270,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:re-planning.adoc[`re-planning`]
 |The re-planning of a running plan: the record, the server-detected triggers (without `capability_conflict` and `intent_amended`, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-36[L-36]), the unit `replan` with its actions and guards, and the budgets and fallback
 |`open`
-|`phase-sub-workflows`; `plan-instance-versions`
+|`phase-sub-workflows`
 |Milestones 9 and 10
 
 |link:access-grants.adoc[`access-grants`]

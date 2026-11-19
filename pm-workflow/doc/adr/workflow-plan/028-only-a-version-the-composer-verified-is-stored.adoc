@@ -1,0 +1,54 @@
+= ADR workflow-plan 028: Only a Version the Composer Verified Is Stored
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+`PlanInstanceStore` writes the versions of a plan instance and the texts of the sub-units they bind into the plan's
+directory. Its `recordComposed` checked the version, the header, the composed set and the composition record, but not
+whether the version had been verified: `PlanInstance` carried a public canonical constructor, so any caller of the
+package or of another module could build a value that had passed no check and write it, and the store had no way to
+tell. The package's Done When has always required the test "a version the composer did not return"; the gap was the
+value, not the store's will.
+
+== Decision
+
+The composer marks the versions it returns. `Verified` is a value with a private constructor and a package-private
+factory, so only code of `de.planmarshall.workflow.plan` can create one, and `PlanInstance` carries it as its
+`verified` component. The mark names the version and the SHA-256 of the composed text, so a version whose text was
+changed after its composition is refused as well; `PlanInstanceComposer` sets it on every
+`CompositionResult.Composed`, and `PlanInstanceStore` refuses a version whose mark is absent, names another version or
+names another text, before it stages anything.
+
+The store keeps its other checks unchanged. It does not repeat the verification: the mark is the evidence that the
+verification ran, and re-running it would need the composer's registries, which the store does not hold.
+
+== Alternatives Considered
+
+* *A boolean `verified` parameter on `recordComposed`.* Rejected: a caller that has no verified version passes `true`
+  as easily as it passes a version; the parameter states a claim, the mark states a provenance.
+* *A version-number check alone.* Rejected: the number says which version a value is, never who built it.
+* *Make the store call the composer.* Rejected: the store would need the facts, the sub-units and the registries of a
+  composition, which is the composer's input, not the store's; and the composition would run inside a write.
+
+== Consequences
+
+* A version built outside the composer cannot be written, and the refusal is an `IllegalArgumentException` before any
+  file is staged.
+* The mark is a member of `PlanInstance`, so a reader of a version sees whether it was verified; the value carries no
+  state beyond its number.
+* The composer is the only place that can grant the mark, so a future composition path must go through it or the store
+  will refuse its result.
+
+== Source
+
+The plan `PLAN-V2-13` (`plan-instance-versions`) of the epic `pm-mcp-core-m2-m4-v2`, deliverable 3; Workflow DSL §
+Versions & Composition Events, item 3; the package file `doc/plans/plan-instance-versions.adoc` (Done When: "a version
+the composer did not return").

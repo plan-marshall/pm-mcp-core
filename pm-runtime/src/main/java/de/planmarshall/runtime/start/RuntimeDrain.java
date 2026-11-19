@@ -132,7 +132,7 @@ public final class RuntimeDrain {
         }
         // The run is taken on the calling thread; an exceptional end completes the shared future with its cause, so
         // a concurrent caller is told the cause instead of waiting forever or seeing a bare cancellation
-        CompletableFuture.supplyAsync(this::runOnce, Runnable::run).whenComplete((var outcome, @Nullable var failure) -> {
+        CompletableFuture.supplyAsync(this::runOnce, Runnable::run).whenComplete((Outcome outcome, @Nullable Throwable failure) -> {
             if (failure == null) {
                 mine.complete(outcome);
             } else {

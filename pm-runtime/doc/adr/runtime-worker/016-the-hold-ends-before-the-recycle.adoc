@@ -1,0 +1,125 @@
+= ADR 016: The hold ends before the recycle, and the runtime does not decide what follows it
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-18
+
+== Context
+
+Model Work § Continuing after a Question (*Budget*, restored by #201) states the rule: a worker that reaches its token
+budget while it holds its task for an answer ends the hold; the task is suspended where it may resume, else it falls
+back, and the worker is recycled. Before this decision, `WorkerRecycling.afterTurnCompleted` recycled a `HOLDING`
+generation and told nothing else: the task protocol kept the task `awaiting_answer` under a worker that was gone.
+
+The supervisor lives in `pm-runtime`; the task protocol and the decision of suspend-or-fall-back live in `pm-workflow`,
+which `pm-runtime` may not reference (PM-ARCH-8). The one crossing is `WorkerProtocol` (ADR 009), and the transport's
+facts reach the supervisor through `WorkerCalls`. Neither carried a fact about a hold, and no production code advanced a
+generation to `HOLDING`: the lifecycle table admitted `CONSULTING` to `HOLDING` only, and nothing set either.
+
+Three further facts bounded the decision:
+
+* The attempt a hold ends is not a fact the generation carries. `WorkerGeneration` holds the role, the harness, the
+  lease, the served tasks and the context of the last turn, and nothing names the attempt; `AgentStartedDetector`
+  reads it from the `WorkerTaskActivity` port for the same reason.
+* The worker budget is measured in tokens, not time: `WorkerRecycling.afterTurnCompleted` compares the context of the
+  generation's latest turn, which `SupervisorCalls.turnCompleted` records, with the role's `recycling.token_budget`. A
+  hold produces no turn, so hold wall time can never reach that comparison.
+* The assembly `pm-mcp-server` in `plan-marshall-mcp` implements `WorkerProtocol` and calls `WorkerCalls`.
+
+== Decision
+
+`WorkerProtocol.holdEnded(HoldEndedReport)` is the notification. Its report carries the generation, the queue task, the
+attempt, the cause and the instant, and the cause is a closed set with exactly one value, `TOKEN_BUDGET`, whose wire name
+is `token_budget`. `WorkerRecycling.afterTurnCompleted` sends it for a `HOLDING` generation that reached its budget,
+once per generation, and only then hands the generation to `WorkerEnding`: the protocol therefore sees the hold end
+while the generation still leases its task and before the fence, and an executing or waiting generation, or one under
+its budget, sends nothing.
+
+The budget is decided on the asking turn, so the transport reports the hold of the turn that asked **before** it reports
+that turn's completion (`WorkerCalls.holdOpened` states the order): a generation that already left `HOLDING` when its
+turn is reported is no longer holding, and the notification would have no hold to end. `SupervisorCalls.turnCompleted`
+therefore keeps a `HOLDING` generation in its hold while it records the turn's context, so the recycling still sees it.
+
+`WorkerCalls` gains the three facts the transport owes the supervisor: `holdOpened`, `holdClosed` and `answerDelivered`.
+`SupervisorCalls` implements them as the rest of the class does, through the lifecycle table and the generation's loss
+detection:
+
+* `holdOpened` moves the generation to `HOLDING` through the table — which gains `EXECUTING` to `HOLDING`, and `OFFERED`
+  to `HOLDING` for the asking turn of a first offer, whose hold arrives before that turn's completion — keeps the lease
+  of the task it names and its model slot, marks the detection's wait open (which suppresses the silence deadline as a
+  consultation's wait does), records the hold as the acknowledgement of the offer — a worker that asks has received its
+  task, so the offer's deadline never fires for a holding generation — and counts no idle wake-up. A transition the table
+  does not have, from `STARTING` for example, and a call that names another task than the generation leases are refused
+  as every other call of the port is refused: the state stays as it is and nothing is recorded, because the inbound API
+  never throws at the transport.
+* `holdClosed` moves a `HOLDING` generation to `EXECUTING` and closes the detection's wait, so the silence limit counts
+  again from the close; a generation that does not hold is refused.
+* `answerDelivered` closes the wait of the hold and calls `LossDetection.answerDelivered`, which arms the answer's
+  acknowledgement deadline (ADR 012). The silence limit therefore counts again from the answer in either acknowledgement
+  mode, and a hold never outlives the answer that ends it silently.
+
+The hold's wait is closed by whatever ends the hold: `holdClosed`, `taskClosed` for a task that closes while it is
+held, and the delivery of the answer, which ends the hold's suppression so the silence limit counts again from the
+answer in either acknowledgement mode. A bounded wait a holding generation opens is answered `wait again` and keeps the
+hold's suppression of the silence limit: the hold, not the answer to that window, is the reason the worker is not
+silent, and a hold is never offered a second task. An end already requested for the generation is answered `end` from the
+hold too, so the transport can end the worker gracefully instead of waiting for the grace timer.
+
+**The runtime does not decide suspend or fall back.** The notification names the fact and the cause and leaves the
+decision to the adapter over `TaskProtocol`, which already holds `suspend` and `fallback`.
+
+The attempt the notification names comes from the `WorkerTaskActivity` port, which the `WorkerRecycling` constructor
+takes for the purpose: the same facts the activity signals read, from the assembly's adapter over the queue record. A
+task whose facts cannot be read names no attempt, so no notification is sent and the end path still recycles the
+generation; that is the answered absence of a task the transport closed before its hold ended.
+
+**The hold's time is not charged to the worker budget, and nothing had to be subtracted because nothing counts it.** The
+budget accounting reads the context tokens of the latest turn, never an elapsed time, so a hold — which produces no turn
+— adds nothing. The remediation the plan anticipated, an arithmetic over the hold's instants, is therefore not built.
+
+== Alternatives Considered
+
+* *Pass the role's `questions` and the harness's resumability into the runtime and decide here.* Not taken: it
+  duplicates `QuestionContinuation` of `pm-workflow` in a module that may not reference it, and it breaks the module rule.
+* *Recycle first and let the protocol find the hold ended by the fence.* Not taken: the fence names no cause and no
+  attempt, so the protocol could not tell an ended hold from any other end, and the specification's cause is lost.
+* *A default method on `WorkerProtocol` (or on `WorkerCalls`).* Not taken: it would hide the assembly's gap instead of
+  naming it. Pre-1.0 there is no compatibility shim, and the plan states the owed follow-up instead.
+* *Read the queue record inside `pm-runtime` to obtain the attempt.* Not taken: the runtime never reads a queue record;
+  the assembly adapts the provisions, and `WorkerTaskActivity` is the seam that already exists for that fact.
+* *An `ACKNOWLEDGED` to `HOLDING` transition as well.* Not taken: a worker asks only while it executes a task, and a
+  transition no caller can reach would be a table entry without a behaviour.
+
+== Consequences
+
+* The task protocol decides, on the notification, whether the task is suspended or falls back; a budget fall-back
+  records the reason `not_allowed`, the specification's standing decision of 2026-10-29, because the fallback branch is
+  the one where the suspension is not allowed.
+* The assembly owes `WorkerProtocol.holdEnded` — `TaskProtocol.suspend` where `QuestionContinuation` allows the resume,
+  `fallback` otherwise — and the calls of the three entries, in the order this decision requires: the hold of a turn
+  before that turn's completion. Adding the abstract method breaks its compile until it follows, so the plan names the
+  follow-up rather than hiding it behind a default method.
+* The assembly also owes the `WorkerTaskActivity` argument of the `WorkerRecycling` constructor; it constructs the same
+  instance it already gives `SupervisionPass`.
+* The trigger covers the warm worker, because `WorkerRecycling.afterTurnCompleted` decides a warm generation's budget. A
+  fresh worker's hold is bounded by its role's `context_budget_tokens` (Model Work § Continuing after a Question,
+  Budget), a bound the recycling does not read today; that branch is owed with the assembly's wiring and is not claimed
+  here.
+* A hold no longer outlives its worker's budget silently: the notification and the recycle reach the protocol in that
+  order, which the recording protocol of `WorkerRecyclingTest` asserts as `hold_ended`, `fence`, `release`.
+* `doc/plans/question-continuation.adoc` stays open: the resume, the restart sweep, the engine's `asked` state, the
+  offer wiring and the `facts.answers` producer are still owed.
+
+== Source
+
+* Staged plan `PLAN-V2-47` of the epic `pm-mcp-core-m2-m4-v2` (of `PLAN-115` of `pm-mcp-core-m2-m4`)
+* link:../../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work § Continuing after a Question]
+* link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#recycling[Model Work § Recycling]
+* link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#model-job-budget[Timeouts & Budgets § Worker Budget]
+* link:009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009],
+  link:012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR runtime-worker/012]

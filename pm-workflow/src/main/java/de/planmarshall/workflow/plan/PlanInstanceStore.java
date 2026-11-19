@@ -49,6 +49,8 @@ import de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
  * </ul>
  * The set of files is one value: the header names every composed file by digest ({@code inputs.templates}), so a
  * header digest that names no file and a file the header does not name are both refused before anything is written.
+ * The store writes only a version the composer returned: {@link #recordComposed} refuses a version that carries no
+ * {@link Verified} mark, so a version built elsewhere never reaches a file.
  * The digest sidecar of the plan covers every file through the commit of the transaction. A refused composition writes
  * only its log line. The store never replaces a version file, and it refuses one twice: {@link #recordComposed} refuses
  * a version whose file exists when it is called, before anything is recorded, and the version file is collected with
@@ -118,9 +120,10 @@ public final class PlanInstanceStore {
      * @param compositionRecord the log line of the composition
      * @throws IllegalArgumentException if the composition record is not the composed record of the version (its
      *                                  result, version, event, trigger and input digests are those of the version, its
-     *                                  diff summary the version against the recorded version before it), a version
-     *                                  after the first follows no recorded version, a text does not match its digest,
-     *                                  or a sub-unit the header names has no text; nothing was recorded
+     *                                  diff summary the version against the recorded version before it), the version
+     *                                  carries no mark of the composer, a version after the first follows no recorded
+     *                                  version, a text does not match its digest, or a sub-unit the header names has no
+     *                                  text; nothing was recorded
      * @throws IllegalStateException    also if the recorded version before it carries no readable header
      * @throws IllegalStateException    if the version file exists already; nothing was recorded. A version file that
      *                                  another transaction creates after this call is refused by the commit of
@@ -133,6 +136,7 @@ public final class PlanInstanceStore {
         Objects.requireNonNull(transaction, "the transaction");
         Objects.requireNonNull(instance, "the instance");
         Objects.requireNonNull(compositionRecord, "the composition record");
+        requireVerified(instance);
         if (!recordsComposition(compositionRecord, instance)) {
             throw new IllegalArgumentException("the record does not record the composition of version "
                     + instance.version());
@@ -168,6 +172,29 @@ public final class PlanInstanceStore {
         transaction.append(COMPOSITION_LOG, line(compositionRecord));
         LOGGER.info(INFO.PLAN_INSTANCE_VERSION_RECORDED, instance.version(), scope.scopeId(),
                 instance.header().event().wireName());
+    }
+
+    /**
+     * The version is the composer's: it carries the {@link Verified} mark of that version. A version built elsewhere
+     * carries none, and the store writes it never.
+     *
+     * @param instance the version to record
+     * @throws IllegalArgumentException if the version carries no mark, or a mark of another version
+     */
+    private static void requireVerified(PlanInstance instance) {
+        var verified = instance.verified();
+        if (verified == null) {
+            throw new IllegalArgumentException("the version %d of the plan was not composed by the composer"
+                    .formatted(instance.version()));
+        }
+        if (verified.version() != instance.version()) {
+            throw new IllegalArgumentException("the mark of version %d names the version %d"
+                    .formatted(instance.version(), verified.version()));
+        }
+        if (!verified.textDigest().equals(PlanFacts.sha256(instance.text()))) {
+            throw new IllegalArgumentException("the text of version %d is not the text the composer verified"
+                    .formatted(instance.version()));
+        }
     }
 
     /**

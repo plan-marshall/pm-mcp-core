@@ -71,6 +71,7 @@ class WorkflowStatusCodecTest {
     /** A plan status in the canonical form, with members of other components around the engine's (golden document). */
     static final String DOCUMENT = "{\"format_version\":1,\"scope_type\":\"plan\",\"scope_id\":\"workflow-engine\","
             + "\"main_sha\":\"0123456789abcdef0123456789abcdef01234567\",\"phase\":\"phase-6-finalize\","
+            + "\"instance_version\":3,"
             + "\"state\":\"finalize.merge-sync\",\"call_stack\":[{\"caller_workflow_id\":\"finalize\","
             + "\"caller_state_id\":\"finalize.settle-commit\","
             + "\"subworkflow_id\":\"git.commit_and_push\",\"entry\":\"commit\","
@@ -92,7 +93,8 @@ class WorkflowStatusCodecTest {
 
     /** A workspace status in the canonical form, the matched control of the scope id refusals (golden document). */
     static final String WORKSPACE = "{\"format_version\":1,\"scope_type\":\"workspace\",\"scope_id\":null,"
-            + "\"phase\":\"workspace\",\"state\":\"setup.entry\",\"call_stack\":[],\"loop_back_iteration\":0,"
+            + "\"phase\":\"workspace\",\"instance_version\":null,"
+            + "\"state\":\"setup.entry\",\"call_stack\":[],\"loop_back_iteration\":0,"
             + "\"retry_counters\":{},\"active_jobs\":{},\"active_job\":null,\"active_tasks\":{},"
             + "\"pending_condition\":null,\"updated_at\":\"2026-10-12T10:04:00Z\"}";
 
@@ -280,8 +282,8 @@ class WorkflowStatusCodecTest {
                         "\"loop_back_iteration\":2,\"loop_back_iteration\":2,"), "field 'loop_back_iteration' twice"),
                 Arguments.of("a missing required member", DOCUMENT.replace("\"state\":\"finalize.merge-sync\",", ""),
                         "field 'state' of the document is missing"),
-                Arguments.of("a phase outside the schema", DOCUMENT.replace("\"phase-6-finalize\",\"state\"",
-                        "\"6-finalize\",\"state\""), "'phase' has the undeclared value '6-finalize'"),
+                Arguments.of("a phase outside the schema", DOCUMENT.replace("\"phase\":\"phase-6-finalize\"",
+                        "\"phase\":\"6-finalize\""), "'phase' has the undeclared value '6-finalize'"),
                 Arguments.of("a call stack deeper than 5", DOCUMENT.replace("\"call_stack\":[", "\"call_stack\":["
                         + (frame() + ",").repeat(5)), "'call_stack' has 6 frames, at most 5 are allowed"),
                 Arguments.of("a call frame without its entry", DOCUMENT.replace("\"entry\":\"commit\",", ""),
