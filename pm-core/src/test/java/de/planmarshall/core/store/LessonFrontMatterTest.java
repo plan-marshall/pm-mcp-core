@@ -108,26 +108,23 @@ class LessonFrontMatterTest {
     @Test
     @DisplayName("a completely_covered retirement carries a non-blank clause and input")
     void completelyCoveredNeedsClauseAndInput() {
+        var valid = LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED);
+        var withoutClause = LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).coveringClause(null);
+        var withoutInput = LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).coveringInput(null);
+        var blankClause = LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).coveringClause("  ");
+        var blankInput = LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).coveringInput("\t");
+
         assertAll(
                 "A completely_covered retirement needs clause and input",
-                () -> assertDoesNotThrow(
-                        () -> LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).build(),
+                () -> assertDoesNotThrow(valid::build,
                         "A completely_covered retirement with both members is taken"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).coveringClause(null)
-                                .build(),
+                () -> assertThrows(IllegalArgumentException.class, withoutClause::build,
                         "A missing covering clause is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).coveringInput(null)
-                                .build(),
+                () -> assertThrows(IllegalArgumentException.class, withoutInput::build,
                         "A missing covering input is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).coveringClause("  ")
-                                .build(),
+                () -> assertThrows(IllegalArgumentException.class, blankClause::build,
                         "A blank covering clause is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).coveringInput("\t")
-                                .build(),
+                () -> assertThrows(IllegalArgumentException.class, blankInput::build,
                         "A blank covering input is refused"));
     }
 
@@ -135,21 +132,21 @@ class LessonFrontMatterTest {
     @DisplayName("into is set exactly for merged and superseded")
     void intoIsSetExactlyForMergedAndSuperseded() {
         var into = new LessonId(LessonFixtures.WATCH_ID_NO_HEADER);
+        var merged = LessonFixtures.retirement(Retired.Verdict.MERGED).build();
+        var superseded = LessonFixtures.retirement(Retired.Verdict.SUPERSEDED).build();
+        var mergedWithoutInto = LessonFixtures.retirement(Retired.Verdict.MERGED).into(null);
+        var supersededWithoutInto = LessonFixtures.retirement(Retired.Verdict.SUPERSEDED).into(null);
+        var appliedWithInto = LessonFixtures.retirement(Retired.Verdict.APPLIED).into(into);
 
         assertAll(
                 "Into is set exactly for merged and superseded",
-                () -> assertEquals(into, LessonFixtures.retirement(Retired.Verdict.MERGED).build().into(),
-                        "A merged retirement keeps the lesson it names"),
-                () -> assertEquals(into, LessonFixtures.retirement(Retired.Verdict.SUPERSEDED).build().into(),
-                        "A superseded retirement keeps the lesson it names"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> LessonFixtures.retirement(Retired.Verdict.MERGED).into(null).build(),
+                () -> assertEquals(into, merged.into(), "A merged retirement keeps the lesson it names"),
+                () -> assertEquals(into, superseded.into(), "A superseded retirement keeps the lesson it names"),
+                () -> assertThrows(IllegalArgumentException.class, mergedWithoutInto::build,
                         "A merged retirement without into is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> LessonFixtures.retirement(Retired.Verdict.SUPERSEDED).into(null).build(),
+                () -> assertThrows(IllegalArgumentException.class, supersededWithoutInto::build,
                         "A superseded retirement without into is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> LessonFixtures.retirement(Retired.Verdict.APPLIED).into(into).build(),
+                () -> assertThrows(IllegalArgumentException.class, appliedWithInto::build,
                         "An applied retirement with into is refused"));
     }
 
