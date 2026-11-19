@@ -18,15 +18,19 @@ specification. Item format and lifecycle: link:../ImplementationWatch.adoc[Imple
 == Roles, Composition & Qualification
 
 [#PM-WATCH-DISP-49]
-=== PM-WATCH-DISP-49: A role whose class does not fit its use never runs
+=== PM-WATCH-DISP-49: The composition check of a plan instance, an epic workflow and the project setup workflow
 
 Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#role-composition[Model Work § Composition Check],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1]
-Hazard:: A role is defined but of the wrong class for its entity kind: a `read_only` role on the task envelope cannot
-write, a `writer` role as the screener holds tools that untrusted text can steer, and a consulted `zero_tool` role
-answers without the repository; the defect shows only when the state is reached, or after an artifact edit changed
-the class.
-Guard:: The rules of link:../specification/model-work/01-roles-and-configuration.adoc#role-class-fit[Model Work § Composition Check] are covered by `RoleCompositionTest` (each class against each kind, a consulted `zero_tool` role, `role_undefined` with and without its validation reason) and `ModelCallerTest` (a class that no longer fits closes the task `class_mismatch` at task creation and is never queued). Remaining: a composition test of a plan instance, an epic workflow, and the project setup workflow that refuses before the scope is created, naming the role, its class, the state, and the required class; matched control: every kind of the shipped units composes with its shipped role.
+Hazard:: A composed unit names a role that is absent, invalid or of a class its use does not admit, and the scope is
+created anyway: the defect shows only when that state is reached, or after an artifact edit changed the class.
+Guard:: The class-fit half is covered: `RoleCompositionTest` (each class against each kind, a consulted `zero_tool` role,
+`role_undefined` with and without its validation reason) and `ModelCallerTest` (a class that no longer fits closes the
+task `class_mismatch` at task creation and is never queued). Remaining: a composition test of a plan instance, an epic
+workflow, and the project setup workflow, one case per refusal — an absent role and an invalid role each refusing with
+`role_undefined`, and a role whose class its use does not admit refusing with `class_mismatch` naming the role, its
+class, the state, and the required class — each before the scope is created; matched control: every kind of the
+shipped units composes with its shipped role.
 Source:: design review.
 
 [#PM-WATCH-DISP-51]
@@ -37,11 +41,17 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WOR
 Hazard:: A rubric score parsed from free text, or from a judge that could read the repository or reach the server,
 qualifies a configuration on a grade nobody can trust; a missing score counted as zero or as met skews the
 agreement either way.
-Guard:: Fixtures: a judge reply without `score`, with `score` above `1`, or with a member outside `judge-score` is
-not accepted; the task closes `lost`, the item is recorded `ungraded`, the record's `ungraded` count rises, and the
-record qualifies no form; the next grading run re-grades only that item while the qualification digest and the
-corpus revision are unchanged. The judge's job runs in the empty `cwd/` with no MCP connection and one turn.
-Matched control: a reply that validates against `judge-score` closes `submitted` and its `score` is the item's score.
+Guard:: `WorkerJudgeScorer` reads a judge reply for its `score` alone: a `judge-score` object whose `score` lies in
+zero to one is the item's score, and an object without such a `score` leaves the item ungraded although the task ends
+`submitted` (`WorkerJudgeScorerTest` submits `{"score": 2}` and gets an ungraded item). An ungraded item raises the
+record's `ungraded` count, for which no form qualifies (`QualificationCheckTest`), and the next grading run re-grades
+only that item while the qualification digest and the corpus revision are unchanged — except a run in which every item
+is ungraded, which closes `no_graded_items` and writes no record (`RoleGraderTest`). The judge's
+job keeps the zero-tool launch rule: the job-private `cwd/`, no tool and no MCP connection (`LaunchComposerTest`),
+one turn (`WorkerVectorCheckTest`).
+Matched control: a reply that carries a `score` in the range is the item's score.
+Remaining: the members of `judge-score` beyond `score` are validated by no reader, so a reply that carries an
+undeclared member, or omits one, is accepted; validating the reply against its schema is what is left.
 Source:: design review.
 
 [#PM-WATCH-DISP-57]
