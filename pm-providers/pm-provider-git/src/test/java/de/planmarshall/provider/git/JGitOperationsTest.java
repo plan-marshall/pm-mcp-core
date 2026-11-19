@@ -219,6 +219,18 @@ class JGitOperationsTest {
                             "the deleted path is gone from the committed tree"));
         }
 
+        @Test
+        @DisplayName("a listed path without a change reports nothing to commit")
+        void listedPathWithoutChange() {
+            // README.md was committed at setUp and is tracked and unchanged, so the subset staged for it is empty
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                            "a subset without a change commits nothing"),
+                    () -> assertEquals("no changes", result.detail(), "the refusal names the empty change set"));
+        }
+
         private boolean inCommit(String commitId, String path) throws Exception {
             try (var jgit = Git.open(repo.toFile())) {
                 var tree = jgit.getRepository().parseCommit(
