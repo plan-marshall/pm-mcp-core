@@ -126,6 +126,8 @@ public record ConfigKeyRegistry(Map<String, ConfigKey> keys) {
                     && (max == null || high != null && high <= max);
             case InputType.EnumList(var values) -> domain instanceof InputType.EnumList(var admitted)
                     && values.containsAll(admitted);
+            case InputType.Text ignored, InputType.CommitMessage ignored2, InputType.Path ignored3,
+                    InputType.PathList ignored4 -> false;
         };
     }
 }

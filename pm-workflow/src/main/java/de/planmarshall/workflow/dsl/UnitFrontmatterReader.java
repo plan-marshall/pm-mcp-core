@@ -529,8 +529,36 @@ public final class UnitFrontmatterReader {
                 return new InputType.EnumList(enumValues(
                         text.substring("list<enum[".length(), text.length() - 2), number, column));
             }
+            if ("text".equals(text)) {
+                return new InputType.Text(null, null);
+            }
+            if (text.startsWith("text[") && text.endsWith("]")) {
+                return textRange(text.substring("text[".length(), text.length() - 1), number, column, InputType.Text::new);
+            }
+            if ("commit_message".equals(text)) {
+                return new InputType.CommitMessage(null, null);
+            }
+            if (text.startsWith("commit_message[") && text.endsWith("]")) {
+                return textRange(text.substring("commit_message[".length(), text.length() - 1), number, column,
+                        InputType.CommitMessage::new);
+            }
+            if ("path".equals(text)) {
+                return new InputType.Path();
+            }
+            if (text.startsWith("list<path") && text.endsWith(">")) {
+                var inner = text.substring("list<path".length(), text.length() - 1).trim();
+                if (inner.isEmpty()) {
+                    return new InputType.PathList(null, null);
+                }
+                if (inner.startsWith("[") && inner.endsWith("]")) {
+                    return pathListRange(inner.substring(1, inner.length() - 1), number, column);
+                }
+                throw new Refusal(number, column,
+                        "the input_type '%s' is no list<path> or list<path>[<low>..<high>]"
+                                .formatted(echo(value)));
+            }
             throw new Refusal(number, column,
-                    "the input_type '%s' is none of enum[...], int with its optional range and list<enum[...]>"
+                    "the input_type '%s' is none of enum[...], int, text, commit_message, path and list<...>"
                             .formatted(echo(value)));
         }
 
@@ -574,6 +602,57 @@ public final class UnitFrontmatterReader {
             }
         }
 
+        private static InputType textRange(String text, int number, int column,
+                java.util.function.BiFunction<Integer, Integer, InputType> factory) {
+            var separator = text.indexOf("..");
+            if (separator < 0) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no '[<low>..<high>]'".formatted(echo(text)));
+            }
+            var low = text.substring(0, separator);
+            var high = text.substring(separator + 2);
+            if (!RANGE_LOW.matcher(low).matches() || !RANGE_HIGH.matcher(high).matches()) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no '[<low>..<high>]'".formatted(echo(text)));
+            }
+            try {
+                var min = Integer.parseInt(low);
+                var max = Integer.parseInt(high);
+                if (min > max) {
+                    throw new Refusal(number, column,
+                            "the input_type range '%s' has its low bound above its high bound".formatted(echo(text)));
+                }
+                return factory.apply(min, max);
+            } catch (NumberFormatException _) {
+                throw new Refusal(number, column, "the input_type range '%s' is out of range".formatted(echo(text)));
+            }
+        }
+
+        private static InputType pathListRange(String text, int number, int column) {
+            var separator = text.indexOf("..");
+            if (separator < 0) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no '[<low>..<high>]'".formatted(echo(text)));
+            }
+            var low = text.substring(0, separator);
+            var high = text.substring(separator + 2);
+            if (!RANGE_LOW.matcher(low).matches() || !RANGE_HIGH.matcher(high).matches()) {
+                throw new Refusal(number, column,
+                        "the input_type range '%s' is no '[<low>..<high>]'".formatted(echo(text)));
+            }
+            try {
+                var min = Integer.parseInt(low);
+                var max = Integer.parseInt(high);
+                if (min > max) {
+                    throw new Refusal(number, column,
+                            "the input_type range '%s' has its low bound above its high bound".formatted(echo(text)));
+                }
+                return new InputType.PathList(min, max);
+            } catch (NumberFormatException _) {
+                throw new Refusal(number, column, "the input_type range '%s' is out of range".formatted(echo(text)));
+            }
+        }
+
         /** Reads an {@code input_default} and refuses one outside the input's type. */
         private static CallValue inputDefault(Input input, String value, int number, int column) {
             CallValue parsed;
@@ -608,6 +687,8 @@ public final class UnitFrontmatterReader {
                         && (min == null || integer >= min) && (max == null || integer <= max);
                 case InputType.EnumList(var values) -> value instanceof CallValue.EnumList(var list)
                         && values.containsAll(list);
+                case InputType.Text ignored, InputType.CommitMessage ignored2, InputType.Path ignored3,
+                        InputType.PathList ignored4 -> false;
             };
         }
 

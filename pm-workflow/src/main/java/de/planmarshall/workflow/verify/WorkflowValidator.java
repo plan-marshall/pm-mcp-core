@@ -1840,6 +1840,16 @@ public final class WorkflowValidator {
                             .build());
                 }
             }
+            case InputType.Text ignored, InputType.CommitMessage ignored2, InputType.Path ignored3,
+                    InputType.PathList ignored4 -> {
+                violations.add(Violation.builder()
+                        .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                        .stateId(state.id())
+                        .location(state.location())
+                        .message("the input '%s' of '%s' is a typed value and must be bound from a slot, not a literal"
+                                .formatted(input.name(), subWorkflowId))
+                        .build());
+            }
         }
     }
 
