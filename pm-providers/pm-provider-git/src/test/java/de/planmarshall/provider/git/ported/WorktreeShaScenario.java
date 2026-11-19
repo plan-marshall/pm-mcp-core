@@ -208,7 +208,7 @@ final class WorktreeShaScenario {
     }
 
     private static void commit(JGitOperations git, Path root, String message, Identity author, Fixture fixture) {
-        require(git.commit(new CommitInput(root, message, author, author)), fixture, "commit");
+        require(git.commit(new CommitInput(root, message, author, author, List.of())), fixture, "commit");
     }
 
     private static void require(GitResult<?> result, Fixture fixture, String step) {

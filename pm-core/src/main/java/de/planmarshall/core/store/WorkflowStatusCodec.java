@@ -45,7 +45,11 @@ import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 import de.planmarshall.core.store.WaiverRecord.Channel;
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.store.WorkflowStatus.ActiveJob;
+import de.planmarshall.core.store.WorkflowStatus.CallFrame.ArgSource;
+import de.planmarshall.core.store.WorkflowStatus.Slot;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
 import de.planmarshall.core.store.WorkflowStatus.CallFrame;
 import de.planmarshall.core.store.WorkflowStatus.Integrity;
@@ -101,6 +105,14 @@ public class WorkflowStatusCodec {
     private static final String PENDING_CONDITION = "pending_condition";
     private static final String UPDATED_AT = "updated_at";
 
+    private static final String ARG_SOURCES = "arg_sources";
+    private static final String COMMAND_ID = "command_id";
+    private static final String CORRELATION_ID = "correlation_id";
+    private static final String SOURCE = "source";
+    private static final String SOURCE_REF = "source_ref";
+    private static final String SLOTS = "slots";
+    private static final String SLOT_VALUE = "value";
+    private static final String FILLED_AT = "filled_at";
     private static final String CALLER_WORKFLOW_ID = "caller_workflow_id";
     private static final String CALLER_STATE_ID = "caller_state_id";
     private static final String SUBWORKFLOW_ID = "subworkflow_id";
@@ -145,7 +157,7 @@ public class WorkflowStatusCodec {
 
     /** Every member of the closed schema, in the order it declares them. */
     static final List<String> MEMBERS = List.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, "main_sha", "origin",
-            PHASE, OUTCOME, INSTANCE_VERSION, "setup_run", "onboard_run", "onboard_steps", STATE, CALL_STACK,
+            PHASE, OUTCOME, INSTANCE_VERSION, "setup_run", "onboard_run", "onboard_steps", STATE, CALL_STACK, SLOTS,
             "worktree_path", "entry_baseline", "merge_outcome", "owed", "branch_name", "branch_pushed_at",
             LOOP_BACK_ITERATION, "counters", RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS,
             "gaps", "replan_pending", "replans", "follow_ups", "settle_trigger", "watch_restarts", "loop_backs",
@@ -157,7 +169,7 @@ public class WorkflowStatusCodec {
 
     /** The members this codec types. */
     static final Set<String> TYPED_MEMBERS = Set.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, PHASE, STATE,
-            CALL_STACK, INSTANCE_VERSION, LOOP_BACK_ITERATION, RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS,
+            CALL_STACK, SLOTS, INSTANCE_VERSION, LOOP_BACK_ITERATION, RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS,
             WAIVER_REQUESTS, ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, UPDATED_AT);
 
     /** The members of the schema that are kept as raw JSON text. */
@@ -226,6 +238,7 @@ public class WorkflowStatusCodec {
             case PHASE -> generator.writeStringField(member, status.phase());
             case STATE -> generator.writeStringField(member, status.state());
             case CALL_STACK -> writeCallStack(generator, status.callStack());
+            case SLOTS -> writeSlots(generator, status.slots());
             case LOOP_BACK_ITERATION -> generator.writeNumberField(member, status.loopBackIteration());
             case INSTANCE_VERSION -> {
                 if (status.instanceVersion() == null) {
@@ -268,10 +281,44 @@ public class WorkflowStatusCodec {
                 writeBoundArg(generator, arg.getValue());
             }
             generator.writeEndObject();
+            generator.writeObjectFieldStart(ARG_SOURCES);
+            for (var arg : frame.argSources().entrySet()) {
+                generator.writeObjectFieldStart(arg.getKey());
+                generator.writeStringField(SOURCE, arg.getValue().source());
+                var sourceRef = arg.getValue().sourceRef();
+                if (sourceRef == null) {
+                    generator.writeNullField(SOURCE_REF);
+                } else {
+                    generator.writeStringField(SOURCE_REF, sourceRef);
+                }
+                generator.writeEndObject();
+            }
+            generator.writeEndObject();
+            generator.writeStringField(COMMAND_ID, frame.commandId().toString());
+            generator.writeStringField(CORRELATION_ID, frame.correlationId().toString());
             writeInstant(generator, PUSHED_AT, frame.pushedAt());
             generator.writeEndObject();
         }
         generator.writeEndArray();
+    }
+
+    /** Writes the {@code slots} member. */
+    static void writeSlots(JsonGenerator generator, Map<String, Slot> slots) throws IOException {
+        generator.writeObjectFieldStart(SLOTS);
+        for (var entry : slots.entrySet()) {
+            var slot = entry.getValue();
+            generator.writeObjectFieldStart(entry.getKey());
+            generator.writeStringField(SLOT_VALUE, slot.value());
+            generator.writeStringField(SOURCE, slot.source());
+            if (slot.sourceRef() == null) {
+                generator.writeNullField(SOURCE_REF);
+            } else {
+                generator.writeStringField(SOURCE_REF, slot.sourceRef());
+            }
+            writeInstant(generator, FILLED_AT, slot.filledAt());
+            generator.writeEndObject();
+        }
+        generator.writeEndObject();
     }
 
     private static void writeBoundArg(JsonGenerator generator, BoundArg arg) throws IOException {
@@ -439,7 +486,7 @@ public class WorkflowStatusCodec {
 
     private static WorkflowStatus readDocument(JsonParser parser, byte[] document) throws IOException {
         var status = WorkflowStatus.builder().callStack(List.of()).policyCounters(Map.of()).waiverRequests(List.of())
-                .retryCounters(RetryCounters.empty()).activeJobs(Map.of()).activeTasks(Map.of());
+                .retryCounters(RetryCounters.empty()).activeJobs(Map.of()).activeTasks(Map.of()).slots(Map.of());
         var retained = new LinkedHashMap<String, String>();
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -451,6 +498,7 @@ public class WorkflowStatusCodec {
                 case PHASE -> status.phase(string(parser, field));
                 case STATE -> status.state(string(parser, field));
                 case CALL_STACK -> status.callStack(StrictJson.array(parser, field, WorkflowStatusCodec::readFrame));
+                case SLOTS -> status.slots(StrictJson.map(parser, field, WorkflowStatusCodec::readSlot));
                 case LOOP_BACK_ITERATION -> status.loopBackIteration(integer(parser, field));
                 case INSTANCE_VERSION -> status.instanceVersion(
                         isNull(parser) ? null : intOf(integer(parser, field), field));
@@ -486,6 +534,9 @@ public class WorkflowStatusCodec {
         @Nullable String subworkflowId = null;
         @Nullable String entry = null;
         @Nullable Map<String, BoundArg> boundArgs = null;
+        @Nullable Map<String, ArgSource> argSources = null;
+        @Nullable String commandIdRaw = null;
+        @Nullable String correlationIdRaw = null;
         @Nullable Instant pushedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -496,13 +547,23 @@ public class WorkflowStatusCodec {
                 case SUBWORKFLOW_ID -> subworkflowId = string(parser, field);
                 case ENTRY -> entry = string(parser, field);
                 case BOUND_ARGS -> boundArgs = StrictJson.map(parser, field, WorkflowStatusCodec::readBoundArg);
+                case ARG_SOURCES -> argSources = StrictJson.map(parser, field, WorkflowStatusCodec::readArgSource);
+                case COMMAND_ID -> commandIdRaw = string(parser, field);
+                case CORRELATION_ID -> correlationIdRaw = string(parser, field);
                 case PUSHED_AT -> pushedAt = instant(parser, field);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, "call frame", CALLER_WORKFLOW_ID, CALLER_STATE_ID, SUBWORKFLOW_ID, ENTRY,
-                BOUND_ARGS, PUSHED_AT);
-        return new CallFrame(callerWorkflowId, callerStateId, subworkflowId, entry, boundArgs, pushedAt);
+                BOUND_ARGS, ARG_SOURCES, COMMAND_ID, CORRELATION_ID, PUSHED_AT);
+        final var commandIdValue = commandIdRaw;
+        final var correlationIdValue = correlationIdRaw;
+        var commandId = CommandId.parse(commandIdValue)
+                .orElseThrow(() -> unreadable("'command_id' is malformed: " + commandIdValue));
+        var correlationId = CorrelationId.parse(correlationIdValue)
+                .orElseThrow(() -> unreadable("'correlation_id' is malformed: " + correlationIdValue));
+        return new CallFrame(callerWorkflowId, callerStateId, subworkflowId, entry, boundArgs, argSources,
+                commandId, correlationId, pushedAt);
     }
 
     /**
@@ -516,6 +577,44 @@ public class WorkflowStatusCodec {
             throw unreadable("'%s' is out of range: %d".formatted(field, value));
         }
         return (int) value;
+    }
+
+    private static ArgSource readArgSource(JsonParser parser, String name) throws IOException {
+        requireObject(parser, name);
+        @Nullable String source = null;
+        @Nullable String sourceRef = null;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case SOURCE -> source = string(parser, field);
+                case SOURCE_REF -> sourceRef = nullableString(parser, field).orElse(null);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, "arg source '%s'".formatted(name), SOURCE);
+        return new ArgSource(source, sourceRef);
+    }
+
+    private static Slot readSlot(JsonParser parser, String name) throws IOException {
+        requireObject(parser, name);
+        @Nullable String value = null;
+        @Nullable String source = null;
+        @Nullable String sourceRef = null;
+        @Nullable Instant filledAt = null;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case SLOT_VALUE -> value = string(parser, field);
+                case SOURCE -> source = string(parser, field);
+                case SOURCE_REF -> sourceRef = nullableString(parser, field).orElse(null);
+                case FILLED_AT -> filledAt = instant(parser, field);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, "slot '%s'".formatted(name), SLOT_VALUE, SOURCE, FILLED_AT);
+        return new Slot(value, source, sourceRef, filledAt);
     }
 
     private static BoundArg readBoundArg(JsonParser parser, String name) throws IOException {

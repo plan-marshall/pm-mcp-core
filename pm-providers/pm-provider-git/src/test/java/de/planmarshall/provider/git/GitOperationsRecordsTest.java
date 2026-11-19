@@ -237,14 +237,16 @@ class GitOperationsRecordsTest {
         var message = text();
         var author = identity();
         var committer = identity();
+        var paths = List.of(text());
 
         var built = GitOperations.CommitInput.builder()
                 .root(root)
                 .message(message)
                 .author(author)
                 .committer(committer)
+                .paths(paths)
                 .build();
-        var constructed = new GitOperations.CommitInput(root, message, author, committer);
+        var constructed = new GitOperations.CommitInput(root, message, author, committer, paths);
 
         assertEquals(constructed, built, "the builder builds the same commit input");
     }

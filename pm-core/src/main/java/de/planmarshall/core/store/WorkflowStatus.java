@@ -26,6 +26,8 @@ import lombok.Builder;
 import lombok.With;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.CommandId;
+import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.id.RoleName;
 
 /**
@@ -85,6 +87,7 @@ RetryCounters retryCounters,
 Map<String, JobEntry> activeJobs,
 Map<String, TaskEntry> activeTasks,
 @Nullable PendingCondition pendingCondition,
+Map<String, Slot> slots,
 Instant updatedAt,
 Map<String, String> retained) {
 
@@ -175,6 +178,7 @@ Map<String, String> retained) {
         activeJobs = orderedCopy(activeJobs, "activeJobs", (name, job) -> requireNonBlank(name, "active_jobs key"));
         activeTasks = orderedCopy(activeTasks, "activeTasks",
                 (entity, task) -> requireNonBlank(entity, "active_tasks key"));
+        slots = orderedCopy(slots, "slots", (key, slot) -> requireNonBlank(key, "slots key"));
         Objects.requireNonNull(updatedAt, "updatedAt");
         retained = orderedCopy(retained, "retained", (member, raw) -> requireNonBlank(raw, member));
     }
@@ -211,7 +215,8 @@ Map<String, String> retained) {
      */
     @Builder
     public record CallFrame(String callerWorkflowId, String callerStateId, String subworkflowId,
-    String entry, Map<String, BoundArg> boundArgs, Instant pushedAt) {
+    String entry, Map<String, BoundArg> boundArgs, Map<String, ArgSource> argSources,
+    CommandId commandId, CorrelationId correlationId, Instant pushedAt) {
 
         /**
          * @throws NullPointerException     if a component, a parameter name or an argument is {@code null}
@@ -223,7 +228,59 @@ Map<String, String> retained) {
             requireNonBlank(subworkflowId, "subworkflow_id");
             requireNonBlank(entry, "entry");
             boundArgs = orderedCopy(boundArgs, "boundArgs", (name, arg) -> requireNonBlank(name, "bound_args key"));
+            argSources = orderedCopy(argSources, "argSources",
+                    (name, source) -> requireNonBlank(name, "arg_sources key"));
+            Objects.requireNonNull(commandId, "commandId");
+            Objects.requireNonNull(correlationId, "correlationId");
             Objects.requireNonNull(pushedAt, "pushedAt");
+        }
+
+        /**
+         * The provenance of one bound call argument.
+         *
+         * @param source    {@code literal}, {@code config}, {@code default}, {@code task_submit} or
+         *                  {@code operator_answer}
+         * @param sourceRef the reference of the source (a queue task id or an act id); {@code null} when the source
+         *                  has none
+         * @since 0.1
+         */
+        @Builder
+        public record ArgSource(String source, @Nullable String sourceRef) {
+
+            /** The provenance values the schema admits. */
+            public static final Set<String> SOURCES = Set.of("literal", "config", "default", "task_submit",
+                    "operator_answer");
+
+            /** @throws IllegalArgumentException if the source lies outside the schema */
+            public ArgSource {
+                requireOneOf(SOURCES, source, "arg_sources.source");
+                if (sourceRef != null) {
+                    requireNonBlank(sourceRef, "arg_sources.source_ref");
+                }
+            }
+        }
+    }
+
+    /**
+     * A slot filled at the scope level.
+     *
+     * @param value     the value of the slot
+     * @param source    the provenance of the value
+     * @param sourceRef the reference of the source; {@code null} when the source has none
+     * @param filledAt  the instant the slot was filled
+     * @since 0.1
+     */
+    @Builder
+    public record Slot(String value, String source, @Nullable String sourceRef, Instant filledAt) {
+
+        /** @throws NullPointerException if a required component is {@code null} */
+        public Slot {
+            Objects.requireNonNull(value, "value");
+            requireOneOf(CallFrame.ArgSource.SOURCES, source, "slots.source");
+            if (sourceRef != null) {
+                requireNonBlank(sourceRef, "slots.source_ref");
+            }
+            Objects.requireNonNull(filledAt, "filledAt");
         }
     }
 

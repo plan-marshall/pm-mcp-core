@@ -106,7 +106,7 @@ class JGitOperationsTest {
     }
 
     private CommitInfo commitIn(Path root, String message) {
-        GitResult<CommitInfo> result = git.commit(new CommitInput(root, message, author, agent));
+        GitResult<CommitInfo> result = git.commit(new CommitInput(root, message, author, agent, List.of()));
         assertEquals(GitOutcome.OK, result.outcome(), "the fixture commit is recorded");
         return result.value();
     }
@@ -148,7 +148,7 @@ class JGitOperationsTest {
                     () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.log(plain, HEAD, 1).outcome(),
                             "log refuses a plain directory"),
                     () -> assertEquals(GitOutcome.NOT_A_REPOSITORY,
-                            git.commit(new CommitInput(plain, text(), author, agent)).outcome(),
+                            git.commit(new CommitInput(plain, text(), author, agent, List.of())).outcome(),
                             "commit refuses a plain directory"),
                     () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.worktreeList(plain).outcome(),
                             "worktreeList refuses a plain directory"));
@@ -176,7 +176,7 @@ class JGitOperationsTest {
         @Test
         @DisplayName("reports nothing to commit")
         void nothingToCommit() {
-            var result = git.commit(new CommitInput(repo, text(), author, agent));
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
 
             assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(), "a clean tree has nothing to commit");
         }
@@ -548,7 +548,7 @@ class JGitOperationsTest {
             String before = git.open(repo).value().head();
             write(file(), text());
 
-            var result = git.commit(new CommitInput(repo, text(), author, agent));
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
 
             assertAll(
                     () -> assertEquals(GitOutcome.CAPABILITY_MISSING, result.outcome(),
@@ -572,7 +572,7 @@ class JGitOperationsTest {
             }
             write(file(), text());
 
-            var result = git.commit(new CommitInput(repo, text(), author, agent));
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
 
             assertAll(
                     () -> assertEquals(GitOutcome.CAPABILITY_MISSING, result.outcome(),

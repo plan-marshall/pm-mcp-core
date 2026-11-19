@@ -357,16 +357,25 @@ public final class JGitOperations implements GitOperations {
 
     @Override
     public GitResult<CommitInfo> commit(CommitInput input) {
+        List<String> paths = input.paths() == null ? List.of() : input.paths();
         try (Repository repository = openRepository(input.root()); Git git = Git.wrap(repository)) {
-            git.add().addFilepattern(".").call();
-            git.add().addFilepattern(".").setUpdate(true).call();
-            RevCommit commit = git.commit()
+            var command = git.commit()
                     .setMessage(input.message())
                     .setAuthor(new PersonIdent(input.author().name(), input.author().email()))
                     .setCommitter(new PersonIdent(input.committer().name(), input.committer().email()))
                     .setSign(Boolean.FALSE)
-                    .setAllowEmpty(false)
-                    .call();
+                    .setAllowEmpty(false);
+            if (paths.isEmpty()) {
+                git.add().addFilepattern(".").call();
+                git.add().addFilepattern(".").setUpdate(true).call();
+            } else {
+                for (String path : paths) {
+                    git.add().addFilepattern(path).call();
+                    git.add().addFilepattern(path).setUpdate(true).call();
+                    command.setOnly(path);
+                }
+            }
+            RevCommit commit = command.call();
             return GitResult.ok(toInfo(commit));
         } catch (EmptyCommitException _) {
             return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
@@ -374,7 +383,12 @@ public final class JGitOperations implements GitOperations {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, input.root().toString());
         } catch (RefusingFS.CapabilityRefusedException e) {
             return GitResult.of(GitOutcome.CAPABILITY_MISSING, e.getReason());
-        } catch (GitAPIException | IOException | JGitInternalException e) {
+        } catch (JGitInternalException e) {
+            if (e.getMessage() != null && e.getMessage().contains("No changes")) {
+                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
+            }
+            return failure(e);
+        } catch (GitAPIException | IOException e) {
             return failure(e);
         }
     }
