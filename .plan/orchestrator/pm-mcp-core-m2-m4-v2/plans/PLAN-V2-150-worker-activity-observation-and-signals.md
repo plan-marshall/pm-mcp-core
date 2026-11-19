@@ -63,15 +63,15 @@ Four deliverables, one commit each, in this order.
 All lines read at `origin/main` `70c20531` through the impact analysis of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: the observation is specified at `doc/specification/harness-profiles/01-profile-schema.adoc:306` (`[[observed-file-changes]]`), `model-work/04-worker-launch.adoc:258` (the Activity bullet), `store-schemas/16-task-queue.adoc:49` and `doc/plans/worker-activity.adoc` (task 3); the watch item is `PM-WATCH-DISP-68` (`doc/implementation-watch/model-work.adoc:897`).
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 01-profile-schema.adoc:306 [[observed-file-changes]]; 04-worker-launch.adoc Activity bullet :260 (cited 258); 16-task-queue.adoc:49; worker-activity.adoc task 3 (:17); PM-WATCH-DISP-68 at model-work.adoc:910-911 (cited 897), anchored to observed-file-changes.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 01-profile-schema:306; 04-worker-launch Activity :260; 16-task-queue:49; PM-WATCH-DISP-68 model-work.adoc:920 (drift)
 - OBSERVED: nothing in `src/main` runs `git status` or digests paths for the observation (`ProcessBuilder` in `pm-runtime/.../worker/` only at `VerifyingBinaryCheck.java:154`); `ActivityRecorder.append` (`:~70-100`) journals the entries it is given; `ActivityEntry.Kind.FILE_CHANGED` is `Source.HARNESS` (`ActivityEntry.java:~123`).
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Only ProcessBuilder in runtime/worker is VerifyingBinaryCheck.java:154, no `git status` run; ActivityRecorder.append :73 journals given entries; ActivityEntry.java:123 FILE_CHANGED(..., Source.HARNESS).
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: only ProcessBuilder in runtime/worker is VerifyingBinaryCheck:154; ActivityRecorder.append :73; FILE_CHANGED is HARNESS
 - OBSERVED: `QueueTaskRecord.SignalName` has five signals (`:~408-420`); `failing_again` and `edit_churn` appear only in `role-artifact-v1.schema.json:59-60`.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: QueueTaskRecord.SignalName :408-418 has five values (repeating, no_progress, over_size, outside_footprint, agent_started); failing_again and edit_churn only in role-artifact-v1.schema.json :59-60 within pm-core/pm-runtime.
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: QueueTaskRecord.SignalName :408-418 has five; failing_again and edit_churn only in role-artifact-v1.schema.json:59-60
 - OBSERVED: § git-metadata (`doc/specification/job-runtime/02-confinement-and-environment.adoc:29-34`, `PM-WATCH-JOB-48`) states that `core.fsmonitor`, hooks and filter drivers in `.git` run outside every confinement and checks the digest only at the worker's end and before every `git` job; it says nothing about the runtime's own `git status` during the attempt.
-  - verdict: corroborated | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 02-confinement-and-environment.adoc :29-34 (PM-WATCH-JOB-48): compares the digest when the worker ends and before every git job; no mention of the runtime's own git status there (it is in 01-profile-schema.adoc:306).
+  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: job-runtime/02:29-34 says nothing of the runtime's own git status
 - HYPOTHESIS: the `pm_build` results needed for `failing_again` reach the runtime as entries of the current plan task; verify-first by reading the task record's entries and `model-work/03` (the counting "as for `failing_again`").
-  - verdict: unverifiable | checked_at: d506e8187ce63e70cf324879222fa7eec6235508 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: model-work/03 :83-87 says failing_again reads terminal pm_build results against a working-tree digest; whether they reach the runtime as task entries is not in 16-task-queue (no pm_build there); to be settled when the outline reads it.
+  - verdict: unverifiable | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: model-work/03:83-87 reads pm_build results; no pm-core or pm-runtime code reads them
 
 ## Expected Surface
 
@@ -83,12 +83,22 @@ All lines read at `origin/main` `70c20531` through the impact analysis of 2026-1
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 
+- OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-core/src/main/java/de/planmarshall/core/role/RoleArtifact.java`, `pm-core/src/main/resources/de/planmarshall/core/queue/activity-entry.schema.json`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/OffTrackDetector.java`.
+
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-30 (shipped: the supervisor and the activity recorder), PLAN-V2-83; the specification pull request #417 (merged).
+- Depends on: old PLAN-30 (predecessor epic) (shipped: the supervisor and the activity recorder), PLAN-V2-83; the specification pull request #417 (merged).
 - **Order: after PLAN-V2-134 (`git-metadata-out-of-workers-reach`) and after PLAN-V2-59 and 135** (they edit `ActivityEntry`, `ActivityRecorder`, the task-record schema files and `SubprocessJobRunner`): 134 closes the `.git` hazard where `git_metadata` is enforced, which decides Deliverable 1's recommendation.
 - Overlaps at class level, decided by the gate at emit: 134, 59, 135 (above), 126 and 141 (the `worker` test tree and `SupervisorTestFixture`), 34 (condenses `model-work/04-worker-launch.adoc`: it keeps the Activity bullet at `:258`), 31 and 47 (the supervisor's calls).
 - Not here: the activity served to the clients from a cursor and as a stream (Task 6), the stage `events` and its recorded fixtures (PLAN-V2-148), the report `task.off_track` (`operator-reports`), the supervisor loop and wiring (the assembly).
+
+## Re-ground record (cleanup 2026-11-19 at `e2ae8627`, BINDING over any contradicting older text of this spec)
+
+Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf over this spec (its statements are not re-read here; the executing plan re-reads each at its outline). Since the first pass (`d506e818`) #484, #490, #494, #495, #496, #503, #504, #506, #511 and #512 merged. Where this section and an older text of this spec differ, this section is the later reading.
+
+- D1's statement "the specification states no guard for the observation's own git status" is false: `01-profile-schema:306` already requires `core.fsmonitor=false` and no filter driver, external diff or textconv (#479); hooks path, `--no-optional-locks` and environment sanitising remain unspecified.
+- D2 also needs `RoleArtifact.OffTrackSignal` (`:185-194`, four signals while the role schema has six), `OffTrackDetector.measurement` (`:94-100`) and its switch (`:187-193`), and the `activity-entry.schema.json` `signal` enum (five values): none is in the surface.
+- Old-id correction: `PLAN-V2-30` is old PLAN-30 (supervisor, #190) and old PLAN-66 (activity recorder, #198); both met. 134 and 59 shipped; 135 staged; `NavigationFigures` is gone.
 
 ## Hand-Off Command
 
