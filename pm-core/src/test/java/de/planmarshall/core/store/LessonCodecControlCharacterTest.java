@@ -51,6 +51,7 @@ class LessonCodecControlCharacterTest {
     static Stream<Arguments> members() {
         return Stream.of(
                 Arguments.of("component", live(builder -> builder.component("A component" + DEL))),
+                Arguments.of("bundle", live(builder -> builder.bundle("A bundle" + DEL))),
                 Arguments.of("tool_version", live(builder -> builder.toolVersion("1.2.3" + DEL))),
                 Arguments.of("rule", live(builder -> builder.category(Category.ARCH_CONSTRAINT)
                         .rule("A rule" + DEL))),
@@ -92,8 +93,8 @@ class LessonCodecControlCharacterTest {
         var reading = LessonCodec.decode(LessonCodec.encode(lesson));
 
         var readable = assertInstanceOf(LessonCodec.Readable.class, reading,
-                "the DEL in " + member + " must leave the file readable");
-        assertEquals(lesson, readable.lesson(), "the DEL in " + member + " round-trips unchanged");
+                "the file with a DEL in " + member + " is readable");
+        assertEquals(lesson, readable.lesson(), "the DEL in " + member + " round-trips");
     }
 
     @Test
@@ -114,5 +115,15 @@ class LessonCodecControlCharacterTest {
         var encoded = new String(LessonCodec.encode(live(builder -> builder.title("A title" + DEL))), UTF_8);
 
         assertTrue(encoded.contains(ESCAPED_DEL), "the writer escapes DEL as \\u007F");
+    }
+
+    @Test
+    @DisplayName("the reader refuses a literal DEL, which is why the writer escapes it")
+    void readerRefusesALiteralDel() {
+        var escaped = new String(LessonCodec.encode(live(builder -> builder.title("A title"))), UTF_8);
+
+        var reading = LessonCodec.decode(escaped.replace("A title", "A title" + DEL).getBytes(UTF_8));
+
+        assertInstanceOf(LessonCodec.Unreadable.class, reading, "the reader refuses a literal DEL in a scalar");
     }
 }

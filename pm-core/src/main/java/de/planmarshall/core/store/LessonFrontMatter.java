@@ -170,7 +170,8 @@ List<Revision> revisions, List<MergedFrom> mergedFrom, @Nullable Claim claim, @N
                             .formatted(status.wireName()));
         }
         if (revision < MIN_REVISION) {
-            throw new IllegalArgumentException("A revision counter is at least %d: %d".formatted(MIN_REVISION, revision));
+            throw new IllegalArgumentException(
+                    "A revision counter is at least %d: %d".formatted(MIN_REVISION, revision));
         }
         sources = List.copyOf(Objects.requireNonNull(sources, "sources"));
         if (sources.size() < MIN_SOURCES) {

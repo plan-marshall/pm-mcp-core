@@ -844,8 +844,9 @@ untracked, or it is deleted in the same transaction — and a citation of an abs
 nothing. A source of the kind `lesson` that names no lesson id is refused.
 `retire` writes `retired` and `status: retired` in one transaction and leaves the file where it is; the members a
 verdict requires (`completely_covered` a non-blank clause and input, `merged` and `superseded` an `into`, no other
-verdict one) are refused by `Retired` itself, and `retire` refuses a retirement of anything but a found, unclaimed
-lesson. `claim`
+verdict one) are refused by `Retired` itself, so they run at decode as well — a stored file whose `retired` contradicts
+its verdict does not decode and resolves `present_unreadable` — and `retire` refuses a retirement of anything but a
+found, unclaimed lesson. `claim`
 sets `claim{plan_id, claimed_at}`; `release` clears it and does not retire the lesson; `endClaimApplied` retires it with
 the verdict `applied` and clears the claim, so the plan stays the author in `retired.by`, which is what reach is computed
 from

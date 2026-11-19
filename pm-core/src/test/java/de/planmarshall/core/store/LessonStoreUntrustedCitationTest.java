@@ -37,6 +37,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.LessonFrontMatter.Source;
@@ -137,8 +138,6 @@ class LessonStoreUntrustedCitationTest {
     @MethodSource("resolutionArms")
     @DisplayName("every resolution state of a citation has its own arm")
     void resolutionArms(String arm, LessonResolution resolution, boolean untrusted) {
-        assertFalse(arm.isBlank(), "the case names its arm");
-
         assertEquals(untrusted, LessonStore.isUntrusted(resolution),
                 "the resolution state decides the untrusted mark");
     }
@@ -154,9 +153,26 @@ class LessonStoreUntrustedCitationTest {
     @MethodSource("contentArms")
     @DisplayName("every staged content of a citation has its own arm")
     void contentArms(String name, byte[] content, boolean untrusted) {
-        assertFalse(name.isBlank(), "the case names the arm");
-
         assertEquals(untrusted, LessonStore.isUntrusted(content), "the staged content decides the untrusted mark");
+    }
+
+    @ParameterizedTest(name = "a citation of a persisted shell marks the revision untrusted: {0}")
+    @ValueSource(booleans = {true, false})
+    @DisplayName("a citation of a shell written to a file reports the mark of that shell")
+    void citesPersistedEmptyShell(boolean marked) throws Exception {
+        var lesson = created(REVISED);
+        var lessonId = lesson.frontMatter().lessonId();
+        var shell = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(CITED)
+                .derivedFromUntrusted(marked).build(), "   \n");
+        Files.write(lessons.pathBase().resolve(CITED.fileName()), LessonCodec.encode(shell));
+        acceptEdit(CITED);
+
+        var outcome = inTransaction(write -> store.revise(write, lessonId, "# Cites\n",
+                List.of(cites(CITED)), false, CLOCK.instant()));
+
+        var revised = assertInstanceOf(Revised.class, outcome, "the revision of a clean lesson succeeds");
+        assertEquals(marked, revised.lesson().frontMatter().derivedFromUntrusted(),
+                "the mark of the persisted shell travels to the citation");
     }
 
     @Test
@@ -208,5 +224,37 @@ class LessonStoreUntrustedCitationTest {
 
         assertEquals("A lesson source names a lesson id: 'not-a-lesson-id'", exception.getMessage(),
                 "the refusal names the malformed reference");
+    }
+
+    @Test
+    @DisplayName("a malformed lesson reference after a resolved citation is refused too")
+    void refusesMalformedLessonReferenceAfterAResolvedCitation() {
+        var untrusted = created(REVISED);
+        var lessonId = created(CITED).frontMatter().lessonId();
+        var malformed = new Source(Source.Kind.LESSON, "not-a-lesson-id", null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> inTransaction(write -> store.revise(write, lessonId, "# Cites\n",
+                        List.of(cites(untrusted.frontMatter().lessonId()), malformed), false, CLOCK.instant())),
+                "a resolved citation does not hide the malformed one");
+    }
+
+    @Test
+    @DisplayName("a create with a malformed lesson reference records no lesson")
+    void refusesMalformedLessonReferenceAtCreate() {
+        var malformed = new Source(Source.Kind.LESSON, "not-a-lesson-id", null);
+        var newLesson = LessonFixtures.newLesson().sources(List.of(malformed)).build();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> inTransaction(write -> store.create(write, CITED, newLesson, CLOCK)),
+                "a create with a malformed lesson reference is refused");
+    }
+
+    /** Records the digest of a file written outside a transaction, as the operator's accept-edit does. */
+    private void acceptEdit(LessonId lessonId) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(lessons.lockKey());
+            ScopeIntegrity.rebaseline(transaction, lessons, lessonId.fileName(), audit);
+        }
     }
 }
