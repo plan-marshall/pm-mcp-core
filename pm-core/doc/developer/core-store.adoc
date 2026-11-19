@@ -817,7 +817,8 @@ server-set members are derived by the store:
 `format_version` 1, the id, `created_at`, the status (`upstream_pending` for the audience `upstream`, `active` otherwise),
 revision 1 with its first `revisions` entry and the SHA-256 of the UTF-8 body, and the null claim and retirement. The
 caller gives the title, component, category, bundle, rule, remedy, provenance, audience, `derived_from_untrusted`,
-`tool_version`, the non-empty sources and the body.
+`tool_version`, the non-empty sources and the body; the store writes `derived_from_untrusted` as the caller's value or
+the mark its `sources[]` carry, whichever is `true`.
 
 **The two read flavours.** `list()` and `get(LessonId)` take no lock and read through `ScopeIntegrity.snapshot`: a file
 that differs from its sidecar entry is `found` with `StoreIntegrity.DIGEST_UNVERIFIED`, and `get(transaction, LessonId)`
@@ -841,7 +842,8 @@ non-whitespace character; it never turns `derived_from_untrusted`
 back; a revision whose sources name a lesson of the kind `lesson` is marked when that lesson is marked, when its bytes
 do not decode, or when its trust cannot be established — it is present unreadable, tampered, deleted out of band or
 untracked, or it is deleted in the same transaction — and a citation of an absent lesson reads nothing and marks
-nothing. A source of the kind `lesson` that names no lesson id is refused.
+nothing. Every lesson named in `merged_from[]` is read the same way. A source of the kind `lesson` that names no lesson
+id is refused.
 `retire` writes `retired` and `status: retired` in one transaction and leaves the file where it is; the members a
 verdict requires (`completely_covered` a non-blank clause and input, `merged` and `superseded` an `into`, no other
 verdict one) are refused by `Retired` itself, so they run at decode as well — a stored file whose `retired` contradicts

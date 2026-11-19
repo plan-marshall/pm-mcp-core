@@ -24,9 +24,11 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +41,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.core.store.LessonFrontMatter.MergedFrom;
 import de.planmarshall.core.store.LessonFrontMatter.Source;
 import de.planmarshall.core.store.LessonResolution.Found;
 import de.planmarshall.core.store.LessonResolution.Revised;
@@ -141,6 +144,17 @@ class LessonStoreUntrustedCitationTest {
                 "the resolution state decides the untrusted mark");
     }
 
+    @Test
+    @DisplayName("the resolution arms cover every lesson state")
+    void resolutionArmsCoverEveryState() {
+        var covered = resolutionArms()
+                .map(arguments -> ((LessonResolution) arguments.get()[1]).state())
+                .collect(Collectors.toSet());
+
+        assertEquals(EnumSet.allOf(LessonResolution.State.class), covered,
+                "each lesson state needs a resolution arm");
+    }
+
     static Stream<Arguments> contentArms() {
         return Stream.of(
                 Arguments.of("a clean lesson", LessonCodec.encode(lesson(false)), false),
@@ -172,6 +186,39 @@ class LessonStoreUntrustedCitationTest {
         var revised = assertInstanceOf(Revised.class, outcome, "the revision of a clean lesson succeeds");
         assertEquals(marked, revised.lesson().frontMatter().derivedFromUntrusted(),
                 "the mark of the persisted shell travels to the citation");
+    }
+
+    @ParameterizedTest(name = "a create that cites an untrusted lesson marks it untrusted: {0}")
+    @ValueSource(booleans = {true, false})
+    @DisplayName("a create applies the citation rule to its sources")
+    void createAppliesTheCitationRule(boolean marked) {
+        var cited = inTransaction(write -> store.create(write, CITED, LessonFixtures.newLesson()
+                .derivedFromUntrusted(marked).build(), CLOCK)).frontMatter().lessonId();
+        var newLesson = LessonFixtures.newLesson().sources(List.of(cites(cited))).build();
+
+        var lesson = inTransaction(write -> store.create(write, REVISED, newLesson, CLOCK));
+
+        assertEquals(marked, lesson.frontMatter().derivedFromUntrusted(),
+                "the mark of the cited lesson travels to the new lesson");
+    }
+
+    @Test
+    @DisplayName("a revision of a lesson merged from an untrusted lesson is marked")
+    void citesUntrustedMergedFrom() throws Exception {
+        var untrusted = inTransaction(write -> store.create(write, REVISED, LessonFixtures.newLesson()
+                .derivedFromUntrusted(true).build(), CLOCK)).frontMatter().lessonId();
+        var merged = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(CITED)
+                .mergedFrom(List.of(new MergedFrom(untrusted, LessonFixtures.instant(), "a plan"))).build(),
+                LessonFixtures.body());
+        Files.write(lessons.pathBase().resolve(CITED.fileName()), LessonCodec.encode(merged));
+        acceptEdit(CITED);
+
+        var outcome = inTransaction(write -> store.revise(write, CITED, "# Cites\n",
+                List.of(LessonFixtures.source()), false, CLOCK.instant()));
+
+        var revised = assertInstanceOf(Revised.class, outcome, "the revision of the merged lesson succeeds");
+        assertTrue(revised.lesson().frontMatter().derivedFromUntrusted(),
+                "a merge origin that is untrusted marks the revision");
     }
 
     @Test

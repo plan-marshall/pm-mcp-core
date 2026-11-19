@@ -186,7 +186,8 @@ public final class LessonStore {
                 .remedy(newLesson.remedy())
                 .status(newLesson.audience() == Audience.UPSTREAM ? Status.UPSTREAM_PENDING : Status.ACTIVE)
                 .provenance(newLesson.provenance())
-                .derivedFromUntrusted(newLesson.derivedFromUntrusted())
+                .derivedFromUntrusted(newLesson.derivedFromUntrusted()
+                        || citesUntrustedLesson(transaction, sources))
                 .audience(newLesson.audience())
                 .createdAt(now)
                 .toolVersion(newLesson.toolVersion())
@@ -399,7 +400,8 @@ public final class LessonStore {
         var revision = frontMatter.revision() + 1;
         var next = frontMatter.toBuilder()
                 .derivedFromUntrusted(frontMatter.derivedFromUntrusted() || derivedFromUntrusted
-                        || citesUntrustedLesson(transaction, evidence))
+                        || citesUntrustedLesson(transaction, evidence)
+                        || citesUntrustedMergedFrom(transaction, frontMatter))
                 .revision(revision)
                 .sources(evidence)
                 .revisions(append(frontMatter.revisions(),
@@ -758,10 +760,26 @@ public final class LessonStore {
     }
 
     private boolean citesUntrustedLesson(ScopeTransaction transaction, Source source) {
-        if (source.kind() != Source.Kind.LESSON) {
-            return false;
-        }
-        var cited = citedLesson(source);
+        return source.kind() == Source.Kind.LESSON && isUntrusted(transaction, citedLesson(source));
+    }
+
+    /**
+     * @param transaction an open transaction of the lesson store
+     * @param frontMatter the front matter of the lesson a revision replaces
+     * @return whether a lesson it was merged from is untrusted in the state the transaction sees
+     */
+    private boolean citesUntrustedMergedFrom(ScopeTransaction transaction, LessonFrontMatter frontMatter) {
+        return frontMatter.mergedFrom().stream()
+                .anyMatch(merged -> isUntrusted(transaction, merged.lessonId()));
+    }
+
+    /**
+     * @param transaction an open transaction of the lesson store
+     * @param cited       the lesson a record cites
+     * @return whether the cited lesson is untrusted: what the transaction stages for it, else a delete target, else
+     *         its resolution
+     */
+    private boolean isUntrusted(ScopeTransaction transaction, LessonId cited) {
         var path = storePath(cited);
         var staged = transaction.targetContent(path);
         if (staged.isPresent()) {

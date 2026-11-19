@@ -40,9 +40,10 @@ Four contracts of the lesson store, each in one place:
 * A revision is marked `derived_from_untrusted` when a cited lesson of the kind `lesson` is marked, when its bytes do
   not decode, or when its trust cannot be established: it is `present_unreadable`, `store_tampered`,
   `deleted_out_of_band` or `untracked`, or it is deleted in the same transaction (the evidence the citation refers to
-  is gone before the commit). A cited lesson that resolves `absent` reads nothing and marks nothing. A source of the
-  kind `lesson` whose `ref` is no lesson id is refused with an `IllegalArgumentException` before anything is staged, by
-  `create` and by `revise` alike.
+  is gone before the commit). A cited lesson that resolves `absent` reads nothing and marks nothing. The same reading
+  covers every lesson named in `merged_from[]`. A source of the kind `lesson` whose `ref` is no lesson id is refused
+  with an `IllegalArgumentException` before anything is staged, by `create` and by `revise` alike, and `create` applies
+  the citation rule to its `sources[]` exactly as `revise` does.
 * The two rules a retirement states about itself — the non-blank `covering_clause` and `covering_input` of
   `completely_covered`, and `into` exactly for `merged` and `superseded` — are enforced by
   `LessonFrontMatter.Retired`. `LessonStore` keeps the one rule about who retires: a store transition retires only a
@@ -72,9 +73,12 @@ Four contracts of the lesson store, each in one place:
 * A front-matter string of any member may carry DEL and reads back unchanged; a file written by an older release that
   carried one reads as `present_unreadable`, because the escaping changes only what is written from now on.
 * The untrusted mark is monotonic and fail-closed on a citation whose trust cannot be read, and it stays out of a
-  citation of a lesson that does not exist.
+  citation of a lesson that does not exist. Both writes apply it: `create` marks a lesson whose `sources[]` cite a
+  lesson that is marked or cannot be trusted, and `revise` does the same for its new sources and for every lesson named
+  in `merged_from[]`.
 * `LessonResolution.Absent` is the one state `LessonStore.isUntrusted` maps to `false` beyond `found` and `empty_shell`;
-  the switch has no `default` arm, so a new variant of the sealed type fails to compile until its arm is stated.
+  the switch has no `default` arm, so a new variant of the sealed type fails to compile until its arm is stated, and a
+  test compares the resolution arms with `LessonResolution.State` so a new state cannot pass without one.
 * Because the verdict rules now run in the record, they also run at decode: a file whose `retired` contradicts its
   verdict (say `applied` with an `into`, or `completely_covered` without a clause) no longer decodes and resolves
   `present_unreadable` where it was `found` before, and a revision that cites such a lesson is marked untrusted. No
