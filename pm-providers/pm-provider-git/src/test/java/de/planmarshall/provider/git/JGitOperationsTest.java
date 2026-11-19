@@ -182,6 +182,51 @@ class JGitOperationsTest {
         }
 
         @Test
+        @DisplayName("commits only the listed paths, leaving a pre-staged and a dirty path out")
+        void commitsOnlyListedPaths() throws Exception {
+            var staged = file();
+            var listed = file();
+            var dirty = file();
+            write(staged, text());
+            write(listed, text());
+            write(dirty, text());
+            // pre-stage the unrelated file in the index, as another writer would
+            try (var jgit = Git.open(repo.toFile())) {
+                jgit.add().addFilepattern(staged).call();
+            }
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(listed)));
+
+            var commit = result.value();
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the subset commit is recorded"),
+                    () -> assertTrue(inCommit(commit.id(), listed), "the listed path is committed"),
+                    () -> assertFalse(inCommit(commit.id(), staged),
+                            "the pre-staged path is not carried into the commit"),
+                    () -> assertFalse(inCommit(commit.id(), dirty), "the dirty unlisted path is left out"));
+        }
+
+        @Test
+        @DisplayName("commits a deletion named in the listed paths")
+        void commitsListedDeletion() throws Exception {
+            Files.delete(repo.resolve("README.md"));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the deletion commit is recorded"),
+                    () -> assertFalse(inCommit(result.value().id(), "README.md"),
+                            "the deleted path is gone from the committed tree"));
+        }
+
+        private boolean inCommit(String commitId, String path) throws Exception {
+            try (var jgit = Git.open(repo.toFile())) {
+                var tree = jgit.getRepository().parseCommit(
+                        jgit.getRepository().resolve(commitId)).getTree();
+                return org.eclipse.jgit.treewalk.TreeWalk.forPath(jgit.getRepository(), path, tree) != null;
+            }
+        }
+
+        @Test
         @DisplayName("walks the history newest first, bounded by the count")
         void logs() throws Exception {
             write(file(), text());
