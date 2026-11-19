@@ -45,7 +45,8 @@ Guard:: `WorkerJudgeScorer` reads a judge reply for its `score` alone: a `judge-
 zero to one is the item's score, and an object without such a `score` leaves the item ungraded although the task ends
 `submitted` (`WorkerJudgeScorerTest` submits `{"score": 2}` and gets an ungraded item). An ungraded item raises the
 record's `ungraded` count, for which no form qualifies (`QualificationCheckTest`), and the next grading run re-grades
-only that item while the qualification digest and the corpus revision are unchanged (`RoleGraderTest`). The judge's
+only that item while the qualification digest and the corpus revision are unchanged — except a run in which every item
+is ungraded, which closes `no_graded_items` and writes no record (`RoleGraderTest`). The judge's
 job keeps the zero-tool launch rule: the job-private `cwd/`, no tool and no MCP connection (`LaunchComposerTest`),
 one turn (`WorkerVectorCheckTest`).
 Matched control: a reply that carries a `score` in the range is the item's score.
