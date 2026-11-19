@@ -38,14 +38,20 @@ class CallFrameRecordsTest {
         var boundArgs = Map.<String, CallValue>of(Generators.letterStrings(1, 20).next(),
                 new CallValue.EnumValue(Generators.letterStrings(1, 20).next()));
         var pushedAt = Generators.letterStrings(1, 20).next();
+        var commandId = de.planmarshall.core.id.CommandId.random();
+        var correlationId = de.planmarshall.core.id.CorrelationId.random();
 
-        var constructed = new CallFrame(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs, pushedAt);
+        var constructed = new CallFrame(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs,
+                Map.of(), commandId, correlationId, pushedAt);
         var built = CallFrame.builder()
                 .callerWorkflowId(callerWorkflowId)
                 .callerStateId(callerStateId)
                 .subWorkflowId(subWorkflowId)
                 .entry(entry)
                 .boundArgs(boundArgs)
+                .argSources(Map.of())
+                .commandId(commandId)
+                .correlationId(correlationId)
                 .pushedAt(pushedAt)
                 .build();
 
