@@ -794,9 +794,11 @@ body.
 
 `LessonCodec` reads and writes one file: the line `---`, the front matter, the line `---`, the body verbatim. The front
 matter is written as one JSON object in the order of the schema — a JSON object is a YAML 1.2 flow mapping — and read
-through a YAML library whose scalar resolution is restricted to the 1.2 core schema (ADR core-store/061). The writer escapes every non-ASCII character,
-so a title, a statement or a source that carries a YAML line break (U+0085, U+2028, U+2029), a C1 control or a
-noncharacter reads back unchanged instead of being folded or refused by the YAML reader.
+through a YAML library whose scalar resolution is restricted to the 1.2 core schema
+(link:../adr/core-store/061-the-lesson-front-matter-is-yaml-read-through-a-library.adoc[ADR core-store/061]).
+The writer escapes every non-ASCII character and U+007F (DEL, the one code point below U+0080 that the YAML reader
+refuses in a scalar), so a title, a statement or a source that carries a YAML line break (U+0085, U+2028, U+2029), a C1
+control, a noncharacter or a DEL reads back unchanged instead of being folded or refused by the YAML reader.
 The reader refuses an anchor, an alias, a tag, a second document, a duplicate or unknown
 member, a missing member and a mistyped member; it refuses a `format_version` other than 1, and an instant only in the
 shape `Instant.toString` writes — RFC 3339, UTC, suffix `Z` — so what is read is written again byte for byte; a
@@ -861,19 +863,23 @@ Journal, Writes outside the scope).
 follows every lesson file of that hour, every sequence the sidecar records (an out-of-band delete does not free an id)
 and every lesson the transaction already holds as a target, at least three digits and at most 50. A draw is free for the
 transaction that creates its lesson in the same step; two draws before the first create return the same id, because
-neither is a target yet. `create` adds a create target (`mustBeAbsent`), refuses an id the sidecar records already and
-refuses an id whose hour is not the UTC hour of the clock; its server-set members are derived by the store:
+neither is a target yet. `create` adds a create target (`mustBeAbsent`), refuses an id the sidecar records already,
+refuses an id whose hour is not the UTC hour of the clock and refuses a body without a non-whitespace character; its
+server-set members are derived by the store:
 `format_version` 1, the id, `created_at`, the status (`upstream_pending` for the audience `upstream`, `active` otherwise),
 revision 1 with its first `revisions` entry and the SHA-256 of the UTF-8 body, and the null claim and retirement. The
 caller gives the title, component, category, bundle, rule, remedy, provenance, audience, `derived_from_untrusted`,
-`tool_version`, the non-empty sources and the body.
+`tool_version`, the non-empty sources and the body; the store writes `derived_from_untrusted` as the caller's value or
+the mark its `sources[]` carry, whichever is `true`.
 
 **The two read flavours.** `list()` and `get(LessonId)` take no lock and read through `ScopeIntegrity.snapshot`: a file
 that differs from its sidecar entry is `found` with `StoreIntegrity.DIGEST_UNVERIFIED`, and `get(transaction, LessonId)`
 recovers the journal of the scope and decides through `ScopeIntegrity.verify`, so the same file is `store_tampered` there.
 The locked read raises `store_tampered` and `untracked`; the lock-free read decides nothing about a digest. Its one
 integrity state is `deleted_out_of_band`: a sidecar entry whose file is gone is an observed absence, never a digest
-verdict, and never `absent` (ADR core-store/066). The locked read hashes the bytes it decodes, so a file replaced between
+verdict, and never `absent`
+(link:../adr/core-store/066-the-lesson-store-reads-in-two-flavours-and-decides-under-the-lock.adoc[ADR core-store/066]).
+The locked read hashes the bytes it decodes, so a file replaced between
 the verification and the read is `store_tampered` as well. `LessonResolution` is the one sealed result: `found`, `absent`,
 `present_unreadable` (listed with its path, never omitted), `empty_shell` (a body without a non-whitespace character),
 `store_tampered`, `deleted_out_of_band` and `untracked`. The listing names only files whose name parses as
@@ -883,17 +889,27 @@ id first, the `derived_from_untrusted` mark travelling in the front matter — a
 the read of the plan's end, which lists an unreadable lesson separately by id, because no one can read or release its
 claim.
 
-**The transitions.** `revise` replaces the body wholesale as the next revision and never turns `derived_from_untrusted`
-back; a revision whose sources name a lesson of the kind `lesson` that is marked becomes marked itself.
-`retire` writes `retired` and `status: retired` in one transaction and leaves the file where it is; it refuses a
-retirement without its verdict's members (`completely_covered` needs a non-blank clause and input, `merged` and
-`superseded` need `into`, no other verdict takes one) and a retirement of anything but a found, unclaimed lesson. `claim`
+**The transitions.** `revise` replaces the body wholesale as the next revision and refuses a body without a
+non-whitespace character; it never turns `derived_from_untrusted`
+back; a revision whose sources name a lesson of the kind `lesson` is marked when that lesson is marked, when its bytes
+do not decode, or when its trust cannot be established — it is present unreadable, tampered, deleted out of band or
+untracked, or it is deleted in the same transaction — and a citation of an absent lesson reads nothing and marks
+nothing. Every lesson named in `merged_from[]` is read the same way. A source of the kind `lesson` that names no lesson
+id is refused.
+`retire` writes `retired` and `status: retired` in one transaction and leaves the file where it is; the members a
+verdict requires (`completely_covered` a non-blank clause and input, `merged` and `superseded` an `into`, no other
+verdict one) are refused by `Retired` itself, so they run at decode as well — a stored file whose `retired` contradicts
+its verdict does not decode and resolves `present_unreadable` — and `retire` refuses a retirement of anything but a
+found, unclaimed lesson. `claim`
 sets `claim{plan_id, claimed_at}`; `release` clears it and does not retire the lesson; `endClaimApplied` retires it with
 the verdict `applied` and clears the claim, so the plan stays the author in `retired.by`, which is what reach is computed
-from (ADR core-store/076). The release and the end are authorized by the durable `claim.plan_id` alone, never by their
+from
+(link:../adr/core-store/076-the-end-of-a-claim-clears-the-claim-and-keeps-the-retirement.adoc[ADR core-store/076]).
+The release and the end are authorized by the durable `claim.plan_id` alone, never by their
 argument (R14 (2)); a transition that does not act returns `Unavailable` with the state it found — the resolution states,
-`claimed` with the claiming plan, `retired` and `unclaimed` (ADR core-store/065) — and a repeated end reports the
-retirement without writing.
+`claimed` with the claiming plan, `retired` and `unclaimed`
+(link:../adr/core-store/065-the-vocabulary-of-the-unavailable-states.adoc[ADR core-store/065]) — and a repeated end
+reports the retirement without writing.
 
 === Invariants per crash window
 
@@ -1452,7 +1468,8 @@ A refresh made inside a scope transaction therefore takes `locks/derived-facts.l
 caller's lock is held, which is the place of `LockLevel.DERIVED_FACTS` in the total order. The lock manager asserts the
 order within one transaction only and does not see the caller's keys, so the order of a caller's transaction relative
 to the store's is a convention of the callers. An acquisition of a scope lock while the derived-facts lock is held,
-inside one transaction, is a violation the lock manager refuses (link:../adr/core-store/063-the-store-transaction-is-its-own-and-the-order-across-transactions-is-by-convention.adoc[ADR 063]).
+inside one transaction, is a violation the lock manager refuses
+(link:../adr/core-store/063-the-store-transaction-is-its-own-and-the-order-across-transactions-is-by-convention.adoc[ADR 063]).
 
 Two refreshers of the same fact do not overwrite a newer result with an older one: the write re-reads the entry and,
 when the stored entry carries the same digest with a later `derived_at`, keeps it and returns it

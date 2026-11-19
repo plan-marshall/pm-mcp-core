@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,6 +35,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
@@ -988,6 +990,61 @@ class ScopeTransactionTest {
                                 "a replace after the commit should fail"),
                         () -> assertThrows(IllegalStateException.class, () -> write.append(WORK_LOG, block),
                                 "an append after the commit should fail"));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("its own state")
+    class OwnState {
+
+        @Test
+        @DisplayName("names the lock transaction it writes under and the sink it owes records to")
+        void namesItsLockTransactionAndSink() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+
+                assertAll("the state of an open transaction",
+                        () -> assertSame(transaction, write.lockTransaction(),
+                                "the transaction names its lock transaction"),
+                        () -> assertSame(audit, write.auditSink(),
+                                "the transaction names the sink it owes to"));
+            }
+        }
+
+        @Test
+        @DisplayName("lists the paths of its targets and the content each one will write")
+        void listsThePathsAndContentOfItsTargets() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.replace(STATUS, bytes(newStatus));
+                write.append(WORK_LOG, bytes(firstLine));
+
+                assertAll("the targets of an open transaction",
+                        () -> assertEquals(Set.of(STATUS, WORK_LOG), write.targetPaths(),
+                                "the paths are those of the collected targets"),
+                        () -> assertArrayEquals(bytes(newStatus), write.targetContent(STATUS).orElseThrow(),
+                                "the content is what the replace will write"),
+                        () -> assertTrue(write.targetContent(REFERENCES).isEmpty(),
+                                "a store that is no target has no content"));
+            }
+        }
+
+        @Test
+        @DisplayName("lists a deleted store as a target and reports no content for it")
+        void listsADeleteWithoutContent() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.delete(REFERENCES);
+
+                assertAll("a delete target",
+                        () -> assertTrue(write.targetPaths().contains(REFERENCES),
+                                "the deleted store is a target"),
+                        () -> assertTrue(write.targetContent(REFERENCES).isEmpty(),
+                                "a delete target stages no content"));
             }
         }
     }

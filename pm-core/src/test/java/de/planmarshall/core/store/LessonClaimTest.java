@@ -50,6 +50,9 @@ import de.planmarshall.core.store.LessonResolution.Unavailable;
  * release and the end are authorized by the durable {@code claim.plan_id} alone; a repeated end is a no-op that reports
  * the retirement; and every cell of the lesson-state by operation table leaves a lesson the store did not act on
  * unchanged.
+ * <p>
+ * The literals the assertions pin — the lesson ids at the fixed clock's hour and the stated bodies — are the contract
+ * the id grammar and the codec state; the project name and the plan ids are generated.
  */
 @EnableGeneratorController
 @DisplayName("Lesson claim")

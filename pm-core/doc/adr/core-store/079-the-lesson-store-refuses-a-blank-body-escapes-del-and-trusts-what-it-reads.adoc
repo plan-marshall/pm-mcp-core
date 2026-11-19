@@ -1,0 +1,99 @@
+= ADR 079: The Lesson Store Refuses a Blank Body, Escapes DEL and Trusts Only What It Can Read
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+Pull request #512 (the landing of PLAN-V2-114, merged as `3b566897`) took three decisions about what the lesson store
+refuses at write time without recording any of them: `create` and `revise` refuse a body without a non-whitespace
+character, `LessonFrontMatter` refuses U+007F (DEL) in a `title`, and `LessonStore.isUntrusted(LessonResolution)`
+marks a
+revision untrusted when a cited lesson is in any state but `found` or `empty_shell` — `absent`, `present_unreadable`,
+`store_tampered`, `deleted_out_of_band` and `untracked` among them.
+
+The third decision contradicted the specification, which says a revision is marked when a lesson among its `sources[]`
+or `merged_from[]` "is `true`" (Store Schemas § Lesson Record, Derived from Untrusted Text), and the item was
+ask-at-refine (standing rule R07) with no question asked. The second decision covered one member only: `component`,
+`tool_version`, `bundle`, `rule`, the remedy statement and check, a source `ref`, a promotion `ref`,
+`merged_from[].by` and the retirement members still wrote DEL literally, and the YAML reader refused the file, so each
+of them read back as `present_unreadable`.
+
+PLAN-V2-156 asked the operator two questions. Which states of a cited lesson mark a revision (deliverable 1(a)), and
+where the verdict rules of a retirement are enforced — in the record or in the store (deliverable 3(e)).
+
+== Decision
+
+Four contracts of the lesson store, each in one place:
+
+* A write through the store (`create`, `revise`) refuses a body without a non-whitespace character. The state
+  `empty_shell` therefore arises only from a file written outside the store; it is never a state a store write produces.
+* `LessonCodec` escapes U+007F beside the non-ASCII characters it already escaped. DEL is the one code point below
+  U+0080 that the YAML reader refuses in a scalar, so escaping it makes every front-matter string round-trip; the
+  title-only refusal of #512 is removed, because the central rule covers a title too.
+* A revision is marked `derived_from_untrusted` when a cited lesson of the kind `lesson` is marked, when its bytes do
+  not decode, or when its trust cannot be established: it is `present_unreadable`, `store_tampered`,
+  `deleted_out_of_band` or `untracked`, or it is deleted in the same transaction (the evidence the citation refers to
+  is gone before the commit). A cited lesson that resolves `absent` reads nothing and marks nothing. The same reading
+  covers every lesson named in `merged_from[]`. A source of the kind `lesson` whose `ref` is no lesson id is refused
+  with an `IllegalArgumentException` before anything is staged, by `create` and by `revise` alike, and `create` applies
+  the citation rule to its `sources[]` exactly as `revise` does.
+* The two rules a retirement states about itself — the non-blank `covering_clause` and `covering_input` of
+  `completely_covered`, and `into` exactly for `merged` and `superseded` — are enforced by
+  `LessonFrontMatter.Retired`. `LessonStore` keeps the one rule about who retires: a store transition retires only a
+  lesson resolved `found`, while the operator act retires a `present_unreadable` one.
+
+== Alternatives Considered
+
+* **Treat an absent citation as untrusted as well** (the code of #512): an absent lesson was never read, so there is no
+  untrusted text to inherit, and marking it would report a derivation the revision does not have. The operator chose
+  the unreadable, undecodable and integrity states; an absent citation and a deletion in the same transaction are
+  judged separately, and the deletion marks because the evidence existed and is gone.
+* **Apply the specification's literal "is `true`"** (revert the widening): a citation of a lesson whose trust cannot be
+  read would count as trusted, which is fail-open on the one path the mark exists for. The operator rejected it for
+  that reason, and the specification sentence was corrected instead.
+* **Refuse DEL centrally in every front-matter string** instead of escaping it: the schema bounds a `ref` by
+  `minLength: 1` and nothing else, so a refusal would narrow the format without the schema stating it, and the schema
+  block of `store-schemas/10` must stay byte-stable (standing rule R10). Escaping keeps the format as it is and makes
+  the round trip the contract.
+* **Leave the title-only refusal in place** beside the escaped writer: it would be a second rule for one member, with no
+  property that the other members do not share.
+* **Keep the verdict rules in `LessonStore.requireValid`**: the store would remain the only enforcement point, so a
+  `Retired` built by a caller or decoded from a file could carry a state no transition may write. The operator chose the
+  record for the value rules.
+
+== Consequences
+
+* A front-matter string of any member may carry DEL and reads back unchanged; a file written by an older release that
+  carried one reads as `present_unreadable`, because the escaping changes only what is written from now on.
+* The untrusted mark is monotonic and fail-closed on a citation whose trust cannot be read, and it stays out of a
+  citation of a lesson that does not exist. Both writes apply it: `create` marks a lesson whose `sources[]` cite a
+  lesson that is marked or cannot be trusted, and `revise` does the same for its new sources and for every lesson named
+  in `merged_from[]`.
+* `LessonResolution.Absent` is the one state `LessonStore.isUntrusted` maps to `false` beyond `found` and `empty_shell`;
+  the switch has no `default` arm, so a new variant of the sealed type fails to compile until its arm is stated, and a
+  test compares the resolution arms with `LessonResolution.State` so a new state cannot pass without one.
+* Because the verdict rules now run in the record, they also run at decode: a file whose `retired` contradicts its
+  verdict (say `applied` with an `into`, or `completely_covered` without a clause) no longer decodes and resolves
+  `present_unreadable` where it was `found` before, and a revision that cites such a lesson is marked untrusted. No
+  writer of this store produces such a file, and the format version stays 1 (R13).
+* A revision whose `sources[]` names a malformed lesson id is refused before anything is staged, by `create` and by
+  `revise`, so the store never records a citation it cannot read.
+* The `merged_from[]` half of the specification sentence is not implemented: `LessonStore` writes an empty
+  `merged_from` on every create and never reads it for the mark. This plan changed neither, and records the gap here
+  rather than leaving the corrected sentence to imply a behaviour the engine has.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson
+  Record] — Derived from Untrusted Text (`PM-SEC-1`) and File Format
+* link:../../developer/core-store.adoc#_lesson_record_and_file_format[`core.store` Developer Guide § Lesson Record and
+  File Format] and § The Lesson Store
+* The operator's answers to the lane's questions of 2026-11-19, deliverables 1(a) and 3(e) of PLAN-V2-156
+* The landing analysis of PLAN-V2-114 (`landings/PLAN-V2-114.md`) and its pull request #512

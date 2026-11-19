@@ -2424,7 +2424,9 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/LessonResolverTest.java
 link:../pm-core/src/test/java/de/planmarshall/core/store/LessonRevisionTest.java[LessonRevisionTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/LessonRetirementTest.java[LessonRetirementTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/LessonClaimTest.java[LessonClaimTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/LessonStoreCrashTest.java[LessonStoreCrashTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonStoreCrashTest.java[LessonStoreCrashTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonCodecControlCharacterTest.java[LessonCodecControlCharacterTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonStoreUntrustedCitationTest.java[LessonStoreUntrustedCitationTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_lesson_record_and_file_format[Developer Guide § Lesson Record and File Format],
 link:../pm-core/doc/developer/core-store.adoc#_the_lesson_store[Developer Guide § The Lesson Store],
@@ -2433,7 +2435,9 @@ link:../pm-core/doc/adr/core-store/062-the-lesson-classes-live-in-core-store.ado
 link:../pm-core/doc/adr/core-store/075-the-lesson-id-is-the-utc-hour-and-a-per-hour-sequence.adoc[ADR core-store/075],
 link:../pm-core/doc/adr/core-store/065-the-vocabulary-of-the-unavailable-states.adoc[ADR core-store/065],
 link:../pm-core/doc/adr/core-store/066-the-lesson-store-reads-in-two-flavours-and-decides-under-the-lock.adoc[ADR core-store/066],
-link:../pm-core/doc/adr/core-store/067-the-lesson-store-builds-no-operator-act.adoc[ADR core-store/067]
+link:../pm-core/doc/adr/core-store/067-the-lesson-store-builds-no-operator-act.adoc[ADR core-store/067],
+link:../pm-core/doc/adr/core-store/076-the-end-of-a-claim-clears-the-claim-and-keeps-the-retirement.adoc[ADR core-store/076],
+link:../pm-core/doc/adr/core-store/079-the-lesson-store-refuses-a-blank-body-escapes-del-and-trusts-what-it-reads.adoc[ADR core-store/079]
 
 [#PM-IMPL-3]
 === PM-IMPL-3: Deterministic Native TOON Encoder
