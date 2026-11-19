@@ -14,6 +14,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.SerializableString;
+import com.fasterxml.jackson.core.io.CharacterEscapes;
+import com.fasterxml.jackson.core.io.SerializedString;
 import com.fasterxml.jackson.core.json.JsonWriteFeature;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -68,7 +71,8 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
  * PM-IMPL-2).
  * <p>
  * A lesson file is the line {@code ---}, the front matter, the line {@code ---} and the Markdown body. The front
- * matter is YAML restricted to the JSON data model (a YAML library whose scalar resolution is restricted to the 1.2 core schema; its {@code .inf} and {@code .nan} spellings
+ * matter is YAML restricted to the JSON data model (a YAML library whose scalar resolution is restricted to the 1.2
+ * core schema; its {@code .inf} and {@code .nan} spellings
  * are not part of that data model and stay strings): anchors, aliases, tags and multiple documents are refused, and
  * every member is validated against the {@code LessonFrontMatter} schema on every read and write. The writer emits the
  * front matter as one JSON object in the order of the schema — a JSON object is a YAML 1.2 flow mapping — and the
@@ -211,6 +215,35 @@ public class LessonCodec {
     private static final JsonFactory FRONT_MATTER_WRITER = JsonFactory.builder()
             .enable(JsonWriteFeature.ESCAPE_NON_ASCII)
             .build();
+
+    /**
+     * The one character below U+0080 the front-matter writer escapes beside the non-ASCII characters: U+007F (DEL) is
+     * an ASCII code point that JSON admits literally and the YAML reader of the file refuses in a scalar, so a value
+     * that carries it would read back as {@code present_unreadable}. Every other ASCII character keeps the standard
+     * JSON escape (ADR core-store/061).
+     */
+    private static final CharacterEscapes FRONT_MATTER_ESCAPES = new FrontMatterEscapes();
+
+    /** The ASCII escape table of {@link #FRONT_MATTER_ESCAPES}: the JSON standard escapes, DEL escaped as well. */
+    private static final class FrontMatterEscapes extends CharacterEscapes {
+
+        private final int[] ascii;
+
+        private FrontMatterEscapes() {
+            ascii = CharacterEscapes.standardAsciiEscapesForJSON().clone();
+            ascii[0x7F] = ESCAPE_CUSTOM;
+        }
+
+        @Override
+        public int[] getEscapeCodesForAscii() {
+            return ascii.clone();
+        }
+
+        @Override
+        public SerializableString getEscapeSequence(int ch) {
+            return new SerializedString("\\u%04X".formatted(ch));
+        }
+    }
 
     /**
      * The result of reading one lesson file: the lesson, or the reason the file is unreadable.
@@ -453,7 +486,8 @@ public class LessonCodec {
         var object = mapping(value, name);
         requireMembers(object, name, PROMOTION_MEMBERS, PROMOTION_REQUIRED_MEMBERS);
         return new Promotion(closed(object.get(FIELD_KIND), name + "." + FIELD_KIND, Promotion.Kind::fromWireName),
-                text(object.get(FIELD_REF), name + "." + FIELD_REF), instant(object.get(FIELD_AT), name + "." + FIELD_AT));
+                text(object.get(FIELD_REF), name + "." + FIELD_REF),
+                instant(object.get(FIELD_AT), name + "." + FIELD_AT));
     }
 
     private static Revision revision(Object value, String name) {
@@ -469,7 +503,8 @@ public class LessonCodec {
         var object = mapping(value, name);
         requireMembers(object, name, MERGED_FROM_MEMBERS, MERGED_FROM_REQUIRED_MEMBERS);
         return new MergedFrom(new LessonId(text(object.get(FIELD_LESSON_ID), name + "." + FIELD_LESSON_ID)),
-                instant(object.get(FIELD_AT), name + "." + FIELD_AT), text(object.get(FIELD_BY), name + "." + FIELD_BY));
+                instant(object.get(FIELD_AT), name + "." + FIELD_AT),
+                text(object.get(FIELD_BY), name + "." + FIELD_BY));
     }
 
     private static Claim claim(Object value) {
@@ -592,8 +627,8 @@ public class LessonCodec {
 
     private static <E> E closed(Object value, String name, Function<String, Optional<E>> lookup) {
         var wireName = text(value, name);
-        return lookup.apply(wireName)
-                .orElseThrow(() -> StrictJson.unreadable("'%s' has the undeclared value '%s'".formatted(name, wireName)));
+        return lookup.apply(wireName).orElseThrow(() -> StrictJson.unreadable(
+                "'%s' has the undeclared value '%s'".formatted(name, wireName)));
     }
 
     private static <E> Optional<E> nullableClosed(@Nullable Object value, String name,
@@ -649,6 +684,7 @@ public class LessonCodec {
     private static byte[] writeFrontMatter(LessonFrontMatter frontMatter) {
         var out = new ByteArrayOutputStream();
         try (var generator = FRONT_MATTER_WRITER.createGenerator(out, JsonEncoding.UTF8)) {
+            generator.setCharacterEscapes(FRONT_MATTER_ESCAPES);
             generator.writeStartObject();
             generator.writeNumberField(FIELD_FORMAT_VERSION, frontMatter.formatVersion());
             generator.writeStringField(FIELD_LESSON_ID, frontMatter.lessonId().value());
@@ -776,7 +812,8 @@ public class LessonCodec {
         StrictJson.writeInstant(generator, field, instant);
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, @Nullable String value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable String value)
+            throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -784,7 +821,8 @@ public class LessonCodec {
         }
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, @Nullable Integer value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable Integer value)
+            throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -821,8 +859,9 @@ public class LessonCodec {
     }
 
     /**
-     * A YAML library whose scalar resolution is restricted to the 1.2 core schema, so that an unquoted {@code 2026-10-31} stays a string and {@code yes} stays a string:
-     * the front matter is restricted to the JSON data model, and the resolver is what makes the reader honour it.
+     * The resolver of the YAML reader: it restricts scalar resolution to the 1.2 core schema, so that an unquoted
+     * {@code 2026-10-31} and {@code yes} stay strings. The front matter is restricted to the JSON data model, and this
+     * resolver is what makes the reader honour it (Store Schemas § Lesson Record, File Format; ADR core-store/061).
      */
     private static final class JsonModelResolver extends Resolver {
 

@@ -144,9 +144,6 @@ List<Revision> revisions, List<MergedFrom> mergedFrom, @Nullable Claim claim, @N
         Objects.requireNonNull(audience, "audience");
         Objects.requireNonNull(remedy, "remedy");
         requireText(title, "title");
-        if (title.indexOf('\u007F') >= 0) {
-            throw new IllegalArgumentException("A title must not contain control characters");
-        }
         requireText(component, "component");
         requireText(toolVersion, "tool_version");
         if (formatVersion != FORMAT_VERSION) {
@@ -173,7 +170,8 @@ List<Revision> revisions, List<MergedFrom> mergedFrom, @Nullable Claim claim, @N
                             .formatted(status.wireName()));
         }
         if (revision < MIN_REVISION) {
-            throw new IllegalArgumentException("A revision counter is at least %d: %d".formatted(MIN_REVISION, revision));
+            throw new IllegalArgumentException(
+                    "A revision counter is at least %d: %d".formatted(MIN_REVISION, revision));
         }
         sources = List.copyOf(Objects.requireNonNull(sources, "sources"));
         if (sources.size() < MIN_SOURCES) {
@@ -683,6 +681,28 @@ List<Revision> revisions, List<MergedFrom> mergedFrom, @Nullable Claim claim, @N
             Objects.requireNonNull(lessonState, "lessonState");
             requireText(by, "by");
             requireText(reason, "reason");
+            if (verdict == Verdict.COMPLETELY_COVERED) {
+                requireNonBlank(verdict, coveringClause, "covering_clause");
+                requireNonBlank(verdict, coveringInput, "covering_input");
+            }
+            if ((verdict == Verdict.MERGED || verdict == Verdict.SUPERSEDED) != (into != null)) {
+                throw new IllegalArgumentException(
+                        "The 'into' of a retirement is set exactly for 'merged' and 'superseded', not for '%s'"
+                                .formatted(verdict.wireName()));
+            }
+        }
+
+        /**
+         * @param verdict the verdict that requires the member
+         * @param value   a member the verdict requires
+         * @param member  its name in the record
+         * @throws IllegalArgumentException if the member is {@code null} or carries no non-whitespace character
+         */
+        private static void requireNonBlank(Verdict verdict, @Nullable String value, String member) {
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException("The verdict '%s' requires a non-blank '%s'"
+                        .formatted(verdict.wireName(), member));
+            }
         }
 
         /**

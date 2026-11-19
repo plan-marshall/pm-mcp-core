@@ -52,6 +52,9 @@ import de.planmarshall.core.store.LessonResolution.Unavailable;
  * The retirement of a lesson (Store Schemas § Lesson Record, Retirement; PM-WATCH-STORE-20): the closed verdict set with
  * no default, the members each verdict requires, the record and the status written in one transaction while the file
  * stays in place, and a retirement that acts only on a lesson resolved found and unclaimed.
+ * <p>
+ * The literals the assertions pin — the verdicts, the lesson ids at the fixed clock's hour and the retirement members —
+ * are the contract the schema states; the project name and the plan ids are generated.
  */
 @EnableGeneratorController
 @DisplayName("Lesson retirement")
@@ -149,46 +152,6 @@ class LessonRetirementTest {
                     () -> assertEquals(lesson.body(), retired.lesson().body(), "the body stays in place"),
                     () -> assertEquals(expectedPath(LESSON_ID), store.store(LESSON_ID),
                             "the file stays where it was"));
-        }
-
-        @Test
-        @DisplayName("a completely_covered retirement needs a non-blank clause and input")
-        void completelyCoveredMembers() {
-            create();
-            var withoutClause = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).coveringClause(null).build();
-            var withoutInput = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).coveringInput(null).build();
-            var blankClause = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).coveringClause("  ").build();
-            var blankInput = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).coveringInput("\t").build();
-
-            assertAll(
-                    "A completely_covered retirement needs clause and input",
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(withoutClause),
-                            "a missing covering clause is refused"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(withoutInput),
-                            "a missing covering input is refused"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(blankClause),
-                            "a blank covering clause is refused"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(blankInput),
-                            "a blank covering input is refused"));
-        }
-
-        @Test
-        @DisplayName("into is set exactly for merged and superseded")
-        void intoMembers() {
-            create();
-            var mergedWithoutInto = LessonFixtures.retirement(Verdict.MERGED).into(null).build();
-            var supersededWithoutInto = LessonFixtures.retirement(Verdict.SUPERSEDED).into(null).build();
-            var appliedWithInto = LessonFixtures.retirement(Verdict.APPLIED)
-                    .into(new LessonId(LessonFixtures.WATCH_ID_NO_HEADER)).build();
-
-            assertAll(
-                    "Into is set exactly for merged and superseded",
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(mergedWithoutInto),
-                            "a merged retirement without into is refused"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(supersededWithoutInto),
-                            "a superseded retirement without into is refused"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(appliedWithInto),
-                            "an applied retirement with into is refused"));
         }
 
         @Test

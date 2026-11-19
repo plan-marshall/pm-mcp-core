@@ -60,6 +60,9 @@ import de.planmarshall.core.store.LessonResolution.Unavailable;
  * hour and its per-hour sequence drawn under the lesson store lock, a created lesson written as the bytes of its codec
  * with its sidecar entry, every server-set member derived by the store, and create, revise and retire leaving the old
  * or the new lesson after a write stopped at any step of the transaction (R14).
+ * <p>
+ * The literals the assertions pin — the lesson ids at the fixed clock's hour and the stated bodies — are the contract
+ * the id grammar and the codec state; the project name is generated.
  */
 @EnableGeneratorController
 @DisplayName("Lesson store")
