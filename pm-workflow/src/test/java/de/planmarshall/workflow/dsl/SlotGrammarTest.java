@@ -62,7 +62,11 @@ class SlotGrammarTest {
             """;
 
     private static WorkflowDefinition parse() {
-        var result = WorkflowParser.parse("slot.pmwf", SOURCE, de.planmarshall.workflow.ast.UnitOrigin.DEFAULT);
+        return parse(SOURCE);
+    }
+
+    private static WorkflowDefinition parse(String source) {
+        var result = WorkflowParser.parse("slot.pmwf", source, de.planmarshall.workflow.ast.UnitOrigin.DEFAULT);
         return assertInstanceOf(ParseResult.Parsed.class, result, () -> "the unit was refused: " + result).definition();
     }
 
@@ -103,9 +107,10 @@ class SlotGrammarTest {
     @DisplayName("the unit with a slot and a fills clause prints and reparses to the same text")
     void printsCanonically() {
         var printed = WorkflowPrinter.print(parse());
-        var reparsed = WorkflowPrinter.print(parse());
+        var reparsed = parse(printed);
+        var reprinted = WorkflowPrinter.print(reparsed);
 
-        assertEquals(printed, reparsed, "the printer is canonical for the slot grammar");
+        assertEquals(printed, reprinted, "the printer is canonical for the slot grammar");
         assertEquals("slot: commit_message", line(printed, "slot: "), "the printed slot line is kept");
         assertEquals("fills slot.commit_message from message", line(printed.trim(), "fills "),
                 "the printed fills line is kept");

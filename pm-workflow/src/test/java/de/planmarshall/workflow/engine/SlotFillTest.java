@@ -164,6 +164,19 @@ class SlotFillTest {
 
             assertTrue(filled.slots().isEmpty(), "a submission without the parameter fills no slot");
         }
+
+        @Test
+        @DisplayName("Should ignore a submission keyed by an entity the state does not await")
+        void shouldIgnoreANonAwaitedSubmission() {
+            var message = Generators.letterStrings(1, 40).next();
+            var engine = fixtures.engine(parse("plan.pmwf", TASK_UNIT));
+            var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+
+            var filled = engine.advance(atTask, new EngineEvent.TasksSettled(Map.of("change", "submitted"),
+                    Map.of("stranger", Map.of("message", message)), "approved")).status();
+
+            assertTrue(filled.slots().isEmpty(), "a non-awaited entity never fills the slot");
+        }
     }
 
     @Nested

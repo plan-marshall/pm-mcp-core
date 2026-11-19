@@ -470,8 +470,8 @@ public final class WorkflowEngine {
             case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(_, var fate) ->
                 run.chain(run.leftTo(node, transitionOf(node, job.transitions(), fate, Map.of()).targetStateId(),
                         fate));
-            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(_, var submissions, var outcome) -> {
-                run.fillSlotFromTask(node, submissions);
+            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(var outcomes, var submissions, var outcome) -> {
+                run.fillSlotFromTask(node, outcomes, submissions);
                 yield run.chain(run.leftTo(node, transitionOf(node, modelJob.transitions(), outcome, Map.of())
                         .targetStateId(), outcome));
             }
@@ -990,12 +990,16 @@ public final class WorkflowEngine {
         }
 
         /** Fills the state's slot from the accepted task submission, when the state declares a fills clause. */
-        void fillSlotFromTask(StateNode node, Map<String, Map<String, String>> submissions) {
+        void fillSlotFromTask(StateNode node, Map<String, String> taskOutcomes,
+                Map<String, Map<String, String>> submissions) {
             var fills = node.fills();
             if (fills == null) {
                 return;
             }
             for (var entry : submissions.entrySet()) {
+                if (!taskOutcomes.containsKey(entry.getKey())) {
+                    continue;
+                }
                 var value = entry.getValue().get(fills.fromParam());
                 if (value != null) {
                     storeSlot(fills.slotName(), value, "task_submit", entry.getKey());

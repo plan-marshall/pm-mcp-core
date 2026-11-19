@@ -209,7 +209,11 @@ class UnitFrontmatterSlotTest {
                     Arguments.of("a slot_type without a slot line", "does not stand below a 'slot' line",
                             List.of("slot_type: text")),
                     Arguments.of("a slot_description without a slot line", "does not stand below a 'slot' line",
-                            List.of("slot_description: The subject line.")));
+                            List.of("slot_description: The subject line.")),
+                    Arguments.of("a slot that repeats an input name", "is the name of an input of this unit",
+                            List.of("input: subject", "input_type: text", "slot: subject", "slot_type: text")),
+                    Arguments.of("an input that repeats a slot name", "is the name of a slot of this unit",
+                            List.of("slot: subject", "slot_type: text", "input: subject", "input_type: text")));
         }
 
         @ParameterizedTest(name = "{0}")

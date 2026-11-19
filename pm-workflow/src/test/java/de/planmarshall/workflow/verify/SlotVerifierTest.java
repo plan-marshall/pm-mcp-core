@@ -172,5 +172,37 @@ class SlotVerifierTest {
                     "which no operator link declares")),
                     "the verifier admits a from-parameter the link declares");
         }
+
+        @Test
+        @DisplayName("Should refuse a fills clause on a state that never fills a slot")
+        void fillsOnAutoStateIsRefused() {
+            var found = violations("""
+                    ---
+                    name: Slot verify
+                    description: A unit written for the tests of pm-workflow.
+                    type: workflow
+                    icon: workflow.default
+                    slot: commit_message
+                    slot_type: commit_message[1..2000]
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
+                    workflow demo.slots version 1 format 1
+                    scope plan
+                    start demo.step
+
+                    state demo.step
+                        fills slot.commit_message from message
+                        auto test.proceed
+                            done -> demo.done
+                            failed -> demo.done
+
+                    state demo.done terminal done success
+                    """);
+
+            assertTrue(found.stream().anyMatch(violation -> violation.message().contains("never fills a slot")),
+                    "the verifier refuses a fills on a non-filling state");
+        }
     }
 }

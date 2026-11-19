@@ -1901,7 +1901,19 @@ public final class WorkflowValidator {
                                 .formatted(state.id(), fills.slotName()))
                         .build());
             }
-            filledSomewhere.add(fills.slotName());
+            var isFiller = state.behavior() instanceof StateBehavior.ModelJob
+                    || state.behavior() instanceof StateBehavior.InteractiveLinks;
+            if (!isFiller) {
+                violations.add(Violation.builder()
+                        .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                        .stateId(state.id())
+                        .location(state.location())
+                        .message("the fills clause of '%s' is on a state that never fills a slot; only a task or an operator wait fills one"
+                                .formatted(state.id()))
+                        .build());
+            } else {
+                filledSomewhere.add(fills.slotName());
+            }
             if (state.behavior() instanceof StateBehavior.InteractiveLinks links) {
                 var found = links.links().stream().anyMatch(link -> link.freeParams().stream()
                         .anyMatch(param -> param.name().equals(fills.fromParam())));

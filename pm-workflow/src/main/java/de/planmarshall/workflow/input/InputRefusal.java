@@ -35,7 +35,11 @@ public record InputRefusal(String ruleId, String inputValue) {
         Objects.requireNonNull(ruleId, "ruleId");
         Objects.requireNonNull(inputValue, "inputValue");
         if (inputValue.length() > MAX_ECHO_LENGTH) {
-            inputValue = inputValue.substring(0, MAX_ECHO_LENGTH);
+            var end = MAX_ECHO_LENGTH;
+            if (Character.isHighSurrogate(inputValue.charAt(end - 1))) {
+                end--;
+            }
+            inputValue = inputValue.substring(0, end);
         }
     }
 

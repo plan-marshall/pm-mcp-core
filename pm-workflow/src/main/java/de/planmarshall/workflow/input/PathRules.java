@@ -51,11 +51,14 @@ public final class PathRules {
         if (value.codePoints().anyMatch(PathRules::isBidi)) {
             return new InputRefusal("path.bidi", value);
         }
+        if (value.codePoints().anyMatch(PathRules::isFormat)) {
+            return new InputRefusal("path.format", value);
+        }
         var segment = checkSegments(value);
         if (segment != null) {
             return segment;
         }
-        return value.contains("//") ? new InputRefusal("path.double-slash", value) : null;
+        return null;
     }
 
     private static @Nullable InputRefusal checkSimple(String value) {
@@ -103,5 +106,9 @@ public final class PathRules {
         return codePoint == 0x202a || codePoint == 0x202b || codePoint == 0x202c || codePoint == 0x202d
                 || codePoint == 0x202e || codePoint == 0x2066 || codePoint == 0x2067 || codePoint == 0x2068
                 || codePoint == 0x2069;
+    }
+
+    private static boolean isFormat(int codePoint) {
+        return Character.getType(codePoint) == Character.FORMAT;
     }
 }

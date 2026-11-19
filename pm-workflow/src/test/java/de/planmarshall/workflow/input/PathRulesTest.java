@@ -151,6 +151,7 @@ class PathRulesTest {
                 Arguments.of("a NUL character", "a\u0000b", "path.nul"),
                 Arguments.of("a right-to-left override", "a\u202Eb", "path.bidi"),
                 Arguments.of("an isolate initiator", "a\u2066b", "path.bidi"),
+                Arguments.of("a zero-width space", "a\u200Bb", "path.format"),
                 Arguments.of("a git pathspec exclusion", ":(exclude)x", "path.magic"),
                 Arguments.of("a leading dash", "-rf", "path.magic"),
                 Arguments.of("a .git segment in upper case", ".GIT/config", "path.git"),

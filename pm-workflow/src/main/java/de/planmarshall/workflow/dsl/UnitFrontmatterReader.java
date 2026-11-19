@@ -409,6 +409,10 @@ public final class UnitFrontmatterReader {
             if (WorkflowParser.RESERVED_KEYWORDS.contains(value)) {
                 throw new Refusal(number, column, "the input '%s' is a reserved keyword".formatted(echo(value)));
             }
+            if (slotNames.contains(value)) {
+                throw new Refusal(number, column,
+                        "the input '%s' is the name of a slot of this unit".formatted(echo(value)));
+            }
             if (!inputNames.add(value)) {
                 throw new Refusal(number, column, "the input '%s' is declared twice".formatted(echo(value)));
             }
@@ -501,6 +505,10 @@ public final class UnitFrontmatterReader {
             }
             if (WorkflowParser.RESERVED_KEYWORDS.contains(value)) {
                 throw new Refusal(number, column, "the slot '%s' is a reserved keyword".formatted(echo(value)));
+            }
+            if (inputNames.contains(value)) {
+                throw new Refusal(number, column,
+                        "the slot '%s' is the name of an input of this unit".formatted(echo(value)));
             }
             if (!slotNames.add(value)) {
                 throw new Refusal(number, column, "the slot '%s' is declared twice".formatted(echo(value)));

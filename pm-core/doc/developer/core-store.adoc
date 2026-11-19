@@ -220,16 +220,19 @@ unit-local.
   the empty map for an absent member, the codec reads and writes it strictly, and the schema member is
   `additionalProperties: false` per slot (link:../adr/core-store/075-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR
   075]).
-* *Consumed by its call.* The bind clears the slot in the transaction of the call that read it, so a stale message or a
-  stale path is never reused. A restart between the fill and the call resumes from the pair (state, slot recorded).
-* *One value, two shapes.* A slot holds a text or the JSON array text of a `list<path>`; the bind reads the second back
-  into a list before it validates it.
+* *Consumed by its call (deferred).* The intended design clears the slot in the transaction of the call that read it, so
+  a stale message or a stale path is never reused, and a restart between the fill and the call resumes from the pair
+  (state, slot recorded). **The call-time bind that would consume the slot is deferred (PLAN-V2-15 D3): the engine fills
+  a slot but does not yet read or clear it at a call.**
+* *One value, two shapes.* A slot holds a text or the JSON array text of a `list<path>`. **Reading the `list<path>` form
+  back into a list at the bind is deferred with the bind (D3).**
 * *Format version 1 unchanged.* The member is added in place; a document without it reads as no slot and is rewritten
   with the member on its next write.
 
 Tested by `WorkflowStatusCodecTest` (a status with a slot round-trips, the slot's provenance is checked against the closed
-set, a slot without `value` or `filled_at` is refused) and by the engine's `InputBindingTest`, which shows a filled slot
-bound into a frame, the frame's provenance naming the submission or the act, and the slot gone afterwards.
+set, a slot without `value` or `filled_at` is refused) and by the engine's `SlotFillTest`, which shows a submitted and an
+operator-answered value filling the slot with its provenance. The slot binding into a frame and its consumption are
+deferred (D3) and not claimed here.
 
 [#_retry_counters]
 == Retry Counters
