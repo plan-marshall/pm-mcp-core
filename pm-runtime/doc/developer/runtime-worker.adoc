@@ -68,14 +68,10 @@ slot) and the state the supervision advances (lifecycle, leased task, served tas
 worktree mark). It is an immutable snapshot; `@With` methods produce the successor, and equality is by generation id
 alone.
 link:{src}/WorkerLifecycle.java[`WorkerLifecycle`]:: The closed lifecycle state of a generation and its mapping onto the
-job record's `WorkerState.State`. The table allows `STARTING` to `WAITING`, `ENDING`, `LOST` or `START_FAILED`;
-`WAITING` to `OFFERED`, `ENDING` or `LOST`; `OFFERED` to `ACKNOWLEDGED`, `WAITING`, `ENDING` or `LOST`;
-`ACKNOWLEDGED` to `EXECUTING`, `CONSULTING`, `WAITING`, `ENDING` or `LOST`; `EXECUTING` to `CONSULTING`, `HOLDING`,
-`WAITING`, `ENDING` or `LOST`; `CONSULTING` to `EXECUTING`, `HOLDING`, `WAITING`, `ENDING` or `LOST`; `HOLDING` to
-`EXECUTING`,
-`ENDING` or `LOST`; and `ENDING` to `ENDED` or `LOST`. Every other transition, and every transition out of a terminal
-state, is refused. The protocol's `SUBMITTED` is folded into `WAITING`, because a submitted task ends the attempt and
-the worker waits again.
+job record's `WorkerState.State`. `TRANSITIONS` is the table and the only statement of which move is allowed: every
+transition it does not name, and every transition out of a terminal state, is refused. A hold is reachable from
+`EXECUTING`, `CONSULTING`, and from `OFFERED` for the asking turn of a first offer. The protocol's `SUBMITTED` is folded
+into `WAITING`, because a submitted task ends the attempt and the worker waits again.
 link:{src}/WorkerStartRequest.java[`WorkerStartRequest`]:: What one start needs beyond the environment: the resolved
 effective role, the working-directory kind and path, the plan of a plan-worktree start, the contract envelope of a fresh
 worker's task, the prompt facts and the optional session to resume.

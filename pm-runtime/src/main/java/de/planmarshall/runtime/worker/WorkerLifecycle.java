@@ -65,7 +65,7 @@ public enum WorkerLifecycle {
     private static final Map<WorkerLifecycle, Set<WorkerLifecycle>> TRANSITIONS = Map.of(
             STARTING, Set.of(WAITING, ENDING, LOST, START_FAILED),
             WAITING, Set.of(OFFERED, ENDING, LOST),
-            OFFERED, Set.of(ACKNOWLEDGED, WAITING, ENDING, LOST),
+            OFFERED, Set.of(ACKNOWLEDGED, HOLDING, WAITING, ENDING, LOST),
             ACKNOWLEDGED, Set.of(EXECUTING, CONSULTING, WAITING, ENDING, LOST),
             EXECUTING, Set.of(CONSULTING, HOLDING, WAITING, ENDING, LOST),
             CONSULTING, Set.of(EXECUTING, HOLDING, WAITING, ENDING, LOST),

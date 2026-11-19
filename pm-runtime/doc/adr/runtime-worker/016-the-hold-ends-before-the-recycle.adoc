@@ -49,21 +49,24 @@ therefore keeps a `HOLDING` generation in its hold while it records the turn's c
 `SupervisorCalls` implements them as the rest of the class does, through the lifecycle table and the generation's loss
 detection:
 
-* `holdOpened` moves the generation to `HOLDING` through the table — which gains `EXECUTING` to `HOLDING`, because a
-  worker asks its question while it executes its task — keeps the lease of the task it names and its model slot, marks
-  the detection's wait open (which suppresses the silence deadline as a consultation's wait does) and counts no idle
-  wake-up. A transition the table does not have, from `STARTING` for example, and a call that names another task than
-  the generation leases are refused as every other call of the port is refused: the state stays as it is and nothing is
-  recorded, because the inbound API never throws at the transport.
-* `holdClosed` moves the generation from `HOLDING` to `EXECUTING` and closes the detection's wait, so the silence limit
-  counts again from the close.
-* `answerDelivered` calls `LossDetection.answerDelivered`, which arms the answer's acknowledgement deadline (ADR 012).
+* `holdOpened` moves the generation to `HOLDING` through the table — which gains `EXECUTING` to `HOLDING`, and `OFFERED`
+  to `HOLDING` for the asking turn of a first offer, whose hold arrives before that turn's completion — keeps the lease
+  of the task it names and its model slot, marks the detection's wait open (which suppresses the silence deadline as a
+  consultation's wait does) and counts no idle wake-up. A transition the table does not have, from `STARTING` for
+  example, and a call that names another task than the generation leases are refused as every other call of the port is
+  refused: the state stays as it is and nothing is recorded, because the inbound API never throws at the transport.
+* `holdClosed` moves a `HOLDING` generation to `EXECUTING` and closes the detection's wait, so the silence limit counts
+  again from the close; a generation that does not hold is refused.
+* `answerDelivered` closes the wait of the hold and calls `LossDetection.answerDelivered`, which arms the answer's
+  acknowledgement deadline (ADR 012). The silence limit therefore counts again from the answer in either acknowledgement
+  mode, and a hold never outlives the answer that ends it silently.
 
-The hold's wait is closed by whatever ends the hold: `holdClosed`, and `taskClosed`, which ends the hold of a task that
-closes while it is held. A bounded wait a holding generation opens is answered `wait again` and keeps the hold's
-suppression of the silence limit: the hold, not the answer to that window, is the reason the worker is not silent, and a
-hold is never offered a second task. An end already requested for the generation is answered `end` from the hold too, so
-the transport can end the worker gracefully instead of waiting for the grace timer.
+The hold's wait is closed by whatever ends the hold: `holdClosed`, `taskClosed` for a task that closes while it is
+held, and the delivery of the answer, which ends the hold's suppression so the silence limit counts again from the
+answer in either acknowledgement mode. A bounded wait a holding generation opens is answered `wait again` and keeps the
+hold's suppression of the silence limit: the hold, not the answer to that window, is the reason the worker is not
+silent, and a hold is never offered a second task. An end already requested for the generation is answered `end` from the
+hold too, so the transport can end the worker gracefully instead of waiting for the grace timer.
 
 **The runtime does not decide suspend or fall back.** The notification names the fact and the cause and leaves the
 decision to the adapter over `TaskProtocol`, which already holds `suspend` and `fallback`.

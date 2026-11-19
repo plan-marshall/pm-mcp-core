@@ -630,6 +630,54 @@ class SupervisorCallsTest {
     }
 
     @Test
+    @DisplayName("a close of an executing generation is refused")
+    void aCloseOfAnExecutingGenerationIsRefused() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        calls.turnCompleted(generation.generationId(), 1_000L);
+
+        calls.holdClosed(generation.generationId(), TASK, fixture.clock.instant());
+
+        assertEquals(WorkerLifecycle.EXECUTING,
+                supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                "a close of an executing generation is refused");
+    }
+
+    @Test
+    @DisplayName("a first asking turn's hold is accepted from the offer")
+    void aFirstTurnHoldIsAccepted() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+
+        calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant());
+        var holding = supervisor.generation(generation.generationId()).orElseThrow();
+
+        assertAll(
+                () -> assertEquals(WorkerLifecycle.HOLDING, holding.lifecycle(),
+                        "the first asking turn's hold is accepted"),
+                () -> assertEquals(TASK, holding.leasedTask(), "the first hold keeps the offered task"));
+    }
+
+    @Test
+    @DisplayName("an answered hold counts the silence limit again when the acknowledgement is informational")
+    void anAnsweredHoldIsSilentAgain() {
+        withBounds(null, new WorkerParameters(true, OptionalInt.of(ACK_DEADLINE_SECONDS), true,
+                SILENCE_GRACE_SECONDS, IDLE_WAKEUPS, BOUNDED_WAIT_SECONDS, false));
+        var generation = holdingGeneration();
+
+        calls.answerDelivered(generation.generationId(), fixture.clock.instant());
+        fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
+
+        assertAll(
+                () -> assertEquals(Optional.of(EndCause.LOST), ending.requestedCause(generation.generationId()),
+                        "an answered hold without a call is silent again"),
+                () -> assertEquals(Optional.of(LossReason.SILENCE),
+                        calls.loss(generation.generationId()).map(LossSignal::reason),
+                        "the loss is the silence limit"));
+    }
+
+    @Test
     @DisplayName("a pause at once ends every generation of the plan by force")
     void aPauseEndsEveryGenerationOfThePlan() {
         var generations = startedFresh(fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2), 2);

@@ -229,7 +229,6 @@ public final class WorkerRecycling {
             return;
         }
         tasks.facts(queueTaskId).ifPresent(facts -> {
-            holdEnded.add(generation.generationId());
             environment.protocol().holdEnded(WorkerProtocol.HoldEndedReport.builder()
                     .generationId(generation.generationId())
                     .queueTaskId(queueTaskId)
@@ -237,6 +236,7 @@ public final class WorkerRecycling {
                     .cause(WorkerProtocol.HoldEndCause.TOKEN_BUDGET)
                     .at(environment.clock().instant())
                     .build());
+            holdEnded.add(generation.generationId());
         });
     }
 

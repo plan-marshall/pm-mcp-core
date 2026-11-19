@@ -214,8 +214,8 @@ public final class SupervisorCalls implements WorkerCalls {
         Objects.requireNonNull(queueTaskId, QUEUE_TASK_ARGUMENT);
         Objects.requireNonNull(at, "at");
         var generation = known(generationId).orElse(null);
-        if (generation == null || !namesTheHeldTask(generation, queueTaskId)
-                || !mayAdvance(generation, WorkerLifecycle.EXECUTING)) {
+        if (generation == null || generation.lifecycle() != WorkerLifecycle.HOLDING
+                || !namesTheHeldTask(generation, queueTaskId)) {
             return;
         }
         var executing = generation.advanceTo(WorkerLifecycle.EXECUTING);
@@ -228,7 +228,11 @@ public final class SupervisorCalls implements WorkerCalls {
         Objects.requireNonNull(at, "at");
         var generation = known(generationId).orElse(null);
         if (generation != null) {
-            detection(generation).answerDelivered(at);
+            var detection = detection(generation);
+            // The answer ends the wait of the hold: the silence limit counts again from the answer, whichever way the
+            // host's acknowledgement is configured (ADR runtime-worker/012).
+            detection.waitClosed(at);
+            detection.answerDelivered(at);
         }
     }
 

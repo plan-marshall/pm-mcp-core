@@ -87,8 +87,9 @@ public interface WorkerCalls {
     void holdClosed(String generationId, String queueTaskId, Instant at);
 
     /**
-     * The answer to the generation's question was delivered: the acknowledgement is due within the host's deadline
-     * (Model Work § Answer acknowledgement; ADR {@code runtime-worker/012}).
+     * The answer to the generation's question was delivered: the hold's wait closes, so the silence limit counts again
+     * from the answer, and the acknowledgement is due within the host's deadline (Model Work § Answer acknowledgement;
+     * ADR {@code runtime-worker/012}).
      *
      * @param generationId the worker's generation
      * @param at           the instant the answer was delivered
