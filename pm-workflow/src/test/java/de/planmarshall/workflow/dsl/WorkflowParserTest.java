@@ -361,7 +361,7 @@ class WorkflowParserTest {
             var frontmatter = new UnitFrontmatter("Commit and push", "A sub-workflow written for the parser tests.",
                     UnitType.SUBWORKFLOW, "git.commit", List.of(element("stage", "The change is ready to be staged.")),
                     List.of(element("done", "The change is committed and pushed."), element("skipped")), List.of(),
-                    List.of(), inputs, FIXTURE_DATE, "0.1.0", "plan-marshall", null, NOWHERE);
+                    List.of(), inputs, List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", null, NOWHERE);
             var expected = new WorkflowDefinition(frontmatter, "git.commit_and_push", 1, WorkflowScope.SUBWORKFLOW,
                     "commit-result", null, Map.of(), Map.of(), 1,
                     UnitOrigin.DEFAULT, Map.of(), null,

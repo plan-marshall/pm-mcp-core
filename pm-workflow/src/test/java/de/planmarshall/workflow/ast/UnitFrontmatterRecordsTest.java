@@ -52,7 +52,7 @@ class UnitFrontmatterRecordsTest {
         var location = WorkflowGenerators.sourceLocations().next();
 
         var constructed = new UnitFrontmatter(name, description, type, icon, entries, exits, readsConfig, readsFact,
-                inputs, modificationDate, version, author, signature, location);
+                inputs, List.of(), modificationDate, version, author, signature, location);
         var built = UnitFrontmatter.builder()
                 .name(name)
                 .description(description)
@@ -63,6 +63,7 @@ class UnitFrontmatterRecordsTest {
                 .readsConfig(readsConfig)
                 .readsFact(readsFact)
                 .inputs(inputs)
+                .slots(List.of())
                 .modificationDate(modificationDate)
                 .version(version)
                 .author(author)

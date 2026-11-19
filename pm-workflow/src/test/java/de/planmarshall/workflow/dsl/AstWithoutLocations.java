@@ -70,6 +70,7 @@ final class AstWithoutLocations {
                 frontmatter.icon(), frontmatter.entries(), frontmatter.exits(), frontmatter.readsConfig(),
                 frontmatter.readsFact(),
                 frontmatter.inputs().stream().map(AstWithoutLocations::strip).toList(),
+                frontmatter.slots().stream().map(AstWithoutLocations::strip).toList(),
                 frontmatter.modificationDate(), frontmatter.version(), frontmatter.author(), frontmatter.signature(),
                 NOWHERE);
     }

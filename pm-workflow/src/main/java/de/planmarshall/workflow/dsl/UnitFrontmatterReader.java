@@ -244,10 +244,13 @@ public final class UnitFrontmatterReader {
         private final Set<String> entryNames = new HashSet<>();
         private final Set<String> exitNames = new HashSet<>();
         private final Set<String> inputNames = new HashSet<>();
+        private final Set<String> slotNames = new HashSet<>();
         private @Nullable UnitType type;
         private @Nullable LocalDate modificationDate;
         private @Nullable String previousKey;
         private @Nullable Input input;
+        private @Nullable Slot slot;
+        private final List<Slot> slots = new ArrayList<>();
 
         private Fields(String resourceName) {
             this.resourceName = resourceName;
@@ -343,6 +346,17 @@ public final class UnitFrontmatterReader {
                 inputField(key, value, number, column);
                 return;
             }
+            if (KEY_SLOT.equals(key)) {
+                closeSlot(number, 1);
+                closeInput(number, 1);
+                openSlot(value, number, column);
+                return;
+            }
+            if (SLOT_KEYS.contains(key)) {
+                slotField(key, value, number, column);
+                return;
+            }
+            closeSlot(number, 1);
             closeInput(number, 1);
             if (SINGLE_KEYS.contains(key) && singles.containsKey(key)) {
                 throw new Refusal(number, 1, "the key '%s' is repeated in the frontmatter".formatted(echo(key)));
@@ -470,6 +484,75 @@ public final class UnitFrontmatterReader {
             }
             inputs.add(input);
             input = null;
+        }
+
+        /** Opens the declaration of one slot: its name, the first of its lines. */
+        private void openSlot(String value, int number, int column) {
+            if (slots.size() >= MAX_INPUTS) {
+                throw new Refusal(number, column,
+                        "the frontmatter declares more than %d slots".formatted(MAX_INPUTS));
+            }
+            if (!PARAM_NAME.matcher(value).matches()) {
+                throw new Refusal(number, column,
+                        "the slot '%s' is no name of lowercase letters, digits and underscores, at most 32"
+                                .formatted(echo(value)));
+            }
+            if (WorkflowParser.RESERVED_KEYWORDS.contains(value)) {
+                throw new Refusal(number, column, "the slot '%s' is a reserved keyword".formatted(echo(value)));
+            }
+            if (!slotNames.add(value)) {
+                throw new Refusal(number, column, "the slot '%s' is declared twice".formatted(echo(value)));
+            }
+            slot = new Slot(value, new SourceLocation(resourceName, number, column));
+        }
+
+        /** Applies one sub-key of the slot its {@code slot} line opened. */
+        private void slotField(String key, String value, int number, int column) {
+            var open = requireSlot(key, number);
+            switch (key) {
+                case KEY_SLOT_TYPE -> {
+                    if (!KEY_SLOT.equals(previousKey)) {
+                        throw outOfOrder(key, KEY_SLOT, number);
+                    }
+                    open.type = inputType(value, number, column);
+                    if (open.type instanceof InputType.Enumeration || open.type instanceof InputType.IntRange
+                            || open.type instanceof InputType.EnumList || open.type instanceof InputType.Text
+                            || open.type instanceof InputType.CommitMessage || open.type instanceof InputType.Path
+                            || open.type instanceof InputType.PathList) {
+                        // any InputType is allowed for a slot, but it must not be optional
+                    }
+                    if (value.endsWith("?")) {
+                        throw new Refusal(number, column, "a slot_type must not be optional");
+                    }
+                }
+                default -> {
+                    if (!KEY_SLOT_TYPE.equals(previousKey)) {
+                        throw outOfOrder(key, KEY_SLOT_TYPE, number);
+                    }
+                    checkLength(key, value, 1, MAX_INPUT_DESCRIPTION, number, column);
+                    open.description = value;
+                }
+            }
+        }
+
+        private Slot requireSlot(String key, int number) {
+            if (slot == null) {
+                throw new Refusal(number, 1, "the %s does not stand below a 'slot' line".formatted(key));
+            }
+            return slot;
+        }
+
+        /** Ends the declaration of the slot its {@code slot} line opened, requiring the type it must carry. */
+        private void closeSlot(int number, int column) {
+            if (slot == null) {
+                return;
+            }
+            if (slot.type == null) {
+                throw new Refusal(number, column,
+                        "the slot '%s' lacks its slot_type".formatted(slot.name));
+            }
+            slots.add(slot);
+            slot = null;
         }
 
         /** Adds a repeatable read value, refusing a value the list already holds and one past the bound. */
@@ -750,6 +833,7 @@ public final class UnitFrontmatterReader {
         }
 
         private UnitFrontmatter complete(int closingLine) {
+            closeSlot(closingLine, 1);
             closeInput(closingLine, 1);
             for (var key : REQUIRED_KEYS) {
                 if (!singles.containsKey(key)) {
@@ -760,6 +844,7 @@ public final class UnitFrontmatterReader {
                     singles.get(KEY_ICON), entries.stream().map(Element::toInterfaceElement).toList(),
                     exits.stream().map(Element::toInterfaceElement).toList(), readsConfig, readsFact,
                     inputs.stream().map(Input::toInputDecl).toList(),
+                    slots.stream().map(Slot::toSlotDecl).toList(),
                     Objects.requireNonNull(modificationDate, "modificationDate"),
                     singles.get(KEY_VERSION), singles.get(KEY_AUTHOR),
                     singles.get(KEY_SIGNATURE), new SourceLocation(resourceName, 1, 1));
@@ -915,7 +1000,6 @@ public final class UnitFrontmatterReader {
 
     /** An input while its frontmatter is read; its sub-keys follow it in the order the grammar closes. */
     private static final class Input {
-
         private final String name;
         private final SourceLocation location;
         private @Nullable InputType type;
@@ -936,6 +1020,29 @@ public final class UnitFrontmatterReader {
                     .optional(optional)
                     .defaultValue(defaultValue)
                     .fallback(fallback)
+                    .description(description)
+                    .location(location)
+                    .build();
+        }
+    }
+
+    /** A slot while its frontmatter is read; its sub-keys follow it in the order the grammar closes. */
+    private static final class Slot {
+        private final String name;
+        private final SourceLocation location;
+        private @Nullable InputType type;
+        private @Nullable String description;
+
+        private Slot(String name, SourceLocation location) {
+            this.name = name;
+            this.location = location;
+        }
+
+        private InputDecl toSlotDecl() {
+            return InputDecl.builder()
+                    .name(name)
+                    .type(Objects.requireNonNull(type, "type"))
+                    .optional(false)
                     .description(description)
                     .location(location)
                     .build();

@@ -217,7 +217,7 @@ class AstNodeModelTest {
             var inputs = new ArrayList<>(List.of(pushMode));
             var frontmatter = new UnitFrontmatter(Generators.letterStrings(3, 100).next(),
                     Generators.letterStrings(1, 100).next(), UnitType.SUBWORKFLOW, "workflow.default", List.of(),
-                    List.of(), readsConfig, readsFact, inputs, LocalDate.of(2026, 1, 15), "0.1.0", "plan-marshall",
+                    List.of(), readsConfig, readsFact, inputs, List.of(), LocalDate.of(2026, 1, 15), "0.1.0", "plan-marshall",
                     null, LOCATION);
 
             readsConfig.clear();
