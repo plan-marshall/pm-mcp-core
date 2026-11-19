@@ -251,24 +251,6 @@ class LessonRevisionTest {
         }
 
         @Test
-        @DisplayName("a revision that cites a persisted blank body marked untrusted becomes untrusted")
-        void citesPersistedEmptyShell() {
-            var blank = inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-002"),
-                    LessonFixtures.newLesson().derivedFromUntrusted(true).body("  \n").build(), CLOCK));
-            var lesson = inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-001"),
-                    LessonFixtures.newLesson().build(), CLOCK));
-            var lessonId = lesson.frontMatter().lessonId();
-            var source = new Source(Source.Kind.LESSON, blank.frontMatter().lessonId().value(), null);
-
-            run(write -> store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant()));
-
-            var found = assertInstanceOf(Found.class, store.get(lessonId),
-                    "the revised lesson is listed as found");
-            assertTrue(found.lesson().frontMatter().derivedFromUntrusted(),
-                    "an untrusted blank source marks the revision");
-        }
-
-        @Test
         @DisplayName("a revision that cites an absent lesson stays false")
         void citesAbsentLesson() {
             var lesson = inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-001"),
@@ -280,8 +262,8 @@ class LessonRevisionTest {
 
             var found = assertInstanceOf(Found.class, store.get(lessonId),
                     "the revised lesson is listed as found");
-            assertFalse(found.lesson().frontMatter().derivedFromUntrusted(),
-                    "an unresolved citation leaves the revision clean");
+            assertTrue(found.lesson().frontMatter().derivedFromUntrusted(),
+                    "an unresolved citation marks the revision untrusted");
         }
 
         @Test

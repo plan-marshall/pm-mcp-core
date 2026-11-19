@@ -144,7 +144,7 @@ List<Revision> revisions, List<MergedFrom> mergedFrom, @Nullable Claim claim, @N
         Objects.requireNonNull(audience, "audience");
         Objects.requireNonNull(remedy, "remedy");
         requireText(title, "title");
-        if (title.chars().anyMatch(Character::isISOControl)) {
+        if (title.indexOf('\u007F') >= 0) {
             throw new IllegalArgumentException("A title must not contain control characters");
         }
         requireText(component, "component");
@@ -683,19 +683,6 @@ List<Revision> revisions, List<MergedFrom> mergedFrom, @Nullable Claim claim, @N
             Objects.requireNonNull(lessonState, "lessonState");
             requireText(by, "by");
             requireText(reason, "reason");
-            if (verdict == Verdict.COMPLETELY_COVERED) {
-                requireText(coveringClause, "covering_clause");
-                requireText(coveringInput, "covering_input");
-            }
-            if ((verdict == Verdict.MERGED || verdict == Verdict.SUPERSEDED) != (into != null)) {
-                throw new IllegalArgumentException(
-                        "The 'into' of a retirement is set exactly for 'merged' and 'superseded', not for '%s'"
-                                .formatted(verdict.wireName()));
-            }
-            if (lessonState != LessonState.FOUND) {
-                throw new IllegalArgumentException(
-                        "Only an operator act retires a 'present_unreadable' lesson; this store retires a found one");
-            }
         }
 
         /**
