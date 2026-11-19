@@ -274,6 +274,11 @@ public interface GitOperations {
      */
     @Builder
     record CommitInput(Path root, String message, Identity author, Identity committer, List<String> paths) {
+
+        /** Copies the paths into an immutable list; empty means every change of the worktree. */
+        public CommitInput {
+            paths = List.copyOf(paths);
+        }
     }
 
     /**

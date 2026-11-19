@@ -357,7 +357,7 @@ public final class JGitOperations implements GitOperations {
 
     @Override
     public GitResult<CommitInfo> commit(CommitInput input) {
-        List<String> paths = input.paths() == null ? List.of() : input.paths();
+        List<String> paths = input.paths();
         try (Repository repository = openRepository(input.root()); Git git = Git.wrap(repository)) {
             var command = git.commit()
                     .setMessage(input.message())

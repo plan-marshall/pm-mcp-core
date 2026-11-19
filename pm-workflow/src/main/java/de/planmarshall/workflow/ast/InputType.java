@@ -75,10 +75,7 @@ public sealed interface InputType
          * @throws IllegalArgumentException if exactly one of the two bounds is present
          */
         public IntRange {
-            if ((min == null) != (max == null)) {
-                throw new IllegalArgumentException("a range needs both bounds or none, but only the %s bound is present"
-                        .formatted(min != null ? "low" : "high"));
-            }
+            requireBothOrNone(min, max);
         }
 
         @Override
@@ -119,10 +116,7 @@ public sealed interface InputType
      */
     record Text(@Nullable Integer min, @Nullable Integer max) implements InputType {
         public Text {
-            if ((min == null) != (max == null)) {
-                throw new IllegalArgumentException("a range needs both bounds or none, but only the %s bound is present"
-                        .formatted(min != null ? "low" : "high"));
-            }
+            requireBothOrNone(min, max);
         }
 
         @Override
@@ -140,10 +134,7 @@ public sealed interface InputType
      */
     record CommitMessage(@Nullable Integer min, @Nullable Integer max) implements InputType {
         public CommitMessage {
-            if ((min == null) != (max == null)) {
-                throw new IllegalArgumentException("a range needs both bounds or none, but only the %s bound is present"
-                        .formatted(min != null ? "low" : "high"));
-            }
+            requireBothOrNone(min, max);
         }
 
         @Override
@@ -169,15 +160,19 @@ public sealed interface InputType
      */
     record PathList(@Nullable Integer min, @Nullable Integer max) implements InputType {
         public PathList {
-            if ((min == null) != (max == null)) {
-                throw new IllegalArgumentException("a range needs both bounds or none, but only the %s bound is present"
-                        .formatted(min != null ? "low" : "high"));
-            }
+            requireBothOrNone(min, max);
         }
 
         @Override
         public String sourceText() {
             return min == null ? "list<path>" : "list<path>[" + min + ".." + max + "]";
+        }
+    }
+
+    private static void requireBothOrNone(@Nullable Integer min, @Nullable Integer max) {
+        if ((min == null) != (max == null)) {
+            throw new IllegalArgumentException("a range needs both bounds or none, but only the %s bound is present"
+                    .formatted(min != null ? "low" : "high"));
         }
     }
 

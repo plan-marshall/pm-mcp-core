@@ -28,6 +28,9 @@ import org.jspecify.annotations.Nullable;
  */
 public final class InputValidator {
 
+    private static final String MISSING_RULE = "input.missing";
+    private static final String NULL_ECHO = "<null>";
+
     private InputValidator() {
     }
 
@@ -41,38 +44,19 @@ public final class InputValidator {
     public static Optional<InputRefusal> validateText(InputType type, @Nullable String value) {
         Objects.requireNonNull(type, "type");
         if (value == null) {
-            return Optional.of(new InputRefusal("input.missing", "<null>"));
+            return missing();
         }
-        int min = 0;
-        int max = Integer.MAX_VALUE;
-        if (type instanceof InputType.Text(var lo, var hi)) {
-            if (lo != null) {
-                min = lo;
-            }
-            if (hi != null) {
-                max = hi;
-            }
-        } else if (type instanceof InputType.CommitMessage(var lo, var hi)) {
-            if (lo != null) {
-                min = lo;
-            }
-            if (hi != null) {
-                max = hi;
-            }
-        }
+        var bounds = bounds(type);
         var codePoints = value.codePointCount(0, value.length());
-        if (codePoints < min) {
+        if (codePoints < bounds[0]) {
             return Optional.of(new InputRefusal("input.too-short", value));
         }
-        if (codePoints > max) {
+        if (codePoints > bounds[1]) {
             return Optional.of(new InputRefusal("input.too-long", value));
         }
-        if (type instanceof InputType.CommitMessage) {
-            var validator = new ConventionalCommitValidator();
-            var violations = validator.validate(value);
-            if (!violations.isEmpty()) {
-                return Optional.of(new InputRefusal("input.commit-message", value));
-            }
+        if (type instanceof InputType.CommitMessage
+                && !new ConventionalCommitValidator().validate(value).isEmpty()) {
+            return Optional.of(new InputRefusal("input.commit-message", value));
         }
         return Optional.empty();
     }
@@ -85,7 +69,7 @@ public final class InputValidator {
      */
     public static Optional<InputRefusal> validatePath(@Nullable String value) {
         if (value == null) {
-            return Optional.of(new InputRefusal("input.missing", "<null>"));
+            return missing();
         }
         var refusal = PathRules.check(value);
         return refusal == null ? Optional.empty() : Optional.of(refusal);
@@ -101,19 +85,10 @@ public final class InputValidator {
     public static Optional<InputRefusal> validatePathList(InputType type, @Nullable List<String> values) {
         Objects.requireNonNull(type, "type");
         if (values == null) {
-            return Optional.of(new InputRefusal("input.missing", "<null>"));
+            return missing();
         }
-        int min = 0;
-        int max = Integer.MAX_VALUE;
-        if (type instanceof InputType.PathList(var lo, var hi)) {
-            if (lo != null) {
-                min = lo;
-            }
-            if (hi != null) {
-                max = hi;
-            }
-        }
-        if (values.size() < min || values.size() > max) {
+        var bounds = bounds(type);
+        if (values.size() < bounds[0] || values.size() > bounds[1]) {
             return Optional.of(new InputRefusal("input.count", values.toString()));
         }
         var seen = new HashSet<String>();
@@ -127,5 +102,37 @@ public final class InputValidator {
             }
         }
         return Optional.empty();
+    }
+
+    private static Optional<InputRefusal> missing() {
+        return Optional.of(new InputRefusal(MISSING_RULE, NULL_ECHO));
+    }
+
+    /**
+     * @param type a bounded input type
+     * @return the low and high bound, {@code 0} and {@link Integer#MAX_VALUE} when the type declares none
+     */
+    private static int[] bounds(InputType type) {
+        var min = 0;
+        var max = Integer.MAX_VALUE;
+        var low = switch (type) {
+            case InputType.Text(var lo, _) -> lo;
+            case InputType.CommitMessage(var lo, _) -> lo;
+            case InputType.PathList(var lo, _) -> lo;
+            default -> null;
+        };
+        var high = switch (type) {
+            case InputType.Text(_, var hi) -> hi;
+            case InputType.CommitMessage(_, var hi) -> hi;
+            case InputType.PathList(_, var hi) -> hi;
+            default -> null;
+        };
+        if (low != null) {
+            min = low;
+        }
+        if (high != null) {
+            max = high;
+        }
+        return new int[] {min, max};
     }
 }

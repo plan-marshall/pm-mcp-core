@@ -94,6 +94,9 @@ Map<String, String> retained) {
     /** The deepest call stack the schema admits. */
     public static final int MAX_CALL_DEPTH = 5;
 
+    /** The null-check message shared by the value components of this store. */
+    private static final String VALUE_NAME = "value";
+
     /** The phases of the schema. */
     public static final Set<String> PHASES = Set.of("phase-1-init", "phase-2-refine", "phase-3-outline",
             "phase-4-plan", "phase-5-execute", "phase-6-finalize", "completed", "aborted", "epic", "workspace",
@@ -275,7 +278,7 @@ Map<String, String> retained) {
 
         /** @throws NullPointerException if a required component is {@code null} */
         public Slot {
-            Objects.requireNonNull(value, "value");
+            Objects.requireNonNull(value, VALUE_NAME);
             requireOneOf(CallFrame.ArgSource.SOURCES, source, "slots.source");
             if (sourceRef != null) {
                 requireNonBlank(sourceRef, "slots.source_ref");
@@ -301,7 +304,7 @@ Map<String, String> retained) {
 
             /** @throws NullPointerException if the value is {@code null} */
             public StringArg {
-                Objects.requireNonNull(value, "value");
+                Objects.requireNonNull(value, VALUE_NAME);
             }
         }
 
@@ -328,7 +331,7 @@ Map<String, String> retained) {
             public StringSetArg {
                 Objects.requireNonNull(values, "values");
                 var copy = new LinkedHashSet<String>();
-                values.forEach(value -> copy.add(Objects.requireNonNull(value, "value")));
+                values.forEach(value -> copy.add(Objects.requireNonNull(value, VALUE_NAME)));
                 values = Collections.unmodifiableSequencedSet(copy);
             }
         }

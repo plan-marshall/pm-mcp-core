@@ -38,6 +38,27 @@ public final class PathRules {
      */
     public static @Nullable InputRefusal check(@Nullable String value) {
         Objects.requireNonNull(value, "value");
+        var simple = checkSimple(value);
+        if (simple != null) {
+            return simple;
+        }
+        if (value.codePoints().anyMatch(PathRules::isControl)) {
+            return new InputRefusal("path.control", value);
+        }
+        if (value.codePoints().anyMatch(Character::isWhitespace)) {
+            return new InputRefusal("path.whitespace", value);
+        }
+        if (value.codePoints().anyMatch(PathRules::isBidi)) {
+            return new InputRefusal("path.bidi", value);
+        }
+        var segment = checkSegments(value);
+        if (segment != null) {
+            return segment;
+        }
+        return value.contains("//") ? new InputRefusal("path.double-slash", value) : null;
+    }
+
+    private static @Nullable InputRefusal checkSimple(String value) {
         if (value.isEmpty()) {
             return new InputRefusal("path.empty", value);
         }
@@ -56,27 +77,11 @@ public final class PathRules {
         if (value.startsWith(":") || value.startsWith("-")) {
             return new InputRefusal("path.magic", value);
         }
-        for (int i = 0; i < value.length(); ) {
-            int cp = value.codePointAt(i);
-            if (cp < 0x20 || (cp >= 0x7f && cp <= 0x9f)) {
-                return new InputRefusal("path.control", value);
-            }
-            if (Character.isWhitespace(cp)) {
-                return new InputRefusal("path.whitespace", value);
-            }
-            i += Character.charCount(cp);
-        }
-        // bidi and format characters
-        for (int i = 0; i < value.length(); ) {
-            int cp = value.codePointAt(i);
-            if (cp == 0x202a || cp == 0x202b || cp == 0x202c || cp == 0x202d || cp == 0x202e
-                    || cp == 0x2066 || cp == 0x2067 || cp == 0x2068 || cp == 0x2069) {
-                return new InputRefusal("path.bidi", value);
-            }
-            i += Character.charCount(cp);
-        }
-        var segments = value.split("/", -1);
-        for (var segment : segments) {
+        return null;
+    }
+
+    private static @Nullable InputRefusal checkSegments(String value) {
+        for (var segment : value.split("/", -1)) {
             if (segment.isEmpty()) {
                 return new InputRefusal("path.empty-segment", value);
             }
@@ -87,9 +92,16 @@ public final class PathRules {
                 return new InputRefusal("path.git", value);
             }
         }
-        if (value.contains("//")) {
-            return new InputRefusal("path.double-slash", value);
-        }
         return null;
+    }
+
+    private static boolean isControl(int codePoint) {
+        return codePoint < 0x20 || (codePoint >= 0x7f && codePoint <= 0x9f);
+    }
+
+    private static boolean isBidi(int codePoint) {
+        return codePoint == 0x202a || codePoint == 0x202b || codePoint == 0x202c || codePoint == 0x202d
+                || codePoint == 0x202e || codePoint == 0x2066 || codePoint == 0x2067 || codePoint == 0x2068
+                || codePoint == 0x2069;
     }
 }
