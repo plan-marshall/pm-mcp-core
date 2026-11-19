@@ -423,7 +423,7 @@ class AstNodeModelTest {
         @Test
         @DisplayName("a state keeps a null terminal outcome, skill and facts primitive")
         void stateKeepsNull() {
-            var state = new StateNode(text(), null, null, null, new StateBehavior.InteractiveLinks(List.of()),
+            var state = new StateNode(text(), null, null, null, null, new StateBehavior.InteractiveLinks(List.of()),
                     LOCATION);
 
             assertAll(
@@ -680,7 +680,7 @@ class AstNodeModelTest {
     }
 
     private static StateNode terminalState(String id) {
-        return new StateNode(id, new TerminalOutcome(id, OutcomeClass.SUCCESS), null, null,
+        return new StateNode(id, new TerminalOutcome(id, OutcomeClass.SUCCESS), null, null, null,
                 new StateBehavior.TerminalState(), LOCATION);
     }
 

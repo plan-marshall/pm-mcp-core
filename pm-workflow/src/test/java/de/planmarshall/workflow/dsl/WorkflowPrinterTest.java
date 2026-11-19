@@ -300,7 +300,7 @@ class WorkflowPrinterTest {
 
     /** A workspace unit with the given frontmatter whose only state rests on the given links. */
     private static WorkflowDefinition unitWith(UnitFrontmatter frontmatter, LinkSpec... links) {
-        var state = new StateNode("demo.begin", null, null, null,
+        var state = new StateNode("demo.begin", null, null, null, null,
                 new StateBehavior.InteractiveLinks(List.of(links)), NOWHERE);
         return new WorkflowDefinition(frontmatter, "demo", 1, WorkflowScope.WORKSPACE, null,
                 null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),

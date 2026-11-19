@@ -18,7 +18,7 @@ import java.util.List;
  *
  * @since 0.1
  */
-public sealed interface CallValue permits CallValue.EnumValue, CallValue.IntValue, CallValue.EnumList {
+public sealed interface CallValue permits CallValue.EnumValue, CallValue.IntValue, CallValue.EnumList, CallValue.SlotRef {
 
     /**
      * One value of an enumeration.
@@ -56,7 +56,11 @@ public sealed interface CallValue permits CallValue.EnumValue, CallValue.IntValu
                 if (!seen.add(value)) {
                     throw new IllegalArgumentException("the value '%s' occurs twice in the list".formatted(value));
                 }
-            }
-        }
+    /**
+     * A reference to a slot: {@code slot.<param_name>}.
+     *
+     * @param name the name of the slot's parameter
+     */
+    record SlotRef(String name) implements CallValue {
     }
 }

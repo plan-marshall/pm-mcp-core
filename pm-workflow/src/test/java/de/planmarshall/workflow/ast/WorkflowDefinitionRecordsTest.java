@@ -57,7 +57,7 @@ class WorkflowDefinitionRecordsTest {
         var migrations = List.of(new StateMigration(Generators.letterStrings(1, 20).next(),
                 Generators.letterStrings(1, 20).next(), location));
         var states = Map.of(Generators.letterStrings(1, 20).next(),
-                new StateNode(Generators.letterStrings(1, 20).next(), null, null, null,
+                new StateNode(Generators.letterStrings(1, 20).next(), null, null, null, null,
                         new StateBehavior.TerminalState(), location));
 
         var constructed = new WorkflowDefinition(frontmatter, id, version, scope, resultSchema, null,

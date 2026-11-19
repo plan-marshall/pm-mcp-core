@@ -397,7 +397,7 @@ public final class WorkflowParser {
         @Nullable String skillPath = nextStatementIs("skill") ? parseSkill() : null;
         @Nullable String factsPrimitiveId = nextStatementIs("facts") ? parseFacts() : null;
         StateBehavior behavior = terminal != null ? new StateBehavior.TerminalState() : parseBody();
-        states.put(id, new StateNode(id, terminal, skillPath, factsPrimitiveId, behavior, location(keyword)));
+        states.put(id, new StateNode(id, terminal, skillPath, factsPrimitiveId, null, behavior, location(keyword)));
     }
 
     /** Reads the {@code skill} line; the caller has seen that the next statement is one. */

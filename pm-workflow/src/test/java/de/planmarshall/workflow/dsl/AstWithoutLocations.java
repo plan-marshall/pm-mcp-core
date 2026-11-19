@@ -89,7 +89,7 @@ final class AstWithoutLocations {
 
     private static StateNode strip(StateNode state) {
         return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
-                state.factsPrimitiveId(), strip(state.behavior()), NOWHERE);
+                state.factsPrimitiveId(), state.fills(), strip(state.behavior()), NOWHERE);
     }
 
     private static StateBehavior strip(StateBehavior behavior) {
