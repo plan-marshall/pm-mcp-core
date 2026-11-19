@@ -1872,6 +1872,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         /**
          * @param successExitCodes the exit codes a probe declares as its success; empty for every other job
          */
+        @SuppressWarnings("java:S2637") // sonar's symbolic execution misreads the volatile field's assignment here
         RunningJob(JobRecord latest, JobRecordStore store, JobBudget budget,
                 Set<Integer> successExitCodes, @Nullable Path projectRoot) {
             this.latest = Objects.requireNonNull(latest, "latest");
