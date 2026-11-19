@@ -26,7 +26,8 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public sealed interface InputType
-        permits InputType.Enumeration, InputType.IntRange, InputType.EnumList {
+        permits InputType.Enumeration, InputType.IntRange, InputType.EnumList,
+        InputType.Text, InputType.CommitMessage, InputType.Path, InputType.PathList {
 
     /**
      * @return the source form of the type, as the frontmatter declares it: {@code enum[...]}, {@code int} with its
@@ -107,6 +108,76 @@ public sealed interface InputType
         @Override
         public String sourceText() {
             return "list<enum[" + String.join("|", values) + "]>";
+        }
+    }
+
+    /**
+     * {@code text[lo..hi]}: a text whose length in code points lies within the bounds.
+     *
+     * @param min the least number of code points, {@code null} exactly when {@code max} is
+     * @param max the greatest number of code points, {@code null} exactly when {@code min} is
+     */
+    record Text(@Nullable Integer min, @Nullable Integer max) implements InputType {
+        public Text {
+            if ((min == null) != (max == null)) {
+                throw new IllegalArgumentException("a range needs both bounds or none, but only the %s bound is present"
+                        .formatted(min != null ? "low" : "high"));
+            }
+        }
+
+        @Override
+        public String sourceText() {
+            return min == null ? "text" : "text[" + min + ".." + max + "]";
+        }
+    }
+
+    /**
+     * {@code commit_message[lo..hi]}: a text whose length in code points lies within the bounds and which is a
+     * Conventional Commit without a {@code Co-Authored-By:} line.
+     *
+     * @param min the least number of code points, {@code null} exactly when {@code max} is
+     * @param max the greatest number of code points, {@code null} exactly when {@code min} is
+     */
+    record CommitMessage(@Nullable Integer min, @Nullable Integer max) implements InputType {
+        public CommitMessage {
+            if ((min == null) != (max == null)) {
+                throw new IllegalArgumentException("a range needs both bounds or none, but only the %s bound is present"
+                        .formatted(min != null ? "low" : "high"));
+            }
+        }
+
+        @Override
+        public String sourceText() {
+            return min == null ? "commit_message" : "commit_message[" + min + ".." + max + "]";
+        }
+    }
+
+    /** {@code path}: a relative path inside the worktree, subject to the path rules of Decision 3. */
+    record Path() implements InputType {
+        @Override
+        public String sourceText() {
+            return "path";
+        }
+    }
+
+    /**
+     * {@code list<path>[lo..hi]}: a list of distinct relative paths, each subject to the path rules, with a count
+     * within the bounds.
+     *
+     * @param min the least number of entries, {@code null} exactly when {@code max} is
+     * @param max the greatest number of entries, {@code null} exactly when {@code min} is
+     */
+    record PathList(@Nullable Integer min, @Nullable Integer max) implements InputType {
+        public PathList {
+            if ((min == null) != (max == null)) {
+                throw new IllegalArgumentException("a range needs both bounds or none, but only the %s bound is present"
+                        .formatted(min != null ? "low" : "high"));
+            }
+        }
+
+        @Override
+        public String sourceText() {
+            return min == null ? "list<path>" : "list<path>[" + min + ".." + max + "]";
         }
     }
 
