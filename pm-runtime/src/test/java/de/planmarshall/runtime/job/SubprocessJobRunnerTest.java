@@ -1820,7 +1820,13 @@ class SubprocessJobRunnerTest {
     class CancelDoorSeam {
 
         private SubprocessJobRunner.RunningJob job() {
-            return new SubprocessJobRunner.RunningJob(null, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
+            var jobId = JobId.random(JobId.Kind.PROBE);
+            var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
+                    .scope(new Scope(Scope.Type.MACHINE, null))
+                    .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
+                    .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
+                    .createdAt(Instant.now()).clampedValues(List.of()).build();
+            return new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
                     null);
         }
 
@@ -1905,7 +1911,13 @@ class SubprocessJobRunnerTest {
         Path temp;
 
         private SubprocessJobRunner.RunningJob job() {
-            return new SubprocessJobRunner.RunningJob(null, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
+            var jobId = JobId.random(JobId.Kind.PROBE);
+            var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
+                    .scope(new Scope(Scope.Type.MACHINE, null))
+                    .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
+                    .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
+                    .createdAt(Instant.now()).clampedValues(List.of()).build();
+            return new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
                     null);
         }
 

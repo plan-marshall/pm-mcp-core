@@ -196,7 +196,6 @@ class DerivedFactStoreLockTest {
         }
 
         var stored = store.fact(FIRST).orElseThrow();
-        var expectedDerivedAt = payload(second).equals(stored.value()) ? now.plusSeconds(1) : now;
         var violations = auditEvents.getValues().stream()
                 .filter(event -> AuditEvent.LOCK_ORDER_VIOLATION.equals(event.event()))
                 .toList();
