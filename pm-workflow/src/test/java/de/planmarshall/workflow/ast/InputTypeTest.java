@@ -27,17 +27,17 @@ class InputTypeTest {
     @DisplayName("the text-like and path types print the form the frontmatter declares")
     void sourceForms() {
         assertAll(
-                () -> assertEquals("text", new InputType.Text(null, null).sourceText(), "unbounded text"),
-                () -> assertEquals("text[1..2000]", new InputType.Text(1, 2000).sourceText(), "bounded text"),
+                () -> assertEquals("text", new InputType.Text(null, null).sourceText(), "an unbounded text source form"),
+                () -> assertEquals("text[1..2000]", new InputType.Text(1, 2000).sourceText(), "a bounded text source form"),
                 () -> assertEquals("commit_message", new InputType.CommitMessage(null, null).sourceText(),
-                        "unbounded commit message"),
+                        "an unbounded commit message source form"),
                 () -> assertEquals("commit_message[1..2000]", new InputType.CommitMessage(1, 2000).sourceText(),
-                        "bounded commit message"),
-                () -> assertEquals("path", new InputType.Path().sourceText(), "a path"),
+                        "a bounded commit message source form"),
+                () -> assertEquals("path", new InputType.Path().sourceText(), "a path prints its source form"),
                 () -> assertEquals("list<path>", new InputType.PathList(null, null).sourceText(),
-                        "an unbounded path list"),
+                        "an unbounded path list keeps its source form"),
                 () -> assertEquals("list<path>[0..500]", new InputType.PathList(0, 500).sourceText(),
-                        "a bounded path list"));
+                        "a bounded path list keeps its source form"));
     }
 
     @Test
