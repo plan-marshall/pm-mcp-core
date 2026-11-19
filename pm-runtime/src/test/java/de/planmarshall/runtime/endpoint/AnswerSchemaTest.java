@@ -10,14 +10,18 @@
 package de.planmarshall.runtime.endpoint;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
@@ -194,5 +198,43 @@ class AnswerSchemaTest {
         var check = AnswerSchema.validate(parse(nested.toString()), parse("{}"));
 
         assertTrue(check.valid(), "a deeply nested schema is checked as valid");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("refusalsNoEarlierCaseReaches")
+    @DisplayName("the refusals no case above reaches are pinned with the message they state")
+    void refusalMessages(String name, String schema, String answer, String detail) {
+        var check = AnswerSchema.validate(parse(schema), parse(answer));
+
+        assertAll(
+                () -> assertFalse(check.valid(), "a schema outside the subset is refused"),
+                () -> assertEquals(detail, check.detail(), "the refusal names the bound it applies"));
+    }
+
+    static Stream<Arguments> refusalsNoEarlierCaseReaches() {
+        return Stream.of(
+                // a schema that refers to itself recurses until the depth bound refuses it; the bound is the contract
+                Arguments.of("the depth bound",
+                        "{\"$defs\":{\"self\":{\"$ref\":\"#/$defs/self\"}},\"$ref\":\"#/$defs/self\"}", "{}",
+                        "/: the schema nests deeper than 32"),
+                Arguments.of("a schema that is not an object", "\"a schema\"", "{}",
+                        "/: a schema is an object"),
+                Arguments.of("a type of another shape", "{\"type\":5}", "{}",
+                        "/: the result schema's type is neither a string nor an array"),
+                Arguments.of("a reference outside the document", "{\"$ref\":\"https://example.com/a.json\"}", "{}",
+                        "/: the result schema refers to 'https://example.com/a.json'"),
+                Arguments.of("an array below minItems", "{\"type\":\"array\",\"minItems\":2}", "[1]",
+                        "/: the array has fewer than 2 items"));
+    }
+
+    @Test
+    @DisplayName("a type refusal is returned before a const refusal on the same answer")
+    void typeRefusalPrecedesConstRefusal() {
+        var check = AnswerSchema.validate(parse("{\"type\":\"string\",\"const\":\"ok\"}"), parse("1"));
+
+        assertAll(
+                () -> assertFalse(check.valid(), "an answer of another type is refused"),
+                () -> assertEquals("/: the answer is not of type [string]", check.detail(),
+                        "the type refusal wins over the const refusal"));
     }
 }

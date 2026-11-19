@@ -23,6 +23,7 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.JsonPointer;
+import de.planmarshall.core.profile.ProfileRefusal;
 
 /**
  * Reads the weights identity of a model on an endpoint harness (Client Profiles § Weights Identity): from a member of
@@ -77,9 +78,7 @@ public final class WeightsReader {
             return identity.filter(value -> !value.isEmpty() && value.length() <= MAX_IDENTITY_LENGTH)
                     .map(value -> Reading.read(model, value))
                     .orElseGet(() -> Reading.unread(model, "the listing names no weights identity for '%s'".formatted(model)));
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException _) {
+        } catch (ProfileRefusal _) {
             return Reading.unread(model, "the weights pointer '%s' does not resolve for '%s'".formatted(pointer, model));
         }
     }

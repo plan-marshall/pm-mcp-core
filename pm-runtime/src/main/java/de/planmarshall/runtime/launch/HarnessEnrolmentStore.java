@@ -241,7 +241,11 @@ public final class HarnessEnrolmentStore {
             throw new StoreException(Refusal.UNREADABLE, "the format version is not " + FORMAT_VERSION);
         }
         var entries = new TreeMap<String, HarnessEnrolment>();
-        var harnesses = root.member(HARNESSES).orElse(JsonNode.nullValue());
+        var harnesses = root.member(HARNESSES).orElseThrow(
+                () -> new StoreException(Refusal.UNREADABLE, "the member 'harnesses' is missing"));
+        if (!harnesses.isObject()) {
+            throw new StoreException(Refusal.UNREADABLE, "the member 'harnesses' is not an object");
+        }
         for (var member : harnesses.members().entrySet()) {
             try {
                 entries.put(member.getKey(), entry(member.getKey(), member.getValue()));

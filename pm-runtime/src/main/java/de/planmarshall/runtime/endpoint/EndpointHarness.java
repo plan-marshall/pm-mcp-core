@@ -22,6 +22,7 @@ import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.JsonPointer;
+import de.planmarshall.core.profile.ProfileRefusal;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
 import de.planmarshall.runtime.launch.HarnessVerifier;
 import de.planmarshall.runtime.launch.LaunchRefusal;
@@ -131,9 +132,7 @@ public final class EndpointHarness {
         try {
             var document = JsonDocument.parse(response.body().getBytes(StandardCharsets.UTF_8), "models");
             return Optional.of(JsonPointer.resolve(document, profile.endpoint().modelsPointer(), "models listing"));
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException _) {
+        } catch (ProfileRefusal _) {
             return Optional.empty();
         }
     }

@@ -1,0 +1,71 @@
+= ADR 011: A store without a top-level `harnesses` object is unreadable
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-19.
+
+== Context
+
+The machine-wide harness enrolment store `<PM_MCP_BASE>/harnesses.json` is verified against its HMAC sidecar before it is
+read, and the verified bytes must then read as the store (Store Schemas § Harness Enrolment Store, *Unreadable Store*).
+The closed schema of the store, `harnesses.schema.json`, requires exactly `format_version` and `harnesses`; `harnesses`
+is an object keyed by the harness id.
+
+`HarnessEnrolmentStore.decode` read the member as `root.member("harnesses").orElse(JsonNode.nullValue())` and iterated
+`members()`. `JsonNode.members()` answers an empty map for every value that is not an object, so a document
+`{"format_version":1}`, `{"format_version":1,"harnesses":null}`, an array or a string read as an *empty store*: the
+operator saw no enrolled harness, and the language of the *Unreadable Store* paragraph — refuse an unreadable store
+instead of reading it as an empty map — was not met for the store's own required member. The entry-level members
+(`events`, `usage_report`, `figures`, a present `weights`) were already refused through `requiredObject`.
+
+== Decision
+
+`decode` refuses a `harnesses` member that is absent, `null` or of any type other than object with
+`Refusal.UNREADABLE`, the reason code `harness_store_unreadable`, and a message that names the member: "the member
+'harnesses' is missing" or "the member 'harnesses' is not an object". An empty object
+`{"format_version":1,"harnesses":{}}` stays a valid empty store, because the schema requires the member and the object
+satisfies it.
+
+The re-baseline path is unchanged: `read(transaction, true)` still returns an empty map for `UNREADABLE`, so a new
+enrolment rewrites the unreadable file and its sidecar with the named harness only, as the specification's act for an
+unreadable store prescribes.
+
+== Alternatives Considered
+
+Making `harnesses` optional in the schema was rejected: the schema is the closed contract, the specification already
+states the requirement through it, and a store without its map is a truncated document, not a smaller one.
+
+Reading a missing member as empty and refusing only a present non-object was rejected: the two are the same fault — the
+document does not read as the store — and the store cannot tell a truncated write from a hand-written file.
+
+Validating the whole document with a JSON-schema validator was rejected for this fix: the module carries no validator,
+`harnesses.schema.json` is read by `HarnessEnrolmentSchemaParityTest` for parity of the members the store writes, and the
+one-member guard is the behaviour the specification states in the *Unreadable Store* paragraph.
+
+== Consequences
+
+A `harnesses.json` that fails its integrity check — a truncated file whose sidecar no longer matches included — refuses
+every read with `harness_tampered` before `decode` runs. A document that passes the integrity check but carries no
+`harnesses` object refuses every read with `harness_store_unreadable`, and therefore every worker launch that verifies
+the store, until a new enrolment re-baselines the file.
+
+Store Schemas § Unreadable Store also requires such a refusal to count as a start failure of the role on that harness.
+The launch refusal path records the fate without calling `StartFailureGuard.startFailed`, which no production code calls
+today, so that part of the requirement — shared with the tampered-file refusal — remains owed and is reported in the
+run's landing rather than changed here.
+
+A later writer that adds a top-level member adds it to `harnesses.schema.json`, which declares
+`additionalProperties: false`. This guard checks only that `harnesses` is present and is an object: a top-level member
+the schema does not name is still read beside `harnesses` and ignored, so a change that gives the document a different
+shape must extend the guard too.
+
+== Source
+
+Staged plan PLAN-V2-46 (`runtime-endpoint-residues`), D5; Store Schemas § Harness Enrolment Store, *Unreadable Store*;
+the store's schema `pm-runtime/src/main/resources/de/planmarshall/runtime/launch/harnesses.schema.json`; `PM-SEC-5`;
+adapted from the review lead of the PLAN-104 landing and the PLAN-97/PLAN-98 residues (`Op43`).

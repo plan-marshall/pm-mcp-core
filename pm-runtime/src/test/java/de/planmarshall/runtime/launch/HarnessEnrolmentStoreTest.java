@@ -43,9 +43,9 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  * <p>
  * The client ids, versions, digests, instants, models and the HMAC key are generated. The literals that stay are the
  * contract: the store's file names ({@code harnesses.json} and its {@code .hmac} sidecar), the stored JSON documents
- * of the malformed-entry and endpoint-member tests (the store's wire format), the usage figure and event names
- * with their stage results ({@code reported}, {@code missing}, {@code not_applicable}), the role classes of a start
- * context and the file permissions {@code rw-------} the store requires.
+ * of the malformed-entry, top-level-member and endpoint-member tests (the store's wire format), the usage figure and
+ * event names with their stage results ({@code reported}, {@code missing}, {@code not_applicable}), the role classes of
+ * a start context and the file permissions {@code rw-------} the store requires.
  */
 @EnableGeneratorController
 @DisplayName("Harness enrolment store")
@@ -139,6 +139,32 @@ class HarnessEnrolmentStoreTest {
     }
 
     private void assertUnreadable(String document) throws Exception {
+        writeVerifiable(document);
+        var refusal = assertThrows(HarnessEnrolmentStore.StoreException.class, () -> store.find("claude"),
+                "a malformed store document is refused");
+        assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(),
+                "the malformed document is refused as unreadable");
+    }
+
+    @Test
+    @DisplayName("a missing, null or non-object top-level harnesses is refused, not read as empty")
+    void topLevelHarnessesRefused() throws Exception {
+        assertUnreadable("{\"format_version\":1}");
+        assertUnreadable("{\"format_version\":1,\"harnesses\":null}");
+        assertUnreadable("{\"format_version\":1,\"harnesses\":[]}");
+        assertUnreadable("{\"format_version\":1,\"harnesses\":\"claude\"}");
+    }
+
+    @Test
+    @DisplayName("an empty harnesses object is a valid empty store")
+    void emptyHarnessesObjectReadsAsEmptyStore() throws Exception {
+        writeVerifiable("{\"format_version\":1,\"harnesses\":{}}");
+
+        assertTrue(store.all().isEmpty(), "an empty harnesses object reads as an empty store");
+    }
+
+    /** Writes a document and its sidecar the way a verified store file is read: owner-only, HMAC over the bytes. */
+    private void writeVerifiable(String document) throws Exception {
         var bytes = document.getBytes(StandardCharsets.UTF_8);
         var file = base.resolve(STORE_FILE);
         var sidecar = base.resolve(SIDECAR_FILE);
@@ -147,10 +173,6 @@ class HarnessEnrolmentStoreTest {
         var restricted = PosixFilePermissions.fromString("rw-------");
         Files.setPosixFilePermissions(file, restricted);
         Files.setPosixFilePermissions(sidecar, restricted);
-        var refusal = assertThrows(HarnessEnrolmentStore.StoreException.class, () -> store.find("claude"),
-                "a malformed store document is refused");
-        assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(),
-                "the malformed document is refused as unreadable");
     }
 
     /**

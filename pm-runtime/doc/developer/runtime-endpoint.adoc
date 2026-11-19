@@ -53,7 +53,14 @@ screening leaves its sources `unscreened`.
 `AnswerSchema`::
 The server's own check of an answer against the result schema. The endpoint's `result_schema` value is never trusted: the
 check enforces the JSON Schema subset a result schema uses and refuses a schema with a keyword it does not implement,
-rather than passing it (ADR 003).
+rather than passing it (ADR 003). The check runs as ordered private steps of the class — the depth and shape guard, the
+keyword guard, the `$ref` branch, the type of the answer, the `const` and `enum` guard, and the dispatch on the answer's
+kind. A keyword that applies to every answer kind — `type`, `const`, `enum` and `$ref` — is enforced in a shared guard
+that runs before the dispatch; a keyword of one answer kind (`required`, `properties`, `additionalProperties`, `items`
+and the item bounds, the string length bounds, the numeric bounds) is enforced in that kind's check. `type` is checked
+twice by design: the keyword guard refuses a `type` that is neither a string nor an array, and the type guard refuses an
+answer that has none of the declared types. The order is observable through `AnswerSchemaTest`, which pins a type refusal
+ahead of a const refusal on the same answer; the refusals no earlier case reached are pinned there with their message.
 
 [[enrolment]]
 `SocketOwner`::
@@ -117,7 +124,16 @@ task, then hand the harness's enrolment and the request to `EndpointHarness.task
 
 A new protocol is a change of the closed `protocol` list of the endpoint profile and of the code, made once for all
 endpoints: a new `EndpointClient` call for its request format, and the answer reading in `EndpointOutcome`. A new keyword
-of the result-schema subset is added to `AnswerSchema` together with the refusal that ends an answer.
+of the result-schema subset is added to `AnswerSchema.KEYWORDS` and to the guard that enforces it — a shared guard for a
+keyword that applies to every answer kind, the check of that kind otherwise — together with the refusal that ends an
+answer.
+
+The documents the package reads are untrusted: `JsonDocument.parse` and `JsonPointer.resolve` state one refusal,
+`ProfileRefusal`, and the reads of this package catch it by name — `EndpointOutcome` also names
+`IllegalArgumentException` for the same call, and no class of the package catches `RuntimeException`. A listing, an answer
+or a pointer that does not read leaves the value unread: a parse or pointer failure answers an empty `Optional` (or the
+measurement `advisory` in the verification), and a document that parses to JSON `null` answers a present `Optional`
+holding that null node, which the model list reads as no model. It never ends the run with a generic exception.
 
 == Invariants and failure modes
 
@@ -129,4 +145,8 @@ of the result-schema subset is added to `AnswerSchema` together with the refusal
 - A model whose weights identity changed is unqualified until it is graded again; the change is audited.
 - The readiness check that does not answer is a start failure, and the attempt that does not end with a valid answer ends
   like a worker without a valid result.
+- A document the package reads is untrusted: a malformed models listing leaves `Optional.empty()`, and a listing that
+  resolves to `null` or to another non-array leaves the model list empty; a malformed answer leaves the answer unread,
+  and a weights pointer that does not resolve leaves the identity unread. The reads name `ProfileRefusal`
+  (`EndpointOutcome` also `IllegalArgumentException`); no class of the package catches `RuntimeException`.
 - No log line, audit line or error text holds a request body.
