@@ -1,4 +1,4 @@
-# PLAN-159: The lesson store's closeout after #516: ADR 079 and its tests, the R05 reduction of `store-schemas/10`, the derived-facts residue and the merge knob
+# PLAN-V2-159: The lesson store's closeout after #516: ADR 079 and its tests, the R05 reduction of `store-schemas/10`, the derived-facts residue and the merge knob
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
@@ -6,7 +6,7 @@ origin: the landing of PLAN-V2-156 (`landings/PLAN-V2-156.md`, 2026-11-20: part 
 lane: runbook
 
 > Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
-> Lives at `plans/PLAN-159-lesson-store-closeout.md` and is queued as one row file, `queue/PLAN-159.json`,
+> Lives at `plans/PLAN-V2-159-lesson-store-closeout.md` and is queued as one row file, `queue/PLAN-V2-159.json`,
 > in the epic ledger (lane `runbook`: a small closeout plan, run in the runbook lane). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
@@ -79,7 +79,7 @@ Source, tests, specification and documentation (specific files, R19; the outline
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-159-lesson-store-closeout.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-159-lesson-store-closeout.md
 ```
 
 ## Write-Boundary
