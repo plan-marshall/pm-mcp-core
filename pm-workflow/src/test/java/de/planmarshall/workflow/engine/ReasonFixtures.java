@@ -27,6 +27,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonToken;
@@ -95,12 +98,15 @@ final class ReasonFixtures {
     /** The key the operator unit's slot is stored under: the declaring unit's id and the slot name. */
     static final String SLOT_KEY = "plan:commit_message";
 
-    /** The three routes of a {@link CheckOutcome} primitive, written under the state that runs it. */
-    private static final String CHECK_ROUTES = """
-                    succeeded -> completed
-                    failed -> handed_back
-                    cancelled -> handed_back
-            """;
+    /** The indentation of a route under the {@code auto} or {@code composite_job} line of a state. */
+    private static final int STATE_ROUTE_INDENT = 8;
+
+    /** The indentation of a route under the {@code do} line of a link. */
+    private static final int LINK_ROUTE_INDENT = 12;
+
+    /** The routes of a {@link CheckOutcome} primitive, one per constant, written under the state that runs it. */
+    private static final String CHECK_ROUTES = routes(CheckOutcome.class, ReasonFixtures::checkTarget,
+            STATE_ROUTE_INDENT);
 
     /** The {@code auto} state that runs {@code reason.check}. */
     private static final String AUTO_STATES = """
@@ -118,9 +124,7 @@ final class ReasonFixtures {
     private static final String SWITCH_STATES = """
             state execute.switch
                 auto reason.switch
-                    done -> completed
-                    failed -> handed_back
-            """;
+            """ + routes(SwitchOutcome.class, ReasonFixtures::switchTarget, STATE_ROUTE_INDENT);
 
     /** The calling state of the plan that enters {@link #SUB_UNIT}. */
     private static final String CALLING_STATES = """
@@ -149,9 +153,7 @@ final class ReasonFixtures {
 
             state sub.check
                 auto reason.check
-                    succeeded -> sub.done
-                    failed -> sub.stepped-out
-                    cancelled -> sub.stepped-out
+            """ + routes(CheckOutcome.class, ReasonFixtures::subTarget, STATE_ROUTE_INDENT) + """
 
             state sub.done terminal done success
 
@@ -195,9 +197,7 @@ final class ReasonFixtures {
 
             state routed.check
                 auto reason.check
-                    succeeded -> routed.done
-                    failed -> routed.done
-                    cancelled -> routed.stepped-out
+            """ + routes(CheckOutcome.class, ReasonFixtures::routedTarget, STATE_ROUTE_INDENT) + """
 
             state routed.done terminal done success
 
@@ -225,9 +225,7 @@ final class ReasonFixtures {
                 fills slot.commit_message from note
                 link submit answer (note: text[1..80])
                     do reason.answer
-                        succeeded -> completed
-                        failed -> handed_back
-                        cancelled -> handed_back
+            """ + routes(CheckOutcome.class, ReasonFixtures::checkTarget, LINK_ROUTE_INDENT) + """
 
             state completed terminal merged success
 
@@ -380,6 +378,62 @@ final class ReasonFixtures {
             throw new UncheckedIOException("the facts are no JSON object: " + json, e);
         }
         return facts;
+    }
+
+    /**
+     * Writes one route per constant of an outcome enum, in the order of its constants, so the routes of a fixture
+     * follow the enum they route: a constant added to the enum is a constant its target mapping must name.
+     *
+     * @param outcomeType the outcome enum the state routes
+     * @param target      the target state of each outcome
+     * @param indent      the indentation of a route line
+     * @param <E>         the outcome enum
+     * @return the route lines, each ending in a line break
+     */
+    private static <E extends Enum<E> & PrimitiveOutcome> String routes(Class<E> outcomeType,
+            Function<E, String> target, int indent) {
+        var prefix = " ".repeat(indent);
+        return Stream.of(outcomeType.getEnumConstants())
+                .map(outcome -> prefix + outcome.wireName() + " -> " + target.apply(outcome) + "\n")
+                .collect(Collectors.joining());
+    }
+
+    /**
+     * The targets of a {@link CheckOutcome} in a plan: success completes it, every other outcome hands it back. The
+     * switch is exhaustive, so a constant added to the enum does not compile until it is given a target.
+     */
+    private static String checkTarget(CheckOutcome outcome) {
+        return switch (outcome) {
+            case SUCCEEDED -> "completed";
+            case FAILED, CANCELLED -> "handed_back";
+        };
+    }
+
+    /** The targets of a {@link CheckOutcome} in {@link #SUB_UNIT}: success ends it done, every other steps out. */
+    private static String subTarget(CheckOutcome outcome) {
+        return switch (outcome) {
+            case SUCCEEDED -> "sub.done";
+            case FAILED, CANCELLED -> "sub.stepped-out";
+        };
+    }
+
+    /**
+     * The targets of a {@link CheckOutcome} in {@code sub.routed}: a failure ends it done like a success, so its
+     * reason returns with the result record, and a cancellation steps out.
+     */
+    private static String routedTarget(CheckOutcome outcome) {
+        return switch (outcome) {
+            case SUCCEEDED, FAILED -> "routed.done";
+            case CANCELLED -> "routed.stepped-out";
+        };
+    }
+
+    /** The targets of a {@link SwitchOutcome}: done completes the plan, a failure hands it back. */
+    private static String switchTarget(SwitchOutcome outcome) {
+        return switch (outcome) {
+            case DONE -> "completed";
+            case FAILED -> "handed_back";
+        };
     }
 
     /** The reasons of {@link CheckOutcome#FAILED}: one maps to {@code footprint_violation}, one to none. */

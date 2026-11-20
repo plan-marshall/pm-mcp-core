@@ -16,6 +16,7 @@ import static org.easymock.EasyMock.replay;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CycleMeasure;
@@ -52,6 +53,7 @@ final class ReasonVerifyPrimitives {
 
     /** @return a registry of {@link #CHECK} and {@link #PLAIN} */
     static PrimitiveRegistry registry() {
+        PlainOutcome.requireEveryCheckOutcome();
         return new PrimitiveRegistry(List.of(primitive(CHECK, CheckOutcome.class),
                 primitive(PLAIN, PlainOutcome.class)));
     }
@@ -141,27 +143,37 @@ final class ReasonVerifyPrimitives {
         }
     }
 
-    /** The outcomes of {@link #PLAIN}: those of {@link CheckOutcome} without a reason. */
+    /**
+     * The outcomes of {@link #PLAIN}: those of {@link CheckOutcome} without a reason. The registry reads an outcome
+     * set only from an enum class, so the twin is an enum; each constant is the {@link CheckOutcome} of its name and
+     * reads its wire name and class from it, so the two sets are defined once. {@link #registry()} refuses a
+     * {@link CheckOutcome} that has no twin, naming it.
+     */
     enum PlainOutcome implements PrimitiveOutcome {
-        PASSED("passed", OutcomeClass.SUCCESS), FAILED("failed", OutcomeClass.FAILURE),
-        SKIPPED("skipped", OutcomeClass.SKIP);
+        PASSED, FAILED, SKIPPED;
 
-        private final String wireName;
-        private final OutcomeClass outcomeClass;
-
-        PlainOutcome(String wireName, OutcomeClass outcomeClass) {
-            this.wireName = wireName;
-            this.outcomeClass = outcomeClass;
-        }
+        private final CheckOutcome twin = CheckOutcome.valueOf(name());
 
         @Override
         public String wireName() {
-            return wireName;
+            return twin.wireName();
         }
 
         @Override
         public OutcomeClass outcomeClass() {
-            return outcomeClass;
+            return twin.outcomeClass();
+        }
+
+        /**
+         * @throws IllegalStateException if a constant of {@link CheckOutcome} has no twin of its name
+         */
+        static void requireEveryCheckOutcome() {
+            for (CheckOutcome outcome : CheckOutcome.values()) {
+                if (Stream.of(values()).noneMatch(plain -> plain.twin == outcome)) {
+                    throw new IllegalStateException("the outcome " + outcome + " of " + CHECK
+                            + " has no reasonless twin in PlainOutcome");
+                }
+            }
         }
     }
 }
