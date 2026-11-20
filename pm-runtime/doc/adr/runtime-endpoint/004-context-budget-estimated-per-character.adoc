@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted
+Accepted. The estimate of this decision is superseded as the target by the bytes-per-token rule of the specification
+(see the note below); the code still counts characters.
 
 == Date
 
@@ -38,6 +39,15 @@ the refusal would arrive from the program, not from the rule, and the budget wou
 - The budget is a property of the profile, so an operator who measures a different limit changes `context_tokens` and
   `answer_reserve_tokens`, not the estimate.
 - A change of the estimate changes every role's fit on every endpoint and is recorded here.
+
+== Note: the Bytes-per-Token Rule Is the Target
+
+The specification fixes the estimate in
+link:../../../../doc/specification/timeouts/03-retention-harness-config.adoc#bytes-per-token[Timeouts & Budgets § Bytes per Token]:
+UTF-8 bytes at the model's measured ratio, provisionally `2` bytes per token, and never characters divided by a fixed
+factor. That rule is the target and supersedes the four characters per token of this decision;
+link:../../../../doc/implementation-watch/model-work.adoc#PM-WATCH-DISP-76[PM-WATCH-DISP-76] guards it. Until the code
+follows, `EndpointRequest.estimate` counts characters as decided above.
 
 == Source
 

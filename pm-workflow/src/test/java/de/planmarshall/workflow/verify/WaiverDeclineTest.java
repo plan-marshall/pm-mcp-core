@@ -51,7 +51,8 @@ class WaiverDeclineTest {
     void declinedLeavesTheWaiverWait() {
         var parsed = WorkflowParser.parse("remediation-qgate-findings.pmwf",
                 VerifyFixtures.read("unit-fixtures/defaults/remediation-qgate-findings.pmwf"), UnitOrigin.DEFAULT);
-        var unit = assertInstanceOf(ParseResult.Parsed.class, parsed, parsed::toString).definition();
+        var unit = assertInstanceOf(ParseResult.Parsed.class, parsed, "the remediation unit follows the grammar")
+                .definition();
         var wait = unit.states().get("remediation-qgate.waiver-wait");
 
         var job = assertInstanceOf(StateBehavior.JobStep.class, wait.behavior(),

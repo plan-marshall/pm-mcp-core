@@ -9,7 +9,7 @@
  */
 package de.planmarshall.provider.git.testing;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -45,6 +45,6 @@ class AssertionMessageScanTest {
         }
         AssertionMessages.writeViolations(VIOLATIONS, violations);
 
-        assertTrue(violations.isEmpty(), () -> AssertionMessages.failureMessage(violations, VIOLATIONS));
+        fail(() -> AssertionMessages.failureMessage(violations, VIOLATIONS));
     }
 }

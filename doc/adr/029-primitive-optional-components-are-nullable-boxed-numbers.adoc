@@ -1,0 +1,67 @@
+= ADR 029: Primitive-Optional Record Components Are Nullable Boxed Numbers
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+`CLAUDE.md` states that `Optional` is a return type only and that a parameter, a field or a record component that may
+be absent is `@Nullable`; ADR 021 converted every `Optional<T>` field, parameter and record component of `pm-core` on
+that rule. Its Context left the primitive optionals out, saying an `OptionalInt` "is not a field, a parameter or a
+record component", and ADR 022 made `EffectiveRole.idleWakeups` one on purpose. The landings of PLAN-V2-97 and
+PLAN-V2-99 still counted 17 `OptionalInt` and `OptionalLong` record components in 15 files, 12 of them in `pm-core`
+and 5 in `pm-runtime`.
+
+The research behind the decision found no status for the primitive optionals as a field or a record component: the
+JDK documents `Optional` as intended for a method return type and `OptionalInt` and `OptionalLong` are its primitive
+forms, and the project's `java-null-safety` standard gives three reasons against an `Optional` component (it is not
+`Serializable`, it is a wrapper object, and it forces every caller to wrap) that apply to them alike. The operator
+settled the question on 2026-11-10 (question 8 of the issues pass, answer "2"): convert them, in PLAN-V2-158.
+
+== Decision
+
+A record component that may be absent and holds a primitive number is `@Nullable Integer` or `@Nullable Long`, never an
+`OptionalInt` or `OptionalLong`. `null` is the absent state, `0` stays a value distinct from absent, and the accessor is
+the generated one. A compact canonical constructor accepts `null` for exactly these components and states its other
+checks in terms of `null`. `OptionalInt` and `OptionalLong` stay the type of an absence a method returns.
+
+The components converted by PLAN-V2-158 are, in `pm-core`, `ProfileStages.StartContext.tokens`,
+`WorkerParameters.ackDeadlineSeconds`, `EffectiveRole.idleWakeups`, `JsonlStoreFile.Content.tornTailOffset`, the
+`tornTailOffset` of `PlanHistory.Lines`, `QuestionLog.Lines`, `WaiverConsumptionLog.Lines` and `WaiverLog.Lines`,
+`TransactionJournal.Target.sizeBefore`, and `UsageAggregate.totalTokens`, `tokensIn` and `tokensOut`; in `pm-runtime`,
+`AuditIndex.Snapshot.firstBrokenLine`, `CredentialStoreAspect.Transition.moveEntries`,
+`TerminationProtocol.Report.errno`, `HarnessEnrolment.UsageReport.StartContext.tokens` and
+`AuditChainVerification.Outcome.Broken.firstBrokenLine`.
+
+== Alternatives Considered
+
+1. **Keep `OptionalInt` and `OptionalLong` as record components (ADR 022)**: *Rejected*: the reasoning of ADR 022, the
+   absence "as a type, not another annotation", is the one ADR 021 already declined for every `Optional<T>` component,
+   and it keeps a second absence vocabulary beside `@Nullable`.
+2. **A sentinel `int` or `long` (`0` or `-1`)**: *Rejected*: a sentinel cannot be told from a declared value, and `0` is
+   a legitimate value of several of the components.
+3. **A sealed state per component (`Unset` / `Value(n)`)**: *Rejected*: it adds a type per component for an absence the
+   nullable boxed number already states, and every caller would have to match on it.
+
+== Consequences
+
+* A caller reads the absence with a `null` check and a default with `Objects.requireNonNullElse` or an explicit branch;
+  no caller wraps or unwraps a primitive optional for a record.
+* A new record component of an absent number is written `@Nullable Integer` or `@Nullable Long`.
+* The codecs map `null` to the absent member exactly as they mapped the empty optional: no stored byte and no format
+  version changes.
+* ADR 022 is superseded by this ADR; ADR 021's rule now covers the primitive optionals.
+
+== Source
+
+* Pull requests of `PLAN-V2-158` (`null-contracts-and-optional-conversion`)
+* `landings/PLAN-V2-97.md` L1-4, L2-1; `landings/PLAN-V2-99.md` L3-2
+* ADR link:021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[021 `Optional` Fields, Parameters and Record Components Are Nullable States]
+* ADR link:022-the-effective-idle-wakeups-are-an-optionalint.adoc[022 The Effective Idle Wakeups Are an `OptionalInt`]
+* ADR link:013-the-null-contract-of-the-null-marked-packages.adoc[013 The Null Contract of the `@NullMarked` Packages]

@@ -45,8 +45,6 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/referenc
 === Intent Record (`intent.json`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
 
-The schema below is the normative shape for the assembly's submission endpoints.
-
 The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows Specification, The Intent Record]), written by the transaction that accepts a `submit:refine` or a light `submit:outline`, and by a re-planning that changes intent. `current` is the accepted record; every earlier revision moves to `history[]` in the same transaction and is never changed. The model-supplied record is the named parameter schema `intent-record`; the members around it are server-owned.
 
 The schema is the file `pm-core/src/main/resources/de/planmarshall/core/store/intent.schema.json`.
@@ -68,8 +66,6 @@ The server checks beyond the schema (the fix triple, true deciders, the riskiest
 [#outline-record-store]
 === Outline Record (`outline.json`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
-
-The schema below is the normative shape for the assembly's submission endpoints.
 
 The plan's solution outline (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase Workflows Specification, Phase 3 Validation]), written by the transaction that accepts a `submit:outline` and by `replan.apply`. `current` is the accepted record and every earlier revision moves to `history[]`; `deliverable_status` is server-owned. `outline.md` is rendered from `current` in the model language, deliverable by deliverable, in the section form of `plan-marshall`'s solution outline (`**Metadata:**`, `**Intent gloss:**`, `**Profiles:**`, ``- `<path>` (<intent>)`` under `**Affected files:**`, `**Change per file:**`, `**Verification:**`, `**Satisfies:**`, `**Added dependencies:**`, `**Interfaces:**`, `**Key links:**`); it is never read back. The model-supplied record is the named parameter schema `outline-record`.
 

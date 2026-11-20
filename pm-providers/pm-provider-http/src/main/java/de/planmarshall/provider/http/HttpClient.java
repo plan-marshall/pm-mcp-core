@@ -115,11 +115,13 @@ public final class HttpClient implements AutoCloseable {
      * Conditional GET.
      *
      * @param pathOrUri a path relative to the base, or an absolute URI on the origin
-     * @param etag      the {@code ETag} of the cached representation
+     * @param etag      the {@code ETag} of the cached representation, never {@code null}; a request without a cached
+     *                  representation is the unconditional {@link #get(String)}
      * @return the response; {@link Outcome#NOT_MODIFIED} when the representation is unchanged
+     * @throws NullPointerException when {@code etag} is {@code null}
      */
     public Response get(String pathOrUri, String etag) {
-        return send("GET", pathOrUri, null, etag);
+        return send("GET", pathOrUri, null, Objects.requireNonNull(etag, "etag"));
     }
 
     /**

@@ -91,8 +91,9 @@ class SourceManifestCodecTest {
         assertAll(
                 () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is UNREADABLE"),
                 () -> assertEquals(FILE, refusal.file(), "the refusal names the file"),
-                () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()), refusal::getMessage),
-                () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
+                () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()),
+                        "the refusal message starts with the file"),
+                () -> assertTrue(refusal.getMessage().contains(detail), "the refusal message names what is wrong"));
     }
 
     @Nested

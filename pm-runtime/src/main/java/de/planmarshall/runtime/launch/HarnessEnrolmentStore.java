@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
@@ -310,14 +309,14 @@ public final class HarnessEnrolmentStore {
             var model = text(entry, "model");
             var tokens = entry.member("tokens").orElseThrow(
                     () -> new IllegalArgumentException("the member 'tokens' is missing"));
-            final OptionalLong value;
+            final Long value;
             if (tokens.isInteger()) {
                 if (tokens.integerValue().orElseThrow() < 0) {
                     throw new IllegalArgumentException("'tokens' must not be negative");
                 }
-                value = OptionalLong.of(tokens.integerValue().orElseThrow());
+                value = tokens.integerValue().orElseThrow();
             } else if (tokens.isString() && "unmeasured".equals(tokens.text().orElseThrow())) {
-                value = OptionalLong.empty();
+                value = null;
             } else {
                 throw new IllegalArgumentException("'tokens' must be an integer or 'unmeasured'");
             }
@@ -400,8 +399,8 @@ public final class HarnessEnrolmentStore {
         if (!enrolment.usageReport().startContext().isEmpty()) {
             var contexts = new ArrayList<JsonNode>();
             for (var context : enrolment.usageReport().startContext()) {
-                var tokens = context.tokens().isPresent() ? JsonNode.integer(context.tokens().getAsLong())
-                        : JsonNode.string("unmeasured");
+                var measured = context.tokens();
+                var tokens = measured != null ? JsonNode.integer(measured) : JsonNode.string("unmeasured");
                 contexts.add(JsonNode.object(Map.of("class", JsonNode.string(context.workerClass()), "model",
                         JsonNode.string(context.model()), "tokens", tokens)));
             }

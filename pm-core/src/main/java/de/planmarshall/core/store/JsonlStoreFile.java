@@ -23,8 +23,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.OptionalLong;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -128,17 +128,16 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
      *
      * @param store          the store that was read
      * @param lines          the complete lines, in the order of the store
-     * @param tornTailOffset the byte offset where a last line without a newline begins; empty if the store ends with
-     *                       a newline, is empty or does not exist
+     * @param tornTailOffset the byte offset where a last line without a newline begins; {@code null} if the store ends
+     *                       with a newline, is empty or does not exist
      * @since 0.1
      */
-    public record Content(Path store, List<Line> lines, OptionalLong tornTailOffset) {
+    public record Content(Path store, List<Line> lines, @Nullable Long tornTailOffset) {
 
-        /** @throws NullPointerException if a component is {@code null} */
+        /** @throws NullPointerException if the store or the lines are {@code null} */
         public Content {
             Objects.requireNonNull(store, "store");
             lines = List.copyOf(lines);
-            Objects.requireNonNull(tornTailOffset, "tornTailOffset");
         }
 
         /**
@@ -338,7 +337,7 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
      */
     public Content snapshot() {
         return StoreSnapshot.read(store).content().map(this::parse)
-                .orElseGet(() -> new Content(store, List.of(), OptionalLong.empty()));
+                .orElseGet(() -> new Content(store, List.of(), null));
     }
 
     private Content parse(byte[] bytes) {
@@ -350,7 +349,7 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
                 start = i + 1;
             }
         }
-        var tornTail = start < bytes.length ? OptionalLong.of(start) : OptionalLong.empty();
+        var tornTail = start < bytes.length ? Long.valueOf(start) : null;
         return new Content(store, lines, tornTail);
     }
 

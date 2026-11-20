@@ -105,8 +105,10 @@ class TaskQueueSchemaParityTest {
 
     private static void assertValid(Schema validator, byte[] document) {
         var written = new String(document, UTF_8);
+        var violations = SchemaValidation.validate(validator, written).stream()
+                .map(violation -> violation + " in " + written).toList();
 
-        assertEquals(List.of(), SchemaValidation.validate(validator, written), () -> "violations of " + written);
+        assertEquals(List.of(), violations, "the written document has no schema violation");
     }
 
     @Nested

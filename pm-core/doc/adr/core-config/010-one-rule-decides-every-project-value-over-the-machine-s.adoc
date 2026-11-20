@@ -59,5 +59,5 @@ The pull request of PLAN-V2-17 (`feature/v2-17-project-onboarding-unit`); work p
 link:../../../../doc/plans/project-onboarding-unit.adoc[`project-onboarding-unit`];
 link:../../../../doc/specification/store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas § Project
 Values over Machine Values];
-link:../../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#concurrent-changes[CLI
+link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/01-cli-and-installer.adoc#concurrent-changes[CLI
 & Security § Concurrent Changes of a Setting].

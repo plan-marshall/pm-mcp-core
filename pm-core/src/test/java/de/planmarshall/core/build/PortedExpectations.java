@@ -241,21 +241,21 @@ final class PortedExpectations {
         }
         assertEquals(expected.size(), build.diagnostics().size(), "the fixture names every diagnostic");
         for (int position = 0; position < expected.size(); position++) {
-            assertDiagnostic(expected.get(position), build.diagnostics().get(position), "diagnostic " + position);
+            assertDiagnostic(expected.get(position), build.diagnostics().get(position));
         }
     }
 
-    private static void assertDiagnostic(BuildLogFixtures.Expectation expectation, Diagnostic actual, String label) {
+    private static void assertDiagnostic(BuildLogFixtures.Expectation expectation, Diagnostic actual) {
         List<String> parts = expectation.split(6);
-        assertEquals(6, parts.size(), label + " carries six fields");
+        assertEquals(6, parts.size(), "an expected diagnostic carries six fields");
         assertEquals(Severity.valueOf(parts.get(0).toUpperCase(Locale.ROOT)), actual.severity(),
-                label + ": the severity matches");
+                "the diagnostic's severity matches");
         assertEquals(Category.valueOf(parts.get(1).toUpperCase(Locale.ROOT)), actual.category(),
-                label + ": the category matches");
-        assertEquals(optional(parts.get(2)), actual.file(), label + ": the file matches");
-        assertEquals(optionalInteger(parts.get(3)), actual.line(), label + ": the line matches");
-        assertEquals(optionalInteger(parts.get(4)), actual.column(), label + ": the column matches");
-        assertEquals(parts.get(5), actual.message(), label + ": the message matches");
+                "the diagnostic's category matches");
+        assertEquals(optional(parts.get(2)), actual.file(), "the diagnostic's file matches");
+        assertEquals(optionalInteger(parts.get(3)), actual.line(), "the diagnostic's line matches");
+        assertEquals(optionalInteger(parts.get(4)), actual.column(), "the diagnostic's column matches");
+        assertEquals(parts.get(5), actual.message(), "the diagnostic's message matches");
     }
 
     private static void assertFindings(BuildLogFixtures.Case fixture, RewriteLogResult result, Set<Integer> consumed) {
@@ -276,12 +276,12 @@ final class PortedExpectations {
             assertEquals(6, parts.size(), "a finding names six fields");
             RewriteFinding actual = result.findings().get(position);
             assertEquals(RewriteClassification.valueOf(parts.get(0).toUpperCase(Locale.ROOT)), actual.classification(),
-                    "finding " + position + ": the classification matches");
-            assertEquals(parts.get(1), actual.path(), "finding " + position + ": the path matches");
-            assertEquals(Integer.parseInt(parts.get(2)), actual.line(), "finding " + position + ": the line matches");
-            assertEquals(Integer.parseInt(parts.get(3)), actual.column(), "finding " + position + ": the column matches");
-            assertEquals(parts.get(4), actual.recipe(), "finding " + position + ": the recipe matches");
-            assertEquals(parts.get(5), actual.message(), "finding " + position + ": the message matches");
+                    "the finding's classification matches");
+            assertEquals(parts.get(1), actual.path(), "the finding's path matches");
+            assertEquals(Integer.parseInt(parts.get(2)), actual.line(), "the finding's line matches");
+            assertEquals(Integer.parseInt(parts.get(3)), actual.column(), "the finding's column matches");
+            assertEquals(parts.get(4), actual.recipe(), "the finding's recipe matches");
+            assertEquals(parts.get(5), actual.message(), "the finding's message matches");
         }
     }
 

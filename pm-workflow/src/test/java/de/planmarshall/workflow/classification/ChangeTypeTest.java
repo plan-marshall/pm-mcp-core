@@ -46,6 +46,6 @@ class ChangeTypeTest {
                 .map(ChangeType::priorityOrder).toList();
 
         assertEquals(List.of(1, 2, 3, 4, 5, 6), priorities,
-                "the priorities run from one to six without a gap");
+                "the sorted priorities equal the list one to six");
     }
 }

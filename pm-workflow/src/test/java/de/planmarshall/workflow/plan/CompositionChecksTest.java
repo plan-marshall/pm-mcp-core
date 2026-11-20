@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -61,7 +60,7 @@ class CompositionChecksTest {
                 Map.of());
         return new EffectiveRole(artifact, harness, model, new EffortValue("high"), List.of(),
                 "1.0", weightsIdentity, new RoleArtifact.Questions(0, 0),
-                Map.of(), 400_000, OptionalInt.empty());
+                Map.of(), 400_000, null);
     }
 
     /** @return a resolver that defines the given roles and refuses every other */

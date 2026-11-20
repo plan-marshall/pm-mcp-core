@@ -65,7 +65,7 @@ state remediation-qgate.apply-fix
         lost -> remediation-qgate.conservative
 
 state remediation-qgate.commit
-    call git.commit_and_push(push_mode = no_push)
+    call git.commit_and_push(message_mode = interactive, push_mode = no_push)
         done -> remediation-qgate.budget-check
         stepped_out -> remediation-qgate.budget-check
 

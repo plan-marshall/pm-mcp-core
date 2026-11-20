@@ -15,6 +15,7 @@ import static de.planmarshall.runtime.audit.AuditTrailFixture.removeLine;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.writeLines;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.cuioss.test.generator.Generators;
@@ -24,7 +25,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -88,8 +88,7 @@ class AuditIndexTest {
                 () -> assertEquals(List.of(), snapshot.entries(), "an absent index has no entry"),
                 () -> assertEquals(AuditCodec.GENESIS_HASH, snapshot.headHash(),
                         "an absent index has the genesis head"),
-                () -> assertEquals(OptionalLong.empty(), snapshot.firstBrokenLine(),
-                        "an absent index has no broken line"),
+                () -> assertNull(snapshot.firstBrokenLine(), "an absent index has no broken line"),
                 () -> assertEquals(Optional.empty(), snapshot.last(), "an absent index has no last entry"),
                 () -> assertEquals(Optional.empty(), snapshot.lastCheckpointHash(),
                         "an absent index names no checkpoint"));
@@ -110,8 +109,7 @@ class AuditIndexTest {
                                 lines.getFirst().getBytes(StandardCharsets.UTF_8)))), snapshot.entries(),
                         "each entry chains to the line before it"),
                 () -> assertEquals(hashes.getLast(), snapshot.headHash(), "the head is the hash of the last line"),
-                () -> assertEquals(OptionalLong.empty(), snapshot.firstBrokenLine(),
-                        "the appended chain has no broken line"),
+                () -> assertNull(snapshot.firstBrokenLine(), "the appended chain has no broken line"),
                 () -> assertEquals(Optional.of(second.checkpointHash()), snapshot.lastCheckpointHash(),
                         "the last checkpoint is the second entry's"),
                 () -> trail.underAuditLock(transaction -> assertEquals(snapshot, index.read(transaction),
@@ -129,7 +127,7 @@ class AuditIndexTest {
         var snapshot = index.snapshot();
 
         assertAll(
-                () -> assertEquals(OptionalLong.of(2), snapshot.firstBrokenLine(),
+                () -> assertEquals(Long.valueOf(2), snapshot.firstBrokenLine(),
                         "the line after the edit is broken"),
                 () -> assertEquals(1, snapshot.entries().size(), "only the entry before the break counts"));
     }
@@ -140,7 +138,7 @@ class AuditIndexTest {
         append(entry(), entry(), entry());
         removeLine(index.file(), 2);
 
-        assertEquals(OptionalLong.of(2), index.snapshot().firstBrokenLine(), "the chain breaks where it was");
+        assertEquals(Long.valueOf(2), index.snapshot().firstBrokenLine(), "the chain breaks where it was");
     }
 
     @Test
@@ -155,7 +153,7 @@ class AuditIndexTest {
         var snapshot = index.snapshot();
 
         assertAll(
-                () -> assertEquals(OptionalLong.of(2), snapshot.firstBrokenLine(),
+                () -> assertEquals(Long.valueOf(2), snapshot.firstBrokenLine(),
                         "the unparsable line breaks the chain"),
                 () -> assertEquals(AuditCodec.sha256Hex(unparsable.getBytes(StandardCharsets.UTF_8)),
                         snapshot.headHash(), "the head is the hash of the unparsable line"));

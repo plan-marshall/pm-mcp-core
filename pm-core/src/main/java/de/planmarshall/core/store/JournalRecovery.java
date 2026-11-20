@@ -215,7 +215,7 @@ public class JournalRecovery {
         if (target.mode() == Mode.REPLACE) {
             return target.newDigest().equals(StoreDigest.builder().update(staged).build());
         }
-        var sizeBefore = target.sizeBefore().orElseThrow();
+        long sizeBefore = Objects.requireNonNull(target.sizeBefore(), "sizeBefore");
         if (size(store) < sizeBefore) {
             return false;
         }
@@ -238,7 +238,7 @@ public class JournalRecovery {
                 case REPLACE -> Files.move(scope.resolve(target.stagedPath()), store, StandardCopyOption.ATOMIC_MOVE);
                 case APPEND -> {
                     if (exists(store)) {
-                        SyncedFiles.truncate(store, target.sizeBefore().orElseThrow());
+                        SyncedFiles.truncate(store, Objects.requireNonNull(target.sizeBefore(), "sizeBefore"));
                     }
                     SyncedFiles.append(store, Files.readAllBytes(scope.resolve(target.stagedPath())));
                 }

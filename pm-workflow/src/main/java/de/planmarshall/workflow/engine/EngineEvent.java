@@ -82,6 +82,7 @@ public sealed interface EngineEvent
          */
         public TasksSettled {
             Objects.requireNonNull(taskOutcomes, "taskOutcomes");
+            Objects.requireNonNull(submissions, "submissions");
             var copy = new LinkedHashMap<String, String>();
             taskOutcomes.forEach((entity, outcome) -> {
                 Objects.requireNonNull(entity, "entity");
@@ -95,7 +96,24 @@ public sealed interface EngineEvent
                 throw new IllegalArgumentException("a settlement names at least one task");
             }
             taskOutcomes = Collections.unmodifiableMap(copy);
+            var submitted = new LinkedHashMap<String, Map<String, String>>();
+            submissions.forEach((entity, arguments) -> {
+                Objects.requireNonNull(entity, "submissions entity");
+                Objects.requireNonNull(arguments, "submissions arguments");
+                submitted.put(entity, Collections.unmodifiableMap(new LinkedHashMap<>(arguments)));
+            });
+            submissions = Collections.unmodifiableMap(submitted);
             requireNonBlank(evaluatedOutcome, "evaluatedOutcome");
+        }
+
+        /**
+         * A settlement that carries no submission: the task of the state filled no slot.
+         *
+         * @param taskOutcomes     the closed outcome of each task by entity
+         * @param evaluatedOutcome the outcome the state takes
+         */
+        public TasksSettled(Map<String, String> taskOutcomes, String evaluatedOutcome) {
+            this(taskOutcomes, Map.of(), evaluatedOutcome);
         }
     }
 

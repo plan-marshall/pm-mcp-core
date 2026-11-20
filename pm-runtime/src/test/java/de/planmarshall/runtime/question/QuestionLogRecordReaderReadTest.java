@@ -168,7 +168,7 @@ class QuestionLogRecordReaderReadTest {
                 release.countDown();
                 holder.join(10_000);
             }
-            assertNull(failure.get(), "the lock holder should not fail: " + failure.get());
+            assertNull(failure.get(), "the lock holder ends without a failure");
 
             QuestionFixtures.append(locks, plan, endOfLine, closing(question, QuestionEvent.ANSWERED));
 

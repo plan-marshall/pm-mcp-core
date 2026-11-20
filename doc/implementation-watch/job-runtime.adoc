@@ -11,7 +11,10 @@ link:../ImplementationWatch.adoc[Implementation Watch] » Job Runtime
 
 Watch items for the link:../specification/job-runtime.adoc[Job Runtime Specification]: job outcome derivation, git
 and CI subprocesses, the Landlock read set, bounded waits, build output parsers and timeout verdicts. The sections mirror the
-specification. Item format and lifecycle: link:../ImplementationWatch.adoc[Implementation Watch].
+specification. The items that watch the sections the launcher `pm-exec` implements alone (`PM-WATCH-JOB-41` to
+`PM-WATCH-JOB-44`) are in
+link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/implementation-watch/job-runtime.adoc[the job-runtime
+watch of `pm-mcp-clients`]. Item format and lifecycle: link:../ImplementationWatch.adoc[Implementation Watch].
 
 == Outcome Derivation
 
@@ -22,8 +25,9 @@ Anchor:: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#out
 link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record] (Write order at job end)
 Hazard:: Settling a job in an arbitrary order lets a crash leave a released build slot with an unsettled record, or a
 ledger row that stamps a build whose job record never recorded its fate.
-Guard:: Crash injection after each step of the fixed order (job record fate with a worker's token revocation and
-fence, for a worker the queue task record with its attempt end and lease release, the metrics row of the attempt
+Guard:: Crash injection after each step of the fixed order (job record fate with a worker's terminal worker block, token
+revocation and fence, for a worker the queue task record with its attempt end and lease release, the metrics row of the
+attempt
 that ended with the job, change-ledger row, timing observation, slot release, and last a worker's job-private
 directory removal): after restart every store is consistent, and the only losses are a task's missing metrics row
 (`record-metrics` reports it as the divergence `row_absent_from_metrics`, never as `0`; the job record carries no
@@ -87,11 +91,11 @@ link:../specification/timeouts/01-job-budgets-and-waits.adoc#waits[Timeouts & Bu
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-4[PM-IMPL-4]
 Hazard:: A wait budget passed as an iteration count expired in seconds and reported a bot "absent" while it was
 running; a wait at its ceiling could not tell waiting from re-polling finished work; wait cost was invisible.
-Guard:: Engine waits use monotonic wall-clock deadlines (test with fast pollers); an exhausted poll is `unproven`,
-not absent; the only calls a model holds open are a worker's `pm_wait` and a running `pm_build`: a `pm_wait` returns
-an offer, `wait_again`, or `end` within its harness's bounded window and never fails with a transport timeout, a
-`pm_build` whose window ends with the build still running returns `status: running` with its `job_id`, and a
-`pm_build` continuing on the `job_id` of a finished build of the same scope returns that build's terminal result, and one continuing on an unknown `job_id`, or one of another scope, is refused `invalid_arguments`.
+Guard:: An exhausted poll is `unproven`, not absent; a `pm_build` whose window ends with the build still running
+returns `status: running` with its `job_id`, a `pm_build` continuing on the `job_id` of a finished build of the same
+scope returns that build's terminal result, and one continuing on an unknown `job_id`, or one of another scope, is
+refused `invalid_arguments`. The engine's wait windows are covered by `WaitSelection`, `ModelWait` and
+`ModelWaitTest`.
 Not built (owner `runtime-metrics`): time deferred by a provider rate limit is attributed
 `provider_rate_limit` and never counted as a timeout, and the wait population below is the baseline for wait metrics.
 Fixture:: 600 s budget burned in seconds ("CodeRabbit absent" while running); a script cost rollup of 2,051 calls, 14,423,580 ms, dominated by the three wait notations
@@ -233,7 +237,7 @@ Source:: design review; doc/articles/abliterated-models-backdoor.adoc (plan-mars
 === PM-WATCH-JOB-40: A name lookup is a route out
 
 Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-name-resolution[Job Runtime § Name Resolution],
-link:../specification/job-runtime/02-confinement-and-environment.adoc#macos-confinement[Job Runtime § macOS Confinement],
+link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/job-runtime/02-confinement-and-environment.adoc#macos-confinement[Job Runtime § macOS Confinement],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
 Hazard:: Three ways out that admit no tunnel. A proxy that resolves the requested host before it matches the
 allowlist sends a refused name to the name server itself, so `<data>.attacker.example` leaves through the refusal.
@@ -256,72 +260,27 @@ query to a resolver of its supervisor and checks a DNS round trip before an agen
 doc/articles/browser-built-for-agents-obscura.adoc (plan-marshall-documentation): Obscura checks an IPv4 address
 carried in IPv6 as the address it carries.
 
-[#PM-WATCH-JOB-41]
-=== PM-WATCH-JOB-41: Below Landlock ABI 3 a job truncates what it cannot write
+[#PM-WATCH-JOB-50]
+=== PM-WATCH-JOB-50: The proxy admits by the raw text and connects where the name points
 
-Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#abi-floor[Job Runtime § Linux Filesystem Confinement] (ABI Floor),
-link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
-Hazard:: `LANDLOCK_ACCESS_FS_TRUNCATE` arrives with ABI 3; before it, `truncate(2)` and `open(O_TRUNC)` are always
-allowed. A launcher that records `confined` on ABI 2 claims a write set that a job can bypass by emptying a file:
-the settings file with a worker's deny rules, a file of another project, a toolchain configuration. A launcher that
-handles the right on ABI 3 without granting it with the write set breaks every build that rewrites a file.
-Guard:: Linux test of `pm-exec` per applied ABI: a confined job truncates a file of its write set (positive control)
-and a file outside it; on ABI 2 the second truncation succeeds and the launch report says `partial(abi=2)`, from
-ABI 3 it fails with `EACCES` and the report says `confined`. A Maven and a Gradle build under ABI 3 pass.
-Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation); OpenShell's floor is ABI 3.
-
-[#PM-WATCH-JOB-42]
-=== PM-WATCH-JOB-42: A job signals the runtime
-
-Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#landlock-scopes[Job Runtime § Linux Filesystem Confinement] (Scopes),
-link:../specification/job-runtime/02-confinement-and-environment.adoc#macos-confinement[Job Runtime § macOS Confinement],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
-Hazard:: Every job runs as the operator's user: below Landlock ABI 6 a job can `kill` the runtime, another project's
-build, or the operator's editor. A launcher that applies the signal scope before it starts the command, or in a
-domain the command does not share, can no longer signal the command's descendants in its sweep, and the job's
-descendants outlive it (step 3a).
-Guard:: Linux test of `pm-exec` per applied ABI: a confined job sends signal `0` and `SIGTERM` to the runtime fixture's
-PID; from ABI 6 both fail with `EPERM`, below ABI 6 they succeed and the test asserts exactly that. Positive control:
-the runtime's `SIGTERM` reaches the job, and the launcher's sweep ends a descendant that called `setsid`. On macOS
-the same signal to the runtime fixture fails. A `ptrace(PTRACE_ATTACH)` of the runtime fixture and a read of its
-`/proc/<pid>/mem` fail on every ABI.
-Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation).
-
-[#PM-WATCH-JOB-43]
-=== PM-WATCH-JOB-43: The system call filter breaks what it should protect
-
-Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#seccomp-filter[Job Runtime § Linux Filesystem Confinement] (System call filter),
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
-Hazard:: A seccomp filter fails quietly in both directions. Installed before the launcher creates a worker's user and
-network namespace, it refuses the launcher's own setup and every worker fails to start. Without an architecture check
-a call through the x32 ABI or the 32-bit entry point slips past the syscall numbers of the filter. `clone3` carries
-its flags in memory the filter cannot read, so a filter that allows it allows `CLONE_NEWUSER`; one that refuses it
-with `EPERM` instead of `ENOSYS` makes the C library fail rather than fall back. `io_uring` refused with `EPERM`
-fails a runtime that would fall back on `ENOSYS`.
-Guard:: Linux test of `pm-exec`: a confined job's `unshare(CLONE_NEWUSER)`, `clone` with `CLONE_NEWNET`, `mount`,
-`bpf`, and `socket(AF_PACKET, …)` fail with `EPERM`, `clone3` and `io_uring_setup` with `ENOSYS`, and a call through
-the x32 ABI ends the process; positive control: a worker starts in its namespaces, `pthread_create` and `fork` work,
-and a Maven build, a Gradle build, and an `npm ci` pass under the filter. The launch report and the job record carry
-`seccomp: applied`.
-Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation); OpenShell installs its
-filter as the last step and lists the same families.
-
-[#PM-WATCH-JOB-44]
-=== PM-WATCH-JOB-44: A worker runs on after its runtime died
-
-Anchor:: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#runtime-loss[Job Runtime § Process Termination] (Runtime Loss),
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
-Hazard:: `PR_SET_PDEATHSIG` is the obvious tool and the wrong one: it fires when the thread that forked the launcher
-ends, and the runtime starts processes from threads that end long before the runtime, so every worker would be killed
-at random. A launcher that does not watch its parent at all leaves a worker running with its login copy until the next
-start, which may never come.
-Guard:: Test of `pm-exec`: a worker fixture started from a thread that ends right after the start keeps running; the
-same fixture whose parent process is killed ends its tree, a `setsid` descendant included, within two seconds on
-Linux and on macOS; the recovery of the next start settles the job `killed` without a live process. A `build` job
-of a killed parent keeps running.
-Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation); OpenShell freezes an agent
-whose supervisor disconnected and ends it after a deadline.
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[Job Runtime § Worker Egress Proxy],
+link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-name-resolution[Job Runtime § Name Resolution]
+Hazard:: A proxy that compares the requested `host:port` with `headless.endpoints` as the raw lower-cased text and
+then opens the tunnel with a plain socket connect to that name keeps four holes. A trailing dot (`api.example.com.`)
+or another spelling of an IP literal is refused although it names an admitted endpoint, or, with an endpoint written
+in one of those forms, admitted although it differs. An admitted name whose record was changed to `127.0.0.1`, a
+link-local or a private address, or an IPv6 form carrying one, leads the tunnel to the runtime's own listeners or the
+local network, since no address is checked (`address_not_public`). And a machine whose `proxy.https_proxy` is the
+only route out has no working worker, or a worker that bypasses the operator's outbound proxy, because the tunnel
+never goes through it.
+Guard:: Proxy tests: `CONNECT api.example.com.:443` against the endpoint `api.example.com:443` is admitted, and an
+IPv6 literal written in two spellings is admitted for the endpoint in either; an admitted name resolved by a
+recording fixture to `127.0.0.1`, `169.254.169.254`, `10.0.0.1` or `::ffff:127.0.0.1` is refused `address_not_public`
+with no connection opened and one `egress_refused` record; the tunnel connects to exactly the address it checked; with
+`proxy.https_proxy` set, a recording outbound proxy receives the `CONNECT` of an admitted name not in
+`proxy.no_proxy`, and a name in `proxy.no_proxy` is connected directly. Positive control: an admitted endpoint
+written plainly reaches the fixture endpoint.
+Source:: design review.
 
 [#PM-WATCH-JOB-45]
 === PM-WATCH-JOB-45: A job record claims a fence that does not hold

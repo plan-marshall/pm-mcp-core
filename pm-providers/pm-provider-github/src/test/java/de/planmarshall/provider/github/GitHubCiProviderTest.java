@@ -559,6 +559,23 @@ class GitHubCiProviderTest {
                 () -> assertEquals(1, server.getRequestCount(), "no comment is posted for a pull request"));
     }
 
+    @Test
+    @DisplayName("posts a comment on a plain issue whose answer has no title, state or URL (ADR provider-ci/011)")
+    @MockResponseConfig(path = "/repos/cuioss/pm/issues/5/comments", method = HttpMethodMapper.POST, status = 201,
+            stringContent = "{\"id\":9001}")
+    void postsCommentOnIssueWithoutTitle(MockWebServer server) {
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
+        // a plain-issue answer without the members the full issue parse needs; "number" is GitHub's wire name
+        issueResponse.set(json(200, Map.of("number", 5)));
+
+        var result = provider.issueComment(issue(WEB_ORIGIN, FORGE, 5), comment());
+
+        assertAll("the comment on a title-less issue",
+                () -> assertEquals(Result.Outcome.OK, result.outcome(), "the comment is posted on the issue"),
+                () -> assertEquals("9001", result.value().id(), "the posted comment id is read"),
+                () -> assertEquals(2, server.getRequestCount(), "the guard read precedes the post"));
+    }
+
     @ParameterizedTest(name = "a {0} of the guard read answers the issueView outcome")
     @CsvSource({"404, NOT_FOUND", "403, PERMISSION_DENIED", "429, RATE_LIMITED", "500, FAILED"})
     @DisplayName("propagates a failed guard read and sends no post (the status mapping is the contract)")

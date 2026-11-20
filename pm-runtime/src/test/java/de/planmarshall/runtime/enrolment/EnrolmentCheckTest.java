@@ -118,8 +118,8 @@ class EnrolmentCheckTest {
                 () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome(),
                         "the refusal outcome is enrolment tampered"),
                 () -> assertEquals(file, refusal.file(), "the refusal names the tampered file"),
-                () -> assertTrue(refusal.getMessage().contains(reason), refusal.getMessage()),
-                () -> assertTrue(refusal.getMessage().contains(COMMAND), refusal.getMessage()),
+                () -> assertTrue(refusal.getMessage().contains(reason), "the refusal names the tamper reason"),
+                () -> assertTrue(refusal.getMessage().contains(COMMAND), "the refusal names the repair command"),
                 () -> assertEquals(List.of(AuditEvent.enrolmentTampered(PROJECT, reason)), events,
                         "one tampered event names the reason"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -220,7 +220,7 @@ class EnrolmentCheckTest {
             }
 
             assertTampered(refusal, store.file(PROJECT), EnrolmentCheck.KEY_ABSENT);
-            assertTrue(refusal.getMessage().contains("key source"), refusal.getMessage());
+            assertTrue(refusal.getMessage().contains("key source"), "the refusal names the key source");
         }
 
         @Test
@@ -307,7 +307,7 @@ class EnrolmentCheckTest {
                             "the refusal outcome is enrolment insecure"),
                     () -> assertEquals(store.file(PROJECT), refusal.file(), "the refusal names the enrolment file"),
                     () -> assertTrue(refusal.getMessage().contains(EnrolmentFileCheck.SYMBOLIC_LINK),
-                            refusal.getMessage()),
+                            "the refusal names the symbolic link reason"),
                     () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, EnrolmentFileCheck.SYMBOLIC_LINK)),
                             events, "one insecure event for the symbolic link"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -432,7 +432,8 @@ class EnrolmentCheckTest {
 
             assertAll(
                     () -> assertTrue(events.stream()
-                            .noneMatch(event -> AuditEvent.ENROLMENT_INVALID.equals(event.event())), events::toString),
+                            .noneMatch(event -> AuditEvent.ENROLMENT_INVALID.equals(event.event())),
+                            "no enrolment_invalid event is audited"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
                             WARN.ENROLMENT_INVALID.resolveIdentifierString()));
         }

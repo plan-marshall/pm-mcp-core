@@ -68,11 +68,28 @@ coordinates, and the classes the tests rely on — `SchemaRegistry`, `Schema`, `
 * `validate(String, InputFormat)` keeps its name and arguments, and its result changes from
   `Set<ValidationMessage>` to `List<Error>`; `com.networknt.schema.ValidationMessage` becomes
   `com.networknt.schema.Error`, whose `getMessage()` carries the same text.
-* No change of what a schema accepts was observed. The twelve positive checks and the negative controls of the
-  fourteen classes pass with their schema files, specification blocks, codecs and expected values unchanged, so no
-  `format`, `$ref` or `unevaluatedProperties` difference surfaced. The `date-time` change the 3.0.9 notes mention is not
-  exercised: at draft 2020-12 a `format` keyword is an annotation unless format assertions are enabled, and the tests
-  enable none.
+* No change of what a schema accepts was observed. The positive checks and the negative controls of the schema tests
+  pass with their schema files, specification blocks, codecs and expected values unchanged, so no `format`, `$ref` or
+  `unevaluatedProperties` difference surfaced. At `9375041f` the helper has fifteen calling classes, the fourteen that
+  compile a schema and `CorpusImportTest`; they hold 18 positive checks (an assertion that a written document has no
+  violation) and 18 negative controls (an assertion that a changed document has one), and eleven of the fifteen carry
+  a negative control. The `date-time` change the 3.0.9 notes mention is not exercised: at draft 2020-12 a `format`
+  keyword is an annotation unless format assertions are enabled, and the tests enable none.
+* A `$ref` the registry cannot resolve is refused, never skipped and never fetched. The registry of `SchemaValidation`
+  is built without a customizer, so it uses `SchemaLoader.getDefault()`, which fetches no remote resource: it maps the
+  `json-schema.org` meta-schema ids to the copies the library ships and reads `classpath:` and `resource:` IRIs, and
+  for any other IRI, an absolute `https://` one included, `SchemaRegistry.getMappedSchema` throws a `SchemaException`
+  naming it. A `$ref` is resolved lazily: `compile` preloads the schema and discards that failure
+  (`SchemaRegistry.preload`), so it surfaces when `validate` reaches the `$ref`, thrown and not returned as an `Error`
+  item; a reference that resolves to nothing throws `InvalidSchemaRefException` (`RefValidator.validate`). The source
+  read is `json-schema-validator-3.0.9-sources.jar` (`SchemaRegistry`, `resource/SchemaLoader`,
+  `resource/ClasspathResourceLoader`, `keyword/RefValidator`, `SchemaRegistryConfig`). One reference of the schema
+  files leaves its file: `headless.weights_probe` of `harness-profile-v1.schema.json` names
+  `endpoint-profile.json#/$defs/weights_probe`, which its `$id` resolves to the `$id` of the endpoint profile file.
+  `EndpointProfileSchemaParityTest.harnessReferenceToEndpointIsRefused` pins that a document reaching it is refused
+  with a `SchemaException` naming that id; in a scratch run the registry was given the endpoint profile file under its
+  `$id`, the reference resolved and the test failed (build-server job log `ba5a637517164fe9807045a09ff52418`). The
+  mutation was reverted and never committed.
 
 === What the dependency tree resolves
 

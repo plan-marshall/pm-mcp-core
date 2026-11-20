@@ -106,7 +106,8 @@ class PlanHistoryEngineTest {
         var lines = history.read().records();
         assertAll(
                 () -> assertEquals(List.of("entered", "left", "entered", "left", "entered"),
-                        lines.stream().map(line -> line.event().wireName()).toList(), lines::toString),
+                        lines.stream().map(line -> line.event().wireName()).toList(),
+                        "the line events alternate entered and left"),
                 () -> assertEquals(List.of("execute.first", "execute.first", "execute.second", "execute.second",
                                 "completed"), lines.stream().map(PlanHistoryLine::node).toList(),
                         "the lines name the states entered and left"),
@@ -137,7 +138,7 @@ class PlanHistoryEngineTest {
                 () -> assertEquals(lines.size(), lines.stream().map(PlanHistoryLine::seq).distinct().count(),
                         "every line has its own number"),
                 () -> assertEquals(1L, lines.getFirst().seq(), "the first line is number one"),
-                () -> assertTrue(lines.size() > 5, lines::toString));
+                () -> assertTrue(lines.size() > 5, "the second advance adds lines past the five"));
     }
 
     @Test
@@ -162,9 +163,10 @@ class PlanHistoryEngineTest {
         var lines = history.read().records();
         assertAll(
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.LEFT
-                        && "execute.run".equals(line.node()) && "succeeded".equals(line.outcome())), lines::toString),
+                        && "execute.run".equals(line.node()) && "succeeded".equals(line.outcome())),
+                        "the settled state is left with succeeded"),
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.ENTERED
-                        && "completed".equals(line.node())), lines::toString),
+                        && "completed".equals(line.node())), "the target completed is entered"),
                 () -> assertTrue(lines.stream().allMatch(line -> line.instanceVersion() == INSTANCE_VERSION),
                         "every line names the instance version"),
                 () -> assertEquals("completed", store.read().orElseThrow().state(), "the settled run ends completed"));
@@ -188,11 +190,12 @@ class PlanHistoryEngineTest {
         var lines = history.read().records();
         assertAll(
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.CALLED
-                        && "sub.commit".equals(line.node())), lines::toString),
+                        && "sub.commit".equals(line.node())), "a called line names sub.commit"),
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.RETURNED
-                        && "sub.commit".equals(line.node())), lines::toString),
+                        && "sub.commit".equals(line.node())), "a returned line names sub.commit"),
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.LEFT
-                        && "sub.done".equals(line.node()) && "done".equals(line.outcome())), lines::toString),
+                        && "sub.done".equals(line.node()) && "done".equals(line.outcome())),
+                        "the sub-workflow's sub.done is left with done"),
                 () -> assertEquals(List.of(), lines.stream()
                         .filter(line -> line.event() == PlanHistoryLine.Event.RETURNED).findFirst().orElseThrow()
                         .callPath(), "the returned line names the stack without the popped frame"));

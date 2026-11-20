@@ -195,16 +195,16 @@ class EngineResumeTest {
 
         for (var index = 0; index < EVENTS.size(); index++) {
             var stored = read();
-            assertEquals(expected.get(index), stored, "the store holds step " + index);
+            assertEquals(expected.get(index), stored, "the store holds the uninterrupted step");
             var restarted = restart();
             var event = EVENTS.get(index);
 
             var step = committed(transaction -> restarted.engine().advance(stored, event,
                     new WorkflowStatusStore(scope), transaction));
 
-            assertEquals(expected.get(index + 1), step.status(), "the next step after a stop at " + index);
+            assertEquals(expected.get(index + 1), step.status(), "the step after the stop is the uninterrupted one");
             assertTrue(restarted.fixtures().jobRequests.getValues().isEmpty(),
-                    "no job started again at " + index);
+                    "no job is started again after the stop");
         }
         assertEquals(expected.getLast(), read(), "the store ends where the run ended");
     }

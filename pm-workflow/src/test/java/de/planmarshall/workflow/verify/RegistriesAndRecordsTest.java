@@ -105,7 +105,7 @@ class RegistriesAndRecordsTest {
                         Stream.ofNullable(kind.entityUnit())))
                 .toList();
         assertTrue(defaultIdentifiers.stream().noneMatch(identifier -> identifier.startsWith("test.")),
-                () -> "the defaults name a test identifier: " + defaultIdentifiers);
+                "the defaults name no test identifier");
 
         var customName = "custom-" + Generators.letterStrings(1, 8).next();
         var customEvaluation = "eval-" + Generators.letterStrings(1, 8).next();

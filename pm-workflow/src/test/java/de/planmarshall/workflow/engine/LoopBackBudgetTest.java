@@ -201,8 +201,9 @@ class LoopBackBudgetTest {
 
             assertAll(
                     () -> assertTrue(loopBack.getMessage().contains("no remediation policy class"),
-                            loopBack.getMessage()),
-                    () -> assertTrue(retry.getMessage().contains("no remediation policy class"), retry.getMessage()),
+                            "the loop-back refusal names the retired class"),
+                    () -> assertTrue(retry.getMessage().contains("no remediation policy class"),
+                            "the retry refusal names the retired class"),
                     () -> assertThrows(IllegalArgumentException.class, builder::build,
                             "a stored spend counter is refused"));
         }

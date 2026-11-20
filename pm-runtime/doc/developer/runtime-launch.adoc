@@ -7,8 +7,6 @@ link:../../README.adoc[`pm-runtime`] » Worker Launch
 
 == What the package is for
 
-A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
-
 `de.planmarshall.runtime.launch` composes the launch of a worker, the job of kind `llm`: the argument vector, the
 environment, the working directory, the per-call MCP configuration and the `worker` block of its job record. It also
 owns the machine's harness enrolment store and the launch-time verification of the enrolled executable. It never
@@ -103,8 +101,8 @@ built (§ The Composed-Vector Check).
 == The Composed-Vector Check
 
 `WorkerVectorCheck` is the last step of the composition. `LaunchComposer.composeArgv` calls it on the vector it has
-filled and prefixed with the enrolled executable, before the ephemeral flag is withheld and before the `WorkerLaunch` is
-built; a violation throws `CompositionException.argumentRejected`, whose `refusal()` is
+filled and prefixed with the enrolled executable, after the ephemeral flag was withheld from the template and before
+the `WorkerLaunch` is built; a violation throws `CompositionException.argumentRejected`, whose `refusal()` is
 `LaunchRefusal.ARGUMENT_REJECTED` (`argument_rejected`). The supervisor records the refusal through the `refuseWorker`
 path it already uses, with the fate `refused`, and needs no change of its own (ADR
 link:../adr/runtime-launch/010-the-composed-vector-is-parsed-back.adoc[runtime-launch/010]).
@@ -179,7 +177,7 @@ caller ──> ModelSlotScheduler.request(request)
   before the cap is applied, so a slot a killed daemon left never keeps a worker out. The recovery of the runtime
   settles the instance's jobs before an admission runs, so the worker of a reaped slot has ended.
 * *The budget starts at the spawn*: the time a worker waits for a slot is outside its budget. The metrics row that
-  records it as `queued_ms` is written by the settlement seam, which is owed to PLAN-29 or PLAN-30.
+  records it as `queued_ms` is the settlement's; no class of this package writes it.
 
 The design is recorded in link:../adr/runtime-launch/005-model-slot-admission-in-one-store-transaction.adoc[ADR
 runtime-launch/005]. Tested by `ModelSlotSchedulerTest` (the FIFO, eight concurrent claims against a cap of two, the
@@ -243,27 +241,26 @@ runtime maps a worker's output line and a turn's usage without reading the profi
 verification: it maps a recorded output through the same mapper the stream reader uses and records per declared kind
 `reported` or `missing`; a kind that never appears fails the stage, and a harness whose profile declares no event stream
 is not measured by it (link:../adr/runtime-launch/006-the-events-stage-maps-a-recorded-output.adoc[ADR 006]). The
-recorded output is a fixture written for the test. Wiring the computed result into the verification record and the
-enrolment is owed (see § Owed).
+recorded output is a fixture written for the test. No class writes the computed result into the verification record and
+the enrolment (<<_not_implemented_here>>).
 
-== Owed
+== Not Implemented Here
 
-* *The events stage goes to the verification path*, which runs the profile verification and writes its record: the
-  computation here returns a `Result`; recording it in `VerificationRecord.stages` and `HarnessEnrolment.events` is that
-  path's. The recorded outputs per shipped harness version are written where the shipped profiles live.
-* *The start-failure guard goes to `supervisor` (PLAN-30)*, which resumes at 4-plan and is re-outlined against the merged
-  launch package. It hooks in at the worker start path: `SubprocessJobRunner.startWorker` returns a `Started` job and
-  `refuseWorker` a refused `JobId`; a refused launch (a `HarnessVerification.Refused` from `HarnessVerifier`) is the
-  start-failure event, counted per role and harness by the supervisor, with the tasks of the role closing `lost` with
-  `role_unavailable` after the compiled count.
-* *Specification sections left in place*: the launch sections of Model Work § Worker Launch are implemented and their
-  prose carries an `Implemented by` pointer; what remains in place is the start-failure guard (above) and, in
-  § Skill Delivery Record & Re-Delivery, the warm offer, the re-delivery, the offer bound, harness activation and the
-  `skills_not_loaded` submit refusal, which are the task protocol's.
-* *Output and usage reading* is not a Done-when clause of this package: the mapping of the output stream to activity,
-  the per-turn usage and the result parsing remain in Model Work § Output Read While the Worker Runs.
+* *The events stage is computed, not recorded*: the computation here returns a `Result`; recording it in
+  `VerificationRecord.stages` and `HarnessEnrolment.events` is the verification path's, which runs the profile
+  verification and writes its record. The recorded outputs per shipped harness version are written where the shipped
+  profiles live.
+* *A refused launch is not counted as a start failure*: a refused launch (a `HarnessVerification.Refused` from
+  `HarnessVerifier`, which `SubprocessJobRunner.refuseWorker` turns into a refused `JobId`) is a start failure the
+  supervisor counts per role and harness through `StartFailureGuard`, closing the tasks of the role `lost` with
+  `role_unavailable` after the compiled count; no production code calls `StartFailureGuard.startFailed`
+  (link:runtime-worker.adoc[`runtime.worker`] records the same). The warm offer, the re-delivery, the offer bound,
+  harness activation and the `skills_not_loaded` submit refusal of Model Work § Skill Delivery Record & Re-Delivery are
+  the task protocol's.
+* *Output and usage reading*: the mapping of the output stream to activity, the per-turn usage and the result parsing
+  are not this package's (Model Work § Output Read While the Worker Runs).
 * *The Linux child subreaper* of the launcher (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, a binary of `pm-mcp-clients`) is
-  owed by a package there; the runtime's descendant recording, sweep and audit are implemented
+  not part of this repository; the runtime's descendant recording, sweep and audit are implemented
   (ADR runtime-launch/003).
 
 == The Usage Report and the Start Context
@@ -274,7 +271,7 @@ context per class and model: the first-turn input, cache read and cache creation
 `HarnessEnrolmentStore` reads and writes the optional `start_context` array beside `source` and `figures`, and refuses an
 unknown class or a token value that is neither an integer nor `unmeasured`; its figure keys are the report's
 (`input`, `output`, `cache_read`, `cache_creation`, `reasoning`, `tool_uses`). The harness list of the onboarding and of
-the machine's settings (PLAN-46, `pm-mcp-clients`) renders the report as complete, partial with the missing figures, or
+the machine's settings (`pm-mcp-clients`) renders the report as complete, partial with the missing figures, or
 not reported, and the start context beside it.
 
 link:../adr/runtime-launch/007-the-usage-report-keeps-the-start-context.adoc[ADR 007]: the usage report kept with an

@@ -35,7 +35,7 @@ The git-tracked epic ledger `.marshall/epics/<epic_id>/` (link:../model-work/08-
 [#epic-header]
 === Epic Header (`epic.json`)
 
-The epic's identity and descriptive header. It carries no FSM state and no queue content. It is created by the `start.create-scope` transaction of the epic bootstrap (`bootstrap-epic`) from the title of `start-epic.ready`, the epic's sources, and the project's values of `epic.parallelization_scope`, `epic.auto_start`, and `epic.overlap_max_files` (compiled defaults `1`, `true`, and `0`; xref:08-project-configuration-local.adoc#epic-defaults[Operator Local Configuration, Epic Defaults]), none of which is asked at the start; adopting an existing ledger without machine scope (`start-epic.adopt`) only reads and validates it and never rewrites the header or a row; `workstreams` starts empty and is written when the operator agrees a decomposition draft (link:../model-work/08-epic-coordination.adoc#decomposition-review[Model Work Specification, The Decomposition Is Reviewed]). The operator changes `parallelization_scope` (through _Next plan_ or the epic's settings), `auto_start` (the epic's action _Automatic: on/off_), and `overlap_max_files` (the epic's settings) at any time; each change is a ledger write of the header, landed like every ledger write, told in the epic's events, and an `operator_action` that re-enters `epic.next-work` (link:../model-work/08-epic-coordination.adoc#epic-auto[Model Work Specification, An Epic Runs by Itself]).
+The epic's identity and descriptive header. It carries no FSM state and no queue content. It is created by the `start.create-scope` transaction of the epic bootstrap (`bootstrap-epic`) from the title of `start-epic.ready`, the epic's sources, and the project's values of `epic.parallelization_scope`, `epic.auto_start`, and `epic.overlap_max_files` (their compiled defaults: xref:08-project-configuration-local.adoc#epic-defaults[Operator Local Configuration, Epic Defaults]), none of which is asked at the start; adopting an existing ledger without machine scope (`start-epic.adopt`) only reads and validates it and never rewrites the header or a row; `workstreams` starts empty and is written when the operator agrees a decomposition draft (link:../model-work/08-epic-coordination.adoc#decomposition-review[Model Work Specification, The Decomposition Is Reviewed]). The operator changes `parallelization_scope` (through _Next plan_ or the epic's settings), `auto_start` (the epic's action _Automatic: on/off_), and `overlap_max_files` (the epic's settings) at any time; each change is a ledger write of the header, landed like every ledger write, told in the epic's events, and an `operator_action` that re-enters `epic.next-work` (link:../model-work/08-epic-coordination.adoc#epic-auto[Model Work Specification, An Epic Runs by Itself]).
 
 The schema is the file `pm-core/src/main/resources/de/planmarshall/core/store/epic.schema.json`.
 
@@ -45,7 +45,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/epic.sch
 ----
 
 
-*Epic intent* (`epic-intent`, the named parameter schema of the `decompose` entity's `submit intent`; model-work/08, Epic Intent):
+*Epic intent* (`epic-intent`, the named parameter schema of the `decompose` entity's `submit:intent`; model-work/08, Epic Intent):
 
 The schema is the file `pm-core/src/main/resources/de/planmarshall/core/store/epic-intent-v1.schema.json`.
 

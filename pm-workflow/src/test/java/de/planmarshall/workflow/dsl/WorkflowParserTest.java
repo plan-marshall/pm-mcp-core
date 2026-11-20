@@ -176,7 +176,7 @@ class WorkflowParserTest {
 
     private static WorkflowDefinition parse(String source) {
         var result = WorkflowParser.parse(RESOURCE, source, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> "refused: " + result).definition();
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the unit text follows the grammar").definition();
     }
 
     private static StateBehavior startBody(String source) {
@@ -865,7 +865,8 @@ class WorkflowParserTest {
             var reread = parse(printed);
 
             assertAll(
-                    () -> assertTrue(printed.contains("declare wait_after = []"), printed),
+                    () -> assertTrue(printed.contains("declare wait_after = []"),
+                            "the empty list is printed as []"),
                     () -> assertEquals(EMPTY, declared(reread), "the reread declaration is the empty list"),
                     () -> assertEquals(EMPTY, bound(reread), "the reread binding is the empty list"));
         }

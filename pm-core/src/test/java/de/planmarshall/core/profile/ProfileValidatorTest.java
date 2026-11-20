@@ -70,13 +70,15 @@ class ProfileValidatorTest {
         var rules = ProfileRules.none();
 
         if (!refused) {
-            assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, rules), because);
+            assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, rules),
+                    "a template with the slot exactly once loads");
             return;
         }
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(bytes, DOCUMENT, rules), because);
+                () -> ProfileValidator.validate(bytes, DOCUMENT, rules), "a template without the one slot is refused");
 
-        assertEquals("/skill_loading/load_directive_template", refusal.pointer(), because);
+        assertEquals("/skill_loading/load_directive_template", refusal.pointer(),
+                "the refusal points at the directive template");
     }
 
     @Test
@@ -101,6 +103,20 @@ class ProfileValidatorTest {
 
             ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none());
         }
+    }
+
+    @Test
+    @DisplayName("a threshold of the model id a/b below 10 000 is refused at the RFC 6901 pointer .../a~1b")
+    void longContextThresholdPointerIsEscaped() {
+        // the model id with a slash and the pointer escaping it as ~1 are the contract (RFC 6901)
+        var bytes = ProfileFixtures.valid().set("/headless/long_context_thresholds", Map.of("a/b", 9999)).bytes();
+        var rules = ProfileRules.none();
+
+        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileValidator.validate(bytes, DOCUMENT, rules),
+                "a threshold below the minimum must be refused");
+
+        assertEquals("/headless/long_context_thresholds/a~1b", refusal.pointer(),
+                "the refusal names the escaped model id");
     }
 
     @Test
@@ -548,12 +564,13 @@ class ProfileValidatorTest {
             var bytes = fixture.bytes();
             var rules = ProfileRules.none();
             var refusal = assertThrows(ProfileRefusal.class,
-                    () -> ProfileValidator.validate(bytes, DOCUMENT, rules), because);
+                    () -> ProfileValidator.validate(bytes, DOCUMENT, rules), "the failing value refuses the profile");
 
             assertAll(
-                    () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(), because),
-                    () -> assertEquals(DOCUMENT, refusal.document(), because),
-                    () -> assertEquals(pointer, refusal.pointer(), because));
+                    () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(),
+                            "the refusal's outcome is profile invalid"),
+                    () -> assertEquals(DOCUMENT, refusal.document(), "the refusal names the refused document"),
+                    () -> assertEquals(pointer, refusal.pointer(), "the refusal points at the failing value"));
         }
     }
 

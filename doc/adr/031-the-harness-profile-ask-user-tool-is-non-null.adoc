@@ -1,0 +1,46 @@
+= ADR 031: The Ask-User Tool of a Harness Profile Is Non-Null
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+`HarnessProfile` is the projection of a validated client profile that role validation reads (PM-CLIENT-2). Its
+component `askUserTool` names the harness tool that asks the user, which no role may name. The member it comes from,
+`tools.ask_user` of the profile document, is not present on every profile: an endpoint profile (Client Profiles § A
+Model on This Machine) has no tools at all. The Optional-to-`@Nullable` conversion of `pm-core` (PLAN-V2-97, ADR 021)
+kept the component a plain `String` without an ADR that records why (`landings/PLAN-V2-97.md` L2-6).
+
+== Decision
+
+`HarnessProfile.askUserTool` is a non-null `String`. A profile that names no ask-user tool projects to the empty
+string: `HarnessProfile.of(LoadedProfile)` reads `tools.ask_user` and falls back to `""`, and the endpoint projection
+writes `""`. The empty string is never a tool name a role can carry, so the check that no role names the ask-user
+tool needs no `null` branch; the absence is the empty string, not a `@Nullable` component.
+
+== Alternatives Considered
+
+1. **A `@Nullable String` for a profile without the tool**: *Rejected*: every reader would test for `null` before the
+   one comparison it makes, and the comparison against a role's tool names already answers "no match" for the empty
+   string.
+2. **`Optional<String>` as the component type**: *Rejected* by `CLAUDE.md` and ADR 021: `Optional` is a return type
+   only.
+
+== Consequences
+
+* A reader of `askUserTool()` compares without a `null` check; an empty value means the profile names no such tool.
+* A builder or a test that constructs a `HarnessProfile` passes `""` for a profile without the tool, never `null`.
+* A later change that needs to tell "no tool" from "an empty tool name" has to change the type and replaces this ADR.
+
+== Source
+
+* Pull requests of `PLAN-V2-158` (`null-contracts-and-optional-conversion`), carried item 5
+* `landings/PLAN-V2-97.md` L2-6
+* link:../../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[`HarnessProfile`]
+* ADR link:021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[021 `Optional` Fields, Parameters and Record Components Are Nullable States]

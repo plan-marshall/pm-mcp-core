@@ -219,7 +219,7 @@ class ItemGeneratorTest {
             var refusal = assertThrows(IllegalArgumentException.class,
                     () -> generate(row, fields), "a choice naming a missing field is refused");
 
-            assertTrue(refusal.getMessage().contains("'option_b'"), refusal::getMessage);
+            assertTrue(refusal.getMessage().contains("'option_b'"), "the refusal names the missing choice field");
         }
     }
 
@@ -250,7 +250,8 @@ class ItemGeneratorTest {
             var refusal = assertThrows(IllegalArgumentException.class,
                     () -> generate(row, fields), "a single brace in an alternative is a field");
 
-            assertTrue(refusal.getMessage().contains("has no field ' return; '"), refusal::getMessage);
+            assertTrue(refusal.getMessage().contains("has no field ' return; '"),
+                    "the refusal names the brace text as a field");
         }
 
         @Test
@@ -262,7 +263,8 @@ class ItemGeneratorTest {
             var refusal = assertThrows(IllegalArgumentException.class,
                     () -> generate(row, fields), "a single brace in the answer is a field");
 
-            assertTrue(refusal.getMessage().contains("has no field ' return; '"), refusal::getMessage);
+            assertTrue(refusal.getMessage().contains("has no field ' return; '"),
+                    "the refusal names the brace text as a field");
         }
 
         @Test
@@ -322,8 +324,8 @@ class ItemGeneratorTest {
             assertAll(
                     () -> assertNull(item.group(), "a row without a group gives no group"),
                     () -> assertNull(item.contamination(), "a row without a note gives no note"),
-                    () -> assertFalse(text.contains("\"group\""), text),
-                    () -> assertFalse(text.contains("\"contamination\""), text));
+                    () -> assertFalse(text.contains("\"group\""), "the item is written without a group"),
+                    () -> assertFalse(text.contains("\"contamination\""), "the item is written without a note"));
         }
     }
 
@@ -354,6 +356,6 @@ class ItemGeneratorTest {
         var refusal = assertThrows(IllegalArgumentException.class,
                 () -> ItemGenerator.fill(template, fields, LINE), "a template that names no field is refused");
 
-        assertTrue(refusal.getMessage().contains(detail), refusal::getMessage);
+        assertTrue(refusal.getMessage().contains(detail), "the refusal message names what is wrong");
     }
 }

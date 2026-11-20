@@ -12,10 +12,13 @@ package de.planmarshall.core.profile;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.networknt.schema.Schema;
+import com.networknt.schema.SchemaException;
+import java.io.FileNotFoundException;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -189,6 +192,31 @@ class EndpointProfileSchemaParityTest {
                 () -> assertTrue(fileRefusesHarness, "The file refuses the undeclared member"),
                 () -> assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(readerDocument),
                         "The reader refuses the undeclared member"));
+    }
+
+    /**
+     * Pins how the 3.0.9 registry treats the one reference of {@code harness-profile-v1.schema.json} that leaves the
+     * file: {@code headless.weights_probe} names {@code endpoint-profile.json#/$defs/weights_probe}, resolved against the
+     * harness file's {@code $id} to the endpoint file's {@code $id}. The registry of {@link SchemaValidation} fetches no
+     * remote resource and knows no other compiled schema, so the reference is refused when a document reaches it: the
+     * validation throws, it neither skips the reference nor reports an error item. The other seven references of the
+     * file point into its own {@code $defs}. The document is a wire-format fixture that only reaches the reference.
+     */
+    @Test
+    @DisplayName("the harness profile's reference to the endpoint profile is refused, never fetched or skipped")
+    void harnessReferenceToEndpointIsRefused() {
+        var harness = SchemaValidation.compile(SchemaResource.text(HARNESS));
+        var endpointId = String.valueOf(SchemaResource.load(SCHEMA).get("$id"));
+
+        var refusal = assertThrows(SchemaException.class,
+                () -> SchemaValidation.validate(harness, "{\"headless\": {\"weights_probe\": null}}"),
+                "the unresolvable reference throws, not skipped");
+
+        assertAll(
+                () -> assertInstanceOf(FileNotFoundException.class, refusal.getCause(),
+                        "the referenced schema is not found to load"),
+                () -> assertTrue(refusal.getMessage().contains(endpointId),
+                        "the refusal names the endpoint schema's id"));
     }
 
     private static Map<?, ?> block(String name) {

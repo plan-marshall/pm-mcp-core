@@ -106,7 +106,7 @@ class UnitFrontmatterReaderTest {
 
     private static UnitFrontmatterReader.Result.Read read(String source) {
         var result = UnitFrontmatterReader.read(RESOURCE, source);
-        return assertInstanceOf(UnitFrontmatterReader.Result.Read.class, result, () -> "refused: " + result);
+        return assertInstanceOf(UnitFrontmatterReader.Result.Read.class, result, "the frontmatter is read, not refused");
     }
 
     private static Diagnostic refuse(String source) {
@@ -117,11 +117,12 @@ class UnitFrontmatterReaderTest {
 
     private static void assertRefused(Diagnostic diagnostic, int line, int column) {
         assertAll(
-                () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(), diagnostic::message),
+                () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(),
+                        "the refusal is under the FRONTMATTER rule"),
                 () -> assertEquals(RESOURCE, diagnostic.resourceName(),
                         "the diagnostic names the resource"),
-                () -> assertEquals(line, diagnostic.line(), diagnostic::message),
-                () -> assertEquals(column, diagnostic.column(), diagnostic::message));
+                () -> assertEquals(line, diagnostic.line(), "the diagnostic names the refused line"),
+                () -> assertEquals(column, diagnostic.column(), "the diagnostic names the refused column"));
     }
 
     @Nested
@@ -459,7 +460,7 @@ class UnitFrontmatterReaderTest {
         void acceptsBound(String field, String key, String line) {
             var result = UnitFrontmatterReader.read(RESOURCE, unit(replaced(key, line)));
 
-            assertInstanceOf(UnitFrontmatterReader.Result.Read.class, result, () -> "refused: " + result);
+            assertInstanceOf(UnitFrontmatterReader.Result.Read.class, result, "a value at its bound is read");
         }
 
         @Test
@@ -526,9 +527,9 @@ class UnitFrontmatterReaderTest {
 
             assertAll(
                     () -> assertRefused(lf, expectedLine, expectedColumn),
-                    () -> assertTrue(lf.message().contains(codePoint), lf::message),
+                    () -> assertTrue(lf.message().contains(codePoint), "the LF refusal names the code point"),
                     () -> assertRefused(crlf, expectedLine, expectedColumn),
-                    () -> assertTrue(crlf.message().contains(codePoint), crlf::message));
+                    () -> assertTrue(crlf.message().contains(codePoint), "the CRLF refusal names the code point"));
         }
 
         static Stream<Arguments> acceptedLetters() {
@@ -782,9 +783,10 @@ class UnitFrontmatterReaderTest {
             var diagnostic = refuse(unit(inserted(lines.toArray(String[]::new))));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(), diagnostic::message),
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(),
+                            "the input overflow is a FRONTMATTER refusal"),
                     () -> assertTrue(diagnostic.message().contains(Integer.toString(UnitFrontmatterReader.MAX_INPUTS)),
-                            diagnostic::message));
+                            "the refusal names the input cap"));
         }
 
         @Test
@@ -799,9 +801,10 @@ class UnitFrontmatterReaderTest {
             var diagnostic = refuse(unit(inserted(lines.toArray(String[]::new))));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(), diagnostic::message),
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(),
+                            "the reads_config overflow is a FRONTMATTER refusal"),
                     () -> assertTrue(diagnostic.message().contains(Integer.toString(UnitFrontmatterReader.MAX_READS)),
-                            diagnostic::message));
+                            "the refusal names the reads cap"));
         }
 
         @Test
@@ -816,9 +819,10 @@ class UnitFrontmatterReaderTest {
             var diagnostic = refuse(unit(inserted(lines.toArray(String[]::new))));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(), diagnostic::message),
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule(),
+                            "the reads_fact overflow is a FRONTMATTER refusal"),
                     () -> assertTrue(diagnostic.message().contains(Integer.toString(UnitFrontmatterReader.MAX_READS)),
-                            diagnostic::message));
+                            "the refusal names the reads cap"));
         }
 
         @Test
@@ -882,7 +886,7 @@ class UnitFrontmatterReaderTest {
 
             assertRefused(diagnostic, UnitFrontmatterReader.MAX_FRONTMATTER_LINES + 1, 1);
             assertTrue(diagnostic.message().contains(Integer.toString(UnitFrontmatterReader.MAX_FRONTMATTER_LINES)),
-                    diagnostic::message);
+                    "the refusal names the line cap");
         }
 
         @Test
@@ -911,11 +915,13 @@ class UnitFrontmatterReaderTest {
 
             assertAll(
                     () -> assertRefused(inFull, APPENDED_LINE, 1),
-                    () -> assertTrue(inFull.message().contains("'" + atCap + "'"), inFull::message),
-                    () -> assertFalse(inFull.message().contains("..."), inFull::message),
+                    () -> assertTrue(inFull.message().contains("'" + atCap + "'"), "a key at the cap is echoed in full"),
+                    () -> assertFalse(inFull.message().contains("..."), "a key at the cap carries no ellipsis"),
                     () -> assertRefused(truncated, APPENDED_LINE, 1),
-                    () -> assertTrue(truncated.message().contains("'" + atCap + "...'"), truncated::message),
-                    () -> assertFalse(truncated.message().contains(onePast), truncated::message));
+                    () -> assertTrue(truncated.message().contains("'" + atCap + "...'"),
+                            "a key past the cap is cut with an ellipsis"),
+                    () -> assertFalse(truncated.message().contains(onePast),
+                            "a key past the cap is not echoed in full"));
         }
 
         @Test
@@ -928,8 +934,9 @@ class UnitFrontmatterReaderTest {
 
             assertAll(
                     () -> assertRefused(diagnostic, 11, 10),
-                    () -> assertTrue(diagnostic.message().contains(echoed + "..."), diagnostic::message),
-                    () -> assertFalse(diagnostic.message().contains(value), diagnostic::message));
+                    () -> assertTrue(diagnostic.message().contains(echoed + "..."),
+                            "the version echo is cut at the cap"),
+                    () -> assertFalse(diagnostic.message().contains(value), "the full version is not echoed"));
         }
 
         @Test
@@ -944,13 +951,14 @@ class UnitFrontmatterReaderTest {
 
             assertAll(
                     () -> assertTrue(farDiagnostic.message().contains(
-                            "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH) + "..."), farDiagnostic::message),
-                    () -> assertFalse(farDiagnostic.message().contains(far), farDiagnostic::message),
+                            "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH) + "..."),
+                            "a far-too-long key is cut at the cap"),
+                    () -> assertFalse(farDiagnostic.message().contains(far), "the far-too-long key is not echoed"),
                     () -> assertTrue(codePointDiagnostic.message().contains(
                                     "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH - 1) + supplement + "..."),
-                            codePointDiagnostic::message),
+                            "the cap counts the supplement as one point"),
                     () -> assertFalse(codePointDiagnostic.message().contains(codePoints),
-                            codePointDiagnostic::message));
+                            "the code-point key is not echoed in full"));
         }
 
         @Test

@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.RecordComponent;
@@ -19,7 +20,6 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import java.util.OptionalLong;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -71,10 +71,9 @@ class PlanTokensTest {
                 row("2", usage(200, 60, 0, 0, 10))));
 
         var aggregate = tokens.aggregate(UsageAggregate.Population.MODEL_JOB).orElseThrow();
-        assertAll(() -> assertEquals(OptionalLong.of(425), aggregate.totalTokens(),
-                        "the plan total covers all rows"),
-                () -> assertEquals(OptionalLong.of(315), aggregate.tokensIn(), "the input tokens sum the rows"),
-                () -> assertEquals(OptionalLong.of(110), aggregate.tokensOut(), "the output tokens sum the rows"),
+        assertAll(() -> assertEquals(425L, aggregate.totalTokens(), "the plan total covers all rows"),
+                () -> assertEquals(315L, aggregate.tokensIn(), "the input tokens sum the rows"),
+                () -> assertEquals(110L, aggregate.tokensOut(), "the output tokens sum the rows"),
                 () -> assertEquals(2, aggregate.rows(), "both metrics rows are counted"),
                 () -> assertFalse(aggregate.totalIsFloor(), "a measured total is no floor"),
                 () -> assertEquals(planId, tokens.planId(), "the plan keeps its identifier"));
@@ -106,14 +105,13 @@ class PlanTokensTest {
         var epic = EpicTokens.of(epicId, List.of(refused), List.of(first, second));
 
         var aggregate = epic.aggregate(UsageAggregate.Population.MODEL_JOB).orElseThrow();
-        assertAll(() -> assertEquals(OptionalLong.of(400), aggregate.totalTokens(),
-                        "the epic total sums plans and rows"),
+        assertAll(() -> assertEquals(400L, aggregate.totalTokens(), "the epic total sums plans and rows"),
                 () -> assertEquals(3, aggregate.populationCount(), "three populations feed the epic"),
                 () -> assertEquals(1, aggregate.rowsUnmeasured(), "one metrics row is unmeasured"),
                 () -> assertTrue(aggregate.totalIsFloor(), "an unmeasured part makes a floor"),
                 () -> assertEquals(epicId, epic.epicId(), "the epic keeps its identifier"),
-                () -> assertEquals(OptionalLong.empty(), aggregate.tokensIn(), "the input split stays unknown"),
-                () -> assertEquals(OptionalLong.empty(), aggregate.tokensOut(), "the output split stays unknown"));
+                () -> assertNull(aggregate.tokensIn(), "the input split stays unknown"),
+                () -> assertNull(aggregate.tokensOut(), "the output split stays unknown"));
     }
 
     @Test

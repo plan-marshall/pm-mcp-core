@@ -69,7 +69,8 @@ class PlanInstanceResourcesTest {
     /** @return the version 1 the composer returns for the fixture plan */
     private static PlanInstance version1() {
         var result = PlanFixtures.composer().compose(PlanFixtures.start(PlanFixtures.facts().build()));
-        return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+        return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
+                .instance();
     }
 
     /** @return the texts of the sub-units the fixture plan names, each with its reference */

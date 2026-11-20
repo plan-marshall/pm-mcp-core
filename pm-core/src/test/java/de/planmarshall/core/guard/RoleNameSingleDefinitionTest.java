@@ -10,6 +10,7 @@
 package de.planmarshall.core.guard;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -81,11 +82,10 @@ class RoleNameSingleDefinitionTest {
             checks.add(() -> assertTrue(scannedRoots.contains(root.relativize(productionRoot)),
                     "The scan should reach the production root of " + module));
         }
-        checks.add(() -> assertTrue(emptyRoots.isEmpty(),
-                () -> "Every production source root should hold a Java file: " + emptyRoots));
-        checks.add(() -> assertTrue(offenders.isEmpty(),
-                () -> "The name grammar is defined once, in ShortName; these files carry a copy (use RoleName "
-                        + "or HarnessId): " + offenders));
+        checks.add(() -> assertEquals(List.of(), emptyRoots,
+                "Every production source root should hold a Java file"));
+        checks.add(() -> assertEquals(List.of(), offenders,
+                "A file copies the name grammar; use RoleName or HarnessId"));
         assertAll(checks.stream());
     }
 

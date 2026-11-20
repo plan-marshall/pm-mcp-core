@@ -12,6 +12,7 @@ package de.planmarshall.core.profile;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,7 +54,7 @@ class WorkerParametersTest {
 
             assertAll("claude worker parameters",
                     () -> assertTrue(parameters.eligible(), "claude may host workers"),
-                    () -> assertTrue(parameters.ackDeadlineSeconds().isEmpty(),
+                    () -> assertNull(parameters.ackDeadlineSeconds(),
                             "claude declares no acknowledgement deadline"),
                     () -> assertFalse(parameters.ackInformational(), "claude's acknowledgement is not informational"),
                     () -> assertEquals(30, parameters.silenceGraceSeconds(), "claude's silence grace is 30 seconds"),
@@ -71,7 +72,7 @@ class WorkerParametersTest {
 
             assertAll("opencode worker parameters",
                     () -> assertTrue(parameters.eligible(), "opencode may host workers"),
-                    () -> assertEquals(270, parameters.ackDeadlineSeconds().orElseThrow(),
+                    () -> assertEquals(270, parameters.ackDeadlineSeconds(),
                             "opencode's acknowledgement deadline is 270 seconds"),
                     () -> assertTrue(parameters.ackInformational(),
                             "opencode's acknowledgement is informational"),
@@ -94,7 +95,7 @@ class WorkerParametersTest {
         void informationalDeadlineIsTheSilenceLimit() {
             var parameters = WorkerParameters.of(shipped("opencode"));
 
-            assertEquals(parameters.silenceLimitSeconds(), parameters.ackDeadlineSeconds().orElseThrow(),
+            assertEquals(parameters.silenceLimitSeconds(), parameters.ackDeadlineSeconds(),
                     "informational ack deadlines at silence limit");
         }
 
@@ -181,7 +182,7 @@ class WorkerParametersTest {
 
             assertAll("declared values of an ineligible host",
                     () -> assertFalse(parameters.eligible(), "a declared value does not make the host eligible"),
-                    () -> assertEquals(600, parameters.ackDeadlineSeconds().orElseThrow(),
+                    () -> assertEquals(600, parameters.ackDeadlineSeconds(),
                             "the declared deadline is carried as declared"),
                     () -> assertEquals(600, parameters.silenceGraceSeconds(),
                             "the declared grace is carried as declared"),
@@ -203,7 +204,7 @@ class WorkerParametersTest {
 
             assertAll("ineligible host parameters",
                     () -> assertFalse(parameters.eligible(), "the host is ineligible"),
-                    () -> assertTrue(parameters.ackDeadlineSeconds().isEmpty(),
+                    () -> assertNull(parameters.ackDeadlineSeconds(),
                             "the host declares no acknowledgement deadline"),
                     () -> assertFalse(parameters.ackInformational(), "the host declares no acknowledgement form"),
                     () -> assertEquals(0, parameters.silenceGraceSeconds(), "the host declares no silence grace"),

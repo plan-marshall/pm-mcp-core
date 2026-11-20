@@ -127,7 +127,7 @@ class PlanSchemaFilesTest {
         collectLocalRefs(schema, refs);
 
         refs.forEach(ref -> assertDoesNotThrow(() -> resolve(schema, ref),
-                "every local reference should resolve: " + ref));
+                "every local reference of the schema resolves"));
     }
 
     @Test

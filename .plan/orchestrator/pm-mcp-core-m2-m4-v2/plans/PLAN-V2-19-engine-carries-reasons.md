@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-01
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
 > Lives at `plans/PLAN-V2-19-engine-carries-reasons.md` and is queued as one row file, `queue/PLAN-V2-19.json`,
-> in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `plan-marshall`: a normal-sized engine plan, run with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
 > authored here and the epic-wide rules are in `standing-rules.md`, read first.
@@ -134,7 +134,7 @@ Not surface (R19, shared bookkeeping): `doc/plans/README.adoc`, `doc/Traceabilit
 
 - **Landing note (2026-10-29):** PLAN-105 landed (#230): the merged `left` line is `PlanHistoryLine(formatVersion=1, seq, event, node, callPath, phase, outcome, instanceVersion, at)` with no reason member; a reason needs a new member and a `FORMAT_VERSION` decision (Deliverable 2 stays conditional); the append sites are `Run.record` and `recordHistory`.
 - Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-V2-01 (`primitive-failure-reasons`); PLAN-V2-15 (`call-time-inputs-and-slots`) and PLAN-105 (`plan-instance-files-and-history`, landed #230) — the engine, the call frame and the history are theirs first.
-- Note 2026-11-19: PLAN-V2-15 shipped as #513 in part (the identity types, the persistence of the frame and the slots, `CommitInput.paths` are in; the call-time bind, the slots' passage through pruning and composition, the caps and the provider contract are not, `landings/PLAN-V2-15.md`). The remainder is PLAN-V2-157, which rewrites `WorkflowEngine.call`, `CallStack` and `ast.CallFrame`; this plan waits for it and is emitted after 157 lands.
+- Note 2026-11-20: PLAN-V2-15 (#513) shipped in part and its remainder PLAN-V2-157 shipped as #522 (the call-time bind, the slots through composition and pruning, the caps, the provider contract: `landings/PLAN-V2-157.md`); this plan no longer waits for it. The closeout of that family is PLAN-V2-164 (`call-bind-closeout`: the free-parameter validation of a call, the tests the guides cite, Rule 6), which edits `WorkflowEngine` and `CallStack` too: the gate decides the overlap at emit, and the engine track is sequenced 164, then 19, then 25 (20's D3 reads the bind as 157 left it).
 - **Overlaps with live plans** (exact entries of the Expected Surfaces, counted over `plans/*.md` on 2026-10-29, live = staged, running, parked): `WorkflowEngine.java`: `PLAN-V2-21`, `PLAN-V2-42`, `PLAN-V2-13`, `PLAN-105`, `PLAN-V2-15` 5 files-in-common with five plans; `WorkflowValidator.java`: `PLAN-V2-13`, `PLAN-V2-06`, `PLAN-V2-04`, `PLAN-V2-15` 4; `WorkflowValidatorTest.java`: `PLAN-V2-13`, `PLAN-V2-04`, `PLAN-V2-15` 3; `04-ast-node-model.adoc`: `PLAN-V2-69`, `PLAN-V2-13`, `PLAN-V2-04`, `PLAN-V2-15` 4; the watch document: `PLAN-V2-69`, `PLAN-V2-13`, `PLAN-V2-78` (parked), `PLAN-V2-44`, `PLAN-V2-04`, `PLAN-V2-15`, `PLAN-V2-20` 7 (different items; byte-disjoint hunks); `state-catalogue/01-conventions-generic-conditions.adoc`: `PLAN-V2-21`, `PLAN-V2-74` (parked) 2; `05-primitives.adoc`: `PLAN-V2-69`, `PLAN-V2-20` 2; `store-schemas/02` and `PlanHistory*` (Deliverable 2 only): `PLAN-V2-21`, `PLAN-V2-26`, `PLAN-V2-75`, `PLAN-V2-13`, `PLAN-105`, `PLAN-V2-15` for the first; `PLAN-105` (3 entries) and `PLAN-V2-26` (reads the history) for the second. `EngineFixtures`, `ScenarioFixtures`, `WorkflowEngineTest` are read, not edited: 0. `PLAN-46`, `PLAN-V2-39`, `PLAN-V2-43`, `PLAN-V2-57`, `PLAN-V2-33` to `PLAN-V2-58`: 0.
 - **Verdict for the disjointness gate:** NOT disjoint from `PLAN-V2-13` (6 entries: `WorkflowEngine`, `WorkflowValidator`, `WorkflowValidatorTest`, `04-ast-node-model`, the watch, `05-…` only through `PLAN-V2-69`), `PLAN-V2-21`, `PLAN-V2-42`, `PLAN-V2-06`, `PLAN-V2-04`; sequenced after `PLAN-V2-01`, `PLAN-V2-15` and `PLAN-105` by its dependencies. Do not emit together with `PLAN-V2-13` (the operator declined a 13-entry pairing of `PLAN-42` and `PLAN-V2-13` on 2026-10-25; this pair is smaller at 6 entries but both rewrite the engine): recommended order `PLAN-V2-01` (beside 159 to 161), `PLAN-V2-15`, `PLAN-V2-19`, `PLAN-V2-25`, then `PLAN-V2-13`, so that the larger plan rebases once.
 - Blocks: `PLAN-V2-25` (`command-record-and-dispatch`).
@@ -181,7 +181,7 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf 
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-19-engine-carries-reasons.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-19-engine-carries-reasons.md"
 ```
 
 ## Write-Boundary

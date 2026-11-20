@@ -12,6 +12,13 @@ The line is the first sentence of the package's `package-info.java`.
 * `de.planmarshall.provider.git`: the git contract of PM-MCP and its native variant on JGit.
 * `de.planmarshall.provider.git.ported` (test tree): the ported-primitive tests of the git contract (PM-TEST-2, PM-MIG-4): Java tests of a primitive whose `plan-marshall` original is classified `Ported` in the migration inventory.
 
+== Null Contract
+
+The packages are `@NullMarked`. A field, parameter or record component whose value may be absent is `@Nullable T`;
+absence a method returns is `Optional<T>`
+(link:../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[ADR 013],
+link:../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[ADR 021]).
+
 == Build and Test
 
 Run from the root of the repository:

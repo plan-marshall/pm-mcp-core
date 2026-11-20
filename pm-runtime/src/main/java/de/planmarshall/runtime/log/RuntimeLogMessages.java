@@ -1230,6 +1230,43 @@ public final class RuntimeLogMessages {
                 .identifier(148)
                 .template("The git metadata change of project '%s' could not be reported: %s")
                 .build();
+
+        /**
+         * Logged when one generation's step of a supervision pass fails: the failure is that generation's, and the
+         * later generations and the idle yield still run. Names the generation and the failure, never a store content.
+         * <p>
+         * The component is {@code SupervisionPass} of the worker package.
+         */
+        public static final LogRecord WORKER_ADVANCE_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(149)
+                .template("The supervision pass could not advance generation '%s': %s")
+                .build();
+
+        /**
+         * Logged when the idle yield of a supervision pass fails: the yield is reported instead of replacing the
+         * failure of a generation's step that is still in flight.
+         * <p>
+         * The component is {@code SupervisionPass} of the worker package.
+         */
+        public static final LogRecord WORKER_IDLE_YIELD_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(150)
+                .template("The idle yield of the supervision pass failed: %s")
+                .build();
+
+        /**
+         * Logged when the worker block of a settled record cannot be read: the settlement leaves a block the codec
+         * refuses as it is, so the fate stays durable, and the end is completed without the terminal state the block
+         * would carry instead of failing on every pass.
+         * <p>
+         * The component is {@code WorkerEnding} of the worker package.
+         */
+        public static final LogRecord WORKER_TERMINAL_STATE_UNREADABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(151)
+                .template("The terminal worker state of generation '%s' cannot be read: %s")
+                .build();
     }
 
     /** ERROR level messages. */

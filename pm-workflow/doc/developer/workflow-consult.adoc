@@ -96,8 +96,8 @@ tick.
 
 `validateSubmit` compares the `consultation_ids` of a submit with the consultations delivered to the task: every
 delivered id must be listed, and no other. A mismatch is refused `invalid_link_args` with a reason that names the
-missing or unknown reference; the worker may submit again. The server calls it in its submit path before it accepts the
-submission.
+missing or unknown reference; the worker may submit again. No production submit path calls it yet, neither in this
+repository nor in `plan-marshall-mcp`, so the refusal is not built (Model Work § The Submit Refers to the Consultation).
 
 == How to use and extend it
 
@@ -105,8 +105,9 @@ Build the service over the project's queue: `new ConsultationService(queue)`. A 
 state's declaration, the role's class, and its own effective harness and model), then calls `open`; the consulted
 role's supervisor serves the consultation task with its own wait. The server calls `answer` when a consultation entity
 follows `submit:answer`, `lost` when the model caller cannot serve the role, `facts` for the asking entity's
-representation, `links` for the consultation links of an executing task, `validateSubmit` before it accepts a submit,
-and `reconcile` on its queue reconciliation tick.
+representation, `links` for the consultation links of an executing task, and `reconcile` on its queue reconciliation
+tick; `validateSubmit` is there for the submit path to call before it accepts a submit, which no production submit
+path does yet.
 
 A new rule of the link is a new check in `ConsultationService.links` and in the matching `openRefusal`, derived from
 the task record; a new delivery place is a new `DeliveredTo` value of the record schema and a branch of `settleAsker`.

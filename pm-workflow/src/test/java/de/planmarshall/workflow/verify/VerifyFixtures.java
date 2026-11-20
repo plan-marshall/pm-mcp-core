@@ -141,14 +141,14 @@ final class VerifyFixtures {
      */
     static void assertRefusedExactly(String resource, List<Violation> found) {
         var expected = expectations(resource);
-        assertFalse(expected.isEmpty(), () -> resource + " states no expectation");
+        assertFalse(expected.isEmpty(), "the refusing fixture states an expectation");
         var reported = new ArrayList<Expectation>();
         for (var index = 0; index < found.size(); index++) {
             var violation = Expectation.of(found.get(index));
             var columnStated = index < expected.size() && expected.get(index).column() != Expectation.UNSTATED;
             reported.add(columnStated ? violation : violation.withoutColumn());
         }
-        assertEquals(expected, reported, () -> resource + " reported " + found);
+        assertEquals(expected, reported, "the reported violations equal the expected");
     }
 
     /**
@@ -267,7 +267,7 @@ final class VerifyFixtures {
      */
     static WorkflowDefinition parseSource(String resourceName, String source) {
         var result = WorkflowParser.parse(resourceName, source, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> resourceName + " was refused: " + result)
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the unit text follows the grammar")
                 .definition();
     }
 }

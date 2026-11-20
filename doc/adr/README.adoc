@@ -25,6 +25,14 @@ link:007-specifications-of-the-engine-in-this-repository.adoc[007 The Specificat
 The repository:
 
 * link:./[`doc/adr/`]: the decisions that concern the whole repository.
+** link:001-java-25-baseline.adoc[001 Java 25 as the Language Baseline]: the language level of every module.
+** link:002-cui-http-and-the-mock-web-server-for-http.adoc[002 `cui-http` for HTTP Calls, the Mock Web Server for HTTP Tests]: superseded by ADR 017.
+** link:003-log-identifiers-per-workstream-block.adoc[003 Log Identifiers in Three Digits, One Block per Workstream]: superseded by ADR 005.
+** link:004-module-documentation-layout.adoc[004 The Module Documentation Layout]: where the README, the developer guides and the ADRs of a module live; amended by ADR 007.
+** link:005-one-log-message-holder-per-module.adoc[005 One Log-Message Holder per Module]: one holder class and one identifier prefix per module.
+** link:006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[006 The Corpus Fetch Split Across `pm-core`, `pm-provider-git` and `pm-runtime`]: which module owns which part of the corpus fetch.
+** link:007-specifications-of-the-engine-in-this-repository.adoc[007 The Specifications of the Engine in This Repository]: the engine's specifications, watch and traceability live beside its code; amended by ADR 016.
+** link:008-ignore-s4032-for-package-info.adoc[008 Ignore `java:S4032` for the `package-info.java` of a package without types]: the Sonar rule is ignored for such a file.
 ** link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009 No Build Skip for a Specification-Only Pull Request]: superseded by ADR 015, and its premise retired by ADR 016.
 ** link:010-the-coding-skills-and-the-accepted-exception.adoc[010 The Coding Skills and the Accepted Exception]: the marketplace coding skills bind every plan that touches Java, the six dependencies they need are allowed, and tests follow behaviour (the one accepted exception).
 ** link:011-ignore-s4449-for-jspecify-null-safety.adoc[011 Ignore java:S4449 for the JSpecify Null Contract]: the Sonar rule that asks for `javax.annotation.Nullable` is ignored for Java sources, because the repository's nullable marker is JSpecify's.
@@ -36,8 +44,10 @@ The repository:
 ** link:017-http-tests-through-mock-response-config-and-module-dispatcher.adoc[017 HTTP Tests Through `@MockResponseConfig` and `@ModuleDispatcher`]: every HTTP test serves its canned responses through `@MockResponseConfig` or a `ModuleDispatcherElement` under `@ModuleDispatcher`, with the base URI from the injected `URIBuilder` and no hand-written `Dispatcher`; supersedes ADR 002, whose `cui-http` and two-origin rules it keeps.
 ** link:018-placement-of-schema-files-without-a-codec-of-their-own.adoc[018 Placement of Schema Files Without a Codec of Their Own]: a record without a codec of its own goes with the codec of the store that holds it, a schema whose codec lies in `pm-workflow` lies in `pm-workflow`, with the placement of the 27 files of `schema-files-tested-records` as the source.
 ** link:019-generated-log-message-listings.adoc[019 The Log Message Listings Are Generated from the Holders]: the identifier and template of every record are generated from its holder into `doc/log-messages/<module>.adoc`, included by `doc/LogMessages.adoc`, and compared byte for byte by each module's holder test; the Component and Description columns move to the record's Javadoc.
+** 020: never assigned. No ADR of `main` and no open branch of `origin` carries a `doc/adr/020-*` (checked on
+   2026-11-20); the number stays free and is not reused, as the numbering rule above says.
 ** link:021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[021 `Optional` Fields, Parameters and Record Components Are Nullable States]: the conversion rule of `pm-core`, the container that keeps an `Optional` element, and the unchanged stored formats.
-** link:022-the-effective-idle-wakeups-are-an-optionalint.adoc[022 The Effective Idle Wakeups Are an `OptionalInt`]: the absence of the effective idle wakeups is a value type, not a null-boxed `Integer`.
+** link:022-the-effective-idle-wakeups-are-an-optionalint.adoc[022 The Effective Idle Wakeups Are an `OptionalInt`]: the absence of the effective idle wakeups is a value type, not a null-boxed `Integer`; superseded by ADR 029.
 ** link:023-the-outbound-call-guard-lives-in-pm-runtime.adoc[023 The Outbound-Call Guard Lives in `pm-runtime`]: the closed list of outbound calls is held by an ArchUnit rule in `pm-runtime` (a primitive rule and a destination list, each with its controls), the exemption map is by class with a reason, listening sockets are not connections, the integration test behind a recording network stays owed, and the decision settles what ADR `runtime-endpoint/006` (deleted by `deferred-code-removal`) called "owed … reported to the milestone exit".
 ** link:024-verify-duration-measured-and-cut.adoc[024 The Duration of the Full Verify, Measured and Cut]: the measured baseline of the full verify per module and phase with the host load of every run (the idle `verify -Ppre-commit` takes about 650 s, the reported 22 minutes are the coverage lane), the quality baseline per module, the ranked cost table with a cause and a decision per item above 5 s, and the build-level and test-level changes taken from it.
 ** link:025-test-design-layering-base-classes-and-fixtures.adoc[025 The Test Design: Layering, Base Classes and Fixtures]: the findings per module before the rework — the layers the suite mixes in one lane, the fixtures and base classes that cost time or hide duplication (`JobEnrolmentFixture`, `TestBases`, the published fakes, the abstract fixtures of `pm-core`), the tests that duplicate each other by construction (one builder test per record, one test per generator and per schema), and the structure the reworked design needs; the decision makes that structure the target design and applies it
@@ -46,16 +56,26 @@ records the leads (fixtures in `pm-core:tests`, `toBuilder` on `ProjectEnrolment
 ** link:026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc[026 The Kept Hand-Written Test Doubles Are a Closed List]: the definition of a hand-written double, the scan and its exclusion of `testing/generators/`, the closed list of sound keeps K1 to K9 and F1 to F3 with the reasons S1 to S3, the converted population, and the unchanged published surface (`FakeBus`, `FakeSecretService`, `FakePmExec`, `TestBases`).
 ** link:027-condense-and-point-the-implemented-specification-parts.adoc[027 Reduce an Implemented Specification Part by Condensing and Pointing]: an implemented section keeps its heading and anchor and shrinks to the one statement plus the developer-guide link, no "Implemented by" or "Remaining:" paragraph is written, `doc/Traceability.adoc` holds the evidence, a watch item is deleted only when a named test covers its guard, and a reduction changes no `include::` line and no schema file.
 ** link:028-the-json-schema-validator-is-on-the-3-line.adoc[028 The JSON Schema Validator Is on the 3.x Line]: the validator moves from 1.5.8 to 3.0.9, Jackson 3 joins the test classpath of `pm-core` alone, one shared helper `SchemaValidation` in the test tree carries the call, and the resolved Jackson 3 versions are the ones the library was released against (the one mediation is the parent chain's `slf4j-api` 2.0.18).
+** link:029-primitive-optional-components-are-nullable-boxed-numbers.adoc[029 Primitive-Optional Record Components Are Nullable Boxed Numbers]: a record component that may be absent and holds a number is `@Nullable Integer` or `@Nullable Long`, never an `OptionalInt` or `OptionalLong`; `null` is the absence and `0` a value, with the 17 components PLAN-V2-158 converted; supersedes ADR 022.
+** link:030-the-usage-aggregate-population-is-non-null.adoc[030 The Population of a Usage Aggregate Is Non-Null]: every aggregate names the population its figures count, the empty one included, so a sum never mixes populations; the absent states are the figures.
+** link:031-the-harness-profile-ask-user-tool-is-non-null.adoc[031 The Ask-User Tool of a Harness Profile Is Non-Null]: a profile that names no ask-user tool projects to the empty string, never to `null`.
+** link:032-a-named-effort-value-is-never-null.adoc[032 A Named Effort Value Is Never Null]: `RoleAssignmentValue` keeps refusing a `VALUE` effort whose value is `null`, because it would be written as `effort: null` and read back as `DEFAULT`.
+** link:033-the-toon-builder-takes-no-optional-member.adoc[033 The TOON Object Builder Takes No `Optional` Member]: `ToonObject.Builder` omits a field on a `null` argument and has no `add(String, Optional)` overload.
 
 `pm-core`:
 
 * link:../../pm-core/doc/adr/core-analysis/[`pm-core/doc/adr/core-analysis/`]: the code-analysis contract.
+* link:../../pm-core/doc/adr/core-architecture/[`pm-core/doc/adr/core-architecture/`]: the architecture values; the enrichment cost as a compiled token estimate.
+* link:../../pm-core/doc/adr/core-build/[`pm-core/doc/adr/core-build/`]: the build output parsers, the unparsed excerpt, the coverage model, the redactor and the bounds of untrusted build input.
+* link:../../pm-core/doc/adr/core-config/[`pm-core/doc/adr/core-config/`]: the settings conflict, the consent gate, the compiled key table and its value domain, the remembered checkout consent and the rule that decides a project value over the machine's.
 * link:../../pm-core/doc/adr/core-findings/[`pm-core/doc/adr/core-findings/`]: the findings contract.
-* link:../../pm-core/doc/adr/core-profile/[`pm-core/doc/adr/core-profile/`]: the client profile validator, its record and sidecar, the refused profile as a value, the installation data and the schema literals.
-* link:../../pm-core/doc/adr/core-queue/[`pm-core/doc/adr/core-queue/`]: the ADRs of the record this package removed; ADR 002 stands, ADRs 001 and 003 are superseded.
+* link:../../pm-core/doc/adr/core-id/[`pm-core/doc/adr/core-id/`]: the identifier types; the one definition of the short-name grammar.
+* link:../../pm-core/doc/adr/core-profile/[`pm-core/doc/adr/core-profile/`]: the client profile validator, its record and sidecar, the refused profile as a value, the installation data, the schema literals, the endpoint profile, the ordered scan and list, the verification gate, the idle margin and the long-context thresholds. The numbers 008 and 009 were never assigned.
+* link:../../pm-core/doc/adr/core-queue/[`pm-core/doc/adr/core-queue/`]: the task queue; ADRs 001 and 003 are superseded, ADRs 002, 004 to 008 and 010 stand (the generation fence, the record's combinations at the write boundary, the journal's sibling lock, the projected events mapping, the journal's masking and the refused destination). Number 009 was removed with the code it decided.
+* link:../../pm-core/doc/adr/core-role/[`pm-core/doc/adr/core-role/`]: the role sets, the digests of the effective configuration, the qualification and grading records and where the grading adapter lives.
 * link:../../pm-core/doc/adr/core-role-corpus/[`pm-core/doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
 * link:../../pm-core/doc/adr/core-service/[`pm-core/doc/adr/core-service/`]: the service interfaces.
-* link:../../pm-core/doc/adr/core-spi/[`pm-core/doc/adr/core-spi/`]: the primitive SPI and the content validators.
+* link:../../pm-core/doc/adr/core-spi/[`pm-core/doc/adr/core-spi/`]: the primitive SPI and the content validators. Number 003 was removed with the code it decided.
 * link:../../pm-core/doc/adr/core-store/[`pm-core/doc/adr/core-store/`]: the state stores and the engine ports.
 
 `pm-provider-ci`:
@@ -78,22 +98,38 @@ records the leads (fixtures in `pm-core:tests`, `toBuilder` on `ProjectEnrolment
 `pm-runtime`:
 
 * link:../../pm-runtime/doc/adr/runtime-audit/[`pm-runtime/doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
+* link:../../pm-runtime/doc/adr/runtime-config/[`pm-runtime/doc/adr/runtime-config/`]: the machine configuration's provider defaults, the machine's settings and plan defaults beside them, and the settings states.
 * link:../../pm-runtime/doc/adr/runtime-credentials/[`pm-runtime/doc/adr/runtime-credentials/`]: the recorded credential store, its first recording and the move between the stores.
+* link:../../pm-runtime/doc/adr/runtime-endpoint/[`pm-runtime/doc/adr/runtime-endpoint/`]: the endpoint harness: the chat path, the owner check, the closed answer schema subset and the context-budget estimate. The numbers 005 to 007 were removed with the code they decided.
 * link:../../pm-runtime/doc/adr/runtime-enrolment/[`pm-runtime/doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
 * link:../../pm-runtime/doc/adr/runtime-job/[`pm-runtime/doc/adr/runtime-job/`]: the verification of a job and the job runner.
+* link:../../pm-runtime/doc/adr/runtime-launch/[`pm-runtime/doc/adr/runtime-launch/`]: the worker launch from the profile's headless block, the harness verification before every spawn, the start through the job runner, the model-slot admission, the events stage and the usage report kept with an enrolment. Number 009 is held by an unmerged branch and not reused.
 * link:../../pm-runtime/doc/adr/runtime-lock/[`pm-runtime/doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.
 * link:../../pm-runtime/doc/adr/runtime-lsp/[`pm-runtime/doc/adr/runtime-lsp/`]: the language-server client and the condition its diagnostics are waited on.
 * link:../../pm-runtime/doc/adr/runtime-question/[`pm-runtime/doc/adr/runtime-question/`]: the question record reader of the engine port.
 * link:../../pm-runtime/doc/adr/runtime-start/[`pm-runtime/doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime.
+* link:../../pm-runtime/doc/adr/runtime-web/[`pm-runtime/doc/adr/runtime-web/`]: the activity served from a cursor and a pull stream.
+* link:../../pm-runtime/doc/adr/runtime-worker/[`pm-runtime/doc/adr/runtime-worker/`]: the worker supervisor: one per project and role, the protocol adapter, the worker state in the job record, the deadlines, the verification-record gate, idle, the activity recorder, the stream reader, the hold and the end of a generation.
 
 `pm-workflow`:
 
 * link:../../pm-workflow/doc/adr/workflow-ast/[`pm-workflow/doc/adr/workflow-ast/`]: the tree of the workflow language.
+* link:../../pm-workflow/doc/adr/workflow-consult/[`pm-workflow/doc/adr/workflow-consult/`]: the consultation: its delivery, its link rules, its record in the asking task and the links its task refuses.
 * link:../../pm-workflow/doc/adr/workflow-diagram/[`pm-workflow/doc/adr/workflow-diagram/`]: the documentation generator of a workflow unit.
 * link:../../pm-workflow/doc/adr/workflow-dsl/[`pm-workflow/doc/adr/workflow-dsl/`]: the parser and printer of the workflow language.
 * link:../../pm-workflow/doc/adr/workflow-engine/[`pm-workflow/doc/adr/workflow-engine/`]: the interpreter of the state machine.
 * link:../../pm-workflow/doc/adr/workflow-envelope/[`pm-workflow/doc/adr/workflow-envelope/`]: the cost sizing, the size-to-token table and the envelope budget.
+* link:../../pm-workflow/doc/adr/workflow-finalize/[`pm-workflow/doc/adr/workflow-finalize/`]: the finalize step descriptor and the pipeline checks.
+* link:../../pm-workflow/doc/adr/workflow-hypermedia/[`pm-workflow/doc/adr/workflow-hypermedia/`]: the typed values of the representation forms.
+* link:../../pm-workflow/doc/adr/workflow-input/[`pm-workflow/doc/adr/workflow-input/`]: the input types, the path rules and the slot key.
+* link:../../pm-workflow/doc/adr/workflow-model/[`pm-workflow/doc/adr/workflow-model/`]: the one model caller, the grading run and the model identity of a quorum.
+* link:../../pm-workflow/doc/adr/workflow-onboarding/[`pm-workflow/doc/adr/workflow-onboarding/`]: the automatic run's vocabulary and its router.
+* link:../../pm-workflow/doc/adr/workflow-plan/[`pm-workflow/doc/adr/workflow-plan/`]: the plan instance: the composition, its verification, its versions and log, the pruning and the plan's token facts.
+* link:../../pm-workflow/doc/adr/workflow-question/[`pm-workflow/doc/adr/workflow-question/`]: the continuation form of a question and the question bound.
 * link:../../pm-workflow/doc/adr/workflow-scenario/[`pm-workflow/doc/adr/workflow-scenario/`]: the scenario replay harness.
-* link:../../pm-workflow/doc/adr/workflow-verify/[`pm-workflow/doc/adr/workflow-verify/`]: the static verifier and the fuzzer.
+* link:../../pm-workflow/doc/adr/workflow-setup/[`pm-workflow/doc/adr/workflow-setup/`]: the setup gate, the start that consults it and the derivation of the setup run.
+* link:../../pm-workflow/doc/adr/workflow-task/[`pm-workflow/doc/adr/workflow-task/`]: the task protocol: the protocol decides and the runtime transports, the re-offer budget, the `agent_started` audit and the delivery record.
+* link:../../pm-workflow/doc/adr/workflow-unit/[`pm-workflow/doc/adr/workflow-unit/`]: the loaders of the default and the project-owned units.
+* link:../../pm-workflow/doc/adr/workflow-verify/[`pm-workflow/doc/adr/workflow-verify/`]: the static verifier, the fuzzer, the compiled invariants and the declaration bounds.
 
 The README of each module links the ADR directories of its packages.

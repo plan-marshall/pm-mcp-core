@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -63,6 +64,8 @@ import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeType;
+import de.planmarshall.core.store.WorkerState;
+import de.planmarshall.core.store.WorkerStateCodec;
 import de.planmarshall.core.testing.generators.CoreGenerators;
 import de.planmarshall.runtime.job.JobSettlement.Report;
 import de.planmarshall.runtime.job.SettlementStep.Name;
@@ -154,6 +157,142 @@ class JobSettlementTest {
         assertTrue(slots.claim(new LeaseRecord(SLOT_KEY, owner, createdAt, null)).granted(),
                 "the job's build slot is granted");
         return new Settled(ended(), new Slot(slots, SLOT_KEY, owner));
+    }
+
+    @Test
+    @DisplayName("the fate step writes the terminal worker block with the fate")
+    void theFateStepWritesTheTerminalWorkerBlock() {
+        var workerJob = new JobId(RuntimeGenerators.jobIds(JobId.Kind.LLM).next());
+        var digest = RuntimeGenerators.sha256Digests().next();
+        var connectedAt = createdAt.plusSeconds(1);
+        var running = workerRunning(workerJob, workerState(workerJob, digest, connectedAt));
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeAhead(transaction, running);
+        }
+
+        var report = JobSettlement.of(records, lockManager).settle(new Settled(workerSettled(running), null));
+
+        var written = writtenWorker(workerJob);
+        assertAll(
+                () -> assertTrue(report.stoppedAt().isEmpty(), "the settlement runs every step"),
+                () -> assertTrue(written.state().isTerminal(), "the record carries a terminal worker block"),
+                () -> assertEquals(WorkerState.EndReason.TASK_DONE, written.endReason(),
+                        "the fate names the task-done end"),
+                () -> assertEquals(createdAt.plusSeconds(60), written.stateAt(),
+                        "the terminal instant is the job's ended-at"),
+                () -> assertNull(written.task(), "the terminal block clears the leased task"),
+                () -> assertInstanceOf(Outcome.Done.class, report.steps().getFirst().outcome(),
+                        "the fate step reports its write"));
+    }
+
+    @Test
+    @DisplayName("the fate step derives the terminal block from the worker state the record carries")
+    void theFateStepKeepsTheNewestWorkerState() {
+        var workerJob = new JobId(RuntimeGenerators.jobIds(JobId.Kind.LLM).next());
+        var digest = RuntimeGenerators.sha256Digests().next();
+        var stale = workerRunning(workerJob, workerState(workerJob, digest, createdAt.plusSeconds(1)));
+        var newestConnectedAt = createdAt.plusSeconds(5);
+        var newest = workerState(workerJob, digest, newestConnectedAt).toBuilder()
+                .state(WorkerState.State.WAITING).stateAt(newestConnectedAt).task(null).build();
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeAhead(transaction, stale);
+        }
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeWorker(transaction, workerJob, newest);
+        }
+
+        // The runner decided the fate on the record it read before the transport wrote the newer worker state.
+        var report = JobSettlement.of(records, lockManager).settle(new Settled(workerSettled(stale), null));
+
+        var written = writtenWorker(workerJob);
+        assertAll(
+                () -> assertTrue(report.stoppedAt().isEmpty(), "the settlement runs every step"),
+                () -> assertTrue(written.state().isTerminal(), "the record carries a terminal worker block"),
+                () -> assertEquals(WorkerState.EndReason.TASK_DONE, written.endReason(),
+                        "the fate names the task-done end"),
+                () -> assertEquals(newestConnectedAt, written.connectedAt(),
+                        "the worker state written after the runner's read survives"),
+                () -> assertEquals(createdAt.plusSeconds(60), written.stateAt(),
+                        "the terminal instant is the job's ended-at"));
+    }
+
+    @Test
+    @DisplayName("the fate step keeps a stored terminal block as the record carries it")
+    void theFateStepKeepsAStoredTerminalBlock() {
+        var workerJob = new JobId(RuntimeGenerators.jobIds(JobId.Kind.LLM).next());
+        var digest = RuntimeGenerators.sha256Digests().next();
+        var stale = workerRunning(workerJob, workerState(workerJob, digest, createdAt.plusSeconds(1)));
+        var terminalStateAt = createdAt.plusSeconds(5);
+        var terminal = workerState(workerJob, digest, terminalStateAt).toBuilder()
+                .state(WorkerState.State.ENDED).stateAt(terminalStateAt).task(null)
+                .endReason(WorkerState.EndReason.WITHDRAWN).build();
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeAhead(transaction, stale);
+        }
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeWorker(transaction, workerJob, terminal);
+        }
+
+        JobSettlement.of(records, lockManager).settle(new Settled(workerSettled(stale), null));
+
+        var written = writtenWorker(workerJob);
+        assertAll(
+                () -> assertEquals(WorkerState.State.ENDED, written.state(),
+                        "the stored terminal block survives the fate"),
+                () -> assertEquals(WorkerState.EndReason.WITHDRAWN, written.endReason(),
+                        "the stored end reason survives the fate"),
+                () -> assertEquals(terminalStateAt, written.stateAt(),
+                        "the stored terminal instant survives the fate write"));
+    }
+
+    /** @return the running record of a worker job, carrying the given worker state */
+    private JobRecord workerRunning(JobId workerJob, WorkerState worker) {
+        return JobRecord.builder().jobId(workerJob).execution(Execution.PROCESS)
+                .scope(new Scope(Scope.Type.PROJECT, null))
+                .worker(WorkerStateCodec.write(worker)).egress(JobRecord.Egress.UNENFORCED)
+                .gitMetadata(JobRecord.GitMetadata.UNENFORCED)
+                .budgetKey(budgetKey).budgetSeconds(budgetSeconds)
+                .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
+                .status(Status.RUNNING).confinement(Confinement.UNAVAILABLE).createdAt(createdAt)
+                .clampedValues(List.of()).build();
+    }
+
+    /** @return the settled record of a worker job whose job succeeded */
+    private JobRecord workerSettled(JobRecord running) {
+        return running.toBuilder().status(Status.ENDED).fate(Fate.SUCCEEDED).outcomeRow(7)
+                .spawnedAt(createdAt).endedAt(createdAt.plusSeconds(60)).childWallMs(59_000L).exitCode(0L).build();
+    }
+
+    /** @return the worker state of a running worker job, connected at the given instant and holding a leased task */
+    private WorkerState workerState(JobId workerJob, String digest, Instant connectedAt) {
+        return WorkerState.builder()
+                .role("implementer")
+                .configurationDigest(digest)
+                .roleClass(WorkerState.RoleClass.WRITER)
+                .form(WorkerState.Form.FRESH)
+                .harness("claude")
+                .harnessVersion("1.5.0")
+                .model("claude-sonnet-4")
+                .generationId(workerJob)
+                .workdir(new WorkerState.Workdir(WorkerState.Workdir.Kind.PROJECT_CHECKOUT, null))
+                .promptDigest(digest)
+                .jobTokenSha256(digest)
+                .connectedAt(connectedAt)
+                .state(WorkerState.State.EXECUTING)
+                .stateAt(connectedAt)
+                .task(RuntimeGenerators.queueTaskIds().next())
+                .servedTasks(List.of())
+                .idleWakeups(0L)
+                .contextTokens(WorkerState.ContextTokens.NOT_MEASURED)
+                .deliveredSkills(List.of())
+                .startFailure(false)
+                .build();
+    }
+
+    /** @return the worker block the settled record of the job carries */
+    private WorkerState writtenWorker(JobId workerJob) {
+        return WorkerStateCodec.read(records.recordPath(workerJob),
+                records.read(workerJob).orElseThrow().worker());
     }
 
     private boolean fateRecorded() {

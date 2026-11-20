@@ -22,11 +22,17 @@ import de.planmarshall.core.role.RoleAssignment;
  * Assignment): its harness, its model, the effort and the optional escalation. The harness and the model are required;
  * the effort is {@link EffortSetting#INHERIT absent}, {@link EffortSetting#DEFAULT named as null}, or a
  * {@link EffortSetting#VALUE value} the harness accepts for the model.
+ * <p>
+ * A named effort is never {@code null}: for {@link EffortSetting#VALUE} the {@link EffortValue} must carry a non-null
+ * {@link EffortValue#value() value}. The cleared effort is {@link EffortSetting#DEFAULT}, written as {@code effort:null}
+ * and read back as {@code DEFAULT}; a {@code VALUE} carrying a {@code null} value would be written the same way and
+ * read back as {@code DEFAULT}, a silent change of the effort setting, so the constructor refuses it.
  *
  * @param harness    the client id of an enrolled, worker-eligible harness
  * @param model      the model, allowed on that harness by the effective catalogue
  * @param effort     what the level names of the effort
- * @param effortValue the effort value, non-{@code null} exactly for {@link EffortSetting#VALUE}
+ * @param effortValue the effort value, non-{@code null} exactly for {@link EffortSetting#VALUE}, and then carrying a
+ *                    non-{@code null} value
  * @param escalation  the optional stronger configuration of the role; {@code null} when none is named
  * @since 0.1
  */
@@ -35,8 +41,9 @@ public record RoleAssignmentValue(String harness, String model, EffortSetting ef
 @Nullable EffortValue effortValue, @Nullable Escalation escalation) {
 
     /**
-     * @throws IllegalArgumentException if the harness or the model is empty, the harness is not a client id, or the
-     *                                  effort setting and its value do not belong together
+     * @throws IllegalArgumentException if the harness or the model is empty, the harness is not a client id, the
+     *                                  effort setting and its value do not belong together, or a named effort
+     *                                  ({@link EffortSetting#VALUE}) carries a {@code null} value
      */
     public RoleAssignmentValue {
         Objects.requireNonNull(harness, "harness");

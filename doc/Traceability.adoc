@@ -241,15 +241,15 @@ link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-pr
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10]
 
-Implementation (of the fourth bullet, the residue the periodic sweep removes: the pending entry records older than the
-pending entry record maximum age, in one workspace transaction with one `pending_entry_removed` record per record; the
-other residue kinds and the cleanup of the first three bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep]
+Implementation (of the fourth bullet, the pass of the periodic sweep of the running runtime; the residue kinds it
+removes and the cleanup of the first three bullets are not traced here. The removal of pending entry records older than
+a maximum age that `PendingEntryRecordsSweep` performs diverges from the specification, which discards no pending entry
+by time (link:specification/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts & Budgets
+Specification, Pending Entry]), and is therefore not listed as implemented): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep]
 
-Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest]
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest]
 
-Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_pending_record_step[Runtime Start Developer Guide § The Pending-Record Step], link:../pm-runtime/doc/adr/runtime-start/001-pending-entry-sweep-through-a-workspace-delete-transaction.adoc[ADR runtime-start/001]
+Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Runtime Start Developer Guide § The Start Sequence, the Drain and the Recovery]
 
 == link:../../plan-marshall-documentation/doc/requirements/02-workflow.adoc[Workflow]
 
@@ -638,6 +638,11 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowPrinter.j
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/WorkflowDefinition.java[WorkflowDefinition],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/CallStack.java[CallStack],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/InputBindingContext.java[InputBindingContext],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputValidator.java[InputValidator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/PathRules.java[PathRules],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputRefusal.java[InputRefusal],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/ArgSource.java[ArgSource],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/GuardEvaluator.java[GuardEvaluator],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
@@ -660,7 +665,18 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTe
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistorySchemaParityTest.java[PlanHistorySchemaParityTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessStatesTest.java[PlanProcessStatesTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessStatesTest.java[PlanProcessStatesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/InputBindingTest.java[InputBindingTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SlotFillTest.java[SlotFillTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/SlotBindingVerifierTest.java[SlotBindingVerifierTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/SlotGrammarTest.java[SlotGrammarTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/input/InputValidatorTest.java[InputValidatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/input/PathRulesTest.java[PathRulesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/InstancePrunerTest.java[InstancePrunerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java[WorkflowStatusSchemaParityTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTest.java[JGitOperationsTest]
 
 Implementation (the planning phases' records and their checks: the plan's intent record `intent.json` with its `intent-record` schema, its true deciders, the epic's required claims, the non-goal a `submit:refine` record carries (check 7) and its revision history in `history[]`; the outline record `outline.json` with its `outline-record` schema and the `outline.md` rendered from it; the outline's `satisfies` coverage and the refusal of an `unchanged` guard downstream of the change it guards; the builder check's submission and its conversation-free facts; the self-review's constraint, non-goal and decision results; and the read-only simplify step with the clone candidates the server computes and the apply of the accepted subset): link:../pm-core/src/main/java/de/planmarshall/core/store/IntentRecord.java[IntentRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/IntentStore.java[IntentStore],
@@ -721,7 +737,7 @@ link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Dev
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
 link:../pm-core/doc/developer/core-store.adoc#_the_call_stack[Scope Stores Developer Guide § The Call Stack]
 
-Implementation (the call-time channel: the closed `text`, `commit_message`, `path` and `list<path>` input types and their validation; the caller's slots with the state-level `fills` clause and the `slot.<name>` call value; the `InputBindingContext` port; the commit and correlation identity of a call frame; and, in the provider, the commit set of the listed paths. **Deferred (PLAN-V2-15 D3):** the call-time bind that resolves every declared input in the order call site, configuration, default, optional absence, validates it against its type and the scope's staging set, records its provenance in `arg_sources` and consumes the slot in the same transaction — the persistence model, the slot fill and the provenance model are implemented, the bind itself is not): link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputValidator.java[InputValidator],
+Implementation (the call-time channel, as far as the library modules carry it and not yet wired into the runtime `pm-mcpd`: the closed `text`, `commit_message`, `path` and `list<path>` input types and their validation; the caller's slots with the state-level `fills` clause and the `slot.<name>` call value; the `InputBindingContext` port; the call-time bind that resolves every declared input in the order call site, configuration, default, optional absence, validates it against its type and the scope's staging set, records its provenance in `arg_sources` and consumes the slot in the same transaction; the commit and correlation identity of a call frame; and, in the provider, the commit set of the listed paths): link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputValidator.java[InputValidator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputRefusal.java[InputRefusal],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/PathRules.java[PathRules],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/InputType.java[InputType],
@@ -764,8 +780,8 @@ link:../pm-workflow/doc/adr/workflow-dsl/016-literal-text-stays-out-of-the-gramm
 link:../pm-workflow/doc/adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017],
 link:../pm-workflow/doc/adr/workflow-engine/018-the-bind-lives-in-the-call.adoc[ADR workflow-engine/018],
 link:../pm-workflow/doc/adr/workflow-verify/038-the-commit-modes-stay-required-inputs.adoc[ADR workflow-verify/038],
-link:../pm-core/doc/adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR core-store/075],
-link:../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076],
+link:../pm-core/doc/adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR core-store/077],
+link:../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/078],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git/003]
 
 [#PM-WF-17]
@@ -977,6 +993,22 @@ link:../pm-runtime/doc/adr/runtime-config/005-plan-defaults-are-a-written-member
 link:../pm-runtime/doc/adr/runtime-config/006-the-settings-states-run-in-the-runtime-and-drop-derived-tokens-through-a-seam.adoc[ADR runtime-config/006],
 link:../pm-workflow/doc/adr/workflow-onboarding/001-the-auto-run-vocabulary-and-the-router.adoc[ADR workflow-onboarding/001]
 
+[#PM-WF-31]
+=== PM-WF-31: Lessons
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-31[PM-WF-31]
+
+Implementation (as far as the library module `pm-core` carries it and not yet wired into the runtime `pm-mcpd`: the required remedy of every lesson with its closed kinds, a `wire_check` remedy carrying its check; the claim of a lesson by a plan, kept in the lesson store, its release, and the end of a claim that retires the lesson when the plan landed its work, each a transaction of the lesson store; the plan bootstrap's claim, the landing's retirement and the release on every other end are not wired yet): link:../pm-core/src/main/java/de/planmarshall/core/store/LessonFrontMatter.java[LessonFrontMatter],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonStore.java[LessonStore]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LessonClaimTest.java[LessonClaimTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonFrontMatterTest.java[LessonFrontMatterTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonRetirementTest.java[LessonRetirementTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonStoreUntrustedCitationTest.java[LessonStoreUntrustedCitationTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_the_lesson_store[Scope Stores Developer Guide § The Lesson Store],
+link:../pm-core/doc/adr/core-store/079-the-lesson-store-refuses-a-blank-body-escapes-del-and-trusts-what-it-reads.adoc[ADR core-store/079]
+
 == link:../../plan-marshall-documentation/doc/requirements/03-skills.adoc[Skills]
 
 [#PM-SKILL-4]
@@ -1163,7 +1195,7 @@ link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Develo
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-4[PM-EXEC-4]
 
-Implementation (as far as the library modules `pm-core` and `pm-runtime` carry it and not yet wired into the runtime `pm-mcpd`: the job record of every job in the store of its scope (a project, the machine scope, an onboarding entry) with its identifier and its fixed write points, written ahead of the launch and replaced with the PID and the process start once the launcher reports them, each under the lock of the owning scope; the job runner service and its implementation, which verifies a job in a lock transaction of its own, launches it through `pm-exec` with in-memory `stdin`, takes the job PID as its process-group ID, reads and strips the launch report, keeps the job log readable while the job runs, terminates the job's process group for every cause (`SIGTERM`, the grace period, `SIGKILL` to every member left, the cancel before the group exists) through FFM, derives the fate by the closed 13-row outcome table with the child's wall time, and settles the job in the fixed write order; probe jobs with their fixed budgets; the launch of a worker of an enrolled harness (`runtime.launch`: the composed argument vector, the worker block, the job token and its revocation with the fate, and the refused launch recorded before a spawn, `SubprocessJobRunner.startWorker` and `refuseWorker`; and the git metadata of a worker (`GitMetadataPaths`, `GitMetadataDigest`, `GitMetadataGuard`, `GitMetadataChangeSink`: the read-only set, the optional `git_metadata` member of the launch report and of the job record, the digest with its two comparison points, the refusal `git_metadata_changed`, the `security` audit record and the honest `unenforced` default). Not implemented yet: the launcher `pm-exec` itself and its Landlock, Seatbelt, network-namespace and egress enforcement, which includes the read-only mount that makes `git_metadata` `enforced` (the confinement and the environment of a job are composed here, PM-SEC-5, but their enforcement is the launcher's), the sink's wiring to the plan's hold and the operator's `rebaseline`, the wait of a queued job for its build or model slot, the settlement steps that are seams (a worker's queue task record, the metrics row, the change-ledger row, the timing observation, its job-private directory), the in-process operations of the native variant, the wiring of the build log parsers (which exist in `pm-core` with the adapter `BuildOutputParser` in `pm-runtime`) into the assembly, and the budgets of the other job kinds): link:../pm-core/src/main/java/de/planmarshall/core/store/JobId.java[JobId],
+Implementation (as far as the library modules `pm-core` and `pm-runtime` carry it and not yet wired into the runtime `pm-mcpd`: the job record of every job in the store of its scope (a project, the machine scope, an onboarding entry) with its identifier and its fixed write points, written ahead of the launch and replaced with the PID and the process start once the launcher reports them, each under the lock of the owning scope; the job runner service and its implementation, which verifies a job in a lock transaction of its own, launches it through `pm-exec` with in-memory `stdin`, takes the job PID as its process-group ID, reads and strips the launch report, keeps the job log readable while the job runs, terminates the job's process group for every cause (`SIGTERM`, the grace period, `SIGKILL` to every member left, the cancel before the group exists) through FFM, derives the fate by the closed 13-row outcome table with the child's wall time, and settles the job in the fixed write order; probe jobs with their fixed budgets; the launch of a worker of an enrolled harness (`runtime.launch`: the composed argument vector, the worker block, the job token and its revocation with the fate, and the refused launch recorded before a spawn, `SubprocessJobRunner.startWorker` and `refuseWorker`; and the git metadata of a worker (`GitMetadataPaths`, `GitMetadataDigest`, `GitMetadataGuard`, `GitMetadataChangeSink`: the read-only set, the optional `git_metadata` member of the launch report and of the job record, the digest with its two comparison points, the refusal `git_metadata_changed`, the `security` audit record and the honest `unenforced` default). The launcher `pm-exec` is traced in link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/Traceability.adoc#PM-EXEC-4[the Traceability of `pm-mcp-clients`, PM-EXEC-4]. Not implemented yet: the Seatbelt confinement on macOS, the network namespace and the egress enforcement of the launcher, which includes the read-only mount that makes `git_metadata` `enforced` (the confinement and the environment of a job are composed here, PM-SEC-5, but their enforcement is the launcher's), the sink's wiring to the plan's hold and the operator's `rebaseline`, the wait of a queued job for its build or model slot, the settlement steps that are seams (a worker's queue task record, the metrics row, the change-ledger row, the timing observation, its job-private directory), the in-process operations of the native variant, the wiring of the build log parsers (which exist in `pm-core` with the adapter `BuildOutputParser` in `pm-runtime`) into the assembly, and the budgets of the other job kinds): link:../pm-core/src/main/java/de/planmarshall/core/store/JobId.java[JobId],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecord.java[JobRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordCodec.java[JobRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordStore.java[JobRecordStore],
@@ -1182,6 +1214,7 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobEvidence.java[Jo
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/OutcomeDerivation.java[OutcomeDerivation],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobSettlement.java[JobSettlement],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SettlementStep.java[SettlementStep],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/WorkerTermination.java[WorkerTermination],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeCandidate.java[ProbeCandidate],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeVerification.java[ProbeVerification],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[ProbeBudget],
@@ -1206,7 +1239,8 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/LaunchReportTest.ja
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobLogTest.java[JobLogTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/TerminationProtocolTest.java[TerminationProtocolTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/OutcomeDerivationTest.java[OutcomeDerivationTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobSettlementTest.java[JobSettlementTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobSettlementTest.java[JobSettlementTest] (the write order, the seams, and the terminal worker block the fate step writes),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/WorkerTerminationTest.java[WorkerTerminationTest] (every fate's end reason and terminal state, the start failure and the zero-tool worker),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/BuildOutputParserTest.java[BuildOutputParserTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeJobTest.java[ProbeJobTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeVerificationTest.java[ProbeVerificationTest],
@@ -1296,14 +1330,16 @@ link:../pm-providers/pm-provider-github/doc/developer/provider-github.adoc#_the_
 link:../pm-providers/pm-provider-gitlab/doc/developer/provider-gitlab.adoc#_the_merge_request_read[GitLab Developer Guide § The Merge-Request Read],
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[ADR provider-ci/007],
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[ADR provider-ci/008],
-link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009]
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009],
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[ADR provider-ci/010],
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/011-the-github-comment-guard-reads-only-the-pull-request-flag.adoc[ADR provider-ci/011]
 
 [#PM-EXEC-6]
 === PM-EXEC-6: Adaptive Build Timeouts, Coverage Parsing & Gate Honesty
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 
-Implementation (in part: the native coverage report parsers of `pm-core` package `core.build` — the shared model with its line-only threshold verdict, and the JaCoCo, Cobertura, LCOV and Istanbul readers, each a pure function of the report text that returns a parsed report or a refusal naming the format, with the two XML readers run with DTD support off so a `DOCTYPE` is tolerated without resolution, an entity reference in element content is refused and an undeclared one in an attribute value is dropped, never expanded or resolved, a counter with a zero denominator read as absent, a repeated counter refused rather than read as an override, and every report streamed within the byte and line bounds of its limits resource; the adaptive timeout learning, the gate honesty verification and the failure evidence per class are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/build/CoverageReport.java[CoverageReport],
+Implementation (in part: the native coverage report parsers of `pm-core` package `core.build` — the shared model with its line-only threshold verdict, and the JaCoCo, Cobertura, LCOV and Istanbul readers, each a pure function of the report text that returns a parsed report or a refusal naming the format, with the two XML readers run with DTD support off so a `DOCTYPE` is tolerated without resolution, an entity reference in element content is refused and an undeclared one in an attribute value is dropped, never expanded or resolved, a counter with a zero denominator read as absent, a repeated counter refused rather than read as an override, and every report streamed within the byte and line bounds of its limits resource; the evaluation of a coverage report after test execution and its figures in the job facts, the allocation of the learned budgets of the build, `git` and `ci` keys and their wiring into the job runner, the gate honesty verification and the failure evidence per class are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/build/CoverageReport.java[CoverageReport],
 link:../pm-core/src/main/java/de/planmarshall/core/build/JacocoReportParser.java[JacocoReportParser],
 link:../pm-core/src/main/java/de/planmarshall/core/build/CoberturaReportParser.java[CoberturaReportParser],
 link:../pm-core/src/main/java/de/planmarshall/core/build/LcovReportParser.java[LcovReportParser],
@@ -1324,6 +1360,19 @@ Documentation: link:../pm-core/doc/developer/core-build.adoc#_the_coverage_repor
 link:../pm-core/doc/adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR core-build/005],
 link:../pm-core/doc/adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR core-build/008],
 link:../pm-core/src/test/resources/ported/coverage/PROVENANCE.adoc[Fixture provenance of the coverage report parsers]
+
+Implementation (the learning store of the adaptive timeouts, as far as the library module `pm-core` carries it: the
+per-project `build-timings.json` keyed by budget key, the max-biased blend of the learned baseline with the first
+observation stored raw, the residue rule that keeps a timed-out or poisoned run out of the baseline, and the one-shot
+escalation and its clearing; it is read by the worker budget and the derived-fact store and not yet by any build, `git`
+or `ci` job): link:../pm-core/src/main/java/de/planmarshall/core/store/BuildTimingsStore.java[BuildTimingsStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/BuildTimings.java[BuildTimings],
+link:../pm-core/src/main/java/de/planmarshall/core/store/BuildTimingsCodec.java[BuildTimingsCodec]
+
+Verified by (the learning store): link:../pm-core/src/test/java/de/planmarshall/core/store/BuildTimingsStoreTest.java[BuildTimingsStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/BuildTimingsSchemaParityTest.java[BuildTimingsSchemaParityTest]
+
+Documentation (the learning store): link:../pm-core/doc/developer/core-store.adoc#_slots_metrics_budgets_ledger[Scope Stores Developer Guide § The Model-Slot, Metrics, Learned-Budget and Ledger Stores]
 
 == link:../../plan-marshall-documentation/doc/requirements/07-credentials.adoc[Credentials]
 
@@ -1713,7 +1762,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentSide
 
 Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#residual-risk[Concepts § Enrolment, Residual Risk], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_integrity_key_before_and_after_the_choice[Developer Guide § Enrolment Check and Operator Writes, The Integrity Key], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars (`runtime.enrolment`)], link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_first_recording_reconciles_the_key_of_both_stores[Developer Guide § The First Recording Reconciles the Key of Both Stores (`runtime.credentials`)], link:../pm-runtime/doc/adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[ADR runtime-credentials/007], link:../pm-runtime/doc/developer/runtime-job.adoc#git-metadata[Job Runtime Developer Guide § Git Metadata], link:../pm-core/doc/developer/core-store.adoc#_protected_paths[Scope Stores Developer Guide § Protected Paths], link:../pm-runtime/doc/adr/runtime-job/019-git-metadata-digest-and-baseline.adoc[ADR runtime-job/019], link:../pm-core/doc/adr/core-store/070-the-job-record-git-metadata-is-a-nullable-enumeration.adoc[ADR core-store/070]
 
-Implementation (the runtime side of the confinement and the job environment: the write set, the extra read paths and the read-denied paths composed from the verified enrolment and passed to `pm-exec` as `--write`/`--read`/`--deny-read`; the per-project daemon store keyed by the first 16 hex characters of the SHA-256 over the sorted write set; the container-engine opt-in withholding the container variables and denying the engine's sockets without it; the session bus socket denied and its variables never passed; the environment table built from scratch per job kind and the probe environment; and the worker egress proxy with its `headless.endpoints` allowlist and `egress_refused` audit record. The Landlock and Seatbelt enforcement, the network namespace and the egress tunnel enforcement are `pm-exec` work in `pm-mcp-clients` and are not implemented here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java[JobConfinement],
+Implementation (the runtime side of the confinement and the job environment: the write set, the extra read paths and the read-denied paths composed from the verified enrolment and passed to `pm-exec` as `--write`/`--read`/`--deny-read`; the per-project daemon store keyed by the first 16 hex characters of the SHA-256 over the sorted write set; the container-engine opt-in withholding the container variables and denying the engine's sockets without it; the session bus socket denied and its variables never passed; the environment table built from scratch per job kind and the probe environment; and the worker egress proxy with its `headless.endpoints` allowlist, matched as the lower-cased `host:port` text, and one `egress_refused` audit record per refused destination. Not implemented yet: the proxy's trailing-dot removal and IP-literal comparison, its address check `address_not_public`, and its forwarding through `proxy.https_proxy` (link:implementation-watch/job-runtime.adoc#PM-WATCH-JOB-50[PM-WATCH-JOB-50]). The Landlock and Seatbelt enforcement, the network namespace and the egress tunnel enforcement are `pm-exec` work in `pm-mcp-clients` and are not implemented here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java[JobConfinement],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinementComposer.java[JobConfinementComposer],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/BuildDaemonStore.java[BuildDaemonStore],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobEnvironmentComposer.java[JobEnvironmentComposer],
@@ -1922,7 +1971,7 @@ link:../pm-runtime/doc/adr/runtime-start/014-previous-service-unit-kept-and-rest
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-1[PM-MIG-1]
 
-Implementation (of the lifecycle gate bullet: the gate as a compiled constant, closed in this release, its decision per project from the verified enrolment, a pilot admitted and every other project refused `lifecycle_closed` while it is closed, a released project refused whatever the gate, and the `pilot` flag written by the runtime's `enrol` and covered by the enrolment HMAC; the refusal of the bootstrap's scope creation and the `pm-operator enrol --pilot` verb are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/LifecycleGate.java[LifecycleGate],
+Implementation (of the lifecycle gate bullet: the gate as a compiled constant, closed in this release, its decision per project from the verified enrolment, a pilot admitted and every other project refused `lifecycle_closed` while it is closed, a released project refused whatever the gate, and the `pilot` flag written by the runtime's `enrol` and covered by the enrolment HMAC; the refusal of the bootstrap's scope creation and the `pm-operator project add --pilot` verb are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/LifecycleGate.java[LifecycleGate],
 link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectEnrolment.java[ProjectEnrolment],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/Enrolments.java[Enrolments],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/EnrolmentCheck.java[EnrolmentCheck]
@@ -2068,7 +2117,7 @@ Verified by (the verify-not-resolve pipeline: a job's working directory outside 
 
 Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)]
 
-Implementation (of the static architecture rule of the closed list of outbound calls; the integration test behind a recording test network that the same specification section names is not implemented): link:../pm-runtime/src/test/java/de/planmarshall/runtime/guard/OutboundCallsArchTest.java[OutboundCallsArchTest] (the primitive rule and the destination list over `pm-runtime` and `pm-core`, with the exemption map and the allow-list)
+Implementation (of the static architecture rule of the closed list of outbound calls over `pm-runtime` and `pm-core`; not implemented: the rules of the provider modules and of `pm-workflow`, and the integration test behind a recording test network that the same specification section names, which needs the update check `check_updates` and runs in the assembly): link:../pm-runtime/src/test/java/de/planmarshall/runtime/guard/OutboundCallsArchTest.java[OutboundCallsArchTest] (the primitive rule and the destination list over `pm-runtime` and `pm-core`, with the exemption map and the allow-list)
 
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/guard/OutboundCallsArchTest.java[OutboundCallsArchTest] (the control fixtures the rule must fail on and the two positive controls it must hold on, and the two symmetry tests that make each list load-bearing)
 
@@ -2312,8 +2361,7 @@ link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/Pu
 link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ForgeUrlTest.java[ForgeUrlTest]
 
 Documentation (the CI contract): link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide], link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014],
-link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009],
-link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[ADR provider-ci/010]
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009]
 
 Verified by (the findings and code-analysis contracts): link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingTest.java[FindingTest],
 link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingScopeTest.java[FindingScopeTest],
@@ -2702,8 +2750,10 @@ Implementation (in part: the result model of a parsed build — the located diag
 unmeasured test counts, the status with the positive success marker and the `no_tests_ran` verdict — the compiled category
 table of the JVM tools, and the parsers for Maven, Gradle, the OpenRewrite finding log, npm errors, TypeScript, ESLint,
 Jest, TAP and the pyproject log of pytest, ruff and mypy, each a pure function of the log text with no Python and no
-external script; the `failed_unparsed` fallback with its bounded, redacted log tail, whose failure envelope is not
-implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/build/ParsedBuild.java[ParsedBuild],
+external script; the `failed_unparsed` fallback with its bounded, redacted log tail and the log URI of a build of a
+plan. Not implemented yet: the failure envelope of class `build` and kind `unparsed` that wraps the tail and the
+gathering of the other failure classes, the forwarded and total sizes of a truncated payload, and the log URI
+`pm://workspace/builds/{job_id}/log` of a plan-less build, which `UnparsedEvidence` refuses for want of a plan id): link:../pm-core/src/main/java/de/planmarshall/core/build/ParsedBuild.java[ParsedBuild],
 link:../pm-core/src/main/java/de/planmarshall/core/build/Diagnostic.java[Diagnostic],
 link:../pm-core/src/main/java/de/planmarshall/core/build/TestCounts.java[TestCounts],
 link:../pm-core/src/main/java/de/planmarshall/core/build/JvmCategoryPatterns.java[JvmCategoryPatterns],
@@ -3096,8 +3146,10 @@ path with its fence, token revocation, slot release and terminal state; the drai
 and the idle yields; the start-failure guard with its bounded report and its probe; the machine-wide start spacing of one
 harness; the worker state of the generation written into the job record; the inbound calls that map the transport's facts
 onto detection, recycling, ending and the guard, the three facts of a hold among them, and the hold's end at the token
-budget reported through `WorkerProtocol.holdEnded`; and the scheduled supervision pass that settles an ended job, pumps a
-running worker's log and yields an idle slot. The transport, the scheduling of the pass and the assembly wiring are
+budget reported through `WorkerProtocol.holdEnded`; and the scheduled supervision pass, which reads an ended job's
+settled record — the terminal state the settlement wrote with the fate — and completes only the fence, the token
+revocation and the slot release, creates a running generation's loss detection at its first advance, pumps a running
+worker's log per attempt and yields an idle slot. The transport, the scheduling of the pass and the assembly wiring are
 `pm-mcp-server`'s, and the model slots are the landed scheduler's): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java[WorkerSupervisor],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerGeneration.java[WorkerGeneration],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerLifecycle.java[WorkerLifecycle],
@@ -3137,7 +3189,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartFailureGuar
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java[HarnessStartSpacingTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/AgentStartedDetectorTest.java[AgentStartedDetectorTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java[SupervisorCallsTest] (each call of `WorkerCalls` and its answer, the unknown generation, an end-requested wait, the three hold entries with the refused transition and the answer's deadline, the pause of a plan and the enrolment's clear),
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once — against the fixture's mocked `WorkerStateWriter`, because the landed writer refuses a settled record, see ADR `runtime-worker/014` — the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once and which reads the terminal state the settlement wrote through the project's real store writer, a worker that never calls is lost at its silence deadline, a failed end is reported and its retry keeps the cause and repeats nothing, a call is dispatched while another end runs, a fresh worker that served its task ends without a loss, each attempt of a warm worker keeps its own lines and its end, the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
 
 Documentation: link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
 link:../pm-runtime/doc/adr/runtime-worker/001-one-supervisor-per-project-and-role.adoc[ADR runtime-worker/001],
@@ -3147,7 +3199,11 @@ link:../pm-runtime/doc/adr/runtime-worker/008-lease-aware-idle-and-idle-yields.a
 link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009],
 link:../pm-runtime/doc/adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR runtime-worker/012],
 link:../pm-runtime/doc/adr/runtime-worker/014-the-inbound-calls-and-the-scheduled-pass.adoc[ADR runtime-worker/014],
-link:../pm-runtime/doc/adr/runtime-worker/016-the-hold-ends-before-the-recycle.adoc[ADR runtime-worker/016]
+link:../pm-runtime/doc/adr/runtime-worker/016-the-hold-ends-before-the-recycle.adoc[ADR runtime-worker/016],
+link:../pm-runtime/doc/adr/runtime-worker/017-the-settlement-writes-the-terminal-worker-block.adoc[ADR runtime-worker/017],
+link:../pm-runtime/doc/adr/runtime-worker/018-the-end-effects-run-once-and-one-generation-does-not-abort-the-pass.adoc[ADR runtime-worker/018],
+link:../pm-runtime/doc/adr/runtime-worker/019-the-detection-at-the-first-advance-and-the-end-work-outside-the-monitor.adoc[ADR runtime-worker/019],
+link:../pm-runtime/doc/adr/runtime-worker/020-the-loss-reason-maps-the-attempt-end.adoc[ADR runtime-worker/020]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server

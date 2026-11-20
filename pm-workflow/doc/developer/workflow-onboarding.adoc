@@ -1,12 +1,13 @@
 = Workflow Onboarding (`workflow.onboarding`)
 :nofooter:
+:spec: ../../../doc/specification
 
 [cols="1,3"]
 |===
 |Module |`pm-workflow`
 |Specification |link:{spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-onboarding[State Catalogue § Machine
 Onboarding], link:{spec}/state-catalogue/14-machine-onboarding.adoc#state-catalogue-settings[§ The Machine's Settings],
-`plan-marshall-documentation` CLI & Security § Automatic Onboarding
+link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/01-cli-and-installer.adoc#auto[CLI & Security § Automatic Onboarding]
 |Decisions |link:../adr/workflow-onboarding/001-the-auto-run-vocabulary-and-the-router.adoc[ADR workflow-onboarding/001]
 |===
 

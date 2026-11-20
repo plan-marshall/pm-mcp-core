@@ -124,8 +124,8 @@ class EntityAddressingTest {
     }
 
     private static Refused refused(Reason reason, AddressResolution resolution) {
-        var refusal = assertInstanceOf(Refused.class, resolution, () -> "expected a refusal: " + resolution);
-        assertEquals(reason, refusal.reason(), refusal::detail);
+        var refusal = assertInstanceOf(Refused.class, resolution, "the address resolution is a refusal");
+        assertEquals(reason, refusal.reason(), "the refusal carries the expected reason");
         return refusal;
     }
 
@@ -213,7 +213,7 @@ class EntityAddressingTest {
             var resolution = inWorkspace(entity, enriching(entity));
 
             assertEquals(new Resolved(EntityAddress.workspace(entity), ENRICH_KIND, "qt-0000000000000001"),
-                    resolution, bound);
+                    resolution, "the entity within its bound is resolved");
         }
 
         @ParameterizedTest

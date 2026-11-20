@@ -24,7 +24,6 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
@@ -268,9 +267,8 @@ class HarnessEnrolmentStoreTest {
         var report = new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.VERIFIED,
                 Map.of("input", "reported", "cache_creation", "not_applicable"), List.of(
                         new HarnessEnrolment.UsageReport.StartContext("writer", model,
-                                OptionalLong.of(Generators.integers(1, 1_000_000).next())),
-                        new HarnessEnrolment.UsageReport.StartContext("zero_tool", model,
-                                OptionalLong.empty())));
+                                Generators.longs(1, 1_000_000).next()),
+                        new HarnessEnrolment.UsageReport.StartContext("zero_tool", model, null)));
         store.enrol(new HarnessEnrolment(client, Path.of("/usr/local/bin/" + client).toAbsolutePath(),
                 RuntimeGenerators.sha256Digests().next(), version(), now, now, report, Map.of("text", "reported"),
                 Map.of()));

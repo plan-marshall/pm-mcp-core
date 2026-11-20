@@ -240,7 +240,7 @@ class FinalizeStepDescriptorTest {
         @MethodSource("missingValues")
         @DisplayName("refuses a missing required value")
         void refuses(String what, Executable construction) {
-            assertThrows(NullPointerException.class, construction, what);
+            assertThrows(NullPointerException.class, construction, "the missing required value is refused");
         }
     }
 }

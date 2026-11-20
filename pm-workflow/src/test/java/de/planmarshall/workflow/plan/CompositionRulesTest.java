@@ -83,13 +83,14 @@ class CompositionRulesTest {
             var rules = loaded(CompositionRules.shipped());
             byte[] bytes;
             try (var in = CompositionRules.class.getResourceAsStream(CompositionRules.RESOURCE)) {
-                assertNotNull(in, CompositionRules.RESOURCE);
+                assertNotNull(in, "the shipped rules file is on the classpath");
                 bytes = in.readAllBytes();
             }
 
             assertAll(
                     () -> assertEquals("2", rules.revision(), "the shipped file declares revision two"),
-                    () -> assertTrue(rules.digest().matches("[0-9a-f]{64}"), rules.digest()),
+                    () -> assertTrue(rules.digest().matches("[0-9a-f]{64}"),
+                            "the digest is 64 lower-case hex digits"),
                     () -> assertEquals(PlanFacts.sha256(bytes), rules.digest(),
                             "the digest is the SHA-256 of the bytes"),
                     () -> assertEquals(SHIPPED_RULE_IDS, rules.rules().stream().map(CompositionRule::id).toList(),
@@ -112,7 +113,8 @@ class CompositionRulesTest {
                     () -> assertTrue(CompositionRules.RESOURCE.startsWith("/de/planmarshall/workflow/plan/"),
                             "the file lives in the plan package"),
                     () -> List.of("/workflows/", "/roles/", "/bundles/", "/skills/").forEach(location ->
-                            assertFalse(CompositionRules.RESOURCE.contains(location), location)));
+                            assertFalse(CompositionRules.RESOURCE.contains(location),
+                                    "the file lies outside the content location")));
         }
 
         @Test
@@ -139,7 +141,7 @@ class CompositionRulesTest {
             var rules = loaded(CompositionRules.shipped()).rules().stream()
                     .filter(rule -> rule.prunes().stream().anyMatch(prune -> prune.reason() == reason)).toList();
 
-            assertEquals(1, rules.size(), rules::toString);
+            assertEquals(1, rules.size(), "exactly one shipped rule prunes the family");
             var rule = rules.getFirst();
             assertAll(
                     () -> assertEquals(when, rule.when(), "the rule condition is the stated one"),
@@ -189,7 +191,7 @@ class CompositionRulesTest {
                     () -> assertFalse(floorPrunes.isEmpty(), "the floor-immune steps are pruned somewhere"),
                     () -> assertTrue(floorPrunes.stream()
                                     .allMatch(prune -> FLOOR_OVERRIDING_REASONS.contains(prune.reason())),
-                            floorPrunes::toString));
+                            "every floor prune has an overriding reason"));
         }
     }
 
@@ -298,10 +300,10 @@ class CompositionRulesTest {
         void refused(String name, String content, Refusal refusal, String detailPart) {
             var loading = CompositionRules.parse(content.getBytes(StandardCharsets.UTF_8));
 
-            var refused = assertInstanceOf(CompositionRules.Refused.class, loading, name);
+            var refused = assertInstanceOf(CompositionRules.Refused.class, loading, "the broken file is refused");
             assertAll(
-                    () -> assertEquals(refusal, refused.refusal(), refused::detail),
-                    () -> assertTrue(refused.detail().contains(detailPart), refused::detail));
+                    () -> assertEquals(refusal, refused.refusal(), "the refusal is the case's named one"),
+                    () -> assertTrue(refused.detail().contains(detailPart), "the detail names the case's part"));
         }
 
         /**
@@ -314,10 +316,11 @@ class CompositionRulesTest {
         void everyBudgetParameterRefused(String argument) {
             var loading = file(bindingOf(argument));
 
-            var refused = assertInstanceOf(CompositionRules.Refused.class, loading, loading::toString);
+            var refused = assertInstanceOf(CompositionRules.Refused.class, loading,
+                    "a budget parameter binding is refused");
             assertAll(
-                    () -> assertEquals(Refusal.RAISES_BUDGET, refused.refusal(), refused::detail),
-                    () -> assertTrue(refused.detail().contains(argument), refused::detail));
+                    () -> assertEquals(Refusal.RAISES_BUDGET, refused.refusal(), "the refusal is RAISES_BUDGET"),
+                    () -> assertTrue(refused.detail().contains(argument), "the detail names the budget parameter"));
         }
 
         @Test

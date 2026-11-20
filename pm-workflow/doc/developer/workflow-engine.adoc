@@ -5,7 +5,7 @@
 :nofooter:
 
 :docs: ../../../../plan-marshall-documentation/doc
-:dsl: {docs}/specification/workflow-dsl
+:dsl: {spec}/workflow-dsl
 
 == Purpose
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requirements.adoc#PM-WF-2[PM-WF-2], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
@@ -44,7 +44,7 @@ configuration of its own; the assembly supplies the port, and an engine without 
 `Ended` (the outcome and outcome class of the top-level unit's terminal; the call stack is empty), and
 `ConditionRaised` (the condition kind and its facts; state, phase and call stack unchanged). Every variant carries the
 new `WorkflowStatus`.
-`CallStack`:: The immutable call stack, bottom to top, of at most `MAX_DEPTH` (4) frames, the depth the store admits.
+`CallStack`:: The immutable call stack, bottom to top, of at most `MAX_DEPTH` (5, `WorkflowStatus.MAX_CALL_DEPTH`) frames, the depth the store admits.
 `push` adds the frame of a call, `pop` removes exactly one frame, `unwound` lists every frame top to bottom for an
 unwind; `fromStore` and `toStore` convert between the AST frame `ast.CallFrame` and the store frame
 `WorkflowStatus.CallFrame`.
@@ -59,7 +59,7 @@ missing value.
 `policyLoopBack` and `policyRetry` return `Charge.Granted` with the count raised, or `Charge.Exhausted` with the
 outcome `exhausted` and the status unchanged.
 `EngineEvent`:: The sealed event that resumes a resting state: `JobSettled(jobId, fate)`,
-`TasksSettled(taskOutcomes, evaluatedOutcome, submissions)` (the submissions keyed by entity and argument name, from
+`TasksSettled(taskOutcomes, submissions, evaluatedOutcome)` (the submissions keyed by entity and argument name, from
 which a `fills` clause takes a slot's value), `QuestionResolved(questionId, outcome)`,
 `OperatorAct(stateId, linkId, parameters)` and `TimeElapsed(at)`.
 `RestingWait`:: What a resting state waits for, derived from the status alone: the `AwaitedEvent` kind, the jobs bound
@@ -319,17 +319,21 @@ provenance is recorded, and the value is validated. It happens in `WorkflowEngin
   membership in the scope's staging set. The bound of a path is the staging set and not the footprint
   (link:../adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017]).
 * *The provenance*: `arg_sources` of the frame records, per input, one of `literal`, `config`, `default`, `task_submit`
-  or `operator_answer`, with the queue task id or the act as `source_ref` where the source has one. A value that came from
+  or `operator_answer`, with the submitting entity or the act as `source_ref` where the source has one. A value that came from
   a filled slot names `task_submit` or `operator_answer`, never `literal`.
 * *The identity of the frame*: `call` draws one `command_id` for the call from `Ports.ids` and takes the `correlation_id`
   of the current `Run`, which the engine mints once per advance. Both are `core.id` records written and read by
   `WorkflowStatusCodec` (link:../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR
-  core-store/076], link:../../../pm-core/doc/developer/core-store.adoc#_the_frame_identity_and_the_provenance_of_its_arguments[Scope
+  core-store/078], link:../../../pm-core/doc/developer/core-store.adoc#_the_frame_identity_and_the_provenance_of_its_arguments[Scope
   Stores § The Frame's Identity and the Provenance of Its Arguments]).
-* *The consumption*: a slot the call read is cleared in the same transaction, so a later call never reuses a stale
-  message or path.
+* *The slot*: a filled slot lives at the scope under `<declaring unit id>:<slot name>`, so two units that both declare
+  `message` never overwrite each other
+  (link:../adr/workflow-input/003-the-slot-key-names-the-declaring-unit.adoc[ADR workflow-input/003]). The call that binds
+  it clears it in the same transaction, so a later call never reuses a stale message or path.
 * *The refusal*: a value that does not fit raises the condition `precondition_unmet` with the reason `input_refused`,
-  naming the input and the rule; an input no state filled raises it with the reason `input_unbound`. Both are bounded by
+  naming the input and the rule; an input no state filled raises it with the reason `input_unbound`. An explicitly empty
+  `list<path>` is refused with the rule `input.empty`: a bound list of no path never means "every change"
+  (link:../adr/workflow-input/004-an-empty-files-list-is-refused.adoc[ADR workflow-input/004]). Both are bounded by
   the condition budget and carry the self-remedy of a re-check after the backoff, because their cause can clear — the
   dirty set changes, the slot is filled.
 
@@ -775,11 +779,9 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
 * link:../adr/workflow-engine/004-workspace-entity-kinds-addressed.adoc[ADR 004]: the workspace entity kinds addressed
   are the bootstraps and the workspace-hosted task entities.
 * link:../adr/workflow-engine/005-address-grammar-in-workflow-engine-only.adoc[ADR 005]: the address types and grammar
-  checks live in `workflow.engine` only, except the `entry_id` grammar, owned by `core.store.EntryId` since
-  pm-mcp-core#51 (amended 2026-10-13).
+  checks live in `workflow.engine` only, except the `entry_id` grammar, owned by `core.store.EntryId`.
 * link:../adr/workflow-engine/006-entry-records-read-through-core-spi-port.adoc[ADR 006]: an `entry_id` is resolved
-  through the tri-state port `PendingEntryReader`, implemented over `core.store.PendingEntryStore` (amended
-  2026-10-13).
+  through the tri-state port `PendingEntryReader`, to be implemented over `core.store.PendingEntryStore`.
 * link:../adr/workflow-engine/007-refused-address-is-a-value.adoc[ADR 007]: a refused address is a value with a closed
   reason.
 * link:../adr/workflow-engine/008-resolver-beside-the-engine-ports.adoc[ADR 008]: the resolver is its own type beside

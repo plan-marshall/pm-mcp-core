@@ -13,7 +13,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.OptionalLong;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JsonlStoreFile.Accepted;
 import de.planmarshall.core.store.JsonlStoreFile.Entry;
@@ -47,16 +47,16 @@ public final class WaiverConsumptionLog {
      *
      * @param store          the log that was read
      * @param entries        one entry per complete line, in the order of the log
-     * @param tornTailOffset the byte offset where a last line without a newline begins; empty if there is none
+     * @param tornTailOffset the byte offset where a last line without a newline begins; {@code null} if there is
+     *                       none
      * @since 0.1
      */
-    public record Lines(Path store, List<Entry<WaiverConsumptionRecord>> entries, OptionalLong tornTailOffset) {
+    public record Lines(Path store, List<Entry<WaiverConsumptionRecord>> entries, @Nullable Long tornTailOffset) {
 
-        /** @throws NullPointerException if a component is {@code null} */
+        /** @throws NullPointerException if the store or the entries are {@code null} */
         public Lines {
             Objects.requireNonNull(store, "store");
             entries = List.copyOf(entries);
-            Objects.requireNonNull(tornTailOffset, "tornTailOffset");
         }
 
         /** @return the records that were read, in the order of the log, without the refused lines */

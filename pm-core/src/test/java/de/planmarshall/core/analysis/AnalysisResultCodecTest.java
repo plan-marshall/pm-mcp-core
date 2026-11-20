@@ -209,8 +209,7 @@ class AnalysisResultCodecTest {
             var refusal = assertThrows(IllegalArgumentException.class,
                     () -> AnalysisResultCodec.read(bytes), "a line outside the shape is refused");
 
-            assertTrue(refusal.getMessage().contains(expected),
-                    () -> "expected '%s' in: %s".formatted(expected, refusal.getMessage()));
+            assertTrue(refusal.getMessage().contains(expected), "the refusal message names what is wrong");
         }
 
         @Test

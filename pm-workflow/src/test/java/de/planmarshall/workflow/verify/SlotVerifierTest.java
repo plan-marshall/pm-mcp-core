@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ class SlotVerifierTest {
 
     private static WorkflowDefinition parse(String source) {
         var result = WorkflowParser.parse("slot-verify.pmwf", source, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> "the unit was refused: " + result).definition();
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the slot unit follows the grammar").definition();
     }
 
     private List<Violation> violations(String source) {
@@ -135,7 +136,7 @@ class SlotVerifierTest {
                     """);
 
             assertTrue(found.stream().anyMatch(violation -> violation.message().contains(
-                    "which no operator link declares")),
+                            "which no operator link declares")),
                     "the verifier refuses a from-parameter no link declares");
         }
 
@@ -169,7 +170,7 @@ class SlotVerifierTest {
                     """);
 
             assertTrue(found.stream().noneMatch(violation -> violation.message().contains(
-                    "which no operator link declares")),
+                            "which no operator link declares")),
                     "the verifier admits a from-parameter the link declares");
         }
 

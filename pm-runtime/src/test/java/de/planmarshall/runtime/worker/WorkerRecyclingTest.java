@@ -31,7 +31,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -67,7 +66,7 @@ class WorkerRecyclingTest {
     private static final int IDLE_WAKEUPS = 3;
 
     private static final WorkerParameters PARAMETERS =
-            new WorkerParameters(true, OptionalInt.of(270), false, 600, IDLE_WAKEUPS, 300, false);
+            new WorkerParameters(true, 270, false, 600, IDLE_WAKEUPS, 300, false);
 
     private static final SupervisorEnvironment.EligibilityGate OPEN_GATE =
             SupervisorEnvironment.EligibilityGate.open();

@@ -102,9 +102,9 @@ class HarnessStartSpacingTest {
                 () -> assertEquals(HarnessStartSpacing.SPACING_BOUND, Duration.ofSeconds(30),
                         "the compiled bound is the specification's 30 s"),
                 () -> assertTrue(waited.compareTo(Duration.ofMillis(100)) >= 0,
-                        "the wait runs to its bound: " + waited),
+                        "the wait runs to its bound of 150 ms"),
                 () -> assertTrue(waited.compareTo(Duration.ofSeconds(5)) < 0,
-                        "the wait is capped: " + waited));
+                        "the wait is capped well below five seconds"));
     }
 
     @Test
@@ -118,7 +118,7 @@ class HarnessStartSpacingTest {
         spacing.awaitTurn(client);
         var waited = Duration.ofNanos(System.nanoTime() - started);
 
-        assertTrue(waited.compareTo(Duration.ofMillis(500)) < 0, "the exit releases the next start: " + waited);
+        assertTrue(waited.compareTo(Duration.ofMillis(500)) < 0, "the exit releases the next start at once");
     }
 
     @Test

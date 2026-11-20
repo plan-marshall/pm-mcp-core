@@ -187,9 +187,9 @@ class RoleArtifactValidatorTest {
         @MethodSource("refusals")
         @DisplayName("a document that breaks the schema is schema_invalid")
         void refuses(RoleFixtures.RoleFixture fixture, String why) {
-            var refusal = assertThrows(RoleRefusal.class, fixture::artifact, why);
+            var refusal = assertThrows(RoleRefusal.class, fixture::artifact, "the schema-breaking document is refused");
 
-            assertEquals(RoleValidationReason.SCHEMA_INVALID, refusal.reason(), why);
+            assertEquals(RoleValidationReason.SCHEMA_INVALID, refusal.reason(), "the refusal's reason is schema_invalid");
         }
     }
 
@@ -204,7 +204,7 @@ class RoleArtifactValidatorTest {
                 () -> assertEquals(RoleValidationReason.SCHEMA_INVALID, refusal.reason(),
                         "name mismatch refuses as schema_invalid"),
                 () -> assertEquals("review-code", refusal.role(), "refusal names the file's role"),
-                () -> assertTrue(refusal.detail().contains("implement"), refusal.detail()));
+                () -> assertTrue(refusal.detail().contains("implement"), "the detail names the document's own name"));
     }
 
     private static RoleFixtures.RoleFixture zeroTool() {

@@ -154,8 +154,7 @@ The model separates facts a consumer must not conflate (link:../adr/core-build/0
 * `successMarker` records that the positive success marker was seen — the tool's banner or the passing summary it printed —
   so the contradiction stays readable after the status is consumed.
 * `testCounts` distinguishes three states: absent (`null`, the log carried no count line), `Unmeasured` (counts the parser
-  could not aggregate) and `Measured`. Nothing reports a zero in place of an absence (the aggregation defect the
-  implementation watch recorded as PM-WATCH-JOB-10, closed by this package and deleted from the watch document).
+  could not aggregate) and `Measured`. Nothing reports a zero in place of an absence.
 * `noTestsRan` holds only on a successful build with its success marker, its own positive "no tests" marker and no count
   line. A measured count of zero never produces it.
 

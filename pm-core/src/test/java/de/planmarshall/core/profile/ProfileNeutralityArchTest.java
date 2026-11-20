@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.profile;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,7 +58,7 @@ class ProfileNeutralityArchTest {
         var violations = violationsIn(packageClasses());
 
         assertFalse(packageClasses().isEmpty(), "The scan must find the classes of the profile package");
-        assertTrue(violations.isEmpty(), () -> "A class names a harness: " + violations);
+        assertEquals(Map.of(), violations, "No class of the profile package names a harness");
     }
 
     @Test
@@ -65,7 +66,8 @@ class ProfileNeutralityArchTest {
     void controlFixtureFails() throws Exception {
         var found = violationsIn(List.of(classFileOf(ClientNamedFixture.class)));
 
-        assertTrue(found.values().stream().flatMap(Set::stream).anyMatch("opencode"::equals), found::toString);
+        assertTrue(found.values().stream().flatMap(Set::stream).anyMatch("opencode"::equals),
+                "the scan finds the harness the control fixture names");
     }
 
     private static Map<Path, Set<String>> violationsIn(List<Path> classFiles) throws IOException {

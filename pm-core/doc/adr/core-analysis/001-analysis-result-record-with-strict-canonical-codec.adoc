@@ -30,7 +30,7 @@ Alternatives not recorded.
 == Consequences
 
 * The record round-trips byte for byte through its JSON line, and each consistency rule has a refusing test.
-* `AnalysisResultSchemaTest` and `FindingSchemaParityTest` read the specification from `../plan-marshall-documentation` (override with `-Dpm.documentation.root`). Where that checkout is absent, CI included, they are skipped with a visible message naming the missing path.
+* `AnalysisResultSchemaTest` and `FindingSchemaParityTest` read the specification from this repository: their schemas are the files `analysis-result.schema.json` beside the codec and `finding-record.schema.json` beside the record, below `pm-core/src/main/resources`, read from the class path through `SchemaResource` (ADR link:../../../../doc/adr/016-schemas-are-files-of-the-implementing-module.adoc[016]). They need no other checkout, and an absent file fails the test; it is never skipped.
 * `com.networknt:json-schema-validator` is a test-scope dependency of `pm-core`, pinned by the property `version.json-schema-validator`, added with the operator's consent.
 
 == Source

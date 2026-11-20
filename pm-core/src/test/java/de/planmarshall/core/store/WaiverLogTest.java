@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,7 +34,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
@@ -253,7 +253,7 @@ class WaiverLogTest {
             assertAll(
                     () -> assertEquals(Optional.of(waiver), lines.current(FIRST),
                             "the line before the torn tail is current"),
-                    () -> assertEquals(OptionalLong.of(size), lines.tornTailOffset(),
+                    () -> assertEquals(size, lines.tornTailOffset(),
                             "the torn tail should report its offset"),
                     () -> assertEquals(List.of(), lines.refused(), "a torn tail should be no refused line"),
                     () -> assertEquals(size + torn.length, Files.size(log.store()), "a read repairs nothing"));
@@ -290,8 +290,7 @@ class WaiverLogTest {
             assertAll(
                     () -> assertEquals(List.of(waiver, revocation(FIRST)), log.read().records(),
                             "the append should follow the repaired line"),
-                    () -> assertEquals(OptionalLong.empty(), log.read().tornTailOffset(),
-                            "the torn tail should have been repaired"),
+                    () -> assertNull(log.read().tornTailOffset(), "the torn tail should have been repaired"),
                     () -> assertEquals(List.of(AuditEvent.JSONL_TAIL_REPAIRED),
                             auditEvents.getValues().stream().map(AuditEvent::event).toList(),
                             "the repair should be recorded in the audit"));
@@ -304,8 +303,7 @@ class WaiverLogTest {
 
             assertAll(
                     () -> assertEquals(List.of(), lines.entries(), "an absent log should hold no entry"),
-                    () -> assertEquals(OptionalLong.empty(), lines.tornTailOffset(),
-                            "an absent log should have no torn tail"),
+                    () -> assertNull(lines.tornTailOffset(), "an absent log should have no torn tail"),
                     () -> assertTrue(lines.currentWaivers().isEmpty(), "an absent log should hold no waiver"));
         }
     }

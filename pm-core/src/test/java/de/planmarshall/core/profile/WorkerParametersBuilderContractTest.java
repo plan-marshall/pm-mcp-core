@@ -11,43 +11,38 @@ package de.planmarshall.core.profile;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
-import java.util.OptionalInt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The builder of {@link WorkerParameters} builds the value the canonical constructor builds, and a missing deadline is
- * refused with the same refusal.
+ * the {@code null} state the constructor builds from a {@code null} deadline.
  */
 @DisplayName("Worker parameters builder")
 class WorkerParametersBuilderContractTest {
 
     @Test
-    @DisplayName("the builder builds the constructor's value and refuses alike")
-    void shouldBuildLikeTheConstructorAndRefuseAlike() {
-        var canonical = new WorkerParameters(true, OptionalInt.of(270), false, 30, 3, 240, true);
+    @DisplayName("the builder builds the constructor's value, the missing deadline included")
+    void shouldBuildLikeTheConstructor() {
+        var canonical = new WorkerParameters(true, 270, false, 30, 3, 240, true);
         var built = WorkerParameters.builder().eligible(canonical.eligible())
                 .ackDeadlineSeconds(canonical.ackDeadlineSeconds())
                 .ackInformational(canonical.ackInformational())
                 .silenceGraceSeconds(canonical.silenceGraceSeconds()).idleWakeups(canonical.idleWakeups())
                 .boundedWaitSeconds(canonical.boundedWaitSeconds())
                 .progressResetsTimeout(canonical.progressResetsTimeout()).build();
+        var withoutDeadline = new WorkerParameters(true, null, false, 30, 3, 240, true);
+        var builtWithoutDeadline = WorkerParameters.builder().eligible(true).ackInformational(false)
+                .silenceGraceSeconds(30).idleWakeups(3).boundedWaitSeconds(240).progressResetsTimeout(true)
+                .build();
 
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
-                () -> {
-                    var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new WorkerParameters(true, null, false, 30, 3, 240, true),
-                            "the constructor refuses a null ackDeadlineSeconds");
-                    var incomplete = WorkerParameters.builder().eligible(true).ackInformational(false)
-                            .silenceGraceSeconds(30).idleWakeups(3).boundedWaitSeconds(240)
-                            .progressResetsTimeout(true);
-                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
-                            "the builder refuses a missing ackDeadlineSeconds");
-                    assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
-                            "both refuse an absent ack deadline with the same message");
-                });
+                () -> assertEquals(withoutDeadline, builtWithoutDeadline,
+                        "a missing deadline builds like a null one"),
+                () -> assertNull(builtWithoutDeadline.ackDeadlineSeconds(),
+                        "a missing deadline is the null state"));
     }
 }

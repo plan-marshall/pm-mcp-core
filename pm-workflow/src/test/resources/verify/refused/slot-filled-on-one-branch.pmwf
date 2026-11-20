@@ -1,0 +1,35 @@
+---
+name: verify.slot-one-branch
+description: A unit written for the verifier tests.
+type: workflow
+icon: workflow.default
+slot: message
+slot_type: commit_message[1..2000]
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.invoke line 28
+workflow verify.slot-one-branch version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    auto test.prepare
+        done -> verify.fill
+        skipped -> verify.invoke
+
+state verify.fill
+    fills slot.message from message
+    job llm change role reviewer
+        approved -> verify.invoke
+        lost -> verify.done
+
+state verify.invoke
+    call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+        done -> verify.done
+        stepped_out -> plan.return
+
+state plan.return terminal returned failure
+
+state verify.done terminal done success

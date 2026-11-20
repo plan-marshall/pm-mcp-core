@@ -20,7 +20,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -40,7 +39,7 @@ import de.planmarshall.runtime.launch.HarnessEnrolment.UsageReport;
 class VerifiedUsageTest {
 
     private static final String MODEL = Generators.letterStrings(5, 12).next();
-    private static final OptionalLong START_TOKENS = OptionalLong.of(Generators.longs(1_000, 9_000).next());
+    private static final Long START_TOKENS = Generators.longs(1_000, 9_000).next();
 
     @Test
     @DisplayName("the install path maps the stage figures and carries the start context")
@@ -102,7 +101,7 @@ class VerifiedUsageTest {
     @DisplayName("a start context one run measured is not a repeated measurement")
     void startContextMustAgree() {
         var evaluations = List.of(result(UsageStatus.REPORTED, new StartContext("writer", MODEL, START_TOKENS)),
-                result(UsageStatus.REPORTED, new StartContext("writer", MODEL, OptionalLong.empty())));
+                result(UsageStatus.REPORTED, new StartContext("writer", MODEL, null)));
 
         assertFalse(VerifiedUsage.trusted(evaluations), "A once-measured start context is not trusted");
     }

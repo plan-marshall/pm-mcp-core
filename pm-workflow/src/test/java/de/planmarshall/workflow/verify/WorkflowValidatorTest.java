@@ -230,6 +230,18 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-remediation-budget-check.pmwf"),
             new Check("Rule 6: stepped_out is declared only by a terminal of class stepped_out",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-terminal-class.pmwf"),
+            new Check("Rule 6: a slot a call reads is declared in the frontmatter",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-undeclared-read.pmwf"),
+            new Check("Rule 6: a fills clause names a declared slot of the unit",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "fills-undeclared-slot.pmwf"),
+            new Check("Rule 6: a fills clause names a from-parameter an operator link declares",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "fills-from-parameter-unknown.pmwf"),
+            new Check("Rule 6: a slot a call reads is never filled in the unit",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-never-filled.pmwf"),
+            new Check("Rule 6: a slot a call reads is filled on every branch that reaches the call",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-filled-on-one-branch.pmwf"),
+            new Check("Rule 6: the type of a bound slot is assignable to the callee's input type",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-type-not-assignable.pmwf"),
             new Check("Rule 7: the call graph is acyclic",
                     VerificationRule.CALL_GRAPH_DAG, "call-graph-cycle.pmwf"),
             new Check("Rule 7: the call graph is at most five frames deep",
@@ -406,7 +418,7 @@ class WorkflowValidatorTest {
             for (var check : CHECKLIST) {
                 var rules = VerifyFixtures.expectations(VerifyFixtures.REFUSED + "/" + check.fixture()).stream()
                         .map(VerifyFixtures.Expectation::rule).toList();
-                assertTrue(rules.contains(check.rule()), () -> check + " is refused with " + rules);
+                assertTrue(rules.contains(check.rule()), "each check's fixture is refused by its rule");
             }
         }
 
@@ -425,8 +437,8 @@ class WorkflowValidatorTest {
         void shouldPassEveryConstruct() {
             var result = validator.verify(VerifyFixtures.parse(VerifyFixtures.PASSING + "/every-construct.pmwf"));
 
-            assertAll(() -> assertTrue(result.passed(), result::toString),
-                    () -> assertEquals(List.of(), result.violations(), result::toString));
+            assertAll(() -> assertTrue(result.passed(), "the every-construct unit passes"),
+                    () -> assertEquals(List.of(), result.violations(), "the every-construct unit has no violation"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -436,7 +448,7 @@ class WorkflowValidatorTest {
         void shouldPassEveryControl(String resource) {
             var result = validator.verify(VerifyFixtures.parse(resource));
 
-            assertEquals(List.of(), result.violations(), resource);
+            assertEquals(List.of(), result.violations(), "the passing control has no violation");
         }
 
         @Test
@@ -445,7 +457,8 @@ class WorkflowValidatorTest {
             var controls = passingFixtures().stream().map(WorkflowValidatorTest::fileName)
                     .collect(Collectors.toCollection(TreeSet::new));
 
-            var expected = new TreeSet<>(List.of("every-construct.pmwf", "interface-entries-and-exits.pmwf"));
+            var expected = new TreeSet<>(List.of("every-construct.pmwf", "interface-entries-and-exits.pmwf",
+                    "slots-and-inputs.pmwf"));
             Arrays.stream(UnitType.values()).map(type -> "type-" + type.wireName() + ".pmwf").forEach(expected::add);
 
             assertEquals(expected, controls, "the controls are exactly the expected files");
@@ -678,7 +691,7 @@ class WorkflowValidatorTest {
         void shouldPassTheMatchedControl(String exemption, String id, String scope, String states) {
             var result = validator.verify(unit(id, scope, states));
 
-            assertEquals(List.of(), result.violations(), exemption);
+            assertEquals(List.of(), result.violations(), "the exemption's control has no violation");
         }
     }
 
@@ -709,9 +722,10 @@ class WorkflowValidatorTest {
 
             var found = violations(definition);
 
-            assertAll(() -> assertEquals(5, found.size(), found::toString),
+            assertAll(() -> assertEquals(5, found.size(), "each of the five sites is reported"),
                     () -> assertTrue(found.stream().allMatch(v -> v.rule() == VerificationRule.PRIMITIVE_BINDING
-                            && v.message().contains(TestPrimitives.MISSING)), found::toString));
+                            && v.message().contains(TestPrimitives.MISSING)),
+                            "every report is a binding of the missing"));
         }
     }
 
@@ -740,11 +754,12 @@ class WorkflowValidatorTest {
 
             var found = violations(definition);
 
-            assertEquals(count, found.size(), found::toString);
+            assertEquals(count, found.size(), "the case reports its count of violations");
             found.forEach(violation -> assertAll(
                     () -> assertEquals(VerificationRule.PARAMETER_EQUIVALENCE, violation.rule(),
                             "the violation reports the parameter equivalence"),
-                    () -> assertTrue(violation.message().contains(fragment), violation::message)));
+                    () -> assertTrue(violation.message().contains(fragment),
+                            "the violation names the case's difference")));
         }
     }
 
@@ -766,10 +781,11 @@ class WorkflowValidatorTest {
 
             var found = violations(unit("workspace", states + DONE_TERMINAL));
 
-            assertAll(description, () -> assertEquals(1, found.size(), found::toString),
+            assertAll(description, () -> assertEquals(1, found.size(), "the gap is the one violation"),
                     () -> assertEquals(VerificationRule.OUTCOME_COVERAGE, found.getFirst().rule(),
                             "the gap is reported as an outcome-coverage gap"),
-                    () -> assertTrue(found.getFirst().message().contains(fragment), found::toString));
+                    () -> assertTrue(found.getFirst().message().contains(fragment),
+                            "the violation names the case's gap"));
         }
 
         /** A job state whose {@code cancelled} led into a state a composition pruned, so the transition is gone. */
@@ -793,10 +809,11 @@ class WorkflowValidatorTest {
         void shouldRefuseOutcomeWithoutPruneRecord(String description, Map<String, Set<String>> settled) {
             var found = validator.verify(withoutCancelled(), settled).violations();
 
-            assertAll(description, () -> assertEquals(1, found.size(), found::toString),
+            assertAll(description, () -> assertEquals(1, found.size(), "the unrouted outcome is one violation"),
                     () -> assertEquals(VerificationRule.OUTCOME_COVERAGE, found.getFirst().rule(),
                             "the unrouted outcome is still refused"),
-                    () -> assertTrue(found.getFirst().message().contains("'cancelled'"), found::toString));
+                    () -> assertTrue(found.getFirst().message().contains("'cancelled'"),
+                            "the violation names 'cancelled'"));
         }
     }
 
@@ -996,7 +1013,7 @@ class WorkflowValidatorTest {
 
             var found = violations(definition);
 
-            assertEquals(1, found.size(), found::toString);
+            assertEquals(1, found.size(), "the unmeasured cycle is one violation");
             var violation = found.getFirst();
             assertAll(() -> assertEquals(VerificationRule.CYCLE_AWAITED_EVENT, violation.rule(),
                             "the violation is the missing cycle measure"),
@@ -1053,14 +1070,15 @@ class WorkflowValidatorTest {
         void shouldRefuseDroppedName(String migration, int line, String fragment) {
             var found = verify(migration + "\n");
 
-            assertEquals(1, found.size(), found::toString);
+            assertEquals(1, found.size(), "the dropped name is one violation");
             var violation = found.getFirst();
             assertAll(() -> assertEquals(VerificationRule.RELEASED_STATE, violation.rule(),
                             "the violation is a dropped released state"),
                     () -> assertEquals("verify.old", violation.stateId(), "the released state keeps its name"),
                     () -> assertEquals(line, violation.location().line(),
                             "the violation names the migration line"),
-                    () -> assertTrue(violation.message().contains(fragment), violation::message));
+                    () -> assertTrue(violation.message().contains(fragment),
+                            "the violation states the case's reason"));
         }
     }
 

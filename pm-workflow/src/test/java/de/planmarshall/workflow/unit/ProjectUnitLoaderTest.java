@@ -97,10 +97,9 @@ class ProjectUnitLoaderTest {
         assertAll("refused load",
                 () -> assertFalse(result.isVerified(), "a refused load is never verified"),
                 () -> assertEquals(Map.of(), result.units(), "a refused load carries no unit, no default either"),
-                () -> assertTrue(finding.isPresent(), () -> "%s %s expected in %s".formatted(kind, code,
-                        result.findings())),
+                () -> assertTrue(finding.isPresent(), "a finding of the expected kind and code is reported"),
                 () -> assertEquals(file, finding.orElseThrow().file(), "the finding names the file it refuses"),
-                () -> assertEquals(line, finding.orElseThrow().line(), finding.orElseThrow()::message),
+                () -> assertEquals(line, finding.orElseThrow().line(), "the finding names the line it refuses"),
                 () -> assertEquals(UnitLoadResult.CONFIG_INVALID, refusal.orElseThrow().code(),
                         "the lifecycle refusal carries config_invalid"),
                 () -> assertEquals(result.findings().getFirst().file(), refusal.orElseThrow().file(),
@@ -124,7 +123,7 @@ class ProjectUnitLoaderTest {
             var result = load();
 
             assertAll(
-                    () -> assertTrue(result.isVerified(), result.findings()::toString),
+                    () -> assertTrue(result.isVerified(), "the passing project loads verified"),
                     () -> assertEquals(List.of(Phase.PLAN_UNIT, "phase-1-init", "phase-2-refine", "phase-3-outline",
                                     "phase-4-plan", "phase-5-execute", "land", "phase-6-finalize",
                                     "adjudicate.decisions", "replan", "git.commit_and_push",
@@ -145,7 +144,8 @@ class ProjectUnitLoaderTest {
             var plan = units.get(Phase.PLAN_UNIT);
 
             assertAll(
-                    () -> units.values().forEach(unit -> assertEquals(UnitOrigin.PROJECT, unit.origin(), unit::id)),
+                    () -> units.values().forEach(unit -> assertEquals(UnitOrigin.PROJECT, unit.origin(),
+                            "every unit is parsed with the PROJECT origin")),
                     () -> assertEquals(configPath("plan.pmwf"), plan.location().resourceName(),
                             "the plan unit is read from plan.pmwf"),
                     () -> assertEquals(configPath("init.pmwf"), units.get("phase-1-init").location().resourceName(),
@@ -171,7 +171,8 @@ class ProjectUnitLoaderTest {
                     configPath(mutation.file()),
                     UnitFixtures.lineOf(mutation.file(), "author: " + UnitFixtures.DEFAULT_AUTHOR));
             assertAll(
-                    () -> assertTrue(finding.message().contains(ProjectUnitLoader.RESERVED_AUTHOR), finding::message),
+                    () -> assertTrue(finding.message().contains(ProjectUnitLoader.RESERVED_AUTHOR),
+                            "the finding names the reserved author"),
                     () -> assertEquals(1, result.findings().stream()
                                     .filter(other -> UnitFinding.AUTHOR_RESERVED.equals(other.code())).count(),
                             "only the unit naming the reserved author is refused for it"));
@@ -183,7 +184,7 @@ class ProjectUnitLoaderTest {
             var result = load(UnitFixtures.OTHER_PERSON);
 
             assertAll(
-                    () -> assertTrue(result.isVerified(), result.findings()::toString),
+                    () -> assertTrue(result.isVerified(), "a person as the author loads verified"),
                     () -> assertEquals(UnitFixtures.OTHER_PERSON_AUTHOR,
                             result.units().get("replan").frontmatter().author(),
                             "a person as the author is accepted"));
@@ -219,7 +220,7 @@ class ProjectUnitLoaderTest {
                     UnitFixtures.lineOf(mutation.file(), "author: " + UnitFixtures.DEFAULT_AUTHOR));
             assertAll(
                     () -> assertTrue(finding.message().contains(ProjectUnitLoader.RESERVED_AUTHOR),
-                            finding::message),
+                            "the finding names the reserved author"),
                     () -> assertEquals(1, result.findings().stream()
                                     .filter(other -> UnitFinding.AUTHOR_RESERVED.equals(other.code())).count(),
                             "only the unit naming the reserved author is refused for it"));
@@ -239,7 +240,7 @@ class ProjectUnitLoaderTest {
             var result = load(mutation);
 
             assertAll(
-                    () -> assertTrue(result.isVerified(), result.findings()::toString),
+                    () -> assertTrue(result.isVerified(), "a near-miss author loads verified"),
                     () -> assertEquals(author, result.units().get("replan").frontmatter().author(),
                             "an author resembling the reserved one loads"));
         }
@@ -256,7 +257,7 @@ class ProjectUnitLoaderTest {
             var path = project.resolve(configPath(REPLAN));
             var base = Files.readString(path);
             var padding = bytes - base.length() - 3;
-            assertTrue(padding > 0, () -> "the fixture is longer than " + bytes + " bytes");
+            assertTrue(padding > 0, "the fixture is shorter than the padded size");
             Files.writeString(path, base + "\n# " + "x".repeat(padding));
         }
 
@@ -272,7 +273,7 @@ class ProjectUnitLoaderTest {
                     () -> assertEquals(ProjectUnitLoader.MAX_UNIT_FILE_BYTES,
                             Files.size(project.resolve(configPath(REPLAN))),
                             "the unit file is exactly at the size cap"),
-                    () -> assertTrue(result.isVerified(), result.findings()::toString));
+                    () -> assertTrue(result.isVerified(), "a unit file at the cap loads verified"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -288,7 +289,7 @@ class ProjectUnitLoaderTest {
                     configPath(REPLAN), 0);
             assertAll(
                     () -> assertTrue(finding.message().contains(Integer.toString(ProjectUnitLoader.MAX_UNIT_FILE_BYTES)),
-                            finding::message),
+                            "the finding names the size cap"),
                     () -> assertEquals(bytes, Files.size(project.resolve(configPath(REPLAN))),
                             "the unit file is written above the size cap"));
         }
@@ -316,7 +317,7 @@ class ProjectUnitLoaderTest {
             assertAll(
                     () -> assertFalse(result.isVerified(), "the frontmatter past the line cap is refused"),
                     () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.PARSE,
-                            RefusalRule.FRONTMATTER.name()).isPresent(), result.findings()::toString),
+                            RefusalRule.FRONTMATTER.name()).isPresent(), "a FRONTMATTER parse finding is reported"),
                     () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE,
                                     UnitFinding.AUTHOR_RESERVED).isEmpty(),
                             "the author below the cap is not read"));
@@ -380,7 +381,7 @@ class ProjectUnitLoaderTest {
                     .toList();
             assertAll(
                     () -> assertFalse(result.isVerified(), "the type replacement is refused"),
-                    () -> assertEquals(1, matching.size(), result.findings()::toString),
+                    () -> assertEquals(1, matching.size(), "exactly one INV-GEN-1 type finding"),
                     () -> assertEquals(configPath(file), matching.getFirst().file(),
                             "the finding names the re-planning unit file"),
                     () -> assertEquals(mutation.lineOf("workflow replan"), matching.getFirst().line(),
@@ -397,7 +398,7 @@ class ProjectUnitLoaderTest {
 
             assertTrue(result.findings().stream().anyMatch(finding -> finding.kind() == UnitFinding.Kind.RULE
                             && configPath(mutation.file()).equals(finding.file()) && finding.line() == line),
-                    result.findings()::toString);
+                    "a RULE finding names the offending transition");
             assertFalse(result.isVerified(), "the rule violation refuses the lifecycle");
         }
 
@@ -411,7 +412,8 @@ class ProjectUnitLoaderTest {
             var finding = assertRefused(result, UnitFinding.Kind.DECLARATION, "declaration_invalid",
                     configPath(mutation.file()), mutation.lineOf("declare vote_wait_seconds = 30"));
             assertAll(
-                    () -> assertTrue(finding.message().contains("vote_wait_seconds"), finding::message),
+                    () -> assertTrue(finding.message().contains("vote_wait_seconds"),
+                            "the finding names vote_wait_seconds"),
                     () -> assertTrue(result.findings().stream().noneMatch(
                                     other -> other.kind() == UnitFinding.Kind.INVARIANT
                                             && configPath(mutation.file()).equals(other.file())
@@ -450,10 +452,12 @@ class ProjectUnitLoaderTest {
             var finding = assertRefused(result, UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID,
                     configPath(mutation.file()), mutation.lineOf("workflow adjudicate.decisions"));
             assertAll(
-                    () -> assertTrue(finding.message().contains("adjudicate.decisions"), finding::message),
+                    () -> assertTrue(finding.message().contains("adjudicate.decisions"),
+                            "the finding names the duplicate id"),
                     () -> assertTrue(finding.message().contains(configPath(InvariantFixtures.ADJUDICATION_FILE)),
-                            finding::message),
-                    () -> assertTrue(finding.message().contains(configPath(mutation.file())), finding::message));
+                            "the finding names the earlier unit's file"),
+                    () -> assertTrue(finding.message().contains(configPath(mutation.file())),
+                            "the finding names the duplicate's own file"));
         }
 
         @Test
@@ -466,9 +470,12 @@ class ProjectUnitLoaderTest {
             var finding = assertRefused(result, UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID,
                     configPath(mutation.file()), mutation.lineOf(UnitFixtures.PLAN_HEADER));
             assertAll(
-                    () -> assertTrue(finding.message().contains("'" + Phase.PLAN_UNIT + "'"), finding::message),
-                    () -> assertTrue(finding.message().contains(configPath("plan.pmwf")), finding::message),
-                    () -> assertTrue(finding.message().contains(configPath(mutation.file())), finding::message));
+                    () -> assertTrue(finding.message().contains("'" + Phase.PLAN_UNIT + "'"),
+                            "the finding names the plan id"),
+                    () -> assertTrue(finding.message().contains(configPath("plan.pmwf")),
+                            "the finding names the plan unit's file"),
+                    () -> assertTrue(finding.message().contains(configPath(mutation.file())),
+                            "the finding names the offending file"));
         }
     }
 
@@ -493,7 +500,7 @@ class ProjectUnitLoaderTest {
             assertAll(
                     () -> assertEquals(1, ProjectUnitLoader.COMPILED_FORMAT_VERSION,
                             "the compiled format is the first one"),
-                    () -> assertTrue(finding.message().contains("'0'"), finding::message));
+                    () -> assertTrue(finding.message().contains("'0'"), "the finding names the format '0'"));
         }
 
         @Test
@@ -574,7 +581,7 @@ class ProjectUnitLoaderTest {
             assertAll(
                     () -> assertFalse(result.isVerified(), "the indented opening delimiter is refused"),
                     () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.PARSE,
-                            RefusalRule.FRONTMATTER.name()).isPresent(), result.findings()::toString),
+                            RefusalRule.FRONTMATTER.name()).isPresent(), "a FRONTMATTER parse finding is reported"),
                     () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE,
                                     UnitFinding.AUTHOR_RESERVED).isEmpty(),
                             "the author behind a non-exact opening delimiter is not read"));
@@ -620,7 +627,7 @@ class ProjectUnitLoaderTest {
                         "a null bound step set is refused"),
                 () -> assertThrows(NullPointerException.class,
                         () -> new ProjectUnitLoader(null, defaults, roster, files),
-                        "a null class loader is refused"),
+                        "a null verification context is refused"),
                 () -> assertThrows(NullPointerException.class,
                         () -> new ProjectUnitLoader(context, null, roster, files),
                         "null default units are refused"),

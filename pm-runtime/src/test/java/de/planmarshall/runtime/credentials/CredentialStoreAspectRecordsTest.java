@@ -10,13 +10,13 @@
 package de.planmarshall.runtime.credentials;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
-import java.util.OptionalInt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +45,7 @@ class CredentialStoreAspectRecordsTest {
                 Generators.enumValues(CredentialStoreCheck.Outcome.class).next(),
                 CredentialStoreCheck.MESSAGE_KEY_PREFIX + Generators.letterStrings(1, 20).next(),
                 List.of(Generators.letterStrings(1, 20).next()), Generators.letterStrings(1, 40).next()));
-        var moveEntries = OptionalInt.of(Generators.integers(0, 10_000).next());
+        var moveEntries = Generators.integers(0, 10_000).next();
 
         var constructed = new CredentialStoreAspect.Transition(next, reason, detail, toRecord, lines, moveEntries);
         var built = CredentialStoreAspect.Transition.builder()
@@ -67,10 +67,21 @@ class CredentialStoreAspectRecordsTest {
                 .reason(Generators.letterStrings(1, 20).next())
                 .detail(Generators.letterStrings(1, 40).next())
                 .lines(List.of())
-                .moveEntries(OptionalInt.of(Generators.integers(0, 10_000).next()));
+                .moveEntries(Generators.integers(0, 10_000).next());
         var refusal = assertThrows(NullPointerException.class, builder::build,
                 "the builder names the missing next state");
 
         assertEquals("next", refusal.getMessage(), "the refusal names the missing next state");
+    }
+
+    @Test
+    @DisplayName("a transition without a move count carries a null count")
+    void transitionWithoutMoveCount() {
+        var transition = CredentialStoreAspect.Transition.builder()
+                .next(Generators.enumValues(CredentialStoreAspect.State.class).next())
+                .lines(List.of())
+                .build();
+
+        assertNull(transition.moveEntries(), "a transition without a count has none");
     }
 }

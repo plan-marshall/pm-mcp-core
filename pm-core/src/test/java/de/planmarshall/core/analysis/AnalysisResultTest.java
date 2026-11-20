@@ -79,8 +79,7 @@ class AnalysisResultTest {
     private static void assertRefused(String rule, Executable construction) {
         var refusal = assertThrows(IllegalArgumentException.class,
                 construction, "an invalid result is refused as illegal argument");
-        assertTrue(refusal.getMessage().contains(rule),
-                () -> "the refusal names the rule '%s': %s".formatted(rule, refusal.getMessage()));
+        assertTrue(refusal.getMessage().contains(rule), "the refusal message names the broken rule");
     }
 
     @Nested

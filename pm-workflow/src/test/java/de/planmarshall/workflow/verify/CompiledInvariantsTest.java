@@ -105,7 +105,7 @@ class CompiledInvariantsTest {
 
             var result = InvariantFixtures.validator().verify(unit);
 
-            assertEquals(List.of(), result.violations(), () -> unitId + " " + result.violations());
+            assertEquals(List.of(), result.violations(), "the default unit has no violation");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -228,8 +228,7 @@ class CompiledInvariantsTest {
             assertTrue(found.stream().anyMatch(violation -> violation.id() == id
                             && refusing.anchorFile().equals(violation.location().resourceName())
                             && violation.location().line() == expectedLine),
-                    () -> "%s expected at %s line %d, found %s".formatted(id.wireId(), refusing.anchorFile(),
-                            expectedLine, found));
+                    "the invariant is reported at its anchor line");
         }
 
         @Test
@@ -335,7 +334,8 @@ class CompiledInvariantsTest {
 
             assertAll(
                     () -> InvariantFixtures.LIGHT_ROUTE.forEach(state -> assertFalse(units.values().stream()
-                            .anyMatch(unit -> unit.states().containsKey(state)), state)),
+                            .anyMatch(unit -> unit.states().containsKey(state)),
+                            "no unit declares a light-route state")),
                     () -> assertEquals(List.of(), lightLane(units, lane),
                             "a lane owing no ratchet needs no light route"));
         }
@@ -456,7 +456,7 @@ class CompiledInvariantsTest {
 
             var matching = found.stream().filter(violation -> message.equals(violation.message())).toList();
             assertAll(
-                    () -> assertEquals(1, matching.size(), found::toString),
+                    () -> assertEquals(1, matching.size(), "exactly one finding carries the message"),
                     () -> assertEquals(new InvariantLocation(InvariantId.INV_GEN_1, mutation.file(),
                                     InvariantFixtures.lineOf(mutation.applied(), "workflow " + unit.id())),
                             InvariantLocation.of(matching.getFirst()),
@@ -539,7 +539,7 @@ class CompiledInvariantsTest {
 
             assertTrue(found.stream().anyMatch(violation -> violation.id() == InvariantId.INV_GEN_1
                     && "the type 'task' differs from the type 'subworkflow' of the default unit"
-                    .equals(violation.message())), found::toString);
+                    .equals(violation.message())), "INV-GEN-1 reports the changed type");
         }
     }
 
@@ -631,7 +631,8 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> assertEquals(EnumSet.of(InvariantId.INV_GEN_2, InvariantId.INV_GEN_4, InvariantId.INV_REM_6),
                             hooked, "the three runtime hooks of the invariants"),
-                    () -> hooked.forEach(id -> assertFalse(id.namedHook().orElseThrow().isBlank(), id::wireId)));
+                    () -> hooked.forEach(id -> assertFalse(id.namedHook().orElseThrow().isBlank(),
+                            "every hooked invariant names its hook")));
         }
 
         @ParameterizedTest(name = "{0}")

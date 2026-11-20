@@ -63,12 +63,12 @@ class CoreLogMessagesTest {
     void ranges(String level, int first, int last) throws Exception {
         var records = records(level);
 
-        assertFalse(records.isEmpty(), level);
+        assertFalse(records.isEmpty(), "the level declares at least one record");
         for (LogRecord logRecord : records) {
             assertEquals(CoreLogMessages.PREFIX, logRecord.getPrefix(),
                     "the record carries the holder's prefix");
             assertTrue(logRecord.getIdentifier() >= first && logRecord.getIdentifier() <= last,
-                    logRecord.resolveIdentifierString());
+                    "the identifier lies in the range of its level");
         }
     }
 
@@ -82,7 +82,7 @@ class CoreLogMessagesTest {
         var seen = new HashSet<Integer>();
 
         for (LogRecord logRecord : all) {
-            assertTrue(seen.add(logRecord.getIdentifier()), logRecord.resolveIdentifierString());
+            assertTrue(seen.add(logRecord.getIdentifier()), "no other record carries this identifier");
         }
     }
 
@@ -103,11 +103,14 @@ class CoreLogMessagesTest {
         }
 
         assertAll(
-                () -> assertEquals(declared.size(), new HashSet<>(declared).size(), declared.toString()),
-                () -> assertEquals(new HashSet<>(KNOWN_PREFIXES), new HashSet<>(declared), declared.toString()),
+                () -> assertEquals(declared.size(), new HashSet<>(declared).size(),
+                        "no two holders declare the same prefix"),
+                () -> assertEquals(new HashSet<>(KNOWN_PREFIXES), new HashSet<>(declared),
+                        "the declared prefixes are the known prefixes"),
                 () -> assertEquals(KNOWN_PREFIXES.size(), new HashSet<>(KNOWN_PREFIXES).size(),
-                        KNOWN_PREFIXES.toString()),
-                () -> assertTrue(KNOWN_PREFIXES.contains(CoreLogMessages.PREFIX), CoreLogMessages.PREFIX));
+                        "the list of known prefixes holds no duplicate"),
+                () -> assertTrue(KNOWN_PREFIXES.contains(CoreLogMessages.PREFIX),
+                        "the prefix of pm-core is one of the known ones"));
     }
 
     static Stream<Arguments> namedRecords() {
@@ -183,7 +186,7 @@ class CoreLogMessagesTest {
         }
         var sources = modules.stream().map(module -> module.resolve("src/main/java")).filter(Files::isDirectory)
                 .toList();
-        assertFalse(sources.isEmpty(), root.toString());
+        assertFalse(sources.isEmpty(), "the repository holds module production sources");
         return sources;
     }
 

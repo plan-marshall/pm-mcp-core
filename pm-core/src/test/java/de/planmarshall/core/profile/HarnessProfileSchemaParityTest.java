@@ -135,6 +135,31 @@ class HarnessProfileSchemaParityTest {
                         "The unimplemented usage members are the pinned two"));
     }
 
+    @Test
+    @DisplayName("the optional headless members and the bounds of the token members are the validator's")
+    void optionalHeadlessMembersAndMaximum() {
+        var headless = SchemaResource.object(SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"))
+                .get("headless"));
+        var declared = SchemaResource.object(headless.get("properties"));
+        var optional = new TreeSet<>(names(declared.keySet()));
+        optional.removeAll(names(SchemaResource.array(headless.get("required"))));
+        var budget = SchemaResource.object(declared.get("context_budget_tokens"));
+        var threshold = SchemaResource.object(
+                SchemaResource.object(declared.get("long_context_thresholds")).get("additionalProperties"));
+
+        assertAll(
+                () -> assertEquals(ProfileValidator.HEADLESS_OPTIONAL, Set.copyOf(optional),
+                        "The optional headless members are the validator's"),
+                () -> assertEquals(10_000, ((Number) budget.get("minimum")).intValue(),
+                        "The budget minimum is the validator's"),
+                () -> assertEquals(Integer.MAX_VALUE, ((Number) budget.get("maximum")).longValue(),
+                        "The budget maximum is the integer maximum"),
+                () -> assertEquals(10_000, ((Number) threshold.get("minimum")).intValue(),
+                        "The threshold minimum is the validator's"),
+                () -> assertEquals(Integer.MAX_VALUE, ((Number) threshold.get("maximum")).longValue(),
+                        "The threshold maximum is the integer maximum"));
+    }
+
     private static Map<?, ?> document() {
         return SchemaResource.object(SchemaResource.parse(new String(ProfileFixtures.validBytes(), UTF_8)));
     }

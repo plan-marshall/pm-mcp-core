@@ -1,0 +1,34 @@
+---
+name: verify.slots-and-inputs
+description: A plan unit that declares a slot, fills it and binds it at a call, written for the verifier tests.
+type: workflow
+icon: workflow.default
+slot: message
+slot_type: commit_message[1..2000]
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+workflow verify.slots-and-inputs version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    auto test.prepare
+        done -> verify.fill
+        skipped -> verify.fill
+
+state verify.fill
+    fills slot.message from message
+    job llm change role reviewer
+        approved -> verify.invoke
+        lost -> verify.done
+
+state verify.invoke
+    call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+        done -> verify.done
+        stepped_out -> plan.return
+
+state plan.return terminal returned failure
+
+state verify.done terminal done success

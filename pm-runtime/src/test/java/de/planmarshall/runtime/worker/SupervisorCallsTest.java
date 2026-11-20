@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.stream.IntStream;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -110,7 +109,7 @@ class SupervisorCallsTest {
     }
 
     private static WorkerParameters parameters(int idleWakeups) {
-        return new WorkerParameters(true, OptionalInt.of(ACK_DEADLINE_SECONDS), false, SILENCE_GRACE_SECONDS,
+        return new WorkerParameters(true, ACK_DEADLINE_SECONDS, false, SILENCE_GRACE_SECONDS,
                 idleWakeups, BOUNDED_WAIT_SECONDS, false);
     }
 
@@ -662,7 +661,7 @@ class SupervisorCallsTest {
     @Test
     @DisplayName("an answered hold counts the silence limit again when the acknowledgement is informational")
     void anAnsweredHoldIsSilentAgain() {
-        withBounds(null, new WorkerParameters(true, OptionalInt.of(ACK_DEADLINE_SECONDS), true,
+        withBounds(null, new WorkerParameters(true, ACK_DEADLINE_SECONDS, true,
                 SILENCE_GRACE_SECONDS, IDLE_WAKEUPS, BOUNDED_WAIT_SECONDS, false));
         var generation = holdingGeneration();
 

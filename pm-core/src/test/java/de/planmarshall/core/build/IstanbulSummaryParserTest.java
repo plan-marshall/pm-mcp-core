@@ -102,7 +102,8 @@ class IstanbulSummaryParserTest {
     @DisplayName("refuses a malformed or incomplete document")
     void refusesAMalformedOrIncompleteDocument(String name, String json, String expectedReason) {
         CoverageParseResult.Refused refused =
-                assertInstanceOf(CoverageParseResult.Refused.class, IstanbulSummaryParser.parse(json), name);
+                assertInstanceOf(CoverageParseResult.Refused.class, IstanbulSummaryParser.parse(json),
+                        "a malformed document parses to a refusal");
 
         assertAll(
                 () -> assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul"),

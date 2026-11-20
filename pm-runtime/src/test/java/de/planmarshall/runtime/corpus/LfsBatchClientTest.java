@@ -222,7 +222,7 @@ class LfsBatchClientTest {
     private static void assertNoLogLineHolds(String value) {
         for (var level : TestLogLevel.values()) {
             assertTrue(TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, value).isEmpty(),
-                    "no " + level + " line holds the value");
+                    "no log line of any level holds the value");
         }
     }
 
@@ -257,7 +257,7 @@ class LfsBatchClientTest {
 
             var fetch = client.object(repository(), pointer);
 
-            assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail);
+            assertEquals(Outcome.FETCHED, fetch.outcome(), "the object is fetched under the locale");
             var request = nextRequest();
             assertNotNull(request.getBody(), "the batch request carries a body");
             assertEquals("{\"operation\":\"download\",\"transfers\":[\"basic\"],\"objects\":[{\"oid\":\"" + pointer.oid()
@@ -273,8 +273,9 @@ class LfsBatchClientTest {
             var fetch = client.object(repository(), pointer);
 
             assertAll("the ASCII status",
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                    () -> assertTrue(fetch.detail().endsWith("answered 503"), fetch::detail));
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a 503 batch answer is UNREACHABLE"),
+                    () -> assertTrue(fetch.detail().endsWith("answered 503"),
+                            "the status is written in ASCII digits"));
         }
     }
 
@@ -294,7 +295,7 @@ class LfsBatchClientTest {
             var fetch = client.object(repository(), pointer);
 
             assertAll("the fetched object",
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), "the delivered object is FETCHED"),
                     () -> assertArrayEquals(object, fetch.content(), "the object bytes are delivered"),
                     () -> assertEquals(2, server.getRequestCount(), "a batch and a download are sent"));
             var batchRequest = nextRequest();
@@ -307,9 +308,11 @@ class LfsBatchClientTest {
                     () -> assertEquals(LfsBatchClient.MEDIA_TYPE, batchRequest.getHeaders().get("Accept"),
                             "the batch accepts the LFS media type"),
                     () -> assertTrue(batchRequest.getHeaders().get("Content-Type")
-                            .startsWith(LfsBatchClient.MEDIA_TYPE), batchRequest.getHeaders()::toString),
-                    () -> assertTrue(batchBody.contains("\"operation\":\"download\""), batchBody),
-                    () -> assertTrue(batchBody.contains("\"oid\":\"" + pointer.oid() + "\""), batchBody),
+                            .startsWith(LfsBatchClient.MEDIA_TYPE), "the batch body is sent as the LFS media type"),
+                    () -> assertTrue(batchBody.contains("\"operation\":\"download\""),
+                            "the batch body asks for a download"),
+                    () -> assertTrue(batchBody.contains("\"oid\":\"" + pointer.oid() + "\""),
+                            "the batch body names the pointer's object"),
                     () -> assertEquals("GET", download.getMethod(), "the download is a GET"),
                     () -> assertEquals(objectPath(), download.getTarget(), "the action's href is downloaded"),
                     () -> assertEquals(actionSecret, download.getHeaders().get("Authorization"),
@@ -326,9 +329,10 @@ class LfsBatchClientTest {
             var fetch = client.object(repository(), pointer);
 
             assertAll("the mismatching bytes",
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), "mismatching bytes are still FETCHED"),
                     () -> assertArrayEquals(other, fetch.content(), "the delivered bytes are handed over"),
-                    () -> assertTrue(fetch.detail().contains("not the object " + pointer.oid()), fetch::detail),
+                    () -> assertTrue(fetch.detail().contains("not the object " + pointer.oid()),
+                            "the detail names the pointer's object"),
                     () -> assertFalse(Sha256.matches(fetch.content(), pointer.oid()),
                             "the bytes do not match the pointer"));
         }
@@ -342,10 +346,11 @@ class LfsBatchClientTest {
             var fetch = client.object(repository(), pointer);
 
             assertAll("the bounded read",
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), "the bounded read is reported FETCHED"),
                     () -> assertEquals(pointer.size() + 1, fetch.content().length,
                             "reading stops one byte beyond the size"),
-                    () -> assertTrue(fetch.detail().contains("served more bytes"), fetch::detail));
+                    () -> assertTrue(fetch.detail().contains("served more bytes"),
+                            "the detail says more bytes were served"));
         }
     }
 
@@ -396,10 +401,10 @@ class LfsBatchClientTest {
         var fetch = client.object(repository(), pointer);
 
         assertAll("the undelivered object",
-                () -> assertEquals(expected, fetch.outcome(), fetch::detail),
+                () -> assertEquals(expected, fetch.outcome(), "the undelivered object has the case's outcome"),
                 () -> assertEquals(0, fetch.content().length, "no content is delivered"),
                 () -> assertEquals(requests, server.getRequestCount(), "the expected requests are sent"),
-                () -> assertFalse(fetch.detail().contains(SECRET_MARKER), fetch::detail));
+                () -> assertFalse(fetch.detail().contains(SECRET_MARKER), "the detail never holds the secret"));
         assertUnavailableLogged();
     }
 
@@ -427,11 +432,11 @@ class LfsBatchClientTest {
         var fetch = client.object(repository(), pointer);
 
         assertAll("the refused header",
-                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
+                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a refused header is UNREACHABLE"),
                 () -> assertEquals(1, server.getRequestCount(), "only the batch request is sent"),
-                () -> assertTrue(fetch.detail().contains(expectedDetail), fetch::detail),
-                () -> assertFalse(fetch.detail().contains(SECRET_MARKER), fetch::detail),
-                () -> assertFalse(fetch.detail().contains("RemoteAuth"), fetch::detail));
+                () -> assertTrue(fetch.detail().contains(expectedDetail), "the detail names the refused header"),
+                () -> assertFalse(fetch.detail().contains(SECRET_MARKER), "the detail never holds the secret"),
+                () -> assertFalse(fetch.detail().contains("RemoteAuth"), "the detail never holds the header value"));
         assertUnavailableLogged();
         assertNoLogLineHolds(SECRET_MARKER);
     }
@@ -461,10 +466,10 @@ class LfsBatchClientTest {
         private void assertNothingDownloaded(SourceFetch fetch, Outcome expected, String detail)
                 throws InterruptedException {
             assertAll("nothing downloaded",
-                    () -> assertEquals(expected, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(expected, fetch.outcome(), "the refused download has the expected outcome"),
                     () -> assertEquals(0, fetch.content().length, "no content is delivered"),
-                    () -> assertTrue(fetch.detail().contains(detail), fetch::detail),
-                    () -> assertFalse(fetch.detail().contains(SECRET_MARKER), fetch::detail),
+                    () -> assertTrue(fetch.detail().contains(detail), "the detail names why the action is refused"),
+                    () -> assertFalse(fetch.detail().contains(SECRET_MARKER), "the detail never holds the secret"),
                     () -> assertEquals(1, server.getRequestCount(), "only the batch request is sent"));
             var batchRequest = nextRequest();
             assertAll("the batch request",
@@ -499,7 +504,7 @@ class LfsBatchClientTest {
 
             assertNothingDownloaded(fetch, Outcome.UNREACHABLE, "refused: the download URL of " + pointer.oid()
                     + " is not https");
-            assertFalse(fetch.detail().contains("pa55word"), fetch::detail);
+            assertFalse(fetch.detail().contains("pa55word"), "the detail never names the password");
             assertNoLogLineHolds("pa55word");
         }
 
@@ -548,7 +553,7 @@ class LfsBatchClientTest {
 
         var fetch = client.object(repository(), pointer);
 
-        assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail);
+        assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a stalled response is reported UNREACHABLE");
         assertUnavailableLogged();
     }
 
@@ -558,8 +563,8 @@ class LfsBatchClientTest {
         var fetch = new LfsBatchClient().object(repository(), pointer);
 
         assertAll("the refused cleartext repository",
-                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
+                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a cleartext repository is UNREACHABLE"),
+                () -> assertTrue(fetch.detail().startsWith("refused"), "the detail says the URL is refused"),
                 () -> assertEquals(0, server.getRequestCount(),
                         "the refused cleartext repository sends nothing"));
         assertUnavailableLogged();
@@ -571,8 +576,8 @@ class LfsBatchClientTest {
         var fetch = client.object(URI.create("https://user:pw@example.org/r"), pointer);
 
         assertAll("the refused user information",
-                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                () -> assertFalse(fetch.detail().contains("pw"), fetch::detail),
+                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a URL with user information is refused"),
+                () -> assertFalse(fetch.detail().contains("pw"), "the detail never names the password"),
                 () -> assertEquals(0, server.getRequestCount(),
                         "the refused user information sends nothing"));
     }
@@ -585,8 +590,8 @@ class LfsBatchClientTest {
         var fetch = client.object(URI.create(uri), pointer);
 
         assertAll("the refused URL",
-                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
+                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a URL without scheme is UNREACHABLE"),
+                () -> assertTrue(fetch.detail().startsWith("refused"), "the detail says the URL is refused"),
                 () -> assertEquals(0, server.getRequestCount(),
                         "the refused URL without scheme sends nothing"));
         assertUnavailableLogged();
@@ -691,7 +696,7 @@ class LfsBatchClientTest {
             var result = corpusImport().run(corpusRoot, importBase.resolve("cache"));
 
             assertAll("the complete import",
-                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), result::toString),
+                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), "the delivered object completes the run"),
                     () -> assertEquals(1, result.items(), "the one item is generated"));
         }
 
@@ -704,7 +709,7 @@ class LfsBatchClientTest {
             var result = corpusImport().run(corpusRoot, importBase.resolve("cache"));
 
             assertAll("the refused import",
-                    () -> assertEquals(Verdict.FAILED, result.verdict(), result::toString),
+                    () -> assertEquals(Verdict.FAILED, result.verdict(), "the tampered bytes fail the run"),
                     () -> assertEquals(1, result.missed().size(), "the one file is missed"),
                     () -> assertEquals(Reason.HASH_MISMATCH, result.missed().getFirst().reason(),
                             "the miss is a hash mismatch"),

@@ -88,24 +88,25 @@ class ShippedUsageFixturesTest {
             var expectedOut = splitOrEmpty(assigned, notApplicable, "output_tokens", "reasoning");
             assertAll(clientId,
                     () -> assertEquals(assigned.getOrDefault("input_tokens", null),
-                            measured(row.inputTokens()), clientId + " input"),
+                            measured(row.inputTokens()), "the input token figure is read from its pointer"),
                     () -> assertEquals(assigned.getOrDefault("output_tokens", null),
-                            measured(row.outputTokens()), clientId + " output"),
+                            measured(row.outputTokens()), "the output token figure is read from its pointer"),
                     () -> assertEquals(assigned.getOrDefault("cache_read", null),
-                            measured(row.cacheReadInputTokens()), clientId + " cache read"),
+                            measured(row.cacheReadInputTokens()), "the cache read figure is read from its pointer"),
                     () -> assertEquals(assigned.getOrDefault("cache_creation", null),
-                            measured(row.cacheCreationInputTokens()), clientId + " cache creation"),
+                            measured(row.cacheCreationInputTokens()),
+                            "the cache creation figure is read from its pointer"),
                     () -> assertEquals(assigned.getOrDefault("reasoning", null),
-                            measured(row.reasoningTokens()), clientId + " reasoning"),
+                            measured(row.reasoningTokens()), "the reasoning figure is read from its pointer"),
                     () -> assertEquals(assigned.getOrDefault("tool_uses", null), measured(row.toolUses()),
-                            clientId + " tool uses"),
-                    () -> assertEquals(assigned.getOrDefault("cost_usd", null), cost(row), clientId + " cost"),
-                    () -> assertEquals(expectedTotal, row.totalTokens(), clientId + " total"),
-                    () -> assertEquals(expectedIn, row.tokensIn(), clientId + " tokens_in"),
-                    () -> assertEquals(expectedOut, row.tokensOut(), clientId + " tokens_out"));
+                            "the tool use figure is read from its pointer"),
+                    () -> assertEquals(assigned.getOrDefault("cost_usd", null), cost(row),
+                            "the cost figure is read from its pointer"),
+                    () -> assertEquals(expectedTotal, row.totalTokens(), "the total is derived from the figures"),
+                    () -> assertEquals(expectedIn, row.tokensIn(), "tokens_in is derived from the input figures"),
+                    () -> assertEquals(expectedOut, row.tokensOut(), "tokens_out is derived from the output figures"));
         }
-        assertTrue(exercised.size() >= 3,
-                "the three measured shipped harnesses (claude, opencode, antigravity) are exercised, got " + exercised);
+        assertTrue(exercised.size() >= 3, "the three measured shipped harnesses are exercised");
     }
 
     private static boolean declaresNoPointer(JsonNode usage) {

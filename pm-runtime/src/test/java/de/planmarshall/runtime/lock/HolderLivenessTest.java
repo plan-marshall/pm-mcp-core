@@ -105,6 +105,6 @@ class HolderLivenessTest {
 
         assertEquals(alive, HolderLiveness.isAlive(holder, processExists,
                         shiftMillis == null ? null : recorded.plusMillis(shiftMillis)),
-                "liveness of: " + observation);
+                "the holder's liveness follows the observation");
     }
 }

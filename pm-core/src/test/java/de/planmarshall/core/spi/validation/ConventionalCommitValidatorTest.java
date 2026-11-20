@@ -54,7 +54,7 @@ class ConventionalCommitValidatorTest {
     void acceptsMessage(String label, String message) {
         var violations = validator.validate(message);
 
-        assertTrue(violations.isEmpty(), () -> label + " must be accepted, but: " + violations);
+        assertEquals(List.of(), violations, "the message is accepted without a violation");
     }
 
     static Stream<Arguments> rejectedMessages() {
@@ -98,7 +98,8 @@ class ConventionalCommitValidatorTest {
     void rejectsMessage(String label, String message, String ruleKey, int line) {
         var violations = validator.validate(message);
 
-        assertEquals(List.of(ruleKey + "@" + line), keysAndLines(violations), label);
+        assertEquals(List.of(ruleKey + "@" + line), keysAndLines(violations),
+                "the message breaks exactly its rule on its line");
     }
 
     @Nested
@@ -135,7 +136,8 @@ class ConventionalCommitValidatorTest {
 
             var violations = validator.validate(HEADER + "\n\n" + trailer);
 
-            assertTrue(violations.getFirst().message().contains(trailer), violations.getFirst().message());
+            assertTrue(violations.getFirst().message().contains(trailer),
+                    "the violation message names the trailer");
         }
     }
 

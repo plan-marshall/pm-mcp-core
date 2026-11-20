@@ -812,6 +812,7 @@ public final class LessonStore {
             case LessonResolution.PresentUnreadable _, LessonResolution.StoreTampered _,
                 LessonResolution.DeletedOutOfBand _, LessonResolution.Untracked _ -> true;
             case LessonResolution.Absent _ -> false;
+            default -> false;
         };
     }
 

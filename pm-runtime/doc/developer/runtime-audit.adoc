@@ -25,7 +25,7 @@ what anchors the chain beyond itself:
   index `logs/audit-index.jsonl` that lists the rotated files;
 * the verification: incremental at every runtime start, and full for `pm-operator audit verify`.
 
-The package was work package `audit-trail`; it is its own package because it fills two seams, `AuditAnchor` of
+The package is its own package because it fills two seams, `AuditAnchor` of
 `core.store` and `AuditChainVerification` of `runtime.start`, and `runtime.start` changes only at its seam
 (link:../adr/runtime-audit/001-audit-trail-in-its-own-package.adoc[ADR 001]).
 

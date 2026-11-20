@@ -27,8 +27,9 @@ encoding, sends the requests a caller asks for, caches the diagnostics the serve
 process if it does not end in time.
 
 |`PoolLanguageClient` |The client side of the protocol (LSP4J dispatches to it reflectively): it caches the published
-diagnostics per document, acknowledges messages and telemetry without user interaction, and lets a caller obtain the
-cached diagnostics of a document, waiting for its first publication when none is cached.
+diagnostics per document, acknowledges messages and telemetry without user interaction, and lets the package obtain the
+cached diagnostics of a document, waiting for its first publication when none is cached (the package-private
+`awaitDiagnostics`).
 
 |`LspException` |The one checked exception of the package, carrying a `Kind` (`REQUEST_FAILED`, `TIMEOUT`, …).
 
@@ -47,9 +48,9 @@ for the reader thread to finish after the cancel.
 == Diagnostics
 
 The server publishes diagnostics as notifications; `PoolLanguageClient.publishDiagnostics` caches them per document and
-signals the arrival under one monitor. `LspClient.awaitPublishedDiagnostics(file, timeout)` waits on that signal until
-the first publication of a document or the timeout, which is what a caller (and the test) waits for instead of
-sleeping (link:../adr/runtime-lsp/001-diagnostics-arrival-waited-on-a-condition.adoc[ADR 001]).
+signals the arrival under one monitor. The package-private `LspClient.awaitPublishedDiagnostics(file, timeout)` waits
+on that signal until the first publication of a document or the timeout, which is what the package's tests wait for
+instead of sleeping; the public surface is `publishedDiagnostics` (link:../adr/runtime-lsp/001-diagnostics-arrival-waited-on-a-condition.adoc[ADR 001]).
 
 == Invariants and Failure Modes
 

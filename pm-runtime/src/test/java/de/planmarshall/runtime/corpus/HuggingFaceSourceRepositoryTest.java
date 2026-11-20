@@ -211,7 +211,7 @@ class HuggingFaceSourceRepositoryTest {
         var fetch = repository.prepare(cacheRoot, anyManifest());
 
         assertAll("the prepared source",
-                () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                () -> assertEquals(Outcome.FETCHED, fetch.outcome(), "prepare reports the source as FETCHED"),
                 () -> assertEquals(0, fetch.content().length, "prepare delivers no content"),
                 () -> assertEquals(0, server.getRequestCount(), "prepare sends no request"),
                 () -> assertEquals(0, entries(cacheRoot), "prepare creates no entry in the cache root"));
@@ -239,7 +239,7 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.fetchCommit(datasetUri(), commit);
 
             assertAll("the confirmed pin",
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), "the confirmed pin is reported FETCHED"),
                     () -> assertEquals(0, fetch.content().length, "a pin confirmation has no content"),
                     () -> assertEquals(1, server.getRequestCount(), "one revision request is sent"));
             var request = nextRequest();
@@ -257,8 +257,8 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.fetchCommit(datasetUri(), commit);
 
             assertAll("the missing pin",
-                    () -> assertEquals(Outcome.PIN_MISSING, fetch.outcome(), fetch::detail),
-                    () -> assertTrue(fetch.detail().contains(commit), fetch::detail));
+                    () -> assertEquals(Outcome.PIN_MISSING, fetch.outcome(), "a 404 on the revision is PIN_MISSING"),
+                    () -> assertTrue(fetch.detail().contains(commit), "the detail names the missing commit"));
             assertUnavailableLogged();
         }
 
@@ -270,8 +270,8 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.fetchCommit(datasetUri(), commit);
 
             assertAll("the server error",
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                    () -> assertTrue(fetch.detail().endsWith("answered 503"), fetch::detail));
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a server error is reported UNREACHABLE"),
+                    () -> assertTrue(fetch.detail().endsWith("answered 503"), "the detail names the 503 answer"));
             assertUnavailableLogged();
         }
 
@@ -282,7 +282,7 @@ class HuggingFaceSourceRepositoryTest {
 
             var fetch = repository.fetchCommit(datasetUri(), commit);
 
-            assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail);
+            assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a stalled response is reported UNREACHABLE");
             assertUnavailableLogged();
         }
     }
@@ -303,7 +303,7 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.readFile(datasetUri(), commit, file);
 
             assertAll("the delivered file",
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), "the raw read is reported FETCHED"),
                     () -> assertArrayEquals(csv, fetch.content(), "the raw bytes are delivered"),
                     () -> assertEquals(1, server.getRequestCount(), "one raw request is sent"));
             var request = nextRequest();
@@ -324,7 +324,7 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.readFile(datasetUri(), commit, reserved);
 
             assertAll("the encoded read",
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), "the encoded read is reported FETCHED"),
                     () -> assertArrayEquals(csv, fetch.content(), "the raw bytes are delivered"),
                     () -> assertEquals(1, server.getRequestCount(), "one raw request is sent"));
             var request = nextRequest();
@@ -342,7 +342,7 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.readFile(datasetUri(), commit, file);
 
             assertAll("the delivered pointer",
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), "the LFS pointer read is reported FETCHED"),
                     () -> assertArrayEquals(pointer, fetch.content(), "the pointer bytes are delivered"));
         }
 
@@ -357,7 +357,7 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = capped.readFile(datasetUri(), commit, file);
 
             assertAll("the body at the cap",
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), "a body at the cap is reported FETCHED"),
                     () -> assertArrayEquals(body, fetch.content(), "a body at the cap is delivered"));
         }
 
@@ -372,10 +372,10 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = capped.readFile(datasetUri(), commit, file);
 
             assertAll("the body over the cap",
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a body over the cap is UNREACHABLE"),
                     () -> assertEquals(0, fetch.content().length, "a body over the cap holds no content"),
                     () -> assertTrue(fetch.detail().contains("larger than the maximum of " + cap + " bytes"),
-                            fetch::detail));
+                            "the detail names the compiled maximum"));
             assertUnavailableLogged();
         }
 
@@ -386,7 +386,7 @@ class HuggingFaceSourceRepositoryTest {
 
             var fetch = repository.readFile(datasetUri(), commit, file);
 
-            assertEquals(Outcome.PIN_MISSING, fetch.outcome(), fetch::detail);
+            assertEquals(Outcome.PIN_MISSING, fetch.outcome(), "a 404 on the raw file is PIN_MISSING");
             assertUnavailableLogged();
         }
 
@@ -398,8 +398,8 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.readFile(datasetUri(), commit, file);
 
             assertAll("the server error",
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                    () -> assertTrue(fetch.detail().endsWith("answered 500"), fetch::detail));
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a server error is reported UNREACHABLE"),
+                    () -> assertTrue(fetch.detail().endsWith("answered 500"), "the detail names the 500 answer"));
             assertUnavailableLogged();
         }
 
@@ -411,7 +411,7 @@ class HuggingFaceSourceRepositoryTest {
 
             var fetch = repository.readFile(datasetUri(), commit, file);
 
-            assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail);
+            assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a stalled response is reported UNREACHABLE");
             assertUnavailableLogged();
         }
     }
@@ -430,8 +430,8 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = new HuggingFaceSourceRepository().readFile(datasetUri(), commit, file);
 
             assertAll("the refused cleartext repository",
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                    () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a cleartext repository is UNREACHABLE"),
+                    () -> assertTrue(fetch.detail().startsWith("refused"), "the detail says the URL is refused"),
                     () -> assertEquals(0, server.getRequestCount(),
                             "the refused cleartext repository sends nothing"));
             assertUnavailableLogged();
@@ -445,8 +445,8 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.readFile(uri, commit, file);
 
             assertAll("the refused user information",
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                    () -> assertFalse(fetch.detail().contains("pa55word"), fetch::detail),
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a URL with user information is refused"),
+                    () -> assertFalse(fetch.detail().contains("pa55word"), "the detail never names the password"),
                     () -> assertEquals(0, server.getRequestCount(),
                             "the refused user information sends nothing"));
             assertUnavailableLogged();
@@ -460,8 +460,8 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.readFile(URI.create(uri), commit, file);
 
             assertAll("the refused URL",
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                    () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a URL without scheme is UNREACHABLE"),
+                    () -> assertTrue(fetch.detail().startsWith("refused"), "the detail says the URL is refused"),
                     () -> assertEquals(0, server.getRequestCount(),
                             "the refused URL without scheme sends nothing"));
             assertUnavailableLogged();
@@ -474,8 +474,8 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.readFile(URI.create("https://github.com/" + dataset), commit, file);
 
             assertAll("the refused foreign repository",
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                    () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a foreign repository is UNREACHABLE"),
+                    () -> assertTrue(fetch.detail().startsWith("refused"), "the detail says the URL is refused"),
                     () -> assertEquals(0, server.getRequestCount(),
                             "the refused foreign repository sends nothing"));
             assertUnavailableLogged();
@@ -515,8 +515,8 @@ class HuggingFaceSourceRepositoryTest {
             var fetch = repository.readFile(datasetUri(), commit, file);
 
             assertAll("the ASCII status",
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
-                    () -> assertTrue(fetch.detail().endsWith("answered 503"), fetch::detail));
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), "a server error is reported UNREACHABLE"),
+                    () -> assertTrue(fetch.detail().endsWith("answered 503"), "the status is written in ASCII digits"));
         }
     }
 
@@ -581,7 +581,7 @@ class HuggingFaceSourceRepositoryTest {
             var result = corpusImport().run(corpusRoot, importBase.resolve("cache"));
 
             assertAll("the complete import",
-                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), result::toString),
+                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), "the delivered file completes the import"),
                     () -> assertEquals(1, result.items(), "the one item is generated"));
         }
 
@@ -595,7 +595,7 @@ class HuggingFaceSourceRepositoryTest {
             var result = corpusImport().run(corpusRoot, importBase.resolve("cache"));
 
             assertAll("the mismatched import",
-                    () -> assertEquals(Verdict.FAILED, result.verdict(), result::toString),
+                    () -> assertEquals(Verdict.FAILED, result.verdict(), "the mismatched bytes fail the import"),
                     () -> assertEquals(1, result.missed().size(), "the one file is missed"),
                     () -> assertEquals(Reason.HASH_MISMATCH, result.missed().getFirst().reason(),
                             "the miss is a hash mismatch"),

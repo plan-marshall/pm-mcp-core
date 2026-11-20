@@ -322,7 +322,8 @@ class EnrolmentsTest {
             assertAll(
                     () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome(),
                             "the refusal outcome is enrolment invalid"),
-                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above),
+                            "the refusal names the maxLength over the ceiling"),
                     () -> assertFalse(Files.exists(store.file(PROJECT)), "no enrolment file is written"),
                     () -> assertFalse(Files.exists(store.sidecar(PROJECT)), "the sidecar file is not left behind"));
         }
@@ -343,8 +344,10 @@ class EnrolmentsTest {
             assertAll(
                     () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome(),
                             "the refusal outcome is enrolment invalid"),
-                    () -> assertTrue(refusal.getMessage().contains("100%s"), refusal.getMessage()),
-                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains("100%s"),
+                            "the refusal names the property literally"),
+                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above),
+                            "the refusal names the maxLength over the ceiling"),
                     () -> assertFalse(Files.exists(store.file(PROJECT)), "no enrolment file is written"));
         }
 
@@ -365,7 +368,8 @@ class EnrolmentsTest {
             assertAll(
                     () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome(),
                             "the refusal outcome is enrolment invalid"),
-                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above),
+                            "the refusal names the maxLength over the ceiling"),
                     () -> assertEquals(above,
                             written.projectScripts().get("parse-log").argumentSchema().maxLength().longValue(),
                             "a non string schema admits above the ceiling"));
@@ -403,9 +407,10 @@ class EnrolmentsTest {
                             "the refusal outcome is enrolment tampered"),
                     () -> assertEquals(store.file(firstProject), refusal.file(),
                             "the refusal names the enrolment file"),
-                    () -> assertTrue(refusal.getMessage().contains(EnrolmentCheck.KEY_ABSENT), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains(EnrolmentCheck.KEY_ABSENT),
+                            "the refusal names the absent key"),
                     () -> assertTrue(refusal.getMessage().contains("pm-operator accept-edit enrolment " + firstProject),
-                            refusal.getMessage()),
+                            "the refusal names the accept-edit command"),
                     () -> assertEquals(List.of(AuditEvent.enrolmentTampered(firstProject, EnrolmentCheck.KEY_ABSENT)),
                             events, "one tampered event is audited"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -529,9 +534,10 @@ class EnrolmentsTest {
                             "the other project verifies with the new key"),
                     () -> assertEquals(Outcome.ENROLMENT_TAMPERED, third.outcome(),
                             "the third project is tampered"),
-                    () -> assertTrue(third.getMessage().contains(EnrolmentCheck.HMAC_MISMATCH), third.getMessage()),
+                    () -> assertTrue(third.getMessage().contains(EnrolmentCheck.HMAC_MISMATCH),
+                            "the third refusal names the HMAC mismatch"),
                     () -> assertTrue(third.getMessage().contains("pm-operator accept-edit enrolment " + THIRD),
-                            third.getMessage()));
+                            "the third refusal names the accept-edit command"));
         }
 
         @Test
@@ -590,7 +596,7 @@ class EnrolmentsTest {
                             "the message carries the scope code"),
                     () -> assertTrue(refusal.getMessage().contains(
                                     "plan " + livePlan + ", epic " + liveEpic + ", job " + liveJob),
-                            refusal.getMessage()),
+                            "the message names each live item in order"),
                     () -> assertTrue(Files.exists(store.file(PROJECT)), "the enrolment file is kept"),
                     () -> assertTrue(Files.exists(store.sidecar(PROJECT)), "the sidecar file is kept"),
                     () -> assertEquals(List.of(AuditEvent.unenrolRefused(PROJECT)), events,
@@ -615,7 +621,8 @@ class EnrolmentsTest {
             assertAll(
                     () -> assertEquals(PROJECT, refusal.projectId(), "the refusal names the project"),
                     () -> assertEquals(items, refusal.items(), "the refusal lists the live items"),
-                    () -> assertTrue(refusal.getMessage().contains(ScopeActiveException.CODE), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains(ScopeActiveException.CODE),
+                            "the message carries the scope code"),
                     () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed()),
                             "the sink failure is carried by the refusal"),
                     () -> assertTrue(Files.exists(store.file(PROJECT)), "the enrolment file is kept"),
@@ -671,7 +678,7 @@ class EnrolmentsTest {
 
             assertAll(
                     () -> assertTrue(removed, "the unenrol reports a removal"),
-                    () -> assertTrue(namesAfterUnenrol.isEmpty(), namesAfterUnenrol::toString),
+                    () -> assertEquals(List.of(), namesAfterUnenrol, "no staged file is left after the unenrol"),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT)),
                             withoutTransactionIds(events), "one removed event is audited"),
                     () -> assertValidTransactionIds(events),
@@ -809,7 +816,7 @@ class EnrolmentsTest {
             var namesAfterRebaseline = stagedNames();
             var recovered = recoverPair();
             assertAll(
-                    () -> assertTrue(namesAfterRebaseline.isEmpty(), namesAfterRebaseline::toString),
+                    () -> assertEquals(List.of(), namesAfterRebaseline, "no staged file is left after the rebaseline"),
                     () -> assertArrayEquals(expected, file, "the settled file is the expected one"),
                     () -> assertEquals(StoreDigest.of(expected), store.decodeSidecar(PROJECT, sidecar).digest(),
                             "the sidecar digest matches the file"),
@@ -874,7 +881,7 @@ class EnrolmentsTest {
                             "the refusal outcome is enrolment insecure"),
                     () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)),
                             "the sidecar is unchanged"),
-                    () -> assertTrue(refusal.getMessage().contains(reason), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains(reason), "the refusal names the insecure reason"),
                     () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, reason)), events,
                             "one insecure event names the reason"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -921,7 +928,7 @@ class EnrolmentsTest {
                     () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
                             "the refusal outcome is enrolment insecure"),
                     () -> assertTrue(refusal.getMessage().contains(EnrolmentFileCheck.SYMBOLIC_LINK),
-                            refusal.getMessage()),
+                            "the refusal names the symbolic link reason"),
                     () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)),
                             "the sidecar is unchanged"),
                     () -> assertArrayEquals(content, Files.readAllBytes(real), "the link target is untouched"),
@@ -1721,7 +1728,8 @@ class EnrolmentsTest {
                         owing::replayOwedAuditOfUnenrolledProjects, "the blocker fails its project");
 
                 assertAll(
-                        () -> assertTrue(failure.getMessage().contains("'" + ALPHA + "'"), failure::getMessage),
+                        () -> assertTrue(failure.getMessage().contains("'" + ALPHA + "'"),
+                                "the failure names the blocked project"),
                         () -> assertEquals(0, failure.getSuppressed().length, "the failure suppresses nothing"),
                         () -> assertEquals(List.of(ALPHA, BETA, ZETA),
                                 events.stream().map(InterruptedUnenrol::projectOf).toList(),
@@ -1840,7 +1848,7 @@ class EnrolmentsTest {
                     () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome(),
                             "the refusal outcome is enrolment invalid"),
                     () -> assertEquals(store.file(PROJECT), refusal.file(), "the refusal names the enrolment file"),
-                    () -> assertTrue(refusal.getMessage().contains(reason), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains(reason), "the refusal names the invalid reason"),
                     () -> assertEquals(List.of(AuditEvent.enrolmentInvalid(PROJECT, reason)), events,
                             "one invalid event names the reason"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,

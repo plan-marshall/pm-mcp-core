@@ -1,0 +1,49 @@
+= ADR 007: The Language-Server Idle Timeout Shares the Integer Maximum
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+`machine-config.schema.json` declared `lsp_idle_timeout_seconds` an integer of at least `60` with no maximum, while
+`MachineConfigurationCodec` reads the member as a Java `int` and accepts `60` to `Integer.MAX_VALUE`. The landing
+analysis of PLAN-V2-81 (`landings/PLAN-V2-81.md` L2-4) found that a schema-valid integer above `2147483647` was refused
+by the codec with Jackson's coercion message, which names no bound: the schema and the codec disagreed, and the refusal
+did not say what was allowed. The carried item offered two remedies: give the schema and the codec the same maximum, or
+make the refusal name the bound.
+
+== Decision
+
+Both. The schema gives `lsp_idle_timeout_seconds` the codec's bound, `"maximum": 2147483647`, so a document the schema
+admits is one the codec reads. The codec's bounded-integer reader refuses an integer outside the `int` range with the
+same refusal it gives an in-range value outside the bounds, `'lsp_idle_timeout_seconds' must be 60 to 2147483647:
+<value>`, so the refusal names the bound instead of the parser's coercion message. No other member and no default
+changes.
+
+== Alternatives Considered
+
+1. **A smaller maximum** (for example a day in seconds): *Rejected*: it would change which configurations are accepted,
+   a behaviour change the carried item does not ask for; the operator may set a long idle timeout.
+2. **Read the member as a `long`**: *Rejected*: the language-server client takes the timeout as an `int`, so a wider
+   read would only move the coercion to the consumer.
+3. **Only name the bound in the refusal**: *Rejected*: the schema would still admit values the runtime refuses, and a
+   client that validates against the schema would accept them.
+
+== Consequences
+
+* The schema, the codec and the refusal state one range for the idle timeout.
+* `MachineConfigurationCodecTest` holds a value above the maximum that is refused naming the bound.
+* A later change of the range changes the schema and the codec together.
+
+== Source
+
+* Pull requests of `PLAN-V2-158` (`null-contracts-and-optional-conversion`), carried item 9 (c)
+* `landings/PLAN-V2-81.md` L2-4
+* `pm-runtime/src/main/resources/de/planmarshall/runtime/config/machine-config.schema.json`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineConfigurationCodec.java`

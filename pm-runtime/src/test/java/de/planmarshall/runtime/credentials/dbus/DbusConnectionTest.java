@@ -140,7 +140,7 @@ class DbusConnectionTest {
                         () -> connection.call("org.example", "/o", "org.example.I", "Ping", "", List.of()),
                         "call gives up after the short timeout");
 
-                assertTrue(e.getMessage().contains("no answer"), e.getMessage());
+                assertTrue(e.getMessage().contains("no answer"), "the failure says the call got no answer");
                 assertTrue(Duration.ofNanos(System.nanoTime() - start).toMillis() < 3000,
                         "timeout returns well before the three second mark");
             }

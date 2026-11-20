@@ -53,6 +53,15 @@ import de.planmarshall.core.id.RoleName;
  * </ul>
  * The envelope is the question as the part of its decision, valid against a parameter schema the engine owns; the
  * record keeps it as the JSON text of one object and writes it back verbatim.
+ * <p>
+ * <b>The null contract.</b> A member that belongs to some events only is a {@code @Nullable} component and is
+ * {@code null} on every other line. Four of them are required on an asked line and absent elsewhere: the class, the
+ * origin, the source entity and the question set. They follow the annotation form of ADR 013, class (c) (b): the
+ * component is {@code @Nullable} at its declaration, the constructor refuses an asked line without them, and a reader
+ * that holds an asked line passes the member on through {@code Objects.requireNonNull} (as {@link QuestionLog} does
+ * for the question set). A typed accessor per event (a non-null view of an asked line) was not chosen: the record is
+ * one line of one closed schema, and a second, event-shaped type would restate which member belongs to which event
+ * beside the checks of the constructor.
  *
  * @param event         what the line records
  * @param questionId    the question, {@code Q-} and 3 to 6 digits
@@ -448,9 +457,13 @@ public record QuestionRecord(QuestionEvent event, String questionId, @Nullable Q
         }
     }
 
-    private static void requireAsked(String questionId, QuestionClass questionClass, Origin origin,
-            String sourceEntity, @Nullable String askingRole, String questionSet, @Nullable String planTaskId,
-            Integer revision, @Nullable Decision decision) {
+    /**
+     * The members an asked line requires, refused here while they are {@code null}: the four components are
+     * {@code @Nullable} because the other events leave them absent (ADR 013, class (c) (b)).
+     */
+    private static void requireAsked(String questionId, @Nullable QuestionClass questionClass, @Nullable Origin origin,
+            @Nullable String sourceEntity, @Nullable String askingRole, @Nullable String questionSet,
+            @Nullable String planTaskId, Integer revision, @Nullable Decision decision) {
         Objects.requireNonNull(questionClass, "class");
         Objects.requireNonNull(origin, "origin");
         requireLength(Objects.requireNonNull(sourceEntity, SOURCE_ENTITY), SOURCE_ENTITY, 1, Integer.MAX_VALUE);

@@ -29,7 +29,6 @@ import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import java.util.OptionalLong;
 import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -181,7 +180,7 @@ class WaiverConsumptionLogTest {
                 () -> assertEquals(List.of(first), lines.records(), "only the readable line should be read"),
                 () -> assertEquals(List.of(2L), lines.refused().stream().map(JsonlStoreFile.Refused::line).toList(),
                         "the second line should be reported refused"),
-                () -> assertEquals(OptionalLong.of(size), lines.tornTailOffset(),
+                () -> assertEquals(size, lines.tornTailOffset(),
                         "the torn tail should start after line two"));
     }
 

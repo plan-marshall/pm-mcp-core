@@ -26,7 +26,7 @@
  * <li>{@code doc/specification/model-work/04-worker-launch.adoc}</li>
  * <li>{@code doc/specification/store-schemas/11-enrolment-store.adoc} (Harness Enrolment Store)</li>
  * <li>{@code doc/specification/store-schemas/10-job-and-lesson-records.adoc} (Job Record)</li>
- * <li>{@code doc/specification/client-profiles/01-profile-schema.adoc} (Profile Schema, Update Evidence)</li>
+ * <li>{@code doc/specification/harness-profiles/01-profile-schema.adoc} (Profile Schema, Update Evidence)</li>
  * </ul>
  */
 @NullMarked

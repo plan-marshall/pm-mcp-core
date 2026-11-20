@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +51,7 @@ class ShippedRolesTest {
         var set = RoleSetLoader.load(ShippedRoles.read());
 
         assertAll(
-                () -> assertTrue(set.refused().isEmpty(), () -> set.refused().toString()),
+                () -> assertEquals(List.of(), set.refused(), "no shipped role document is refused"),
                 () -> assertEquals(RoleClass.READ_ONLY, set.effective("interpret").orElseThrow().roleClass(),
                         "interpret is a read_only role"),
                 () -> assertEquals(300, set.effective("steward").orElseThrow().budgetFloorSeconds(),

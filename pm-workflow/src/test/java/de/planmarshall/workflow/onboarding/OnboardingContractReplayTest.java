@@ -160,6 +160,6 @@ class OnboardingContractReplayTest {
         assertAll(cases.stream()
                 .map(one -> (Executable) () -> assertEquals(one.expected(),
                         OnboardingRouter.returned(one.run(), one.returned(), one.openedFrom()).target(),
-                        one.name() + " targets")));
+                        "the return of the case reaches its target")));
     }
 }

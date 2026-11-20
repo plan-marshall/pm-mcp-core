@@ -29,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -172,12 +171,14 @@ final class SupervisorTestFixture {
 
     final ModelSlots slots = slots();
 
-    final WorkerProtocol protocol = protocol();
+    /** The protocol the fixture's environment hands to the end path; a test that drives a lock replaces it. */
+    WorkerProtocol protocol = protocol();
 
     /** The facts of a served task the recycling reads, at the first attempt while a test needs one. */
     final WorkerTaskActivity tasks = taskActivity();
 
-    final SupervisorEnvironment.WorkerStateWriter stateWriter = stateWriter();
+    /** The terminal-state writes, in order; a test that wants the project's real store replaces the writer. */
+    SupervisorEnvironment.WorkerStateWriter stateWriter = stateWriter();
 
     final ProjectEnrolment enrolment;
 
@@ -252,7 +253,7 @@ final class SupervisorTestFixture {
                 new RoleArtifact.Questions(0, 0), offTrack);
         var resolved = List.of(new RoleSkill(ROLE_SKILL, skills().resolve(ROLE_SKILL).orElseThrow().digest()));
         return new EffectiveRole(artifact, CLIENT, "claude-sonnet-4", new EffortValue("high"), resolved, "1.5",
-                null, new RoleArtifact.Questions(0, 0), offTrack, 400_000, OptionalInt.of(3));
+                null, new RoleArtifact.Questions(0, 0), offTrack, 400_000, 3);
     }
 
     /** @return the contract envelope of one fresh task */

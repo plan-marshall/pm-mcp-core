@@ -259,11 +259,12 @@ public final class LossDetection {
     }
 
     private Optional<Instant> ackDeadline() {
+        var ackDeadlineSeconds = parameters.ackDeadlineSeconds();
         if (roleClass == RoleClass.ZERO_TOOL || parameters.ackInformational() || !ackArmed
-                || parameters.ackDeadlineSeconds().isEmpty()) {
+                || ackDeadlineSeconds == null) {
             return Optional.empty();
         }
-        return Optional.of(ackFrom.plusSeconds(parameters.ackDeadlineSeconds().getAsInt()));
+        return Optional.of(ackFrom.plusSeconds(ackDeadlineSeconds));
     }
 
     private Optional<Instant> silenceDeadline() {

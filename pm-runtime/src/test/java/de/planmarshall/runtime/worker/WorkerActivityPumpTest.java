@@ -13,6 +13,8 @@ import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -131,9 +133,9 @@ class WorkerActivityPumpTest {
         append(log, "{\"type\":\"tool_use\",\"name\":\"read_file\",\"input\":{\"file_path\":\"" + file + "\"}}");
         var pump = pump(journal);
 
-        var first = pump.pump(task, generation, new JobLog(log));
+        var first = pump.pump(task, generation, 1, new JobLog(log));
         append(log, "{\"type\":\"file\",\"path\":\"" + file + "\"}");
-        var second = pump.pump(task, generation, new JobLog(log));
+        var second = pump.pump(task, generation, 1, new JobLog(log));
         var unmapped = pump.unmappedLines();
         var end = pump.finish(task, generation, QueueTaskRecord.AttemptEnd.OFF_TRACK);
 
@@ -148,5 +150,36 @@ class WorkerActivityPumpTest {
                         "the end entry carries the attempt end kind"),
                 () -> assertEquals("off_track", end.end(), "the end marker is the off-track reason"),
                 () -> assertEquals(0, pump.unmappedLines(), "finishing clears the unmapped line counter"));
+    }
+
+    @Test
+    @DisplayName("an attempt whose tail cannot be read stays open instead of moving to the next task")
+    void anUnreadableTailKeepsTheAttemptOpen(@TempDir Path base) throws Exception {
+        var journal = ActivityJournal.ofScope(base, project,
+                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
+                new FileLockManager(_ -> {
+                }));
+        var log = base.resolve("worker.log");
+        // A directory at the log's place: a read of it fails for a reason that may heal, unlike a missing log.
+        Files.createDirectories(log);
+        var pump = pump(journal);
+        var next = RuntimeGenerators.queueTaskIds().next();
+
+        assertAll(
+                () -> assertEquals(0, pump.pump(task, generation, 1, new JobLog(log)),
+                        "an unreadable log appends nothing"),
+                () -> assertFalse(pump.close(generation, new JobLog(log)).isPresent(),
+                        "an unread tail writes no attempt end"),
+                () -> assertEquals(0, pump.pump(next, generation, 1, new JobLog(log)),
+                        "the pump does not switch to the next task"),
+                () -> assertTrue(journal.entries(task).isEmpty(), "no line is attributed to the task"));
+
+        Files.delete(log);
+        append(log, "{\"type\":\"assistant\",\"message\":{\"content\":\"" + text + "\"}}");
+        var healed = pump.close(generation, new JobLog(log));
+
+        assertAll(
+                () -> assertTrue(healed.isPresent(), "the healed tail closes the attempt"),
+                () -> assertEquals(2, journal.entries(task).size(), "the healed attempt carries its line and end"));
     }
 }

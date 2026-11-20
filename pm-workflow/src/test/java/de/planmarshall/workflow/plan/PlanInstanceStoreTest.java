@@ -126,7 +126,8 @@ class PlanInstanceStoreTest {
 
     private static PlanInstance version1() {
         var result = composer().compose(PlanFixtures.start(facts().build()));
-        return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+        return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
+                .instance();
     }
 
     private static PlanInstance nextVersion(PlanInstance previous, List<CompositionRequest.SubUnit> subUnits) {
@@ -137,14 +138,16 @@ class PlanInstanceStoreTest {
                 template.realizedFootprintDigest(), template.providersDigest(), template.waivers(),
                 template.position(), template.previous(), template.verificationSteps(), template.finalizeSteps());
         var result = composer().compose(request);
-        return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+        return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
+                .instance();
     }
 
     /** Composes the waiver version after the previous one, under the waivers in force. */
     private static PlanInstance waiverVersion(PlanInstance previous, List<Waiver> waivers) {
         var result = composer().compose(PlanFixtures.request(CompositionEvent.WAIVER, facts().build(),
                 previous, waivers, InstancePosition.at("finalize.push-barrier")));
-        return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+        return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
+                .instance();
     }
 
     /** Records version 1. */
@@ -277,8 +280,8 @@ class PlanInstanceStoreTest {
             var otherFacts = facts().configuration("derived.push_remote",
                     "remote-" + Generators.letterStrings(1, 8).next()).build();
             var otherResult = composer().compose(PlanFixtures.start(otherFacts));
-            var second = assertInstanceOf(CompositionResult.Composed.class, otherResult, otherResult::toString)
-                    .instance();
+            var second = assertInstanceOf(CompositionResult.Composed.class, otherResult,
+                    "the other composition yields an instance").instance();
             assertAll("the two compositions are version 1 with different texts",
                     () -> assertEquals(1, second.version(), "both compositions are version 1"),
                     () -> assertNotEquals(first.text(), second.text(),
@@ -404,11 +407,13 @@ class PlanInstanceStoreTest {
             assertAll(
                     () -> assertEquals(3, lines.size(), "every attempt appends exactly one log line"),
                     () -> assertTrue(lines.get(0).contains("\"result\":\"composed\",\"trigger\":\"server\","
-                            + "\"version\":1"), lines.get(0)),
-                    () -> assertTrue(lines.get(1).contains("\"refusal\":\"position_not_contained\""), lines.get(1)),
-                    () -> assertTrue(lines.get(1).contains("\"version\":null"), lines.get(1)),
-                    () -> assertTrue(lines.get(2).contains("\"result\":\"kept\""), lines.get(2)),
-                    () -> assertFalse(lines.get(2).contains("\"cause\""), lines.get(2)));
+                            + "\"version\":1"), "the first line logs the composed version 1"),
+                    () -> assertTrue(lines.get(1).contains("\"refusal\":\"position_not_contained\""),
+                            "the second line logs the refusal"),
+                    () -> assertTrue(lines.get(1).contains("\"version\":null"),
+                            "the refused line carries no version"),
+                    () -> assertTrue(lines.get(2).contains("\"result\":\"kept\""), "the third line logs kept"),
+                    () -> assertFalse(lines.get(2).contains("\"cause\""), "the kept line carries no cause"));
         }
 
         @Test
@@ -543,12 +548,13 @@ class PlanInstanceStoreTest {
             var lines = logLines();
             assertAll(
                     () -> assertEquals(3, lines.size(), "the log has one line per recorded attempt"),
-                    () -> assertTrue(lines.get(0).contains("\"diff_summary\":null"), lines.get(0)),
+                    () -> assertTrue(lines.get(0).contains("\"diff_summary\":null"),
+                            "version 1's line has a null diff_summary"),
                     () -> assertTrue(lines.get(1).contains("\"diff_summary\":{\"ceilings_changed\":[{\"argument\":"
                                     + "\"fix_budget\",\"call_site\":\"finalize.remediate\",\"previous\":3,\"value\":4}],"
                                     + "\"gates_unwaived\":[],\"gates_waived\":[],\"pruned_added\":[],\"pruned_removed\":[]}"),
-                            lines.get(1)),
-                    () -> assertFalse(lines.get(2).contains("diff_summary"), lines.get(2)));
+                            "version 2's line carries the ceiling change"),
+                    () -> assertFalse(lines.get(2).contains("diff_summary"), "the kept line has no diff_summary"));
         }
 
         @Test
@@ -596,7 +602,8 @@ class PlanInstanceStoreTest {
                         () -> store.recordComposed(transaction, second, texts, compositionRecord),
                         "version 2 is refused while version 1 is unrecorded");
                 assertAll(
-                        () -> assertTrue(refused.getMessage().contains("version 1"), refused.getMessage()),
+                        () -> assertTrue(refused.getMessage().contains("version 1"),
+                                "the refusal names the missing version 1"),
                         () -> assertThrows(IllegalArgumentException.class,
                                 () -> CompositionRecord.composed(second, noPrevious, COMPOSED_AT),
                                 "a second version without a previous is refused"),
@@ -628,7 +635,8 @@ class PlanInstanceStoreTest {
                 assertAll(
                         () -> assertEquals(Optional.of(corrupted), store.readVersion(1),
                                 "the refused record left the recorded text as it was"),
-                        () -> assertTrue(refused.getMessage().contains("version 1"), refused.getMessage()),
+                        () -> assertTrue(refused.getMessage().contains("version 1"),
+                                "the refusal names the unreadable version 1"),
                         () -> assertInstanceOf(IllegalArgumentException.class, refused.getCause(),
                                 "the refusal carries a schema cause"),
                         () -> assertEquals(Optional.empty(), store.readVersion(2),
@@ -659,8 +667,10 @@ class PlanInstanceStoreTest {
                 assertAll(
                         () -> assertEquals(Optional.of(corrupted), store.readVersion(1),
                                 "the refused record left the recorded text as it was"),
-                        () -> assertTrue(refused.getMessage().contains("refused by the parser"), refused.getMessage()),
-                        () -> assertTrue(refused.getMessage().contains("expected a scope"), refused.getMessage()),
+                        () -> assertTrue(refused.getMessage().contains("refused by the parser"),
+                                "the refusal says the parser refused it"),
+                        () -> assertTrue(refused.getMessage().contains("expected a scope"),
+                                "the refusal carries the parser diagnostic"),
                         () -> assertNull(refused.getCause(), "a parser refusal carries no cause"),
                         () -> assertEquals(Optional.empty(), store.readVersion(2),
                                 "the parser-refused write records no version 2"),
@@ -692,7 +702,8 @@ class PlanInstanceStoreTest {
                 assertAll(
                         () -> assertEquals(Optional.of(headerless), store.readVersion(1),
                                 "the refused record left the recorded text as it was"),
-                        () -> assertTrue(refused.getMessage().contains("no readable header"), refused.getMessage()),
+                        () -> assertTrue(refused.getMessage().contains("no readable header"),
+                                "the refusal says there is no readable header"),
                         () -> assertNull(refused.getCause(), "a headerless version carries no cause"),
                         () -> assertEquals(Optional.empty(), store.readVersion(2),
                                 "no version 2 is recorded after the refusal"),
@@ -720,9 +731,11 @@ class PlanInstanceStoreTest {
                     assertAll(
                             () -> assertEquals(Optional.of(text.text()), store.readSubUnit(digest),
                                     "a bound sub-unit text is read back by digest"),
-                            () -> assertTrue(sidecar.contains(PlanInstanceStore.subUnitPath(digest)), sidecar));
+                            () -> assertTrue(sidecar.contains(PlanInstanceStore.subUnitPath(digest)),
+                                    "the sidecar covers the bound sub-unit"));
                 } else {
-                    assertEquals(Optional.empty(), store.readSubUnit(digest), text.reference()::unit);
+                    assertEquals(Optional.empty(), store.readSubUnit(digest),
+                            "an unbound variant's text is not written");
                 }
             }
         }
@@ -746,7 +759,7 @@ class PlanInstanceStoreTest {
                     () -> assertTrue(Files.isRegularFile(subUnitFile(adjudication.digest())),
                             "the adjudication unit has its own file"),
                     () -> assertTrue(sidecar.contains(PlanInstanceStore.subUnitPath(adjudication.digest())),
-                            sidecar));
+                            "the sidecar covers the adjudication unit"));
         }
 
         @Test
@@ -766,7 +779,7 @@ class PlanInstanceStoreTest {
                         "a version naming a unit without text is refused");
                 assertAll(
                         () -> assertTrue(refused.getMessage().contains(DeclarationBounds.ADJUDICATION_UNIT),
-                                refused.getMessage()),
+                                "the refusal names the adjudication unit"),
                         () -> assertFalse(Files.exists(scope.resolve("instance")),
                                 "nothing is written before the refusal"));
             }
@@ -774,7 +787,8 @@ class PlanInstanceStoreTest {
 
         private static PlanInstance withAdjudication() {
             var result = composer().compose(PlanFixtures.withAdjudication(PlanFixtures.start(facts().build())));
-            return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+            return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
+                .instance();
         }
 
         private static List<SubUnitText> textsWithAdjudication() {
@@ -868,7 +882,8 @@ class PlanInstanceStoreTest {
         private static PlanInstance merged() {
             var result = PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
                     facts().build(), null, AT_INIT, List.of()));
-            return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+            return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
+                .instance();
         }
 
         private Path instanceFile(ComposedUnit unit) {
@@ -885,7 +900,7 @@ class PlanInstanceStoreTest {
             recordComposed(instance, texts);
 
             assertAll(
-                    () -> assertTrue(instance.units().size() > 2, instance.units()::toString),
+                    () -> assertTrue(instance.units().size() > 2, "the version composes more than two units"),
                     () -> instance.units().forEach(unit -> assertEquals(Optional.of(unit.text()),
                             store.readUnit(instance.version(), unit.unit()),
                             "every composed unit is read back as text")),
@@ -900,7 +915,7 @@ class PlanInstanceStoreTest {
                     () -> assertTrue(sidecar.digest(PlanInstanceStore.versionPath(instance.version())).isPresent(),
                             "the version is covered by the digest sidecar"),
                     () -> instance.units().forEach(unit -> assertTrue(sidecar.digest(unit.file()).isPresent(),
-                            unit.file())));
+                            "the sidecar covers every composed unit file")));
         }
 
         /** @return the text of every sub-unit the version binds by digest, as the request composed it */

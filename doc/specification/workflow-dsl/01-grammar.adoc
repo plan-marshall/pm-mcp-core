@@ -25,6 +25,8 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
 
+_Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-42[PM-WATCH-DSL-42]_
+
 Workflow definitions (the default `*.pmwf` units compiled into the binary under `classpath:/workflows/`, the machine's and the project's copies of the designable units in `<PM_MCP_BASE>/workflows/`, `<PM_MCP_BASE>/recipes/`, `.marshall/config/`, and `.marshall/recipes/`, xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants], and the composed plan instance of every plan, xref:09-plan-instance.adoc#plan-instance[Plan Instance]) conform to the following ISO/IEC 14977 Extended Backus-Naur Form (EBNF) grammar. Every file opens with its frontmatter (<<unit-frontmatter>>; its format and fields: link:../../../pm-workflow/doc/developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter]). The DSL is line-oriented; comments start with `#` and run to the end of the line.
 
 [source,ebnf]
@@ -91,7 +93,8 @@ facts_clause         = "facts" , primitive_id , EOL ;
 fills_clause         = "fills" , "slot" , "." , param_name , "from" , param_name , EOL ;
                        (* fills the caller's slot from the argument of the accepted submission (a
                           `job llm` state) or from the free parameter of the link the operator
-                          followed (an operator wait); the slot is consumed by the call that binds it,
+                          followed (an operator wait), on no other state (Rule 6); the slot is consumed
+                          by the call that binds it,
                           pm-workflow, workflow-dsl.adoc, Slots, `fills` and the Typed Inputs *)
 
 state_body           = (* empty for terminal states *)
@@ -154,12 +157,14 @@ slot_ref             = "slot" , "." , param_name ;
 input_type           = enum_type
                      | "int" , [ int_range ]
                      | "list" , "<" , enum_type , ">"
-                     | "text" , [ int_range ]
-                     | "commit_message" , [ int_range ]
+                     | "text" , int_range
+                     | "commit_message" , int_range
                      | "path"
-                     | "list" , "<" , "path" , ">" , [ int_range ] ;
+                     | "list" , "<" , "path" , ">" , int_range ;
                        (* the closed types of a frontmatter `input_type` and of a `slot_type`; the `?` of
-                          the optional form follows the type, and a slot never carries it *)
+                          the optional form follows the type, and a slot never carries it; a `text`,
+                          `commit_message` and `list<path>` declare their range, whose high bound never
+                          exceeds the compiled cap (2000, 2000 and 500) *)
 
 question_clause      = "question" , question_class , EOL ,
                        outcome_transition , { outcome_transition } ;
@@ -268,7 +273,7 @@ _Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATC
 == Unit Frontmatter
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
 
-_Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-39[PM-WATCH-DSL-39]_
+_Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-39[PM-WATCH-DSL-39], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-41[PM-WATCH-DSL-41], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-43[PM-WATCH-DSL-43]_
 
 Every `.pmwf` file opens with a frontmatter: what the unit is for a person, its type, the stable icon that stands for
 it, its interface (the entries through which control arrives, the exits through which it leaves, the inputs a caller
@@ -292,7 +297,9 @@ characters, marked with `...` where it cuts. The frontmatter is read from the he
   directly below it, followed in order by `input_default`, `input_fallback` and `input_description`. The type of an input
   is one of `enum[…]`, `int` with its optional `[<low>..<high>]`, `list<enum[…]>`, `text[<low>..<high>]`,
   `commit_message[<low>..<high>]`, `path` and `list<path>[<low>..<high>]`, with the trailing `?` of the optional form; the
-  default is an enum value, an integer or `[]` of the type; a default or a fallback beside the `?` is refused. The
+  default is an enum value, an integer or `[]` of the type, so the four typed forms (`text`, `commit_message`, `path`,
+  `list<path>`) take no `input_default`; an `input_fallback` is admitted for every type, and the configured value it
+  names is validated against the type at the bind; a default or a fallback beside the `?` is refused. The
   compiled caps of the four typed forms, which a unit narrows and never widens: 2000 characters for a `text` and a
   `commit_message`, 1024 for a `path`, 500 entries for a `list<path>`. A `slot` opens a slot of the same shape (`slot`,
   `slot_type`, `slot_description`; at most 16, no default, no fallback, never optional), which a state fills with a

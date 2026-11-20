@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.stream.Stream;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -94,7 +95,7 @@ class SlotBindingVerifierTest {
             type: workflow
             icon: workflow.default
             slot: value
-            slot_type: text
+            slot_type: text[1..80]
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall
@@ -122,7 +123,7 @@ class SlotBindingVerifierTest {
 
     private static WorkflowDefinition parse(String resource, String source) {
         var result = WorkflowParser.parse(resource, source, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> resource + " was refused: " + result)
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the unit text follows the grammar")
                 .definition();
     }
 
@@ -152,27 +153,27 @@ class SlotBindingVerifierTest {
                 Arguments.of("int", "int[1..5]", false),
                 Arguments.of("int", "int", true),
                 Arguments.of("int[1..2]", "int[3..5]", false),
-                Arguments.of("text[1..80]", "text", true),
-                Arguments.of("text", "text[1..80]", false),
-                Arguments.of("text", "text", true),
-                Arguments.of("text[1..2]", "text", true),
-                Arguments.of("text[1..2]", "text[3..5]", false),
-                Arguments.of("commit_message[1..100]", "commit_message", true),
-                Arguments.of("commit_message", "commit_message[1..100]", false),
-                Arguments.of("commit_message[1..2]", "commit_message[3..5]", false),
+                Arguments.of("text[1..80]", "text[1..100]", true),
+                Arguments.of("text[1..100]", "text[1..80]", false),
+                Arguments.of("text[1..80]", "text[1..80]", true),
+                Arguments.of("text[1..2]", "text[1..80]", true),
+                Arguments.of("text[1..3]", "text[1..2]", false),
+                Arguments.of("commit_message[1..100]", "commit_message[1..2000]", true),
+                Arguments.of("commit_message[1..2000]", "commit_message[1..100]", false),
+                Arguments.of("commit_message[1..3]", "commit_message[1..2]", false),
                 Arguments.of("path", "path", true),
-                Arguments.of("path", "text", false),
-                Arguments.of("list<path>", "list<path>", true),
-                Arguments.of("list<path>", "list<enum[origin|mirror]>", false),
+                Arguments.of("path", "text[1..10]", false),
+                Arguments.of("list<path>[0..5]", "list<path>[0..5]", true),
+                Arguments.of("list<path>[0..5]", "list<enum[origin|mirror]>", false),
                 Arguments.of("list<enum[origin]>", "list<enum[origin|mirror]>", true),
                 Arguments.of("list<enum[origin|mirror]>", "list<enum[origin]>", false),
-                Arguments.of("enum[strict]", "text", false),
-                Arguments.of("int[1..5]", "text", false),
-                Arguments.of("text", "path", false),
-                Arguments.of("commit_message", "text", false),
-                Arguments.of("list<enum[origin]>", "list<path>", false),
-                Arguments.of("path", "list<path>", false),
-                Arguments.of("list<path>", "path", false));
+                Arguments.of("enum[strict]", "text[1..10]", false),
+                Arguments.of("int[1..5]", "text[1..10]", false),
+                Arguments.of("text[1..10]", "path", false),
+                Arguments.of("commit_message[1..10]", "text[1..10]", false),
+                Arguments.of("list<enum[origin]>", "list<path>[0..5]", false),
+                Arguments.of("path", "list<path>[0..5]", false),
+                Arguments.of("list<path>[0..5]", "path", false));
     }
 
     private static String slot(String slotType) {
@@ -186,11 +187,11 @@ class SlotBindingVerifierTest {
         @Test
         @DisplayName("Should refuse a slot read at a call that the frontmatter declares nowhere")
         void shouldRefuseUndeclaredSlotRead() {
-            var found = violations("", "text");
+            var found = violations("", "text[1..80]");
 
             var declaring = reporting(found, "is not declared");
-            assertEquals(1, found.size(), () -> "only the undeclared slot is refused: " + found);
-            assertEquals(1, declaring.size(), () -> "the undeclared slot is refused: " + found);
+            assertEquals(1, found.size(), "only the undeclared slot is refused");
+            assertEquals(1, declaring.size(), "the undeclared slot is refused once");
             assertTrue(declaring.getFirst().message().contains("slot 'value'"),
                     "the refusal names the slot the call reads");
         }
@@ -198,13 +199,13 @@ class SlotBindingVerifierTest {
         @Test
         @DisplayName("Should pass a unit whose operator state fills the slot its call reads")
         void shouldPassAFilledSlot() {
-            var callee = parse("callee.inputs.pmwf", CALLEE.formatted("text"));
+            var callee = parse("callee.inputs.pmwf", CALLEE.formatted("text[1..80]"));
             var validator = new WorkflowValidator(TestPrimitives.registry(), List.of(), TestPrimitives.entityKinds(),
                     QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), WorkflowCatalog.of(callee));
 
             var found = validator.verify(parse("caller.inline.pmwf", FILLING_CALLER)).violations();
 
-            assertEquals(List.of(), found, () -> "the filled slot passes every check: " + found);
+            assertEquals(List.of(), found, "the filled slot passes every check");
         }
     }
 
@@ -220,9 +221,9 @@ class SlotBindingVerifierTest {
 
             var mismatches = reporting(found, "is not assignable");
             if (assignable) {
-                assertEquals(List.of(), mismatches, () -> "a fitting slot type is admitted: " + found);
+                assertEquals(List.of(), mismatches, "a fitting slot type is admitted");
             } else {
-                assertEquals(1, mismatches.size(), () -> "the fitting slot type is refused: " + found);
+                assertEquals(1, mismatches.size(), "an unfitting slot type is refused once");
                 assertTrue(mismatches.getFirst().message().contains("not assignable to the input type"),
                         "the refusal names the two types of the binding");
             }

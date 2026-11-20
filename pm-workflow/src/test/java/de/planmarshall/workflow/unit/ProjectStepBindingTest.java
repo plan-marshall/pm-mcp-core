@@ -96,12 +96,13 @@ class ProjectStepBindingTest {
         var unbound = result.findings().stream()
                 .filter(finding -> finding.kind() == UnitFinding.Kind.PROJECT_STEP_UNBOUND).toList();
         assertAll(name,
-                () -> assertEquals(1, unbound.size(), result.findings()::toString),
+                () -> assertEquals(1, unbound.size(), "exactly one project_step_unbound finding"),
                 () -> assertEquals(UnitFinding.PROJECT_STEP_UNBOUND, unbound.getFirst().code(),
                         "the finding is project_step_unbound"),
                 () -> assertEquals(file, unbound.getFirst().file(), "the finding names the disagreeing file"),
                 () -> assertEquals(line, unbound.getFirst().line(), "the finding names the disagreeing line"),
-                () -> assertTrue(unbound.getFirst().message().contains(PROJECT_STEP), unbound.getFirst()::message),
+                () -> assertTrue(unbound.getFirst().message().contains(PROJECT_STEP),
+                        "the finding names the project step"),
                 () -> assertEquals(UnitLoadResult.CONFIG_INVALID, result.refusal().orElseThrow().code(),
                         "the unbound step refuses the lifecycle"));
     }
@@ -114,7 +115,7 @@ class ProjectStepBindingTest {
         var result = UnitFixtures.load(projectId, project, declared(), Set.of(PROJECT_STEP));
 
         assertAll(
-                () -> assertTrue(result.isVerified(), result.findings()::toString),
+                () -> assertTrue(result.isVerified(), "the agreeing triple loads verified"),
                 () -> assertTrue(result.units().containsKey(Phase.PLAN_UNIT),
                         "the agreeing triple loads the plan unit"));
     }
@@ -132,6 +133,6 @@ class ProjectStepBindingTest {
 
         assertEquals(1, result.findings().stream()
                         .filter(finding -> finding.kind() == UnitFinding.Kind.PROJECT_STEP_UNBOUND).count(),
-                result.findings()::toString);
+                "the twice-completed step is reported once");
     }
 }

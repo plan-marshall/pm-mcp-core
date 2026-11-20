@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -198,7 +197,7 @@ class EgressJobTest {
                 Map.of());
         return new EffectiveRole(artifact, "claude", "frontier", new EffortValue("high"), List.of(),
                 Generators.integers(0, 99).next() + "." + Generators.integers(0, 99).next(), null,
-                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, OptionalInt.of(3));
+                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
     }
 
     /** @return a generated version of the form major.minor.patch */

@@ -105,7 +105,8 @@ class ConsentCodecTest {
         var path = file();
         var bytes = document.getBytes(UTF_8);
 
-        var refusal = assertThrows(StoreRefusal.class, () -> ConsentCodec.read(path, bytes), what);
+        var refusal = assertThrows(StoreRefusal.class, () -> ConsentCodec.read(path, bytes),
+                "a document outside the one shape is refused");
         assertEquals(path, refusal.file(), "refusal names the file it refused");
     }
 

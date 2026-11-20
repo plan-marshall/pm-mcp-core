@@ -24,12 +24,13 @@ because the same value is checked at the submit, where no worktree of a call exi
 
 * The pure, syntactic rules live in `PathRules` of `workflow.input` and are decidable from the value alone: non-empty,
   relative with `/` only, no empty, `.` or `..` segment, no NUL, control or format character (the character classes of
-  ADR `workflow-dsl/007`), no leading `:` (git pathspec magic) or `-`, no `.git` segment in any case, at most 1024
-  characters, and no duplicate in a `list<path>`.
+  ADR `workflow-dsl/007`), no leading `:` (git pathspec magic) or `-`, no `.git` segment in any case, at most 1024 code
+  points, and no duplicate in a `list<path>`. A space is a legal member and every other white-space code point is refused
+  (link:005-a-space-is-a-legal-path-member.adoc[ADR workflow-input/005]).
 * The environmental rules are the engine's bind: `PathConfinement.confine` against the worktree root, whose refusal is
   the value `ConfinementOutcome.Rejected` (R09, no exception), and membership in the scope's staging set
   (link:../workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017]).
-* Both layers return a value: `Optional<InputRefusal>` (or `null` for the accepted path) here, `ConfinementOutcome` and
+* Both layers return a value: `Optional<InputRefusal>` here (empty for the accepted path), and `ConfinementOutcome` with
   the condition `precondition_unmet` at the bind.
 
 == Alternatives Considered

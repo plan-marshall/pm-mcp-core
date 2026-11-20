@@ -1,0 +1,64 @@
+= ADR 017: The settlement writes the terminal worker block with the fate
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+The supervision pass completes an end only for a settled job record (ADR 014), and `JobRecordStore.writeWorker` refuses
+every worker write into a settled record, because the fate is the record's final write. `WorkerEnding.exited` wrote the
+terminal `WorkerState` through `WorkerStateWriter.over` after the process exited — always after the runner had settled
+the job — so the end path could not complete against the landed store in production. The fixture hid it: its writer is a
+recording mock, and no test ran the real writer over a settled record.
+
+The operator decided on 2026-11-17 that the runner's settlement writes the terminal worker block together with the fate,
+and that the pass afterwards completes only the fence, the token revoke and the slot release. The store's refusal stays.
+
+== Decision
+
+`SettlementStep.fate` derives the terminal worker state from the worker block the record carries under the fate
+transaction's lock — not from the text the runner read when it decided the fate — and writes it in the same transaction as
+the fate, through `WorkerTermination.terminal`. A worker state the transport wrote after that read (`writeWorker`, which
+updates only the record's `worker` member) is therefore never overwritten by the older text the runner holds, and the
+connection instant among it survives. The fate and the worker's own connection decide the end reason: a worker that never
+connected failed to start, a succeeded job served its task, a timed-out job reached its budget, a killed job drained, a
+cancelled job was withdrawn and every other fate is the exit loss. The state, its instant (the record's `ended_at`), the
+end reason, the start-failure flag and the cleared lease reach the value in one construction.
+
+`WorkerEnding.exited` reads the terminal state from the record instead of writing it. A settled record is never written,
+whatever its block says: a block the codec refuses is left as it is, the fate is what must be durable, and its reader
+reports the refusal (`PM_RUNTIME-151`) and finishes the end without a terminal state instead of failing on that record on
+every pass. A `zero_tool` worker is the one class that connects by no call: its exit is never a start failure, so a
+succeeded job of it records the task-done end and only its other fates record the exit loss.
+
+== Alternatives considered
+
+* **A second exit observable** (a sidecar per generation that the pass reads): rejected — the operator's decision keeps
+  the settled record the pass's one exit observable, and a sidecar adds a store with its own crash windows.
+* **Relaxing the store's refusal** (accepting a worker write into a settled record): rejected by the operator; the
+  record's finality is what makes the fate trustworthy, and the end path would then be able to move a settled record.
+* **Writing the block in the pass before the settlement**: impossible — the settlement runs in the runner, which does not
+  wait for the supervisor, and the pass learns of the exit from the settled record.
+
+== Consequences
+
+* The end path needs no store write, so a settled worker always carries its terminal state and the fence, the revoke
+  and the slot release are the only effects left to the supervisor.
+* The mapping is as coarse as the fate: a recycle and a drain are both a `cancelled` fate, so the record calls them
+  `withdrawn`; a kill, which the supervisor requests as its drain, records `drained`, and the fate of a destroyed
+  process of another cause is `withdrawn` as well. The supervisor's own requested cause stays the attempt's end
+  (`SupervisionPass.attemptEnd`) and the `WORKER_GENERATION_ENDED` line, so a drain the supervisor requested and a drain
+  the fate only implies stay distinguishable there.
+* A change of a fate's meaning now also changes the record's worker block, and `Doc: doc/Traceability.adoc` names the
+  tests that hold the mapping.
+
+== Source
+
+Operator decision of 2026-11-17 (`handle-open` item 1) and the design brief of the plan's Objective; the store's refusal
+is `JobRecordStore.writeWorker` (`core.store`), the landing finding B1 is PLAN-V2-31.

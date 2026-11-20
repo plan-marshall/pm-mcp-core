@@ -27,7 +27,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -185,15 +184,17 @@ class LaunchComposerTest {
     }
 
     @Test
-    @DisplayName("an absent idle-wakeup bound is written as zero")
-    void absentIdleWakeupsWritesZero() {
+    @DisplayName("a null idle-wakeup bound writes the member defaulted to zero")
+    void nullIdleWakeupsWritesZero() {
         var role = LaunchFixtures.roleWithoutIdleWakeups(RoleClass.WRITER, "frontier", "max", RoleForm.FRESH, skills,
                 List.of(LaunchFixtures.ROLE_SKILL));
 
         var launch = compose(role, true, false);
 
-        assertEquals(0, launch.workerBlock().member("idle_wakeups").orElseThrow().integerValue().orElseThrow(),
-                "an absent idle wake-up bound is written as zero");
+        assertAll(
+                () -> assertNull(role.idleWakeups(), "the role carries no idle wake-up bound"),
+                () -> assertEquals(0, launch.workerBlock().member("idle_wakeups").orElseThrow().integerValue()
+                        .orElseThrow(), "a null idle wake-up bound is written as zero"));
     }
 
     @Test
@@ -435,7 +436,7 @@ class LaunchComposerTest {
                 .orElseThrow().digest()));
         return new EffectiveRole(LaunchFixtures.artifact(roleClass, "frontier", "max", RoleForm.FRESH, List.of(
                         LaunchFixtures.ROLE_SKILL)), "claude", "frontier", new EffortValue("max"), roleSkills, "1.5", null,
-                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, OptionalInt.of(3));
+                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
     }
 
     private static ContractEnvelope envelope(String planId) {

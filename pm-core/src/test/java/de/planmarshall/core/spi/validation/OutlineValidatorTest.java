@@ -81,7 +81,7 @@ class OutlineValidatorTest {
     void acceptsOutline(String label, String outline) {
         var violations = validator.validate(outline);
 
-        assertTrue(violations.isEmpty(), () -> label + " must be accepted, but: " + violations);
+        assertEquals(List.of(), violations, "the outline is accepted without a violation");
     }
 
     static Stream<Arguments> rejectedOutlines() {
@@ -137,7 +137,8 @@ class OutlineValidatorTest {
     void rejectsOutline(String label, String outline, String ruleKey, int line) {
         var violations = validator.validate(outline);
 
-        assertEquals(List.of(ruleKey + "@" + line), keysAndLines(violations), label);
+        assertEquals(List.of(ruleKey + "@" + line), keysAndLines(violations),
+                "the outline breaks exactly its rule on its line");
     }
 
     @Test
@@ -161,7 +162,8 @@ class OutlineValidatorTest {
 
         var violations = validator.validate(outline);
 
-        assertTrue(violations.getFirst().message().endsWith("line 2"), violations.getFirst().message());
+        assertTrue(violations.getFirst().message().endsWith("line 2"),
+                "the duplicate names the line of its first occurrence");
     }
 
     @Test

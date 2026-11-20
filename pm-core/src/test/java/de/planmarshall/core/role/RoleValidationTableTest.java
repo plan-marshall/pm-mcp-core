@@ -156,9 +156,9 @@ class RoleValidationTableTest {
         var modelCatalogue = catalogue.orElse(null);
         var refusal = assertThrows(RoleRefusal.class,
                 () -> RoleValidation.check(artifact, values, harnessProfile, enrolment, modelCatalogue, environment,
-                        steward), why);
+                        steward), "the row's combination is refused");
 
-        assertEquals(expected, refusal.reason(), why);
+        assertEquals(expected, refusal.reason(), "the refusal reports the reason of the row");
     }
 
     @Test

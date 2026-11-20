@@ -25,9 +25,9 @@ import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileSetKind;
 
 /**
- * The reading of {@code headless.long_context_thresholds} (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models of a
- * Harness): the entry of a model, no entry for any other model, the empty value of a profile that declares none and of
- * an endpoint profile, and the byte-exact match of the model id.
+ * The reading of {@code headless.long_context_thresholds} (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models
+ * of a Harness): the entry of a model, no entry for any other model, the empty value of a profile that declares none
+ * and of an endpoint profile, and the byte-exact match of the model id.
  */
 // Every datum in this class is a contract: the member names, the model ids and the thresholds of the schema.
 @DisplayName("Long-context thresholds")

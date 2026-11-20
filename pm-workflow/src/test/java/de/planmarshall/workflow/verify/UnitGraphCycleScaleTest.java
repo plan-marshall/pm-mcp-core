@@ -67,11 +67,10 @@ class UnitGraphCycleScaleTest {
 
         for (var fixture : fixtures) {
             var unit = VerifyFixtures.parse(fixture);
-            var name = fixture.substring(fixture.lastIndexOf('/') + 1);
 
             var expected = legacyFindSimpleCycles(unit);
 
-            assertEquals(expected, UnitGraph.findSimpleCycles(unit), name + " matches the legacy order");
+            assertEquals(expected, UnitGraph.findSimpleCycles(unit), "the fixture's cycles match the legacy order");
         }
     }
 

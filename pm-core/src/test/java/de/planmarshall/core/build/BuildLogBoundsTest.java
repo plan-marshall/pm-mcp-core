@@ -157,7 +157,7 @@ class BuildLogBoundsTest {
 
         var parsed = assertTimeoutPreemptively(HOSTILE_BOUND,
                 () -> MavenOutputParser.parse("BUILD SUCCESS\n" + hostile + "\n"),
-                "a Maven line of " + LONG_LINE + " characters is parsed inside the bound");
+                "a long Maven header line is parsed inside the bound");
 
         assertTrue(parsed.successMarker(), "the status marker is still read");
     }
@@ -170,7 +170,7 @@ class BuildLogBoundsTest {
 
         var parsed = assertTimeoutPreemptively(HOSTILE_BOUND,
                 () -> MavenOutputParser.parse("BUILD SUCCESS\n" + (hostile + "\n").repeat(LINES_AT_THE_LIMIT)),
-                "the parser answers " + LINES_AT_THE_LIMIT + " hostile lines of " + LIMIT + " characters");
+                "the Maven parser answers the hostile lines in time");
 
         assertTrue(parsed.successMarker(), "the status marker is still read");
     }
@@ -183,7 +183,7 @@ class BuildLogBoundsTest {
 
         var result = assertTimeoutPreemptively(HOSTILE_BOUND,
                 () -> OpenRewriteLogParser.parse("--- rewrite:run (\n" + hostile + "\n", true),
-                "a finding line of " + LONG_LINE + " characters is parsed inside the bound");
+                "a long rewrite finding line is parsed inside the bound");
 
         assertSame(RewriteVerdict.PARSE_ERROR, result.verdict(), "the hostile line is a parse error");
     }
@@ -196,7 +196,7 @@ class BuildLogBoundsTest {
 
         var parsed = assertTimeoutPreemptively(HOSTILE_BOUND,
                 () -> PyprojectOutputParser.parse("=== FAILURES ===\n" + hostile + "\n"),
-                "a summary line of " + LONG_LINE + " characters is parsed inside the bound");
+                "a long pytest summary line is parsed inside the bound");
 
         assertTrue(parsed.diagnostics().isEmpty(), "the hostile line locates no diagnostic");
     }
@@ -214,7 +214,7 @@ class BuildLogBoundsTest {
                 answered = OpenRewriteLogParser.parse(log, true);
             }
             return answered;
-        }, "the parser answers " + LINES_AT_THE_LIMIT + " hostile lines of " + LIMIT + " characters");
+        }, "the rewrite parser answers the hostile lines in time");
 
         assertSame(RewriteVerdict.PARSE_ERROR, result.verdict(), "the hostile line is a parse error");
     }
@@ -233,7 +233,7 @@ class BuildLogBoundsTest {
         PyprojectOutputParser.parse("=== ERRORS ===\n");
 
         var parsed = assertTimeoutPreemptively(HOSTILE_BOUND, () -> PyprojectOutputParser.parse(log),
-                "the section and exception patterns answer a line of " + LIMIT + " characters");
+                "the section and exception patterns answer in time");
 
         assertAll(
                 () -> assertEquals(1, parsed.diagnostics().size(), "the error summary line locates one diagnostic"),
@@ -249,7 +249,7 @@ class BuildLogBoundsTest {
 
         var parsed = assertTimeoutPreemptively(HOSTILE_BOUND,
                 () -> PyprojectOutputParser.parse("=== FAILURES ===\n" + (hostile + "\n").repeat(LINES_AT_THE_LIMIT)),
-                "the parser answers " + LINES_AT_THE_LIMIT + " hostile lines of " + LIMIT + " characters");
+                "the pytest parser answers the hostile lines in time");
 
         assertTrue(parsed.diagnostics().isEmpty(), "the hostile lines locate no diagnostic");
     }

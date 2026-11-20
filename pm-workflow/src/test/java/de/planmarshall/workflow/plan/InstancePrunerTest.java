@@ -69,13 +69,54 @@ class InstancePrunerTest {
             state setup.left terminal left indeterminate
             """;
 
+    private static final String FILLS_UNIT = """
+            ---
+            name: pruner-fills
+            description: A unit written for the pruner tests.
+            type: workflow
+            icon: workflow.default
+            slot: message
+            slot_type: commit_message[1..2000]
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow pruner.slots version 1 format 1
+            scope plan
+            start setup.answer
+
+            state setup.answer
+                fills slot.message from note
+                link submit keep (note: text[1..80])
+                    do setup.skip
+                        done -> setup.left
+
+            state setup.left terminal left indeterminate
+            """;
+
     private static WorkflowDefinition planTemplate() {
         return InvariantFixtures.passingUnits(UnitOrigin.DEFAULT).get("plan");
     }
 
+    private static WorkflowDefinition fillsTemplate() {
+        var result = WorkflowParser.parse("pruner-fills.pmwf", FILLS_UNIT, UnitOrigin.DEFAULT);
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the fills unit follows the grammar").definition();
+    }
+
+    @Test
+    @DisplayName("a kept state keeps its fills clause")
+    void keptStateKeepsFills() {
+        var template = fillsTemplate();
+
+        var pruned = prune(template, new RuleEffects(List.of(), List.of()), null);
+
+        assertEquals(template.states().get("setup.answer").fills(),
+                pruned.states().get("setup.answer").fills(), "the pruner keeps the fills clause");
+    }
+
     private static WorkflowDefinition linkTemplate() {
         var result = WorkflowParser.parse("pruner-link.pmwf", LINK_UNIT, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, result::toString).definition();
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the link unit follows the grammar").definition();
     }
 
     private static List<CompositionRequest.Step> finalizeSteps() {
@@ -99,9 +140,9 @@ class InstancePrunerTest {
         assertAll(
                 () -> assertEquals(List.of(adopt), pruned.pruned(), "the prune is listed with its reason"),
                 () -> assertFalse(pruned.steps().phase6().contains("default:create-pr"),
-                        pruned.steps().phase6()::toString),
+                        "create-pr is left out of the kept steps"),
                 () -> assertTrue(pruned.steps().phase6().contains("default:branch-cleanup"),
-                        pruned.steps().phase6()::toString));
+                        "branch-cleanup stays in the kept steps"));
     }
 
     @Test

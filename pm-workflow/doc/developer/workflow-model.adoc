@@ -109,8 +109,9 @@ one place that turns a corpus into a qualification record, and it uses the ports
   default. An item of the project's repository
   whose commit is present runs at that commit (`Checkout.ITEM_COMMIT`); a missing commit runs in the checkout
   (`Checkout.CURRENT`).
-. *Scoring*: a closed answer is scored deterministically; a rubric answer goes to the judge. A lost answer or judge task
-  leaves the item ungraded.
+. *Scoring*: a closed answer is scored deterministically; a rubric answer goes to the judge. An item task that closes
+  without an answer leaves the item ungraded whatever the reason (`GradingHarness.answer` is empty and carries no
+  closing reason, so a model-caused end is not told from a lost task), and so does a lost judge task.
 . *Assembly*: per form and topic the agreement, the constant baseline and the item count; the warm-fresh gap as the
   largest over the topics; the form's tokens as the sum (unmeasured when an item's are). The record is written by
   `QualificationRecordStore` and returned as `Graded`.

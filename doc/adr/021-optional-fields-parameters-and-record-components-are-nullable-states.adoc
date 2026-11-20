@@ -17,10 +17,11 @@ counted ten `Optional` fields and 74 parameters and record components in `pm-cor
 because the earlier migration of the null contract changed signatures without removing the wrappers. The operator
 decided on 2026-10-30 (decision 7) to convert all of them.
 
-Two shapes the conversion meets are not a field, a parameter or a record component: a container that holds an `Optional`
-element (`Map<K, Optional<V>>`, `List<Optional<V>>`, `Map.Entry<K, Optional<V>>`) and an `Optional`-typed value such as
-`OptionalInt`. The conversion of `pm-workflow` (PLAN-V2-98) left the container question open, so this plan had to decide
-it for `pm-core`.
+One shape the conversion meets is not a field, a parameter or a record component: a container that holds an `Optional`
+element (`Map<K, Optional<V>>`, `List<Optional<V>>`, `Map.Entry<K, Optional<V>>`). The conversion of `pm-workflow`
+(PLAN-V2-98) left the container question open, so this plan had to decide it for `pm-core`. A primitive optional
+(`OptionalInt`, `OptionalLong`) used as a field, a parameter or a record component is one of the three shapes and falls
+under the rule; this plan left its record components in place, and ADR 029 converts them to nullable boxed numbers.
 
 == Decision
 
@@ -63,4 +64,5 @@ stored byte changes (R13).
 * link:../../pm-core/doc/developer/core-config.adoc[`pm-core` developer documentation]
 * link:../specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
 * ADR link:013-the-null-contract-of-the-null-marked-packages.adoc[013 The Null Contract of the `@NullMarked` Packages]
+* ADR link:029-primitive-optional-components-are-nullable-boxed-numbers.adoc[029 Primitive-Optional Record Components Are Nullable Boxed Numbers]
 * `skills-audit-2026-10-30.md` § 2.8; epic decision of 2026-10-30 (decision 7)

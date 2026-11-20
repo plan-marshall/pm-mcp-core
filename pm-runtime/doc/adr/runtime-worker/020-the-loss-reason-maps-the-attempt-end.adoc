@@ -1,0 +1,48 @@
+= ADR 020: `LossReason.attemptEnd()` is the one mapping from a loss to the attempt's end
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-19
+
+== Context
+
+A loss decides two values of a generation's record: the worker state's `end_reason` and the attempt's end. `LossReason`
+carries both, but `attemptEnd()` had a definition and no caller, while `SupervisionPass` built the attempt's end from its
+own table over `EndCause` and a `LossSignal`. Two places therefore mapped "lost" onto an attempt's end, and a change of
+one would not have moved the other.
+
+The re-ground of 2026-11-19 recorded that the method had gained a caller (`SupervisionPass.attemptEnd`, the `LOST`
+branch); the decision — keep the method and make it the one mapping, or delete it and keep the pass's table — was still
+open.
+
+== Decision
+
+`LossReason.attemptEnd()` stays and is the one mapping from a loss to the attempt's end. `SupervisionPass.attemptEnd`
+consults it in the `LOST` branch and does not carry a second loss table; its own switch maps the supervisor's requested
+causes (`TASK_DONE`, `RECYCLE`, `DRAIN`, `PAUSE_AT_ONCE`, `OFF_TRACK`, `START_FAILURE`) and defers to the loss reason
+where the cause is `LOST`.
+
+An end the supervisor did not request has no cause; it is classified by the end reason the settled record carries
+(`SupervisionPass.attemptEndOf`), so a served task closes its attempt and the exit loss ends it without its submit.
+
+== Alternatives considered
+
+* **Deleting `LossReason.attemptEnd()` and keeping the pass's table**: also consistent, but it moves the knowledge of a
+  loss's attempt end away from the loss itself, where the rest of the loss's consequences already live (`endReason`), and
+  leaves the pass owning a mapping the detector is the source of.
+* **Leaving it as it was**: rejected — a method with no caller and a second table is the state the plan had to end.
+
+== Consequences
+
+* One place decides what a loss means for the attempt; a new `LossReason` value must name its attempt end there.
+* The pass keeps two tables that are disjoint in what they classify (the requested cause and the recorded end reason),
+  and tests hold both.
+
+== Source
+
+The plan's Deliverable 4 and the operator's decision of 2026-11-17 (`handle-open` item 5, answered 1).

@@ -231,6 +231,94 @@ class JGitOperationsTest {
                     () -> assertEquals("no changes", result.detail(), "the refusal names the empty change set"));
         }
 
+        @Test
+        @DisplayName("refuses a directory before anything below it is staged")
+        void refusesADirectory() throws Exception {
+            write("below/one.txt", text());
+            write("below/two.txt", text());
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("below")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(), "a directory is no commit path"),
+                    () -> assertEquals("below", result.detail(), "the refusal names the directory"),
+                    () -> assertEquals(1, git.log(repo, "HEAD", 5).value().size(),
+                            "nothing below the directory was committed"));
+        }
+
+        @Test
+        @DisplayName("refuses a pathspec magic and a glob before anything is staged")
+        void refusesAPathspecMagic() {
+            var magic = git.commit(new CommitInput(repo, text(), author, agent, List.of(":(exclude)x")));
+            var glob = git.commit(new CommitInput(repo, text(), author, agent, List.of("*.txt")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, magic.outcome(),
+                            "a pathspec magic is no commit path"),
+                    () -> assertEquals(":(exclude)x", magic.detail(), "the refusal names the magic"),
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, glob.outcome(), "a glob is no commit path"));
+        }
+
+        @Test
+        @DisplayName("a builder without paths commits every change")
+        void builderWithoutPaths() {
+            var input = CommitInput.builder().root(repo).message(text()).author(author).committer(agent).build();
+
+            var result = git.commit(input);
+
+            assertAll(
+                    () -> assertEquals(List.of(), input.paths(), "the builder fills the empty path list"),
+                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                            "the clean tree has nothing to commit"));
+        }
+
+        @Test
+        @DisplayName("refuses a tracked directory whose worktree copy is gone")
+        void refusesATrackedDirectoryGone() throws Exception {
+            write("gone/one.txt", text());
+            git.commit(new CommitInput(repo, text(), author, agent, List.of("gone/one.txt")));
+            Files.delete(repo.resolve("gone/one.txt"));
+            Files.delete(repo.resolve("gone"));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("gone")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
+                            "a deleted tracked directory is no commit path"),
+                    () -> assertEquals("gone", result.detail(), "the refusal names the directory"),
+                    () -> assertEquals(2, git.log(repo, "HEAD", 5).value().size(),
+                            "the deletion below the directory was not committed"));
+        }
+
+        @Test
+        @DisplayName("refuses a path that is no legal path of the file system")
+        void refusesAnInvalidPath() {
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("a\u0000b")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
+                            "a path with NUL is refused, not thrown"),
+                    () -> assertEquals("a\u0000b", result.detail(), "the refusal names the path"));
+        }
+
+        @Test
+        @DisplayName("commits a change of the executable bit alone")
+        void commitsAModeChange() throws Exception {
+            var script = "run.sh";
+            write(script, text());
+            git.commit(new CommitInput(repo, text(), author, agent, List.of(script)));
+            Files.setPosixFilePermissions(repo.resolve(script),
+                    PosixFilePermissions.fromString("rwxr-xr-x"));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(script)));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(),
+                            "a mode-only change is a change"),
+                    () -> assertEquals(3, git.log(repo, "HEAD", 5).value().size(),
+                            "the mode change is committed"));
+        }
+
         private boolean inCommit(String commitId, String path) throws Exception {
             try (var jgit = Git.open(repo.toFile())) {
                 var tree = jgit.getRepository().parseCommit(

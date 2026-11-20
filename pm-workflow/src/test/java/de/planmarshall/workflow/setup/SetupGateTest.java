@@ -67,7 +67,8 @@ class SetupGateTest {
 
         for (var act : List.of(SetupGate.Act.START_PLAN, SetupGate.Act.START_EPIC,
                 SetupGate.Act.START_PROJECT_ONBOARDING)) {
-            var refused = assertInstanceOf(SetupGate.Refused.class, SetupGate.decide(act, onboarding), act::name);
+            var refused = assertInstanceOf(SetupGate.Refused.class, SetupGate.decide(act, onboarding),
+                    "the act is refused before machine onboarding");
             assertAll(
                     () -> assertEquals(SetupGate.MACHINE_NOT_ONBOARDED, refused.reason(),
                             "The refusal reports machine_not_onboarded"),

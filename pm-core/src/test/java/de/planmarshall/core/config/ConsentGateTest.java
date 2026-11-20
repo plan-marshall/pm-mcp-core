@@ -240,10 +240,10 @@ class ConsentGateTest {
                 () -> gates.forEach(gate -> answers.forEach(answer -> {
                     assertThrows(IllegalArgumentException.class,
                             () -> gate.answer(request, answer, Consent.Channel.CLI, DEVICE),
-                            "a device on the cli channel is refused for " + answer.wireName());
+                            "a device on the cli channel is refused for any answer");
                     assertThrows(IllegalArgumentException.class,
                             () -> gate.answer(request, answer, Consent.Channel.WEB, NOT_A_DEVICE),
-                            "a malformed device is refused for " + answer.wireName());
+                            "a malformed device is refused for any answer");
                 })),
                 () -> assertTrue(rememberedGate.answer(request, ConsentGate.Answer.NO, Consent.Channel.WEB, DEVICE)
                         .runs(), "a web answer with a paired device is a valid answer"));

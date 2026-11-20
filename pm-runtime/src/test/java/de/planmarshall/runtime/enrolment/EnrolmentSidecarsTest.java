@@ -135,7 +135,8 @@ class EnrolmentSidecarsTest {
                         "the verification reports a failure"),
                 () -> assertEquals(file, failure.orElseThrow().file(),
                         "the failure names the offending file"),
-                () -> assertTrue(failure.orElseThrow().reason().contains(reason), failure.orElseThrow().reason()));
+                () -> assertTrue(failure.orElseThrow().reason().contains(reason),
+                        "the failure reason names the expected cause"));
     }
 
     @Test

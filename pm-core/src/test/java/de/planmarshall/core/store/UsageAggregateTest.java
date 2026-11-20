@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -116,11 +117,11 @@ class UsageAggregateTest {
         var aggregate = UsageAggregate.of(List.of(row(taskId(1), usage(in1, out1, read1, creation1, reasoning1)),
                 row(taskId(2), usage(in2, out2, 0, 0, 0))));
         assertAll(
-                () -> assertEquals(OptionalLong.of(in1 + out1 + read1 + creation1 + reasoning1 + in2 + out2),
+                () -> assertEquals(in1 + out1 + read1 + creation1 + reasoning1 + in2 + out2,
                         aggregate.totalTokens(), "the total should sum every component"),
-                () -> assertEquals(OptionalLong.of(in1 + read1 + creation1 + in2), aggregate.tokensIn(),
+                () -> assertEquals(in1 + read1 + creation1 + in2, aggregate.tokensIn(),
                         "the input side should sum input and cache"),
-                () -> assertEquals(OptionalLong.of(out1 + reasoning1 + out2), aggregate.tokensOut(),
+                () -> assertEquals(out1 + reasoning1 + out2, aggregate.tokensOut(),
                         "the output side should sum output and reasoning"),
                 () -> assertEquals(2, aggregate.rows(), "both rows should be counted"),
                 () -> assertEquals(0, aggregate.rowsUnmeasured(), "no row should be unmeasured"),
@@ -140,11 +141,11 @@ class UsageAggregateTest {
                 Measurement.measured(1), null, null);
         var aggregate = UsageAggregate.of(List.of(row(taskId(1), usage)));
         assertAll(
-                () -> assertEquals(OptionalLong.of(input + output + cacheRead), aggregate.totalTokens(),
+                () -> assertEquals(input + output + cacheRead, aggregate.totalTokens(),
                         "not-applicable should count zero in the total"),
-                () -> assertEquals(OptionalLong.of(input + cacheRead), aggregate.tokensIn(),
+                () -> assertEquals(input + cacheRead, aggregate.tokensIn(),
                         "not-applicable should count zero on input"),
-                () -> assertEquals(OptionalLong.of(output), aggregate.tokensOut(),
+                () -> assertEquals(output, aggregate.tokensOut(),
                         "not-applicable should count zero on output"),
                 () -> assertEquals(1, aggregate.rows(), "the row should be counted"),
                 () -> assertFalse(aggregate.totalIsFloor(), "the total should not be a floor"));
@@ -160,12 +161,11 @@ class UsageAggregateTest {
         var aggregate = UsageAggregate.of(List.of(row(taskId(1), usage),
                 row(taskId(2), usage(input, output, cacheRead, creation, 0))));
         assertAll(
-                () -> assertEquals(OptionalLong.of(input + output + cacheRead + creation), aggregate.totalTokens(),
+                () -> assertEquals(input + output + cacheRead + creation, aggregate.totalTokens(),
                         "the total should hold the measured row only"),
-                () -> assertEquals(OptionalLong.of(2 * (input + cacheRead + creation)), aggregate.tokensIn(),
+                () -> assertEquals(2 * (input + cacheRead + creation), aggregate.tokensIn(),
                         "the measured input side should sum both rows"),
-                () -> assertEquals(OptionalLong.empty(), aggregate.tokensOut(),
-                        "the output side should be unmeasured"),
+                () -> assertNull(aggregate.tokensOut(), "the output side should be unmeasured"),
                 () -> assertEquals(1, aggregate.rowsUnmeasured(), "one row should be unmeasured"),
                 () -> assertEquals(1, aggregate.unmeasuredReasons().get(UnmeasuredReason.NOT_REPORTED_BY_HARNESS),
                         "the reason should be counted once"),
@@ -177,9 +177,9 @@ class UsageAggregateTest {
     void emptyPopulationHasNoTotal() {
         var aggregate = UsageAggregate.of(UsageAggregate.Population.MODEL_JOB, List.of());
         assertAll(
-                () -> assertEquals(OptionalLong.empty(), aggregate.totalTokens(), "an empty total should be absent"),
-                () -> assertEquals(OptionalLong.empty(), aggregate.tokensIn(), "an empty input should be absent"),
-                () -> assertEquals(OptionalLong.empty(), aggregate.tokensOut(), "an empty output should be absent"),
+                () -> assertNull(aggregate.totalTokens(), "an empty total should be absent"),
+                () -> assertNull(aggregate.tokensIn(), "an empty input should be absent"),
+                () -> assertNull(aggregate.tokensOut(), "an empty output should be absent"),
                 () -> assertEquals(0, aggregate.populationCount(), "the population should count no row"),
                 () -> assertFalse(aggregate.totalIsFloor(), "an empty total should be no floor"));
     }
@@ -189,7 +189,7 @@ class UsageAggregateTest {
     void refusedRowCountsUnmeasured() {
         var aggregate = UsageAggregate.of(List.of(refused(taskId(1))));
         assertAll(
-                () -> assertEquals(OptionalLong.empty(), aggregate.totalTokens(), "the total should be absent"),
+                () -> assertNull(aggregate.totalTokens(), "the total should be absent"),
                 () -> assertEquals(1, aggregate.rowsUnmeasured(), "the refused row should be unmeasured"),
                 () -> assertTrue(aggregate.totalIsFloor(), "the total should be a floor"),
                 () -> assertTrue(aggregate.unmeasuredReasons().isEmpty(), "no unmeasured reason should be counted"));
@@ -217,10 +217,10 @@ class UsageAggregateTest {
                 role, CauseClass.BENIGN, SpendClass.SUBMITTED);
         var byPopulation = UsageAggregate.byPopulation(List.of(fresh, warm));
         assertAll(
-                () -> assertEquals(OptionalLong.of(freshIn + freshOut),
+                () -> assertEquals(freshIn + freshOut,
                         byPopulation.get(UsageAggregate.Population.MODEL_JOB).totalTokens(),
                         "model_job should hold the fresh row"),
-                () -> assertEquals(OptionalLong.of(warmIn + warmOut),
+                () -> assertEquals(warmIn + warmOut,
                         byPopulation.get(UsageAggregate.Population.MODEL_TASK).totalTokens(),
                         "model_task should hold the warm row"));
     }
@@ -237,15 +237,15 @@ class UsageAggregateTest {
         var rows = List.of(execute, finalize);
         assertAll(
                 () -> assertEquals(executeTotal, UsageAggregate.byPhase(rows).get(Phase.PHASE_5_EXECUTE)
-                        .totalTokens().getAsLong(), "the execute phase should hold its row"),
+                        .totalTokens(), "the execute phase should hold its row"),
                 () -> assertEquals(2, UsageAggregate.byRole(rows).size(), "there should be one group per role"),
-                () -> assertEquals(OptionalLong.of(executeTotal), UsageAggregate.byRole(rows).get(role).totalTokens(),
+                () -> assertEquals(executeTotal, UsageAggregate.byRole(rows).get(role).totalTokens(),
                         "the role group should hold its row"),
-                () -> assertEquals(OptionalLong.of(executeTotal), UsageAggregate.byCauseClass(rows)
+                () -> assertEquals(executeTotal, UsageAggregate.byCauseClass(rows)
                         .get(CauseClass.BENIGN).totalTokens(), "the benign cause should hold its row"),
-                () -> assertEquals(OptionalLong.of(finalizeTotal), UsageAggregate.bySpendClass(rows)
+                () -> assertEquals(finalizeTotal, UsageAggregate.bySpendClass(rows)
                         .get(SpendClass.FINDINGS_ONLY).totalTokens(), "the findings spend should hold its row"),
-                () -> assertEquals(OptionalLong.of(executeTotal + finalizeTotal), UsageAggregate.byModelAndHarness(rows)
+                () -> assertEquals(executeTotal + finalizeTotal, UsageAggregate.byModelAndHarness(rows)
                                 .get(new ModelHarness(model, harness, harnessVersion)).totalTokens(),
                         "the model and harness should hold both rows"));
     }
@@ -280,11 +280,11 @@ class UsageAggregateTest {
 
         var sum = floor.plus(measured);
         assertAll(
-                () -> assertEquals(OptionalLong.of(measuredIn + measuredOut), sum.totalTokens(),
+                () -> assertEquals(measuredIn + measuredOut, sum.totalTokens(),
                         "the total should hold the measured side"),
-                () -> assertEquals(OptionalLong.of(floorIn + measuredIn), sum.tokensIn(),
+                () -> assertEquals(floorIn + measuredIn, sum.tokensIn(),
                         "the input side should sum both sides"),
-                () -> assertEquals(OptionalLong.empty(), sum.tokensOut(), "the output side should be unmeasured"),
+                () -> assertNull(sum.tokensOut(), "the output side should be unmeasured"),
                 () -> assertEquals(2, sum.populationCount(), "the sum should count two rows"),
                 () -> assertEquals(1, sum.rowsUnmeasured(), "one row should be unmeasured"),
                 () -> assertTrue(sum.totalIsFloor(), "the summed total should be a floor"));
@@ -298,11 +298,11 @@ class UsageAggregateTest {
         var second = UsageAggregate.of(List.of(row(taskId(2), usage(secondIn, secondOut, 0, 0, 0))));
         var sum = first.plus(second);
         assertAll(
-                () -> assertEquals(OptionalLong.of(firstIn + firstOut + secondIn + secondOut), sum.totalTokens(),
+                () -> assertEquals(firstIn + firstOut + secondIn + secondOut, sum.totalTokens(),
                         "the total should sum both aggregates"),
-                () -> assertEquals(OptionalLong.of(firstIn + secondIn), sum.tokensIn(),
+                () -> assertEquals(firstIn + secondIn, sum.tokensIn(),
                         "the input side should sum both aggregates"),
-                () -> assertEquals(OptionalLong.of(firstOut + secondOut), sum.tokensOut(),
+                () -> assertEquals(firstOut + secondOut, sum.tokensOut(),
                         "the output side should sum both aggregates"),
                 () -> assertEquals(2, sum.populationCount(), "the sum should count two rows"),
                 () -> assertFalse(sum.totalIsFloor(), "the sum should not be a floor"));

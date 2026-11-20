@@ -131,7 +131,7 @@ class ScenarioDeterminismTest {
                 () -> assertEquals(1, once.getLast().queue().size(),
                         "the replay wrote the one queue record of its task"),
                 () -> assertTrue(once.getLast().queue().containsKey("qt-0000000000000001.json"),
-                        once.getLast().queue().keySet().toString()),
+                        "the queue record is that of the first task"),
                 () -> assertEquals(once, twice, "two protocol replays write the same bytes"));
     }
 
@@ -181,7 +181,7 @@ class ScenarioDeterminismTest {
         var twice = replayFault(script, second);
 
         assertAll(
-                () -> assertFalse(once.isEmpty(), name + " replayed its steps"),
-                () -> assertEquals(once, twice, name + " writes the same store bytes twice"));
+                () -> assertFalse(once.isEmpty(), "the fault scenario replayed its steps"),
+                () -> assertEquals(once, twice, "the scenario writes the same store bytes twice"));
     }
 }

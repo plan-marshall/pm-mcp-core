@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,7 +38,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.function.Function;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
@@ -506,7 +506,7 @@ class JsonlStoreFileTest {
             var before = bytes(FIRST, SECOND, TORN);
             Files.write(store, before);
             var expected = new Content(store, List.of(new Line(1, bytes(FIRST.strip())),
-                    new Line(2, bytes(SECOND.strip()))), OptionalLong.of(bytes(FIRST, SECOND).length));
+                    new Line(2, bytes(SECOND.strip()))), (long) bytes(FIRST, SECOND).length);
 
             var locked = readUnderLock();
             var lockFree = storeFile.snapshot();
@@ -528,14 +528,13 @@ class JsonlStoreFileTest {
             assertAll("a store that ends with a newline",
                     () -> assertEquals(List.of(new Line(1, bytes(FIRST.strip()))), content.lines(),
                             "the store has one complete line"),
-                    () -> assertEquals(OptionalLong.empty(), content.tornTailOffset(),
-                            "the store has no torn tail"));
+                    () -> assertNull(content.tornTailOffset(), "the store has no torn tail"));
         }
 
         @Test
         @DisplayName("a store that does not exist reads without lines and without a torn tail")
         void absentStore() {
-            var expected = new Content(store, List.of(), OptionalLong.empty());
+            var expected = new Content(store, List.of(), null);
 
             assertAll("a store that does not exist",
                     () -> assertEquals(expected, storeFile.snapshot(), "the snapshot has no lines"),

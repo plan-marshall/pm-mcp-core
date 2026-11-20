@@ -96,7 +96,7 @@ class DefaultUnitLoaderTest {
             var result = UnitFixtures.defaultLoader().load();
 
             assertAll(
-                    () -> assertTrue(result.isVerified(), result.findings()::toString),
+                    () -> assertTrue(result.isVerified(), "the fixture defaults load verified"),
                     () -> assertEquals(List.of(Phase.PLAN_UNIT, "phase-1-init", "phase-2-refine", "phase-3-outline",
                                     "phase-4-plan", "phase-5-execute", "land", "phase-6-finalize",
                                     "adjudicate.decisions", "replan", "git.commit_and_push",
@@ -114,7 +114,8 @@ class DefaultUnitLoaderTest {
             var plan = units.get(Phase.PLAN_UNIT);
 
             assertAll(
-                    () -> units.values().forEach(unit -> assertEquals(UnitOrigin.DEFAULT, unit.origin(), unit::id)),
+                    () -> units.values().forEach(unit -> assertEquals(UnitOrigin.DEFAULT, unit.origin(),
+                            "every unit is parsed with the DEFAULT origin")),
                     () -> assertEquals(InvariantFixtures.ROOT + "plan.pmwf", plan.location().resourceName(),
                             "the plan unit is read from the product root"),
                     () -> assertEquals("phases.init", plan.startState(), "the plan unit starts at phases.init"),
@@ -133,7 +134,7 @@ class DefaultUnitLoaderTest {
 
             var result = loader.load();
 
-            assertTrue(result.isVerified(), result.findings()::toString);
+            assertTrue(result.isVerified(), "kept released state names pass Rule 5");
         }
 
         @Test
@@ -176,7 +177,7 @@ class DefaultUnitLoaderTest {
 
             var finding = UnitFixtures.find(result.findings(), UnitFinding.Kind.PARSE, RefusalRule.STRUCTURE.name());
             assertAll(
-                    () -> assertTrue(finding.isPresent(), result.findings()::toString),
+                    () -> assertTrue(finding.isPresent(), "a STRUCTURE parse finding is reported"),
                     () -> assertEquals(resource, finding.orElseThrow().file(),
                             "the finding names the refused resource"),
                     () -> assertEquals(UnitFixtures.UNPARSABLE.lineOf("workflow replan revision"),
@@ -196,10 +197,10 @@ class DefaultUnitLoaderTest {
             assertAll(
                     () -> assertFalse(result.isVerified(), "the rule violation refuses the load"),
                     () -> assertTrue(result.findings().stream().allMatch(
-                            finding -> finding.kind() == UnitFinding.Kind.RULE), result.findings()::toString),
+                            finding -> finding.kind() == UnitFinding.Kind.RULE), "every finding is a RULE finding"),
                     () -> assertTrue(result.findings().stream().anyMatch(
                                     finding -> resource.equals(finding.file()) && finding.line() == line),
-                            result.findings()::toString),
+                            "a finding names the offending file and line"),
                     () -> assertRefusalLogged(resource));
         }
 
@@ -213,13 +214,14 @@ class DefaultUnitLoaderTest {
 
             var finding = UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID);
             assertAll(
-                    () -> assertTrue(finding.isPresent(), result.findings()::toString),
+                    () -> assertTrue(finding.isPresent(), "a DUPLICATE_UNIT_ID finding is reported"),
                     () -> assertEquals(resource, finding.orElseThrow().file(),
                             "the finding names the duplicate resource"),
                     () -> assertEquals(mutation.lineOf("workflow adjudicate.decisions"), finding.orElseThrow().line(),
                             "the finding names the duplicate header line"),
                     () -> assertTrue(finding.orElseThrow().message()
-                            .contains(TEMP_ROOT + InvariantFixtures.ADJUDICATION_FILE), finding.orElseThrow()::message),
+                            .contains(TEMP_ROOT + InvariantFixtures.ADJUDICATION_FILE),
+                            "the finding names the earlier unit's file"),
                     () -> assertEquals(Map.of(), result.units(), "a duplicate identifier loads no unit"),
                     () -> assertRefusalLogged(resource));
         }
@@ -234,13 +236,13 @@ class DefaultUnitLoaderTest {
 
             var finding = UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID);
             assertAll(
-                    () -> assertTrue(finding.isPresent(), result.findings()::toString),
+                    () -> assertTrue(finding.isPresent(), "a DUPLICATE_UNIT_ID finding is reported"),
                     () -> assertEquals(resource, finding.orElseThrow().file(),
                             "the finding names the plan-id resource"),
                     () -> assertEquals(mutation.lineOf(UnitFixtures.PLAN_HEADER), finding.orElseThrow().line(),
                             "the finding names the plan header line"),
                     () -> assertTrue(finding.orElseThrow().message().contains(TEMP_ROOT + "plan.pmwf"),
-                            finding.orElseThrow()::message),
+                            "the finding names the plan unit's file"),
                     () -> assertEquals(Map.of(), result.units(), "the plan id stands in for no unit"),
                     () -> assertRefusalLogged(resource));
         }

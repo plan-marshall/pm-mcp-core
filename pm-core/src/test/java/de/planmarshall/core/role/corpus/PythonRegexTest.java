@@ -98,7 +98,7 @@ class PythonRegexTest {
     void badEscapeInClass(String pattern) {
         var refusal = assertThrows(PatternSyntaxException.class, () -> PythonRegex.compile(pattern),
                 "a bad escape in a class is refused as such");
-        assertTrue(refusal.getDescription().startsWith("bad escape"), refusal.getDescription());
+        assertTrue(refusal.getDescription().startsWith("bad escape"), "the refusal describes a bad escape");
     }
 
     @Test

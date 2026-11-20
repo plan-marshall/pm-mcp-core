@@ -729,10 +729,10 @@ final class ScenarioReplayRunner {
         var parameters = ScenarioFixtures.WORKER_PARAMETERS;
         var ackDeadline = parameters.ackDeadlineSeconds();
         if (task.status() == QueueTaskRecord.Status.OFFERED && !parameters.ackInformational()
-                && ackDeadline.isPresent()) {
+                && ackDeadline != null) {
             var offeredAt = worker.offeredAt().orElseThrow(() -> new ScenarioFailure(line,
                     "the worker of role %s holds no offer instant".formatted(worker.role())));
-            return new Deadline(ackDeadline.getAsInt(), offeredAt.plusSeconds(ackDeadline.getAsInt()));
+            return new Deadline(ackDeadline, offeredAt.plusSeconds(ackDeadline));
         }
         var lastCallAt = worker.lastCallAt().orElseThrow(() -> new ScenarioFailure(line,
                 "the worker of role %s made no call".formatted(worker.role())));

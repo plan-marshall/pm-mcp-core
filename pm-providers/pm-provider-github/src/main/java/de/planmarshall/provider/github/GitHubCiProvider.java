@@ -183,12 +183,14 @@ public final class GitHubCiProvider implements CiProvider {
         }
         RepositoryRef repository = issue.repository();
         GitHubClient reader = userClient();
-        Result<GitHubClient.IssuePayload> read = reader.issue(repository.ownerOrPath(), repository.name(),
+        // the guard needs the pull_request member alone; the issue's other fields do not decide the comment (ADR
+        // provider-ci/011)
+        Result<Boolean> pullRequest = reader.isPullRequest(repository.ownerOrPath(), repository.name(),
                 issue.number());
-        if (!read.isOk()) {
-            return read.asFailure();
+        if (!pullRequest.isOk()) {
+            return pullRequest.asFailure();
         }
-        if (Objects.requireNonNull(read.value()).pullRequest()) {
+        if (Boolean.TRUE.equals(pullRequest.value())) {
             return Result.of(Result.Outcome.REJECTED, "is a pull request");
         }
         Result<String> id = reader.postComment(repository.ownerOrPath(), repository.name(), issue.number(), body);

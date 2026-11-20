@@ -277,7 +277,7 @@ class SecretServiceStoreTest {
                     "get against an unknown service fails");
             assertEquals(SecretStoreException.Reason.FAILED, e.reason(),
                     "unknown service reports the failed reason");
-            assertTrue(e.getMessage().contains("ServiceUnknown"), e.getMessage());
+            assertTrue(e.getMessage().contains("ServiceUnknown"), "the failure names the D-Bus ServiceUnknown error");
         }
 
         @Test
