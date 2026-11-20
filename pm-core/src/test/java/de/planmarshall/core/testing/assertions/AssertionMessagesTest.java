@@ -332,26 +332,26 @@ class AssertionMessagesTest {
         var violations = scanTree(packageFixture(root, statement)).violations();
 
         assertTrue(violations.stream().anyMatch(violation -> violation.contains(reason)),
-                () -> "expected '" + reason + "' for " + statement + " but got " + violations);
+                "the scan reports the statement for its reason");
     }
 
     private static void assertReported(Path fixtureRoot, String reason) {
         var violations = scanTree(fixtureRoot).violations();
 
         assertTrue(violations.stream().anyMatch(violation -> violation.contains(reason)),
-                () -> "expected '" + reason + "' below " + fixtureRoot + " but got " + violations);
+                "the scan reports the fixture tree for its reason");
     }
 
     private static void assertNotReported(Path root, String statement) throws IOException {
         var violations = scanTree(packageFixture(root, statement)).violations();
 
-        assertTrue(violations.isEmpty(), () -> "expected no violation for " + statement + " but got " + violations);
+        assertEquals(List.of(), violations, "the scan reports no violation for the statement");
     }
 
     private static void assertNotReported(Path fixtureRoot) {
         var violations = scanTree(fixtureRoot).violations();
 
-        assertTrue(violations.isEmpty(), () -> "expected no violation below " + fixtureRoot + " but got " + violations);
+        assertEquals(List.of(), violations, "the scan reports no violation for the fixture tree");
     }
 
     private static AssertionMessages.Scan scanTree(Path root) {

@@ -51,7 +51,7 @@ class OutcomeReasonTest {
         assertAll(OutcomeReason.MAPPABLE_CONDITION_KINDS.stream()
                 .<Executable>map(kind -> () -> assertDoesNotThrow(
                         () -> new WorkflowStatus.PendingCondition(kind, 0, null, "{}", Instant.now()),
-                        "the persisted kind accepts " + kind)));
+                        "the status store accepts the mappable kind")));
     }
 
     /**

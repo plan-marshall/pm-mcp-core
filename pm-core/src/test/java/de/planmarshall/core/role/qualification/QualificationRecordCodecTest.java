@@ -171,7 +171,7 @@ class QualificationRecordCodecTest {
         for (var entry : cases.entrySet()) {
             var bytes = entry.getValue().getBytes(StandardCharsets.UTF_8);
             var refused = assertThrows(StoreRefusal.class,
-                    () -> QualificationRecordCodec.read(file, bytes), entry.getKey());
+                    () -> QualificationRecordCodec.read(file, bytes), "a record outside the one shape is refused");
             assertEquals(file, refused.file(), "the refusal names the record file");
         }
     }

@@ -58,7 +58,7 @@ class SourceFetchTest {
         assertAll(
                 () -> assertEquals("https://github.com/example/alpha has no commit", fetch.detail(),
                         "no part of the password survives the redaction"),
-                () -> assertFalse(fetch.detail().contains("ss@"), fetch::detail));
+                () -> assertFalse(fetch.detail().contains("ss@"), "the password tail is not in the detail"));
     }
 
     @Test

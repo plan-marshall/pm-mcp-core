@@ -93,7 +93,7 @@ class ProfileLoaderTest {
                         "effective set is the shipped one"),
                 () -> assertNull(loaded.effective(CLIENT).orElseThrow().verificationRecord(),
                         "A shipped profile is bound to no installation record"),
-                () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString));
+                () -> assertEquals(List.of(), loaded.refused(), "no profile of the set is refused"));
     }
 
     @Test
@@ -105,7 +105,7 @@ class ProfileLoaderTest {
         var loaded = loader.load(ProfileSets.withMachine(Map.of(), machine));
 
         assertAll(
-                () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
+                () -> assertEquals(List.of(), loaded.refused(), "no profile of the set is refused"),
                 () -> assertEquals(LoadedProfile.State.VERIFIED, loaded.state(CLIENT).orElseThrow(),
                         "machine profile loads as verified"),
                 () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind(),
@@ -124,7 +124,7 @@ class ProfileLoaderTest {
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped), machine));
 
         assertAll(
-                () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
+                () -> assertEquals(List.of(), loaded.refused(), "no profile of the set is refused"),
                 () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind(),
                         "machine document replaces the shipped one"),
                 () -> assertEquals(PRO_NAME, loaded.effective(CLIENT).orElseThrow().document()
@@ -192,7 +192,7 @@ class ProfileLoaderTest {
         var loaded = loader.load(ProfileSets.withMachine(Map.of(), machine));
 
         assertAll(
-                () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
+                () -> assertEquals(List.of(), loaded.refused(), "no profile of the set is refused"),
                 () -> assertEquals(LoadedProfile.State.VERIFIED_ON_OTHER_BUILD,
                         loaded.state(CLIENT).orElseThrow(), "other-build record marks the state"),
                 () -> assertTrue(loaded.verifiedOnOtherBuild(CLIENT), "same harness other build is verified"));
@@ -282,7 +282,7 @@ class ProfileLoaderTest {
                 PROJECT_ID);
 
         assertAll(
-                () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
+                () -> assertEquals(List.of(), loaded.refused(), "no profile of the set is refused"),
                 () -> assertEquals(ProfileSetKind.PROJECT, loaded.effective(CLIENT).orElseThrow().kind(),
                         "effective set is the project one"));
     }
@@ -330,7 +330,7 @@ class ProfileLoaderTest {
     }
 
     private static ProfileRefusal refusal(ProfileSet loaded) {
-        assertEquals(1, loaded.refused().size(), loaded.refused()::toString);
+        assertEquals(1, loaded.refused().size(), "exactly one profile of the set is refused");
         return loaded.refused().getFirst().refusal();
     }
 

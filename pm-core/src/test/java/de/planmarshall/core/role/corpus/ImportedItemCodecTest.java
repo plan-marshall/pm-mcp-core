@@ -106,8 +106,9 @@ class ImportedItemCodecTest {
         assertAll(
                 () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is UNREADABLE"),
                 () -> assertEquals(FILE, refusal.file(), "the refusal names the file"),
-                () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()), refusal::getMessage),
-                () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
+                () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()),
+                        "the refusal message starts with the file"),
+                () -> assertTrue(refusal.getMessage().contains(detail), "the refusal message names what is wrong"));
     }
 
     @Nested
@@ -144,7 +145,7 @@ class ImportedItemCodecTest {
             for (var index = 1; index < order.size(); index++) {
                 var before = order.get(index - 1);
                 var after = order.get(index);
-                assertTrue(text.indexOf(before) < text.indexOf(after), () -> before + " before " + after);
+                assertTrue(text.indexOf(before) < text.indexOf(after), "each member is written before the next one");
             }
         }
 
@@ -154,18 +155,24 @@ class ImportedItemCodecTest {
             var text = text(closedItem());
 
             assertAll(
-                    () -> assertFalse(text.contains("\"tags\""), text),
-                    () -> assertFalse(text.contains("\"group\""), text),
-                    () -> assertFalse(text.contains("\"contamination\""), text),
-                    () -> assertFalse(text.contains("\"alternatives\""), text),
-                    () -> assertFalse(text.contains("\"items\""), text),
-                    () -> assertFalse(text.contains("\"expected_empty\""), text),
-                    () -> assertFalse(text.contains("\"judge\""), text),
-                    () -> assertFalse(text.contains("\"pass_threshold\""), text),
-                    () -> assertFalse(text.contains("\"by\""), text),
-                    () -> assertFalse(text.contains("\"answer_schema\""), text),
-                    () -> assertFalse(text.contains("null"), text),
-                    () -> assertTrue(text.contains("\"kind\" : \"fetched\""), text));
+                    () -> assertFalse(text.contains("\"tags\""), "the absent tags member is not written"),
+                    () -> assertFalse(text.contains("\"group\""), "the absent group member is not written"),
+                    () -> assertFalse(text.contains("\"contamination\""),
+                            "the absent contamination member is not written"),
+                    () -> assertFalse(text.contains("\"alternatives\""),
+                            "the absent alternatives member is not written"),
+                    () -> assertFalse(text.contains("\"items\""), "the absent items member is not written"),
+                    () -> assertFalse(text.contains("\"expected_empty\""),
+                            "the absent expected_empty member is not written"),
+                    () -> assertFalse(text.contains("\"judge\""), "the absent judge member is not written"),
+                    () -> assertFalse(text.contains("\"pass_threshold\""),
+                            "the absent pass_threshold member is not written"),
+                    () -> assertFalse(text.contains("\"by\""), "the absent review by member is not written"),
+                    () -> assertFalse(text.contains("\"answer_schema\""),
+                            "the absent answer_schema member is not written"),
+                    () -> assertFalse(text.contains("null"), "no member of the item is written as null"),
+                    () -> assertTrue(text.contains("\"kind\" : \"fetched\""),
+                            "the provenance kind is written as fetched"));
         }
 
         @Test
@@ -173,7 +180,8 @@ class ImportedItemCodecTest {
         void answerSchemaWritten() {
             var text = text(openItem());
 
-            assertTrue(text.contains("\"answer_schema\" : {\"type\": \"object\"}"), text);
+            assertTrue(text.contains("\"answer_schema\" : {\"type\": \"object\"}"),
+                    "the answer schema is written inside the input");
         }
     }
 
@@ -244,7 +252,7 @@ class ImportedItemCodecTest {
             assertAll(
                     () -> assertUnreadable(refusal, "line"),
                     () -> assertTrue(Pattern.compile("\\(line [0-9]+, column [0-9]+\\)").matcher(refusal.getMessage())
-                            .find(), refusal::getMessage));
+                            .find(), "the refusal message names the line and column"));
         }
     }
 
@@ -288,7 +296,7 @@ class ImportedItemCodecTest {
     @DisplayName("a value outside the tightened format is refused naming the file")
     void tightenedValue(String name, String original, String replacement, String detail) {
         var text = text(closedItem());
-        assertTrue(text.contains(original), () -> "the fixture carries " + original + ": " + text);
+        assertTrue(text.contains(original), "the fixture carries the value the case replaces");
 
         assertUnreadable(refusalOf(text.replace(original, replacement)), detail);
     }
@@ -338,12 +346,15 @@ class ImportedItemCodecTest {
             var reread = ImportedItemCodec.read(FILE, text.getBytes(StandardCharsets.UTF_8));
 
             assertAll(
-                    () -> assertTrue(text.contains("\"group\" : \"" + GROUP + "\""), text),
-                    () -> assertTrue(text.contains("\"contamination\" : \"" + CONTAMINATION + "\""), text),
+                    () -> assertTrue(text.contains("\"group\" : \"" + GROUP + "\""), "the group member is written"),
+                    () -> assertTrue(text.contains("\"contamination\" : \"" + CONTAMINATION + "\""),
+                            "the contamination note is written"),
                     () -> assertTrue(text.indexOf("\"tags\" :") < text.indexOf("\"group\" :")
-                            && text.indexOf("\"group\" :") < text.indexOf("\"input\" :"), text),
+                            && text.indexOf("\"group\" :") < text.indexOf("\"input\" :"),
+                            "the group is written between tags and input"),
                     () -> assertTrue(text.indexOf("\"review\" :") < text.indexOf("\"contamination\" :")
-                            && text.indexOf("\"contamination\" :") < text.indexOf("\"canary\" :"), text),
+                            && text.indexOf("\"contamination\" :") < text.indexOf("\"canary\" :"),
+                            "the note is written between review and canary"),
                     () -> assertEquals(GROUP, reread.group(), "the group is read back"),
                     () -> assertEquals(CONTAMINATION, reread.contamination(),
                             "the contamination note is read back"));
@@ -397,7 +408,7 @@ class ImportedItemCodecTest {
         @DisplayName("a value outside its format is refused by the codec and by the item schema")
         void malformed(String name, String original, String replacement, String detail) {
             var text = text(openItem());
-            assertTrue(text.contains(original), () -> "the fixture carries " + original + ": " + text);
+            assertTrue(text.contains(original), "the fixture carries the value the case replaces");
             var document = text.replace(original, replacement);
 
             assertAll(
@@ -474,7 +485,7 @@ class ImportedItemCodecTest {
     @DisplayName("a value of exactly the bound reads and one code point over is refused for its length")
     void boundedValue(Bound bound) {
         var fixture = text(closedItem());
-        assertTrue(fixture.contains(bound.original()), () -> "the fixture carries " + bound.original());
+        assertTrue(fixture.contains(bound.original()), "the fixture carries the value the case bounds");
         var atBound = fixture.replace(bound.original(), bound.atBound());
 
         var read = ImportedItemCodec.read(FILE, atBound.getBytes(StandardCharsets.UTF_8));

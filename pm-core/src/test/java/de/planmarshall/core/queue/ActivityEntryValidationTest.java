@@ -80,7 +80,7 @@ class ActivityEntryValidationTest {
 
         for (var entry : entries) {
             assertEquals(entry, ActivityEntryCodec.read(Path.of("entry.jsonl"), ActivityEntryCodec.write(entry)),
-                    entry.kind().wireName());
+                    "every kind survives a write and read round trip");
         }
     }
 

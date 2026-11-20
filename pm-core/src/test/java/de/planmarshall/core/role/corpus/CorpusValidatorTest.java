@@ -175,10 +175,6 @@ class CorpusValidatorTest {
         return new CorpusValidator(fixture.corpus()).validate(fixture.cache());
     }
 
-    private static String report(List<CorpusViolation> violations) {
-        return violations.stream().map(CorpusViolation::toString).collect(Collectors.joining("\n"));
-    }
-
     static Map<String, Object> closedItem() {
         var item = itemFrame(ITEM_A, "screening");
         item.put("tags", List.of("closed"));
@@ -325,7 +321,7 @@ class CorpusValidatorTest {
     private static String overlayWith(String member, String value) {
         var text = new String(SourceOverlayCodec.write(overlay("alpha", SOURCE_FILE)), UTF_8);
         var written = "\"" + member + "\" : null";
-        assertTrue(text.contains(written), text);
+        assertTrue(text.contains(written), "the written overlay carries the member as null");
         return text.replace(written, "\"" + member + "\" : " + value);
     }
 
@@ -369,7 +365,7 @@ class CorpusValidatorTest {
 
     private static byte[] resource(String name) throws IOException {
         try (var in = CorpusValidator.class.getResourceAsStream(name)) {
-            assertNotNull(in, name);
+            assertNotNull(in, "the schema resource is on the class path");
             return in.readAllBytes();
         }
     }
@@ -383,7 +379,7 @@ class CorpusValidatorTest {
         void valid() {
             var violations = validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
 
         @Test
@@ -391,7 +387,7 @@ class CorpusValidatorTest {
         void validWithoutCache() {
             var violations = new CorpusValidator(fixture.corpus()).validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
 
         @Test
@@ -407,7 +403,7 @@ class CorpusValidatorTest {
 
             var violations = validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
 
         @Test
@@ -422,7 +418,7 @@ class CorpusValidatorTest {
 
             var violations = validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
 
         @Test
@@ -432,7 +428,7 @@ class CorpusValidatorTest {
 
             var violations = validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
 
         @Test
@@ -444,7 +440,7 @@ class CorpusValidatorTest {
 
             var violations = validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
 
         @Test
@@ -454,7 +450,7 @@ class CorpusValidatorTest {
 
             var violations = validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
 
         @Test
@@ -469,7 +465,7 @@ class CorpusValidatorTest {
 
             var violations = validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
 
         @Test
@@ -480,7 +476,7 @@ class CorpusValidatorTest {
 
             var violations = validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
     }
 
@@ -590,9 +586,10 @@ class CorpusValidatorTest {
         var violations = validate();
 
         assertAll(
-                () -> assertEquals(1, violations.size(), () -> report(violations)),
-                () -> assertEquals(subject, violations.getFirst().subject(), () -> report(violations)),
-                () -> assertEquals(rule, violations.getFirst().rule(), () -> report(violations)));
+                () -> assertEquals(1, violations.size(), "the broken rule reports exactly one violation"),
+                () -> assertEquals(subject, violations.getFirst().subject(),
+                        "the violation names the broken subject"),
+                () -> assertEquals(rule, violations.getFirst().rule(), "the violation names the broken rule"));
     }
 
     @Test
@@ -603,7 +600,7 @@ class CorpusValidatorTest {
         var violations = new CorpusValidator(file).validate();
 
         assertAll(
-                () -> assertEquals(1, violations.size(), () -> report(violations)),
+                () -> assertEquals(1, violations.size(), "the file root reports exactly one violation"),
                 () -> assertEquals(Rule.UNREADABLE, violations.getFirst().rule(),
                         "a root that is no directory is UNREADABLE"));
     }
@@ -634,7 +631,7 @@ class CorpusValidatorTest {
         void absentSources() {
             var violations = validate();
 
-            assertEquals(List.of(), violations, () -> report(violations));
+            assertEquals(List.of(), violations, "the corpus reports no violation");
         }
 
         @Test
@@ -668,7 +665,8 @@ class CorpusValidatorTest {
                 var violations = validate();
 
                 assertTrue(violations.stream().anyMatch(violation -> violation.rule() == Rule.UNREADABLE
-                        && CorpusImport.SOURCES.equals(violation.subject())), () -> report(violations));
+                        && CorpusImport.SOURCES.equals(violation.subject())),
+                        "the unlistable sources are reported as unreadable");
             } finally {
                 Files.setPosixFilePermissions(sources, permissions);
             }
@@ -704,9 +702,10 @@ class CorpusValidatorTest {
 
         private static void assertSingle(List<CorpusViolation> violations, String subject, Rule rule) {
             assertAll(
-                    () -> assertEquals(1, violations.size(), () -> report(violations)),
-                    () -> assertEquals(subject, violations.getFirst().subject(), () -> report(violations)),
-                    () -> assertEquals(rule, violations.getFirst().rule(), () -> report(violations)));
+                    () -> assertEquals(1, violations.size(), "the entry reports exactly one violation"),
+                    () -> assertEquals(subject, violations.getFirst().subject(),
+                            "the violation names the unreadable entry"),
+                    () -> assertEquals(rule, violations.getFirst().rule(), "the violation names the expected rule"));
         }
     }
 
@@ -732,7 +731,8 @@ class CorpusValidatorTest {
             var violations = validate();
 
             assertEquals(List.of("the section '## alpha' appears 2 times, not once"),
-                    violations.stream().map(CorpusViolation::detail).toList(), () -> report(violations));
+                    violations.stream().map(CorpusViolation::detail).toList(),
+                    "the section count is written in ASCII digits");
         }
     }
 
@@ -747,9 +747,10 @@ class CorpusValidatorTest {
         var violations = validate();
 
         assertAll(
-                () -> assertEquals(2, violations.size(), () -> report(violations)),
+                () -> assertEquals(2, violations.size(), "each over-bound value reports one violation"),
                 () -> assertEquals(List.of("$.commit: longer than 40", "$.created: longer than 10"),
-                        violations.stream().map(CorpusViolation::detail).toList(), () -> report(violations)));
+                        violations.stream().map(CorpusViolation::detail).toList(),
+                        "each violation reports the length, not the pattern"));
     }
 
     @Test
@@ -761,7 +762,8 @@ class CorpusValidatorTest {
 
         assertEquals(List.of("names a transient tool or stage: 'pull.py'",
                         "names a transient tool or stage: 'E12'"),
-                violations.stream().map(CorpusViolation::detail).toList(), () -> report(violations));
+                violations.stream().map(CorpusViolation::detail).toList(),
+                "the detail names each transient name once");
     }
 
     @Test
@@ -773,7 +775,7 @@ class CorpusValidatorTest {
 
         assertAll(
                 () -> assertTrue(violations.stream().allMatch(violation -> violation.rule() == Rule.SCHEMA),
-                        () -> report(violations)),
+                        "every violation of the item is a schema violation"),
                 () -> assertEquals(List.of("$.title: longer than 120",
                                 "$.grading.method: \"vote\" not in [\"exact_choice\", \"label\", \"rubric_items\", "
                                         + "\"rubric_properties\"]"),

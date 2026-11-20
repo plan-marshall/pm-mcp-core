@@ -113,8 +113,8 @@ class ToonConformanceTest {
             PASSED.incrementAndGet();
             return;
         }
-        assertTrue(fixture.skipReason().startsWith("option"), () -> "only unoffered options are skipped: " + fixture);
-        assertFalse(CANONICAL_OPTIONS.contains(fixture.options()), () -> "skipped fixture uses canonical options: " + fixture);
+        assertTrue(fixture.skipReason().startsWith("option"), "only a fixture of an unoffered option is skipped");
+        assertFalse(CANONICAL_OPTIONS.contains(fixture.options()), "a skipped fixture uses no canonical options");
         OPTION_SKIPPED.incrementAndGet();
         Assumptions.abort("needs an encoder option PM-MCP does not offer: " + fixture.skipReason());
     }

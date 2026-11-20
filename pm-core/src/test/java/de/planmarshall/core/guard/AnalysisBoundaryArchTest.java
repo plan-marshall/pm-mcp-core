@@ -222,9 +222,9 @@ class AnalysisBoundaryArchTest {
         void failsOnFixture(Class<?> fixture, String forbiddenTarget) {
             var result = evaluate(fixture);
 
-            assertTrue(result.hasViolation(), () -> "The rule must fail on " + fixture.getSimpleName());
+            assertTrue(result.hasViolation(), "The boundary rule must fail on the fixture");
             assertTrue(result.getFailureReport().getDetails().stream().anyMatch(detail -> detail.contains(forbiddenTarget)),
-                    () -> result.getFailureReport().toString());
+                    "The failure report names the forbidden target");
         }
 
         @Test
@@ -232,7 +232,7 @@ class AnalysisBoundaryArchTest {
         void holdsOnInMemoryPrinter() {
             var result = evaluate(InMemoryPrinterFixture.class);
 
-            assertFalse(result.hasViolation(), () -> result.getFailureReport().toString());
+            assertFalse(result.hasViolation(), "The boundary rule holds on the in-memory printer");
         }
     }
 }

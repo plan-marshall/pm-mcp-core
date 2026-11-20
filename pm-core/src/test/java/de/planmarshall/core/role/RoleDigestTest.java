@@ -87,9 +87,9 @@ class RoleDigestTest {
                 skills(), "1.4", Optional.empty());
 
         assertAll(
-                () -> assertDigest("configuration", base.configurationDigest(), edited.configurationDigest(),
+                () -> assertConfigurationDigest(base.configurationDigest(), edited.configurationDigest(),
                         configuration),
-                () -> assertDigest("qualification", base.qualificationDigest(), edited.qualificationDigest(),
+                () -> assertQualificationDigest(base.qualificationDigest(), edited.qualificationDigest(),
                         qualification));
     }
 
@@ -119,9 +119,9 @@ class RoleDigestTest {
         var edited = role(RoleFixtures.valid().artifact(), harness, model, effort, skills(), version, weights);
 
         assertAll(
-                () -> assertDigest("configuration", base.configurationDigest(), edited.configurationDigest(),
+                () -> assertConfigurationDigest(base.configurationDigest(), edited.configurationDigest(),
                         configuration),
-                () -> assertDigest("qualification", base.qualificationDigest(), edited.qualificationDigest(),
+                () -> assertQualificationDigest(base.qualificationDigest(), edited.qualificationDigest(),
                         qualification));
     }
 
@@ -163,11 +163,19 @@ class RoleDigestTest {
                         "recycling edit keeps the qualification digest"));
     }
 
-    private static void assertDigest(String name, String before, String after, boolean changed) {
+    private static void assertConfigurationDigest(String before, String after, boolean changed) {
         if (changed) {
-            assertNotEquals(before, after, name);
+            assertNotEquals(before, after, "the edit changes the configuration digest");
         } else {
-            assertEquals(before, after, name);
+            assertEquals(before, after, "the edit keeps the configuration digest");
+        }
+    }
+
+    private static void assertQualificationDigest(String before, String after, boolean changed) {
+        if (changed) {
+            assertNotEquals(before, after, "the edit changes the qualification digest");
+        } else {
+            assertEquals(before, after, "the edit keeps the qualification digest");
         }
     }
 

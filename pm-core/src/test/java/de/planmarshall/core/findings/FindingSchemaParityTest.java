@@ -122,7 +122,7 @@ class FindingSchemaParityTest {
         } catch (NoSuchMethodException _) {
             return ((Enum<?>) constant).name();
         } catch (IllegalAccessException | InvocationTargetException e) {
-            return fail("wire name of " + constant + " cannot be read", e);
+            return fail("the wire name of an enum constant cannot be read", e);
         }
     }
 

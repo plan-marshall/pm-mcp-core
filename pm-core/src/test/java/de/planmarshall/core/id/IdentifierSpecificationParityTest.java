@@ -82,7 +82,7 @@ class IdentifierSpecificationParityTest {
     /** @return the text of the row whose anchor line carries the given anchor, up to the next row */
     private static String row(String registry, String anchor) {
         var start = registry.indexOf(anchor);
-        assertTrue(start >= 0, () -> "the registry should carry the row " + anchor);
+        assertTrue(start >= 0, "the registry should carry the anchored row");
         var end = registry.indexOf("\n\n|", start);
         return end < 0 ? registry.substring(start) : registry.substring(start, end);
     }
@@ -107,7 +107,7 @@ class IdentifierSpecificationParityTest {
         }
         var pattern = SchemaResource.object(current).get("pattern");
         if (pattern == null) {
-            return fail("the schema declares no pattern at " + String.join(".", path));
+            return fail("the schema declares no pattern at the named path");
         }
         return pattern.toString();
     }

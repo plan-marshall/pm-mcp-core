@@ -99,7 +99,7 @@ class AsciiDocValidatorTest {
     void acceptsText(String label, String text) {
         var violations = validator.validate(text);
 
-        assertTrue(violations.isEmpty(), () -> label + " must be accepted, but: " + violations);
+        assertEquals(List.of(), violations, "the text is accepted without a violation");
     }
 
     static Stream<Arguments> rejectedTexts() {
@@ -136,7 +136,8 @@ class AsciiDocValidatorTest {
     void rejectsText(String label, String text, String ruleKey, int line) {
         var violations = validator.validate(text);
 
-        assertEquals(List.of(ruleKey + "@" + line), keysAndLines(violations), label);
+        assertEquals(List.of(ruleKey + "@" + line), keysAndLines(violations),
+                "the text breaks exactly its rule on its line");
     }
 
     static Stream<Arguments> unclosedCommentAndOpenBlocks() {
@@ -153,7 +154,8 @@ class AsciiDocValidatorTest {
     void rejectsUnclosedCommentAndOpenBlocks(String label, String text, int line) {
         var violations = validator.validate(text);
 
-        assertEquals(List.of(AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@" + line), keysAndLines(violations), label);
+        assertEquals(List.of(AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@" + line), keysAndLines(violations),
+                "the block is unclosed on the line that opened it");
     }
 
     @Test

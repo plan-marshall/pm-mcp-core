@@ -313,12 +313,12 @@ class RoleEffectiveConfigurationTest {
     }
 
     private static EffectiveRole defined(RoleResolution resolution) {
-        assertInstanceOf(RoleResolution.Defined.class, resolution, resolution::toString);
+        assertInstanceOf(RoleResolution.Defined.class, resolution, "the resolution defines the effective role");
         return ((RoleResolution.Defined) resolution).role();
     }
 
     private static RoleValidationReason definedRisky(RoleResolution resolution) {
-        assertInstanceOf(RoleResolution.Undefined.class, resolution, resolution::toString);
+        assertInstanceOf(RoleResolution.Undefined.class, resolution, "the resolution leaves the role undefined");
         return ((RoleResolution.Undefined) resolution).reason();
     }
 

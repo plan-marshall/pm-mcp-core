@@ -113,7 +113,7 @@ class CsvRowReaderTest {
 
         assertAll(
                 () -> assertEquals(line, refusal.line(), "the refusal names the line the record starts on"),
-                () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
+                () -> assertTrue(refusal.getMessage().contains(detail), "the refusal message names what is malformed"));
     }
 
     @Test
@@ -123,6 +123,6 @@ class CsvRowReaderTest {
                 () -> CsvRowReader.read(new byte[]{'a', '\n', (byte) 0xFF, '\n'}),
                 "a file that is not UTF-8 is refused");
 
-        assertTrue(refusal.getMessage().contains("not UTF-8"), refusal::getMessage);
+        assertTrue(refusal.getMessage().contains("not UTF-8"), "the refusal message says the file is not UTF-8");
     }
 }
