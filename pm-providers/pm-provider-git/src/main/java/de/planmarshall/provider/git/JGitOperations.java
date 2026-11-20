@@ -358,6 +358,10 @@ public final class JGitOperations implements GitOperations {
     @Override
     public GitResult<CommitInfo> commit(CommitInput input) {
         List<String> paths = input.paths();
+        var refused = refusedCommitPath(input.root(), paths);
+        if (refused.isPresent()) {
+            return GitResult.of(GitOutcome.PATH_REFUSED, refused.get());
+        }
         try (Repository repository = openRepository(input.root()); Git git = Git.wrap(repository)) {
             var command = git.commit()
                     .setMessage(input.message())
@@ -375,6 +379,9 @@ public final class JGitOperations implements GitOperations {
                     command.setOnly(path);
                 }
             }
+            if (!hasChanges(repository, paths)) {
+                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
+            }
             RevCommit commit = command.call();
             return GitResult.ok(toInfo(commit));
         } catch (EmptyCommitException _) {
@@ -384,13 +391,73 @@ public final class JGitOperations implements GitOperations {
         } catch (RefusingFS.CapabilityRefusedException e) {
             return GitResult.of(GitOutcome.CAPABILITY_MISSING, e.getReason());
         } catch (JGitInternalException e) {
-            if (e.getMessage() != null && e.getMessage().contains("No changes")) {
-                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
-            }
             return failure(e);
         } catch (GitAPIException | IOException e) {
             return failure(e);
         }
+    }
+
+    /**
+     * Whether the staged state differs from {@code HEAD}, so the commit would not be empty. JGit reports an empty commit
+     * with a translated message on a generic exception, so the condition is read here, from the typed index and tree
+     * instead of from that text.
+     *
+     * @param repository the repository
+     * @param paths      the listed paths; empty means the whole index
+     * @return whether a commit would carry a change
+     * @throws IOException when the index or the head tree cannot be read
+     */
+    private static boolean hasChanges(Repository repository, List<String> paths) throws IOException {
+        var headId = repository.resolve(Constants.HEAD + "^{commit}");
+        if (headId == null) {
+            return true;
+        }
+        try (RevWalk walk = new RevWalk(repository)) {
+            var headTree = walk.parseCommit(headId).getTree();
+            if (paths.isEmpty()) {
+                var inserter = repository.newObjectInserter();
+                try {
+                    return !repository.readDirCache().writeTree(inserter).equals(headTree);
+                } finally {
+                    inserter.close();
+                }
+            }
+            var index = repository.readDirCache();
+            for (var path : paths) {
+                var entry = index.getEntry(path);
+                var stagedId = entry == null ? null : entry.getObjectId();
+                try (TreeWalk treeWalk = TreeWalk.forPath(repository, path, headTree)) {
+                    var headBlob = treeWalk == null ? null : treeWalk.getObjectId(0);
+                    if (!Objects.equals(stagedId, headBlob)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Refuses a path JGit would expand beyond itself before anything is staged: a directory (its pathspec is
+     * prefix-based and would commit every path below it), a git pathspec magic and a glob. The staging set the bind
+     * checks is a set of files, so none of the three can arrive from a bound {@code list<path>}; this is the provider's
+     * own guard against a direct caller.
+     *
+     * @param root  the worktree root
+     * @param paths the repository-relative paths to stage and commit
+     * @return the first refused path, empty when every path is a plain file path
+     */
+    private static Optional<String> refusedCommitPath(Path root, List<String> paths) {
+        for (var path : paths) {
+            if (path.isEmpty() || path.startsWith(":") || path.indexOf('*') >= 0 || path.indexOf('?') >= 0
+                    || path.indexOf('[') >= 0 || path.indexOf('\\') >= 0) {
+                return Optional.of(path);
+            }
+            if (Files.isDirectory(root.resolve(path))) {
+                return Optional.of(path);
+            }
+        }
+        return Optional.empty();
     }
 
     @Override
