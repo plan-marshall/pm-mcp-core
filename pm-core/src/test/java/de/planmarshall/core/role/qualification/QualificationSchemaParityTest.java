@@ -120,7 +120,11 @@ class QualificationSchemaParityTest {
     }
 
     private static void assertValid(Schema validator, byte[] document) {
-        assertEquals(Set.of(), violations(validator, document), () -> "violations of " + new String(document, UTF_8));
+        var written = new String(document, UTF_8);
+        var violations = violations(validator, document).stream()
+                .map(violation -> violation + " in " + written).collect(Collectors.toUnmodifiableSet());
+
+        assertEquals(Set.of(), violations, "the written document has no schema violation");
     }
 
     /**
