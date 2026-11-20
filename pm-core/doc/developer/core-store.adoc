@@ -249,8 +249,9 @@ line; a reason that raises a condition writes no `left` line at all
   member, so a line without a reason is byte for byte the line it was before.
 * *Bound to a `left` line with an outcome.* The record's constructor refuses a reason on a line whose event is not `left`,
   a reason without an outcome, and a reason that does not match the outcome pattern; the schema
-  `history-line.schema.json` states the same with the optional property `reason` of the outcome pattern and an `if`/`then`
-  that admits it on a `left` line only. An unknown member is still refused.
+  `history-line.schema.json` states the same with the optional property `reason` of the outcome pattern and an `allOf`
+  of two `if`/`then` clauses that admit it on a `left` line only and only beside an outcome that is not `null`. An
+  unknown member is still refused.
 * *Format version 1 unchanged.* The member is added in place; `FORMAT_VERSION` stays `1`, and `PlanHistoryLine.of(...)`
   keeps its eight parameters and builds a line without a reason
   (link:../adr/core-store/080-the-reason-is-an-optional-member-of-the-left-line.adoc[ADR 080]).
@@ -258,7 +259,8 @@ line; a reason that raises a condition writes no `left` line at all
 Tested by `PlanHistoryTest` (a `left` line with a reason and one without round-trip, a line without a reason writes no
 member, a reason on another event or without an outcome is refused, an unknown member is refused) and
 `PlanHistorySchemaParityTest` (the optional member is in the schema and not required, a reason on a line that is no
-`left` line violates the schema, the record's reason pattern is the schema's and a reason outside it is refused); the
+`left` line violates the schema, a `left` line with a `null` outcome and a reason is refused by the schema and the
+record alike, the record's reason pattern is the schema's and a reason outside it is refused); the
 engine's `PlanHistoryEngineTest` shows the routed reason on the line and none for a reasonless outcome.
 
 [#_retry_counters]

@@ -110,6 +110,24 @@ class PlanHistorySchemaParityTest {
     }
 
     @Test
+    @DisplayName("a left line with a null outcome and a reason is refused by the schema and the record")
+    void reasonWithoutOutcomeIsRefused() {
+        var reason = lowerWord();
+        var bare = text(line(Event.LEFT, lowerWord(), null));
+        var injected = bare.substring(0, bare.length() - 1) + ",\"reason\":\"" + reason + "\"}";
+
+        assertAll(
+                () -> assertFalse(SchemaValidation.validate(validator, injected).isEmpty(),
+                        "A reason without an outcome is a violation"),
+                () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
+                        .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(Generators.longs(1, 1_000_000).next())
+                        .event(Event.LEFT).node(Generators.letterStrings(1, 32).next()).callPath(List.of())
+                        .outcome(null).reason(reason).instanceVersion(Generators.integers(1, 1_000).next())
+                        .at(Instant.EPOCH).build(),
+                        "The record refuses a reason without outcome"));
+    }
+
+    @Test
     @DisplayName("the events and the format version are those of the schema")
     void valuesEqualSchema() {
         var events = Set.copyOf(names(

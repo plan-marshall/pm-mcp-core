@@ -234,8 +234,11 @@ final class ReasonFixtures {
             state handed_back terminal handed_back failure
             """;
 
-    /** The reason type the outcome {@link SwitchOutcome#FAILED} answers; {@link #resetSwitch()} restores it. */
-    private static volatile Class<? extends OutcomeReason> switchedReasonType = CheckReason.class;
+    /**
+     * The reason type the outcome {@link SwitchOutcome#FAILED} answers, {@code null} when it answers none;
+     * {@link #resetSwitch()} restores it.
+     */
+    private static volatile @Nullable Class<? extends OutcomeReason> switchedReasonType = CheckReason.class;
 
     /** The fixtures whose static helpers and ports the engine is assembled from. */
     final EngineFixtures fixtures = new EngineFixtures();
@@ -263,6 +266,13 @@ final class ReasonFixtures {
      */
     static void switchReasonType(Class<? extends OutcomeReason> reasonType) {
         switchedReasonType = reasonType;
+    }
+
+    /**
+     * Switches {@link SwitchOutcome#FAILED} to declare no reason type, for a result that was built before the switch.
+     */
+    static void switchToNoReasonType() {
+        switchedReasonType = null;
     }
 
     /** Restores the reason type {@link SwitchOutcome#FAILED} answers to {@link CheckReason}. */
@@ -434,7 +444,7 @@ final class ReasonFixtures {
         }
     }
 
-    /** The outcomes of {@code reason.switch}: {@code failed} answers the switched reason type. */
+    /** The outcomes of {@code reason.switch}: {@code failed} answers the switched reason type, or none. */
     enum SwitchOutcome implements PrimitiveOutcome {
         DONE("done", OutcomeClass.SUCCESS), FAILED("failed", OutcomeClass.FAILURE);
 
@@ -458,7 +468,7 @@ final class ReasonFixtures {
 
         @Override
         public Optional<Class<? extends OutcomeReason>> reasonType() {
-            return this == FAILED ? Optional.of(switchedReasonType) : Optional.empty();
+            return this == FAILED ? Optional.ofNullable(switchedReasonType) : Optional.empty();
         }
     }
 
