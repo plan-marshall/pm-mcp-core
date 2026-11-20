@@ -34,9 +34,10 @@ import org.jspecify.annotations.Nullable;
  * are serialized by one lock, and the runtime lock excludes a second runtime on the same base; a writer outside both
  * can still put an entry between the read and the write. The three deletes are guarded differently (runtime-credentials
  * ADR 014): the clean-up after a failed step deletes only an entry that still holds the value this run wrote; the
- * delete of a leftover deletes an entry whose value starts with {@value #MARKER}, whichever check wrote it; and the
- * delete step after a matching read-back deletes the entry unconditionally, so an entry a writer outside both locks put
- * between the read-back and the delete is deleted with it. The consent {@code check_credential_store} and
+ * delete of a leftover is decided by the initial read alone and does not read the account again, so an entry a writer
+ * outside both locks put there after that read is deleted with it; and the delete step after a matching read-back
+ * deletes the entry unconditionally, so an entry a writer outside both locks put between the read-back and the delete is
+ * deleted with it. The consent {@code check_credential_store} and
  * the states of the store step stay with the onboarding; this class only runs the three steps on the store it is
  * given. The test value is random, never logged and never part of a check line.
  *

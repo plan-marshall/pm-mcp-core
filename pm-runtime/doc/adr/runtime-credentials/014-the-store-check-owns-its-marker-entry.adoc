@@ -37,14 +37,16 @@ conditional on the account being free.
 * *The cleanup after a failed step is limited to the run's own value.* It reads the account and deletes the entry only
   while it holds the value this run wrote; an entry another writer put there before that read is kept. A writer that
   replaces the entry between that read and the delete is not excluded: the store offers no conditional delete the
-  runtime uses. The two other deletes are not limited to it: the delete of a leftover removes an entry that carries the marker, whichever check
-  wrote it, and the delete step after a matching read-back deletes the entry without reading it again.
+  runtime uses. The two other deletes are not limited to it. The delete of a leftover is decided by the initial read
+  alone: it does not read the account again, so an entry a writer put there after that read, a foreign one included, is
+  deleted with it. The delete step after a matching read-back likewise deletes the entry without reading it again.
 * *The runs of one runtime are serialized.* `CredentialStoreCheck.check(SecretStore)` holds one process-wide lock for
   the whole run, so no two checks of this runtime interleave between a read and a write; with `RuntimeLock` no second
   runtime on the same base runs one either.
 * *What stays open is named.* A writer outside both — another base's runtime, another process on the keyring — can
-  still put an entry between the read and the write, and the write replaces it, or between the read-back and the
-  delete step, and the delete removes it; the store gives no way to prevent either.
+  still put an entry between the read and the write, and the write replaces it, between the initial read and the delete
+  of a leftover, and the delete removes it, or between the read-back and the delete step, and the delete removes it; the
+  store gives no way to prevent any of them.
   The account name is the check's own, so such a writer is another check or a deliberate edit of that one account.
 
 == Alternatives Considered
