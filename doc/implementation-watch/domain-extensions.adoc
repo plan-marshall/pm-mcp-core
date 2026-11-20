@@ -123,7 +123,7 @@ explicit lifting.
 Fixture:: markdown 24, maven 0, python 5 edges → merged 0; 12 modules, all roots and leaves.
 Source:: plan-marshall code-intelligence-substrate epic F2 and F4, WS-02 charter.
 
-== Module Discovery, Build Map & Architecture State Machine
+== Module Discovery, Build Map & Architecture Queries
 
 [#PM-WATCH-EXT-6]
 === PM-WATCH-EXT-6: Discovery stays cheap, and a cost claim never weakens freshness
@@ -222,11 +222,29 @@ Source:: design review.
 
 == A Recipe Is a Workflow
 
+[#PM-WATCH-EXT-41]
+=== PM-WATCH-EXT-41: Every descriptor and payload schema is read through its codec
+
+Anchor:: link:../specification/domain-extensions/01-four-axis-architecture.adoc#_declarative_domain_descriptor_schema_domain_id_json[Domain Extensions § Declarative Domain Descriptor Schema],
+link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#_declarative_recipe_descriptor_schema[§ Declarative Recipe Descriptor Schema],
+link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#project-script-schemas[§ Normative Input & Output JSON Schemas for `project_script`],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-1[PM-EXT-1]
+Hazard:: A schema that no codec reads validates nothing: a domain or recipe descriptor, or a project script's input or
+output, is read member by member where it is used, so an undeclared member is accepted, a missing one becomes a default,
+and the fail-closed descriptor loading the specification states never runs.
+Guard:: One codec per schema (the descriptor codec of `core.domain`, the recipe codec of `core.recipe`, the
+project-script codec of `runtime.job`) that validates the document against its closed schema before any reader sees it.
+Table tests per codec: a document with an undeclared member, one without a required member, and one with a value outside
+its enum are refused with the schema path named; matched control: every shipped descriptor, and a project-script input
+and output of the fixture project, decode to the same values they encode from.
+Source:: design review.
+
+
 [#PM-WATCH-EXT-12]
 === PM-WATCH-EXT-12: A recipe over a compliant tree ends as an explicit no-op
 
 Anchor:: link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#_declarative_recipe_descriptor_schema[Domain Extensions § Declarative Recipe Descriptor Schema] (`target_harvester`),
-link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#_tier_1_init_routing_deterministic_deliverable_generation[§ Recipe Workflows: Harvest, Deliverables & Parameters] (item 7),
+link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#recipe-harvest[§ Recipe Workflows: Harvest, Deliverables & Parameters] (item 7),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-4[PM-EXT-4]
 Hazard:: A refactor-to-standards recipe generated busywork over an already compliant codebase.
 Guard:: An empty `target_harvester` result (after `confirm_recipe_targets` pruning) creates no deliverable, no commit
@@ -490,7 +508,7 @@ Source:: design review.
 
 Anchor:: link:../specification/domain-extensions/04-setup-state-machine.adoc#setup-merge-queue[Domain Extensions § Merge-Queue Probe] (`merge_queue_enforced`)
 Hazard:: An unreadable owner type or plan is read as `available: no`, so a project that could use a merge queue is
-never offered `setup-merge-queue`.
+never offered `setup.merge-queue`.
 Guard:: Recorded-provider table test: `available: no` only for a readable GitHub user-owned repository, a readable
 private or internal repository whose organization plan is not Enterprise Cloud, and a readable GitLab tier below
 Premium; a `403` or missing plan field yields `indeterminate`, and `indeterminate` or a stale fact keeps the project

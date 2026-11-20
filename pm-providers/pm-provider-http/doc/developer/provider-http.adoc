@@ -11,8 +11,6 @@
 
 == Purpose
 
-A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
-
 _Requirements:_ link:{req}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{req}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2], link:{req}/requirements/07-credentials.adoc#PM-CRED-5[PM-CRED-5]
 
 Package `de.planmarshall.provider.http` holds the shared HTTP base of the provider adapters: the one
@@ -93,6 +91,10 @@ A new provider adapter depends on this module and `pm-core` alone among the modu
   one, otherwise the client's failing step; the client never appends its token, a credential or the request body.
   A provider message is remote text, so a caller that emits or persists a detail passes it through the runtime's
   `SecretRedactor` (`PM-CRED-5`; the canary-token guard of the implementation watch).
+* *A conditional GET has an etag*: `get(path, etag)` refuses a `null` etag with a `NullPointerException` naming
+  `etag`; a request without a cached representation is the unconditional `get(path)`. Only the general
+  `send(method, path, jsonBody, etag)` takes a `@Nullable` etag. A response without an `ETag` header carries a `null`
+  `etag()`, whatever its outcome.
 * *Timeouts*: every request carries the connect timeout (10 s) and the read timeout (60 s) of
   `HttpClient`.
 

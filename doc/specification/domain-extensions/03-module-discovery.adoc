@@ -8,7 +8,7 @@
 
 link:../../Specification.adoc[Specification] » link:../domain-extensions.adoc[Domain Extensions, Build Map & Configuration Split Specification] » Module Discovery, Build Map & Architecture Queries
 
-== Module Discovery, Build Map & Architecture State Machine
+== Module Discovery, Build Map & Architecture Queries
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-3[PM-EXT-3: Module Discovery, Build Map & Architecture Enrichment]_
 
 `PM-MCP` moves deterministic module discovery, dependency graph construction, verification routing (`derive-verification`), and architecture queries into the daemon while keeping semantic module enrichment (`responsibility`, `purpose`, `key_packages`) as model judgment.

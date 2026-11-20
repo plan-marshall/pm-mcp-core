@@ -1560,7 +1560,7 @@ class SubprocessJobRunnerTest {
                     .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
                     .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
-            var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
+            var job = new SubprocessJobRunner.RunningJob(jobRecord, jobs, new JobBudget(BUDGET_KEY, 30, FLOOR),
                     Set.of(), null);
 
             int pid = Generators.integers(2, 4_000_000).next();
@@ -1606,7 +1606,7 @@ class SubprocessJobRunnerTest {
                     .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
                     .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
-            var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
+            var job = new SubprocessJobRunner.RunningJob(jobRecord, jobs, new JobBudget(BUDGET_KEY, 30, FLOOR),
                     Set.of(), null);
             int pid = Generators.integers(2, 4_000_000).next();
 
@@ -1653,7 +1653,7 @@ class SubprocessJobRunnerTest {
                     .budgetSeconds(30).budgetDerivation(FLOOR).argvDigest(sha256Digests().next())
                     .confinement(JobRecord.Confinement.UNAVAILABLE).createdAt(Instant.now())
                     .clampedValues(List.of()).build();
-            var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
+            var job = new SubprocessJobRunner.RunningJob(jobRecord, jobs, new JobBudget(BUDGET_KEY, 30, FLOOR),
                     Set.of(), null);
             job.tracks(tracker);
 
@@ -1826,8 +1826,22 @@ class SubprocessJobRunnerTest {
                     .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
                     .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
-            return new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
+            return new SubprocessJobRunner.RunningJob(jobRecord, jobs, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
                     null);
+        }
+
+        @Test
+        @DisplayName("a running job without its record is refused, naming the parameter latest")
+        void refusesMissingRecord() {
+            var budget = new JobBudget(BUDGET_KEY, 30, FLOOR);
+            Set<Integer> successCodes = Set.of();
+
+            var thrown = assertThrows(NullPointerException.class,
+                    () -> new SubprocessJobRunner.RunningJob(null, jobs, budget, successCodes, null),
+                    "a running job without a record is refused");
+
+            // contract: the parameter name the refusal carries
+            assertEquals("latest", thrown.getMessage(), "the refusal names the parameter latest");
         }
 
         @Test
@@ -1917,7 +1931,7 @@ class SubprocessJobRunnerTest {
                     .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
                     .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
-            return new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
+            return new SubprocessJobRunner.RunningJob(jobRecord, jobs, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of(),
                     null);
         }
 

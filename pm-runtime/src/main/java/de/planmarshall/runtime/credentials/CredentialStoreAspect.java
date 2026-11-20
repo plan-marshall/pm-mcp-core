@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -124,28 +123,26 @@ public final class CredentialStoreAspect {
      * @param toRecord    the consent to record through {@code ConsentStore}, for a {@code yes_remember}; {@code null}
      *                    when none is recorded
      * @param lines       the check lines of {@code store.check}, empty for the other states
-     * @param moveEntries the count of entries a move would carry, for {@code store.confirm-move}
+     * @param moveEntries the count of entries a move would carry, for {@code store.confirm-move}; {@code null} for
+     *                    the other states
      * @since 0.1
      */
     @Builder
     public record Transition(State next, @Nullable String reason, @Nullable String detail,
-    @Nullable Consent toRecord, List<CheckLine> lines, OptionalInt moveEntries) {
+    @Nullable Consent toRecord, List<CheckLine> lines, @Nullable Integer moveEntries) {
 
-        /** Keeps the lists unmodifiable and rejects a {@code null} next state or move count. */
+        /** Keeps the lists unmodifiable and rejects a {@code null} next state. */
         public Transition {
             Objects.requireNonNull(next, "next");
             lines = List.copyOf(lines);
-            Objects.requireNonNull(moveEntries, "moveEntries");
         }
 
         static Transition to(State next) {
-            return new Transition(next, null, null, null, List.of(),
-                    OptionalInt.empty());
+            return new Transition(next, null, null, null, List.of(), null);
         }
 
         static Transition unavailable(String reason, String detail) {
-            return new Transition(State.UNAVAILABLE, reason, detail, null,
-                    List.of(), OptionalInt.empty());
+            return new Transition(State.UNAVAILABLE, reason, detail, null, List.of(), null);
         }
 
         /** @return whether the store is usable after this state */
@@ -237,7 +234,7 @@ public final class CredentialStoreAspect {
                 .detail(null)
                 .toRecord(decision.toRecord())
                 .lines(List.of())
-                .moveEntries(OptionalInt.empty())
+                .moveEntries(null)
                 .build();
     }
 
@@ -263,7 +260,7 @@ public final class CredentialStoreAspect {
                     .detail(String.join(" ", last.arguments()))
                     .toRecord(null)
                     .lines(result.lines())
-                    .moveEntries(OptionalInt.empty())
+                    .moveEntries(null)
                     .build();
         }
         LOGGER.info(INFO.CREDENTIAL_STORE_CHECK_PASSED, store.value());
@@ -280,7 +277,7 @@ public final class CredentialStoreAspect {
                     .detail(null)
                     .toRecord(null)
                     .lines(result.lines())
-                    .moveEntries(OptionalInt.empty())
+                    .moveEntries(null)
                     .build();
         }
         return Transition.builder()
@@ -289,7 +286,7 @@ public final class CredentialStoreAspect {
                 .detail(null)
                 .toRecord(null)
                 .lines(result.lines())
-                .moveEntries(OptionalInt.empty())
+                .moveEntries(null)
                 .build();
     }
 
@@ -307,7 +304,7 @@ public final class CredentialStoreAspect {
                     .detail(null)
                     .toRecord(null)
                     .lines(List.of())
-                    .moveEntries(OptionalInt.of(move.recordedEntries()))
+                    .moveEntries(move.recordedEntries())
                     .build();
         } catch (Refusal | SecretStoreException | StoreRefusal | UncheckedIOException e) {
             return Transition.unavailable(CREDENTIAL_STORE_FAILED, e.getMessage());

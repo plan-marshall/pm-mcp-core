@@ -57,7 +57,7 @@ Every link's `rel` column is drawn from a closed enumeration of 9 relation ident
 
 |`abort`
 |`submit`, `noop`
-|Leave a sub-workflow through the implicit `step_out` (`submit`), an operator link of an operator wait of the sub-workflow, which unwinds one frame and returns the control outcome `stepped_out` to its caller (`PM-WF-16`); or stop a chat's reply through the implicit `stop` (`noop`, link:../workflow-dsl/02-units-jobs-decisions.adoc#implicit-job-links[Workflow DSL Specification, Implicit Links]); no model-facing link has this relation. Ending a plan or epic is never a link: it is an operator act (cancel, abandon, the integrity abort) or the release of its project.
+|Leave a sub-workflow through the implicit `step_out` (`submit`), an operator link of an operator wait of a sub-workflow that a workspace, machine, or entry unit calls (never of one a plan or an epic calls), which unwinds one frame and returns the control outcome `stepped_out` to its caller (`PM-WF-16`); or stop a chat's reply through the implicit `stop` (`noop`, link:../workflow-dsl/02-units-jobs-decisions.adoc#implicit-job-links[Workflow DSL Specification, Implicit Links]); no model-facing link has this relation. Ending a plan or epic is never a link: it is an operator act (cancel, abandon, the integrity abort) or the release of its project.
 |===
 
 [#link-identifier-grammar]
@@ -131,7 +131,7 @@ A parameter of type `schema[<schema_name>]` takes a JSON object as its value; th
 
 |`epic-intent`
 |The intent of an epic: `destination`, `done_when` (three to six checks), `non_goals`, `not_yet_specified`; definition in link:../store-schemas/04-epic-and-change-ledger.adoc#epic-header[Store Schemas Specification, Epic Header]
-|`submit intent` of the `decompose` entity (`intent:schema[epic-intent]`)
+|`submit:intent` of the `decompose` entity (`intent:schema[epic-intent]`)
 
 |`question-answer`
 |The operator's answer to one decision: the `revision` it answers and per part the chosen `branch_key` values or the `value`, the operator's own words, and a note, or for the whole decision `none_fits` (where offered) or `later`; the channel and device are taken from the request, never from the body; definition in link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]
@@ -159,7 +159,7 @@ NOTE: Boolean parameters are prohibited in workflow transitions and operator lin
 [#decision-confidence-parameter]
 ==== Decision Confidence Parameter
 
-Every closing link of a task entity whose state is a decision point of a role (link:../model-work/11-decision-records.adoc#decision-confidence[Model Work Specification, Decision Confidence of a Task]: `outline.classify-change-type`, `<phase>.qgate`, `replan.review`, `remediation-<class>.choose`, `decision.interpret`) carries `confidence:int[0..100]` in its `free` list after its own parameters; the server records it in the decision-log record and refuses a submit without it `invalid_link_args`. The implicit `infeasible` link carries no `confidence`: it reports evidence, not a decision. A vote carries its confidence per question inside `schema[vote-answer]` instead, and a triage submit per finding group inside `schema[triage-groups]`. The actions of `replan.review` also carry `corrects:list<text>?` (at most ten `decision_id` values the revision departs from).
+Every closing link of a task entity whose state is a decision point of a role (link:../model-work/11-decision-records.adoc#decision-confidence[Model Work Specification, Decision Confidence of a Task]: `outline.classify-change-type`, `<phase>.qgate`, `replan.review`, `remediation-<class>.choose`, `decision.interpret`) carries `confidence:int[0..100]` in its `free` list after its own parameters; the server records it in the decision-log record and refuses a submit without it `missing_param`. The implicit `infeasible` link carries no `confidence`: it reports evidence, not a decision. A vote carries its confidence per question inside `schema[vote-answer]` instead, and a triage submit per finding group inside `schema[triage-groups]`. The actions of `replan.review` also carry `corrects:list<text>?` (at most ten `decision_id` values the revision departs from).
 
 === Direct In-Band Multi-Line Text Payloads (`PM-WF-2`, `PM-WF-6`)
 

@@ -11,7 +11,7 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 == Watch Documents
 
-The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtime model of the documentation; its new items take the area code `LIFE`, which only this repository uses.
+The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtime model of the documentation; its new items take the area code `LIFE`, which only this repository uses. The job-runtime watch holds the items of the runtime's sections; `PM-WATCH-JOB-41` to `PM-WATCH-JOB-44`, which watch the sections the launcher `pm-exec` implements alone, are in link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/implementation-watch/job-runtime.adoc[the job-runtime watch of `pm-mcp-clients`].
 
 [cols="3,1,1,4"]
 |===
@@ -33,12 +33,12 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/model-work.adoc[Model Work]
 |`DISP`, `CLI`
-|62
+|70
 |link:specification/model-work.adoc[Model Work Specification]
 
 |link:implementation-watch/domain-extensions.adoc[Domain Extensions]
 |`EXT`
-|39
+|40
 |link:specification/domain-extensions.adoc[Domain Extensions, Build Map & Configuration Split Specification]
 
 |link:implementation-watch/filesystem-layout.adoc[Filesystem Layout]
@@ -48,12 +48,12 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/store-schemas.adoc[Store Schemas]
 |`STORE`
-|50
+|52
 |link:specification/store-schemas.adoc[Store Schemas Specification]
 
 |link:implementation-watch/job-runtime.adoc[Job Runtime]
 |`JOB`
-|41
+|38
 |link:specification/job-runtime.adoc[Job Runtime Specification]
 
 |link:implementation-watch/harness-profiles.adoc[Harness Profiles]

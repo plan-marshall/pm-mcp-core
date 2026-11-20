@@ -5,7 +5,7 @@
 :nofooter:
 
 :docs: ../../../../plan-marshall-documentation/doc
-:dsl: {docs}/specification/workflow-dsl
+:dsl: {spec}/workflow-dsl
 
 == Purpose
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requirements.adoc#PM-WF-2[PM-WF-2], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
@@ -44,7 +44,7 @@ configuration of its own; the assembly supplies the port, and an engine without 
 `Ended` (the outcome and outcome class of the top-level unit's terminal; the call stack is empty), and
 `ConditionRaised` (the condition kind and its facts; state, phase and call stack unchanged). Every variant carries the
 new `WorkflowStatus`.
-`CallStack`:: The immutable call stack, bottom to top, of at most `MAX_DEPTH` (4) frames, the depth the store admits.
+`CallStack`:: The immutable call stack, bottom to top, of at most `MAX_DEPTH` (5, `WorkflowStatus.MAX_CALL_DEPTH`) frames, the depth the store admits.
 `push` adds the frame of a call, `pop` removes exactly one frame, `unwound` lists every frame top to bottom for an
 unwind; `fromStore` and `toStore` convert between the AST frame `ast.CallFrame` and the store frame
 `WorkflowStatus.CallFrame`.
@@ -59,7 +59,7 @@ missing value.
 `policyLoopBack` and `policyRetry` return `Charge.Granted` with the count raised, or `Charge.Exhausted` with the
 outcome `exhausted` and the status unchanged.
 `EngineEvent`:: The sealed event that resumes a resting state: `JobSettled(jobId, fate)`,
-`TasksSettled(taskOutcomes, evaluatedOutcome, submissions)` (the submissions keyed by entity and argument name, from
+`TasksSettled(taskOutcomes, submissions, evaluatedOutcome)` (the submissions keyed by entity and argument name, from
 which a `fills` clause takes a slot's value), `QuestionResolved(questionId, outcome)`,
 `OperatorAct(stateId, linkId, parameters)` and `TimeElapsed(at)`.
 `RestingWait`:: What a resting state waits for, derived from the status alone: the `AwaitedEvent` kind, the jobs bound
@@ -779,11 +779,9 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
 * link:../adr/workflow-engine/004-workspace-entity-kinds-addressed.adoc[ADR 004]: the workspace entity kinds addressed
   are the bootstraps and the workspace-hosted task entities.
 * link:../adr/workflow-engine/005-address-grammar-in-workflow-engine-only.adoc[ADR 005]: the address types and grammar
-  checks live in `workflow.engine` only, except the `entry_id` grammar, owned by `core.store.EntryId` since
-  pm-mcp-core#51 (amended 2026-10-13).
+  checks live in `workflow.engine` only, except the `entry_id` grammar, owned by `core.store.EntryId`.
 * link:../adr/workflow-engine/006-entry-records-read-through-core-spi-port.adoc[ADR 006]: an `entry_id` is resolved
-  through the tri-state port `PendingEntryReader`, implemented over `core.store.PendingEntryStore` (amended
-  2026-10-13).
+  through the tri-state port `PendingEntryReader`, to be implemented over `core.store.PendingEntryStore`.
 * link:../adr/workflow-engine/007-refused-address-is-a-value.adoc[ADR 007]: a refused address is a value with a closed
   reason.
 * link:../adr/workflow-engine/008-resolver-beside-the-engine-ports.adoc[ADR 008]: the resolver is its own type beside

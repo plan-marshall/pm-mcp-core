@@ -59,6 +59,10 @@ public final class GitHubClient {
     private static final String STATE = "state";
     private static final String TITLE = "title";
     private static final String LOGIN = "login";
+    /** The member of an issue answer that marks a pull request. */
+    private static final String PULL_REQUEST = "pull_request";
+    private static final String ISSUES = "/issues/";
+    private static final String NOT_JSON = "the issue response is not JSON";
 
     static final String REVIEW_THREADS = document("review-threads");
     static final String RESOLVE_REVIEW_THREAD = document("resolve-review-thread");
@@ -258,7 +262,7 @@ public final class GitHubClient {
      * @return the comment's REST id
      */
     public Result<String> postComment(String owner, String name, int number, String body) {
-        Response response = http.send("POST", REPOS + owner + "/" + name + "/issues/" + number + "/comments",
+        Response response = http.send("POST", REPOS + owner + "/" + name + ISSUES + number + "/comments",
                 Json.write(Map.of("body", body)), null);
         if (!response.isOk()) {
             return Result.failed(response);
@@ -296,13 +300,13 @@ public final class GitHubClient {
      * @return the issue's fields and whether it is a pull request
      */
     public Result<IssuePayload> issue(String owner, String name, int number) {
-        Response response = http.get(REPOS + owner + "/" + name + "/issues/" + number);
+        Response response = http.get(REPOS + owner + "/" + name + ISSUES + number);
         if (!response.isOk()) {
             return Result.failed(response);
         }
         Object json = Json.parseOrNull(response.body()).orElse(null);
         if (json == null) {
-            return Result.of(Result.Outcome.FAILED, "the issue response is not JSON");
+            return Result.of(Result.Outcome.FAILED, NOT_JSON);
         }
         Optional<String> title = Json.string(json, TITLE).filter(t -> !t.isBlank());
         Optional<String> state = Json.string(json, STATE).filter(s -> !s.isBlank());
@@ -318,7 +322,29 @@ public final class GitHubClient {
                 .labels(labels)
                 .milestone(Json.string(json, "milestone", TITLE).filter(value -> !value.isBlank()).orElse(null))
                 .assignees(assignees).state(state.get()).url(url.get()).build();
-        return Result.ok(new IssuePayload(issue, Json.at(json, "pull_request").isPresent()));
+        return Result.ok(new IssuePayload(issue, Json.at(json, PULL_REQUEST).isPresent()));
+    }
+
+    /**
+     * Reads whether an issue number names a pull request, the one fact the comment guard needs: the answer is read
+     * for its {@code pull_request} member alone, so an issue whose answer lacks a title, a state or a URL is still an
+     * issue. The token needs the permission set of {@link GitHubOperation#ISSUE_READ}.
+     *
+     * @param owner  the repository owner
+     * @param name   the repository name
+     * @param number the issue or pull request number
+     * @return whether the number is a pull request; {@code FAILED} when the body is not JSON
+     */
+    public Result<Boolean> isPullRequest(String owner, String name, int number) {
+        Response response = http.get(REPOS + owner + "/" + name + ISSUES + number);
+        if (!response.isOk()) {
+            return Result.failed(response);
+        }
+        Object json = Json.parseOrNull(response.body()).orElse(null);
+        if (json == null) {
+            return Result.of(Result.Outcome.FAILED, NOT_JSON);
+        }
+        return Result.ok(Json.at(json, PULL_REQUEST).isPresent());
     }
 
     /**

@@ -4,7 +4,7 @@
 :nofooter:
 
 :docs: ../../../../plan-marshall-documentation/doc
-:dsl: {docs}/specification/workflow-dsl
+:dsl: ../../../doc/specification/workflow-dsl
 
 == Purpose
 _Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
@@ -353,8 +353,8 @@ it:
 * the same script with a protocol worker (`worker_wait`, `worker_do`) yields byte-identical status and queue bytes,
   because the task's record carries the generation id, the attempt and the instants of the manual clock, never an
   instant or an id of the machine;
-* every fault scenario of `WorkerFaultScenarios` — the eight of the fault matrix (including the stall whose two stalls
-  add up), the budget exhaustion and the three runtime-crash scenarios — yields byte-identical status and queue bytes in
+* every fault scenario of `WorkerFaultScenarios` — the seven of the fault matrix (including the stall whose two stalls
+  add up), the budget exhaustion and the five runtime-crash scenarios — yields byte-identical status and queue bytes in
   two replays from empty stores, so a fault's deadline, its fence and the restart's rebuilt objects are all reproducible
   from the script;
 * the same script against a unit with one changed transition (`answered -> handed_back` instead of
@@ -409,10 +409,10 @@ the bytes kept after every step; an operator act taking its link and its free pa
 acknowledging, submitting, reporting infeasible and reading its closed outcome from the queue record, with the
 role-less `worker_do` the specification writes; a refused call asserted and a wrong refusal or state failing at its
 line; a wait answered with no offer failing; the consultation re-offering the asker's task at its next wait, with the
-submit that omits its reference refused and the one that names it accepted; the eight fault scenarios of
+submit that omits its reference refused and the one that names it accepted; the seven fault-matrix scenarios of
 `WorkerFaultScenarios` with their properties (one submit, the loss at its deadline and not before, the lease released at
 the fence, `generation_fenced` for a late call, a live worker not replaced before its deadline), the budget exhaustion
-closing the task `lost`, the three runtime-crash scenarios, the loss after a restart and the protocol half of a pause at
+closing the task `lost`, the five runtime-crash scenarios with the loss after a restart among them, and the protocol half of a pause at
 once, with the two refusals of a fault on an unacknowledged task and of a restart of an ended scope
 |`ScenarioDeterminismTest` |Two replays with identical status and queue bytes after every step, for the direct worker,
 for a protocol worker and for every fault scenario of `WorkerFaultScenarios`; a changed transition failing at the

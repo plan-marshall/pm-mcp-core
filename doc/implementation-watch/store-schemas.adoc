@@ -51,6 +51,23 @@ destination holds at most a duplicate notice and never none. Matched control: a 
 leaves the finding uncarried and the resumed carry-out carries it once.
 Source:: design review.
 
+[#PM-WATCH-STORE-2]
+=== PM-WATCH-STORE-2: Plan initialization is atomic
+
+Anchor:: link:../specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal] (`start.create-scope`),
+link:../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc#bootstrap-entries[MCP Tools § Bootstrap Entries],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-8[PM-ARCH-8]
+Hazard:: `plan-marshall` init wrote files one by one; a failure between writes left a plan directory with `request.md` but no
+status or references, reported as a created plan.
+Guard:: The `start.create-scope` transaction of the plan bootstrap builds the complete plan directory (`request.md`,
+`references.json`, `mcp/status.json`, `mcp/digests.json`, and the copies of the entry's source directory,
+transcript, and decision logs) in a sibling temporary
+directory and publishes it with one atomic directory rename; startup recovery deletes orphaned temporary init directories; a plan directory without `mcp/status.json`
+is never listed. Test: inject a fault after each file write → no plan visible, the pending entry not
+consumed.
+Fixture:: `plans/<id>/` containing only `request.md`.
+Source:: plan-marshall process-compliance inbox opencode-bootstrap-executor-fix-001 § Violations item 3 (adjacent PLAN-10 D5).
+
 == Persisted Paths & the Pending Entry
 
 [#PM-WATCH-STORE-1]
@@ -87,22 +104,6 @@ and the crash-point scenarios stay for the start.
 Source:: design review.
 
 == Workflow State Store (`mcp/status.json`)
-
-[#PM-WATCH-STORE-2]
-=== PM-WATCH-STORE-2: Plan initialization is atomic
-
-Anchor:: link:../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc#bootstrap-entries[MCP Tools § Bootstrap Entries],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-8[PM-ARCH-8]
-Hazard:: `plan-marshall` init wrote files one by one; a failure between writes left a plan directory with `request.md` but no
-status or references, reported as a created plan.
-Guard:: The `start.create-scope` transaction of the plan bootstrap builds the complete plan directory (`request.md`,
-`references.json`, `mcp/status.json`, `mcp/digests.json`, and the copies of the entry's source directory,
-transcript, and decision logs) in a sibling temporary
-directory and publishes it with one atomic directory rename; startup recovery deletes orphaned temporary init directories; a plan directory without `mcp/status.json`
-is never listed. Test: inject a fault after each file write → no plan visible, the pending entry not
-consumed.
-Fixture:: `plans/<id>/` containing only `request.md`.
-Source:: plan-marshall process-compliance inbox opencode-bootstrap-executor-fix-001 § Violations item 3 (adjacent PLAN-10 D5).
 
 [#PM-WATCH-STORE-3]
 === PM-WATCH-STORE-3: Persisted derived facts carry the head they describe
@@ -159,14 +160,14 @@ Anchor:: link:../specification/store-schemas/02-workflow-state-store.adoc#_workf
 Hazard:: `PlanHistory.nextSeq()` (`pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java` lines 117 to 120)
 decodes the whole of `mcp/history.jsonl` on every history-bearing advance, to number the next line; the cost is one
 linear read per advance of a file that grows by a line per state entered and left, per sub-workflow called and
-returned, and per instance version taking force. Review flagged it twice; the answer was "not changed".
-Measure:: When a plan's `mcp/history.jsonl` exceeds the 10 000 lines, or the advance's history read exceeds the budget
-the first scale test of PLAN-V2-26 sets.
+returned, and per instance version taking force.
+Measure:: When a plan's `mcp/history.jsonl` exceeds the 10 000 lines, or the history read of one advance exceeds the
+budget of the scale test that measures an advance over a long plan history.
 Remedy:: A bounded backwards read in `PlanHistory`, keeping the semantics the full read gives for free: a torn tail and
 a refused line are still handled by the full read. It is new `core.store` code; `core/queue/ActivityJournal` has no seek
 primitive to promote (it reads the whole journal; its compaction removes only `text` entries and cannot bound a journal
 of more than 5000 other entries, lines 195 to 215).
-Guard:: No test covers it today. The measure above is the trigger; the plan that implements the bounded read adds the
+Guard:: The measure above is the trigger; the plan that implements the bounded read adds the
 test that proves it against a torn tail and a refused line.
 Source:: `store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json`; link:../../pm-workflow/doc/adr/workflow-plan/027-the-plan-history-is-read-whole-until-it-is-long.adoc[ADR workflow-plan 027].
 
@@ -738,6 +739,21 @@ foreign code under it, and the derivation runs outside it, so it cannot take par
 relative to the store's is a convention of the callers that no test of the store can enforce, which is why the item
 stays (R05: kept with a reason).
 Source:: design review; restored and narrowed by PLAN-V2-111 after the analysis of the `derived-facts-store` landing.
+
+[#PM-WATCH-STORE-61]
+=== PM-WATCH-STORE-61: A long lock wait is reported, never silent
+
+Anchor:: link:../specification/timeouts/02-runtime-leases-operator-web.adoc#lock-wait-threshold[Timeouts § Transaction Lock Acquisition],
+link:../specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]
+Hazard:: A transaction lock has no timeout, so a holder that does not let go (a transaction stuck on a slow file system,
+a lock taken around foreign code) stops every writer of that scope without any record. Without the reporting
+threshold the operator sees a runtime that no longer moves and nothing names the lock or its holder, and the
+`PM-MIG-5` integrity trigger never counts the event.
+Guard:: A lock manager test holds a lock past the threshold on a fake clock and asserts exactly one
+`lock_wait_exceeded` audit record with the lock, the holder and the waited time, that the waiting acquisition
+continues and succeeds once the lock is released, and that a wait below the threshold writes no record. Matched
+control: a second long wait on another lock writes its own record.
+Source:: design review.
 
 [#PM-WATCH-STORE-46]
 === PM-WATCH-STORE-46: A sweep never removes a row something still references, nor work history

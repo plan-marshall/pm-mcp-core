@@ -1066,6 +1066,13 @@ caller: transaction.commit()
   `currentRevision`) count readable lines only, so a caller consults `refused()` first and reports a question unreadable
   when the log holds a refused line; a refused line is never taken for an open question by the append gate
   (link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
+* *The null contract of a line*: a member that belongs to some events only is a `@Nullable` component of
+  `QuestionRecord` and is `null` on every other line; the constructor refuses a member on an event it does not belong
+  to and a line without a member its event requires. The class, the origin, the source entity and the question set are
+  required on an `asked` line and absent elsewhere; they stay `@Nullable` components (the annotation form of
+  link:../../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[repository ADR 013], class (c) (b)), not a
+  typed accessor per event, and a reader of an `asked` line hands the member on through `Objects.requireNonNull`.
+  `QuestionLog` reads the question set of an `asked` line through its one helper `questionSet(QuestionRecord)`.
 * *A malformed append is the caller's fault*: a question asked twice, a part asked into a set the log holds, a part
   whose `question_set` is no first question of a set, a line about a question the log does not have, a revised line
   that does not name the next revision, a set revised in part, a decision on a revised line of another question than
@@ -1798,15 +1805,20 @@ Tests: `AtomicStoreFileTest`, `StoreSnapshotTest`.
 A reader of a store document or record accepts exactly the current `format_version` of its file kind. What it does not
 accept it throws as a `StoreRefusal`, an unchecked exception with:
 
-* `outcome()`: one of the closed `StoreRefusal.Outcome` values `ABSENT`, `UNREADABLE`, `FORMAT_OUTDATED` and
-  `FORMAT_NEWER`, each with its wire name in `code()` (`absent`, `unreadable`, `format_outdated`, `format_newer`);
+* `outcome()`: one of the eight closed `StoreRefusal.Outcome` values, each with its wire name in `code()`: the four of a
+  format read, `ABSENT`, `UNREADABLE`, `FORMAT_OUTDATED` and `FORMAT_NEWER` (`absent`, `unreadable`, `format_outdated`,
+  `format_newer`); the three of an enrolment, `ENROLMENT_TAMPERED`, `ENROLMENT_INSECURE` and `ENROLMENT_INVALID`
+  (`enrolment_tampered`, `enrolment_insecure`, `enrolment_invalid`); and `CONFLICT` (`conflict`), a write against another
+  revision than the current one;
 * `file()`: the refused file;
 * `found()`: the version the content declares, empty when the file is absent or unreadable;
 * `current()`: the current version of the file kind.
 
 The message names the file and both versions. A refusal is never repaired: no reader migrates or rewrites what it
-refuses. The factories are `absent(file, current)`, `unreadable(file, current, detail, cause)` and
-`ofVersion(file, found, current)`, which picks outdated or newer from the two versions.
+refuses. The factories of a format read are `absent(file, current)`, `unreadable(file, current, detail, cause)` and
+`ofVersion(file, found, current)`, which picks outdated or newer from the two versions; the others are
+`enrolmentTampered(file, projectId, detail)`, `enrolmentInsecure(file, reason)`, `enrolmentInvalid(file, projectId,
+reason)` and `conflict(file, expected, current)`.
 
 Every versioned artifact is at `format_version` 1. A format change replaces version 1 in place: no reader carries a
 migration, and no constant is raised for a change.
@@ -2503,9 +2515,13 @@ locks.
 == Engine Ports
 _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
 
-The ports are interfaces in `core.spi`. No class of `pm-core` implements them: the runtime of `pm-runtime` implements
-them later, and the tests of `pm-workflow` use recording doubles. `WorkflowEngine` of `pm-workflow` takes the four
-together as `WorkflowEngine.Ports`.
+The ports are interfaces in `core.spi`. No class of `pm-core` implements them. In `pm-runtime`,
+`SubprocessJobRunner` implements `JobStarter` and `QuestionLogRecordReader` implements `QuestionRecordReader`; no
+production class of this repository implements `QueueTaskCreator`, `WorkflowClock` or `PendingEntryReader`, and the tests of `pm-workflow`
+use recording doubles. `WorkflowEngine` of `pm-workflow` takes `JobStarter`, `QueueTaskCreator`,
+`QuestionRecordReader` and `WorkflowClock` together as `WorkflowEngine.Ports`, beside the random source `ids` of the
+command and correlation ids and the optional `bindingContext`, `composition` and `units`; `PendingEntryReader` is taken
+by `EntityAddressResolver` of `pm-workflow`.
 
 [horizontal]
 `JobStarter`:: Starts the job of a `job` state for a `StartRequest(scopeId, stateId, primitiveId)`. The result is
@@ -2519,6 +2535,9 @@ closes such a task `lost`.
 `Resolved(outcome)`, or `Unreadable(reason)`; a record that cannot be read is never taken for an open one.
 `WorkflowClock`:: The one source of every instant the engine writes (`updated_at`, `pushed_at`, `raised_at`, a job's
 `started_at`), so persisted state never depends on the engine's memory and tests drive time deterministically.
+`PendingEntryReader`:: Reads the pending entry record `pending/<entry_id>.json` of the project's workspace scope for a
+`ReadRequest(entryId)` with the typed `EntryId`. The read is tri-state: `Live(kind)`, `Deleted` for a record that is gone,
+or `Unreadable(reason)`; a record that cannot be read is never taken for a live one.
 
 `EnginePortsTest` guards the identifier grammars and the tri-state read.
 
@@ -2782,8 +2801,9 @@ The first family is the tracked hook definitions git runs (`{spec}/phase-workflo
 platform. A path the plan's `declared_files` names is not reported; the declaration lifts exactly that path, never its
 family. A near miss such as `husky/x`, `docs/lefthook.yml` or `.pre-commit-config.yaml.bak` is not protected.
 
-The other families of that paragraph (`.marshall/**`, harness configuration, forge CI, editor files) are added as rows by
-the plan that implements `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`. The wiring of the matcher into the refusal before
+The other families of that paragraph (`.marshall/**`, harness configuration, forge CI, editor files) are not rows of the
+matcher (link:../../../doc/implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-130[PM-WATCH-PHASE-130],
+link:../../../doc/implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-131[PM-WATCH-PHASE-131]). The wiring of the matcher into the refusal before
 the next commit job is the boundary check of `git.stage-and-commit` (`FootprintBoundary`, reason `footprint_violation`),
 which is not part of this package.
 

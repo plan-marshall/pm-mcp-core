@@ -44,7 +44,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-record[Store Schemas, Waiver Record]; `pm-operator waive`, `unwaive`, `waivers` link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/02-operator-channel.adoc#operator-waive[CLI & Security]; plan instance `waived_gates`, step `waiver_ref`
 
 |[[id-waivable-gate]]Waivable gate identifier (`gate`)
-|Closed grammar: `review_evidence(:<bot_kind>)?`, `ci_check:<check_name>`, `analysis_gate:<provider>`, `findings:<class>`, `qgate_findings:(refine\|outline\|plan)`, and the budgets of a `raise`: `fix_budget:<policy>`, `retry_budget:<policy>`, and `fix_budget:outline-loop-back` (link:../timeouts/01-job-budgets-and-waits.adoc#loop-back-outline-budget[Timeouts & Budgets, Outline loop-back budget]). `<bot_kind>` as <<id-bot-kind>>; `<provider>` an analysis provider id `^[a-z][a-z0-9-]{0,31}$` (for example `sonar`, `codeql`); `<class>` a findings ledger `source` value or an analysis provider id; `<policy>` one of `ci-failure`, `review-findings`, `build-failure`, `merge-conflict`, `qgate-findings`, `analysis`; `<check_name>` the provider's check name verbatim, `^[\x20-\x7E]{1,128}$` (the only identifier that admits a space, because it is a provider value compared byte-exactly). At most 160.
+|Closed grammar: `review_evidence(:<bot_kind>)?`, `ci_check:<check_name>`, `analysis_gate:<provider>`, `findings:<class>`, `qgate_findings:(refine\|outline\|plan)`, and the budgets of a `raise`: `fix_budget:<policy>`, `retry_budget:<policy>`, and `fix_budget:outline-loop-back` (link:../timeouts/01-job-budgets-and-waits.adoc#loop-back-outline-budget[Timeouts & Budgets, Outline loop-back budget]). `<bot_kind>` as <<id-bot-kind>>; `<provider>` an analysis provider id (<<id-analysis-provider-id>>); `<class>` a findings ledger `source` value or an analysis provider id; `<policy>` one of `ci-failure`, `review-findings`, `build-failure`, `merge-conflict`, `qgate-findings`, `analysis`; `<check_name>` the provider's check name verbatim, `^[\x20-\x7E]{1,128}$` (the only identifier that admits a space, because it is a provider value compared byte-exactly). At most 160.
 |operator (verb argument), validated by the server; the compiled `waiver.lookup` call sites name only listed gates
 |Plan
 |Closed; extended only with a schema version. Refused as `not_waivable`: every gate outside the grammar and `findings:security_audit`
@@ -125,7 +125,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |server
 |Machine audit log
 |Immutable; never reused
-|link:../store-schemas/12-machine-stores.adoc#audit-log[Store Schemas, Audit Log]; error envelopes link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/04-errors-and-testing.adoc#protocol-errors-vs-domain-workflow-failure-states[MCP Tools]; link:../../../../plan-marshall-documentation/doc/specification/cli-and-security.adoc[CLI & Security]
+|link:../store-schemas/12-machine-stores.adoc#audit-log[Store Schemas, Audit Log]; error envelopes link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/04-errors-and-testing.adoc#protocol-errors-vs-domain-workflow-failure-states[MCP Tools]; link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/02-operator-channel.adoc#operator-channel-isolation[CLI & Security, Operator Acts] (`pm-operator audit verify`)
 
 |[[id-transaction-id]]`transaction_id`
 |UUIDv7, as `event_id`.
@@ -192,7 +192,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/runtime-model/06-event-catalogue.adoc[Runtime Model, Event Catalogue]; the SSE `event` field of every event stream
 
 |[[id-message-key]]Message key
-|`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$`, at most 128 (for example `check.login.missing`): its first segment is the catalogue area. Never translated; the text it names is.
+|`^[a-z][a-z0-9_-]*(\.[a-z0-9_:-]+)+$`, at most 128 (for example `check.login.missing`, `unit.landing.pull-request`, `onboard.link.change:language`): its first segment is the catalogue area; a later segment may carry the `-` of a unit, state or command name and the `:` of a link identifier it is derived from. Never translated; the text it names is.
 |build (the message catalogue of `pm-api`)
 |Global (one catalogue, one pack per language and area)
 |A key keeps its meaning; a changed meaning is a new key. A key missing in a pack or present only in a pack fails the build
@@ -221,7 +221,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 
 |[[id-spec-section]]Epic specification section anchor (`spec_section`, `{section}`)
 |`^[a-z0-9][a-z0-9_-]{0,127}$`, 1–128.
-|model (`submit spec_section` and `stage` of the epic's `decompose` and `coordinate` entities)
+|model (`submit:spec_section` and `submit:stage` of the epic's `decompose` and `coordinate` entities)
 |One `spec.md` of an epic
 |Stable while the section exists; never reused within the `spec.md`
 |`spec_section` of the epic queue row link:../store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row[Store Schemas, Epic Queue Row]; link:../model-work/08-epic-coordination.adoc[Model Work, Epic Coordination]; `pm://epic/{epic_id}/spec/{section}` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc#_normative_resource_uri_templates[MCP Tools, Resource URIs]
@@ -274,7 +274,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |operator
 |Machine (global entry) or project (override `<project_id>/<credential_key>`)
 |Immutable
-|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security.adoc[CLI & Security]; link:../store-schemas/12-machine-stores.adoc#credential-store[Store Schemas, Credential Store]
+|link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/02-operator-channel.adoc#operator-credential-cli[CLI & Security, Operator Credential Acts]; link:../store-schemas/12-machine-stores.adoc#credential-store[Store Schemas, Credential Store]
 
 |[[id-domain-id]]`domain_id`
 |`^[a-z][a-z0-9-]{1,31}$`, 2–32.
@@ -338,6 +338,13 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |Registry
 |Immutable
 |link:../store-schemas/03-findings-and-review-records.adoc#review-bot-registry[Store Schemas, Review-Bot Registry]; `retry:<bot_kind>` link:../workflow-dsl.adoc[Workflow DSL]
+
+|[[id-analysis-provider-id]]Analysis provider identifier (`provider`)
+|`^[a-z][a-z0-9-]{0,31}$`, 1–32 (for example `sonar`, `codeql`).
+|build or operator (the project's configured code analysis providers)
+|Project
+|Immutable
+|`provider` of an analysis result and the `source` of its findings link:../store-schemas/03-findings-and-review-records.adoc#analysis-result[Store Schemas, Analysis Result]; `analysis_gate:<provider>` and `findings:<provider>` (<<id-waivable-gate>>); the plan's analysis overrides
 
 |[[id-technique-id]]Technique identifier
 |`^[a-z][a-z0-9-]{0,63}$`, 1–64.

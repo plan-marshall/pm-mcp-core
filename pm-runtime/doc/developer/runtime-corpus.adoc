@@ -32,7 +32,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/0
 
 . `prepare(cacheRoot, manifest)` answers `SourceFetch.done` and makes no request and creates nothing: the files are read over HTTPS, so there is no cache repository to prepare.
 . `fetchCommit(cacheRoot, manifest)` confirms the pin with one `GET` of the dataset's revision, `<host>/api/datasets/<owner>/<name>/revision/<commit>`, and stores nothing. A `200` is the pinned commit (`done`); a `404` is a commit the dataset does not have (`PIN_MISSING`); any other status, a request that got no answer and a refused request are `UNREACHABLE`. This is the amended `fetchCommit` contract: the commit it confirms is made readable by `readFile` and by `prepare`, and the step may create and store nothing, so a source fetched over HTTPS answers `prepare` and `fetchCommit` without a cache repository.
-. `readFile(cacheRoot, manifest, path)` reads one file at the pinned commit with one `GET` of `<repository>/raw/<commit>/<path>`, which serves the file as it is stored, a file in Git LFS as its pointer; the pointer's object comes from an `LfsObjectSource` (`LfsBatchClient`) exactly as for a git source. The delivered bytes are `FETCHED`; the import's hash check decides whether they are the file's SHA-256, so bytes that are not are `hash_mismatch` and the run `FAILED`.
+. `readFile(cacheRoot, manifest, path)` reads one file at the pinned commit with one `GET` of `<repository>/raw/<commit>/<path>`, which serves the file as it is stored, a file in Git LFS as its pointer; the pointer's object comes from an `LfsObjectSource` (`LfsBatchClient`) exactly as for a git source. The delivered bytes, up to the compiled raw-file maximum `MAX_RAW_FILE_SIZE` (64 MiB), are `FETCHED`, and a longer body is `UNREACHABLE` rather than held in memory; the import's hash check decides whether they are the file's SHA-256, so bytes that are not are `hash_mismatch` and the run `FAILED`.
 
 === URL and Timeout Rules
 
@@ -49,13 +49,13 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 |===
 |What happens |`SourceFetch.Outcome`
 
-|the URL names no scheme or no host, is not `https`, carries user information, or is not a Hugging Face dataset URL; the dataset API does not answer, times out or is interrupted; the revision API answers a status other than 200 and 404; the raw endpoint answers a status that is neither a 2xx nor 404
+|the URL names no scheme or no host, is not `https`, carries user information, or is not a Hugging Face dataset URL; the dataset API does not answer, times out or is interrupted; the revision API answers a status other than 200 and 404; the raw endpoint answers a status that is neither a 2xx nor 404, or a body longer than 64 MiB
 |`UNREACHABLE`
 
 |the revision API answers 404 (the dataset has no such commit); the raw endpoint answers 404 (the file is absent at the pin)
 |`PIN_MISSING`
 
-|`prepare`, a revision confirmed with 200 (each without content), and the raw endpoint having delivered bytes
+|`prepare`, a revision confirmed with 200 (each without content), and the raw endpoint having delivered at most 64 MiB
 |`FETCHED`
 |===
 

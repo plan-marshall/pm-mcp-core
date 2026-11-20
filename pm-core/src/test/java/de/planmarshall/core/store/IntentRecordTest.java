@@ -351,6 +351,24 @@ class IntentRecordTest {
                 "another format version is refused by the reader");
     }
 
+    @DisplayName("The reader refuses a wire name that names no known value, naming the field")
+    @Test
+    void refusesUnknownWireName() {
+        var store = IntentStore.first(revision(1, valid()));
+        var written = new String(IntentCodec.write(store), StandardCharsets.UTF_8);
+        var known = "\"kind\":\"" + CriterionKind.NEW.wireName() + "\"";
+        assertTrue(written.contains(known), "the written criterion names its kind");
+        var unknown = "unknown_" + Generators.letterStrings(3, 10).next();
+        var document = written.replace(known, "\"kind\":\"" + unknown + "\"").getBytes(StandardCharsets.UTF_8);
+
+        var refusal = assertThrows(StoreRefusal.class, () -> IntentCodec.read(FILE, document),
+                "an unknown criterion kind is refused");
+
+        // contract: the reason text of an unknown wire name
+        assertTrue(refusal.getMessage().contains("'kind' names no known value"),
+                "the refusal names the field and its reason");
+    }
+
     @DisplayName("A decision with a question id but a model decider is refused")
     @Test
     void refusesModelDecisionWithQuestionId() {

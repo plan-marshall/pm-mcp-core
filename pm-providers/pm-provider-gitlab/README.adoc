@@ -11,6 +11,13 @@ The line is the first sentence of the package's `package-info.java`.
 
 * `de.planmarshall.provider.gitlab`: GitLab for PM-MCP: the native REST client over the shared HTTP base of `pm-provider-http`, and the argument vectors of the `glab` CLI variant, which pass every body through standard input, never as an argument or a file.
 
+== Null Contract
+
+The packages are `@NullMarked`. A field, parameter or record component whose value may be absent is `@Nullable T`;
+absence a method returns is `Optional<T>`
+(link:../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[ADR 013],
+link:../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[ADR 021]).
+
 == Build and Test
 
 Run from the root of the repository:

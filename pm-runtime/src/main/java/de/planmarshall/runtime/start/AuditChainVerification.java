@@ -10,7 +10,7 @@
 package de.planmarshall.runtime.start;
 
 import java.util.Objects;
-import java.util.OptionalLong;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The audit chain verification of the bounded verification, step 4 of the {@link StartupSequence}
@@ -98,29 +98,27 @@ public interface AuditChainVerification {
          *
          * @param reason          why the chain is broken
          * @param firstBrokenLine the first broken line, counted from 1 in the file the diagnostic names (the current
-         *                        log, the audit index or a rotated file); present exactly for
+         *                        log, the audit index or a rotated file); non-null exactly for
          *                        {@link BreakReason#LINK_BROKEN}
          * @param diagnostic      what is broken, naming the file and the position, never a key or a hash secret; it is
          *                        logged, never recorded
          */
-        record Broken(BreakReason reason, OptionalLong firstBrokenLine, String diagnostic) implements Outcome {
+        record Broken(BreakReason reason, @Nullable Long firstBrokenLine, String diagnostic) implements Outcome {
 
             /**
-             * @throws NullPointerException     if a component is {@code null}
+             * @throws NullPointerException     if the reason or the diagnostic is {@code null}
              * @throws IllegalArgumentException if a first broken line is given for a reason other than
              *                                  {@link BreakReason#LINK_BROKEN}, is missing for it, or is below 1
              */
             public Broken {
                 Objects.requireNonNull(reason, "reason");
-                Objects.requireNonNull(firstBrokenLine, "firstBrokenLine");
                 Objects.requireNonNull(diagnostic, "diagnostic");
-                if (firstBrokenLine.isPresent() != (reason == BreakReason.LINK_BROKEN)) {
+                if ((firstBrokenLine != null) != (reason == BreakReason.LINK_BROKEN)) {
                     throw new IllegalArgumentException(
                             "A first broken line is given exactly for link_broken, not for " + reason.wireName());
                 }
-                if (firstBrokenLine.isPresent() && firstBrokenLine.getAsLong() < 1) {
-                    throw new IllegalArgumentException(
-                            "The first broken line is counted from 1: " + firstBrokenLine.getAsLong());
+                if (firstBrokenLine != null && firstBrokenLine < 1) {
+                    throw new IllegalArgumentException("The first broken line is counted from 1: " + firstBrokenLine);
                 }
             }
 
@@ -130,7 +128,7 @@ public interface AuditChainVerification {
              * @return a chain broken by {@link BreakReason#LINK_BROKEN} at the line
              */
             public static Broken linkBroken(long firstBrokenLine, String diagnostic) {
-                return new Broken(BreakReason.LINK_BROKEN, OptionalLong.of(firstBrokenLine), diagnostic);
+                return new Broken(BreakReason.LINK_BROKEN, firstBrokenLine, diagnostic);
             }
 
             /**
@@ -140,7 +138,7 @@ public interface AuditChainVerification {
              * @throws IllegalArgumentException if the reason is {@link BreakReason#LINK_BROKEN}
              */
             public static Broken withoutLine(BreakReason reason, String diagnostic) {
-                return new Broken(reason, OptionalLong.empty(), diagnostic);
+                return new Broken(reason, null, diagnostic);
             }
         }
 

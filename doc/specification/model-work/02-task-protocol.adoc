@@ -29,7 +29,7 @@ The queue is ordered per project and role: consultation tasks first, then work t
 === `pm_wait`: The Worker's Only Wait
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-41[PM-WATCH-DISP-41]_
 
-`pm_wait()` takes no argument (schema: link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools Specification, Core Workflow Tools]). The caller's identity, role, and generation come from its job token and generation, set by its job relay (link:../../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime & Interaction Model Specification, Relay]). The server holds the call for at most the bounded wait of the caller's harness, with progress frames where the harness sets them (link:../timeouts/01-job-budgets-and-waits.adoc#bounded-wait[Timeouts & Budgets Specification, Bounded Wait]). It answers with exactly one of three answers (link:../../../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide]):
+`pm_wait()` takes no argument (schema: link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools Specification, Core Workflow Tools]). The caller's identity, role, and generation come from its job token and generation, set by its job relay (link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/runtime-model/03-relay.adoc[Runtime & Interaction Model Specification, Relay]). The server holds the call for at most the bounded wait of the caller's harness, with progress frames where the harness sets them (link:../timeouts/01-job-budgets-and-waits.adoc#bounded-wait[Timeouts & Budgets Specification, Bounded Wait]). It answers with exactly one of three answers (link:../../../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide]):
 
 * `offer`: the representation of a task entity leased to the caller's generation, which is an offer (<<offer>>), the same offer again, or the caller's current task carrying a consultation answer (xref:05-consultation.adoc[Consultation]).
 * `wait_again`: the window ended without a task for the caller.
@@ -65,10 +65,11 @@ A `pm_wait` of a generation that holds an unacknowledged offer shows that the of
 
 [#execute-submit]
 === Execute & Submit
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-78[PM-WATCH-DISP-78]_
 
 The worker executes the task only along the links of the task's entity representation (`pm_state` and `pm_do` on its entity, and the tools of its role). It addresses the task by the scope and the `entity` its offer names: the scope entity the task works on (for example `envelope-3`), for a task whose state names no scope entity its `queue_task_id`, for a consultation task its `consultation_id`; otherwise the `queue_task_id` identifies the delivery and is no argument of its own (link:../identifiers/01-general-rules-and-registry.adoc#id-entity-id[Identifier Registry, `entity`]). Every call is a heartbeat; an open call (a held `pm_build` included) is never silence. The worker delivers its result only through a submit link of the entity (link:../../../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide]).
 
-Every call on a task entity is checked in one order — job and generation, lease, link, schema, skills. A call after the worker's job ended is refused `job_ended`; a call of a fenced generation `generation_fenced` (<<fencing>>); a call on a task whose lease the caller's generation held and released at the task's close `stale_entity`, carrying the entity's representation, and a call on any other entity not leased to the caller's generation `job_scope_mismatch`; a link not offered in the entity's current state `link_not_available`; arguments that do not match the link's closed schema `invalid_link_args` with a reason the worker can act on (not built: the submit checks no argument yet); and a submit while a required skill is missing from the generation's delivery record `skills_not_loaded` with the missing `skill://` URIs. A submit that misses a required reference (the consultation reference of xref:05-consultation.adoc#consult-reference[Consultation] among them) leaves the task executing, and the worker may submit again (xref:04-worker-launch.adoc#skills-loaded-at-submit[Worker Launch, Loaded before Submit]); the reference check is not built, no production submit path calls it yet. The error codes are defined in the link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/04-errors-and-testing.adoc[MCP Tools Specification, Errors].
+Every call on a task entity is checked in one order — job and generation, lease, link, schema, skills. A call after the worker's job ended is refused `job_ended`; a call of a fenced generation `generation_fenced` (<<fencing>>); a call on a task whose lease the caller's generation held and released at the task's close `stale_entity`, carrying the entity's representation, and a call on any other entity not leased to the caller's generation `job_scope_mismatch`; a link not offered in the entity's current state `link_not_available`; arguments that do not match the link's closed schema `invalid_link_args` with a reason the worker can act on; and a submit while a required skill is missing from the generation's delivery record `skills_not_loaded` with the missing `skill://` URIs. A submit that misses a required reference (the consultation reference of xref:05-consultation.adoc#consult-reference[Consultation] among them) leaves the task executing, and the worker may submit again (xref:04-worker-launch.adoc#skills-loaded-at-submit[Worker Launch, Loaded before Submit]). The error codes are defined in the link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/04-errors-and-testing.adoc[MCP Tools Specification, Errors].
 
 The first valid submit of the required submission closes the attempt in the transaction that validated it and releases the lease; every later submit or other closing link of the task by that generation is refused `stale_entity` by the lease check while its job and generation still stand. The task is done exactly once.
 
@@ -132,6 +133,7 @@ After a runtime restart the project's recovery records every worker of the dead 
 [#worker-states]
 == Worker States
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-79[PM-WATCH-DISP-79]_
 
 image::../../resources/harness-as-worker-task-states.svg[Worker states: waiting, offered, acknowledged, executing, consulting, submitted, lost, and ended, with their transitions, align=center]
 
@@ -155,14 +157,14 @@ The worker state is recorded in the worker's job record (link:../store-schemas/1
 
 |`executing`
 |Works along the task's links.
-|`submitted` (the task closes), `consulting` (a consultation link), `awaiting_answer` (a question it holds for, not built), `ended` (a question it suspends for, xref:06-envelopes-questions-deadlines.adoc#continuation[Continuing after a Question]), `lost`
+|`submitted` (the task closes), `consulting` (a consultation link), `awaiting_answer` (a question it holds for), `ended` (a question it suspends for, xref:06-envelopes-questions-deadlines.adoc#continuation[Continuing after a Question]), `lost`
 
 |`consulting`
 |Waits in `pm_wait` for a consultation's answer.
 |`executing` (the answer), `lost`
 
 |`awaiting_answer`
-|Holds its task and waits in `pm_wait` for the answer to its question, within the role's hold limit. Not built: the recorded worker state has no `awaiting_answer` yet.
+|Holds its task and waits in `pm_wait` for the answer to its question, within the role's hold limit.
 |`acknowledged` (the answer acknowledged, xref:06-envelopes-questions-deadlines.adoc#answer-acknowledgement[Answer Acknowledgement]), `ended` (the hold limit: the task is suspended or falls back), `lost` (among others a missing answer acknowledgement)
 
 |`submitted`

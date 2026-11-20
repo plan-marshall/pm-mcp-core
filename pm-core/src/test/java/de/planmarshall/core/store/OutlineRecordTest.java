@@ -92,6 +92,25 @@ class OutlineRecordTest {
                         "the profiles should be rendered in order"));
     }
 
+    @DisplayName("The reader refuses a wire name that names no known value, naming the field")
+    @Test
+    void refusesUnknownWireName() {
+        var store = OutlineStore.first(revision(1, valid()));
+        var written = new String(OutlineCodec.write(store), StandardCharsets.UTF_8);
+        var known = "\"scope_estimate\":\"" + valid().scopeEstimate().wireName() + "\"";
+        assertTrue(written.contains(known), "the written record names its scope estimate");
+        var unknown = "unknown_" + text().toLowerCase(Locale.ROOT);
+        var document = written.replace(known, "\"scope_estimate\":\"" + unknown + "\"")
+                .getBytes(StandardCharsets.UTF_8);
+
+        var refusal = assertThrows(StoreRefusal.class, () -> OutlineCodec.read(FILE, document),
+                "an unknown scope estimate should be refused");
+
+        // contract: the reason text of an unknown wire name
+        assertTrue(refusal.getMessage().contains("'scope_estimate' names no known value"),
+                "the refusal should name the field and its reason");
+    }
+
     @DisplayName("A revision moves the current record to history[] and keeps the status of every deliverable")
     @Test
     void revisionMovesCurrentToHistory() {

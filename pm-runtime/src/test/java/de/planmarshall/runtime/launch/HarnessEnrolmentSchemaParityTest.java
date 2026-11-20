@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.Set;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -132,8 +131,8 @@ class HarnessEnrolmentSchemaParityTest {
     void populatedUsageReport() {
         var report = new UsageReport(UsageSource.VERIFIED,
                 Map.of("input", "reported", "output", "missing", "cache_read", "not_applicable"),
-                List.of(new UsageReport.StartContext("writer", "deepseek-v4.1", OptionalLong.of(1024)),
-                        new UsageReport.StartContext("read_only", "deepseek-v4.1", OptionalLong.empty())));
+                List.of(new UsageReport.StartContext("writer", "deepseek-v4.1", 1024L),
+                        new UsageReport.StartContext("read_only", "deepseek-v4.1", null)));
         var written = SchemaResource.object(writtenEntry(Map.of(), Map.of(), report).get("usage_report"));
         var writtenFigures = SchemaResource.object(written.get("figures"));
         var writtenContext = SchemaResource.array(written.get("start_context"));

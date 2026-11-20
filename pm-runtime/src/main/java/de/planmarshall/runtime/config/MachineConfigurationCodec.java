@@ -496,6 +496,10 @@ public class MachineConfigurationCodec {
             if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT) {
                 throw unreadable("'%s' must be an integer".formatted(field));
             }
+            if (parser.getNumberType() != JsonParser.NumberType.INT) {
+                // an integer beyond the int range is refused naming the bound, not with the parser's coercion message
+                throw unreadable("'%s' must be %d to %d: %s".formatted(field, minimum, maximum, parser.getText()));
+            }
             var value = parser.getIntValue();
             if (value < minimum || value > maximum) {
                 throw unreadable("'%s' must be %d to %d: %d".formatted(field, minimum, maximum, value));

@@ -48,9 +48,9 @@ reference; do not copy it into a second place.
 
 [source,java]
 ----
-private static final CuiLogger LOGGER = new CuiLogger(PlanInstanceComposer.class);
+private static final CuiLogger LOGGER = new CuiLogger(PlanInstanceStore.class);
 
-LOGGER.warn(WorkflowLogMessages.WARN.PLAN_INSTANCE_COMPOSITION_REFUSED, planId, reason);
+LOGGER.warn(WorkflowLogMessages.WARN.PLAN_INSTANCE_COMPOSITION_REFUSED, event, planId, reason);
 ----
 
 The placeholders are `%s`; an exception is passed first, before the template arguments. slf4j, log4j and

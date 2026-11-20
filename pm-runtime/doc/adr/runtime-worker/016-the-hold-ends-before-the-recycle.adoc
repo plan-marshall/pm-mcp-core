@@ -26,8 +26,8 @@ Three further facts bounded the decision:
 * The attempt a hold ends is not a fact the generation carries. `WorkerGeneration` holds the role, the harness, the
   lease, the served tasks and the context of the last turn, and nothing names the attempt; `AgentStartedDetector`
   reads it from the `WorkerTaskActivity` port for the same reason.
-* The worker budget is measured in tokens, not time: `WorkerRecycling.afterTurnCompleted` compares the context of the
-  generation's latest turn, which `SupervisorCalls.turnCompleted` records, with the role's `recycling.token_budget`. A
+* The recycling's token budget is measured in tokens, not time: `WorkerRecycling.afterTurnCompleted` compares the
+  context of the generation's latest turn, which `SupervisorCalls.turnCompleted` records, with the role's `recycling.token_budget`. A
   hold produces no turn, so hold wall time can never reach that comparison.
 * The assembly `pm-mcp-server` in `plan-marshall-mcp` implements `WorkerProtocol` and calls `WorkerCalls`.
 
@@ -78,9 +78,18 @@ takes for the purpose: the same facts the activity signals read, from the assemb
 task whose facts cannot be read names no attempt, so no notification is sent and the end path still recycles the
 generation; that is the answered absence of a task the transport closed before its hold ended.
 
-**The hold's time is not charged to the worker budget, and nothing had to be subtracted because nothing counts it.** The
-budget accounting reads the context tokens of the latest turn, never an elapsed time, so a hold — which produces no turn
-— adds nothing. The remediation the plan anticipated, an arithmetic over the hold's instants, is therefore not built.
+**The hold adds nothing to the recycling's token budget.** That budget reads the context tokens of the latest turn,
+never an elapsed time, so a hold — which produces no turn — adds nothing to it (see the clarification below for the
+wall-clock worker budget).
+
+=== Clarification: the token budget is not the worker budget
+
+The budget this decision speaks of is the recycling's token budget (`recycling.token_budget`, Model Work § Recycling).
+It is not the worker budget of link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#model-job-budget[Timeouts & Budgets § Worker Budget],
+a wall-clock budget over the key `llm:<role>` that pauses from the ask to the answer's acknowledgement. `WorkerBudget`
+of `core.store` holds that budget's value, and no production class enforces it; the pause for a hold is therefore owed
+with the enforcement of the worker budget, by the supervisor package `runtime.worker`, which ends a worker at its
+budget. This decision does not decide that pause.
 
 == Alternatives Considered
 

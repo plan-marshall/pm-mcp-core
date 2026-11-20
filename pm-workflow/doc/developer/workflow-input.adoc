@@ -40,8 +40,8 @@ _Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
 offered, cut to `MAX_ECHO_LENGTH` = 80 code points and stripped of control, format and bidi characters, so a long,
 sensitive or spoofing value never leaves the refusal). `of(value, rule)` builds one from a value that may be `null`,
 echoing `<null>` for an absent value.
-`PathRules`:: The syntactic path rules, in the pure layer of Decision 3
-(link:../adr/workflow-input/002-the-path-rules-in-two-layers.adoc[ADR workflow-input/002]), as one static
+`PathRules`:: The syntactic path rules, in the pure layer of
+link:../adr/workflow-input/002-the-path-rules-in-two-layers.adoc[ADR workflow-input/002], as one static
 `check(value)` that returns an `Optional<InputRefusal>` (empty for the accepted path). `MAX_PATH_LENGTH` is 1024 code
 points. The rules: non-empty, relative (`/` only, never a leading `/`), no backslash, no NUL, no control character, no
 white space but a single space (link:../adr/workflow-input/005-a-space-is-a-legal-path-member.adoc[ADR workflow-input/005]),
@@ -117,8 +117,8 @@ lone surrogate.
 |A path that carries `*`, `?` or `[`: JGit reads such a path as a pattern, so the provider refuses it and the bind
 refuses it too, and an accepted path is always a path the commit can stage.
 
-|`path.empty-segment`, `path.dot-segment`, `path.double-slash`
-|A path with an empty, `.` or `..` segment, or with `//`.
+|`path.empty-segment`, `path.dot-segment`
+|A path with an empty segment (a `//` included) or with a `.` or `..` segment.
 
 |`path.git`
 |A path with a `.git` segment in any case.

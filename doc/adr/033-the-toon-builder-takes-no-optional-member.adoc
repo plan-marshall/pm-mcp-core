@@ -1,0 +1,53 @@
+= ADR 033: The TOON Object Builder Takes No `Optional` Member
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+`ToonValue.ToonObject.Builder` builds the insertion-ordered object the TOON encoder consumes (`core.toon`). Before
+the Optional-to-`@Nullable` conversion of `pm-core` (PLAN-V2-97) it offered an overload `add(String, Optional<…>)`
+that added the field when the optional was present and omitted it when it was empty. The conversion removed the
+overload when the records it was fed from turned their `Optional` components into `@Nullable` ones; no ADR records
+the removal (`landings/PLAN-V2-97.md` L2-6).
+
+== Decision
+
+The builder takes no `Optional`. Its members are `add(String, @Nullable ToonValue)` and `add(String, @Nullable String)`,
+which omit the field when the value is `null`, and `add(String, long)` and `add(String, boolean)` for the primitive
+values. A caller that holds an `Optional` returned by a method unwraps it at the call (`orElse(null)` into the
+`@Nullable` overload); a caller that holds a `@Nullable` member passes it as it is. An explicit JSON `null` is
+`ToonNull`, never a Java `null`.
+
+The unwrap-at-the-call rule holds for the reference-typed overloads only. An `Optional<Long>` or an
+`Optional<Boolean>` passed as `orElse(null)` selects the primitive `add(String, long)` or `add(String, boolean)`
+overload by unboxing and throws a `NullPointerException` when it is empty. A caller with such an optional adds the
+field only when the optional is present (`ifPresent(value -> builder.add(key, value))`), or maps the value to a
+`ToonValue` before `orElse(null)`.
+
+== Alternatives Considered
+
+1. **Keep `add(String, Optional)` beside the `@Nullable` overloads**: *Rejected*: it would be a second absence
+   vocabulary on the same member, and after the conversion no record component the encoder reads is an `Optional`, so
+   its only remaining use would be to invite `Optional` parameters, which `CLAUDE.md` and ADR 021 rule out.
+2. **Replace the `@Nullable` overloads by the `Optional` one**: *Rejected*: `Optional` is a return type only (ADR 021).
+
+== Consequences
+
+* The absence of a field is a `null` argument: one way to omit a field, the same for every value type.
+* A new value type of the builder gets a `@Nullable` overload, never an `Optional` one.
+* An `Optional` that a method returns is unwrapped by its caller before it reaches the builder.
+
+== Source
+
+* Pull requests of `PLAN-V2-158` (`null-contracts-and-optional-conversion`), carried item 5
+* `landings/PLAN-V2-97.md` L2-6
+* link:../../pm-core/src/main/java/de/planmarshall/core/toon/ToonValue.java[`ToonValue`]
+* link:../../pm-core/doc/developer/core-toon.adoc[`core.toon` Developer Guide]
+* ADR link:021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[021 `Optional` Fields, Parameters and Record Components Are Nullable States]

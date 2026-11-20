@@ -343,7 +343,7 @@ Source:: design review.
 === PM-WATCH-PHASE-9: A survey-scope deliverable is not verification-only
 
 Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#_plan_vs_deliverable_scope_reconciliation_classification_validation[Phase Workflows § Plan-vs-Deliverable Scope Reconciliation],
-link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#_tier_1_init_routing_deterministic_deliverable_generation[Domain Extensions § Recipe Workflows: Harvest, Deliverables & Parameters]
+link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#recipe-harvest[Domain Extensions § Recipe Workflows: Harvest, Deliverables & Parameters]
 Hazard:: Deliverables with empty `Affected files` but populated mutation scope were classified verification-only.
 Guard:: Deliverable classification uses harvested and mutation targets (recipe `target_harvester`) as well as
 `Affected files`; a `change_type_scope_disagreement` test with such a deliverable.
@@ -772,7 +772,7 @@ PLAN-219 D5.
 [#PM-WATCH-PHASE-27]
 === PM-WATCH-PHASE-27: Triggers inside a closed rate window extend it
 
-Anchor:: link:../specification/hypermedia-format/03-composite-wait-and-encoder.adoc#short-circuit-matrix[Hypermedia Format § Deterministic Evaluation & Immediate Short-Circuit Matrix] (`rate_limited` routing),
+Anchor:: link:../specification/hypermedia-format/03-composite-wait-and-encoder.adoc#short-circuit-matrix[Hypermedia Format § Deterministic Evaluation & Immediate Short-Circuit Matrix] (`refused_awaitable` routing),
 link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#automatic-review[Phase Workflows § Automatic Review: Registry, Participation, Refusals & Ingestion],
 link:../specification/timeouts/01-job-budgets-and-waits.adoc#review-bot-windows[Timeouts & Budgets § Review-Bot Rate Windows]
 Hazard:: Six triggers over ~12 h and five waits produced nothing, because each trigger inside a closed window

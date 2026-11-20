@@ -13,8 +13,6 @@ link:../../README.adoc[`pm-runtime`] » Worker Supervision
 
 == Purpose
 
-A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
-
 _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14], link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
 
 Package `de.planmarshall.runtime.worker` is the supervisor of the worker processes. One supervisor serves one project
@@ -182,7 +180,7 @@ link:{src}/EndCause.java[`EndCause`] is the closed set of causes and the fact ea
 |`DRAIN` |`drain` |`DRAIN` |no |`ENDED`
 |`PAUSE_AT_ONCE` |`pause_at_once` |`WITHDRAWN` |no |`ENDED`
 |`LOST` |`lost` |`EXITED` (refined by the `LossSignal`) |yes |`LOST`
-|`OFF_TRACK` |`off_track` |`WITHDRAWN` |no |`ENDED`
+|`OFF_TRACK` |`off_track` |`WITHDRAWN` |yes |`ENDED`
 |`START_FAILURE` |`start_failure` |`START_FAILURE` |no |`ENDED`
 |===
 
@@ -264,11 +262,13 @@ ending (Model Work § Continuing after a Question). The runtime carries the supe
   because the generation does not carry it; a task whose facts can no longer be read names no attempt, so nothing is
   reported and the recycle still runs. A notification the protocol refuses does not keep the generation alive past its
   budget either: the recycle runs in a `finally`, and the failure reaches the caller. A fresh worker's hold is bounded by
-  its role's `context_budget_tokens`, a bound the recycling does not read: that branch is owed with the assembly's
-  wiring.
-* *The budget* — the hold's time is not charged to the worker budget, and nothing subtracts it: the budget is the
-  context of the generation's latest turn (`WorkerRecycling` reads `generation.contextTokens()`), never an elapsed time,
-  and a hold produces no turn.
+  its role's `context_budget_tokens`, a bound the recycling does not read; no class of this repository ends a fresh
+  worker's hold at it.
+* *The budget* — a hold adds nothing to the recycling's token budget: that budget is the context of the generation's
+  latest turn (`WorkerRecycling` reads `generation.contextTokens()`), never an elapsed time, and a hold produces no turn.
+  The wall-clock worker budget over `llm:<role>`, which pauses from the ask to the answer's acknowledgement, is not
+  enforced by this package: `WorkerBudget` of `core.store` has no production caller, so no pause for a hold exists
+  either.
 * *What the runtime does not decide* — whether the task is suspended or falls back is the adapter's decision over
   `TaskProtocol`, which already holds both. The notification carries the cause and leaves the choice there.
 
@@ -396,25 +396,26 @@ workers.
 
 The acceptance of unenforced egress is an input value of the gate:
 `of(profile, platform, unenforcedEgressAccepted)` and `evaluate(profile, platform, facts, unenforcedEgressAccepted)`
-default to not accepted, and the gate builds neither the consent `accept_unenforced_egress` nor the record of it —
-PLAN-V2-59 builds those and supplies the value at the start path. The gate is ADR 006's; the five facts it checks are
+default to not accepted, and the gate builds neither the consent `accept_unenforced_egress` nor the record of it. The
+gate is ADR 006's; the five facts it checks are
 ADR 015's, and the controls its claims rest on are ADR 007's.
 
 == What Is Not Wired
 
-The gate is the library module's; what would consult it is not in this repository:
+The gate is the library module's; nothing in this repository consults it:
 
-* *The start-path wiring* of `SupervisorEnvironment.EligibilityGate`: owner `plan-marshall-mcp` (the assembly), no work
-  package here. `SupervisorEnvironment` offers the gate and the assembly wires it; nothing in this repository consults
-  it before a start.
-* *The loader that carries the record*: already wired. `ProfileLoader.readVerified` binds the verification record to the
-  loaded profile (link:../../../pm-core/src/main/java/de/planmarshall/core/profile/ProfileLoader.java[`ProfileLoader`,
+* *The start path*: `SupervisorEnvironment` offers `SupervisorEnvironment.EligibilityGate`, and no start path of this
+  repository consults it before a start; the assembly `plan-marshall-mcp` wires it.
+* *The loader that carries the record*: `ProfileLoader.readVerified` binds the verification record to the loaded profile
+  (link:../../../pm-core/src/main/java/de/planmarshall/core/profile/ProfileLoader.java[`ProfileLoader`,
   `readVerified`]), and `LoadedProfile.verificationRecord()` carries the record with its platform and its stages, so the
-  gate reads them from the value it is handed. Nothing is owed here.
-* *The acceptance of unenforced egress*: PLAN-V2-59 (the consent kind `accept_unenforced_egress` and the record of the
-  acceptance). Until it lands the gate takes the value as a boolean that defaults to not accepted.
-* *The stage runner that writes the records this gate reads*: the plans of the verification runner staged 2026-11-14
-  behind the job-confinement plan; no work package in this repository yet.
+  gate reads them from the value it is handed.
+* *The acceptance of unenforced egress*: no consent kind `accept_unenforced_egress` and no record of the acceptance
+  exist; the gate takes the value as a boolean that defaults to not accepted.
+* *The stage runner*: no class of this repository writes the verification records this gate reads.
+
+The hazard of a profile believed eligible without its record is
+link:../../../doc/implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13].
 
 == The Three Verification Controls
 
@@ -532,23 +533,24 @@ reported as `PM_RUNTIME-149` and the pass goes on, and a failing idle yield is r
 `SupervisionPass` creates a running generation's loss detection at its first advance, settles it with every end it claims
 and completes an end outside the calls' monitor (ADR 019).
 
-What the package still owes, and to whom: the transport that implements `WorkerProtocol` and forwards `SupervisorCalls`,
-the scheduling of `SupervisionPass.run()` and the construction of the pump, the recorder and the mapper per role (all
-`pm-mcp-server` in `plan-marshall-mcp`); the HTTP routes and the process leaf links of the activity (same); the `events`
-stage written into the verification record and the harness enrolment (the machine harness verification); the plan-task
-boundary of the `over_size` and `outside_footprint` signals (the assembly's adapter of the `WorkerTaskActivity` port) and
-the plan cleanup that adopts `ActivityJournal.archiveInto` and `delete`. The supervisor's start-failure count of an exit
-the pass observes is owed to a follow-up and **not** to the transport or the assembly: the pass is the only reader of the
-settled record, so nothing else can see the exit, and `StartFailureGuard.startFailed` has no production caller — a live
-guard does not count such a failure, while a guard rebuilt over the registry does, because the pass enters the
-`START_FAILED` state on that path. `AgentStartedDetector` needs a `forget` for a terminal generation, which the pass makes
-long-lived, and the pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed
-only by the pass's completion, so a generation retired from the registry another way is an owed cleanup. So do the
-three hold entries of `WorkerCalls` and the `WorkerProtocol.holdEnded` notification ADR `runtime-worker/016` names — the
-assembly implements the notification as `TaskProtocol.suspend` where `QuestionContinuation` allows the resume and
-`fallback` otherwise, calls the entries from its transport, and passes the `WorkerTaskActivity` the `WorkerRecycling`
-constructor takes. The work packages `worker-activity` and
-`question-continuation` stay open.
+What the package does not do itself: the transport that implements `WorkerProtocol` and forwards `SupervisorCalls`,
+the scheduling of `SupervisionPass.run()` and the construction of the pump, the recorder and the mapper per role are the
+assembly's (`pm-mcp-server` in `plan-marshall-mcp`), and so are the HTTP routes and the process leaf links of the
+activity, the plan-task boundary of the `over_size` and `outside_footprint` signals (the assembly's adapter of the
+`WorkerTaskActivity` port), the three hold entries of `WorkerCalls` called from its transport, the
+`WorkerProtocol.holdEnded` notification ADR `runtime-worker/016` names (implemented as `TaskProtocol.suspend` where
+`QuestionContinuation` allows the resume and `fallback` otherwise) and the `WorkerTaskActivity` the `WorkerRecycling`
+constructor takes. No class of this package writes the `events` stage into the verification record and the harness
+enrolment, and no plan cleanup calls `ActivityJournal.archiveInto` or `delete`.
+
+Gaps of the package itself:
+
+* `StartFailureGuard.startFailed` has no production caller, so a live guard does not count the start failure of an exit
+  the pass observes, while a guard rebuilt over the registry does, because the pass enters the `START_FAILED` state on
+  that path. The pass is the only reader of the settled record, so only the pass can count it.
+* `AgentStartedDetector` has no `forget` for a terminal generation, which the pass makes long-lived.
+* The pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed only by
+  the pass's completion, so a generation retired from the registry another way leaves its entries behind.
 
 The landed-contract decision and its two seams are ADR 002's; the protocol adapter is ADR 009's; the one writer block is
 ADR 003's.

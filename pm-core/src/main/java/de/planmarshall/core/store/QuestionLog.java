@@ -253,7 +253,7 @@ public final class QuestionLog {
     public Optional<QuestionRefusal> ask(ScopeTransaction transaction, List<QuestionRecord> questions) {
         requireEvent(questions, QuestionEvent.ASKED);
         var set = questions.getFirst().questionId();
-        if (questions.stream().anyMatch(question -> !set.equals(Objects.requireNonNull(question.questionSet())))) {
+        if (questions.stream().anyMatch(question -> !set.equals(questionSet(question)))) {
             throw new IllegalArgumentException("The questions asked together are the set named by its first question "
                     + set);
         }
@@ -437,7 +437,7 @@ public final class QuestionLog {
         var questions = new HashMap<String, Question>();
         for (var line : records) {
             if (line.event() == QuestionEvent.ASKED) {
-                questions.putIfAbsent(line.questionId(), new Question(Objects.requireNonNull(line.questionSet()), line.revision()));
+                questions.putIfAbsent(line.questionId(), new Question(questionSet(line), line.revision()));
             }
             var question = questions.get(line.questionId());
             if (question == null) {
@@ -493,10 +493,11 @@ public final class QuestionLog {
             if (questions.containsKey(id)) {
                 throw new IllegalArgumentException("The question %s is asked already".formatted(id));
             }
-            if (!Objects.requireNonNull(line.questionSet()).equals(id)) {
-                requirePartOfNewSet(questions, askedBefore, id, Objects.requireNonNull(line.questionSet()));
+            var set = questionSet(line);
+            if (!set.equals(id)) {
+                requirePartOfNewSet(questions, askedBefore, id, set);
             }
-            questions.put(id, new Question(Objects.requireNonNull(line.questionSet()), line.revision()));
+            questions.put(id, new Question(set, line.revision()));
             return Optional.empty();
         }
         var question = questions.get(id);
@@ -569,6 +570,14 @@ public final class QuestionLog {
                                 .formatted(set, open, covered));
             }
         }
+    }
+
+    /**
+     * The question set of an asked line. The component is {@code @Nullable} because only an asked line carries it; the
+     * constructor of {@link QuestionRecord} refuses an asked line without it, so the check here names the contract.
+     */
+    private static String questionSet(QuestionRecord asked) {
+        return Objects.requireNonNull(asked.questionSet(), "questionSet");
     }
 
     private static void requireEvent(List<QuestionRecord> lines, QuestionEvent event) {

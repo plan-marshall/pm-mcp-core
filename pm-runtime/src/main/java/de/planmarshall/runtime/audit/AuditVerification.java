@@ -200,11 +200,11 @@ public final class AuditVerification implements AuditChainVerification {
     private Outcome evaluate(SecretKey key, State state, boolean full) {
         var indexSnapshot = state.index();
         if (state.head() == null && state.log().lines().isEmpty() && indexSnapshot.entries().isEmpty()
-                && indexSnapshot.firstBrokenLine().isEmpty()) {
+                && indexSnapshot.firstBrokenLine() == null) {
             return new Outcome.NotVerified("no audit chain");
         }
-        if (indexSnapshot.firstBrokenLine().isPresent()) {
-            var line = indexSnapshot.firstBrokenLine().getAsLong();
+        var line = indexSnapshot.firstBrokenLine();
+        if (line != null) {
             return Outcome.Broken.linkBroken(line,
                     LOGS + AuditIndex.FILE_NAME + LINE + line + " does not parse or does not chain");
         }

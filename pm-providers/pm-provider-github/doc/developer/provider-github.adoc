@@ -10,8 +10,6 @@
 
 == Purpose
 
-A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
-
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2], link:{docs}/requirements/07-credentials.adoc#PM-CRED-1[PM-CRED-1], link:{docs}/requirements/07-credentials.adoc#PM-CRED-5[PM-CRED-5]_
 
 Package `de.planmarshall.provider.github` holds the native GitHub client of PM-MCP: GitHub App authentication, the fixed
@@ -35,7 +33,7 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
 `ReviewThread`), `resolveReviewThread(threadId)`, `enqueue(pullRequestId, expectedHeadOid)` (with `MergeQueueEntry`) and
 `postComment(owner, name, number, body)`. The first three use fixed GraphQL documents shipped as resources; the comment
 uses REST. Every body travels in memory. The reads of the CI contract are REST too: `issue(owner, name, number)`
-(`IssuePayload`), and for the pull-request read `pullRequest(owner, name, number)` (`PullRequestPayload`,
+(`IssuePayload`), `isPullRequest(owner, name, number)` for the comment guard, and for the pull-request read `pullRequest(owner, name, number)` (`PullRequestPayload`,
 `HeadRepository`), `pullRequestFiles(owner, name, number)` and `canPush(owner, name)`.
 
 |link:{src}/InstallationTokens.java[`InstallationTokens`]
@@ -74,6 +72,10 @@ operations with different permission sets. `issueComment` reads the issue first 
 comment and refuses a pull-request number with `REJECTED` "is a pull request", so the comment endpoint is reached only
 for an issue (<<_the_ci_adapter>>, module
 link:../../../pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[ADR provider-ci/010]).
+The guard reads only the `pull_request` member of that answer (`GitHubClient.isPullRequest`), so an issue whose answer
+carries no title, state or `html_url` is still commented on
+(link:../../../pm-provider-ci/doc/adr/provider-ci/011-the-github-comment-guard-reads-only-the-pull-request-flag.adoc[ADR
+provider-ci/011]).
 
 == Invariants and Failure Modes
 
@@ -114,7 +116,9 @@ milestone title is filtered as absent. For a GitHub App the adapter reads the Ap
 JWT, the bot user id from `GET /users/{slug}[bot]` and the operator's login from `GET /user` with the user access token.
 `issueView` reads `GET /repos/{owner}/{repo}/issues/{n}` with the token the caller minted for
 `GitHubOperation.ISSUE_READ`, flags the `pull_request` member and refuses a pull request. `issueComment` reads the issue
-with the user access token that authors the comment (the installation token of a token provider is that token), refuses a
+with the user access token that authors the comment (the installation token of a token provider is that token) for its
+`pull_request` member alone (`GitHubClient.isPullRequest`; the full `issue` parse, which needs a title, a state and a
+URL, stays the read of `issueView`), refuses a
 pull-request number with `REJECTED` "is a pull request" before anything is posted, propagates a failed read, and otherwise
 posts through `GitHubClient.postComment` and derives the comment URL. The guard read needs the same `issues: read` that
 `issues: write` includes, for a personal access token, the user access token of a GitHub App and an installation token,
@@ -224,5 +228,7 @@ comment-endpoint rule.
   link:../../../pm-provider-ci/doc/adr/provider-ci/004-a-pull-request-is-no-issue.adoc[`provider.ci` ADR 004],
   link:../../../pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[`provider.ci` ADR 007],
   link:../../../pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[`provider.ci` ADR 008],
+  link:../../../pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[`provider.ci` ADR 010],
+  link:../../../pm-provider-ci/doc/adr/provider-ci/011-the-github-comment-guard-reads-only-the-pull-request-flag.adoc[`provider.ci` ADR 011],
   link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002],
   link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]

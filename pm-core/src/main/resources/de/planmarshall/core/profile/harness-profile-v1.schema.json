@@ -411,13 +411,14 @@
         "context_budget_tokens": {
           "type": "integer",
           "minimum": 10000,
+          "maximum": 2147483647,
           "description": "Harness fallback of the context budget of a worker, used only for a role artifact that does not set context_budget_tokens (Model Work, Role Artifact Schema); the per-envelope packing budget is derived from the effective value (Model Work, Envelopes), compiled fallback 400000 when neither sets it, operator override envelope_budget_tokens in local-config.json; this fallback and the compiled one are capped at the model's long_context_thresholds entry."
         },
         "long_context_thresholds": {
           "type": "object",
           "description": "Per model id of this harness, the input tokens above which its provider bills a request at the model's long-context price (Model Tiers below); a fallback of the context budget is capped at it, a role artifact's own context_budget_tokens is not.",
           "propertyNames": { "maxLength": 128 },
-          "additionalProperties": { "type": "integer", "minimum": 10000 }
+          "additionalProperties": { "type": "integer", "minimum": 10000, "maximum": 2147483647 }
         }
       },
       "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "weights_probe", "model_tiers", "supported_versions", "update_evidence", "agent_mode", "argv", "mcp_config", "classes", "env", "inline_settings", "capabilities", "output", "usage", "events", "loaded", "endpoints", "writable_paths", "readable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],

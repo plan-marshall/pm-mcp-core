@@ -37,8 +37,8 @@ place. The offer names at least one module; an empty offer is refused rather tha
   token count.
 * *A compiled estimate, not a measurement*: the figure per module is a compiled constant, and a measurement is never
   substituted for it; a measurement of a run belongs to the usage the runtime records.
-* An offer of no module, a negative count and negative expected tokens are refused with `IllegalArgumentException`; the
-  caller has nothing to ask consent for.
+* An offer of no module, expected tokens other than the compiled estimate for the offered modules, and a negative
+  module count are refused with `IllegalArgumentException`; the caller has nothing to ask consent for.
 
 == Specification Tracing
 

@@ -18,18 +18,21 @@ import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.LoadedProfile;
 
 /**
- * The long-context price thresholds of a client profile (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models of a
- * Harness): per model id of the harness, the input tokens above which its provider bills a request at the long-context
- * price. A fallback of the context budget is capped at the entry, never a value the role artifact or the operator sets.
+ * The long-context price thresholds of a client profile (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models of
+ * a Harness): per model id of the harness, the input tokens above which its provider bills a request at the
+ * long-context price. A fallback of the context budget is capped at the entry, never a value the role artifact or the
+ * operator sets.
  * <p>
  * The thresholds are read beside {@link HarnessProfile}, not as a component of that record: the member is read by the
  * envelope budget alone, and a new component of the record ripples into every constructor of it.
  * <p>
  * {@link #of(JsonNode)} reads the {@code headless.long_context_thresholds} member of a profile document's tree — the
- * tree {@code JsonDocument.parse} returns, or the tree a validated profile carries. A value that is no positive integer
- * within the range of an {@code int} is ignored, so the read never fails; the validator is what refuses a document whose
- * entries lie outside the schema's bounds (at least 10 000). {@link #forModel(String)} compares the model id byte-exactly,
- * as {@code identifiers/01-general-rules-and-registry.adoc} general rule 2 requires — no prefix match and no case folding.
+ * tree {@code JsonDocument.parse} returns, or the tree a validated profile carries. A member that is absent or holds
+ * the JSON null ({@code "long_context_thresholds": null}) reads as empty. A value that is no positive integer within
+ * the range of an {@code int} is ignored, so the read never fails; the validator is what refuses a document whose
+ * entries lie outside the schema's bounds (10 000 to 2147483647). {@link #forModel(String)} compares the model id
+ * byte-exactly, as {@code identifiers/01-general-rules-and-registry.adoc} general rule 2 requires — no prefix match
+ * and no case folding — and throws a {@link NullPointerException} for a {@code null} model id.
  *
  * @param byModel the threshold of each model id the profile declares
  * @since 0.1
@@ -58,8 +61,8 @@ public record LongContextThresholds(Map<String, Integer> byModel) {
      *
      * @param document the tree of a profile document ({@code JsonDocument.parse} of it, or the tree a validated profile
      *                 carries)
-     * @return the thresholds; empty for a document without the member or without a {@code headless} block, which an
-     *         endpoint profile is, because its kind declares no {@code headless}
+     * @return the thresholds; empty for a document whose member is absent or the JSON null, or without a
+     *         {@code headless} block, which an endpoint profile is, because its kind declares no {@code headless}
      */
     public static LongContextThresholds of(JsonNode document) {
         var headless = document.member(NAME_HEADLESS).orElse(null);
@@ -91,6 +94,7 @@ public record LongContextThresholds(Map<String, Integer> byModel) {
     /**
      * @param modelId a model identifier
      * @return the long-context threshold of the model, or empty when the profile names none for it
+     * @throws NullPointerException if the model id is {@code null}
      */
     public OptionalInt forModel(String modelId) {
         var threshold = byModel.get(modelId);

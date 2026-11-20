@@ -22,7 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.function.Function;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,7 +51,7 @@ class HarnessListingsTest {
     private static final String OTHER_VERSION = VERSION + "-other";
     private static final String ORPHAN_ID = "h-zzz" + Generators.letterStrings(2, 4).next().toLowerCase(Locale.ROOT);
     private static final String MODEL = Generators.letterStrings(5, 12).next();
-    private static final OptionalLong START_TOKENS = OptionalLong.of(Generators.longs(1_000, 9_000).next());
+    private static final Long START_TOKENS = Generators.longs(1_000, 9_000).next();
 
     @Test
     @DisplayName("the enrolment's report becomes the row's coverage")
@@ -62,7 +61,7 @@ class HarnessListingsTest {
         assertAll(
                 () -> assertEquals(HarnessUsageCoverage.Status.COMPLETE, row(list, AAA_ID).usage().status(),
                         "The verified harness shows its recorded coverage"),
-                () -> assertEquals(List.of(new ProfileStages.StartContext("writer", MODEL, START_TOKENS.getAsLong())),
+                () -> assertEquals(List.of(new ProfileStages.StartContext("writer", MODEL, START_TOKENS)),
                         row(list, AAA_ID).usage().startContext(), "The start context crosses over"),
                 () -> assertEquals(HarnessUsageCoverage.Status.NOT_REPORTED, row(list, BBB_ID).usage().status(),
                         "A harness without an enrolment is not reported"));

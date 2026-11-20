@@ -69,6 +69,8 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-30[PM-WF-30: PR Body & Landing Record]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-31[PM-WF-31: Lessons]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SVC-3[PM-SVC-3: Selective Upstream MCP Proxy & Provenance Tagging]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-26[PM-WF-26: Machine Onboarding & the Machine Scope]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SVC-1[PM-SVC-1: Integrated Build Server & Working-Tree Hash Freshness]_
 
 == Status: IN PROGRESS
 

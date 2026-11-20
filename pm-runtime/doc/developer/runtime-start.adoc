@@ -11,8 +11,6 @@
 
 == Purpose
 
-A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
-
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/01-architecture.adoc#PM-ARCH-10[PM-ARCH-10], link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 Package `de.planmarshall.runtime.start` of `pm-runtime` holds the start, the drain, the per-project recovery and the
@@ -33,6 +31,13 @@ also covers:
 The periodic sweep has no seam factory: the steps are real classes, and the caller registers `PendingEntryRecordsSweep`
 when it builds the `PeriodicSweep` (<<_registering_the_steps>>,
 link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002]).
+
+The removal by age diverges from the specification: a pending entry has no maximum age and never expires, and the
+periodic sweep removes only the directory of an entry already started or abandoned whose removal a stop cut off, by
+that evidence and never by its age
+(link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts § Pending Entry],
+link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle § Periodic Sweep]).
+`PendingEntryRecordsSweep` and `PENDING_ENTRY_MAX_AGE` describe the code as it is; the specification is the target.
 
 == Core Types
 
@@ -146,8 +151,8 @@ choice.
 `Outcome.Intact`:: The chain is intact from its last checkpoint.
 `Outcome.Broken(reason, firstBrokenLine, diagnostic)`:: The chain is broken. `reason` is one `BreakReason` of the closed
 set of the specification, by wire name `link_broken`, `missing`, `reset`, `truncated` or `head_mismatch`.
-`firstBrokenLine` (an `OptionalLong`, counted from 1 in the file the diagnostic names: the current log, the audit index
-or a rotated file) is present exactly for `link_broken`; the record's constructor refuses a line for any other reason,
+`firstBrokenLine` (a `@Nullable Long`, counted from 1 in the file the diagnostic names: the current log, the audit index
+or a rotated file) is non-null exactly for `link_broken`; the record's constructor refuses a line for any other reason,
 a missing one for `link_broken` and a line below 1. The factories are `Broken.linkBroken(line, diagnostic)` and
 `Broken.withoutLine(reason, diagnostic)`. The diagnostic names the file and the position, never a key or a hash
 secret.
@@ -163,8 +168,9 @@ specification gives the record no detail for the file, so a recorded `first_brok
 counts in; only the log does. The outcome is carried in `Outcome.Ready`, and the status text of the verification
 (`PM_RUNTIME-14`) names the reason, the line and the diagnostic. A sink that refuses the record never stops the start.
 
-`Outcome.Broken` carries the reason, the first broken line and the OS principal, and has no constructor with a
-single diagnostic (link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011]).
+`Outcome.Broken` carries the reason, the first broken line and the diagnostic, and has no constructor with the
+diagnostic alone; `StartupSequence.recordBrokenChain` adds `os_principal` to the audit record, never to the outcome
+(link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011]).
 
 [#_store_move_resume]
 == Store Move Resume

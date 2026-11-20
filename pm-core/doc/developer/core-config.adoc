@@ -14,35 +14,33 @@ Package `de.planmarshall.core.config` of `pm-core` owns the machine's and the pr
 writes and that everything else only reads:
 
 * the *consent store* `consents.json`, its closed list of kinds and the consent-before-acting rule
-  ({spec}/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting]);
+  (link:{spec}/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting]);
 * the *model catalogue* `model-catalogue.json`, of the machine or of one project
-  ({spec}/store-schemas/12-machine-stores.adoc#model-catalogue[§ Model Catalogue]);
+  (link:{spec}/store-schemas/12-machine-stores.adoc#model-catalogue[§ Model Catalogue]);
 * the *role assignments* `role-assignments.json`, of the machine or of one project
-  ({spec}/store-schemas/12-machine-stores.adoc#role-assignments-store[§ Role Assignments]), with the release's default
+  (link:{spec}/store-schemas/12-machine-stores.adoc#role-assignments-store[§ Role Assignments]), with the release's default
   assignment and the proposal {@code roles.default} shows
-  ({spec}/model-work/01-roles-and-configuration.adoc#default-assignment[Model Work § Default Role Assignment]);
+  (link:{spec}/model-work/01-roles-and-configuration.adoc#default-assignment[Model Work § Default Role Assignment]);
 * the *settings-conflict refusal* every one of those stores raises on a change against an older revision
-  ({spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store], the
+  (link:{spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store], the
   operator-file revision rule);
 * the *effective configuration key table*: every addressable node of the three configuration files with its value domain
   and whether the configuration compiles a default for it
-  ({spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective
+  (link:{spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective
   Configuration and Sources]).
 
 The package never reads a file for a fact another package owns: the role package reads the assignments through
-`RoleEnvironment`, the model catalogue through the same port, and the runtime is to wire both (no production
-implementation of the port exists in this repository yet; the onboarding's units and the assembly are owed). The package names no provider
+`RoleEnvironment`, the model catalogue through the same port; no production implementation of the port exists in this
+repository. The package names no provider
 and no harness beyond the client-id grammar; the machine's provider defaults live in the runtime
 (link:../../../pm-runtime/doc/developer/runtime-config.adoc[`runtime.config`]), because `pm-core` stays
 provider-neutral (its architecture guard).
 
-Specification (the sections this package was built against): `store-schemas/12-machine-stores.adoc#consent`,
+Specification: `store-schemas/12-machine-stores.adoc#consent`,
 `#model-catalogue`, `#role-assignments-store`; `model-work/01-roles-and-configuration.adoc#role-assignment`,
 `#default-assignment` and `#steward-role`; `credentials-and-enrolment/01-provider-credentials.adoc#provider-verification`
-for the consent `verify_providers`. The package's pull request does not delete those specification sections: the
-onboarding units that run them live in `plan-marshall-mcp`, and the sections also describe the settings, the automatic
-run and the plan axes, which other plans still owe (`machine-onboarding-unit`, PLAN-108 and PLAN-109). The deletion
-belongs to the packages that complete the document.
+for the consent `verify_providers`. The onboarding units that run them live in `plan-marshall-mcp`; the settings, the
+automatic run and the plan axes those sections also describe are not implemented by this package.
 
 == The Consent Store
 
@@ -113,7 +111,10 @@ advisory beside it.
 
 `RoleAssignmentValidation` is what `roles.write` runs first: the harness is enrolled and worker-eligible, the profile runs
 the role's class, the model is allowed by the effective catalogue and the effort is one the harness accepts — for the
-role's own values and for its escalation, with the reason of the validation table. The steward never appears in the
+role's own values and for its escalation, with the reason of the validation table. Its lookups are
+`RoleAssignmentValidation.Facts`: the profile and the enrolment of a harness by client id, and the effective model
+catalogue, `@Nullable` because a machine may have none yet; a value written while no catalogue exists is refused
+`model_not_allowed`, as a model the catalogue does not allow is. The steward never appears in the
 proposal, and `model_not_allowed` never applies to it: its configuration comes from the machine's default harness and
 that harness's tier `standard`, which `StewardConfiguration` and `RoleCatalog` resolve.
 
@@ -175,7 +176,7 @@ value, which the store-refusal vocabulary has no field for
 _Requirements: link:{docs}/Requirements.adoc#PM-EXT-6[PM-EXT-6]_
 
 `EffectiveConfigKeys` is the compiled table of the keys the effective configuration resolves
-({spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective Configuration
+(link:{spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective Configuration
 and Sources]). It holds 100 keys: 16 of `project.json`, 20 of `workflow.json` and 64 of `local-config.json`. Each is an
 `EffectiveConfigKey` — the key, its `ConfigValueDomain` and whether the configuration compiles a default for it.
 
@@ -217,6 +218,11 @@ neither has a key whose value is derived.
 * *An optional effort is `Optional` at the parser and `@Nullable` at the validator*: `nullableString` answers
   `Optional`, the codec maps it with `EffortValue::new`, and `RoleAssignmentValue.of` accepts a `@Nullable String`.
 
+* *A named effort is never `null`*: `RoleAssignmentValue` refuses `VALUE` with an `EffortValue` whose value is `null`
+  (`IllegalArgumentException`, "A named effort value must not be null"). The cleared effort is `DEFAULT`, written as
+  `effort: null`; a `VALUE` with a `null` value would be written the same way and read back as `DEFAULT`, a silent
+  change of the effort setting
+  (link:../../../doc/adr/032-a-named-effort-value-is-never-null.adoc[repository ADR 032]).
 * A document of another format version, or one that does not parse as its one shape, is refused with a `StoreRefusal`
   naming the file; a reader never repairs, migrates or rewrites it.
 * A write happens only under the document's lock, and only while the caller's revision is the one the document holds.

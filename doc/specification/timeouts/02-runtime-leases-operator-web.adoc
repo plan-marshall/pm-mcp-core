@@ -97,6 +97,14 @@ since the last transition or task progress of a non-terminal scope that is neith
 |The next check runs; a failed check is recorded with its reason in the version state and never retried before the next interval.
 |link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]
 
+|[[relay-version-record-retry]]Relay version record hand-over
+|The record of a relay version that differs from the runtime's is written once per distinct relay version per runtime instance (at most `32` versions, a version text cut to `64` characters); a hand-over the audit sink refused is tried again at most once per `60`.
+|fixed (compiled constants)
+|—
+|the relay version check of every request (`PM-MCP-Relay-Version`)
+|The next request with that version after the interval hands the record over again; the relay forwards normally throughout.
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle] (_Versions apart_)
+
 |[[lsp-idle-timeout]]Language server idle timeout
 |`900` without a request to the instance.
 |`lsp_idle_timeout_seconds` in `machine-config.json`
@@ -135,7 +143,7 @@ since the last transition or task progress of a non-terminal scope that is neith
 |—
 |runtime
 |The wait continues; the lock manager appends one `lock_wait_exceeded` audit record (lock, holder, waited time), which counts as a `PM-MIG-5` integrity trigger event.
-|link:../../../pm-runtime/doc/developer/runtime-lock.adoc#_the_lock_manager[Developer Guide § The Lock Manager]
+|link:../store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas, Transaction Locks]; _Implementation watch: link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-61[PM-WATCH-STORE-61]_
 |===
 
 [#leases]
@@ -308,6 +316,14 @@ The runtime owns every value of this section: it serves web access itself, on it
 |`last_used_at` of paired devices
 |—
 |link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-devices[CLI & Security, Paired Devices]; link:../store-schemas/12-machine-stores.adoc#web-access-records[Store Schemas, Web Access Records]
+
+|[[lan-certificate-validity]]LAN certificate validity
+|`825` days from its generation (its start back-dated one day against clock skew).
+|fixed (compiled constant)
+|renewal margin `30` days
+|the self-signed certificate of the LAN listener in `web/tls/`
+|The certificate is reused at every opening of the LAN listener while more than the renewal margin of its validity remains, so paired devices keep a stable fingerprint; an opening with the margin reached or the certificate expired generates a new key and certificate, and both clients show the new fingerprint.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-listener[CLI & Security, Web Listener]
 
 |[[transcription-bounds]]Transcription bounds
 |A recording of at most `120` s and `8` MB; a transcription of the local model or the provider within `60` s.

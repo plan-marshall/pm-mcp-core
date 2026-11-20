@@ -12,7 +12,7 @@ link:../../Specification.adoc[Specification] » link:../model-work.adoc[Model Wo
 == Supervisor
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 
-What the supervisor does is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
+One supervisor per project and role starts the workers the role's tasks need, as far as the role's form and count, the start-failure guard (<<start-failure-guard>>), the verification-record gate of the harness profile (link:../harness-profiles/01-profile-schema.adoc#profile-hardening[Harness Profiles Specification, A Profile Is Untrusted Input]), and the machine's model slots (<<warm-slots>>) admit them; it starts each under the launch contract (xref:04-worker-launch.adoc[Worker Launch]), reaches the task protocol only through its offers, leases, and fencing (xref:02-task-protocol.adoc#leases-fencing[Task Protocol, Leases, Generations & Fencing]), and drives every generation through detection (<<detection>>), recycling (<<recycling>>), and its one end path (<<ending>>). Its implementation is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc#_purpose[runtime.worker Developer Guide, Purpose].
 
 [#harness-values]
 === Values per Harness and per Role
@@ -58,7 +58,7 @@ A `zero_tool` worker (the screener, the judge) has no MCP connection and makes n
 
 [#worker-off-track]
 == A Worker Off Track
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-68[PM-WATCH-DISP-68]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-68[PM-WATCH-DISP-68], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-82[PM-WATCH-DISP-82]_
 
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 
@@ -116,23 +116,38 @@ Detection decides only whether a worker is alive. A worker that is alive and bus
 
 A model that watches the activity and judges whether a worker is on track is a later improvement (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#L-17[Later Improvements, L-17]).
 
+[#over-size-distribution]
+=== The `over_size` Distribution
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-80[PM-WATCH-DISP-80]_
+
+What a change of a role's `over_size` multiple would have done to past work is computed by the runtime per project and role, never by a client:
+
+* *Measured plan tasks*: every plan task of an envelope task of the role in the project whose activity journal is kept (link:../timeouts/03-retention-harness-config.adoc#activity-journal-bounds[Timeouts & Budgets Specification, Activity journal bounds]) and whose `predicted_cost_tokens` (xref:06-envelopes-questions-deadlines.adoc#cost-sizing[Cost Sizing]) is above zero. Its *ratio* is the tokens spent on it, measured as the signal measures them (the `total_tokens` of its turns from the start of the plan task to its end), divided by its `predicted_cost_tokens`. A plan task without a predicted cost is not measured, never counted as zero.
+* *Multiple in force*: the role's `over_size` threshold, the compiled multiple (link:../timeouts/01-job-budgets-and-waits.adoc#off-track-thresholds[Timeouts & Budgets Specification, Off-track signal thresholds]) or the lower value of the role artifact's `off_track` member.
+* *Buckets*: the ratios are counted in buckets one multiple wide from `0`, each from its inclusive lower to its exclusive upper bound, up to the whole multiple at or above the larger of the multiple in force and the proposed one; the last bucket is open-ended (`<N>x+`): it holds every ratio at or above its lower bound and is served with the first whole multiple above its largest ratio as its upper bound. A bucket without a plan task is left out, and a role without a measured plan task has no bucket.
+* *Proposed multiple*: where a multiple is proposed for the role, each bucket also counts its plan tasks whose ratio exceeds the proposed multiple, the tasks the proposal would have flagged; without a proposal the distribution carries no proposed multiple and flags no task. Which act proposes a multiple is open: see link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#over-size-proposal[Open Questions].
+* *Served*: the project's answer holds one distribution per role of its effective role set whose tasks include envelope tasks, in the order of that set, a role without a measured plan task included without a bucket (route: link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#over-size-distribution[Runtime & Interaction Model Specification, The `over_size` Distribution of a Project]; wire form: link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/runtime-model/06-event-catalogue.adoc#oversize-distribution[Runtime & Interaction Model Specification of the clients, The `over_size` Distribution]). A client shows the served distribution and never recomputes a bucket or a share.
+
 [#recycling]
 == Recycling Warm Workers
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 
-How a warm worker is recycled is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
+A warm generation is recycled when it ended its bounded waits without a task as often as its idle wake-ups allow (a generation that holds a lease, consulting or holding for an answer, is never idle), when the context of its latest turn reaches the role's token budget, when it closed the role's tasks per generation, when the role's configuration digest differs from the one it was started with, or when a task of another role waits for a model slot (*Idle yields*, <<warm-slots>>); values: link:../timeouts/01-job-budgets-and-waits.adoc#idle-recycle[Timeouts & Budgets Specification, Idle recycle] and link:../timeouts/01-job-budgets-and-waits.adoc#token-budget[Token budget]. A recycle never interrupts a task: the generation ends through <<ending>> at its next wait after the task, and a successor with an empty context starts while the role has work; only a generation that holds its task for an answer is recycled at its token budget during the hold, which ends first. Its implementation is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc#_recycling[runtime.worker Developer Guide, Recycling].
 
 [#ending]
 == Ending a Worker
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-83[PM-WATCH-DISP-83]_
 
-How a worker is ended is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
+Every generation ends through one end path, whatever the cause: its next wait is answered `end`; a worker that does not exit within the termination grace (link:../timeouts/01-job-budgets-and-waits.adoc#grace-period[Timeouts & Budgets Specification, Termination grace period]) is terminated through the job runtime's termination protocol, never by a signal of the supervisor; after the exit the generation is fenced (xref:02-task-protocol.adoc#fencing[Task Protocol, Fencing]), its job token revoked, its model slot released, and its terminal worker state recorded, and a successor starts when work remains. A detected loss, a drain, a pause at once, and an off-track `restart` end the worker at once, without the grace. A fresh generation is answered `end` only after its one task closed (xref:02-task-protocol.adoc#execute-submit[Task Protocol, Execute & Submit]). Which end cause and attempt end that end records is open: see link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#fresh-generation-end[Open Questions]. Which ends spend a re-offer is stated in xref:02-task-protocol.adoc#re-offer[Re-Offer]. Its implementation is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc#_ending_fencing_and_drain[runtime.worker Developer Guide, Ending, Fencing and Drain].
 
 [#start-failure-guard]
 == Start-Failure Guard
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-81[PM-WATCH-DISP-81]_
 
-What the start-failure guard does is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
+The supervisor counts, per role and harness, the consecutive starts that failed before the worker's first call or that the runtime refused before the spawn; a `zero_tool` worker makes no call and is never counted. At the compiled count the guard holds: no further worker of the role starts on that harness, the harness's own error text, bounded and redacted, is reported to both clients of the operator and in the audit log and never to a model, and the role's queued and new tasks close `lost` with `role_unavailable` and take their conservative fallback (xref:01-roles-and-configuration.adoc#conservative-fallback[Roles & Configuration, Conservative Fallback]). After the probe backoff the next task of the role starts one worker as a probe: its first call clears the guard, and its failure starts the backoff again. The first call of any worker of the role on the harness, a change of the role's configuration, and a new enrolment of the harness clear the count. Values: link:../timeouts/01-job-budgets-and-waits.adoc#start-failure-guard[Timeouts & Budgets Specification, Start-failure guard]. Its implementation is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc#_the_start_failure_guard_and_the_start_spacing[runtime.worker Developer Guide, The Start-Failure Guard and the Start Spacing].
 
 [#start-collisions]
 === Starts of One Harness

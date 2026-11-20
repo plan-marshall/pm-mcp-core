@@ -10,8 +10,6 @@
 
 == Purpose
 
-A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
-
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
 
 Package `de.planmarshall.runtime.lock` of `pm-runtime` holds the one implementation of `LockManager` and the stale lease
@@ -35,8 +33,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
 per key and one open channel and OS lock per lock file.
 
 |link:{src}/HolderLiveness.java[`HolderLiveness`]
-|`isAlive(pid, startInstant)`: whether the runtime that serves a lease is alive, by the process id and its start instant
-together.
+|`isAlive(HolderInstance)`: whether the runtime that serves a lease is alive, by the process id and its start instant
+together (`HolderInstance.runtimePid`, `HolderInstance.runtimeStartedAt`).
 
 |link:{src}/StaleLeaseSweep.java[`StaleLeaseSweep`]
 |The sweep of one lease store, and of one project's leases in it: keep, remove or mark orphaned, each with the rule that
