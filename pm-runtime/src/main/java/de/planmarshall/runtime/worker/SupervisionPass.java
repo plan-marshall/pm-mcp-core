@@ -337,7 +337,8 @@ public final class SupervisionPass {
      * @return how the attempt of the held task ended
      */
     static QueueTaskRecord.AttemptEnd attemptEnd(@Nullable EndCause cause, @Nullable LossSignal loss,
-            @Nullable EndReason recorded) {        if (cause == null) {
+            @Nullable EndReason recorded) {
+        if (cause == null) {
             return recorded == null ? QueueTaskRecord.AttemptEnd.WORKER_LOST : attemptEndOf(recorded);
         }
         return switch (cause) {

@@ -35,6 +35,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Which members belong to which event of the question line (PM-WF-12, PM-IMPL-2): a member of another event is
@@ -152,7 +153,7 @@ class QuestionRecordMembersOnTheirEventsTest {
 
     // contract: the member names an asked line without them is refused with
     @ParameterizedTest(name = "an asked line without {0}")
-    @CsvSource({"class", "origin", "source_entity", "question_set"})
+    @ValueSource(strings = {"class", "origin", "source_entity", "question_set"})
     @DisplayName("an asked line without a member it requires is refused, naming the member")
     void askedLineRequiresItsMembers(String member) {
         var complete = asked();

@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.jspecify.annotations.Nullable;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,6 +23,7 @@ import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.LongContextThresholds;
 import de.planmarshall.workflow.envelope.EnvelopeBudget.Source;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The cap of the envelope budget on a threshold read from a parsed profile document (Model Work § Cost Sizing,
