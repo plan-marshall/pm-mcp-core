@@ -36,7 +36,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.OptionalLong;
 import java.util.Set;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
@@ -127,19 +126,19 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
      * @param mode       how the store is written
      * @param stagedPath the staged file, relative to the path base of the scope; {@code null} for a delete, which
      *                   stages nothing
-     * @param sizeBefore the size of the store before the append; present for an append, optional for a replace, empty
-     *                   for a delete
+     * @param sizeBefore the size of the store before the append; non-{@code null} for an append, optional for a
+     *                   replace, {@code null} for a delete
      * @param newDigest  the size and SHA-256 of the store once the target is applied; {@code null} for a delete, which
      *                   leaves no store
      * @since 0.1
      */
     @Builder
-    public record Target(String path, Mode mode, @Nullable String stagedPath, OptionalLong sizeBefore,
+    public record Target(String path, Mode mode, @Nullable String stagedPath, @Nullable Long sizeBefore,
     @Nullable StoreDigest newDigest) {
 
         /**
-         * @throws NullPointerException     if the path, the mode or the size before is {@code null}, or the staged path
-         *                                  or the new digest of a replace or append
+         * @throws NullPointerException     if the path or the mode is {@code null}, or the staged path or the new
+         *                                  digest of a replace or append
          * @throws IllegalArgumentException if a path is empty, if an append target has no size before, if a size
          *                                  before is negative, or if a delete target has a staged path, a size before
          *                                  or a new digest
@@ -147,9 +146,8 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
         public Target {
             requirePath(path, FIELD_PATH);
             Objects.requireNonNull(mode, FIELD_MODE);
-            Objects.requireNonNull(sizeBefore, "sizeBefore");
             if (mode == Mode.DELETE) {
-                if (stagedPath != null || sizeBefore.isPresent() || newDigest != null) {
+                if (stagedPath != null || sizeBefore != null || newDigest != null) {
                     throw new IllegalArgumentException(
                             "The delete target '%s' has no staged path, size before or new digest".formatted(path));
                 }
@@ -157,12 +155,12 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
                 requirePath(stagedPath, FIELD_STAGED_PATH);
                 Objects.requireNonNull(newDigest, "newDigest");
             }
-            if (mode == Mode.APPEND && sizeBefore.isEmpty()) {
+            if (mode == Mode.APPEND && sizeBefore == null) {
                 throw new IllegalArgumentException("The append target '%s' has no size before".formatted(path));
             }
-            if (sizeBefore.isPresent() && sizeBefore.getAsLong() < 0) {
+            if (sizeBefore != null && sizeBefore < 0) {
                 throw new IllegalArgumentException(
-                        "The size before of the target '%s' is negative: %d".formatted(path, sizeBefore.getAsLong()));
+                        "The size before of the target '%s' is negative: %d".formatted(path, sizeBefore));
             }
         }
 
@@ -173,7 +171,7 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
          * @throws IllegalArgumentException if the path is empty
          */
         public static Target delete(String path) {
-            return new Target(path, Mode.DELETE, null, OptionalLong.empty(), null);
+            return new Target(path, Mode.DELETE, null, null, null);
         }
 
         private static void requirePath(String path, String name) {
@@ -266,8 +264,9 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
             return;
         }
         generator.writeStringField(FIELD_STAGED_PATH, target.stagedPath());
-        if (target.sizeBefore().isPresent()) {
-            generator.writeNumberField(FIELD_SIZE_BEFORE, target.sizeBefore().getAsLong());
+        var sizeBefore = target.sizeBefore();
+        if (sizeBefore != null) {
+            generator.writeNumberField(FIELD_SIZE_BEFORE, sizeBefore.longValue());
         } else {
             generator.writeNullField(FIELD_SIZE_BEFORE);
         }
@@ -359,7 +358,7 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
         @Nullable String path = null;
         @Nullable Mode mode = null;
         @Nullable String stagedPath = null;
-        var sizeBefore = OptionalLong.empty();
+        @Nullable Long sizeBefore = null;
         long newSize = 0;
         @Nullable String newSha256 = null;
         var seen = new HashSet<String>();
@@ -370,8 +369,8 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
                 case FIELD_MODE -> mode = mode(string(parser, field));
                 case FIELD_STAGED_PATH -> stagedPath = string(parser, field);
                 case FIELD_SIZE_BEFORE -> sizeBefore = parser.currentToken() == JsonToken.VALUE_NULL
-                        ? OptionalLong.empty()
-                        : OptionalLong.of(integer(parser, field));
+                        ? null
+                        : Long.valueOf(integer(parser, field));
                 case FIELD_NEW_SIZE -> newSize = integer(parser, field);
                 case FIELD_NEW_SHA256 -> newSha256 = string(parser, field);
                 default -> throw undeclared(field);

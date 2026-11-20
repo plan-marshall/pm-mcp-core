@@ -11,15 +11,14 @@ package de.planmarshall.core.role;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -108,30 +107,39 @@ class EffectiveRoleFactsTest {
     }
 
     @Test
-    @DisplayName("the idle wakeups fall back to the host and stay null when neither sets them")
+    @DisplayName("the idle wakeups fall back to the host when the artifact does not set them")
     void idleWakeupsFallBack() {
         var idleWakeups = Generators.integers(1, 10).next();
-        var warm = RoleFixtures.valid().set("/form", "warm")
-                .set("/recycling", map("idle_wakeups", null, "token_budget",
-                        Generators.integers(10_000, 100_000).next(), "tasks_per_generation", null))
-                .artifact();
         var artifactSets = RoleFixtures.valid().set("/form", "warm")
                 .set("/recycling", map("idle_wakeups", 4, "token_budget",
                         Generators.integers(10_000, 100_000).next(), "tasks_per_generation", null))
                 .artifact();
 
         assertAll(
-                () -> assertEquals(OptionalInt.of(idleWakeups), role(warm, profile(
+                () -> assertEquals(idleWakeups, role(warmWithoutIdleWakeups(), profile(
                                 new HarnessProfile.Resumability(false, null, false, null),
                                 Generators.integers(200_000, 800_000).next(), idleWakeups)).idleWakeups(),
                         "the host's value applies"),
-                () -> assertTrue(role(warm, profile(new HarnessProfile.Resumability(false, null, false, null),
-                                Generators.integers(200_000, 800_000).next(), null)).idleWakeups().isEmpty(),
-                        "no idle wakeup when neither side sets one"),
-                () -> assertEquals(OptionalInt.of(4), role(artifactSets, profile(
+                () -> assertEquals(4, role(artifactSets, profile(
                                 new HarnessProfile.Resumability(false, null, false, null),
                                 Generators.integers(200_000, 800_000).next(), 3)).idleWakeups(),
                         "the artifact's value wins over the host's"));
+    }
+
+    @Test
+    @DisplayName("the idle wakeups are null when neither the artifact nor the host sets them")
+    void idleWakeupsNullWhenNeitherSetsThem() {
+        var role = role(warmWithoutIdleWakeups(), profile(new HarnessProfile.Resumability(false, null, false, null),
+                Generators.integers(200_000, 800_000).next(), null));
+
+        assertNull(role.idleWakeups(), "no idle wakeup when neither side sets one");
+    }
+
+    private static RoleArtifact warmWithoutIdleWakeups() {
+        return RoleFixtures.valid().set("/form", "warm")
+                .set("/recycling", map("idle_wakeups", null, "token_budget",
+                        Generators.integers(10_000, 100_000).next(), "tasks_per_generation", null))
+                .artifact();
     }
 
     @Test

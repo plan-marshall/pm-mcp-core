@@ -30,7 +30,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,10 +92,9 @@ class TransactionJournalTest {
         deletePath = "pending/ent-" + lowerName() + ".json";
         statusDigest = StoreDigest.of(Generators.letterStrings(1, 200).next().getBytes(UTF_8));
         findingsDigest = StoreDigest.of(Generators.letterStrings(1, 200).next().getBytes(UTF_8));
-        replace = new Target(statusPath, Mode.REPLACE, statusPath + ".tmp." + id.value(), OptionalLong.empty(),
-                statusDigest);
+        replace = new Target(statusPath, Mode.REPLACE, statusPath + ".tmp." + id.value(), null, statusDigest);
         append = new Target(findingsPath, Mode.APPEND, findingsPath + ".append." + id.value(),
-                OptionalLong.of(Generators.longs(0L, 100_000L).next()), findingsDigest);
+                Generators.longs(0L, 100_000L).next(), findingsDigest);
     }
 
     private static String lowerName() {
@@ -301,8 +299,7 @@ class TransactionJournalTest {
                     () -> assertEquals(Mode.DELETE, target.mode(), "the mode should be DELETE"),
                     () -> assertEquals("delete", target.mode().wireName(), "the wire name should be delete"),
                     () -> assertNull(target.stagedPath(), "a delete should have no staged path"),
-                    () -> assertEquals(OptionalLong.empty(), target.sizeBefore(),
-                            "a delete should have no size before"),
+                    () -> assertNull(target.sizeBefore(), "a delete should have no size before"),
                     () -> assertNull(target.newDigest(), "a delete should have no new digest"));
         }
 
@@ -324,18 +321,17 @@ class TransactionJournalTest {
         @DisplayName("a delete target record with a staged path, a size before or a new digest is rejected")
         void recordRejected() {
             var staged = statusPath + ".tmp." + id.value();
-            var size = OptionalLong.of(Generators.longs(0L, 100_000L).next());
-            var none = OptionalLong.empty();
+            var size = Generators.longs(0L, 100_000L).next();
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Target(statusPath, Mode.DELETE, staged, none, null),
+                            () -> new Target(statusPath, Mode.DELETE, staged, null, null),
                             "a delete with a staged path should fail"),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new Target(statusPath, Mode.DELETE, null, size, null),
                             "a delete with a size before should fail"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Target(statusPath, Mode.DELETE, null, none, statusDigest),
+                            () -> new Target(statusPath, Mode.DELETE, null, null, statusDigest),
                             "a delete with a new digest should fail"),
                     () -> assertThrows(IllegalArgumentException.class, () -> Target.delete(""),
                             "a delete of an empty path should fail"));
@@ -344,15 +340,14 @@ class TransactionJournalTest {
         @Test
         @DisplayName("a replace or append target without a staged path or new digest is still rejected")
         void stagedModesKeepTheirMembers() {
-            var none = OptionalLong.empty();
             var staged = statusPath + ".tmp." + id.value();
 
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Target(statusPath, Mode.REPLACE, null, none, statusDigest),
+                            () -> new Target(statusPath, Mode.REPLACE, null, null, statusDigest),
                             "a replace without staged path should fail"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Target(statusPath, Mode.REPLACE, staged, none, null),
+                            () -> new Target(statusPath, Mode.REPLACE, staged, null, null),
                             "a replace without new digest should fail"));
         }
 
@@ -372,11 +367,10 @@ class TransactionJournalTest {
         @Test
         @DisplayName("an append target without a size before is rejected when the record is built")
         void appendRecordRejected() {
-            var empty = OptionalLong.empty();
             var staged = findingsPath + ".append." + id.value();
 
             assertThrows(IllegalArgumentException.class,
-                    () -> new Target(findingsPath, Mode.APPEND, staged, empty, findingsDigest),
+                    () -> new Target(findingsPath, Mode.APPEND, staged, null, findingsDigest),
                     "an append without size before should fail");
         }
 
@@ -400,9 +394,8 @@ class TransactionJournalTest {
             var read = TransactionJournal.read(file, document(withoutField));
 
             assertAll(
-                    () -> assertEquals(OptionalLong.empty(), replace.sizeBefore(),
-                            "the replace record should have no size"),
-                    () -> assertEquals(OptionalLong.empty(), read.targets().getFirst().sizeBefore(),
+                    () -> assertNull(replace.sizeBefore(), "the replace record should have no size"),
+                    () -> assertNull(read.targets().getFirst().sizeBefore(),
                             "the read replace should have no size"),
                     () -> assertEquals(Mode.REPLACE, read.targets().getFirst().mode(),
                             "the read target should be a replace"));
@@ -411,7 +404,7 @@ class TransactionJournalTest {
         @Test
         @DisplayName("a negative size before is rejected (boundary)")
         void negative() {
-            var negative = OptionalLong.of(-1);
+            var negative = Long.valueOf(-1);
             var staged = findingsPath + ".append." + id.value();
 
             assertThrows(IllegalArgumentException.class,

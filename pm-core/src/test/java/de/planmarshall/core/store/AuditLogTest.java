@@ -42,7 +42,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -664,7 +663,7 @@ class AuditLogTest {
             var decoded = content.decode(AuditRecord.FORMAT_VERSION,
                     line -> AuditCodec.readRecord(log.logFile(), line));
             assertAll("a torn tail is reported and earlier records kept",
-                    () -> assertEquals(OptionalLong.of(size), content.tornTailOffset(),
+                    () -> assertEquals(size, content.tornTailOffset(),
                             "the torn tail starts at the old size"),
                     () -> assertEquals(List.of(new Accepted<>(1, first), new Accepted<>(2, second)), decoded,
                             "the earlier records decode intact"));

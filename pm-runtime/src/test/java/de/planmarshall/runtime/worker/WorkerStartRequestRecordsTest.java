@@ -16,7 +16,6 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -82,6 +81,6 @@ class WorkerStartRequestRecordsTest {
                 List.of("skill://pm/role/" + name + "/SKILL.md"), null, 60, null, new RoleArtifact.Questions(0, 0),
                 Map.of());
         return new EffectiveRole(artifact, "claude", "frontier", new EffortValue("high"), List.of(), "1.0", null,
-                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, OptionalInt.of(3));
+                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
     }
 }

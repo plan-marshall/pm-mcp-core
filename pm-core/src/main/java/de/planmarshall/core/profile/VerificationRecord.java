@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.Set;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
@@ -308,7 +307,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             }
         }
 
-        private OptionalLong tokens(JsonNode entry, String entryPointer) {
+        private @Nullable Long tokens(JsonNode entry, String entryPointer) {
             var tokens = entry.member("tokens").orElse(null);
             if (tokens == null) {
                 throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
@@ -319,10 +318,10 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                     throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
                             "'tokens' must not be negative");
                 }
-                return OptionalLong.of(tokens.integerValue().orElseThrow());
+                return tokens.integerValue().orElseThrow();
             }
             if (tokens.isString() && "unmeasured".equals(tokens.text().orElseThrow())) {
-                return OptionalLong.empty();
+                return null;
             }
             throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
                     "'tokens' must be an integer or 'unmeasured'");

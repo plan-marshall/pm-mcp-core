@@ -10,8 +10,8 @@
 package de.planmarshall.core.profile;
 
 import java.util.Objects;
-import java.util.OptionalInt;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The worker and connection values of one loaded client profile, typed (PM-WORK-3, PM-CLIENT-2; Client Profiles, Worker
@@ -32,7 +32,7 @@ import lombok.Builder;
  *
  * @param eligible              whether the harness may host workers at all
  * @param ackDeadlineSeconds    the time from an offer to its acknowledgement after which the supervisor ends the
- *                              worker; empty where the host declares none
+ *                              worker; {@code null} where the host declares none
  * @param ackInformational      whether a missing acknowledgement ends no worker, so that silence alone decides
  * @param silenceGraceSeconds   the time beyond the bounded wait without a call after which the supervisor ends the
  *                              worker
@@ -42,7 +42,7 @@ import lombok.Builder;
  * @since 0.1
  */
 @Builder
-public record WorkerParameters(boolean eligible, OptionalInt ackDeadlineSeconds, boolean ackInformational,
+public record WorkerParameters(boolean eligible, @Nullable Integer ackDeadlineSeconds, boolean ackInformational,
 int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progressResetsTimeout) {
 
     /** The suffix of a profile document, as a refusal names it. */
@@ -60,11 +60,6 @@ int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progre
 
     /** The pointer of one declared value, as a refusal names it: {@code /<block>/<name>}. */
     private static final String POINTER_FORMAT = "/%s/%s";
-
-    /** Copies the optional deadline. */
-    public WorkerParameters {
-        Objects.requireNonNull(ackDeadlineSeconds, "ackDeadlineSeconds");
-    }
 
     /**
      * @param profile a profile the loader read and validated
@@ -97,20 +92,21 @@ int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progre
         return boundedWaitSeconds + silenceGraceSeconds;
     }
 
-    private static OptionalInt optionalInteger(String blockName, JsonNode block, String name, LoadedProfile profile) {
+    private static @Nullable Integer optionalInteger(String blockName, JsonNode block, String name,
+            LoadedProfile profile) {
         var value = block.member(name).orElse(JsonNode.nullValue());
         if (value.isNull()) {
-            return OptionalInt.empty();
+            return null;
         }
-        return OptionalInt.of(Math.toIntExact(value.integerValue().orElseThrow(
+        return Math.toIntExact(value.integerValue().orElseThrow(
                 () -> refusal(profile, POINTER_FORMAT.formatted(blockName, name),
-                        "the declared value is no integer"))));
+                        "the declared value is no integer")));
     }
 
     private static int integer(String blockName, JsonNode block, String name, LoadedProfile profile, boolean required) {
         var value = optionalInteger(blockName, block, name, profile);
-        if (value.isPresent()) {
-            return value.getAsInt();
+        if (value != null) {
+            return value;
         }
         if (!required) {
             return 0;

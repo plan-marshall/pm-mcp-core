@@ -24,7 +24,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,7 +89,7 @@ class SupervisorScenarioTest {
     @DisplayName("the acknowledgement signal fires at its deadline and settles after")
     void acknowledgementAtTheDeadline() throws Exception {
         var fixture = new SupervisorTestFixture(base);
-        var detection = fixture.detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        var detection = fixture.detection(RoleClass.WRITER, parameters(ACK_SECONDS, false));
         detection.started(NOW);
         detection.offered(task, NOW);
         var deadline = NOW.plusSeconds(ACK_SECONDS);
@@ -114,7 +114,7 @@ class SupervisorScenarioTest {
     @DisplayName("the silence signal fires at its deadline and settles after")
     void silenceAtTheDeadline() throws Exception {
         var fixture = new SupervisorTestFixture(base);
-        var detection = fixture.detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
+        var detection = fixture.detection(RoleClass.WRITER, parameters(null, false));
         detection.started(NOW);
         detection.firstCall(NOW);
         var deadline = NOW.plusSeconds(SILENCE_SECONDS);
@@ -138,7 +138,7 @@ class SupervisorScenarioTest {
     @DisplayName("an exit after the first call is a loss at once and settles every deadline")
     void anExitAfterTheFirstCallIsALoss() throws Exception {
         var fixture = new SupervisorTestFixture(base);
-        var detection = fixture.detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
+        var detection = fixture.detection(RoleClass.WRITER, parameters(null, false));
         detection.started(NOW);
         detection.firstCall(NOW);
 
@@ -156,7 +156,7 @@ class SupervisorScenarioTest {
         var fixture = new SupervisorTestFixture(base);
         try (var harness = FixtureHarness.start(base, List.of("--output", "answer: continue"))) {
             var answer = harness.awaitLine(AWAIT);
-            var detection = fixture.detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
+            var detection = fixture.detection(RoleClass.WRITER, parameters(null, false));
             detection.started(NOW);
             detection.firstCall(NOW);
             detection.waitOpened(NOW);
@@ -224,7 +224,7 @@ class SupervisorScenarioTest {
     @DisplayName("the start-failure guard holds at its count and a changed configuration clears it with the recycle")
     void theStartFailureGuardHoldsAndAChangedConfigurationClearsIt() throws Exception {
         var fixture = new SupervisorTestFixture(base);
-        var parameters = parameters(OptionalInt.empty(), false);
+        var parameters = parameters(null, false);
         var guard = new StartFailureGuard(fixture.project, List::of, fixture.protocol,
                 fixture.eventSink, fixture.clock);
         var environment = fixture.environment(guard, SupervisorEnvironment.EligibilityGate.open());
@@ -324,7 +324,7 @@ class SupervisorScenarioTest {
     @DisplayName("a continuing worker's missing answer acknowledgement is a loss at its deadline, and an acknowledged one is none")
     void theMissingAnswerAcknowledgementOfAContinuingWorker() throws Exception {
         var fixture = new SupervisorTestFixture(base);
-        var parameters = parameters(OptionalInt.of(ACK_SECONDS), false);
+        var parameters = parameters(ACK_SECONDS, false);
         var answeredAt = NOW.plusSeconds(2);
         var silent = fixture.detection(RoleClass.WRITER, parameters);
         silent.started(NOW);
@@ -363,7 +363,7 @@ class SupervisorScenarioTest {
     @DisplayName("a consulting wait_again is no idle wake-up, while an idle warm worker recycles at its bound")
     void aConsultingWaitAgainIsNoIdleWakeUp() throws Exception {
         var fixture = new SupervisorTestFixture(base);
-        var parameters = parameters(OptionalInt.empty(), false);
+        var parameters = parameters(null, false);
         var environment = fixture.environment(SupervisorEnvironment.StartGuard.open(),
                 SupervisorEnvironment.EligibilityGate.open());
         var supervisor = new WorkerSupervisor(environment);
@@ -481,7 +481,7 @@ class SupervisorScenarioTest {
         return HarnessVerifier.digestExecutable(executable).orElseThrow();
     }
 
-    private static WorkerParameters parameters(OptionalInt ackDeadline, boolean informational) {
+    private static WorkerParameters parameters(@Nullable Integer ackDeadline, boolean informational) {
         return new WorkerParameters(true, ackDeadline, informational, GRACE_SECONDS, 3, BOUNDED_WAIT_SECONDS, true);
     }
 }

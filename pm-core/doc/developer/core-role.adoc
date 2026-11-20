@@ -294,7 +294,7 @@ that named those two records as writers of the split; its decision for the decis
 == The Null Contract of This Package
 
 A field, a parameter and a record component of this package carry `@Nullable` where the state may be absent; `Optional`
-stays the type of the absence a method returns (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]). The weights identity of `EffectiveRole`, the `harness`, `model` and `effort` components of `RoleAssignment`, the default harness of `MachineConfiguration`, the reason of `RoleResolution.Undefined`, the `catalogue` of `RoleAssignmentValidation.Facts` and the `previous` record of `GradingPlan` are `@Nullable`. `EffectiveRole.idleWakeups` is an `OptionalInt` (link:../../../doc/adr/022-the-effective-idle-wakeups-are-an-optionalint.adoc[repository ADR 022]).
+stays the type of the absence a method returns (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]). The weights identity of `EffectiveRole`, the `harness`, `model` and `effort` components of `RoleAssignment`, the default harness of `MachineConfiguration`, the reason of `RoleResolution.Undefined`, the `catalogue` of `RoleAssignmentValidation.Facts` and the `previous` record of `GradingPlan` are `@Nullable`. `EffectiveRole.idleWakeups` is a `@Nullable Integer`, `null` when neither the artifact nor the harness sets it, which the launch composer writes as the zero-defaulted `idle_wakeups` (link:../../../doc/adr/029-primitive-optional-components-are-nullable-boxed-numbers.adoc[repository ADR 029]).
 
 == Related
 

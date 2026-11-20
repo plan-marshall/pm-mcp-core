@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +32,7 @@ class TransactionJournalBuilderContractTest {
     void builderBuildsJournal() {
         var transactionId = new TransactionId("0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b");
         var target = new Target("mcp/status.json", Mode.REPLACE,
-                "mcp/status.json.tmp." + transactionId.value(), OptionalLong.empty(),
+                "mcp/status.json.tmp." + transactionId.value(), null,
                 new StoreDigest(3, SHA_256));
         var canonical = new TransactionJournal(transactionId, JournalScopeType.PLAN, "plan-core", AT,
                 List.of(target), List.of());
@@ -63,7 +62,7 @@ class TransactionJournalBuilderContractTest {
     @DisplayName("the builder builds the constructor's target")
     void builderBuildsTarget() {
         var canonical = new Target("mcp/status.json", Mode.REPLACE,
-                "mcp/status.json.tmp.0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b", OptionalLong.empty(),
+                "mcp/status.json.tmp.0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b", null,
                 new StoreDigest(3, SHA_256));
 
         var built = Target.builder().path(canonical.path()).mode(canonical.mode())

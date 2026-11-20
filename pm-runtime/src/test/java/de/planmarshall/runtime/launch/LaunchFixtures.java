@@ -18,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.LoadedProfile;
@@ -141,7 +140,7 @@ final class LaunchFixtures {
         var resolved = skillUris.stream().map(uri -> new RoleSkill(uri, skills.resolve(uri).orElseThrow().digest()))
                 .toList();
         return new EffectiveRole(artifact(roleClass, model, effort, form, skillUris), "claude", model, new EffortValue(
-                effort), resolved, "1.5", null, new RoleArtifact.Questions(0, 3600), Map.of(), 400_000, OptionalInt.of(3));
+                effort), resolved, "1.5", null, new RoleArtifact.Questions(0, 3600), Map.of(), 400_000, 3);
     }
 
     static EffectiveRole writer(SkillSource skills) {
@@ -154,7 +153,7 @@ final class LaunchFixtures {
                 .toList();
         return new EffectiveRole(artifact(roleClass, model, effort, form, skillUris), "claude", model,
                 new EffortValue(effort), resolved, "1.5", null, new RoleArtifact.Questions(0, 3600), Map.of(), 400_000,
-                OptionalInt.empty());
+                null);
     }
 
     static EffectiveRole roleWithHarness(String harness, SkillSource skills) {
@@ -163,7 +162,7 @@ final class LaunchFixtures {
                 new RoleArtifact.Questions(0, 0), Map.of());
         var resolved = List.of(new RoleSkill(ROLE_SKILL, skills.resolve(ROLE_SKILL).orElseThrow().digest()));
         return new EffectiveRole(artifact, harness, "frontier", new EffortValue("high"), resolved, "1.5", null,
-                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, OptionalInt.of(3));
+                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
     }
 
     static final String ROLE_SKILL = "skill://pm/role/implementer/SKILL.md";

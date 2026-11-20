@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -40,14 +39,14 @@ import org.jspecify.annotations.Nullable;
  * @param questions          the continuation bounds cut to the harness's resumability; {@code 0} is ineffective
  * @param offTrack           every off-track signal with its effective threshold and action
  * @param contextBudgetTokens the effective context budget of a worker
- * @param idleWakeups        the effective idle wakeups of a warm worker; empty when neither sets it
+ * @param idleWakeups        the effective idle wakeups of a warm worker; {@code null} when neither sets it
  * @since 0.1
  */
 @Builder(toBuilder = true)
 public record EffectiveRole(RoleArtifact artifact, String harness, String model, EffortValue effort,
 List<RoleSkill> skills, String harnessVersion, @Nullable String weightsIdentity,
 RoleArtifact.Questions questions, Map<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting> offTrack,
-int contextBudgetTokens, OptionalInt idleWakeups) {
+int contextBudgetTokens, @Nullable Integer idleWakeups) {
 
     /** The compiled context budget when neither the artifact nor the harness sets one. */
     public static final int COMPILED_CONTEXT_BUDGET = 400_000;
@@ -140,9 +139,8 @@ int contextBudgetTokens, OptionalInt idleWakeups) {
                 .orElse(COMPILED_CONTEXT_BUDGET);
     }
 
-    private static OptionalInt idleWakeups(RoleArtifact role, HarnessProfile profile) {
+    private static @Nullable Integer idleWakeups(RoleArtifact role, HarnessProfile profile) {
         var declared = role.recyclingBounds().map(RoleArtifact.Recycling::idleWakeups).orElse(null);
-        var value = declared != null ? declared : profile.idleWakeups();
-        return value == null ? OptionalInt.empty() : OptionalInt.of(value);
+        return declared != null ? declared : profile.idleWakeups();
     }
 }

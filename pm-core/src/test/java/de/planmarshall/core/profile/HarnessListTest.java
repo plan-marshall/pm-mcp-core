@@ -21,7 +21,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +44,7 @@ class HarnessListTest {
     private static final String VERSION = Generators.integers(1, 9).next() + ".0.0";
     private static final String OTHER_VERSION = VERSION + "-other";
     private static final String MODEL = Generators.letterStrings(5, 12).next();
-    private static final OptionalLong START_TOKENS = OptionalLong.of(Generators.longs(1_000, 9_000).next());
+    private static final Long START_TOKENS = Generators.longs(1_000, 9_000).next();
 
     @Test
     @DisplayName("coverage is complete when every figure is reported or not applicable")

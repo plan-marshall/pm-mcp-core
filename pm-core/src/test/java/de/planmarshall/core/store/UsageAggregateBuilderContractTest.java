@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.TreeMap;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,8 +24,8 @@ class UsageAggregateBuilderContractTest {
     @Test
     @DisplayName("the builder builds the constructor's usage aggregate")
     void builderBuildsAggregate() {
-        var canonical = new UsageAggregate(UsageAggregate.Population.MODEL_JOB, OptionalLong.of(10),
-                OptionalLong.of(5), OptionalLong.of(5), 1, 0, Map.of(), 1, new TreeMap<>(), false);
+        var canonical = new UsageAggregate(UsageAggregate.Population.MODEL_JOB, 10L, 5L, 5L, 1, 0, Map.of(), 1,
+                new TreeMap<>(), false);
 
         var built = UsageAggregate.builder().population(canonical.population())
                 .totalTokens(canonical.totalTokens()).tokensIn(canonical.tokensIn())

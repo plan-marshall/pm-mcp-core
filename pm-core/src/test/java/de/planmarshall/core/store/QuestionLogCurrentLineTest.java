@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -28,7 +29,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -84,7 +84,7 @@ class QuestionLogCurrentLineTest extends QuestionLogFixture {
                 () -> assertEquals(3, lines.records().size(), "the three asked lines should be read"),
                 () -> assertEquals(List.of(4L), lines.refused().stream().map(JsonlStoreFile.Refused::line)
                         .toList(), "the refused line should keep its number 4"),
-                () -> assertEquals(OptionalLong.of(size), lines.tornTailOffset(),
+                () -> assertEquals(size, lines.tornTailOffset(),
                         "the torn tail should start after line 4"),
                 () -> assertEquals(Optional.of(asked("Q-003", "Q-001")), lines.current("Q-003"),
                         "the asked line of Q-003 should be current"));
@@ -97,7 +97,6 @@ class QuestionLogCurrentLineTest extends QuestionLogFixture {
 
         assertAll(
                 () -> assertEquals(List.of(), lines.entries(), "an absent log should have no entries"),
-                () -> assertEquals(OptionalLong.empty(), lines.tornTailOffset(),
-                        "an absent log should have no torn tail"));
+                () -> assertNull(lines.tornTailOffset(), "an absent log should have no torn tail"));
     }
 }

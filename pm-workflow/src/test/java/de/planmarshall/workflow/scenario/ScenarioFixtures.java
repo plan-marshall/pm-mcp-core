@@ -29,7 +29,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.function.Function;
@@ -131,7 +130,7 @@ final class ScenarioFixtures {
      */
     static final WorkerParameters WORKER_PARAMETERS = WorkerParameters.builder()
             .eligible(true)
-            .ackDeadlineSeconds(OptionalInt.of(ACK_DEADLINE_SECONDS))
+            .ackDeadlineSeconds(ACK_DEADLINE_SECONDS)
             .ackInformational(false)
             .silenceGraceSeconds(SILENCE_GRACE_SECONDS)
             .idleWakeups(3)

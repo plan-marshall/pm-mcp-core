@@ -19,7 +19,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -72,8 +71,8 @@ class VerificationRecordTest {
     void startContextRead() {
         var parsed = VerificationRecord.read(RECORD.getBytes(UTF_8), "record");
 
-        assertAll(() -> assertEquals(List.of(new StartContext("writer", MODEL, OptionalLong.of(TOKENS)),
-                                new StartContext("zero_tool", MODEL, OptionalLong.empty())),
+        assertAll(() -> assertEquals(List.of(new StartContext("writer", MODEL, (long) TOKENS),
+                                new StartContext("zero_tool", MODEL, null)),
                         parsed.stages().get("usage").startContext(), "start context is read per class"),
                 () -> assertEquals("not_applicable",
                         parsed.stages().get("usage").results().get("cache_creation"),
