@@ -10,7 +10,7 @@
     "revision": { "type": "integer", "minimum": 0, "description": "Settings revision, incremented by every write; a change against an older revision is refused with conflict." },
     "max_build_slots": { "type": "integer", "minimum": 1, "maximum": 16, "default": 2 },
     "model_slots": { "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "description": "Machine cap of concurrently running workers (job kind llm), warm or fresh, across all projects and the machine scope (Machine Lease Stores, model-slots.json); a warm worker holds its slot for its whole generation, idle or not; per plan at most one of them is a writer worker." },
-    "lsp_idle_timeout_seconds": { "type": "integer", "minimum": 60, "default": 900 },
+    "lsp_idle_timeout_seconds": { "type": "integer", "minimum": 60, "maximum": 2147483647, "default": 900 },
     "lsp_start_timeout_seconds": { "type": "integer", "minimum": 10, "default": 120 },
     "lsp_request_timeout_seconds": { "type": "integer", "minimum": 5, "default": 60 },
     "max_lsp_instances": { "type": "integer", "minimum": 1, "maximum": 8, "default": 3 },

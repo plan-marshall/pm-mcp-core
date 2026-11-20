@@ -73,7 +73,8 @@ public final class MachineConfigurationStore {
     /**
      * @param storeFile   the {@code machine-config.json} file with the key of the machine configuration lock
      * @param lockManager the lock manager of the runtime
-     * @throws IllegalArgumentException if the key of the store file is not the machine configuration lock, or the store
+     * @throws IllegalArgumentException if the key of the store file is not the machine configuration lock, its lock file
+     *                                  lies too near the root to have a base above its lock directory, or the store
      *                                  file is not {@value #FILE_NAME} below the base of that lock
      */
     public MachineConfigurationStore(AtomicStoreFile storeFile, LockManager lockManager) {
@@ -84,7 +85,12 @@ public final class MachineConfigurationStore {
             throw new IllegalArgumentException("The machine configuration is guarded by its own lock: "
                     + key.lockFile());
         }
-        var base = key.lockFile().getParent().getParent();
+        var locks = key.lockFile().getParent();
+        var base = locks == null ? null : locks.getParent();
+        if (base == null) {
+            throw new IllegalArgumentException("The lock of the machine configuration has no base above its lock "
+                    + "directory: " + key.lockFile());
+        }
         if (!storeFile.store().equals(base.resolve(FILE_NAME))) {
             throw new IllegalArgumentException("The machine configuration is " + FILE_NAME + " below "
                     + base + ": " + storeFile.store());

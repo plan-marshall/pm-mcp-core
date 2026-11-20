@@ -59,7 +59,9 @@ failed is recorded only on the operator's word, and then as not available.
 
 `MachineConfigurationStore` reads and writes `machine-config.json` under `locks/machine-config.lock`. Its constructor
 refuses a store file that is not `machine-config.json` below the base the lock key lies under, so a document can never be
-written at another path under the lock's name.
+written at another path under the lock's name. A hand-built lock key whose lock file lies at the root, so that no base
+lies above its lock directory, is refused with an `IllegalArgumentException` that names the lock file, never with a
+`NullPointerException`.
 
 * `read()` answers the defaults, the documents mode and the cleanup durations at their recorded value — or at the schema
   default where the document records none — and the document's `revision`, or the defaults of an absent document at
@@ -80,8 +82,10 @@ The codec reads `format_version` first, so a document of another version is refu
 unreadable for a field that version changed. It refuses an unknown provider, an unknown variant, an unknown member of a
 provider's object, a negative revision, and content after the root object (a second object, a number, any token). It
 validates the two settings it requires against the schema before it reads or preserves them — `max_build_slots` an
-integer 1 to 16, `lsp_idle_timeout_seconds` an integer of at least 60 — so a `null`, a string or an out-of-range value is
-refused while every other member is still copied through unchanged.
+integer 1 to 16, `lsp_idle_timeout_seconds` an integer of 60 to 2147483647, the schema's `maximum` and the codec's
+`int` bound (link:../adr/runtime-config/007-the-idle-timeout-shares-the-integer-maximum.adoc[ADR 007]) — so a `null`,
+a string or an out-of-range value is refused while every other member is still copied through unchanged. An integer
+beyond the `int` range is refused with the same message as any out-of-range value, naming the bound.
 
 == The Machine's Own Check of its Plan Defaults
 

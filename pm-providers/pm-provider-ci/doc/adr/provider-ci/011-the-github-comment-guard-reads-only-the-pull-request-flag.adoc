@@ -1,0 +1,54 @@
+= ADR 011: The GitHub Comment Guard Reads Only the Pull-Request Flag
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+ADR 010 (link:010-the-github-issue-comment-reads-the-issue.adoc[`010-the-github-issue-comment-reads-the-issue.adoc`])
+made `GitHubCiProvider.issueComment` read `GET /repos/{owner}/{repo}/issues/{n}` before it posts and refuse a number
+whose answer carries the `pull_request` member. PLAN-V2-128 implemented the guard read through `GitHubClient.issue`,
+the full read of `ci.issue-view`, which refuses an answer without a non-blank title, state or `html_url` with
+`FAILED`. The landing analysis of PLAN-V2-128 (`landings/PLAN-V2-128.md` L2-1) found that the guard therefore depends
+on fields it does not need: a `200` for a plain issue whose answer lacks one of those fields answers `FAILED`, and no
+comment is posted, although the number is an issue and the guard has its answer.
+
+== Decision
+
+The guard reads the one fact it needs. `GitHubClient.isPullRequest(owner, name, number)` reads the same endpoint with
+the credential that authors the comment and answers whether the `pull_request` member is present; a body that is not
+JSON is `FAILED`, and a failed read keeps its own outcome. `issueComment` refuses a pull-request number with `REJECTED`
+"is a pull request" as before and posts otherwise. The full parse of `GitHubClient.issue` is unchanged for
+`issueView`, which returns the issue's fields and needs them.
+
+ADR 010's decision stands: the read before the post, the credential of the post, the refusal of a pull request and the
+propagation of a failed read. Only what the read demands of the answer is narrowed.
+
+== Alternatives Considered
+
+1. **Keep the full parse and record the limit as accepted**: *Rejected*: a plain issue whose answer misses a field the
+   guard never reads would stay uncommentable, a refusal no specification names.
+2. **Relax the full parse of `issue` for every caller**: *Rejected*: `issueView` returns the title, state and URL as
+   non-blank values of `Issue`, so the relaxation would hand blanks into a type that refuses them.
+
+== Consequences
+
+* A comment on a plain issue is posted whatever other fields its answer carries; a pull-request number is still refused
+  and posts nothing.
+* The guard and the issue view read the same endpoint through two methods with two demands; a change of what the guard
+  needs changes `isPullRequest` alone.
+* The request count of ADR 010 is unchanged: one read and one post per comment.
+
+== Source
+
+* Pull requests of `PLAN-V2-158` (`null-contracts-and-optional-conversion`), carried item 7
+* `landings/PLAN-V2-128.md` L2-1, L2-2
+* Decision: link:010-the-github-issue-comment-reads-the-issue.adoc[ADR 010]
+* `pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubClient.java` and
+  `pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java`

@@ -1,0 +1,71 @@
+= ADR 014: The Credential-Store Check Owns Its Marker Entry
+:nofooter:
+
+== Status
+
+Accepted; amends link:012-the-credential-store-check-never-overwrites-an-entry.adoc[ADR 012].
+
+== Date
+
+2026-11-20
+
+== Context
+
+ADR 012 made `CredentialStoreCheck` read the fixed account `credential-store-check` before it writes and refuse an
+occupied account with `credential_store_check.write.occupied`. The landing analysis of PLAN-V2-81
+(`landings/PLAN-V2-81.md` L3-1 to L3-4) found two defects in it:
+
+* *A leftover entry blocks the check for good.* When the delete step throws, or a run stops between the write and the
+  delete, the test entry stays; every later check fails `write.occupied`, the credential-store aspect goes
+  `UNAVAILABLE`, and only a manual keyring edit clears it. ADR 012 named that limit and left it to the operator.
+* *The read-then-write pair is not atomic.* An entry that appears between the read and the write is overwritten, and
+  the cleanup after a failed step deleted whatever sat under the account. ADR 012 rested the pair on "the runtime
+  singleton lock", which the analysis did not check.
+
+Read for this decision: `RuntimeLock` (`runtime.start`) excludes a second runtime on the same base directory. It does
+not cover a runtime on another base, nor any other process that writes the user's keyring, nor two checks inside one
+runtime. `SecretStore` offers `put`, `get` and `delete` and no conditional write, so the store cannot make the write
+conditional on the account being free.
+
+== Decision
+
+* *The check owns its entry by a marker.* Every value the check writes starts with
+  `CredentialStoreCheck.MARKER` (`pm-mcp-credential-store-check:`), followed by the random test value; only the check
+  writes it. An entry under the account that carries the marker is a leftover of an earlier check: the check deletes it
+  and runs. An entry without the marker is foreign: the check refuses it with `write.occupied` as before, writes
+  nothing and deletes nothing. A foreign value is never restored or overwritten.
+* *Every delete is limited to the run's own value.* The cleanup after a failed step reads the account and deletes the
+  entry only while it holds the value this run wrote; an entry another writer put there in the meantime is kept.
+* *The runs of one runtime are serialized.* `CredentialStoreCheck.check(SecretStore)` holds one process-wide lock for
+  the whole run, so no two checks of this runtime interleave between a read and a write; with `RuntimeLock` no second
+  runtime on the same base runs one either.
+* *What stays open is named.* A writer outside both — another base's runtime, another process on the keyring — can
+  still put an entry between the read and the write, and the write replaces it; the store gives no way to prevent it.
+  The account name is the check's own, so such a writer is another check or a deliberate edit of that one account.
+
+== Alternatives Considered
+
+1. **An explicit clear verb for the operator**: *Rejected*: it keeps the check blocked until the operator acts, for an
+   entry the check can recognise as its own.
+2. **Keep the limit of ADR 012 and say so**: *Rejected*: the limit turns one interrupted run into a store that can never
+   be checked again without a manual keyring edit.
+3. **Restore a foreign value after the check**: *Rejected*, as in ADR 012: a stop between the overwrite and the restore
+   loses the original.
+4. **A conditional write**: *Not available*: `SecretStore` has no compare-and-set, and the OS stores behind it offer
+   none the runtime uses.
+
+== Consequences
+
+* An interrupted check no longer blocks the next one; a foreign entry under the account is still refused and kept.
+* A failed step never deletes an entry the run did not write.
+* The check's value is longer by the marker; it is still never logged and never part of a check line.
+* `CredentialStoreCheckTest` holds the leftover marker entry that is cleared before the check passes, the foreign entry
+  that is still refused, and the entry that appears between the read and the write and is not deleted by the cleanup.
+
+== Source
+
+* Pull requests of `PLAN-V2-158` (`null-contracts-and-optional-conversion`), carried item 9 (a) and (b)
+* `landings/PLAN-V2-81.md` L3-1 to L3-4
+* Decision: link:012-the-credential-store-check-never-overwrites-an-entry.adoc[ADR 012]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreCheck.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/start/RuntimeLock.java`

@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -21,12 +22,20 @@ import org.jspecify.annotations.Nullable;
  * The check of the OS store before it is recorded (PM-CRED-2): the fixed account {@value #ACCOUNT} is read first, then one
  * test entry is written, read back and compared, and deleted, each step reported as one check line.
  * <p>
- * An account that is already occupied fails the write step with {@code credential_store_check.write.occupied} and nothing
- * is written or deleted: the check never overwrites an entry, and restoring an original value could lose it on a crash
- * between the write and the restore. A failed step ends the check: what was written is deleted, and the check records
- * nothing. The consent {@code check_credential_store} and the states of the store step stay with the onboarding; this
- * class only runs the three steps on the store it is given. The test value is random, never logged and never part of a
- * check line.
+ * The test entry is check-owned: its value starts with {@value #MARKER}, which only this check writes. An account that
+ * holds an entry with the marker is a leftover of an earlier check that stopped between the write and the delete; it is
+ * deleted and the check runs. An account that holds any other value is foreign and fails the write step with
+ * {@code credential_store_check.write.occupied}, and nothing is written or deleted: the check never overwrites a foreign
+ * entry, and restoring an original value could lose it on a crash between the write and the restore. A failed step ends
+ * the check: the entry it wrote is deleted, and only while it still holds the value this run wrote, and the check
+ * records nothing.
+ * <p>
+ * The store offers no conditional write, so the read before the write is not atomic with it. The runs of this runtime
+ * are serialized by one lock, and the runtime lock excludes a second runtime on the same base; a writer outside both
+ * can still put an entry between the read and the write, and the check never deletes that entry, because every delete
+ * is limited to the value the run wrote (runtime-credentials ADR 014). The consent {@code check_credential_store} and
+ * the states of the store step stay with the onboarding; this class only runs the three steps on the store it is
+ * given. The test value is random, never logged and never part of a check line.
  *
  * @since 0.1
  */
@@ -35,10 +44,16 @@ public final class CredentialStoreCheck {
     /** The global account of the test entry. */
     public static final String ACCOUNT = "credential-store-check";
 
+    /** The start of every value the check writes: what makes an entry under {@link #ACCOUNT} the check's own. */
+    public static final String MARKER = "pm-mcp-credential-store-check:";
+
     /** The prefix of every message key of a check line. */
     static final String MESSAGE_KEY_PREFIX = "credential_store_check.";
 
     private static final int VALUE_BYTES = 32;
+
+    /** Serializes the runs of this runtime, so no two of its checks interleave between a read and a write. */
+    private static final ReentrantLock RUNS = new ReentrantLock();
 
     /** The last part of the message key of a step the store failed with its own answer. */
     private static final String WHAT_FAILED = "failed";
@@ -157,11 +172,21 @@ public final class CredentialStoreCheck {
      * @return the result
      */
     Result check(SecretStore store) {
+        RUNS.lock();
+        try {
+            return run(store);
+        } finally {
+            RUNS.unlock();
+        }
+    }
+
+    private Result run(SecretStore store) {
         var account = CredentialAccount.global(ACCOUNT);
         var value = testValue();
         var lines = new ArrayList<CheckLine>();
         try {
-            if (store.get(account).isPresent()) {
+            var existing = store.get(account);
+            if (existing.isPresent() && !existing.get().startsWith(MARKER)) {
                 lines.add(CheckLine.builder()
                         .step(Step.WRITE)
                         .outcome(Outcome.FAILED)
@@ -171,6 +196,10 @@ public final class CredentialStoreCheck {
                         .build());
                 return new Result(lines);
             }
+            if (existing.isPresent()) {
+                // a leftover of an earlier check: the marker says the check wrote it, so the check may delete it
+                store.delete(account);
+            }
         } catch (SecretStoreException e) {
             lines.add(failed(Step.WRITE, WHAT_FAILED, store.name(), e));
             return new Result(lines);
@@ -179,7 +208,7 @@ public final class CredentialStoreCheck {
             store.put(account, value);
         } catch (SecretStoreException e) {
             lines.add(failed(Step.WRITE, WHAT_FAILED, store.name(), e));
-            cleanUp(store, account);
+            cleanUp(store, account, value);
             return new Result(lines);
         }
         lines.add(ok(Step.WRITE, store.name()));
@@ -193,12 +222,12 @@ public final class CredentialStoreCheck {
                         .arguments(arguments(store.name()))
                         .answer(null)
                         .build());
-                cleanUp(store, account);
+                cleanUp(store, account, value);
                 return new Result(lines);
             }
         } catch (SecretStoreException e) {
             lines.add(failed(Step.READ_BACK, WHAT_FAILED, store.name(), e));
-            cleanUp(store, account);
+            cleanUp(store, account, value);
             return new Result(lines);
         }
         lines.add(ok(Step.READ_BACK, store.name()));
@@ -215,26 +244,31 @@ public final class CredentialStoreCheck {
             }
         } catch (SecretStoreException e) {
             lines.add(failed(Step.DELETE, WHAT_FAILED, store.name(), e));
-            cleanUp(store, account);
+            cleanUp(store, account, value);
             return new Result(lines);
         }
         lines.add(ok(Step.DELETE, store.name()));
         return new Result(lines);
     }
 
-    /** Deletes the test entry after a failed step; a store that fails here too has its failure line already. */
-    private static void cleanUp(SecretStore store, CredentialAccount account) {
+    /**
+     * Deletes the test entry after a failed step, and only while it holds the value this run wrote: an entry another
+     * writer put under the account is never deleted. A store that fails here too has its failure line already.
+     */
+    private static void cleanUp(SecretStore store, CredentialAccount account, String value) {
         try {
-            store.delete(account);
+            if (store.get(account).filter(value::equals).isPresent()) {
+                store.delete(account);
+            }
         } catch (SecretStoreException _) {
-            // the failed step is reported; the entry the store refuses to delete is the store's own state
+            // the failed step is reported; the entry the store refuses to read or delete is the store's own state
         }
     }
 
     private String testValue() {
         var bytes = new byte[VALUE_BYTES];
         random.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        return MARKER + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private static CheckLine ok(Step step, String store) {
