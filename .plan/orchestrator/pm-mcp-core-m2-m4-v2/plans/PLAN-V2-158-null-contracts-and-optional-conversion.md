@@ -1,4 +1,4 @@
-# PLAN-158: The null contracts and the Optional conversion: the 17 `OptionalInt`/`OptionalLong` components, the null contracts of PLAN-V2-97, 99 and 114, and the residues of 128 and 81
+# PLAN-V2-158: The null contracts and the Optional conversion: the 17 `OptionalInt`/`OptionalLong` components, the null contracts of PLAN-V2-97, 99 and 114, and the residues of 128 and 81
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
@@ -6,7 +6,7 @@ origin: the landing of PLAN-V2-156 (`landings/PLAN-V2-156.md`, 2026-11-20: Deliv
 lane: plan-marshall
 
 > Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
-> Lives at `plans/PLAN-158-null-contracts-and-optional-conversion.md` and is queued as one row file, `queue/PLAN-158.json`,
+> Lives at `plans/PLAN-V2-158-null-contracts-and-optional-conversion.md` and is queued as one row file, `queue/PLAN-V2-158.json`,
 > in the epic ledger (lane `plan-marshall`: the operator runs it with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
@@ -80,7 +80,7 @@ Source, tests, specification and documentation (specific files, R19; the outline
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-158-null-contracts-and-optional-conversion.md"
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-158-null-contracts-and-optional-conversion.md"
 ```
 
 ## Write-Boundary

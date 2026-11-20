@@ -1,4 +1,4 @@
-# PLAN-160: The assertion-message residue: the scanner's silent shapes and exemptions, about 71 messages in `pm-core`, 214 in `pm-runtime`, 443 in `pm-workflow` and the schema suppliers
+# PLAN-V2-160: The assertion-message residue: the scanner's silent shapes and exemptions, about 71 messages in `pm-core`, 214 in `pm-runtime`, 443 in `pm-workflow` and the schema suppliers
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
@@ -6,7 +6,7 @@ origin: the landing of PLAN-V2-156 (`landings/PLAN-V2-156.md`, 2026-11-20: carri
 lane: plan-marshall
 
 > Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
-> Lives at `plans/PLAN-160-assertion-message-residue.md` and is queued as one row file, `queue/PLAN-160.json`,
+> Lives at `plans/PLAN-V2-160-assertion-message-residue.md` and is queued as one row file, `queue/PLAN-V2-160.json`,
 > in the epic ledger (lane `plan-marshall`: the operator runs it with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
@@ -80,7 +80,7 @@ Source, tests, specification and documentation (specific files, R19; the outline
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-160-assertion-message-residue.md"
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-160-assertion-message-residue.md"
 ```
 
 ## Write-Boundary
