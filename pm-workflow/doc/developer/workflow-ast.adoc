@@ -375,6 +375,6 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   unit on the call stack; no state and no frontmatter declares one.
 * link:../adr/workflow-input/001-commit-message-is-a-closed-type-of-its-own.adoc[ADR workflow-input/001]: `text`,
   `commit_message`, `path` and `list<path>` are types of their own, and `commit_message` is never an attribute of `text`.
-* link:../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076]: a persisted
+* link:../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/078]: a persisted
   call frame carries the identity of the command it is (a `command_id` and a `correlation_id`, `core.id`), which the
   engine fills when it pushes the frame.

@@ -1,0 +1,46 @@
+= ADR workflow-input 004: An Empty Files List Is Refused at the Bind
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+`git.commit_and_push` takes `files` as `list<path>[0..500]?` (Decision 8 of the specification of PLAN-V2-15). Absent
+`files` means every path of the staging set, as it always has. The type also admits an explicitly bound list of zero
+entries, and the provider's first implementation read an empty list as "no subset" and staged everything — the same as
+absent, which is exactly what the specification forbids: a bound list must not mean "every change".
+
+The operator decided the case on 2026-11-19 (R07): an explicitly bound empty list is refused.
+
+== Decision
+
+* An explicitly bound `files` list with zero entries is refused at the bind with the condition `precondition_unmet`, the
+  reason `input_refused` and the rule `input.empty`.
+* Absent `files` keeps its meaning: every path of the staging set.
+* The empty list is refused at the bind and not at the fill, so a slot may hold `[]` and the message names the call that
+  tried to bind it.
+
+== Alternatives Considered
+
+* *Stage nothing and report `nothing_to_commit`.* Refused by the operator: a commit of no path is a caller error, and the
+  unit would report a clean outcome for a call that bound nothing.
+* *Keep the empty list as "everything".* Refused: it is the behaviour the specification calls out, and a caller that
+  forgot to fill `files` would silently commit the worktree.
+
+== Consequences
+
+* `InputValidator.validatePathList` accepts an empty list as a value of the type; the engine's bind refuses it, so the
+  type stays the type and the decision stays the bind's.
+* A unit that wants "every change" omits `files`; a unit that wants a subset binds at least one path.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc[Workflow DSL § Reusable Sub-Workflows],
+  Decision 8 of the specification of PLAN-V2-15
+* the operator's answer of 2026-11-19 to `PLAN-V2-157` Deliverable 1; `PLAN-V2-157` Deliverable 1

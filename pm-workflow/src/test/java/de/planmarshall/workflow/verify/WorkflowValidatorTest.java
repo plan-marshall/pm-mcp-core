@@ -230,6 +230,18 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-remediation-budget-check.pmwf"),
             new Check("Rule 6: stepped_out is declared only by a terminal of class stepped_out",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-terminal-class.pmwf"),
+            new Check("Rule 6: a slot a call reads is declared in the frontmatter",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-undeclared-read.pmwf"),
+            new Check("Rule 6: a fills clause names a declared slot of the unit",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "fills-undeclared-slot.pmwf"),
+            new Check("Rule 6: a fills clause names a from-parameter an operator link declares",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "fills-from-parameter-unknown.pmwf"),
+            new Check("Rule 6: a slot a call reads is never filled in the unit",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-never-filled.pmwf"),
+            new Check("Rule 6: a slot a call reads is filled on every branch that reaches the call",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-filled-on-one-branch.pmwf"),
+            new Check("Rule 6: the type of a bound slot is assignable to the callee's input type",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-type-not-assignable.pmwf"),
             new Check("Rule 7: the call graph is acyclic",
                     VerificationRule.CALL_GRAPH_DAG, "call-graph-cycle.pmwf"),
             new Check("Rule 7: the call graph is at most five frames deep",
@@ -445,7 +457,8 @@ class WorkflowValidatorTest {
             var controls = passingFixtures().stream().map(WorkflowValidatorTest::fileName)
                     .collect(Collectors.toCollection(TreeSet::new));
 
-            var expected = new TreeSet<>(List.of("every-construct.pmwf", "interface-entries-and-exits.pmwf"));
+            var expected = new TreeSet<>(List.of("every-construct.pmwf", "interface-entries-and-exits.pmwf",
+                    "slots-and-inputs.pmwf"));
             Arrays.stream(UnitType.values()).map(type -> "type-" + type.wireName() + ".pmwf").forEach(expected::add);
 
             assertEquals(expected, controls, "the controls are exactly the expected files");

@@ -9,14 +9,15 @@
  */
 package de.planmarshall.workflow.input;
 
-import java.util.Objects;
-
-import org.jspecify.annotations.Nullable;
+import java.util.Optional;
 
 /**
  * The pure, syntactic path rules of Decision 3: relative, {@code /} only, no empty segment, no {@code .} or {@code ..}
  * segment, no NUL, control or format character, no leading {@code :} (git pathspec magic) or {@code -}, no {@code .git}
- * segment in any case, at most 1024 characters, no duplicate in a list.
+ * segment in any case, at most {@value #MAX_PATH_LENGTH} characters, no duplicate in a list.
+ * <p>
+ * A space is a legal member of a path ({@code docs/my file.md} is bindable); every other whitespace code point is
+ * refused, as are control, format and bidi characters.
  * <p>
  * Environmental rules (confinement, staging set membership) are checked by the engine at the bind.
  *
@@ -27,79 +28,92 @@ public final class PathRules {
     /** The most characters a single path may have. */
     public static final int MAX_PATH_LENGTH = 1024;
 
+    /** The one whitespace code point a path admits: the space. */
+    private static final int SPACE = 0x20;
+
     private PathRules() {
     }
 
     /**
      * Checks a single path value against the syntactic rules.
      *
-     * @param value the path to check
-     * @return the refusal, or {@code null} when the path is accepted
+     * @param value the path to check, never {@code null}
+     * @return empty when the path is accepted, the refusal otherwise
      */
-    public static @Nullable InputRefusal check(@Nullable String value) {
-        Objects.requireNonNull(value, "value");
+    public static Optional<InputRefusal> check(String value) {
         var simple = checkSimple(value);
-        if (simple != null) {
+        if (simple.isPresent()) {
             return simple;
         }
         if (value.codePoints().anyMatch(PathRules::isControl)) {
-            return new InputRefusal("path.control", value);
+            return Optional.of(new InputRefusal(InputValidator.RULE_PATH_CONTROL, value));
         }
-        if (value.codePoints().anyMatch(Character::isWhitespace)) {
-            return new InputRefusal("path.whitespace", value);
+        if (value.codePoints().anyMatch(PathRules::isRefusedWhitespace)) {
+            return Optional.of(new InputRefusal(InputValidator.RULE_PATH_WHITESPACE, value));
         }
         if (value.codePoints().anyMatch(PathRules::isBidi)) {
-            return new InputRefusal("path.bidi", value);
+            return Optional.of(new InputRefusal(InputValidator.RULE_PATH_BIDI, value));
         }
         if (value.codePoints().anyMatch(PathRules::isFormat)) {
-            return new InputRefusal("path.format", value);
+            return Optional.of(new InputRefusal(InputValidator.RULE_PATH_FORMAT, value));
         }
-        var segment = checkSegments(value);
-        if (segment != null) {
-            return segment;
+        if (value.codePoints().anyMatch(PathRules::isSurrogate)) {
+            return Optional.of(new InputRefusal(InputValidator.RULE_PATH_SURROGATE, value));
         }
-        return null;
+        return checkSegments(value);
     }
 
-    private static @Nullable InputRefusal checkSimple(String value) {
+    private static Optional<InputRefusal> checkSimple(String value) {
         if (value.isEmpty()) {
-            return new InputRefusal("path.empty", value);
+            return refusal(InputValidator.RULE_PATH_EMPTY, value);
         }
-        if (value.length() > MAX_PATH_LENGTH) {
-            return new InputRefusal("path.too-long", value);
+        if (value.codePointCount(0, value.length()) > MAX_PATH_LENGTH) {
+            return refusal(InputValidator.RULE_PATH_TOO_LONG, value);
         }
         if (value.startsWith("/")) {
-            return new InputRefusal("path.absolute", value);
+            return refusal(InputValidator.RULE_PATH_ABSOLUTE, value);
         }
         if (value.contains("\\")) {
-            return new InputRefusal("path.backslash", value);
+            return refusal(InputValidator.RULE_PATH_BACKSLASH, value);
         }
         if (value.indexOf('\u0000') >= 0) {
-            return new InputRefusal("path.nul", value);
+            return refusal(InputValidator.RULE_PATH_NUL, value);
         }
         if (value.startsWith(":") || value.startsWith("-")) {
-            return new InputRefusal("path.magic", value);
+            return refusal(InputValidator.RULE_PATH_MAGIC, value);
         }
-        return null;
+        if (value.indexOf('*') >= 0 || value.indexOf('?') >= 0 || value.indexOf('[') >= 0) {
+            return refusal(InputValidator.RULE_PATH_GLOB, value);
+        }
+        return Optional.empty();
     }
 
-    private static @Nullable InputRefusal checkSegments(String value) {
+    private static Optional<InputRefusal> checkSegments(String value) {
         for (var segment : value.split("/", -1)) {
             if (segment.isEmpty()) {
-                return new InputRefusal("path.empty-segment", value);
+                return refusal(InputValidator.RULE_PATH_EMPTY_SEGMENT, value);
             }
             if (".".equals(segment) || "..".equals(segment)) {
-                return new InputRefusal("path.dot-segment", value);
+                return refusal(InputValidator.RULE_PATH_DOT_SEGMENT, value);
             }
             if (".git".equalsIgnoreCase(segment)) {
-                return new InputRefusal("path.git", value);
+                return refusal(InputValidator.RULE_PATH_GIT, value);
             }
         }
-        return null;
+        return Optional.empty();
+    }
+
+    private static Optional<InputRefusal> refusal(String rule, String value) {
+        return Optional.of(new InputRefusal(rule, value));
     }
 
     private static boolean isControl(int codePoint) {
         return codePoint < 0x20 || (codePoint >= 0x7f && codePoint <= 0x9f);
+    }
+
+    /** Whitespace other than the space: a tab, a no-break space or any other separator is refused. */
+    private static boolean isRefusedWhitespace(int codePoint) {
+        return codePoint != SPACE && (Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint));
     }
 
     private static boolean isBidi(int codePoint) {
@@ -110,5 +124,10 @@ public final class PathRules {
 
     private static boolean isFormat(int codePoint) {
         return Character.getType(codePoint) == Character.FORMAT;
+    }
+
+    /** A code point in the surrogate range: {@code codePoints()} yields one only for an unpaired surrogate. */
+    private static boolean isSurrogate(int codePoint) {
+        return codePoint >= Character.MIN_SURROGATE && codePoint <= Character.MAX_SURROGATE;
     }
 }

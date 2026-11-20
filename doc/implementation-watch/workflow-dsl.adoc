@@ -560,9 +560,9 @@ Guard:: Every value of a typed input reaches the tool over a channel that takes 
 API or `git commit -F -` over stdin, the paths in the CLI variant on stdin with literal pathspecs
 (`--pathspec-from-file=- --pathspec-file-nul`). `PathRules` refuses a leading `:` and `-` and every control character
 before the value is bound (link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]).
-Tests: a CLI-variant fixture commits a file named `-rf` and a file named `:(glob)**` that the operator created in the
-worktree, and asserts both are staged as files; a message holding a newline and a shell metacharacter commits verbatim;
-the native variant commits the same fixture with identical metadata.
+Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound, and
+`JGitOperationsTest` refuses a pathspec magic and a glob before anything is staged. The CLI variant of this repository
+does not exist, so the stdin pathspec fixture stays owed to the assembly that ships it.
 Source:: design review (PLAN-V2-15).
 
 [#PM-WATCH-DSL-42]
@@ -577,9 +577,10 @@ slot survives its call and a later state of the unit binds a value nobody filled
 Guard:: The bind consumes the slot in the transaction of the call that read it, and a call of a state whose slot is not
 filled is refused with `input_unbound`; a slot key names the declaring unit, so no unit inherits another's value
 (`InputBindingTest` of `pm-workflow`, link:../../pm-workflow/doc/developer/workflow-engine.adoc#_the_input_bind[Workflow
-Engine Developer Guide § The Input Bind at a Call]). Tests: two calls of one state, the second refused; a resumed call
-after a restart between the fill and the call binds the value once; the status holds no slot after the call;
-`WorkflowStatusCodecTest` refuses a slot whose provenance lies outside the closed set.
+Engine Developer Guide § The Input Bind at a Call]). Tests: two calls of one state, the second refused with
+`input_unbound`; a resumed call after a restart between the fill and the call binds the value once
+(`shouldBindASlotFilledBeforeARestart`); the status holds no slot after the call; `WorkflowStatusCodecTest` refuses a slot
+whose provenance lies outside the closed set.
 Source:: design review (PLAN-V2-15).
 
 [#PM-WATCH-DSL-43]
@@ -592,13 +593,14 @@ default declares `list<path>`. The validator is chosen by the type, so the copy 
 check — or admits one path where the unit stages a set — while its bounds, its optional form and its order look identical.
 A comparison of the ranges alone passes the copy.
 Guard:: `INV-GEN-1` compares an input's type by its closed identity, the `InputType` member with its bounds, and names
-the input (`CompiledInvariantsTest` of `pm-workflow`, a refusing case per weakened type beside
-`INTERFACE_INPUT_WIDENED`, and
+the input (`CompiledInvariantsTest` of `pm-workflow`, the refusing case `INTERFACE_INPUT_WIDENED` for an enumerated input,
+and
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
-Developer Guide § INV-GEN-1 over Type and Interface]). Tests: a copy that swaps `commit_message` for `text` and one that
-swaps `list<path>` for `path` are refused naming the input; an identical control passes; `InputValidatorTest` shows the
-value the weakened copy admits is one the validator refuses for the default's type
-(link:../../pm-workflow/doc/adr/workflow-input/001-commit-message-is-a-closed-type-of-its-own.adoc[ADR workflow-input/001]).
+Developer Guide § INV-GEN-1 over Type and Interface]). A copy that swaps a `commit_message` for a `text` (or a
+`list<path>` for a `path`) is refused by `INV-GEN-1`, which compares each input's type with the default unit's type. The
+bind's `InputValidator` checks the value against the copy's own declared type, so it does not detect the swap. Owed: a
+refusing `CompiledInvariantsTest` case per weakened text and path type, and an `InputValidatorTest` case that shows the
+swapped type admits the value the default refuses.
 Source:: design review (PLAN-V2-15).
 
 == Positioned Layout

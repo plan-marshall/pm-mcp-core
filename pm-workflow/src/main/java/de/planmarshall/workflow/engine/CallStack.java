@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -22,6 +21,7 @@ import de.planmarshall.core.id.CommandId;
 import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
+import de.planmarshall.workflow.ast.ArgSource;
 import de.planmarshall.workflow.ast.CallFrame;
 import de.planmarshall.workflow.ast.CallValue;
 
@@ -156,28 +156,42 @@ public record CallStack(List<CallFrame> frames) {
     private static WorkflowStatus.CallFrame toStoreFrame(CallFrame frame) {
         var args = new LinkedHashMap<String, BoundArg>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toBoundArg(value)));
+        var sources = new LinkedHashMap<String, WorkflowStatus.CallFrame.ArgSource>();
+        frame.argSources().forEach((name, source) -> sources.put(name, toStoreSource(source)));
         var commandId = frame.commandId() != null ? frame.commandId() : CommandId.random();
         var correlationId = frame.correlationId() != null ? frame.correlationId()
                 : CorrelationId.random();
         return WorkflowStatus.CallFrame.builder().callerWorkflowId(frame.callerWorkflowId())
                 .callerStateId(frame.callerStateId()).subworkflowId(frame.subWorkflowId()).entry(frame.entry())
-                .boundArgs(args).argSources(Map.of()).commandId(commandId).correlationId(correlationId)
+                .boundArgs(args).argSources(sources).commandId(commandId).correlationId(correlationId)
                 .pushedAt(Instant.parse(frame.pushedAt())).build();
     }
 
     private static CallFrame fromStoreFrame(WorkflowStatus.CallFrame frame) {
         var args = new LinkedHashMap<String, CallValue>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toCallValue(value)));
+        var sources = new LinkedHashMap<String, ArgSource>();
+        frame.argSources().forEach((name, source) -> sources.put(name, fromStoreSource(source)));
         return CallFrame.builder()
                 .callerWorkflowId(frame.callerWorkflowId())
                 .callerStateId(frame.callerStateId())
                 .subWorkflowId(frame.subworkflowId())
                 .entry(frame.entry())
                 .boundArgs(args)
+                .argSources(sources)
                 .commandId(frame.commandId())
                 .correlationId(frame.correlationId())
                 .pushedAt(frame.pushedAt().toString())
                 .build();
+    }
+
+    private static WorkflowStatus.CallFrame.ArgSource toStoreSource(ArgSource source) {
+        return WorkflowStatus.CallFrame.ArgSource.builder().source(source.source())
+                .sourceRef(source.sourceRef()).build();
+    }
+
+    private static ArgSource fromStoreSource(WorkflowStatus.CallFrame.ArgSource source) {
+        return new ArgSource(source.source(), source.sourceRef());
     }
 
     private static BoundArg toBoundArg(CallValue value) {
@@ -185,7 +199,9 @@ public record CallStack(List<CallFrame> frames) {
             case CallValue.EnumValue(var text) -> new BoundArg.StringArg(text);
             case CallValue.IntValue(var number) -> new BoundArg.IntegerArg(number);
             case CallValue.EnumList(var texts) -> new BoundArg.StringSetArg(new LinkedHashSet<>(texts));
-            case CallValue.SlotRef(var name) -> new BoundArg.StringArg("slot." + name);
+            case CallValue.SlotRef(var name) -> throw new IllegalStateException(
+                    "the slot reference '%s' reached the frame unresolved; a call binds a slot's value, never its name"
+                            .formatted(name));
         };
     }
 

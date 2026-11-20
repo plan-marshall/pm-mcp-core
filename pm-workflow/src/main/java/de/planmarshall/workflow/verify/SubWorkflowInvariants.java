@@ -157,6 +157,7 @@ final class SubWorkflowInvariants {
                 .terminalOutcome(state.terminalOutcome())
                 .skillPath(state.skillPath())
                 .factsPrimitiveId(state.factsPrimitiveId())
+                .fills(state.fills())
                 .behavior(behavior)
                 .location(Context.nowhere())
                 .build();

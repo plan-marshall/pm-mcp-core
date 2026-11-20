@@ -269,6 +269,7 @@ final class InstancePruner {
                 .terminalOutcome(state.terminalOutcome())
                 .skillPath(state.skillPath())
                 .factsPrimitiveId(state.factsPrimitiveId())
+                .fills(state.fills())
                 .behavior(StateBehavior.SubWorkflowCall.builder()
                         .subWorkflowId(variant.variant())
                         .entry(call.entry())
@@ -321,6 +322,7 @@ final class InstancePruner {
                 .terminalOutcome(state.terminalOutcome())
                 .skillPath(state.skillPath())
                 .factsPrimitiveId(state.factsPrimitiveId())
+                .fills(state.fills())
                 .behavior(behavior)
                 .location(state.location())
                 .build();

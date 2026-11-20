@@ -189,12 +189,12 @@ class InputValidatorTest {
         }
 
         @Test
-        @DisplayName("a lone surrogate has no Conventional Commit header")
+        @DisplayName("a lone surrogate is refused as a surrogate")
         void loneSurrogateRefused() {
             var refusal = refusal(InputValidator.validateText(COMMIT_MESSAGE, "\uD800"));
 
-            assertEquals("input.commit-message", refusal.ruleId(),
-                    "a lone surrogate is no commit header");
+            assertEquals("input.surrogate", refusal.ruleId(),
+                    "a lone surrogate is refused as a surrogate");
         }
 
         @Test
@@ -263,6 +263,24 @@ class InputValidatorTest {
             var refusal = refusal(InputValidator.validatePathList(new InputType.PathList(1, 500), paths(501)));
 
             assertEquals("input.count", refusal.ruleId(), "one entry above the count bound is refused");
+        }
+
+        @Test
+        @DisplayName("an empty list against a low bound is refused as input.count")
+        void emptyBelowCountRefused() {
+            var refusal = refusal(InputValidator.validatePathList(new InputType.PathList(1, 500), List.of()));
+
+            assertEquals("input.count", refusal.ruleId(), "the empty list misses its low bound");
+        }
+
+        @Test
+        @DisplayName("a type that declares a high bound above the cap is capped")
+        void highBoundCapped() {
+            var tooLong = "x".repeat(InputValidator.TEXT_CAP + 1);
+
+            var refusal = refusal(InputValidator.validateText(new InputType.Text(1, 9999), tooLong));
+
+            assertEquals("input.too-long", refusal.ruleId(), "the compiled cap bounds the declared range");
         }
 
         @Test

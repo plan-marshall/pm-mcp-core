@@ -250,9 +250,23 @@ Map<String, String> retained) {
         @Builder
         public record ArgSource(String source, @Nullable String sourceRef) {
 
+            /** The provenance of a value written at the call site. */
+            public static final String LITERAL = "literal";
+
+            /** The provenance of the value of the input's {@code input_fallback} key. */
+            public static final String CONFIG = "config";
+
+            /** The provenance of an input's compiled default. */
+            public static final String DEFAULT = "default";
+
+            /** The provenance of a value a task submission filled a slot with. */
+            public static final String TASK_SUBMIT = "task_submit";
+
+            /** The provenance of a value the operator's answer filled a slot with. */
+            public static final String OPERATOR_ANSWER = "operator_answer";
+
             /** The provenance values the schema admits. */
-            public static final Set<String> SOURCES = Set.of("literal", "config", "default", "task_submit",
-                    "operator_answer");
+            public static final Set<String> SOURCES = Set.of(LITERAL, CONFIG, DEFAULT, TASK_SUBMIT, OPERATOR_ANSWER);
 
             /** @throws IllegalArgumentException if the source lies outside the schema */
             public ArgSource {
@@ -276,10 +290,14 @@ Map<String, String> retained) {
     @Builder
     public record Slot(String value, String source, @Nullable String sourceRef, Instant filledAt) {
 
+        /** The provenances a slot can have: only a task submission or an operator answer fills one. */
+        public static final Set<String> SOURCES = Set.of(CallFrame.ArgSource.TASK_SUBMIT,
+                CallFrame.ArgSource.OPERATOR_ANSWER);
+
         /** @throws NullPointerException if a required component is {@code null} */
         public Slot {
             Objects.requireNonNull(value, VALUE_NAME);
-            requireOneOf(CallFrame.ArgSource.SOURCES, source, "slots.source");
+            requireOneOf(SOURCES, source, "slots.source");
             if (sourceRef != null) {
                 requireNonBlank(sourceRef, "slots.source_ref");
             }

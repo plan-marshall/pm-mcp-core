@@ -1,0 +1,52 @@
+= ADR workflow-input 003: The Slot Key Names the Declaring Unit
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+A slot is declared in the frontmatter of the unit that fills it and binds it at a call (Decision 5 of the specification
+of PLAN-V2-15). The first implementation stored a filled slot under its bare name, in the scope-level `slots` member of
+`mcp/status.json`. Two units of one scope that both declare a slot `message` — a plan unit and the phase sub-workflow it
+calls, say — then overwrote each other's value, and the second call bound a value that the first unit had filled.
+
+Decision 4 of the specification names the qualified form, `<declaring unit id>:<slot name>`, and the schema's description
+of the member already said so; only the engine did not.
+
+== Decision
+
+* A filled slot is stored under `<declaring unit id>:<slot name>`, where the declaring unit is the unit whose frontmatter
+  carries the `slot` line — the unit that fills it and whose call site reads it.
+* The engine resolves a `slot.<name>` reference against the calling unit's own slots, so a reference can never read
+  another unit's slot; the qualifier makes the two units' slots distinct in the store and in a resumed status.
+* `WorkflowStatus.Slot` admits only `task_submit` and `operator_answer` as provenance: a slot is filled by a submission
+  or an act, never by a literal, a configuration value or a compiled default. The schema's `slots.source` enumerates the
+  same two values, and `WorkflowStatusSchemaParityTest` compares the codec's set with the schema's.
+
+== Alternatives Considered
+
+* *The bare name, as the first implementation had it.* Refused: it collides across units, silently, and the collision is
+  invisible to the verifier because each unit's frontmatter is checked on its own.
+* *A slot per frame.* Refused: the plan, epic and workspace units that call `git.commit_and_push` have no frame of their
+  own, and a slot filled before a call must outlive the fill state, not the frame.
+
+== Consequences
+
+* A scope's `slots` member holds one entry per filled slot of each declaring unit, and a resumed status reads the same
+  value the fill wrote.
+* A slot whose declaring unit is not the unit of the call site is refused by Rule 6, which checks the reference against
+  the calling unit's frontmatter.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc[Workflow DSL § Reusable Sub-Workflows],
+  Decisions 4 and 5 of the specification of PLAN-V2-15
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store
+  Schemas § Workflow State Store], `slots`
+* link:../../../../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide]; `PLAN-V2-157` Deliverable 1

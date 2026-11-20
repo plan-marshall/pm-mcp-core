@@ -217,6 +217,10 @@ anchor, alias or merge key is ever resolved
   bracket form the reader admits at the start of a value, and a typed input takes no `input_default`.
 * *Order*: apart from the descriptions and the input sub-keys, the order of the lines is free. The printer writes the
   order of the field table below.
+* *The ranges and the caps*: `text`, `commit_message` and `list<path>` declare their range (`text[1..2000]`,
+  `commit_message[10..72]`, `list<path>[0..500]`); the reader refuses one without a range and one whose high bound widens
+  beyond the compiled cap — 2000 for `text` and `commit_message`, 500 for `list<path>` — because a unit narrows and never
+  widens; `path` carries the fixed cap of 1024.
 
 === Fields
 

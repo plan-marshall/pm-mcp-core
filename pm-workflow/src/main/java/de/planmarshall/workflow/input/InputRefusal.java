@@ -15,17 +15,18 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A refusal of a value by {@link InputValidator}: the rule that rejected it and the value as it was offered, echoed
- * for no more than {@link #MAX_ECHO_LENGTH} characters so a large or sensitive value never leaves the refusal.
+ * for no more than {@link #MAX_ECHO_LENGTH} code points and stripped of control, format and bidi characters, so a large
+ * or hostile value never leaves the refusal and never spoofs the message it is rendered in.
  * <p>
  * The refusal is a value, never an exception (ADR {@code workflow-verify/013}).
  *
  * @param ruleId     the identifier of the rule that rejected the value
- * @param inputValue the value as it was offered, truncated to at most {@link #MAX_ECHO_LENGTH} characters
+ * @param inputValue the value as it was offered, stripped and bounded to {@link #MAX_ECHO_LENGTH} code points
  * @since 0.1
  */
 public record InputRefusal(String ruleId, String inputValue) {
 
-    /** The most characters of a refused value that a refusal echoes. */
+    /** The most code points of a refused value that a refusal echoes. */
     public static final int MAX_ECHO_LENGTH = 80;
 
     /**
@@ -34,13 +35,7 @@ public record InputRefusal(String ruleId, String inputValue) {
     public InputRefusal {
         Objects.requireNonNull(ruleId, "ruleId");
         Objects.requireNonNull(inputValue, "inputValue");
-        if (inputValue.length() > MAX_ECHO_LENGTH) {
-            var end = MAX_ECHO_LENGTH;
-            if (Character.isHighSurrogate(inputValue.charAt(end - 1))) {
-                end--;
-            }
-            inputValue = inputValue.substring(0, end);
-        }
+        inputValue = echo(inputValue);
     }
 
     /**
@@ -52,5 +47,27 @@ public record InputRefusal(String ruleId, String inputValue) {
      */
     public static InputRefusal of(@Nullable String value, String ruleId) {
         return new InputRefusal(ruleId, value == null ? "<null>" : value);
+    }
+
+    private static String echo(String value) {
+        var stripped = new StringBuilder();
+        var codePoints = 0;
+        for (var index = 0; index < value.length() && codePoints < MAX_ECHO_LENGTH; ) {
+            var codePoint = value.codePointAt(index);
+            index += Character.charCount(codePoint);
+            if (hidden(codePoint)) {
+                continue;
+            }
+            stripped.appendCodePoint(codePoint);
+            codePoints++;
+        }
+        return stripped.toString();
+    }
+
+    private static boolean hidden(int codePoint) {
+        return codePoint < 0x20 || (codePoint >= 0x7f && codePoint <= 0x9f)
+                || Character.getType(codePoint) == Character.FORMAT
+                || (codePoint >= 0x202a && codePoint <= 0x202e)
+                || (codePoint >= 0x2066 && codePoint <= 0x2069);
     }
 }

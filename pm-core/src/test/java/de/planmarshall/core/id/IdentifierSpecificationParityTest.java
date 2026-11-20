@@ -9,11 +9,17 @@
  */
 package de.planmarshall.core.id;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -36,6 +42,9 @@ class IdentifierSpecificationParityTest {
 
     private static final String METRICS_SCHEMA = "de/planmarshall/core/store/metrics.schema.json";
 
+    /** The identifier registry, read from the module's working directory beside the specification. */
+    private static final String REGISTRY = "../doc/specification/identifiers/01-general-rules-and-registry.adoc";
+
     @Test
     @DisplayName("the name pattern of the role artifact schema is the role-name pattern")
     void roleNameEqualsSchema() {
@@ -52,6 +61,43 @@ class IdentifierSpecificationParityTest {
 
         assertFalse(expected.isBlank(), "The schema should name the harness-id pattern");
         assertEquals(HarnessId.PATTERN.pattern(), expected, "The harness id should equal the schema pattern");
+    }
+
+    @Test
+    @DisplayName("the registry rows of the command and correlation ids name the code's patterns")
+    void commandAndCorrelationIdsEqualRegistry() {
+        var registry = readRegistry();
+        var commandRow = row(registry, "[[id-command-id]]");
+        var correlationRow = row(registry, "[[id-correlation-id]]");
+
+        assertAll(
+                () -> assertTrue(registry.contains("call_stack"),
+                        "the registry should name the call frame"),
+                () -> assertTrue(namesPattern(commandRow, CommandId.PATTERN.pattern()),
+                        "the command row should carry the code's complete pattern"),
+                () -> assertTrue(namesPattern(correlationRow, CorrelationId.PATTERN.pattern()),
+                        "the correlation row should carry the code's complete pattern"));
+    }
+
+    /** @return the text of the row whose anchor line carries the given anchor, up to the next row */
+    private static String row(String registry, String anchor) {
+        var start = registry.indexOf(anchor);
+        assertTrue(start >= 0, () -> "the registry should carry the row " + anchor);
+        var end = registry.indexOf("\n\n|", start);
+        return end < 0 ? registry.substring(start) : registry.substring(start, end);
+    }
+
+    /** @return whether the row names the pattern, in full and as one backticked token of the pattern cell */
+    private static boolean namesPattern(String row, String pattern) {
+        return row.contains("`" + pattern + "`");
+    }
+
+    private static String readRegistry() {
+        try {
+            return Files.readString(Path.of(REGISTRY));
+        } catch (IOException e) {
+            throw new UncheckedIOException("the identifier registry cannot be read", e);
+        }
     }
 
     private static String patternAt(String schemaResource, String... path) {

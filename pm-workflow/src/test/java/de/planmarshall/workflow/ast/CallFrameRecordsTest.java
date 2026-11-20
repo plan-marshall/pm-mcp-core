@@ -12,7 +12,7 @@ package de.planmarshall.workflow.ast;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
-
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +21,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.id.CommandId;
 import de.planmarshall.core.id.CorrelationId;
+import de.planmarshall.core.store.WorkflowStatus;
 
 /**
  * Proves that the builder of {@link CallFrame} builds the value its canonical constructor builds. Every value is
@@ -43,7 +44,7 @@ class CallFrameRecordsTest {
         var commandId = CommandId.random();
         var correlationId = CorrelationId.random();
 
-        var constructed = new CallFrame(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs,
+        var constructed = new CallFrame(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs, Map.of(),
                 commandId, correlationId, pushedAt);
         var built = CallFrame.builder()
                 .callerWorkflowId(callerWorkflowId)
@@ -51,11 +52,22 @@ class CallFrameRecordsTest {
                 .subWorkflowId(subWorkflowId)
                 .entry(entry)
                 .boundArgs(boundArgs)
+                .argSources(Map.of())
                 .commandId(commandId)
                 .correlationId(correlationId)
                 .pushedAt(pushedAt)
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same call frame");
+    }
+
+    @Test
+    @DisplayName("the AST provenance set is the store's closed set")
+    void provenanceSetsAgree() {
+        var ast = Set.of(ArgSource.LITERAL, ArgSource.CONFIG, ArgSource.DEFAULT, ArgSource.TASK_SUBMIT,
+                ArgSource.OPERATOR_ANSWER);
+
+        assertEquals(WorkflowStatus.CallFrame.ArgSource.SOURCES, ast,
+                "the AST provenance set has the values the store admits");
     }
 }

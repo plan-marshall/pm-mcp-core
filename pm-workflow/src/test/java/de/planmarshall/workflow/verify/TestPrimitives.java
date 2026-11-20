@@ -252,6 +252,10 @@ final class TestPrimitives {
                 input_default: 2
                 input: targets
                 input_type: list<enum[origin|mirror]>
+                input: message
+                input_type: commit_message[1..2000]?
+                input: files
+                input_type: list<path>[0..500]?
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
