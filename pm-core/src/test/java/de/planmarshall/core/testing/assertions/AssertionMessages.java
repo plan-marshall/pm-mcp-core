@@ -28,8 +28,9 @@ import lombok.experimental.UtilityClass;
  * The scan reads the source text of a module's test tree. A call of one of the assertion methods of the rule that
  * carries no message argument fails, and a measured message outside the 20 to 60 character range fails too. A message
  * is measured when it is one string literal, a supplier whose body is one string literal ({@code () -> "..."}), or the
- * name of a {@code static final String} constant the same file declares with one string literal. Any other message — a
- * name the file does not resolve to such a constant, a method reference, a supplier over more than a literal, the
+ * bare or qualified name of a {@code static final String} constant the same file declares with one string literal and
+ * that the name binds to in the scope of the assertion ({@link ConstantScopes}). Any other message — a name the file
+ * does not resolve to such a constant, a method reference, a supplier over more than a literal, the
  * exception's own message, a concatenation or a text block — is accepted and not measured, and the scan lists it in
  * {@link Scan#unmeasured()} with its line and shape; the guards do not fail on that listing, it is the count of what
  * the rule does not reach. An assertion call inside a comment, a string or a text block is not code and is ignored.
@@ -38,17 +39,21 @@ import lombok.experimental.UtilityClass;
  * group carry their own messages, which are measured. A heading of any length is therefore accepted.
  * <p>
  * The scan reads text, not types, and the shapes it cannot tell are stated here so a later plan does not read them as
- * coverage. A {@code <} is a type argument only when the token before it is a {@code .}, a {@code >} or a type name (an
- * upper-case name that carries a lower-case letter, so a constant such as {@code MAX} is an operand), the first token
- * after it starts a type (an upper-case name, a wildcard, an annotation, a primitive array such as {@code int[]}, or a
- * lower-case name qualified by a {@code .}), every comma-separated element between it and its closing {@code >} starts
- * a type, and the {@code >} closes before the enclosing call ends; a comparison is therefore measured as the
- * comparison it is. The third argument of {@code assertEquals}, {@code assertNotEquals} and {@code assertArrayEquals}
- * is a tolerance, so such a call carries no message, when it is a numeric literal, a qualified or bare upper-case name
- * ({@code Fixtures.EPS}, a statically imported {@code EPS}) that the file does not declare as a {@code String}, or an
- * expression that is neither a literal, a text block nor supplier-shaped beside a floating-point operand. A single
- * argument passed to {@code fail} that names a throwable the source declares, or that constructs one with {@code new},
- * is the cause, not the message. A comment beside a message literal does not hide it from the measurement.
+ * coverage. A {@code <} is a type argument only when it stands in a type context — after a type name constructed with
+ * {@code new} (of any case), after the {@code .} of an explicit method type argument, before a method reference, or
+ * inside a type argument already opened (then after an upper-case name that carries a lower-case letter) — the first
+ * token after it starts a type (an upper-case name, a wildcard, an annotation, a primitive array such as {@code int[]},
+ * or a lower-case name qualified by a {@code .}), every comma-separated element between it and its closing {@code >}
+ * starts a type, and the {@code >} closes before the enclosing call ends; a comparison such as
+ * {@code Low < Max, Min > High} is therefore measured as the comparison it is. The third argument of
+ * {@code assertEquals}, {@code assertNotEquals} and {@code assertArrayEquals} is a tolerance, so such a call carries no
+ * message, when it is a numeric literal, a qualified or bare upper-case name ({@code Fixtures.EPS}, a statically
+ * imported {@code EPS}) that the file does not declare as a {@code String}, or an expression that is neither a literal,
+ * a text block, supplier-shaped nor a name the file declares as a {@code String} beside a floating-point operand. A
+ * single argument passed to {@code fail} that names a throwable the source declares, or that is as a whole a
+ * {@code new} of a throwable ({@code Exception}, {@code Throwable}, {@code Error} or a name ending in one), is the
+ * cause, not the message. A comment beside or inside a message does not hide it from the measurement, and quotes
+ * inside a comment are no message.
  * <p>
  * A module adds the scan to its own test tree with a thin test that names its base package; {@code pm-core}'s guard is
  * the first of them. A package that a scan names and that holds no test source fails the scan instead of passing as
@@ -185,7 +190,7 @@ public class AssertionMessages {
             if (!ASSERTIONS.contains(name) || open >= view.length() || view.charAt(open) != '(') {
                 continue;
             }
-            var prefix = path + ":" + lineAt(view, start) + " " + name + ": ";
+            var prefix = path + ":" + CodeView.lineAt(view, start) + " " + name + ": ";
             var verdict = measurement.verdictOf(name, open);
             if (verdict.kind() == MessageMeasurement.Kind.REFUSED) {
                 violations.add(prefix + verdict.text());
@@ -203,16 +208,6 @@ public class AssertionMessages {
             }
         }
         return false;
-    }
-
-    private static int lineAt(String view, int position) {
-        var line = 1;
-        for (var index = 0; index < position; index++) {
-            if (view.charAt(index) == '\n') {
-                line++;
-            }
-        }
-        return line;
     }
 
     private static String relative(Path root, Path file) {

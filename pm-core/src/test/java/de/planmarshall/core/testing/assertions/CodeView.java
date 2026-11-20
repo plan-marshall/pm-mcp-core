@@ -9,26 +9,30 @@
  */
 package de.planmarshall.core.testing.assertions;
 
-import lombok.experimental.UtilityClass;
+import java.util.BitSet;
 
 /**
  * The lexer of {@link AssertionMessages}: the view of a source text in which only code is left readable.
  * <p>
  * Comments and the content of string, character and text-block literals are blanked to spaces, while the delimiters of
- * a string are kept, so a call inside a comment or a literal is not read as code. The length and the line breaks of the
- * source are kept, so an index into the view is an index into the source.
+ * a string are kept, so a call inside a comment or a literal is not read as code. A text block is blanked whole,
+ * delimiters included, and its opening is recorded in {@link #textBlocks()}, so a blank argument can still be told from
+ * a text block. The length and the line terminators of the source — a line feed, a carriage return or both — are kept,
+ * so an index into the view is an index into the source and a line counted in the view is a line of the source.
  *
+ * @param view the source text with comments and the content of string, character and text-block literals blanked
+ * @param textBlocks the indices at which a text block opens
  * @since 0.1
  */
-@UtilityClass
-class CodeView {
+record CodeView(String view, BitSet textBlocks) {
 
     /**
      * @param source the source text
-     * @return the same text with comments and the content of string, character and text-block literals blanked
+     * @return the lexed view of the source
      */
-    static String of(String source) {
+    static CodeView of(String source) {
         var view = new StringBuilder(source);
+        var textBlocks = new BitSet();
         var state = State.CODE;
         for (var index = 0; index < source.length(); index++) {
             var current = source.charAt(index);
@@ -40,9 +44,11 @@ class CodeView {
                         view.setCharAt(index, ' ');
                     } else if (current == '/' && next == '*') {
                         state = State.BLOCK_COMMENT;
-                        view.setCharAt(index, ' ');
+                        blank(view, index, 2);
+                        index++;
                     } else if (opensTextBlock(source, index)) {
                         state = State.TEXT_BLOCK;
+                        textBlocks.set(index);
                         blank(view, index, 3);
                         index += 2;
                     } else if (current == '"') {
@@ -52,7 +58,7 @@ class CodeView {
                     }
                 }
                 case LINE_COMMENT -> {
-                    if (current == '\n') {
+                    if (isLineTerminator(current)) {
                         state = State.CODE;
                     } else {
                         view.setCharAt(index, ' ');
@@ -63,19 +69,21 @@ class CodeView {
                         blank(view, index, 2);
                         index++;
                         state = State.CODE;
-                    } else if (current != '\n') {
+                    } else if (!isLineTerminator(current)) {
                         view.setCharAt(index, ' ');
                     }
                 }
                 case TEXT_BLOCK -> {
-                    if (current == '\\' && index + 1 < source.length()) {
+                    if (current == '\\' && isLineTerminator(next)) {
+                        view.setCharAt(index, ' ');
+                    } else if (current == '\\' && index + 1 < source.length()) {
                         blank(view, index, 2);
                         index++;
                     } else if (opensTextBlock(source, index)) {
                         blank(view, index, 3);
                         index += 2;
                         state = State.CODE;
-                    } else if (current != '\n') {
+                    } else if (!isLineTerminator(current)) {
                         view.setCharAt(index, ' ');
                     }
                 }
@@ -86,13 +94,44 @@ class CodeView {
                         index++;
                     } else if (current == closing) {
                         state = State.CODE;
-                    } else if (current != '\n') {
+                    } else if (!isLineTerminator(current)) {
                         view.setCharAt(index, ' ');
                     }
                 }
             }
         }
-        return view.toString();
+        return new CodeView(view.toString(), textBlocks);
+    }
+
+    /**
+     * @param text the text to count in
+     * @param position the index whose line is asked for
+     * @return the one-based line of the index, a carriage return followed by a line feed counted as one terminator
+     */
+    static int lineAt(String text, int position) {
+        var line = 1;
+        for (var index = 0; index < position; index++) {
+            var current = text.charAt(index);
+            if (current == '\n' || (current == '\r' && (index + 1 >= text.length() || text.charAt(index + 1) != '\n'))) {
+                line++;
+            }
+        }
+        return line;
+    }
+
+    /**
+     * @param from the first index of a span
+     * @param to the index after its end
+     * @return whether a text block opens inside the span
+     */
+    boolean opensTextBlockIn(int from, int to) {
+        var opening = textBlocks.nextSetBit(from);
+        return opening >= 0 && opening < to;
+    }
+
+    /** @return whether a character ends a line: a line feed or a carriage return */
+    private static boolean isLineTerminator(char current) {
+        return current == '\n' || current == '\r';
     }
 
     /** @return whether three double quotes start at {@code index}, the delimiter of a text block */
