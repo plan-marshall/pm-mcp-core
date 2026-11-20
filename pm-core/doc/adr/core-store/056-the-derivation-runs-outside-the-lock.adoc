@@ -41,6 +41,15 @@ the reading a caller receives is the entry as it stands after its own attempt. O
 wrong, because a caller that started from an older snapshot may still write at a later instant. A failed derivation is
 not part of this rule: it keeps the value and digest of the last good derivation (ADR `core-store/057`).
 
+That failure rule has no digest component, so a failure of one digest marks the entry of another `stale`: the value,
+`input_digest` and `derived_at` that are kept are the last good ones, the failure and its reason are recorded on that
+entry, and the reading is `indeterminate` until the next refresh heals it — the specification's failure rule, "a failed
+derivation keeps the last value with `state: stale` and records its failure", applied to the entry whatever digest its
+value came from. The decision taken here is to keep it: a derivation the store could not complete is announced, and a
+value the store can no longer vouch for is never returned as `current`. `DerivedFactRefreshTest` § the write rule across
+two digests pins both directions — the older-digest success that wins, and the failure that marks the newer entry stale
+and is healed by that entry's own digest.
+
 == Alternatives Considered
 
 * Holding the lock across the derivation: a provider call under the derived-facts lock would make every writer of the
