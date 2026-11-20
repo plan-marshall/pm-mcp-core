@@ -19,8 +19,8 @@
  * <p>
  * Specification:
  * <ul>
- * <li>{@code doc/specification/client-profiles/01-profile-schema.adoc}</li>
- * <li>{@code doc/specification/client-profiles/02-placeholders.adoc}</li>
+ * <li>{@code doc/specification/harness-profiles/01-profile-schema.adoc}</li>
+ * <li>{@code doc/specification/harness-profiles/02-placeholders.adoc}</li>
  * </ul>
  */
 @NullMarked

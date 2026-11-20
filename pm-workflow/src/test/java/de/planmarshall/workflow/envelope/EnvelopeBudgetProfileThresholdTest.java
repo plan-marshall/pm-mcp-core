@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,17 +23,17 @@ import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.LongContextThresholds;
 import de.planmarshall.workflow.envelope.EnvelopeBudget.Source;
-import org.jspecify.annotations.Nullable;
 
 /**
- * The cap of the envelope budget on a threshold read from a parsed profile document (Model Work § Cost Sizing, Envelope
- * Budget, item 4): {@link LongContextThresholds} answers the entry of the model, and {@link EnvelopeBudget} caps its
- * fallbacks at it while a role value above it stays as set.
+ * The cap of the envelope budget on a threshold read from a parsed profile document (Model Work § Cost Sizing,
+ * Envelope Budget, item 4): {@link LongContextThresholds} answers the entry of the model, and {@link EnvelopeBudget}
+ * caps its fallbacks at it while a role value above it stays as set.
  * <p>
  * The document is the member's shape as a test can parse it (`JsonDocument.parse`); the same reader takes the tree a
- * validated profile carries. The signature here is the shipped one: {@code EnvelopeBudget.resolve} takes {@code @Nullable
- * Long} values, not the {@code OptionalInt} that PLAN-V2-40's outline named (ADR {@code workflow-envelope/003}: an
- * {@code Optional} is a return type only), so the threshold is handed over at the type it has.
+ * validated profile carries. The signature here is the shipped one: {@code EnvelopeBudget.resolve} takes
+ * {@code @Nullable Long} values, not the {@code OptionalInt} that PLAN-V2-40's outline named (ADR
+ * {@code workflow-envelope/003}: an {@code Optional} is a return type only), so the threshold is handed over at the
+ * type it has.
  */
 // Every datum in this class is a contract: the profile's member names and the schema's budget and threshold bounds.
 @DisplayName("Envelope budget from a profile's long-context threshold")

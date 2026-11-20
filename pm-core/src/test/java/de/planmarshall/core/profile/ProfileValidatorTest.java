@@ -104,6 +104,20 @@ class ProfileValidatorTest {
     }
 
     @Test
+    @DisplayName("a threshold of the model id a/b below 10 000 is refused at the RFC 6901 pointer .../a~1b")
+    void longContextThresholdPointerIsEscaped() {
+        // the model id with a slash and the pointer escaping it as ~1 are the contract (RFC 6901)
+        var bytes = ProfileFixtures.valid().set("/headless/long_context_thresholds", Map.of("a/b", 9999)).bytes();
+        var rules = ProfileRules.none();
+
+        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileValidator.validate(bytes, DOCUMENT, rules),
+                "a threshold below the minimum must be refused");
+
+        assertEquals("/headless/long_context_thresholds/a~1b", refusal.pointer(),
+                "the refusal names the escaped model id");
+    }
+
+    @Test
     @DisplayName("a profile whose MCP configuration is exclusive loads every class it declares")
     void exclusiveConfigurationLoadsEveryClass() {
         var fixture = ProfileFixtures.valid();
