@@ -1,0 +1,23 @@
+---
+name: verify.reason-bearing-outcome
+description: A unit written for the verifier tests.
+type: workflow
+icon: workflow.default
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# A plan unit that routes the failure outcome with three reasons by one transition and no reason by any.
+workflow verify.reason-bearing-outcome version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    auto reason.check
+        passed -> verify.done
+        failed -> verify.failed
+        skipped -> verify.done
+
+state verify.failed terminal failed failure
+
+state verify.done terminal done success
