@@ -19,8 +19,9 @@ import lombok.experimental.UtilityClass;
  * {@link CodeView code view} of a source.
  * <p>
  * A comma splits two arguments unless it sits inside brackets or inside a type argument. Whether a {@code <} opens a
- * type argument or is a comparison is decided by the heuristics of this class, stated on
- * {@link #opensTypeArgument(String, int)}.
+ * type argument or is a comparison is decided by the heuristics of this class: the angles must read like type syntax
+ * and stand in a type context — after {@code new}, after the {@code .} of an explicit method type argument, before a
+ * method reference, or inside a type argument already opened.
  *
  * @since 0.1
  */
@@ -56,7 +57,7 @@ class ArgumentSpans {
             } else if (current == ',' && depth == 0 && angles == 0) {
                 spans.add(new int[]{start, index});
                 start = index + 1;
-            } else if (current == '<' && index > open + 1 && opensTypeArgument(view, index)) {
+            } else if (current == '<' && index > open + 1 && opensTypeArgument(view, index, angles > 0)) {
                 angles++;
             } else if (current == '>' && angles > 0 && view.charAt(index - 1) != '-') {
                 angles--;
@@ -79,17 +80,14 @@ class ArgumentSpans {
     }
 
     /**
-     * @return whether the {@code <} at {@code index} opens a type argument rather than a comparison: the token before
-     *         it (whitespace skipped) is a {@code .}, a {@code >} or a type name, the first token after it starts a
-     *         type, every comma-separated element before the closing {@code >} starts a type, and that {@code >}
-     *         closes before the enclosing call ends
+     * @param nested whether the {@code <} sits inside a type argument already opened
+     * @return whether the {@code <} at {@code index} opens a type argument rather than a comparison: the first token
+     *         after it starts a type, every comma-separated element before the closing {@code >} starts a type, that
+     *         {@code >} closes before the enclosing call ends, and the {@code <} stands in a type context
      */
-    static boolean opensTypeArgument(String view, int index) {
-        var previous = index - 1;
-        while (previous >= 0 && Character.isWhitespace(view.charAt(previous))) {
-            previous--;
-        }
-        if (previous < 0 || !endsAType(view, previous)) {
+    private static boolean opensTypeArgument(String view, int index, boolean nested) {
+        var previous = previousNonWhitespace(view, index - 1);
+        if (previous < 0) {
             return false;
         }
         var next = nextNonWhitespace(view, index + 1);
@@ -97,29 +95,73 @@ class ArgumentSpans {
             return false;
         }
         var close = matchingAngle(view, index);
-        return close > 0 && everyElementStartsAType(view, index + 1, close)
-                && followedLikeAType(view, close);
+        return close > 0 && everyElementStartsAType(view, index + 1, close) && followedLikeAType(view, close)
+                && inTypeContext(view, previous, close, nested);
     }
 
     /**
-     * @return whether the token ending at {@code last} can end the type a type argument follows: a {@code .} of an
-     *         explicit method type argument, a {@code >}, or a type name — an upper-case name that carries a
-     *         lower-case letter, so a constant such as {@code MAX} is the operand of a comparison
+     * A name before a {@code <} is not enough to make it a type argument, since {@code Low < Max, Min > High} names
+     * one too; the type context is what tells the two apart.
+     *
+     * @return whether the token ending at {@code previous} puts the {@code <} in a type context: a {@code .} of an
+     *         explicit method type argument ({@code Map.<K, V>of()}), a {@code >}, a type name constructed with
+     *         {@code new} (of any case, as {@code new KV<K, V>()}), a type name whose type argument a method reference
+     *         follows ({@code HashMap<K, V>::new}), or — inside a type argument already opened — an upper-case name
+     *         that carries a lower-case letter, so a constant such as {@code MAX} stays the operand of a comparison
      */
-    private static boolean endsAType(String view, int last) {
-        var before = view.charAt(last);
+    private static boolean inTypeContext(String view, int previous, int close, boolean nested) {
+        var before = view.charAt(previous);
         if (before == '.' || before == '>') {
             return true;
         }
         if (!Character.isJavaIdentifierPart(before)) {
             return false;
         }
+        var first = identifierStart(view, previous);
+        if (constructedWithNew(view, first) || followedByMethodReference(view, close)) {
+            return true;
+        }
+        var name = view.substring(first, previous + 1);
+        return nested && Character.isUpperCase(name.charAt(0)) && name.chars().anyMatch(Character::isLowerCase);
+    }
+
+    /** @return whether the possibly qualified type name starting at {@code first} follows the keyword {@code new} */
+    private static boolean constructedWithNew(String view, int first) {
+        var start = first;
+        var before = previousNonWhitespace(view, start - 1);
+        while (before >= 0 && view.charAt(before) == '.') {
+            var segmentEnd = previousNonWhitespace(view, before - 1);
+            if (segmentEnd < 0 || !Character.isJavaIdentifierPart(view.charAt(segmentEnd))) {
+                return false;
+            }
+            start = identifierStart(view, segmentEnd);
+            before = previousNonWhitespace(view, start - 1);
+        }
+        return before >= 0 && "new".equals(view.substring(identifierStart(view, before), before + 1));
+    }
+
+    /** @return whether a method reference {@code ::} follows the {@code >} at {@code close} */
+    private static boolean followedByMethodReference(String view, int close) {
+        var next = nextNonWhitespace(view, close + 1);
+        return next + 1 < view.length() && view.charAt(next) == ':' && view.charAt(next + 1) == ':';
+    }
+
+    /** @return the first index of the identifier that ends at {@code last} */
+    private static int identifierStart(String view, int last) {
         var first = last;
         while (first > 0 && Character.isJavaIdentifierPart(view.charAt(first - 1))) {
             first--;
         }
-        var name = view.substring(first, last + 1);
-        return Character.isUpperCase(name.charAt(0)) && name.chars().anyMatch(Character::isLowerCase);
+        return first;
+    }
+
+    /** @return the index of the last character at or before {@code from} that is not whitespace, or {@code -1} */
+    private static int previousNonWhitespace(String view, int from) {
+        var index = from;
+        while (index >= 0 && Character.isWhitespace(view.charAt(index))) {
+            index--;
+        }
+        return index;
     }
 
     /**
