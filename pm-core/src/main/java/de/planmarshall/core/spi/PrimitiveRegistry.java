@@ -39,8 +39,8 @@ import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
  * <li>its parameter type, a record class whose free parameters are texts with bounds that can hold;</li>
  * <li>its outcome type, a closed enum whose outcomes each have a class and a wire name of their own that is not
  * reserved for the engine;</li>
- * <li>the reasons an outcome declares, a closed enum of the classes that admit one, with wire names of their own and
- * a condition kind a primitive can originate;</li>
+ * <li>the reasons an outcome declares, a closed enum of the classes that admit one, with wire names of their own that
+ * the history line can store (no hyphen, unlike an outcome's) and a condition kind a primitive can originate;</li>
  * <li>its job: it enqueues one exactly when one of its outcomes starts one;</li>
  * <li>its cycle measure, which it declares, and its exhaustion outcome: a primitive with an attempt cap names one
  * of its outcomes of class {@link OutcomeClass#FAILURE}, and every other primitive names none;</li>
@@ -59,6 +59,12 @@ public final class PrimitiveRegistry {
     private static final Pattern WIRE_NAME = Pattern.compile(IDENTIFIER);
 
     private static final Pattern PRIMITIVE_ID = Pattern.compile(IDENTIFIER + "\\." + IDENTIFIER);
+
+    /**
+     * The grammar of a reason's wire name: the one the history line can store (its member {@code reason}), so a
+     * registered reason never fails when the engine writes it. It differs from {@link #WIRE_NAME} by the hyphen.
+     */
+    private static final Pattern REASON_WIRE_NAME = Pattern.compile("[a-z][a-z0-9_]{0,31}");
 
     /** The outcome classes that explain "why not"; only these admit a reason. */
     private static final Set<OutcomeClass> ADMITTING_REASON_CLASSES = EnumSet.of(OutcomeClass.FAILURE,
@@ -256,8 +262,8 @@ public final class PrimitiveRegistry {
             var wireName = reason.wireName();
             if (!isReasonWireName(wireName)) {
                 throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_WIRE_NAME,
-                        "has the reason %s with the wire name '%s', which is not a lower-case identifier"
-                                .formatted(reason, wireName));
+                        ("has the reason %s with the wire name '%s', which is not a lower-case identifier of letters,"
+                                + " digits and underscores").formatted(reason, wireName));
             }
             var first = seen.putIfAbsent(wireName, reason);
             if (first != null) {
@@ -270,7 +276,7 @@ public final class PrimitiveRegistry {
 
     private static boolean isReasonWireName(Object wireName) {
         // A primitive compiled against a raw PrimitiveOutcome can answer a null wire name, which is refused here.
-        return wireName instanceof String name && WIRE_NAME.matcher(name).matches();
+        return wireName instanceof String name && REASON_WIRE_NAME.matcher(name).matches();
     }
 
     private static void checkReasonConditions(String id, List<OutcomeReason> reasons) {

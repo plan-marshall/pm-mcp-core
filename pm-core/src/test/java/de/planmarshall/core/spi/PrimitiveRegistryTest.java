@@ -233,6 +233,25 @@ class PrimitiveRegistryTest {
                     "the old wire-name refusal is the one that decides");
         }
 
+        /**
+         * An outcome's wire name may carry a hyphen, but the history line stores a reason only as letters, digits
+         * and underscores. A reason the registry admitted with a hyphen would run its primitive and then fail when
+         * the engine writes the history, so the registry refuses it before any workflow runs.
+         */
+        @Test
+        @DisplayName("a reason wire name with a hyphen is refused, as the history line cannot store it (contract)")
+        void refusesHyphenatedReasonWireName() {
+            var thrown = refusalOf(List.of(ReasonPrimitives.hyphenatedReason()));
+
+            assertAll(
+                    () -> assertEquals(Reason.MALFORMED_REASON_WIRE_NAME, thrown.getReason(),
+                            "a hyphenated reason wire name is refused"),
+                    () -> assertEquals("MALFORMED_REASON_WIRE_NAME: primitive 'test.reason-hyphenated' has the "
+                            + "reason OUTSIDE_FOOTPRINT with the wire name 'outside-footprint', which is not a "
+                            + "lower-case identifier of letters, digits and underscores", thrown.getMessage(),
+                            "the refusal names the reason and the grammar"));
+        }
+
         @Test
         @DisplayName("a second primitive with the id of the first is refused")
         void refusesDuplicateId() {

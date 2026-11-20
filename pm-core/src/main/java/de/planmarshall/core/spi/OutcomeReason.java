@@ -39,7 +39,9 @@ public interface OutcomeReason {
 
     /**
      * @return the name a log, a diagnostic or a diagram prints the reason by; unique within the reason enum of its
-     *         outcome, and a lower-case identifier of the form of an outcome's wire name. The rule is stated in
+     *         outcome, and of at most 32 characters: a lower-case letter, then lower-case letters, digits and
+     *         underscores. Unlike an outcome's wire name it carries no hyphen, because the history line stores the
+     *         reason in that form and the registry refuses any other. The rule is stated in
      *         {@code doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons}.
      */
     String wireName();

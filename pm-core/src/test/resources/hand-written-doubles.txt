@@ -32,6 +32,8 @@ de/planmarshall/core/spi/PrimitiveResultTest.java#TestReason#1
 de/planmarshall/core/spi/ReasonPrimitives.java#EmptyReason#1
 de/planmarshall/core/spi/ReasonPrimitives.java#EmptyReasonOutcome#1
 de/planmarshall/core/spi/ReasonPrimitives.java#ForeignEnumReasonOutcome#1
+de/planmarshall/core/spi/ReasonPrimitives.java#HyphenatedWireReason#1
+de/planmarshall/core/spi/ReasonPrimitives.java#HyphenatedWireReasonOutcome#1
 de/planmarshall/core/spi/ReasonPrimitives.java#IndeterminateReasonedOutcome#1
 de/planmarshall/core/spi/ReasonPrimitives.java#MixedOutcome#1
 de/planmarshall/core/spi/ReasonPrimitives.java#NonClassReasonOutcome#1

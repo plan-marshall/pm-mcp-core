@@ -78,7 +78,10 @@ public final class PrimitiveRegistrationException extends IllegalArgumentExcepti
          * {@link OutcomeClass#INDETERMINATE} and {@link OutcomeClass#SKIP} explain "why not".
          */
         REASON_ON_UNADMITTING_CLASS,
-        /** The wire name of a reason is missing or is not a lower-case identifier. */
+        /**
+         * The wire name of a reason is missing or is not a lower-case identifier of letters, digits and underscores;
+         * unlike an outcome's wire name it admits no hyphen, which the history line could not store.
+         */
         MALFORMED_REASON_WIRE_NAME,
         /** Two reasons of one enum have the same wire name. */
         DUPLICATE_REASON_WIRE_NAME,

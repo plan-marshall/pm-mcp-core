@@ -160,7 +160,7 @@ failure until its baseline line and its reason here exist; a baseline line witho
 === The 2026-11-20 amendment
 
 A pull request of PLAN-V2-19 (`engine-carries-reasons`) adds the outcome and reason enums of its reason fixtures to
-the scan's population of `pm-workflow`. They are not doubles by this ADR's definition: an enum constant keeps no state
+the scan's population of `pm-workflow` and `pm-core`. They are not doubles by this ADR's definition: an enum constant keeps no state
 and records no call. The scan lists them because it matches every type that implements a production interface, as it
 lists the outcome enums of `EngineFixtures`, `TestPrimitives` and `InvariantFixtures` already.
 
@@ -176,6 +176,10 @@ lists the outcome enums of `EngineFixtures`, `TestPrimitives` and `InvariantFixt
   twin `reason.plain`, the matched control of the Rule 9 cases. The registry reads the outcome set from an enum class
   and `PrimitiveOutcome#reasonType()` answers an enum class of `OutcomeReason`, so the same type-system constraint
   holds; no conversion is possible.
+* `pm-core` `spi.ReasonPrimitives.HyphenatedWireReason` and `HyphenatedWireReasonOutcome` — the refusal case of a
+  reason wire name with a hyphen (`MALFORMED_REASON_WIRE_NAME`, ADR core-spi/013), beside the other malformed reason
+  fixtures of `ReasonPrimitives` the baseline already lists. The registry reads the outcome set and the reason set from
+  enum classes, so the same type-system constraint holds; no conversion is possible.
 
 == Alternatives Considered
 
