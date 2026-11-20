@@ -519,13 +519,18 @@ it completes an end, so the tail a worker wrote before its exit reaches the jour
 the reason the cause and the loss signal name.
 
 **The end path completes against the store** (ADR 017, which retires the blocker ADR 014 recorded). The runner's
-settlement writes the terminal worker block in the same transaction as the job's fate, so a settled record carries its
-terminal state and `JobRecordStore.writeWorker` is never asked to change a settled record. `WorkerEnding.exited` then
-fences the generation, revokes its job token, releases its model slot and reads the terminal state from the record. The
-end's side effects run once per generation, marked on the generation's own request, so a retry keeps its cause and
-repeats nothing (ADR 018); a generation whose end fails is reported as `PM_RUNTIME-149` and the pass goes on, and a
-failing idle yield is reported as `PM_RUNTIME-150`. `SupervisionPass` creates a running generation's loss detection at its
-first advance and completes an end outside the calls' monitor (ADR 019).
+settlement writes the terminal worker block in the same transaction as the job's fate, derived from the worker block the
+record carries under that transaction's lock — so a state the transport wrote after the runner read its record is not
+overwritten by the older text — and a settled record therefore carries its terminal state while
+`JobRecordStore.writeWorker` is never asked to change a settled record. `WorkerEnding.exited` then fences the generation,
+revokes its job token, releases its model slot and reads the terminal state from the record; the ending holds its own
+monitor only for the claim of its request and for the removal of it, so a deadline that fires while the fence, the revoke,
+the release and the terminal read run is dispatched instead of waiting for them (ADR 019). A worker block the codec cannot
+read is reported as `PM_RUNTIME-151` and does not stop the end. The end's side effects run once per generation, marked on
+the generation's own request, so a retry keeps its cause and repeats nothing (ADR 018); a generation whose end fails is
+reported as `PM_RUNTIME-149` and the pass goes on, and a failing idle yield is reported as `PM_RUNTIME-150`.
+`SupervisionPass` creates a running generation's loss detection at its first advance, settles it with every end it claims
+and completes an end outside the calls' monitor (ADR 019).
 
 What the package still owes, and to whom: the transport that implements `WorkerProtocol` and forwards `SupervisorCalls`,
 the scheduling of `SupervisionPass.run()` and the construction of the pump, the recorder and the mapper per role (all
@@ -713,7 +718,10 @@ the size and failure of a tool result, never its content. A line that matches no
 link:{src}/WorkerActivityPump.java[`WorkerActivityPump`] drives the reading while the worker runs: it keeps the byte
 offset of the worker's `JobLog`, maps the complete lines the log gained, appends each through the recorder, and appends
 the `attempt_end` entry with the count of unmatched lines when the attempt ends
-(link:../adr/runtime-worker/011-the-stream-reader-is-a-pump-over-the-job-log.adoc[ADR 011]).
+(link:../adr/runtime-worker/011-the-stream-reader-is-a-pump-over-the-job-log.adoc[ADR 011]). The offset belongs to the
+attempt it was read for: the pump closes that attempt — its tail and its end — before it reads another task, and a tail
+the log cannot serve for a reason that may heal keeps the attempt open, so no line is ever attributed to a task that did
+not write it.
 
 link:{src}/ActivityRecorder.java[`ActivityRecorder`] is the harness-side write path into the journal of the task's
 scope: the journal hands it the attempt's entries inside its own transaction, it evaluates the off-track signals there,

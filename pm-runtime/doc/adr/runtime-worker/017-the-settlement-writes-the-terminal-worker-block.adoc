@@ -22,14 +22,18 @@ and that the pass afterwards completes only the fence, the token revoke and the 
 
 == Decision
 
-`SettlementStep.fate` derives the terminal worker state from the settled record and writes it in the same transaction as
-the fate, through `WorkerTermination.terminal`. The fate and the worker's own connection decide the end reason: a worker
-that never connected failed to start, a succeeded job served its task, a timed-out job reached its budget, a killed job
-drained, a cancelled job was withdrawn and every other fate is the exit loss. The state, its instant (the record's
-`ended_at`), the end reason, the start-failure flag and the cleared lease reach the value in one construction.
+`SettlementStep.fate` derives the terminal worker state from the worker block the record carries under the fate
+transaction's lock — not from the text the runner read when it decided the fate — and writes it in the same transaction as
+the fate, through `WorkerTermination.terminal`. A worker state the transport wrote after that read (`writeWorker`, which
+updates only the record's `worker` member) is therefore never overwritten by the older text the runner holds, and the
+connection instant among it survives. The fate and the worker's own connection decide the end reason: a worker that never
+connected failed to start, a succeeded job served its task, a timed-out job reached its budget, a killed job drained, a
+cancelled job was withdrawn and every other fate is the exit loss. The state, its instant (the record's `ended_at`), the
+end reason, the start-failure flag and the cleared lease reach the value in one construction.
 
 `WorkerEnding.exited` reads the terminal state from the record instead of writing it. A worker block the codec cannot read
-is left as it is: the fate is what must be durable, and a malformed block is for its reader to report.
+is left as it is: the fate is what must be durable. Its reader reports the refusal (`PM_RUNTIME-151`) and answers no
+terminal state, so the end completes without it instead of failing on that record on every pass.
 
 == Alternatives considered
 

@@ -28,8 +28,13 @@ an observed exit still decide one generation together.
 
 `completeEnd` takes the calls' monitor twice: to claim the end (settle the detection, read the requested end, append the
 attempt's end once) and to record its result (replace the generation, forget its values). The end work runs outside it.
-`WorkerEnding.exited` remains `synchronized` on its own instance, so a transport call cannot end a generation whose end
-is being completed.
+The claim settles the generation's detection in both cases, also for a settled worker that holds no task, so no silence
+deadline fires into an end that already ran.
+
+`WorkerEnding.exited` holds its own monitor only for the request's claim and its removal. The fence, the token revoke, the
+slot release, the read of the terminal state and the successor start run outside it, and the claim is written before the
+effects run, so a deadline that lands meanwhile finds the request and installs no second end. An end the supervisor never
+requested keeps its cause absent in the claim, so a retry after a failed read is classified by the record again.
 
 == Alternatives considered
 
@@ -45,10 +50,10 @@ is being completed.
 * A worker that never calls is lost at the deadline of "silent from spawn" (bounded wait plus silence grace), not at the
   runner's budget.
 * The lock order the guide names is unchanged: a transport call still holds the calls' monitor and then the ending's,
-  and the end work runs without the calls' monitor. A deadline that fires while an end runs is dispatched through the
-  calls' monitor without waiting for the store, and waits for the ending's monitor only while that monitor is held —
-  which the end path holds for its whole duration, so a timer thread still waits for the end it fires during. That
-  residual wait is the residue of PLAN-V2-156's N-4, reported rather than hidden.
+  and the end work runs without either monitor. A deadline that fires while an end runs — for the ending generation or
+  for another one — travels through the calls' monitor and the ending's claim without waiting for the store, a process
+  start or the terminal read. What remains is the claim itself: a deadline waits for the claim's two short critical
+  sections, never for the effects.
 * A concurrent transport call may write the generation while an end is being completed; the end's terminal replacement
   wins, and the finer race (a change made after the generation snapshot was taken) stays the residue of PLAN-V2-156.
 

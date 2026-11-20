@@ -795,7 +795,7 @@ class SupervisionPassTest {
         assertTrue(inside.await(5, TimeUnit.SECONDS), "the end path reached the fence");
         var cancelsBefore = fixture.cancels.size();
         assertTimeoutPreemptively(Duration.ofSeconds(2), () -> fixture.advance(Duration.ofSeconds(901)),
-                "the silent generation's deadline is dispatched while the end runs");
+                "a deadline is dispatched mid-end");
         gate.countDown();
         runner.join(TimeUnit.SECONDS.toMillis(5));
 
