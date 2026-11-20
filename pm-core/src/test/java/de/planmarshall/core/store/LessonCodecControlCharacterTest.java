@@ -30,13 +30,18 @@ import de.planmarshall.core.store.LessonFrontMatter.Promotion;
 import de.planmarshall.core.store.LessonFrontMatter.Remedy;
 import de.planmarshall.core.store.LessonFrontMatter.Retired;
 import de.planmarshall.core.store.LessonFrontMatter.Retired.Verdict;
+import de.planmarshall.core.store.LessonFrontMatter.Revision;
 import de.planmarshall.core.store.LessonFrontMatter.Source;
 import de.planmarshall.core.store.LessonFrontMatter.Status;
 
 /**
- * U+007F (DEL) in the front matter of a lesson (Store Schemas § Lesson Record; ADR core-store/061): the writer escapes
- * it, so every string member reads back unchanged instead of being refused by the YAML reader. DEL is the one control
- * character below U+0080 that YAML does not admit literally, so it is escaped beside the non-ASCII characters.
+ * U+007F (DEL) and a C0 control character in the front matter of a lesson (Store Schemas § Lesson Record; ADR
+ * core-store/061): the writer escapes them, so every string member reads back unchanged instead of being refused by
+ * the YAML reader. DEL is the one control character below U+0080 the YAML writer must escape itself, beside the
+ * non-ASCII characters; the C0 range is escaped by the JSON writer already.
+ * <p>
+ * The literals the assertions pin are the contract — the escaped wire form {@code \u007F}, DEL itself and the C0
+ * control character the round trip is stated for; every prose member of a fixture is generated.
  */
 @EnableGeneratorController
 @DisplayName("Lesson codec and DEL")
@@ -48,29 +53,44 @@ class LessonCodecControlCharacterTest {
     /** DEL itself, the character the writer must escape. */
     private static final String DEL = "\u007F";
 
+    /** A C0 control character, the range the JSON writer escapes already. */
+    private static final String C0 = "\u0001";
+
     static Stream<Arguments> members() {
         return Stream.of(
-                Arguments.of("component", live(builder -> builder.component("A component" + DEL))),
-                Arguments.of("bundle", live(builder -> builder.bundle("A bundle" + DEL))),
-                Arguments.of("tool_version", live(builder -> builder.toolVersion("1.2.3" + DEL))),
+                Arguments.of("component", live(builder -> builder.component(text() + DEL))),
+                Arguments.of("bundle", live(builder -> builder.bundle(text() + DEL))),
+                Arguments.of("tool_version", live(builder -> builder.toolVersion(text() + DEL))),
                 Arguments.of("rule", live(builder -> builder.category(Category.ARCH_CONSTRAINT)
-                        .rule("A rule" + DEL))),
+                        .rule(text() + DEL))),
                 Arguments.of("remedy.statement", live(builder -> builder.remedy(
-                        new Remedy(Remedy.Kind.REVIEW_STANDARD, "A standard" + DEL, null)))),
+                        new Remedy(Remedy.Kind.REVIEW_STANDARD, statement() + DEL, null)))),
                 Arguments.of("remedy.check", live(builder -> builder.remedy(
-                        new Remedy(Remedy.Kind.WIRE_CHECK, "A standard", "A check" + DEL)))),
+                        new Remedy(Remedy.Kind.WIRE_CHECK, statement(), text() + DEL)))),
                 Arguments.of("source.ref", live(builder -> builder.sources(
-                        List.of(new Source(Source.Kind.PLAN, "v2-156" + DEL, null))))),
+                        List.of(new Source(Source.Kind.PLAN, text() + DEL, null))))),
+                Arguments.of("revisions[].sources[].ref", live(builder -> builder.revisions(List.of(
+                        new Revision(1, LessonFixtures.instant(),
+                                List.of(new Source(Source.Kind.PLAN, text() + DEL, null)),
+                                LessonFixtures.digest()))))),
                 Arguments.of("promotion.ref", live(builder -> builder.promotions(
-                        List.of(new Promotion(Promotion.Kind.EPIC, "An epic" + DEL, LessonFixtures.instant()))))),
+                        List.of(new Promotion(Promotion.Kind.EPIC, text() + DEL, LessonFixtures.instant()))))),
                 Arguments.of("merged_from.by", live(builder -> builder.mergedFrom(List.of(
-                        new MergedFrom(LessonFixtures.lessonId(), LessonFixtures.instant(), "A plan" + DEL))))),
-                Arguments.of("retired.by", retired(retirement -> retirement.by("A principal" + DEL))),
-                Arguments.of("retired.reason", retired(retirement -> retirement.reason("A reason" + DEL))),
+                        new MergedFrom(LessonFixtures.lessonId(), LessonFixtures.instant(), text() + DEL))))),
+                Arguments.of("retired.by", retired(retirement -> retirement.by(text() + DEL))),
+                Arguments.of("retired.reason", retired(retirement -> retirement.reason(text() + DEL))),
                 Arguments.of("retired.covering_clause",
-                        retired(retirement -> retirement.coveringClause("ADR core-store/075" + DEL))),
+                        retired(retirement -> retirement.coveringClause(text() + DEL))),
                 Arguments.of("retired.covering_input",
-                        retired(retirement -> retirement.coveringInput("An input" + DEL))));
+                        retired(retirement -> retirement.coveringInput(text() + DEL))));
+    }
+
+    private static String text() {
+        return LessonFixtures.text();
+    }
+
+    private static String statement() {
+        return LessonFixtures.statement();
     }
 
     private static Lesson live(Consumer<LessonFrontMatter.LessonFrontMatterBuilder> change) {
@@ -100,7 +120,7 @@ class LessonCodecControlCharacterTest {
     @Test
     @DisplayName("a DEL in the title round-trips instead of being refused alone")
     void delInTitleRoundTrips() {
-        var lesson = live(builder -> builder.title("A title" + DEL));
+        var lesson = live(builder -> builder.title(text() + DEL));
 
         var reading = LessonCodec.decode(LessonCodec.encode(lesson));
 
@@ -110,9 +130,22 @@ class LessonCodecControlCharacterTest {
     }
 
     @Test
+    @DisplayName("a C0 control character round-trips through the codec")
+    void c0ControlRoundTrips() {
+        var lesson = live(builder -> builder.title(text() + C0)
+                .sources(List.of(new Source(Source.Kind.PLAN, text() + C0, null))));
+
+        var reading = LessonCodec.decode(LessonCodec.encode(lesson));
+
+        var readable = assertInstanceOf(LessonCodec.Readable.class, reading,
+                "the C0 control must leave the file readable");
+        assertEquals(lesson, readable.lesson(), "the C0 control round-trips unchanged");
+    }
+
+    @Test
     @DisplayName("the writer escapes DEL instead of leaving it to the YAML reader")
     void writerEscapesDel() {
-        var encoded = new String(LessonCodec.encode(live(builder -> builder.title("A title" + DEL))), UTF_8);
+        var encoded = new String(LessonCodec.encode(live(builder -> builder.title(text() + DEL))), UTF_8);
 
         assertTrue(encoded.contains(ESCAPED_DEL), "the writer escapes DEL as \\u007F");
     }
@@ -120,9 +153,10 @@ class LessonCodecControlCharacterTest {
     @Test
     @DisplayName("the reader refuses a literal DEL, which is why the writer escapes it")
     void readerRefusesALiteralDel() {
-        var escaped = new String(LessonCodec.encode(live(builder -> builder.title("A title"))), UTF_8);
+        var title = text();
+        var escaped = new String(LessonCodec.encode(live(builder -> builder.title(title))), UTF_8);
 
-        var reading = LessonCodec.decode(escaped.replace("A title", "A title" + DEL).getBytes(UTF_8));
+        var reading = LessonCodec.decode(escaped.replace(title, title + DEL).getBytes(UTF_8));
 
         assertInstanceOf(LessonCodec.Unreadable.class, reading, "the reader refuses a literal DEL in a scalar");
     }
