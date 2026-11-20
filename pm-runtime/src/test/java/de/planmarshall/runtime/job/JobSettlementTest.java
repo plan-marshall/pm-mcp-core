@@ -238,9 +238,9 @@ class JobSettlementTest {
         var written = writtenWorker(workerJob);
         assertAll(
                 () -> assertEquals(WorkerState.State.ENDED, written.state(),
-                        "the settled record keeps the terminal block the store carried"),
+                        "the stored terminal block survives the fate"),
                 () -> assertEquals(WorkerState.EndReason.WITHDRAWN, written.endReason(),
-                        "the stored end reason is not replaced by the fate's"),
+                        "the stored end reason survives the fate"),
                 () -> assertEquals(terminalStateAt, written.stateAt(),
                         "the stored terminal instant survives the fate write"));
     }
