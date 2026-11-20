@@ -115,15 +115,15 @@ class PlanHistorySchemaParityTest {
         var reason = lowerWord();
         var bare = text(line(Event.LEFT, lowerWord(), null));
         var injected = bare.substring(0, bare.length() - 1) + ",\"reason\":\"" + reason + "\"}";
+        var withoutOutcome = PlanHistoryLine.builder().formatVersion(PlanHistoryLine.FORMAT_VERSION)
+                .seq(Generators.longs(1, 1_000_000).next()).event(Event.LEFT)
+                .node(Generators.letterStrings(1, 32).next()).callPath(List.of()).outcome(null).reason(reason)
+                .instanceVersion(Generators.integers(1, 1_000).next()).at(Instant.EPOCH);
 
         assertAll(
                 () -> assertFalse(SchemaValidation.validate(validator, injected).isEmpty(),
                         "A reason without an outcome is a violation"),
-                () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
-                                .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(Generators.longs(1, 1_000_000).next())
-                                .event(Event.LEFT).node(Generators.letterStrings(1, 32).next()).callPath(List.of())
-                                .outcome(null).reason(reason).instanceVersion(Generators.integers(1, 1_000).next())
-                                .at(Instant.EPOCH).build(),
+                () -> assertThrows(IllegalArgumentException.class, withoutOutcome::build,
                         "The record refuses a reason without outcome"));
     }
 
@@ -182,6 +182,9 @@ class PlanHistorySchemaParityTest {
         var reasonPattern = String.valueOf(SchemaResource.object(properties.get("reason")).get("pattern"));
         var word = lowerWord();
         var notWord = word.toUpperCase(Locale.ROOT);
+        var refusedReason = PlanHistoryLine.builder().formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(seqMin)
+                .event(Event.LEFT).node(word).callPath(List.of()).outcome(word).reason(notWord)
+                .instanceVersion(versionMin).at(Instant.EPOCH);
 
         assertAll(
                 () -> assertEquals(PlanHistoryLine.MAX_CALL_PATH, callPathMax,
@@ -221,10 +224,7 @@ class PlanHistorySchemaParityTest {
                         "The codec's outcome pattern is the schema's"),
                 () -> assertEquals(reasonPattern, PlanHistoryLine.OUTCOME_PATTERN.pattern(),
                         "The record's reason pattern is the schema's"),
-                () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
-                                .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(seqMin).event(Event.LEFT)
-                                .node(word).callPath(List.of()).outcome(word).reason(notWord)
-                                .instanceVersion(versionMin).at(Instant.EPOCH).build(),
+                () -> assertThrows(IllegalArgumentException.class, refusedReason::build,
                         "The record refuses a reason the pattern refuses"),
                 () -> assertFalse(PlanHistoryLine.OUTCOME_PATTERN.matcher("1a").matches(),
                         "A digit-first outcome is refused by the codec"),
