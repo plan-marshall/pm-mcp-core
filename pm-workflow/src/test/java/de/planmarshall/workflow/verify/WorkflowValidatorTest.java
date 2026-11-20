@@ -234,6 +234,8 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-undeclared-read.pmwf"),
             new Check("Rule 6: a slot a call reads is filled on every path that reaches the call",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-never-filled.pmwf"),
+            new Check("Rule 6: a slot a call reads is filled on every branch that reaches the call",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-filled-on-one-branch.pmwf"),
             new Check("Rule 6: the type of a bound slot is assignable to the callee's input type",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-type-not-assignable.pmwf"),
             new Check("Rule 7: the call graph is acyclic",

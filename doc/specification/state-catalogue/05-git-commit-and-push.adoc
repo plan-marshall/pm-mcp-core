@@ -57,7 +57,7 @@ The unit has no operator wait: every state is server logic or a task of a role, 
 |the caller's phase value
 |`auto`
 |`git.detect-artifacts`, `git.artifact-escalate` (`clean_or_safe_deleted`), `git.artifact-review` (`resolved`).
-|Resolves the deterministic message for `auto_deliverable` / `step_or_fallback`. Under `step_or_fallback` the message is the call's bound input `message` (`commit_message[1..2000]?`, a slot binding), and a `Co-Authored-By:` line in it is refused at the bind (`input_refused`); `auto_deliverable`, `interactive` and `none_assert_clean` refuse a bound `message`.
+|Resolves the deterministic message for `auto_deliverable` / `step_or_fallback`. Under `step_or_fallback` the message is the call's bound input `message` (`commit_message[1..2000]?`, a slot binding), and a `Co-Authored-By:` line in it is refused at the bind (`input_refused`).
 |`ready` -> `git.stage-and-commit`; `needs_interactive` -> `git.compose-message`.
 |link:../workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL Specification, Stage 3]
 

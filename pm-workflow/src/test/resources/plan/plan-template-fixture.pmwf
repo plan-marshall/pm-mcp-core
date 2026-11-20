@@ -21,7 +21,7 @@ scope plan
 start finalize.push-barrier
 
 state finalize.push-barrier
-    call git.commit_and_push(message_mode = step_or_fallback, push_mode = push)
+    call git.commit_and_push(message_mode = none_assert_clean, push_mode = push)
         done -> finalize.create-pr
         stepped_out -> finalize.hand-back
 

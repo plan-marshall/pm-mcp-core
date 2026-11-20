@@ -154,12 +154,14 @@ slot_ref             = "slot" , "." , param_name ;
 input_type           = enum_type
                      | "int" , [ int_range ]
                      | "list" , "<" , enum_type , ">"
-                     | "text" , [ int_range ]
-                     | "commit_message" , [ int_range ]
+                     | "text" , int_range
+                     | "commit_message" , int_range
                      | "path"
-                     | "list" , "<" , "path" , ">" , [ int_range ] ;
+                     | "list" , "<" , "path" , ">" , int_range ;
                        (* the closed types of a frontmatter `input_type` and of a `slot_type`; the `?` of
-                          the optional form follows the type, and a slot never carries it *)
+                          the optional form follows the type, and a slot never carries it; a `text`,
+                          `commit_message` and `list<path>` declare their range, whose high bound never
+                          exceeds the compiled cap (2000, 2000 and 500) *)
 
 question_clause      = "question" , question_class , EOL ,
                        outcome_transition , { outcome_transition } ;

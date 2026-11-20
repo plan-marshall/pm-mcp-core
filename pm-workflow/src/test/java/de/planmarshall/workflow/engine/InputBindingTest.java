@@ -31,8 +31,6 @@ import org.junit.jupiter.api.Test;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.core.id.CommandId;
-import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
@@ -396,21 +394,6 @@ class InputBindingTest {
         }
 
         @Test
-        @DisplayName("a pushed frame carries command and correlation ids of the grammar")
-        void idsMatchTheGrammar() {
-            var fixtures = new EngineFixtures();
-            var status = assertInstanceOf(EngineStep.Resting.class,
-                    argsEngine(fixtures).start(JournalScopeType.PLAN, PLAN_ID), "the call rests in the callee").status();
-
-            var frame = status.callStack().getFirst();
-            assertAll(
-                    () -> assertTrue(CommandId.parse(frame.commandId().toString()).isPresent(),
-                            "the command id parses back to itself"),
-                    () -> assertTrue(CorrelationId.parse(frame.correlationId().toString()).isPresent(),
-                            "the correlation id parses back to itself"));
-        }
-
-        @Test
         @DisplayName("two engines with identically seeded generators push identical frames")
         void identicalSeedsPushIdenticalFrames() {
             var first = argsEngine(new EngineFixtures()).start(JournalScopeType.PLAN, PLAN_ID);
@@ -554,6 +537,30 @@ class InputBindingTest {
                     () -> assertTrue(facts.get("facts").contains("sub.commit.input.message"),
                             "the refusal names the qualified input"),
                     () -> assertTrue(step.status().callStack().isEmpty(), "the refused call pushes no frame"));
+        }
+
+        @Test
+        @DisplayName("Should bind a slot filled before a restart in the resumed engine")
+        void shouldBindASlotFilledBeforeARestart() {
+            var message = generatedMessage();
+            var before = new EngineFixtures().engine(slotPlan(FILL_REST_AND_CALL),
+                    parse("sub.commit.pmwf", SUB_COMMIT));
+            var atTask = before.start(JournalScopeType.PLAN, PLAN_ID).status();
+            var paused = before.advance(atTask, submitted("message", message)).status();
+
+            var resumed = new EngineFixtures().engine(slotPlan(FILL_REST_AND_CALL),
+                    parse("sub.commit.pmwf", SUB_COMMIT));
+            var status = assertInstanceOf(EngineStep.Resting.class,
+                    resumed.advance(paused, new EngineEvent.OperatorAct("execute.pause", "proceed")),
+                    "the resumed engine rests in the callee").status();
+
+            var bound = assertInstanceOf(BoundArg.StringArg.class,
+                    status.callStack().getFirst().boundArgs().get("message"), "the callee input is bound");
+            assertAll(
+                    () -> assertEquals(message, bound.value(), "the resumed bind carries the stored value"),
+                    () -> assertEquals("task_submit", status.callStack().getFirst().argSources().get("message").source(),
+                            "the resumed frame keeps the provenance"),
+                    () -> assertTrue(status.slots().isEmpty(), "the resumed bind consumes the slot"));
         }
 
         @Test

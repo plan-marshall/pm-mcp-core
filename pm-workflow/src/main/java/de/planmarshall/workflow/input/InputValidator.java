@@ -251,12 +251,12 @@ public final class InputValidator {
         if (values == null) {
             return Optional.of(new InputRefusal(RULE_MISSING, NULL_ECHO));
         }
-        if (values.isEmpty()) {
-            return Optional.empty();
-        }
         var bounds = bounds(type);
         if (values.size() < bounds[0] || values.size() > bounds[1]) {
             return refused(RULE_COUNT, values.toString());
+        }
+        if (values.isEmpty()) {
+            return Optional.empty();
         }
         var seen = new HashSet<String>();
         for (var value : values) {
@@ -299,7 +299,7 @@ public final class InputValidator {
             min = low;
         }
         if (high != null) {
-            max = high;
+            max = Math.min(high, compiled);
         }
         return new int[]{min, max};
     }

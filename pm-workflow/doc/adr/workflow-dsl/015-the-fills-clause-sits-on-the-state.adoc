@@ -51,12 +51,17 @@ registered with the entity kind. A clause on the link would therefore leave the 
 
 * The verifier checks the fills clause (Rule 6): the slot exists, its type fits the input type, one clause per state per
   slot, the `from` parameter exists on a link of an operator wait that carries the clause, and every path to a call that
-  reads a slot passes a state that fills it — the weaker "filled somewhere" form with the runtime refusal
-  `input_unbound` where the dominance check proves too costly
+  reads a slot passes a state that fills it — the dominance check over `UnitGraph`
+  (link:../../adr/workflow-verify/039-the-slot-dominance-is-checked-over-the-unit-graph.adoc[ADR workflow-verify/039]); the
+  outcome a settlement carried is the engine's, which fills only on `submitted` and refuses `input_unbound` otherwise
   (link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL §
   Static AST Verification Rules], Rule 6).
 * The printer writes the clause back between the `facts` line and the body, so the round trip holds, and a CRLF twin of
   the clause parses to the same tree.
+* A value the slot's type refuses is refused where it arrives — the submit or the act — by an
+  `IllegalArgumentException` whose message opens with `invalid_link_args`, the code the assembly maps to the refusal the
+  worker or the operator corrects: this repository has no submit path of its own, so the code travels as the message and
+  the assembly owns the mapping.
 * A value filled by an operator answers a link's free parameter of the type the link declares; a `list<path>` arrives as
   the JSON array text of the parameter, which the slot fill reads as a list.
 

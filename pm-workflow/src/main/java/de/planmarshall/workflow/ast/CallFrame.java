@@ -61,7 +61,8 @@ String pushedAt) {
      */
     public CallFrame {
         Objects.requireNonNull(boundArgs, "boundArgs");
+        Objects.requireNonNull(argSources, "argSources");
         boundArgs = Collections.unmodifiableMap(new LinkedHashMap<>(boundArgs));
-        argSources = argSources == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(argSources));
+        argSources = Collections.unmodifiableMap(new LinkedHashMap<>(argSources));
     }
 }

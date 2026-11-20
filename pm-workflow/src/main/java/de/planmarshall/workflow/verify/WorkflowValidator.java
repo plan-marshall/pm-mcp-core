@@ -1978,6 +1978,9 @@ public final class WorkflowValidator {
         if (dominators.contains(target)) {
             return true;
         }
+        if (starts.contains(target)) {
+            return false;
+        }
         var seen = new LinkedHashSet<>(starts);
         var queue = new ArrayDeque<>(starts.stream().filter(start -> !dominators.contains(start)).toList());
         while (!queue.isEmpty()) {

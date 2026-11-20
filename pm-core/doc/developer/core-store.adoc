@@ -190,12 +190,12 @@ _Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
 A frame is the identity of the command it is while it is on the stack, and it records where every bound value came from:
 
 * `arg_sources` maps each parameter name to `ArgSource(source, source_ref)`, with `source` one of `literal`, `config`,
-  `default`, `task_submit` or `operator_answer` and `source_ref` the queue task id or the act where the source has one.
+  `default`, `task_submit` or `operator_answer` and `source_ref` the submitting entity or the act where the source has one.
   The constructor refuses a source outside the closed set, so an unknown provenance never reaches the store.
 * `command_id` and `correlation_id` are of the types `CommandId` and `CorrelationId` of `core.id`, each a record over its
   value with `parse` and `random`. The schema patterns are `^cmd-[0-9a-f]{16}$` and `^cor-[0-9a-f]{16}$` (20 characters
   each). The engine draws one correlation id per advance and one command id per frame
-  (link:../adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR 076]).
+  (link:../adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR 078]).
 * *Required and typed*: the record refuses a `null` component, the codec reads `arg_sources`, `command_id` and
   `correlation_id` strictly in their schema position after `bound_args`, and a missing or malformed value is a
   `StoreRefusal` naming the member — a `cmd-` value with 15 digits, an upper-case hexadecimal digit or a `cor-` value in
@@ -219,20 +219,19 @@ unit-local.
   frame of their own, so the slot lives beside the current state. `WorkflowStatus` carries `slots` as an ordered map with
   the empty map for an absent member, the codec reads and writes it strictly, and the schema member is
   `additionalProperties: false` per slot (link:../adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR
-  075]).
-* *Consumed by its call (deferred).* The intended design clears the slot in the transaction of the call that read it, so
-  a stale message or a stale path is never reused, and a restart between the fill and the call resumes from the pair
-  (state, slot recorded). **The call-time bind that would consume the slot is deferred (PLAN-V2-15 D3): the engine fills
-  a slot but does not yet read or clear it at a call.**
-* *One value, two shapes.* A slot holds a text or the JSON array text of a `list<path>`. **Reading the `list<path>` form
-  back into a list at the bind is deferred with the bind (D3).**
+  077]).
+* *Consumed by its call.* The call clears the slot in the transaction that binds it, so a stale message or a stale path
+  is never reused, and a restart between the fill and the call resumes from the pair (state, slot recorded); the engine
+  binds the value once and the second call that reads the same slot is refused `input_unbound`.
+* *One value, two shapes.* A slot holds a text or the JSON array text of a `list<path>`, and `InputValidator.parse`
+  reads that text back into the value at the bind.
 * *Format version 1 unchanged.* The member is added in place; a document without it reads as no slot and is rewritten
   with the member on its next write.
 
 Tested by `WorkflowStatusCodecTest` (a status with a slot round-trips, the slot's provenance is checked against the closed
-set, a slot without `value` or `filled_at` is refused) and by the engine's `SlotFillTest`, which shows a submitted and an
-operator-answered value filling the slot with its provenance. The slot binding into a frame and its consumption are
-deferred (D3) and not claimed here.
+set, a slot without `value` or `filled_at` is refused), by the engine's `SlotFillTest`, which shows a submitted and an
+operator-answered value filling the slot with its provenance, and by `InputBindingTest`, which binds the value into the
+frame and shows the slot consumed.
 
 [#_retry_counters]
 == Retry Counters
