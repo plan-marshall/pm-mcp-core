@@ -263,9 +263,10 @@ public final class WorkerEnding {
             if (recorded == null || recorded.state() == WorkerState.State.LOST) {
                 return generation.advanceTo(WorkerLifecycle.LOST);
             }
-            return recorded.startFailure()
-                    ? generation.advanceTo(WorkerLifecycle.ENDING).advanceTo(WorkerLifecycle.START_FAILED)
-                    : generation.advanceTo(WorkerLifecycle.ENDING).advanceTo(WorkerLifecycle.ENDED);
+            if (recorded.startFailure()) {
+                return generation.advanceTo(WorkerLifecycle.ENDING).advanceTo(WorkerLifecycle.START_FAILED);
+            }
+            return generation.advanceTo(WorkerLifecycle.ENDING).advanceTo(WorkerLifecycle.ENDED);
         }
         if (cause.terminalState() == WorkerState.State.LOST) {
             return generation.advanceTo(WorkerLifecycle.LOST);

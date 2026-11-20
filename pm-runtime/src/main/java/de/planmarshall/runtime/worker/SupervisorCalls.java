@@ -54,6 +54,9 @@ public final class SupervisorCalls implements WorkerCalls {
     /** The name of the queue-task argument, as a null check reports it. */
     private static final String QUEUE_TASK_ARGUMENT = "queueTaskId";
 
+    /** The name of the generation argument, as a null check reports it. */
+    private static final String GENERATION_ID_ARGUMENT = "generationId";
+
     private final WorkerSupervisor supervisor;
     private final WorkerEnding ending;
     private final WorkerRecycling recycling;
@@ -289,7 +292,7 @@ public final class SupervisorCalls implements WorkerCalls {
      *         empty while the generation produced none
      */
     public synchronized Optional<LossSignal> loss(String generationId) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         return Optional.ofNullable(losses.get(generationId));
     }
 
@@ -301,7 +304,7 @@ public final class SupervisorCalls implements WorkerCalls {
      * @param signal       the loss
      */
     public synchronized void remember(String generationId, LossSignal signal) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         Objects.requireNonNull(signal, "signal");
         losses.put(generationId, signal);
     }
@@ -313,7 +316,7 @@ public final class SupervisorCalls implements WorkerCalls {
      * @param generationId the worker's generation
      */
     public synchronized void forget(String generationId) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         var detection = detections.remove(generationId);
         if (detection != null) {
             detection.cancelled();
