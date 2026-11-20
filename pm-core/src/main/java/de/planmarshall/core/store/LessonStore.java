@@ -117,10 +117,10 @@ public final class LessonStore {
 
     /**
      * Draws the next free lesson id of the current UTC hour: the hour plus the per-hour sequence that follows every
-     * sequence present on disk, every sequence a sidecar entry records (an id is never reused, not even after a file was
-     * removed out of band) and every lesson the transaction already holds. A draw is free for the transaction that
-     * creates its lesson in the same step; two draws before the first create of the transaction return the same id,
-     * because neither is a target yet.
+     * sequence present on disk, every sequence a sidecar entry records (an id is never reused, not even after a file
+     * was removed out of band) and every lesson the transaction already holds. A draw is free for the transaction that
+     * creates its lesson in the same step; two draws before the first create return the same id, because neither is a
+     * target yet.
      *
      * @param transaction an open transaction of the lesson scope, which holds the lesson store lock
      * @param clock       the clock whose hour and instant the id and the lesson carry
@@ -150,8 +150,8 @@ public final class LessonStore {
      * @param newLesson   the members the caller gives
      * @param clock       the clock of {@code created_at} and of the first revision
      * @return the lesson as it is written
-     * @throws IllegalArgumentException if the transaction belongs to another scope, or a member violates a rule of
-     *                                  the record
+     * @throws IllegalArgumentException if the transaction belongs to another scope, a member violates a rule of
+     *                                  the record, or a source of the kind {@code lesson} names no lesson id
      * @throws IllegalStateException    if the transaction was committed, or a file of the id exists when it commits
      *                                  (the create target must be absent)
      */
@@ -173,6 +173,7 @@ public final class LessonStore {
                     .formatted(lessonId));
         }
         var sources = newLesson.sources();
+        requireLessonReferences(sources);
         var bodySha256 = StoreSnapshot.sha256(newLesson.body().getBytes(StandardCharsets.UTF_8));
         var frontMatter = LessonFrontMatter.builder()
                 .formatVersion(LessonFrontMatter.FORMAT_VERSION)
@@ -185,7 +186,8 @@ public final class LessonStore {
                 .remedy(newLesson.remedy())
                 .status(newLesson.audience() == Audience.UPSTREAM ? Status.UPSTREAM_PENDING : Status.ACTIVE)
                 .provenance(newLesson.provenance())
-                .derivedFromUntrusted(newLesson.derivedFromUntrusted())
+                .derivedFromUntrusted(newLesson.derivedFromUntrusted()
+                        || citesUntrustedLesson(transaction, sources))
                 .audience(newLesson.audience())
                 .createdAt(now)
                 .toolVersion(newLesson.toolVersion())
@@ -358,7 +360,10 @@ public final class LessonStore {
      * {@code sources} (never empty) and an appended {@code revisions} entry carrying them and the SHA-256 of the new
      * UTF-8 body. Old bodies are not kept. {@code derived_from_untrusted} is monotonic: a lesson that is {@code true}
      * stays {@code true} whatever the argument, and a revision whose sources name a lesson of the kind {@code lesson}
-     * that is {@code true} becomes {@code true} (PM-WATCH-STORE-17, PM-WATCH-STORE-58).
+     * is marked when that lesson is marked, when its bytes do not decode, or when its trust cannot be established at
+     * all — it is present unreadable, tampered, deleted out of band or untracked, or it is deleted in this
+     * transaction. A citation of a lesson that does not exist reads nothing and marks nothing (PM-WATCH-STORE-17,
+     * PM-WATCH-STORE-58, PM-SEC-1).
      *
      * @param transaction           an open transaction of the lesson store
      * @param lessonId              the lesson
@@ -368,7 +373,8 @@ public final class LessonStore {
      * @param now                   the instant of the revision
      * @return the revision, or {@link LessonResolution.Unavailable} for a lesson this transition does not act on —
      *         absent, unreadable, empty, tampered, deleted out of band, untracked, or retired
-     * @throws IllegalArgumentException if the transaction belongs to another scope, or the sources are empty
+     * @throws IllegalArgumentException if the transaction belongs to another scope, the sources are empty, or a
+     *                                  source of the kind {@code lesson} names no lesson id
      */
     public LessonResolution.Outcome revise(ScopeTransaction transaction, LessonId lessonId, String body,
             List<Source> sources, boolean derivedFromUntrusted, Instant now) {
@@ -382,6 +388,7 @@ public final class LessonStore {
         if (evidence.isEmpty()) {
             throw new IllegalArgumentException("A revision carries at least one source");
         }
+        requireLessonReferences(evidence);
         var resolution = get(transaction, lessonId);
         if (!(resolution instanceof LessonResolution.Found found)) {
             return unavailable(resolution);
@@ -393,7 +400,8 @@ public final class LessonStore {
         var revision = frontMatter.revision() + 1;
         var next = frontMatter.toBuilder()
                 .derivedFromUntrusted(frontMatter.derivedFromUntrusted() || derivedFromUntrusted
-                        || citesUntrustedLesson(transaction, evidence))
+                        || citesUntrustedLesson(transaction, evidence)
+                        || citesUntrustedMergedFrom(transaction, frontMatter))
                 .revision(revision)
                 .sources(evidence)
                 .revisions(append(frontMatter.revisions(),
@@ -414,10 +422,9 @@ public final class LessonStore {
      * @param lessonId    the lesson
      * @param retirement  the retirement record: a verdict of the closed set, with its required members
      * @return the retirement, or {@link LessonResolution.Unavailable}
-     * @throws IllegalArgumentException if the transaction belongs to another scope, the verdict is missing, a
-     *                                  {@code completely_covered} retirement lacks a non-blank clause or input, the
-     *                                  {@code into} of a {@code merged} or {@code superseded} retirement is missing or
-     *                                  set for another verdict, or the recorded state is not {@code found}
+     * @throws IllegalArgumentException if the transaction belongs to another scope, or the retirement names a lesson
+     *                                  state only an operator act retires; the members a verdict requires and the
+     *                                  {@code into} of a merge are refused by {@link Retired} already
      */
     public LessonResolution.Outcome retire(ScopeTransaction transaction, LessonId lessonId, Retired retirement) {
         requireOwnScope(transaction);
@@ -728,32 +735,83 @@ public final class LessonStore {
         return sources.stream().anyMatch(source -> citesUntrustedLesson(transaction, source));
     }
 
-    private boolean citesUntrustedLesson(ScopeTransaction transaction, Source source) {
-        if (source.kind() != Source.Kind.LESSON) {
-            return false;
+    /**
+     * @param sources the evidence of a lesson or of a revision
+     * @throws IllegalArgumentException if a source of the kind {@code lesson} names no lesson id, so a citation the
+     *                                  store cannot read is never recorded
+     */
+    private static void requireLessonReferences(List<Source> sources) {
+        for (var source : sources) {
+            if (source.kind() == Source.Kind.LESSON) {
+                citedLesson(source);
+            }
         }
-        var cited = LessonId.parse(source.ref());
-        if (cited.isEmpty()) {
-            return false;
-        }
-        return transaction.targetContent(storePath(cited.get())).map(LessonStore::isUntrusted)
-                .orElseGet(() -> isUntrusted(get(transaction, cited.get())));
     }
 
-    private static boolean isUntrusted(byte[] content) {
+    /**
+     * @param source a source of the kind {@code lesson}
+     * @return the lesson the source cites
+     * @throws IllegalArgumentException if the reference is no lesson id
+     */
+    private static LessonId citedLesson(Source source) {
+        return LessonId.parse(source.ref())
+                .orElseThrow(() -> new IllegalArgumentException("A lesson source names a lesson id: '%s'"
+                        .formatted(source.ref())));
+    }
+
+    private boolean citesUntrustedLesson(ScopeTransaction transaction, Source source) {
+        return source.kind() == Source.Kind.LESSON && isUntrusted(transaction, citedLesson(source));
+    }
+
+    /**
+     * @param transaction an open transaction of the lesson store
+     * @param frontMatter the front matter of the lesson a revision replaces
+     * @return whether a lesson it was merged from is untrusted in the state the transaction sees
+     */
+    private boolean citesUntrustedMergedFrom(ScopeTransaction transaction, LessonFrontMatter frontMatter) {
+        return frontMatter.mergedFrom().stream()
+                .anyMatch(merged -> isUntrusted(transaction, merged.lessonId()));
+    }
+
+    /**
+     * @param transaction an open transaction of the lesson store
+     * @param cited       the lesson a record cites
+     * @return whether the cited lesson is untrusted: what the transaction stages for it, else a delete target, else
+     *         its resolution
+     */
+    private boolean isUntrusted(ScopeTransaction transaction, LessonId cited) {
+        var path = storePath(cited);
+        var staged = transaction.targetContent(path);
+        if (staged.isPresent()) {
+            return isUntrusted(staged.get());
+        }
+        if (transaction.targetPaths().contains(path)) {
+            return true;
+        }
+        return isUntrusted(get(transaction, cited));
+    }
+
+    static boolean isUntrusted(byte[] content) {
         return switch (LessonCodec.decode(content)) {
             case LessonCodec.Readable(Lesson lesson) -> lesson.frontMatter().derivedFromUntrusted();
             case LessonCodec.Unreadable _ -> true;
         };
     }
 
-    private static boolean isUntrusted(LessonResolution resolution) {
+    /**
+     * @param resolution how a cited lesson resolved
+     * @return whether the citation marks the revision {@code derived_from_untrusted}: the front matter's own mark for
+     *         a lesson that decodes, and {@code true} for every state in which the trust of the cited lesson cannot be
+     *         established. An absent lesson was never read and marks nothing (Store Schemas § Lesson Record,
+     *         Derived from Untrusted Text; PM-SEC-1)
+     */
+    static boolean isUntrusted(LessonResolution resolution) {
         return switch (resolution) {
             case LessonResolution.Found(_, Lesson found, _, _) -> found.frontMatter().derivedFromUntrusted();
             case LessonResolution.EmptyShell(_, Lesson shell, _, _) -> shell.frontMatter().derivedFromUntrusted();
             case LessonResolution.PresentUnreadable _, LessonResolution.StoreTampered _,
-                LessonResolution.DeletedOutOfBand _, LessonResolution.Untracked _,
-                LessonResolution.Absent _ -> true;
+                    LessonResolution.DeletedOutOfBand _, LessonResolution.Untracked _ -> true;
+            case LessonResolution.Absent _ -> false;
             default -> false;
         };
     }
@@ -787,27 +845,18 @@ public final class LessonStore {
                 null);
     }
 
+    /**
+     * @param retirement a retirement this store is asked to write
+     * @throws IllegalArgumentException if it names a lesson state only an operator act retires. The rules a retirement
+     *                                  states about itself — the non-blank clause and input of
+     *                                  {@code completely_covered}, and {@code into} exactly for {@code merged} and
+     *                                  {@code superseded} — are refused by {@link Retired} itself, so the value
+     *                                  cannot be built against them
+     */
     private static void requireValid(Retired retirement) {
-        var verdict = retirement.verdict();
-        if (verdict == Verdict.COMPLETELY_COVERED) {
-            requirePresent(retirement.coveringClause(), "covering_clause", verdict);
-            requirePresent(retirement.coveringInput(), "covering_input", verdict);
-        }
-        if ((verdict == Verdict.MERGED || verdict == Verdict.SUPERSEDED) != (retirement.into() != null)) {
-            throw new IllegalArgumentException(
-                    "The 'into' of a retirement is set exactly for 'merged' and 'superseded', not for '%s'"
-                            .formatted(verdict.wireName()));
-        }
         if (retirement.lessonState() != LessonState.FOUND) {
             throw new IllegalArgumentException(
                     "Only an operator act retires a 'present_unreadable' lesson; this store retires a found one");
-        }
-    }
-
-    private static void requirePresent(@Nullable String value, String member, Verdict verdict) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(
-                    "The verdict '%s' requires a non-blank '%s'".formatted(verdict.wireName(), member));
         }
     }
 

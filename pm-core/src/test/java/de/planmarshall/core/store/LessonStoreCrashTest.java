@@ -45,6 +45,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.LessonFrontMatter.Retired.Verdict;
@@ -57,6 +59,10 @@ import de.planmarshall.core.store.ScopeTransaction.Step;
  * write stopped after any step of its transaction leaves, after {@link JournalRecovery}, the old or the new lesson and a
  * sidecar entry that matches — never a torn one; a repeated release or end is a no-op; and the staged namespace
  * {@code <lesson_id>.md.tmp.<transaction id>} is disjoint from the legal names.
+ * <p>
+ * The literals the assertions pin — the lesson ids at the fixed clock's hour, the stated bodies and the staged file
+ * names — are the contract the id grammar and the staged namespace state; the project name and the plan ids are
+ * generated.
  */
 @EnableGeneratorController
 @DisplayName("Lesson store crash windows")
@@ -266,91 +272,87 @@ class LessonStoreCrashTest {
     @DisplayName("a write stopped after each step")
     class WriteStopped {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(Step.class)
         @DisplayName("of a create leaves the old or the new lesson and a matching sidecar")
-        void createAtEveryStep() {
-            for (var stop : Step.values()) {
-                var lessonId = new LessonId("2026-11-02-09-1%03d".formatted(stop.ordinal() + 1));
-                var newLesson = LessonFixtures.newLesson().body(LessonFixtures.body()).build();
-                var newBytes = newLessonDocument(lessonId, newLesson);
+        void createAtEveryStep(Step stop) {
+            var lessonId = new LessonId("2026-11-02-09-001");
+            var newLesson = LessonFixtures.newLesson().body(LessonFixtures.body()).build();
+            var newBytes = newLessonDocument(lessonId, newLesson);
 
-                stopAt(stop, write -> store.create(write, lessonId, newLesson, CLOCK));
-                recover();
+            stopAt(stop, write -> store.create(write, lessonId, newLesson, CLOCK));
+            recover();
 
-                assertAll("a stopped create",
-                        () -> assertConsistent(lessonId, null, newBytes),
-                        () -> assertEquals(stop != Step.STAGE, isListed(lessonId),
-                                "the lesson is listed once the journal was written"));
-            }
+            assertAll("a stopped create",
+                    () -> assertConsistent(lessonId, null, newBytes),
+                    () -> assertEquals(stop != Step.STAGE, isListed(lessonId),
+                            "the lesson is listed once the journal was written"));
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(Step.class)
         @DisplayName("of a revise leaves the old or the new body and a matching sidecar")
-        void reviseAtEveryStep() {
-            for (var stop : Step.values()) {
-                var lessonId = new LessonId("2026-11-02-09-2%03d".formatted(stop.ordinal() + 1));
-                var before = inTransaction(write -> store.create(write, lessonId,
-                        LessonFixtures.newLesson().build(), CLOCK));
-                var next = LessonFixtures.body() + " rewritten\n";
-                var sources = List.of(LessonFixtures.source());
-                var newBytes = encodeAfter(before.frontMatter().toBuilder()
-                        .revision(2)
-                        .sources(sources)
-                        .revisions(appended(before.frontMatter(), 2, sources, next))
-                        .build(), next);
+        void reviseAtEveryStep(Step stop) {
+            var lessonId = new LessonId("2026-11-02-09-001");
+            var before = inTransaction(write -> store.create(write, lessonId,
+                    LessonFixtures.newLesson().build(), CLOCK));
+            var next = LessonFixtures.body() + " rewritten\n";
+            var sources = List.of(LessonFixtures.source());
+            var newBytes = encodeAfter(before.frontMatter().toBuilder()
+                    .revision(2)
+                    .sources(sources)
+                    .revisions(appended(before.frontMatter(), 2, sources, next))
+                    .build(), next);
 
-                stopAt(stop, write -> store.revise(write, lessonId, next, sources, false, NOW));
-                recover();
+            stopAt(stop, write -> store.revise(write, lessonId, next, sources, false, NOW));
+            recover();
 
-                assertAll("a stopped revise",
-                        () -> assertEquals(stop != Step.STAGE,
-                                assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
-                                "a stop after the journal rolls forward to the new revision"),
-                        () -> assertTrue(isListed(lessonId), "the lesson stays listed"));
-            }
+            assertAll("a stopped revise",
+                    () -> assertEquals(stop != Step.STAGE,
+                            assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
+                            "a stop after the journal rolls forward to the new revision"),
+                    () -> assertTrue(isListed(lessonId), "the lesson stays listed"));
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(Step.class)
         @DisplayName("of a claim leaves the old or the new claim and a matching sidecar")
-        void claimAtEveryStep() {
-            for (var stop : Step.values()) {
-                var lessonId = new LessonId("2026-11-02-09-3%03d".formatted(stop.ordinal() + 1));
-                var before = inTransaction(write -> store.create(write, lessonId,
-                        LessonFixtures.newLesson().build(), CLOCK));
-                var newBytes = encodeAfter(before, before.frontMatter().toBuilder()
-                        .claim(new LessonFrontMatter.Claim(plan, NOW)).build());
+        void claimAtEveryStep(Step stop) {
+            var lessonId = new LessonId("2026-11-02-09-001");
+            var before = inTransaction(write -> store.create(write, lessonId,
+                    LessonFixtures.newLesson().build(), CLOCK));
+            var newBytes = encodeAfter(before, before.frontMatter().toBuilder()
+                    .claim(new LessonFrontMatter.Claim(plan, NOW)).build());
 
-                stopAt(stop, write -> store.claim(write, lessonId, plan, NOW));
-                recover();
+            stopAt(stop, write -> store.claim(write, lessonId, plan, NOW));
+            recover();
 
-                assertAll("a stopped claim",
-                        () -> assertEquals(stop != Step.STAGE,
-                                assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
-                                "a stop after the journal rolls forward to the new claim"),
-                        () -> assertTrue(isListed(lessonId), "the lesson stays listed"));
-            }
+            assertAll("a stopped claim",
+                    () -> assertEquals(stop != Step.STAGE,
+                            assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
+                            "a stop after the journal rolls forward to the new claim"),
+                    () -> assertTrue(isListed(lessonId), "the lesson stays listed"));
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(Step.class)
         @DisplayName("of an end applied leaves the old or the retired lesson and a matching sidecar")
-        void endAtEveryStep() {
-            for (var stop : Step.values()) {
-                var lessonId = new LessonId("2026-11-02-09-4%03d".formatted(stop.ordinal() + 1));
-                inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
-                run(write -> store.claim(write, lessonId, plan, NOW));
-                var before = read(lessonId).orElseThrow();
-                var newBytes = encodeAfterEnd(before);
+        void endAtEveryStep(Step stop) {
+            var lessonId = new LessonId("2026-11-02-09-001");
+            inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
+            run(write -> store.claim(write, lessonId, plan, NOW));
+            var before = read(lessonId).orElseThrow();
+            var newBytes = encodeAfterEnd(before);
 
-                stopAt(stop, write -> store.endClaimApplied(write, lessonId, plan, NOW));
-                recover();
+            stopAt(stop, write -> store.endClaimApplied(write, lessonId, plan, NOW));
+            recover();
 
-                assertAll("a stopped end",
-                        () -> assertEquals(stop != Step.STAGE,
-                                assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
-                                "a stop after the journal rolls forward to the retirement"),
-                        () -> assertTrue(isListed(lessonId), "the lesson stays listed"),
-                        () -> assertFalse(Files.exists(lessons.journalFile()), "the journal is closed"));
-            }
+            assertAll("a stopped end",
+                    () -> assertEquals(stop != Step.STAGE,
+                            assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
+                            "a stop after the journal rolls forward to the retirement"),
+                    () -> assertTrue(isListed(lessonId), "the lesson stays listed"),
+                    () -> assertFalse(Files.exists(lessons.journalFile()), "the journal is closed"));
         }
     }
 
