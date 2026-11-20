@@ -111,9 +111,9 @@ class WorkerEndingTest {
         ending.end(generation, EndCause.TASK_DONE);
         ending.exited(generation);
 
-        assertTrue(fixture.order.contains("fence"), fixture.order::toString);
-        assertTrue(fixture.order.contains("release"), fixture.order::toString);
-        assertTrue(fixture.order.contains("write"), fixture.order::toString);
+        assertTrue(fixture.order.contains("fence"), "the end fences the generation");
+        assertTrue(fixture.order.contains("release"), "the end releases the slot");
+        assertTrue(fixture.order.contains("write"), "the end writes the terminal state");
         assertEquals(List.of("fence", "release", "write"), fixture.order,
                 "the end steps run in fence, release, write order");
         assertEquals(List.of(false), fixture.revokedAtFence, "the fence precedes the token revocation");

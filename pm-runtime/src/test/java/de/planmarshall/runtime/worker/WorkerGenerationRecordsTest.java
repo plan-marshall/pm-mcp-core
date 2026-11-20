@@ -92,7 +92,7 @@ class WorkerGenerationRecordsTest {
         assertEquals(18, components.length, "the generation holds eighteen components");
         for (var component : components) {
             assertEquals(component.getAccessor().invoke(constructed), component.getAccessor().invoke(built),
-                    "the builder wires " + component.getName());
+                    "the builder wires every component of the record");
         }
     }
 

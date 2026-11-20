@@ -327,7 +327,7 @@ class FileSecretStoreTest {
                     "an invalid file format fails the read");
             assertEquals(SecretStoreException.Reason.INVALID, e.reason(),
                     "invalid file format reports the invalid reason");
-            assertTrue(e.getMessage().contains("github.json"), e.getMessage());
+            assertTrue(e.getMessage().contains("github.json"), "the failure names the invalid file");
         }
 
         @Test

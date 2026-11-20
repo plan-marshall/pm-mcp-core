@@ -101,7 +101,7 @@ class HarnessesSidecarCheckTest {
                 () -> assertFalse(result.passed(), "the check reports a failure"),
                 () -> assertEquals(outcome, result.outcome(), "the outcome is the expected one"),
                 () -> assertEquals(concerned, result.file(), "the failure names the expected file"),
-                () -> assertTrue(result.reason().contains(reason), result.reason()));
+                () -> assertTrue(result.reason().contains(reason), "the failure reason names the expected cause"));
     }
 
     @Test

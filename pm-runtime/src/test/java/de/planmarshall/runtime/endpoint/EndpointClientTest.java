@@ -185,7 +185,7 @@ class EndpointClientTest {
                 () -> assertFalse(response.successful(), "a closed port is no successful call"),
                 () -> assertEquals(EndpointClient.Failure.UNREACHABLE, response.failure(),
                         "a closed port is an unreachable target"),
-                () -> assertTrue(response.detail().contains("unreachable"), response::detail),
+                () -> assertTrue(response.detail().contains("unreachable"), "the detail says the target is unreachable"),
                 () -> assertEquals(0, response.status(), "a call without answer has status 0"));
     }
 
@@ -198,7 +198,8 @@ class EndpointClientTest {
                 () -> assertFalse(response.successful(), "a refused target is no successful call"),
                 () -> assertEquals(EndpointClient.Failure.UNREACHABLE, response.failure(),
                         "a refused target is reported unreachable"),
-                () -> assertTrue(response.detail().contains("not a loopback address"), response::detail),
+                () -> assertTrue(response.detail().contains("not a loopback address"),
+                        "the detail says the target is not loopback"),
                 () -> assertEquals(0, server.getRequestCount(), "no request reaches any server"));
     }
 

@@ -76,7 +76,7 @@ class RuntimeLogMessagesTest {
         for (LogRecord logRecord : records) {
             assertEquals(RuntimeLogMessages.PREFIX, logRecord.getPrefix(), "every message carries the prefix");
             assertTrue(logRecord.getIdentifier() >= first && logRecord.getIdentifier() <= last,
-                    "out of the range of its level: " + logRecord.resolveIdentifierString());
+                    "every identifier lies in the range of its level");
         }
     }
 
@@ -88,7 +88,7 @@ class RuntimeLogMessagesTest {
 
         for (LogRecord logRecord : all) {
             assertTrue(seen.add(logRecord.getIdentifier()),
-                    "identifier used twice: " + logRecord.resolveIdentifierString());
+                    "no identifier is used by two messages");
         }
     }
 

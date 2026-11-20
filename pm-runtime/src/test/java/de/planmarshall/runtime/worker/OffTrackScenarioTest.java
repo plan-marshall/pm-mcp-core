@@ -216,7 +216,7 @@ class OffTrackScenarioTest {
     }
 
     private void assertNothingEndedThePlanOrWaitedForTheOperator(Observed observed) {
-        assertFalse(observed.ended(), "the signal neither ends the plan nor waits");
+        assertFalse(observed.ended(), "no generation is fenced and no task is closed");
     }
 
     @Test
@@ -309,7 +309,7 @@ class OffTrackScenarioTest {
             assertions.add(() -> {
                 var observed = entry.getValue();
                 var reports = observed.reports();
-                assertEquals(1, reports.size(), "one report for " + entry.getKey());
+                assertEquals(1, reports.size(), "each off-track action is reported once");
                 assertEquals(entry.getKey().wireName(), reports.getFirst().action(),
                         "the reported action is the loop's action");
                 assertEquals("repeating", reports.getFirst().signal(), "the reported signal stays repeating");
@@ -342,8 +342,8 @@ class OffTrackScenarioTest {
         var twice = replay(stream, role, predictedCost, unplannedChanges);
         assertAll(
                 () -> assertEquals(once.reportsAfterEachLine(), twice.reportsAfterEachLine(),
-                        "the same signal on the same entry for " + signal),
-                () -> assertEquals(once.reports(), twice.reports(), "the same action for " + signal));
+                        "the replay raises the signal on the same entry"),
+                () -> assertEquals(once.reports(), twice.reports(), "the replay reports the same actions"));
     }
 
     @Test

@@ -82,7 +82,7 @@ class DrainTimeoutTest {
 
         var timeout = DrainTimeout.read(base);
 
-        assertEquals(Duration.ofSeconds(expectedSeconds), timeout, "the drain timeout of the case " + name);
+        assertEquals(Duration.ofSeconds(expectedSeconds), timeout, "the drain timeout is the case's expected value");
         if (invalid) {
             assertInvalidLogged();
         } else {

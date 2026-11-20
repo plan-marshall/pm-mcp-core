@@ -156,14 +156,19 @@ class EnrolmentPolicyTest {
             var otherInGroup = violations(place.with(vector(literal("mvn"), group(PL, OTHER_PLACEHOLDER))));
 
             assertAll(
-                    () -> assertEquals(1, moduleOutside.size(), moduleOutside::toString),
-                    () -> assertTrue(moduleOutside.getFirst().contains(place.vector), moduleOutside::toString),
-                    () -> assertTrue(moduleOutside.getFirst().contains(MODULE), moduleOutside::toString),
-                    () -> assertEquals(1, otherLiteral.size(), otherLiteral::toString),
-                    () -> assertTrue(otherLiteral.getFirst().contains(OTHER_PLACEHOLDER), otherLiteral::toString),
-                    () -> assertEquals(1, otherInGroup.size(), otherInGroup::toString),
-                    () -> assertTrue(otherInGroup.getFirst().contains(place.vector), otherInGroup::toString),
-                    () -> assertTrue(otherInGroup.getFirst().contains(OTHER_PLACEHOLDER), otherInGroup::toString));
+                    () -> assertEquals(1, moduleOutside.size(), "a module outside the group is one violation"),
+                    () -> assertTrue(moduleOutside.getFirst().contains(place.vector),
+                            "the module violation names the vector"),
+                    () -> assertTrue(moduleOutside.getFirst().contains(MODULE),
+                            "the module violation names the token"),
+                    () -> assertEquals(1, otherLiteral.size(), "another placeholder is one violation"),
+                    () -> assertTrue(otherLiteral.getFirst().contains(OTHER_PLACEHOLDER),
+                            "the placeholder violation names the token"),
+                    () -> assertEquals(1, otherInGroup.size(), "a placeholder in the group is one violation"),
+                    () -> assertTrue(otherInGroup.getFirst().contains(place.vector),
+                            "the group violation names the vector"),
+                    () -> assertTrue(otherInGroup.getFirst().contains(OTHER_PLACEHOLDER),
+                            "the group violation names the token"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -187,9 +192,9 @@ class EnrolmentPolicyTest {
             var found = violations(place.with(vector(literal("{a}"), literal("x{b}y"))));
 
             assertAll(
-                    () -> assertEquals(2, found.size(), found::toString),
-                    () -> assertTrue(found.getFirst().contains("{a}"), found::toString),
-                    () -> assertTrue(found.getLast().contains("{b}"), found::toString));
+                    () -> assertEquals(2, found.size(), "both violations of the vector are reported"),
+                    () -> assertTrue(found.getFirst().contains("{a}"), "the first violation names the first token"),
+                    () -> assertTrue(found.getLast().contains("{b}"), "the last violation names the second token"));
         }
     }
 
@@ -216,9 +221,9 @@ class EnrolmentPolicyTest {
 
             var found = violations(writing(path));
 
-            assertEquals(violates ? 1 : 0, found.size(), found::toString);
+            assertEquals(violates ? 1 : 0, found.size(), "the path is judged as the case expects");
             if (violates) {
-                assertTrue(found.getFirst().contains(path), found::toString);
+                assertTrue(found.getFirst().contains(path), "the violation names the refused path");
             }
         }
 
@@ -241,8 +246,9 @@ class EnrolmentPolicyTest {
             var refused = violations(writing(intoBase.toString()));
 
             assertAll(
-                    () -> assertEquals(1, refused.size(), refused::toString),
-                    () -> assertTrue(refused.getFirst().contains(intoBase.toString()), refused::toString),
+                    () -> assertEquals(1, refused.size(), "a link into the base is one violation"),
+                    () -> assertTrue(refused.getFirst().contains(intoBase.toString()),
+                            "the violation names the link into the base"),
                     () -> assertEquals(List.of(), violations(writing(toSibling.toString())),
                             "a link to a sibling is admitted"));
         }
@@ -276,9 +282,10 @@ class EnrolmentPolicyTest {
             var found = violations(writing(path));
 
             assertAll(
-                    () -> assertEquals(verdict.count(), found.size(), found::toString),
+                    () -> assertEquals(verdict.count(), found.size(), "the path gets the case's verdict count"),
                     () -> assertTrue(found.stream().allMatch(
-                            reason -> reason.contains(path) && reason.contains(verdict.fragment)), found::toString));
+                            reason -> reason.contains(path) && reason.contains(verdict.fragment)),
+                            "each violation names the path and its verdict"));
         }
 
         @Test
@@ -289,7 +296,7 @@ class EnrolmentPolicyTest {
 
             var found = EnrolmentPolicy.violations(writing(below.toString()), linkedBase);
 
-            assertEquals(1, found.size(), found::toString);
+            assertEquals(1, found.size(), "a path below the linked base is refused");
         }
     }
 
@@ -311,8 +318,8 @@ class EnrolmentPolicyTest {
             var found = withName(name);
 
             assertAll(
-                    () -> assertEquals(1, found.size(), found::toString),
-                    () -> assertTrue(found.getFirst().contains(name), found::toString));
+                    () -> assertEquals(1, found.size(), "the refused variable is one violation"),
+                    () -> assertTrue(found.getFirst().contains(name), "the violation names the refused variable"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -335,13 +342,16 @@ class EnrolmentPolicyTest {
         var found = violations(enrolment);
 
         assertAll(
-                () -> assertEquals(6, found.size(), found::toString),
-                () -> assertTrue(found.get(0).startsWith("build.canonical_templates.maven.verify"), found::toString),
-                () -> assertTrue(found.get(1).startsWith("build.discovery_templates.npm.modules"), found::toString),
-                () -> assertTrue(found.get(2).startsWith("providers.gitlab.verify_argv"), found::toString),
-                () -> assertTrue(found.get(3).startsWith("write_paths"), found::toString),
-                () -> assertTrue(found.get(4).contains("A_SECRET"), found::toString),
-                () -> assertTrue(found.get(5).contains("Z_TOKEN"), found::toString),
+                () -> assertEquals(6, found.size(), "each of the six families reports one reason"),
+                () -> assertTrue(found.get(0).startsWith("build.canonical_templates.maven.verify"),
+                        "the canonical template reason comes first"),
+                () -> assertTrue(found.get(1).startsWith("build.discovery_templates.npm.modules"),
+                        "the discovery template reason comes second"),
+                () -> assertTrue(found.get(2).startsWith("providers.gitlab.verify_argv"),
+                        "the provider reason comes third"),
+                () -> assertTrue(found.get(3).startsWith("write_paths"), "the write path reason comes fourth"),
+                () -> assertTrue(found.get(4).contains("A_SECRET"), "the A_SECRET variable comes fifth"),
+                () -> assertTrue(found.get(5).contains("Z_TOKEN"), "the Z_TOKEN variable comes last"),
                 () -> assertEquals(found, violations(enrolment), "the reasons are stable across runs"));
     }
 
@@ -364,10 +374,11 @@ class EnrolmentPolicyTest {
         var found = violations(enrolment);
 
         assertAll(
-                () -> assertEquals(3, found.size(), found::toString),
-                () -> assertTrue(found.get(0).startsWith("providers.gitlab.verify_argv"), found::toString),
+                () -> assertEquals(3, found.size(), "each of the three families reports one reason"),
+                () -> assertTrue(found.get(0).startsWith("providers.gitlab.verify_argv"),
+                        "the provider reason comes first"),
                 () -> assertTrue(found.get(1).startsWith("project_scripts.parse-log.argument_schema.body"),
-                        found::toString),
-                () -> assertTrue(found.get(2).startsWith("write_paths"), found::toString));
+                        "the argument-schema reason comes second"),
+                () -> assertTrue(found.get(2).startsWith("write_paths"), "the write path reason comes last"));
     }
 }

@@ -118,7 +118,8 @@ class CredentialStoreMoveRecordTest {
             assertAll(
                     () -> assertEquals(operation, read.operation(),
                             "every operation is read back under its own wire name"),
-                    () -> assertTrue(wireNames.add(operation.value()), operation.value()));
+                    () -> assertTrue(wireNames.add(operation.value()),
+                            "no two operations share a wire name"));
         }
         assertEquals(Operation.values().length, wireNames.size(), "every operation has its own wire name");
     }

@@ -44,6 +44,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -250,11 +251,11 @@ class CredentialStoreMoveTest {
                         "the sonar entry moved into the target store"),
                 () -> assertArrayEquals(key.getEncoded(), keyIn(target).read().orElseThrow().getEncoded(),
                         "the integrity key moved with its bytes unchanged"),
-                () -> assertTrue(old.entries().isEmpty(), old.entries().toString()),
+                () -> assertEquals(List.of(), old.entries(), "the old store holds no entry after the move"),
                 () -> assertTrue(keyIn(old).read().isEmpty(), "the old store no longer holds the key"),
                 () -> assertFalse(Files.exists(recordFile()), "the record is gone once the move ends"),
                 () -> assertTrue(movedEvents().stream().allMatch(event -> CredentialStoreMove.EVENT.equals(
-                        event.event())), movedEvents().toString()));
+                        event.event())), "every audited record is a store-move event"));
     }
 
     /** @return the details of the record without its transaction id */
@@ -268,7 +269,8 @@ class CredentialStoreMoveTest {
     static void assertTransactionIdAt(Instant instant, Object value) {
         var id = new TransactionId(String.valueOf(value));
         assertEquals(instant.toEpochMilli(),
-                Long.parseLong(id.value().substring(0, 8) + id.value().substring(9, 13), 16), id.value());
+                Long.parseLong(id.value().substring(0, 8) + id.value().substring(9, 13), 16),
+                "the transaction id carries the clock's instant");
     }
 
     /** A reader of the audit log: it drops a record whose transaction id it has seen, as the specification states. */
@@ -282,10 +284,10 @@ class CredentialStoreMoveTest {
     private void assertNothingSwitched(SecretStoreException failure) {
         assertAll(
                 () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                        "the failure names its reason"),
+                        "the failure reason is FAILED"),
                 () -> assertTrue(failure.getMessage().contains(
                                 "failed before the switch, the copies were removed from 'file' and 'os' stays recorded"),
-                        failure.getMessage()),
+                        "the failure says the copies were removed"),
                 () -> assertNoSecretIn(failure),
                 () -> assertEquals(Optional.of(Store.OS), choice.recorded(),
                         "the old store stays the recorded one"),
@@ -294,7 +296,7 @@ class CredentialStoreMoveTest {
                 () -> assertEquals(Optional.of(sonarSecret), osStore.get(sonar),
                         "the sonar entry stays in the old store"),
                 () -> assertTrue(keyIn(osStore).read().isPresent(), "the old store keeps the integrity key"),
-                () -> assertTrue(fileStore.entries().isEmpty(), fileStore.entries().toString()),
+                () -> assertEquals(List.of(), fileStore.entries(), "no entry is left in the target store"),
                 () -> assertFalse(Files.exists(keyIn(fileStore).keyFile()),
                         "no key file is left in the target store"),
                 () -> assertFalse(Files.exists(recordFile()), "the failed move leaves no record behind"),
@@ -306,7 +308,8 @@ class CredentialStoreMoveTest {
     private void assertNoSecretIn(Throwable failure) {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
             var message = String.valueOf(cause.getMessage());
-            assertFalse(message.contains(githubSecret) || message.contains(sonarSecret), message);
+            assertFalse(message.contains(githubSecret) || message.contains(sonarSecret),
+                    "no message of the failure holds a secret");
         }
     }
 
@@ -416,11 +419,11 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the refusal of the copy names its reason"),
+                            "the refused copy fails with reason FAILED"),
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
                             "the old store stays the recorded one"),
-                    () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
+                    () -> assertEquals(Set.of(), osStore.secrets.keySet(), "the target keeps no copy of an entry"),
                     () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries(),
                             "the old store keeps both of its entries"),
                     () -> assertTrue(keyIn(fileStore).read().isPresent(),
@@ -440,12 +443,13 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the changed read back names its reason"),
-                    () -> assertTrue(failure.getMessage().contains("does not read back"), failure.getMessage()),
+                            "the changed read back fails with reason FAILED"),
+                    () -> assertTrue(failure.getMessage().contains("does not read back"),
+                            "the failure says the entry does not read back"),
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
                             "the old store stays the recorded one"),
-                    () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
+                    () -> assertEquals(Set.of(), osStore.secrets.keySet(), "the target keeps no copy of an entry"),
                     () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries(),
                             "the old store keeps both of its entries"),
                     () -> assertFalse(Files.exists(recordFile()), "the failed move leaves no record behind"));
@@ -464,12 +468,12 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the other key read back names its reason"),
+                            "the other key read back fails with FAILED"),
                     () -> assertTrue(failure.getMessage().contains("integrity key does not read back"),
-                            failure.getMessage()),
+                            "the failure says the key does not read back"),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
                             "the old store stays the recorded one"),
-                    () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
+                    () -> assertEquals(Set.of(), osStore.secrets.keySet(), "the target keeps no copy of an entry"),
                     () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries(),
                             "the old store keeps both of its entries"),
                     () -> assertTrue(keyIn(fileStore).read().isPresent(),
@@ -489,14 +493,15 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the vanished entry names its reason"),
-                    () -> assertTrue(failure.getMessage().contains("vanished"), failure.getMessage()),
+                            "the vanished entry fails with reason FAILED"),
+                    () -> assertTrue(failure.getMessage().contains("vanished"),
+                            "the failure says the entry vanished"),
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded(),
                             "the old store stays the recorded one"),
                     () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB),
                             "the github entry stays in the old store"),
-                    () -> assertTrue(fileStore.entries().isEmpty(), fileStore.entries().toString()),
+                    () -> assertEquals(List.of(), fileStore.entries(), "no entry is left in the target store"),
                     () -> assertFalse(Files.exists(recordFile()), "the failed move leaves no record behind"));
         }
 
@@ -513,16 +518,16 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the failure of the clean-up names its reason"),
+                            "the failed clean-up fails with reason FAILED"),
                     () -> assertNoSecretIn(failure),
                     () -> assertTrue(failure.getMessage().contains(
                                     "the copies could not all be removed from 'os' and 'file' stays recorded; the "
                                             + "record is kept"),
-                            failure.getMessage()),
+                            "the failure says the record is kept"),
                     () -> assertEquals(1, failure.getCause().getSuppressed().length,
                             "the clean-up failure carries one suppressed error"),
                     () -> assertTrue(failure.getCause().getSuppressed()[0].getMessage().contains("refuses to delete"),
-                            failure.getCause().getSuppressed()[0].getMessage()),
+                            "the suppressed error is the refused deletion"),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
                             "the old store stays the recorded one"),
                     () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries(),
@@ -571,10 +576,10 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertTrue(failure.getMessage().contains("the copies were removed from 'os'"),
-                            failure.getMessage()),
+                            "the failure says the copies were removed"),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
                             "the old store stays the recorded one"),
-                    () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
+                    () -> assertEquals(Set.of(), osStore.secrets.keySet(), "the target keeps no copy of an entry"),
                     () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries(),
                             "the old store keeps both of its entries"),
                     () -> assertTrue(keyIn(fileStore).read().isPresent(),
@@ -601,11 +606,11 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the stopped copy names its reason"),
+                            "the stopped copy fails with reason FAILED"),
                     () -> assertTrue(failure.getMessage().contains(
                                     "'os' is recorded, so the copies stay in 'os', 'file' keeps every entry and the "
                                             + "record is deleted"),
-                            failure.getMessage()),
+                            "the failure says the copies stay in the target"),
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB),
                             "the target keeps the github entry it copied"),
@@ -634,11 +639,12 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the unreadable store names its reason"),
+                            "the unreadable store fails with reason FAILED"),
                     () -> assertTrue(failure.getMessage().contains(
                                     "the recorded store cannot be read, so the copies stay in 'os'; the record is kept"),
-                            failure.getMessage()),
-                    () -> assertFalse(failure.getMessage().contains("unknown"), failure.getMessage()),
+                            "the failure says the recorded store is unreadable"),
+                    () -> assertFalse(failure.getMessage().contains("unknown"),
+                            "the failure names no unknown store"),
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(1, failure.getCause().getSuppressed().length,
                             "the failure carries one suppressed error"),
@@ -670,7 +676,8 @@ class CredentialStoreMoveTest {
                     "a record out of phase stops the move before the switch");
 
             assertAll(
-                    () -> assertTrue(failure.getMessage().contains("not in phase 'copying'"), failure.getMessage()),
+                    () -> assertTrue(failure.getMessage().contains("not in phase 'copying'"),
+                            "the failure names the phase the record left"),
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded(),
                             "the old store stays the recorded one"),
                     () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB),
@@ -721,7 +728,7 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusals.getFirst().reason(),
                             "the refusal reports the aspect as owned"),
                     () -> assertTrue(refusals.getFirst().getMessage().contains("only that operation records"),
-                            refusals.getFirst().getMessage()),
+                            "the refusal names the move as the only recorder"),
                     () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
         }
 
@@ -754,7 +761,7 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusal.get().reason(),
                             "the refusal reports the aspect as owned"),
                     () -> assertTrue(refusal.get().getMessage().contains("a change to 'os' is a move"),
-                            refusal.get().getMessage()),
+                            "the refusal says the change is a move"),
                     () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
         }
 
@@ -820,8 +827,7 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(Optional.of(moveRecord), resumed, "the resume reports the record it completed"),
                     () -> assertMovedState(Store.FILE, fileStore, osStore, key),
                     () -> assertEquals(1, distinctEvents(movedEvents()).size(),
-                            "the reader counts the completed move once, also where a stop after its audit record left "
-                                    + "the record that hands it over again"));
+                            "the reader counts the completed move once"));
         }
 
         @Test
@@ -840,7 +846,7 @@ class CredentialStoreMoveTest {
             assertAll(
                     () -> assertEquals(Phase.COPYING, moveRecord.phase(), "the record still names phase copying"),
                     () -> assertEquals(Optional.of(moveRecord), resumed, "the resume reports the record it completed"),
-                    () -> assertTrue(osStore.puts.isEmpty(), osStore.puts.toString()),
+                    () -> assertEquals(List.of(), osStore.puts, "the resume copies no entry again"),
                     () -> assertMoved(Store.FILE, Store.OS, osStore, fileStore, key));
         }
 
@@ -865,7 +871,7 @@ class CredentialStoreMoveTest {
                             "the target keeps the sonar entry it copied"),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded(),
                             "the integrity key stays in the target store"),
-                    () -> assertTrue(fileStore.entries().isEmpty(), fileStore.entries().toString()),
+                    () -> assertEquals(List.of(), fileStore.entries(), "no entry is left in the target store"),
                     () -> assertFalse(Files.exists(recordFile()), "the failed resume leaves no record behind"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
                             WARN.CREDENTIAL_STORE_MOVE_FAILED.resolveIdentifierString()));
@@ -887,11 +893,11 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the failed resume names its reason"),
+                            "the failed resume fails with reason FAILED"),
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
                             "the old store stays the recorded one"),
-                    () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
+                    () -> assertEquals(Set.of(), osStore.secrets.keySet(), "the target keeps no copy of an entry"),
                     () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries(),
                             "the old store keeps both of its entries"),
                     () -> assertTrue(keyIn(fileStore).read().isPresent(),
@@ -915,7 +921,7 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertTrue(failure.getMessage().contains("credentials.store names 'os', not 'file'"),
-                            failure.getMessage()),
+                            "the failure names the store that is recorded"),
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded(),
                             "the old store stays the recorded one"),
                     () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB),
@@ -1013,11 +1019,12 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the refusal of the target names its reason"),
+                            "the refused target fails with reason FAILED"),
                     () -> assertTrue(failure.getMessage().contains("'file' holds Token Lane entries already (1)"),
-                            failure.getMessage()),
+                            "the failure counts the entries the target holds"),
                     () -> assertNoSecretIn(failure),
-                    () -> assertFalse(failure.getMessage().contains(heldSecret), failure.getMessage()),
+                    () -> assertFalse(failure.getMessage().contains(heldSecret),
+                            "the failure never holds the held secret"),
                     () -> assertFalse(Files.exists(recordFile()), "nothing is written before the refusal"),
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded(),
                             "the old store stays the recorded one"),
@@ -1124,7 +1131,7 @@ class CredentialStoreMoveTest {
     private static void assertSameSidecars(List<byte[]> expected, List<byte[]> actual) {
         assertEquals(expected.size(), actual.size(), "the same number of sidecars survived");
         for (var i = 0; i < expected.size(); i++) {
-            assertArrayEquals(expected.get(i), actual.get(i), "sidecar " + i);
+            assertArrayEquals(expected.get(i), actual.get(i), "each sidecar keeps the bytes it was signed with");
         }
     }
 
@@ -1152,11 +1159,11 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason(),
-                            "the key conflict on the target names its reason"),
+                            "the key conflict fails with reason FAILED"),
                     () -> assertTrue(failure.getMessage().contains("holds another integrity key than"),
-                            failure.getMessage()),
+                            "the failure says the target holds another key"),
                     () -> assertTrue(failure.getMessage().contains("nothing was written or deleted"),
-                            failure.getMessage()),
+                            "the failure says nothing was written"),
                     () -> assertNoSecretIn(failure),
                     () -> assertFalse(Files.exists(recordFile()), "nothing is written before the refusal"),
                     () -> assertEquals(Optional.of(from), choice.recorded(),
@@ -1168,11 +1175,12 @@ class CredentialStoreMoveTest {
                             "the old key is untouched by the move"),
                     () -> assertSameSidecars(signed, sidecars()),
                     () -> assertTrue(target.entries().stream().allMatch(
-                            account -> EnrolmentKey.ACCOUNT.equals(account.account())), target.entries().toString()),
+                            account -> EnrolmentKey.ACCOUNT.equals(account.account())),
+                            "the target holds no entry but its own key"),
                     () -> assertEquals(List.of(GITHUB, sonar), storeOf(from).entries().stream()
                                     .filter(account -> !EnrolmentKey.ACCOUNT.equals(account.account())).toList(),
                             "the old store keeps both of its entries"),
-                    () -> assertTrue(osStore.puts.isEmpty(), osStore.puts.toString()),
+                    () -> assertEquals(List.of(), osStore.puts, "the refused move copies no entry"),
                     () -> assertTrue(movedEvents().isEmpty(), "no move is audited for the key conflict"));
         }
 
@@ -1208,7 +1216,7 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertTrue(failure.getMessage().contains("the copies were removed from '%s'".formatted(
-                            to.value())), failure.getMessage()),
+                            to.value())), "the failure says the copies were removed"),
                     () -> assertEquals(Optional.of(from), choice.recorded(),
                             "the old store stays the recorded one"),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(target).read().orElseThrow().getEncoded(),
@@ -1242,7 +1250,7 @@ class CredentialStoreMoveTest {
             assertAll(
                     () -> assertTrue(moveRecord.targetHeldKey(), "the record names that the target held the key"),
                     () -> assertTrue(failure.getMessage().contains("the copies were removed from 'os'"),
-                            failure.getMessage()),
+                            "the failure says the copies were removed"),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded(),
                             "the old store stays the recorded one"),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded(),
@@ -1270,7 +1278,7 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertFalse(moveRecord.targetHeldKey(), "the record says the target held no key"),
-                    () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
+                    () -> assertEquals(Set.of(), osStore.secrets.keySet(), "the target keeps no copy of an entry"),
                     () -> assertTrue(keyIn(fileStore).read().isPresent(),
                             "the old store keeps the integrity key"),
                     () -> assertFalse(Files.exists(recordFile()), "the failed resume leaves no record behind"));
@@ -1294,7 +1302,7 @@ class CredentialStoreMoveTest {
                     () -> assertArrayEquals(targetKey.getEncoded(),
                             keyIn(fileStore).read().orElseThrow().getEncoded(),
                             "the target key stays where it was written"),
-                    () -> assertTrue(osStore.entries().isEmpty(), osStore.entries().toString()),
+                    () -> assertEquals(List.of(), osStore.entries(), "the old store holds no entry after the move"),
                     () -> assertFalse(Files.exists(recordFile()), "the record is gone once the move ends"));
         }
     }
