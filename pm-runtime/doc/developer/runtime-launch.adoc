@@ -257,6 +257,12 @@ enrolment is owed (see § Owed).
   `StartFailureGuard` (link:runtime-worker.adoc[`runtime.worker`]); in § Skill Delivery Record & Re-Delivery the warm
   offer, the re-delivery, the offer bound, harness activation and the `skills_not_loaded` submit refusal are the task
   protocol's.
+* *The refusal reaches the start-failure guard*: a refused launch (a `HarnessVerification.Refused` from
+  `HarnessVerifier`, which `SubprocessJobRunner.refuseWorker` turns into a refused `JobId`) is a start failure the
+  supervisor counts per role and harness through `StartFailureGuard`, and the tasks of the role close `lost` with
+  `role_unavailable` after the compiled count. That integration is not built: no production code calls
+  `StartFailureGuard.startFailed` (link:runtime-worker.adoc[`runtime.worker`] records the same), and it is owed to a
+  follow-up.
 * *Output and usage reading* is not a Done-when clause of this package: the mapping of the output stream to activity,
   the per-turn usage and the result parsing remain in Model Work § Output Read While the Worker Runs.
 * *The Linux child subreaper* of the launcher (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, a binary of `pm-mcp-clients`) is

@@ -91,8 +91,8 @@ running; a wait at its ceiling could not tell waiting from re-polling finished w
 Guard:: An exhausted poll is `unproven`, not absent; a `pm_build` whose window ends with the build still running
 returns `status: running` with its `job_id`, a `pm_build` continuing on the `job_id` of a finished build of the same
 scope returns that build's terminal result, and one continuing on an unknown `job_id`, or one of another scope, is
-refused `invalid_arguments`. The engine's wait windows and the `pm_wait` answers are covered by `WaitSelection`,
-`ModelWait` and `ModelWaitTest`.
+refused `invalid_arguments`. The engine's wait windows are covered by `WaitSelection`, `ModelWait` and
+`ModelWaitTest`.
 Not built (owner `runtime-metrics`): time deferred by a provider rate limit is attributed
 `provider_rate_limit` and never counted as a timeout, and the wait population below is the baseline for wait metrics.
 Fixture:: 600 s budget burned in seconds ("CodeRabbit absent" while running); a script cost rollup of 2,051 calls, 14,423,580 ms, dominated by the three wait notations
