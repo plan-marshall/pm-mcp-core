@@ -3,13 +3,11 @@
 
 == Status
 
-Accepted, amended by ADR
-link:../../../../pm-workflow/doc/adr/workflow-verify/040-a-reason-routed-as-an-outcome-is-named-by-rule-2.adoc[workflow-verify/040]
-(the verifier reads the wire names of the declared reasons to name a reason routed as an outcome)
+Accepted
 
 == Date
 
-2026-10-31; amended 2026-11-20 (PLAN-V2-19: `WorkflowValidator` reads reason wire names for the Rule 2 refusal)
+2026-10-31
 
 == Context
 
@@ -21,10 +19,7 @@ router).
 == Decision
 
 Reasons are data only. No grammar production, guard or verifier reads a reason; `PM-WATCH-DSL-15` and
-`PM-WATCH-DSL-22` keep their text. Amended 2026-11-20 by ADR workflow-verify/040: the verifier
-(`WorkflowValidator.coverOutcomes` through its helper `reasonOutcomesOf`) reads the wire names of a primitive's declared reasons only to name, in the
-Rule 2 refusal it already raises, a transition that routes a reason as if it were an outcome; it routes nothing on a
-reason and admits no transition it refused before, so a reason stays data and is never routed. A cause a unit must route on is promoted to a named outcome by the primitive's
+`PM-WATCH-DSL-22` keep their text. A cause a unit must route on is promoted to a named outcome by the primitive's
 author — that is the rule, not an exception to it. What the engine does with a reason (the mapping to a condition, the
 data it records) belongs to `PLAN-V2-19`, which declares the same.
 
@@ -36,8 +31,7 @@ data it records) belongs to `PLAN-V2-19`, which declares the same.
 == Consequences
 
 * The graph and the state catalogue are unaffected by a new reason.
-* A reason is safe to add without a verifier change; since the amendment of 2026-11-20 a new reason only extends the
-  names the Rule 2 refusal can name, and the verifier admits and refuses the same transitions as before.
+* A reason is safe to add without a verifier change.
 * The lane that adds the engine's use of a reason (`PLAN-V2-19`) must keep the guard surface unchanged.
 
 == Source
