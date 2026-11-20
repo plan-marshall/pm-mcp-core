@@ -324,12 +324,16 @@ provenance is recorded, and the value is validated. It happens in `WorkflowEngin
 * *The identity of the frame*: `call` draws one `command_id` for the call from `Ports.ids` and takes the `correlation_id`
   of the current `Run`, which the engine mints once per advance. Both are `core.id` records written and read by
   `WorkflowStatusCodec` (link:../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR
-  core-store/076], link:../../../pm-core/doc/developer/core-store.adoc#_the_frame_identity_and_the_provenance_of_its_arguments[Scope
+  core-store/078], link:../../../pm-core/doc/developer/core-store.adoc#_the_frame_identity_and_the_provenance_of_its_arguments[Scope
   Stores § The Frame's Identity and the Provenance of Its Arguments]).
-* *The consumption*: a slot the call read is cleared in the same transaction, so a later call never reuses a stale
-  message or path.
+* *The slot*: a filled slot lives at the scope under `<declaring unit id>:<slot name>`, so two units that both declare
+  `message` never overwrite each other
+  (link:../adr/workflow-input/003-the-slot-key-names-the-declaring-unit.adoc[ADR workflow-input/003]). The call that binds
+  it clears it in the same transaction, so a later call never reuses a stale message or path.
 * *The refusal*: a value that does not fit raises the condition `precondition_unmet` with the reason `input_refused`,
-  naming the input and the rule; an input no state filled raises it with the reason `input_unbound`. Both are bounded by
+  naming the input and the rule; an input no state filled raises it with the reason `input_unbound`. An explicitly empty
+  `list<path>` is refused with the rule `input.empty`: a bound list of no path never means "every change"
+  (link:../adr/workflow-input/004-an-empty-files-list-is-refused.adoc[ADR workflow-input/004]). Both are bounded by
   the condition budget and carry the self-remedy of a re-check after the backoff, because their cause can clear — the
   dirty set changes, the slot is filled.
 

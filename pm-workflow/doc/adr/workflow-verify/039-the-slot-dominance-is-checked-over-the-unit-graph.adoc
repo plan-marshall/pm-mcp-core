@@ -1,0 +1,56 @@
+= ADR workflow-verify 039: The Slot Dominance Is Checked Over the Unit Graph
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+Rule 6 has to tie a slot a call reads to the state that fills it. The specification of PLAN-V2-15 names two readings and
+leaves the choice open: a `fills` clause counts as a filler only on the outcome that submits, or the dominance check over
+`UnitGraph` is built. The first implementation counted any `fills` clause as a filler regardless of the outcome, so a
+`lost` route into a call passed verification and the engine entered the callee with an unfilled slot. A `HYPOTHESIS` of
+the specification — that the dominance check is affordable — was never measured.
+
+The outcome dimension cannot be expressed as a state dominator: every task state routes `lost`, so the filling state is on
+the path of a lost settlement too, and a state-level dominator would admit it.
+
+== Decision
+
+* Rule 6 checks a state dominance over `UnitGraph`: for every call that reads a declared slot, every path from one of the
+  unit's starting states to the call state passes a state that fills that slot. The check is a breadth-first walk that
+  avoids the filling states, once per slot a call reads; it is `O(states + transitions)` per slot.
+* The outcome dimension stays the engine's: only the outcome `submitted` fills a slot (`EngineEvent.TasksSettled`), and a
+  call that binds an unfilled slot is refused with `precondition_unmet` / `input_unbound` before it pushes a frame. That
+  pair is the safety net ADR `workflow-dsl/015` claimed.
+* A slot a call reads that is never filled in the unit is refused with its own message, so the two failures stay
+  distinguishable.
+* The measurement: on the largest fixture of the verifier (`verify/passing/every-construct.pmwf`, 39 states) the walk
+  adds no measurable time to the verification of the fixture suite; the check is linear in the graph and runs once per
+  slot and call.
+
+== Alternatives Considered
+
+* *The weaker "filled somewhere" check.* Refused: it is the defect the landing of PLAN-V2-15 found, and it lets a unit
+  that fills a slot on one branch read it on another.
+* *Edge dominance, so that the fill's leaving outcome is the dominator.* Refused: `UnitGraph` is a state graph, and an
+  edge-dominator pass would have to re-derive the transitions of every behavior type in the verifier; the engine's
+  runtime rule closes the same hole with the value the settlement actually carried.
+
+== Consequences
+
+* A unit whose only fill of a slot is on one branch of a diamond and whose call is reached from both is refused, with a
+  message that names the slot and the call state.
+* Three refusing fixtures pin the checks: `slot-undeclared-read.pmwf`, `slot-never-filled.pmwf` and
+  `slot-type-not-assignable.pmwf`; `verify/passing/slots-and-inputs.pmwf` is the matched control.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static
+  AST Verification Rules], Rule 6
+* `PLAN-V2-15` Deliverable 2; `PLAN-V2-157` Deliverable 2

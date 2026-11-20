@@ -30,7 +30,9 @@ import org.jspecify.annotations.Nullable;
  */
 public record CommandId(String value) {
 
-    private static final Pattern FORM = Pattern.compile("cmd-[0-9a-f]{16}");
+    /** The grammar of the id: the prefix {@code cmd-} and 16 lower-case hexadecimal digits. */
+    public static final Pattern PATTERN = Pattern.compile("cmd-[0-9a-f]{16}");
+
     private static final int DRAWN_BYTES = 8;
     private static final RandomGenerator RANDOM = new SecureRandom();
 
@@ -40,7 +42,7 @@ public record CommandId(String value) {
      */
     public CommandId {
         Objects.requireNonNull(value, "value");
-        if (!FORM.matcher(value).matches()) {
+        if (!PATTERN.matcher(value).matches()) {
             throw new IllegalArgumentException("Not a command id (^cmd-[0-9a-f]{16}$): " + value);
         }
     }
@@ -50,7 +52,7 @@ public record CommandId(String value) {
      * @return the id; empty if the string is not one
      */
     public static Optional<CommandId> parse(@Nullable String value) {
-        return value != null && FORM.matcher(value).matches() ? Optional.of(new CommandId(value))
+        return value != null && PATTERN.matcher(value).matches() ? Optional.of(new CommandId(value))
                 : Optional.empty();
     }
 

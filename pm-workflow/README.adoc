@@ -67,6 +67,7 @@ artifact.
 * link:doc/developer/workflow-engine.adoc[Workflow Engine (`workflow.engine`)]
 * link:doc/developer/workflow-envelope.adoc[Task Envelopes (`workflow.envelope`)]
 * link:doc/developer/workflow-finalize.adoc[Finalize Steps (`workflow.finalize`)]
+* link:doc/developer/workflow-input.adoc[Workflow Inputs, Slots and Path Rules (`workflow.input`)]
 * link:doc/developer/workflow-log.adoc[Log Messages (`workflow.log`)]
 * link:doc/developer/workflow-onboarding.adoc[Machine Onboarding (`workflow.onboarding`)]
 * link:doc/developer/workflow-scenario.adoc[Scenario Replay Harness (`workflow.scenario`)]

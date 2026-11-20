@@ -9,9 +9,16 @@
  */
 package de.planmarshall.core.id;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +43,9 @@ class IdentifierSpecificationParityTest {
 
     private static final String METRICS_SCHEMA = "de/planmarshall/core/store/metrics.schema.json";
 
+    /** The identifier registry, read from the module's working directory beside the specification. */
+    private static final String REGISTRY = "../doc/specification/identifiers/01-general-rules-and-registry.adoc";
+
     @Test
     @DisplayName("the name pattern of the role artifact schema is the role-name pattern")
     void roleNameEqualsSchema() {
@@ -52,6 +62,32 @@ class IdentifierSpecificationParityTest {
 
         assertFalse(expected.isBlank(), "The schema should name the harness-id pattern");
         assertEquals(HarnessId.PATTERN.pattern(), expected, "The harness id should equal the schema pattern");
+    }
+
+    @Test
+    @DisplayName("the registry rows of the command and correlation ids name the code's patterns")
+    void commandAndCorrelationIdsEqualRegistry() {
+        var registry = readRegistry();
+
+        assertAll(
+                () -> assertTrue(registry.contains("[[id-command-id]]"),
+                        "the registry should register the command id"),
+                () -> assertTrue(registry.contains(CommandId.PATTERN.pattern()),
+                        "the registry should name the command-id pattern"),
+                () -> assertTrue(registry.contains("[[id-correlation-id]]"),
+                        "the registry should register the correlation id"),
+                () -> assertTrue(registry.contains(CorrelationId.PATTERN.pattern()),
+                        "the registry should name the correlation-id pattern"),
+                () -> assertTrue(registry.contains("call_stack"),
+                        "the registry should name the call frame"));
+    }
+
+    private static String readRegistry() {
+        try {
+            return Files.readString(Path.of(REGISTRY));
+        } catch (IOException e) {
+            throw new UncheckedIOException("the identifier registry cannot be read", e);
+        }
     }
 
     private static String patternAt(String schemaResource, String... path) {

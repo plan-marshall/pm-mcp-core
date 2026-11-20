@@ -560,9 +560,9 @@ Guard:: Every value of a typed input reaches the tool over a channel that takes 
 API or `git commit -F -` over stdin, the paths in the CLI variant on stdin with literal pathspecs
 (`--pathspec-from-file=- --pathspec-file-nul`). `PathRules` refuses a leading `:` and `-` and every control character
 before the value is bound (link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]).
-Tests: a CLI-variant fixture commits a file named `-rf` and a file named `:(glob)**` that the operator created in the
-worktree, and asserts both are staged as files; a message holding a newline and a shell metacharacter commits verbatim;
-the native variant commits the same fixture with identical metadata.
+Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound, and
+`JGitOperationsTest` refuses a pathspec magic and a glob before anything is staged. The CLI variant of this repository
+does not exist, so the stdin pathspec fixture stays owed to the assembly that ships it.
 Source:: design review (PLAN-V2-15).
 
 [#PM-WATCH-DSL-42]

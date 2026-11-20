@@ -30,7 +30,9 @@ import org.jspecify.annotations.Nullable;
  */
 public record CorrelationId(String value) {
 
-    private static final Pattern FORM = Pattern.compile("cor-[0-9a-f]{16}");
+    /** The grammar of the id: the prefix {@code cor-} and 16 lower-case hexadecimal digits. */
+    public static final Pattern PATTERN = Pattern.compile("cor-[0-9a-f]{16}");
+
     private static final int DRAWN_BYTES = 8;
     private static final RandomGenerator RANDOM = new SecureRandom();
 
@@ -40,7 +42,7 @@ public record CorrelationId(String value) {
      */
     public CorrelationId {
         Objects.requireNonNull(value, "value");
-        if (!FORM.matcher(value).matches()) {
+        if (!PATTERN.matcher(value).matches()) {
             throw new IllegalArgumentException("Not a correlation id (^cor-[0-9a-f]{16}$): " + value);
         }
     }
@@ -50,7 +52,7 @@ public record CorrelationId(String value) {
      * @return the id; empty if the string is not one
      */
     public static Optional<CorrelationId> parse(@Nullable String value) {
-        return value != null && FORM.matcher(value).matches() ? Optional.of(new CorrelationId(value))
+        return value != null && PATTERN.matcher(value).matches() ? Optional.of(new CorrelationId(value))
                 : Optional.empty();
     }
 
