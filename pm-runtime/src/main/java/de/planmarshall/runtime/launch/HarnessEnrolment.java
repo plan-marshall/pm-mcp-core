@@ -17,11 +17,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.id.HarnessId;
 import de.planmarshall.core.profile.ProfileStages;
@@ -217,10 +217,10 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
          *
          * @param workerClass the class of the worker, {@code writer}, {@code read_only} or {@code zero_tool}
          * @param model       the model the stage ran with
-         * @param tokens      the first-turn tokens; empty when the first turn does not report the input figures
+         * @param tokens      the first-turn tokens; {@code null} when the first turn does not report the input figures
          * @since 0.1
          */
-        public record StartContext(String workerClass, String model, OptionalLong tokens) {
+        public record StartContext(String workerClass, String model, @Nullable Long tokens) {
 
             /** The classes of the closed list, derived from the role classes. */
             public static final Set<String> CLASSES = Arrays.stream(RoleClass.values())
@@ -228,13 +228,12 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
                     .collect(Collectors.toUnmodifiableSet());
 
             /**
-             * @throws NullPointerException     if a component is {@code null}
+             * @throws NullPointerException     if the class or the model is {@code null}
              * @throws IllegalArgumentException if the class is not one of the closed list or the model is blank
              */
             public StartContext {
                 Objects.requireNonNull(workerClass, "workerClass");
                 Objects.requireNonNull(model, "model");
-                Objects.requireNonNull(tokens, "tokens");
                 if (!CLASSES.contains(workerClass)) {
                     throw new IllegalArgumentException("Not a worker class: " + workerClass);
                 }

@@ -1066,6 +1066,13 @@ caller: transaction.commit()
   `currentRevision`) count readable lines only, so a caller consults `refused()` first and reports a question unreadable
   when the log holds a refused line; a refused line is never taken for an open question by the append gate
   (link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
+* *The null contract of a line*: a member that belongs to some events only is a `@Nullable` component of
+  `QuestionRecord` and is `null` on every other line; the constructor refuses a member on an event it does not belong
+  to and a line without a member its event requires. The class, the origin, the source entity and the question set are
+  required on an `asked` line and absent elsewhere; they stay `@Nullable` components (the annotation form of
+  link:../../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[repository ADR 013], class (c) (b)), not a
+  typed accessor per event, and a reader of an `asked` line hands the member on through `Objects.requireNonNull`.
+  `QuestionLog` reads the question set of an `asked` line through its one helper `questionSet(QuestionRecord)`.
 * *A malformed append is the caller's fault*: a question asked twice, a part asked into a set the log holds, a part
   whose `question_set` is no first question of a set, a line about a question the log does not have, a revised line
   that does not name the next revision, a set revised in part, a decision on a revised line of another question than

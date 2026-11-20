@@ -56,7 +56,6 @@ import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.FS;
 import org.jspecify.annotations.Nullable;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The native variant of the git contract on JGit.

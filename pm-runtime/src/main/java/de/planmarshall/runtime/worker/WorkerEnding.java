@@ -322,7 +322,7 @@ public final class WorkerEnding {
     private static Optional<WorkerState> terminalBlock(JobRecordStore jobs, JobId jobId, JobRecord job) {
         return job.worker() == null ? Optional.empty()
                 : readTerminalBlock(jobs.recordPath(jobId), jobId, job.worker())
-                        .filter(state -> state.state().isTerminal());
+                .filter(state -> state.state().isTerminal());
     }
 
     /**

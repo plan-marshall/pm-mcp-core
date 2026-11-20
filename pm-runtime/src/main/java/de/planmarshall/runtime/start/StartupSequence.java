@@ -167,7 +167,10 @@ AuditSink auditSink) {
     private void recordBrokenChain(AuditChainVerification.Outcome.Broken broken) {
         var details = new HashMap<String, Object>();
         details.put(DETAIL_REASON, broken.reason().wireName());
-        broken.firstBrokenLine().ifPresent(line -> details.put(DETAIL_FIRST_BROKEN_LINE, line));
+        var firstBrokenLine = broken.firstBrokenLine();
+        if (firstBrokenLine != null) {
+            details.put(DETAIL_FIRST_BROKEN_LINE, firstBrokenLine);
+        }
         details.put(DETAIL_OS_PRINCIPAL, user);
         var event = AuditEvent.builder().event(AUDIT_CHAIN_BROKEN).category(CATEGORY_SECURITY)
                 .outcome(OUTCOME_FAILED).details(details).build();
@@ -180,7 +183,7 @@ AuditSink auditSink) {
 
     private static String line(AuditChainVerification.Outcome.Broken broken) {
         var firstBrokenLine = broken.firstBrokenLine();
-        return firstBrokenLine.isPresent() ? Long.toString(firstBrokenLine.getAsLong()) : NO_LINE;
+        return firstBrokenLine != null ? Long.toString(firstBrokenLine) : NO_LINE;
     }
 
     private static String describe(AuditChainVerification.Outcome verification) {

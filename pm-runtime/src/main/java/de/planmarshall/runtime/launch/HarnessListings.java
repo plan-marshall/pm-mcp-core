@@ -99,7 +99,7 @@ public class HarnessListings {
         var status = status(missing);
         var startContext = report.startContext().stream()
                 .map(context -> new ProfileStages.StartContext(context.workerClass(), context.model(),
-                        context.tokens().isPresent() ? Long.valueOf(context.tokens().getAsLong()) : null))
+                        context.tokens()))
                 .toList();
         return new HarnessUsageCoverage(status, status == HarnessUsageCoverage.Status.PARTIAL ? missing : List.of(),
                 startContext);

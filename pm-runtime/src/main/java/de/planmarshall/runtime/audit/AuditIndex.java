@@ -16,7 +16,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
@@ -62,17 +62,16 @@ public final class AuditIndex {
      * @param entries         the entries of the index up to the first one that breaks its chain, in their order
      * @param headHash        the SHA-256 of the last complete line of the index, intact or not;
      *                        {@link AuditCodec#GENESIS_HASH} when the index holds no complete line
-     * @param firstBrokenLine the first line that does not parse or does not chain to the line before it; empty when
-     *                        the chain of the index is intact
+     * @param firstBrokenLine the first line that does not parse or does not chain to the line before it;
+     *                        {@code null} when the chain of the index is intact
      * @since 0.1
      */
-    public record Snapshot(List<AuditIndexEntry> entries, String headHash, OptionalLong firstBrokenLine) {
+    public record Snapshot(List<AuditIndexEntry> entries, String headHash, @Nullable Long firstBrokenLine) {
 
-        /** @throws NullPointerException if a component is {@code null} */
+        /** @throws NullPointerException if the entries or the head hash are {@code null} */
         public Snapshot {
             entries = List.copyOf(entries);
             Objects.requireNonNull(headHash, "headHash");
-            Objects.requireNonNull(firstBrokenLine, "firstBrokenLine");
         }
 
         /** @return the last entry of the intact chain; empty when the index holds none */
@@ -159,12 +158,12 @@ public final class AuditIndex {
             var bytes = line.content();
             var entry = decode(bytes);
             if (entry.isEmpty() || !entry.get().prevHash().equals(expected)) {
-                return new Snapshot(entries, headHash, OptionalLong.of(line.number()));
+                return new Snapshot(entries, headHash, line.number());
             }
             entries.add(entry.get());
             expected = AuditCodec.sha256Hex(bytes);
         }
-        return new Snapshot(entries, headHash, OptionalLong.empty());
+        return new Snapshot(entries, headHash, null);
     }
 
     private Optional<AuditIndexEntry> decode(byte[] line) {

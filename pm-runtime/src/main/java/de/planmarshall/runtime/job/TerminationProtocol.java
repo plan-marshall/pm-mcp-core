@@ -12,7 +12,7 @@ package de.planmarshall.runtime.job;
 import java.time.Duration;
 import java.time.InstantSource;
 import java.util.Objects;
-import java.util.OptionalInt;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.job.ProcessGroupSignals.Answer;
 import de.planmarshall.runtime.job.ProcessGroupSignals.Delivered;
@@ -141,20 +141,20 @@ public final class TerminationProtocol {
      * @param ending            how the protocol ended
      * @param cancelBeforeGroup whether the termination reached the job before its group existed (step 4), recorded as
      *                          {@code cancel_before_group} in the job record
-     * @param errno             the {@code errno} of the failed call for {@link Ending#SIGNAL_REFUSED}; empty otherwise
+     * @param errno             the {@code errno} of the failed call for {@link Ending#SIGNAL_REFUSED}; {@code null}
+     *                          otherwise
      * @since 0.1
      */
-    public record Report(Ending ending, boolean cancelBeforeGroup, OptionalInt errno) {
+    public record Report(Ending ending, boolean cancelBeforeGroup, @Nullable Integer errno) {
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
-         * @throws IllegalArgumentException if the {@code errno} is present exactly when the ending is not
+         * @throws NullPointerException     if the ending is {@code null}
+         * @throws IllegalArgumentException if the {@code errno} is non-null exactly when the ending is not
          *                                  {@link Ending#SIGNAL_REFUSED}
          */
         public Report {
             Objects.requireNonNull(ending, "ending");
-            Objects.requireNonNull(errno, "errno");
-            if (errno.isPresent() != (ending == Ending.SIGNAL_REFUSED)) {
+            if ((errno != null) != (ending == Ending.SIGNAL_REFUSED)) {
                 throw new IllegalArgumentException("An errno belongs to a refused signal only: " + ending);
             }
         }
@@ -185,7 +185,7 @@ public final class TerminationProtocol {
         var answer = signals.signalGroup(pid, Signal.SIGTERM);
         if (answer instanceof NoSuchProcess) {
             return leaderMayLive ? cancelBeforeGroup(pid)
-                    : new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty());
+                    : new Report(Ending.GROUP_NOT_REACHED, false, null);
         }
         if (answer instanceof Refused(var errno)) {
             return refused(errno, false);
@@ -197,7 +197,7 @@ public final class TerminationProtocol {
     private Report cancelBeforeGroup(long pid) {
         var direct = signals.signalProcess(pid, Signal.SIGTERM);
         if (direct instanceof NoSuchProcess) {
-            return new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty());
+            return new Report(Ending.GROUP_NOT_REACHED, false, null);
         }
         if (direct instanceof Refused(var errno)) {
             return refused(errno, true);
@@ -212,7 +212,7 @@ public final class TerminationProtocol {
         restoreInterrupt(interrupted);
         return switch (answer) {
             case Delivered _ -> awaitThenKill(pid, true);
-            case NoSuchProcess _ -> new Report(Ending.GROUP_NOT_REACHED, true, OptionalInt.empty());
+            case NoSuchProcess _ -> new Report(Ending.GROUP_NOT_REACHED, true, null);
             case Refused(var errno) -> refused(errno, true);
         };
     }
@@ -223,7 +223,7 @@ public final class TerminationProtocol {
         var interrupted = false;
         while (!interrupted && clock.instant().isBefore(deadline)) {
             if (signals.signalGroup(pid, Signal.PROBE) instanceof NoSuchProcess) {
-                return new Report(Ending.GROUP_EXITED, cancelBeforeGroup, OptionalInt.empty());
+                return new Report(Ending.GROUP_EXITED, cancelBeforeGroup, null);
             }
             var remaining = Duration.between(clock.instant(), deadline);
             interrupted = !sleep(remaining.compareTo(LIVENESS_INTERVAL) < 0 ? remaining : LIVENESS_INTERVAL);
@@ -231,8 +231,8 @@ public final class TerminationProtocol {
         var answer = signals.signalGroup(pid, Signal.SIGKILL);
         restoreInterrupt(interrupted);
         return switch (answer) {
-            case Delivered _ -> new Report(Ending.GROUP_KILLED, cancelBeforeGroup, OptionalInt.empty());
-            case NoSuchProcess _ -> new Report(Ending.GROUP_EXITED, cancelBeforeGroup, OptionalInt.empty());
+            case Delivered _ -> new Report(Ending.GROUP_KILLED, cancelBeforeGroup, null);
+            case NoSuchProcess _ -> new Report(Ending.GROUP_EXITED, cancelBeforeGroup, null);
             case Refused(var errno) -> refused(errno, cancelBeforeGroup);
         };
     }
@@ -263,6 +263,6 @@ public final class TerminationProtocol {
     }
 
     private static Report refused(int errno, boolean cancelBeforeGroup) {
-        return new Report(Ending.SIGNAL_REFUSED, cancelBeforeGroup, OptionalInt.of(errno));
+        return new Report(Ending.SIGNAL_REFUSED, cancelBeforeGroup, errno);
     }
 }
