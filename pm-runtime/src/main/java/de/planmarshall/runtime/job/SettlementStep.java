@@ -14,6 +14,7 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecordStore;
@@ -206,9 +207,8 @@ public interface SettlementStep {
             @Override
             public Outcome run(Settled settled) {
                 var job = settled.job();
-                var record = withTerminalWorker(store, job);
                 try (var transaction = lockManager.openTransaction()) {
-                    store.writeFate(transaction, record);
+                    store.writeFate(transaction, withTerminalWorker(store, job, transaction));
                 } catch (UncheckedIOException | StoreRefusal e) {
                     return new Outcome.Failed("the fate of %s was not recorded: %s".formatted(job.jobId(),
                             e.getMessage()));
@@ -224,17 +224,28 @@ public interface SettlementStep {
      * Replaces the worker block of a settled record with its terminal state; a job that is no worker keeps its record
      * as it is, and so does a record whose block is terminal already or cannot be read — the fate is what must be
      * durable, and a block the codec refuses is left for the reader that reports it.
+     * <p>
+     * The block is the one the record carries under the transaction's lock, not the one the runner read when it decided
+     * the fate: a worker state the transport wrote after that read ({@code writeWorker}) is newer than the runner's
+     * snapshot, and the fate write replaces the whole record. Deriving the terminal state from the stored block keeps
+     * that newer state — the connection instant among it — from being overwritten by the older text.
      *
-     * @param store the job records of the job's store
-     * @param job   the settled record
+     * @param store       the job records of the job's store
+     * @param job         the settled record
+     * @param transaction the transaction that holds the lock of the record's scope
      * @return the record the fate write stores
      */
-    private static JobRecord withTerminalWorker(JobRecordStore store, JobRecord job) {
-        if (job.kind() != JobId.Kind.LLM || job.worker() == null) {
+    private static JobRecord withTerminalWorker(JobRecordStore store, JobRecord job, LockTransaction transaction) {
+        if (job.kind() != JobId.Kind.LLM) {
+            return job;
+        }
+        transaction.acquire(store.lockKey(job.scope()));
+        var block = store.read(job.jobId()).map(JobRecord::worker).orElse(job.worker());
+        if (block == null) {
             return job;
         }
         try {
-            var current = WorkerStateCodec.read(store.recordPath(job.jobId()), job.worker());
+            var current = WorkerStateCodec.read(store.recordPath(job.jobId()), block);
             if (current.state().isTerminal()) {
                 return job;
             }

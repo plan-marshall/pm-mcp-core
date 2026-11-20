@@ -26,6 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -71,6 +74,7 @@ import de.planmarshall.runtime.job.WorkerTermination;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
 import de.planmarshall.runtime.launch.HarnessVerifier;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.log.RuntimeLogMessages;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
@@ -86,6 +90,7 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  * and the enrolment's executable is the operating system's own {@code sleep}.
  */
 @EnableGeneratorController
+@EnableTestLogger
 @DisplayName("Supervision pass")
 class SupervisionPassTest {
 
@@ -255,14 +260,28 @@ class SupervisionPassTest {
 
     /** Settles the job the way the runner does: the fate and the terminal worker block in one record. */
     private void settle(WorkerGeneration gen) {
+        settle(gen, JobRecord.Fate.SUCCEEDED, SupervisorTestFixture.NOW.plusSeconds(30));
+    }
+
+    /** Settles the job with the given fate, as the runner does, with the terminal worker block in the same record. */
+    private void settle(WorkerGeneration gen, JobRecord.Fate fate, Instant endedAt) {
         try (var transaction = locks.openTransaction()) {
-            var settled = running(gen).toBuilder().status(JobRecord.Status.ENDED).fate(JobRecord.Fate.SUCCEEDED)
-                    .outcomeRow(2).spawnedAt(SupervisorTestFixture.NOW)
-                    .endedAt(SupervisorTestFixture.NOW.plusSeconds(30)).childWallMs(30_000L).exitCode(0L)
+            var settled = running(gen).toBuilder().status(JobRecord.Status.ENDED).fate(fate).outcomeRow(2)
+                    .spawnedAt(SupervisorTestFixture.NOW).endedAt(endedAt).childWallMs(30_000L).exitCode(0L)
                     .build();
             var current = WorkerStateCodec.read(jobs.recordPath(gen.jobId()), settled.worker());
             jobs.writeFate(transaction,
                     settled.withWorker(WorkerStateCodec.write(WorkerTermination.terminal(current, settled))));
+        }
+    }
+
+    /** Settles the job with a worker block the codec rejects: the settlement leaves such a block as it is. */
+    private void settleWithUnreadableWorkerBlock(WorkerGeneration gen) {
+        try (var transaction = locks.openTransaction()) {
+            jobs.writeFate(transaction, running(gen).toBuilder().status(JobRecord.Status.ENDED)
+                    .fate(JobRecord.Fate.SUCCEEDED).outcomeRow(2).spawnedAt(SupervisorTestFixture.NOW)
+                    .endedAt(SupervisorTestFixture.NOW.plusSeconds(30)).childWallMs(30_000L).exitCode(0L)
+                    .worker("{\"not\":\"a worker state\"}").build());
         }
     }
 
@@ -737,6 +756,109 @@ class SupervisionPassTest {
                         "the served task closes its attempt without a loss"),
                 () -> assertTrue(fixture.cancels.isEmpty(),
                         "no cancellation reaches the runner of the served worker"));
+    }
+
+    @Test
+    @DisplayName("a deadline is dispatched while an end runs, and the ending generation fires none")
+    void aDeadlineIsDispatchedWhileTheEndRuns() throws Exception {
+        var inside = new CountDownLatch(1);
+        var gate = new CountDownLatch(1);
+        fixture.protocol = blockingProtocol(inside, gate);
+        var blockedEnvironment = fixture.environment(SupervisorEnvironment.StartGuard.open(),
+                SupervisorEnvironment.EligibilityGate.open());
+        var blockedSupervisor = new WorkerSupervisor(blockedEnvironment);
+        var blockedEnding = new WorkerEnding(blockedEnvironment, () -> false, () -> {
+        });
+        var blockedRecycling = new WorkerRecycling(blockedEnvironment, blockedEnding, blockedSupervisor::generations,
+                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
+                parameters);
+        var blockedCalls = new SupervisorCalls(blockedSupervisor, blockedEnding, blockedRecycling, parameters,
+                _ -> RoleClass.WRITER);
+        role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 2);
+        var endingGeneration = ((WorkerSupervisor.StartOutcome.Started) blockedSupervisor
+                .start(List.of(fixture.warmRequest(role, fixture.workdir))).getFirst()).generation();
+        var silent = ((WorkerSupervisor.StartOutcome.Started) blockedSupervisor
+                .start(List.of(fixture.warmRequest(role, Files.createDirectories(base.resolve("silent")))))
+                .getFirst()).generation();
+        writeRunning(endingGeneration);
+        writeRunning(silent);
+        settle(endingGeneration);
+        // Both detections exist before the pass runs, so the clock move below meets the silent generation's deadline.
+        blockedCalls.detection(silent);
+        var blockedPass = new SupervisionPass(blockedSupervisor, blockedCalls, blockedEnding, blockedRecycling, tasks,
+                new AgentStartedDetector(blockedEnvironment, _ -> new ProcessExecutables.Absent(), List::of,
+                        blockedEnding),
+                pumps(journal("blocked-deadline")));
+        var runner = new Thread(blockedPass::run);
+
+        runner.start();
+        assertTrue(inside.await(5, TimeUnit.SECONDS), "the end path reached the fence");
+        var cancelsBefore = fixture.cancels.size();
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () -> fixture.advance(Duration.ofSeconds(901)),
+                "the silent generation's deadline is dispatched while the end runs");
+        gate.countDown();
+        runner.join(TimeUnit.SECONDS.toMillis(5));
+
+        assertAll(
+                () -> assertEquals(cancelsBefore + 1, fixture.cancels.size(),
+                        "only the silent generation's deadline forces a process"),
+                () -> assertEquals(Optional.of(EndCause.LOST), blockedEnding.requestedCause(silent.generationId()),
+                        "the deadline ends the silent generation as lost"),
+                () -> assertFalse(runner.isAlive(), "the end path ended after the fence returned"));
+    }
+
+    @Test
+    @DisplayName("an unrequested end that failed once keeps its cause absent on the retry")
+    void anUnrequestedEndStaysUnrequestedOnItsRetry() throws Exception {
+        var failing = new AtomicBoolean();
+        failing.set(true);
+        var ownEnding = new WorkerEnding(environment, () -> {
+            if (failing.getAndSet(false)) {
+                throw new IllegalStateException("the work queue cannot be read");
+            }
+            return false;
+        }, () -> {
+        });
+        var ownRecycling = new WorkerRecycling(environment, ownEnding, supervisor::generations,
+                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
+                parameters);
+        var ownCalls = new SupervisorCalls(supervisor, ownEnding, ownRecycling, parameters, _ -> RoleClass.WRITER);
+        writeRunning(generation);
+        ownCalls.waitOpened(generation.generationId(), task, generation.configurationDigest());
+        ownCalls.taskClosed(generation.generationId(), task);
+        settle(generation);
+        var ownPass = new SupervisionPass(supervisor, ownCalls, ownEnding, ownRecycling, tasks, silentDetector(),
+                pumps(journal("retry-unrequested")));
+
+        ownPass.run();
+        ownPass.run();
+
+        assertAll(
+                () -> assertEquals(WorkerLifecycle.ENDED,
+                        supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                        "the retried unrequested end keeps the record's end"),
+                () -> assertTrue(fixture.writes.isEmpty(), "neither run writes a terminal state"),
+                () -> assertEquals(1, fixture.fences.size(), "the retry fences the generation no second time"));
+    }
+
+    @Test
+    @DisplayName("a settled record whose worker block is unreadable still completes its end")
+    void anUnreadableWorkerBlockDoesNotBlockTheEnd() throws Exception {
+        writeRunning(generation);
+        settleWithUnreadableWorkerBlock(generation);
+        var pass = pass(journal("unreadable-block"));
+
+        pass.run();
+
+        assertAll(
+                () -> assertTrue(supervisor.generation(generation.generationId()).orElseThrow().terminal(),
+                        "the pass completes the end of the unreadable record"),
+                () -> assertEquals(1, fixture.fences.size(), "the end path fences the generation once"),
+                () -> assertTrue(fixture.jobTokens.revoked(generation.generationId()),
+                        "the end path revokes the job token"),
+                () -> assertEquals(1, released(generation), "the end path releases the model slot once"));
+        LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.WORKER_TERMINAL_STATE_UNREADABLE.resolveIdentifierString());
     }
 
     @Test

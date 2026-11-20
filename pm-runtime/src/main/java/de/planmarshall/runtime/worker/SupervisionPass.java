@@ -253,11 +253,14 @@ public final class SupervisionPass {
             }
             var recorded = recordedEnd(jobs, job);
             var detection = calls.detection(generation);
-            // An exit is a loss only while the generation still leases a task: that is the task the loss offers again.
-            // A worker that ended without a task has no attempt to lose, and the settled record names its end.
-            var exit = generation.leasedTask() != null ? detection.exit(now) : Optional.<LossSignal>empty();
-            exit.ifPresent(signal -> ending.end(generation, signal));
-            var loss = exit.or(() -> calls.loss(generationId)).orElse(null);
+            // The detection settles with every claimed end, so a deadline cannot fire into an end that already ran —
+            // also for a settled worker that holds no task. An exit is a loss only while the generation still leases a
+            // task: that is the task the loss offers again. A worker that ended without a task has no attempt to lose,
+            // and the settled record names its end.
+            var exit = detection.exit(now);
+            var lostTask = generation.leasedTask() != null ? exit : Optional.<LossSignal>empty();
+            lostTask.ifPresent(signal -> ending.end(generation, signal));
+            var loss = lostTask.or(() -> calls.loss(generationId)).orElse(null);
             var requested = ending.requestedCause(generationId).orElse(null);
             if (requested == null && detection.startFailure()) {
                 ending.end(generation, EndCause.START_FAILURE);

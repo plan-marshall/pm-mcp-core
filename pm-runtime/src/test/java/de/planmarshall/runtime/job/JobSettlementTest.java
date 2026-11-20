@@ -165,7 +165,78 @@ class JobSettlementTest {
         var workerJob = new JobId(RuntimeGenerators.jobIds(JobId.Kind.LLM).next());
         var digest = RuntimeGenerators.sha256Digests().next();
         var connectedAt = createdAt.plusSeconds(1);
-        var worker = WorkerState.builder()
+        var running = workerRunning(workerJob, workerState(workerJob, digest, connectedAt));
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeAhead(transaction, running);
+        }
+
+        var report = JobSettlement.of(records, lockManager).settle(new Settled(workerSettled(running), null));
+
+        var written = writtenWorker(workerJob);
+        assertAll(
+                () -> assertTrue(report.stoppedAt().isEmpty(), "the settlement runs every step"),
+                () -> assertTrue(written.state().isTerminal(), "the record carries a terminal worker block"),
+                () -> assertEquals(WorkerState.EndReason.TASK_DONE, written.endReason(),
+                        "the fate names the task-done end"),
+                () -> assertEquals(createdAt.plusSeconds(60), written.stateAt(),
+                        "the terminal instant is the job's ended-at"),
+                () -> assertNull(written.task(), "the terminal block clears the leased task"),
+                () -> assertInstanceOf(Outcome.Done.class, report.steps().getFirst().outcome(),
+                        "the fate step reports its write"));
+    }
+
+    @Test
+    @DisplayName("the fate step derives the terminal block from the worker state the record carries")
+    void theFateStepKeepsTheNewestWorkerState() {
+        var workerJob = new JobId(RuntimeGenerators.jobIds(JobId.Kind.LLM).next());
+        var digest = RuntimeGenerators.sha256Digests().next();
+        var stale = workerRunning(workerJob, workerState(workerJob, digest, createdAt.plusSeconds(1)));
+        var newestConnectedAt = createdAt.plusSeconds(5);
+        var newest = workerState(workerJob, digest, newestConnectedAt).toBuilder()
+                .state(WorkerState.State.WAITING).stateAt(newestConnectedAt).build();
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeAhead(transaction, stale);
+        }
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeWorker(transaction, workerJob, newest);
+        }
+
+        // The runner decided the fate on the record it read before the transport wrote the newer worker state.
+        var report = JobSettlement.of(records, lockManager).settle(new Settled(workerSettled(stale), null));
+
+        var written = writtenWorker(workerJob);
+        assertAll(
+                () -> assertTrue(report.stoppedAt().isEmpty(), "the settlement runs every step"),
+                () -> assertTrue(written.state().isTerminal(), "the record carries a terminal worker block"),
+                () -> assertEquals(WorkerState.EndReason.TASK_DONE, written.endReason(),
+                        "the fate names the task-done end"),
+                () -> assertEquals(newestConnectedAt, written.connectedAt(),
+                        "the worker state written after the runner's read survives"),
+                () -> assertEquals(createdAt.plusSeconds(60), written.stateAt(),
+                        "the terminal instant is the job's ended-at"));
+    }
+
+    /** @return the running record of a worker job, carrying the given worker state */
+    private JobRecord workerRunning(JobId workerJob, WorkerState worker) {
+        return JobRecord.builder().jobId(workerJob).execution(Execution.PROCESS)
+                .scope(new Scope(Scope.Type.PROJECT, null))
+                .worker(WorkerStateCodec.write(worker)).egress(JobRecord.Egress.UNENFORCED)
+                .gitMetadata(JobRecord.GitMetadata.UNENFORCED)
+                .budgetKey(budgetKey).budgetSeconds(budgetSeconds)
+                .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
+                .status(Status.RUNNING).confinement(Confinement.UNAVAILABLE).createdAt(createdAt)
+                .clampedValues(List.of()).build();
+    }
+
+    /** @return the settled record of a worker job whose job succeeded */
+    private JobRecord workerSettled(JobRecord running) {
+        return running.toBuilder().status(Status.ENDED).fate(Fate.SUCCEEDED).outcomeRow(7)
+                .spawnedAt(createdAt).endedAt(createdAt.plusSeconds(60)).childWallMs(59_000L).exitCode(0L).build();
+    }
+
+    /** @return the worker state of a running worker job, connected at the given instant */
+    private WorkerState workerState(JobId workerJob, String digest, Instant connectedAt) {
+        return WorkerState.builder()
                 .role("implementer")
                 .configurationDigest(digest)
                 .roleClass(WorkerState.RoleClass.WRITER)
@@ -186,34 +257,12 @@ class JobSettlementTest {
                 .deliveredSkills(List.of())
                 .startFailure(false)
                 .build();
-        var running = JobRecord.builder().jobId(workerJob).execution(Execution.PROCESS)
-                .scope(new Scope(Scope.Type.PROJECT, null))
-                .worker(WorkerStateCodec.write(worker)).egress(JobRecord.Egress.UNENFORCED)
-                .gitMetadata(JobRecord.GitMetadata.UNENFORCED)
-                .budgetKey(budgetKey).budgetSeconds(budgetSeconds)
-                .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
-                .status(Status.RUNNING).confinement(Confinement.UNAVAILABLE).createdAt(createdAt)
-                .clampedValues(List.of()).build();
-        var settled = running.toBuilder().status(Status.ENDED).fate(Fate.SUCCEEDED).outcomeRow(7)
-                .spawnedAt(createdAt).endedAt(createdAt.plusSeconds(60)).childWallMs(59_000L).exitCode(0L).build();
-        try (var transaction = lockManager.openTransaction()) {
-            records.writeAhead(transaction, running);
-        }
+    }
 
-        var report = JobSettlement.of(records, lockManager).settle(new Settled(settled, null));
-
-        var written = WorkerStateCodec.read(records.recordPath(workerJob),
+    /** @return the worker block the settled record of the job carries */
+    private WorkerState writtenWorker(JobId workerJob) {
+        return WorkerStateCodec.read(records.recordPath(workerJob),
                 records.read(workerJob).orElseThrow().worker());
-        assertAll(
-                () -> assertTrue(report.stoppedAt().isEmpty(), "the settlement runs every step"),
-                () -> assertTrue(written.state().isTerminal(), "the record carries a terminal worker block"),
-                () -> assertEquals(WorkerState.EndReason.TASK_DONE, written.endReason(),
-                        "the fate names the task-done end"),
-                () -> assertEquals(createdAt.plusSeconds(60), written.stateAt(),
-                        "the terminal instant is the job's ended-at"),
-                () -> assertNull(written.task(), "the terminal block clears the leased task"),
-                () -> assertInstanceOf(Outcome.Done.class, report.steps().getFirst().outcome(),
-                        "the fate step reports its write"));
     }
 
     private boolean fateRecorded() {

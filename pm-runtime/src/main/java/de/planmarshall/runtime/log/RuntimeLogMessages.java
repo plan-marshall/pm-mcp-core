@@ -1254,6 +1254,19 @@ public final class RuntimeLogMessages {
                 .identifier(150)
                 .template("The idle yield of the supervision pass failed: %s")
                 .build();
+
+        /**
+         * Logged when the worker block of a settled record cannot be read: the settlement leaves a block the codec
+         * refuses as it is, so the fate stays durable, and the end is completed without the terminal state the block
+         * would carry instead of failing on every pass.
+         * <p>
+         * The component is {@code WorkerEnding} of the worker package.
+         */
+        public static final LogRecord WORKER_TERMINAL_STATE_UNREADABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(151)
+                .template("The terminal worker state of generation '%s' cannot be read: %s")
+                .build();
     }
 
     /** ERROR level messages. */

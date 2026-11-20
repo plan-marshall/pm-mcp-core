@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.QueueTaskRecord;
+import de.planmarshall.runtime.job.JobEvidence.LogState;
 import de.planmarshall.runtime.job.JobLog;
 
 /**
@@ -61,10 +62,13 @@ public final class WorkerActivityPump {
     public int pump(String queueTaskId, String generationId, int attempt, JobLog log) {
         Objects.requireNonNull(queueTaskId, "queueTaskId");
         Objects.requireNonNull(log, "log");
-        if (task != null && !task.equals(queueTaskId)) {
-            close(generationId, log);
+        if (task != null && !task.equals(queueTaskId) && !closeTracked(generationId, log).switched()) {
+            // The previous attempt's tail cannot be read yet: switching now would append its lines to the next task.
+            return 0;
         }
-        var appended = pumpTail(queueTaskId, generationId, attempt, log, false);
+        var read = log.readLines(offset);
+        var appended = read instanceof JobLog.Lines lines ? appendLines(queueTaskId, generationId, attempt, lines, false)
+                : 0;
         task = queueTaskId;
         this.attempt = attempt;
         return appended;
@@ -73,19 +77,39 @@ public final class WorkerActivityPump {
     /**
      * Appends the tail of the attempt the pump read and its end, for a task whose lease ended without an end path (a
      * warm worker whose task closed). The task's facts are gone by then, so the entries carry the attempt the pump
-     * read and no off-track signal is evaluated on a closed attempt.
+     * read and no off-track signal is evaluated on a closed attempt. A tail that cannot be read leaves the attempt
+     * open, so its lines are never appended to a later task.
      *
      * @param generationId the worker's generation
      * @param log          the worker's job log
-     * @return the written end entry; empty when the pump read no task
+     * @return the written end entry; empty when the pump read no task or the tail cannot be read yet
      */
     public Optional<ActivityEntry> close(String generationId, JobLog log) {
         Objects.requireNonNull(log, "log");
+        return Optional.ofNullable(closeTracked(generationId, log).entry());
+    }
+
+    /**
+     * Closes the tracked attempt: its tail, its end and the recorder's state for the task. A read of the tail that can
+     * heal ({@code UNREADABLE}) answers no switch, because the lines it would leave behind are the next task's if the
+     * pump moved on; a log that does not exist and one that shrank close the attempt with the lines they offered.
+     *
+     * @param generationId the worker's generation
+     * @param log          the worker's job log
+     * @return whether the pump may move on, and the entry written when it closed an attempt
+     */
+    private Closed closeTracked(String generationId, JobLog log) {
         var closed = task;
         if (closed == null) {
-            return Optional.empty();
+            return new Closed(true, null);
         }
-        pumpTail(closed, generationId, attempt, log, true);
+        var read = log.readLines(offset);
+        if (read instanceof JobLog.Unavailable unavailable && unavailable.state() == LogState.UNREADABLE) {
+            return new Closed(false, null);
+        }
+        if (read instanceof JobLog.Lines lines) {
+            appendLines(closed, generationId, attempt, lines, true);
+        }
         var written = recorder.appendClosed(closed, generationId, attempt, ActivityEntry.builder()
                 .source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.ATTEMPT_END)
@@ -94,7 +118,7 @@ public final class WorkerActivityPump {
         unmapped = 0;
         task = null;
         recorder.forget(closed);
-        return Optional.of(written);
+        return new Closed(true, written);
     }
 
     /**
@@ -123,10 +147,7 @@ public final class WorkerActivityPump {
         return unmapped;
     }
 
-    private int pumpTail(String queueTaskId, String generationId, int attempt, JobLog log, boolean closed) {
-        if (!(log.readLines(offset) instanceof JobLog.Lines lines)) {
-            return 0;
-        }
+    private int appendLines(String queueTaskId, String generationId, int attempt, JobLog.Lines lines, boolean closed) {
         var appended = 0;
         for (var line : lines.lines()) {
             var mapped = mapper.map(line);
@@ -157,5 +178,14 @@ public final class WorkerActivityPump {
             case TURN -> builder.stopReason(mapped.stopReason()).usage(mapped.usage());
             default -> throw new IllegalArgumentException("Not a harness kind: " + mapped.kind());
         };
+    }
+
+    /**
+     * What a close decided: whether the pump may move on to another task, and the entry it wrote when it closed one.
+     *
+     * @param switched whether the tracked attempt is closed, so another task may be read
+     * @param entry    the written end entry; {@code null} when nothing was closed
+     */
+    private record Closed(boolean switched, @Nullable ActivityEntry entry) {
     }
 }

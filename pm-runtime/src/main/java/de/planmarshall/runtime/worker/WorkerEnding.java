@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import de.cuioss.tools.logging.CuiLogger;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +26,7 @@ import de.planmarshall.core.store.WorkerState;
 import de.planmarshall.core.store.WorkerStateCodec;
 import de.planmarshall.runtime.job.TerminationProtocol;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The one end path of a worker generation (PM-WORK-3, Ending a Worker). Every cause — a closed task, a recycle, the
@@ -143,24 +145,47 @@ public final class WorkerEnding {
      * settled record — the store refuses that write, and the refusal stays. A retry after a failed end repeats none of
      * the side effects: the generation's own request carries the mark that they ran, and the request stays available,
      * so the retry re-reads the cause instead of re-deriving it as a loss.
+     * <p>
+     * The monitor of this instance covers the request's claim and its removal only; the fence, the token revoke, the
+     * slot release, the read of the terminal state and the successor start run outside it. Those waits include writes
+     * of the store and a process start, so a deadline that fires on the supervisor's one timer thread travels through
+     * {@link #end(WorkerGeneration, LossSignal)} without waiting for them. The mark of the claim is written before the
+     * effects run, so a deadline that lands meanwhile installs no second end.
      *
      * @param generation the generation whose process exited
      * @return the generation in its terminal state
      */
-    public synchronized WorkerGeneration exited(WorkerGeneration generation) {
+    public WorkerGeneration exited(WorkerGeneration generation) {
         Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         var generationId = generation.generationId();
-        var request = requests.get(generationId);
-        var cause = request != null ? request.cause() : null;
-        var reason = request != null ? request.reason() : WorkerState.EndReason.EXITED;
         var at = environment.clock().instant();
-        if (request == null || !request.completed()) {
-            cancelGrace(generationId);
+        WorkerState.EndReason reason;
+        EndCause cause;
+        boolean effects;
+        synchronized (this) {
+            var request = requests.get(generationId);
+            // An end the supervisor never requested keeps its cause absent: a retry after a failed read is then
+            // classified by the terminal block the settlement wrote, not by a loss this path would have invented.
+            cause = request != null ? request.cause() : null;
+            reason = request != null ? request.reason() : WorkerState.EndReason.EXITED;
+            effects = request == null || !request.completed();
+            if (effects) {
+                cancelGrace(generationId);
+                if (request == null) {
+                    // The claim is the generation's own mark while the effects run: a deadline that lands meanwhile
+                    // finds the request and installs no second end. It is not completed yet, so a failure here is
+                    // retried rather than leaving the end owed.
+                    requests.put(generationId, new Request(null, reason, false));
+                }
+            }
+        }
+        if (effects) {
             environment.protocol().fence(generationId);
             environment.jobTokens().revoke(generationId);
             environment.slots().release(generation.slot());
-            requests.put(generationId, request == null ? new Request(EndCause.LOST, reason, true)
-                    : request.markCompleted());
+            synchronized (this) {
+                requests.put(generationId, new Request(cause, reason, true));
+            }
         }
         var recorded = JobId.parse(generationId)
                 .flatMap(jobId -> recordedTerminal(
@@ -177,7 +202,9 @@ public final class WorkerEnding {
         if (workQueued.getAsBoolean()) {
             successor.run();
         }
-        requests.remove(generationId);
+        synchronized (this) {
+            requests.remove(generationId);
+        }
         return terminal;
     }
 
@@ -247,34 +274,48 @@ public final class WorkerEnding {
     }
 
     /**
-     * Reads the terminal worker state a settled record carries, which the settlement wrote with the fate.
+     * Reads the terminal worker state a settled record carries, which the settlement wrote with the fate. A worker
+     * block the codec cannot read is reported and answered as no terminal state: the settlement deliberately leaves
+     * such a block as it is so the fate stays durable, and the end then completes without the state rather than failing
+     * on every pass forever.
      *
      * @param jobs  the job records of the generation's project
      * @param jobId the generation's job
-     * @return the terminal worker state; empty when the record is absent, not settled or carries no worker block
-     * @throws StoreRefusal         if the record or its worker block is unreadable
+     * @return the terminal worker state; empty when the record is absent, not settled, carries no worker block or
+     *         carries a block the codec refuses
+     * @throws StoreRefusal         if the record itself is unreadable
      * @throws UncheckedIOException if the record cannot be read
      */
     static Optional<WorkerState> recordedTerminal(JobRecordStore jobs, JobId jobId) {
         return jobs.read(jobId)
                 .filter(job -> job.status().isSettled() && job.kind() == JobId.Kind.LLM && job.worker() != null)
-                .map(job -> WorkerStateCodec.read(jobs.recordPath(jobId), job.worker()))
+                .flatMap(job -> readTerminalBlock(jobs.recordPath(jobId), jobId, job.worker()))
                 .filter(state -> state.state().isTerminal());
+    }
+
+    /**
+     * @param recordPath the record file the block belongs to
+     * @param jobId      the generation's job
+     * @param block      the raw worker block of the settled record
+     * @return the decoded block; empty when the codec refuses it, which is reported here
+     */
+    private static Optional<WorkerState> readTerminalBlock(Path recordPath, JobId jobId, String block) {
+        try {
+            return Optional.of(WorkerStateCodec.read(recordPath, block));
+        } catch (StoreRefusal refusal) {
+            LOGGER.warn(WARN.WORKER_TERMINAL_STATE_UNREADABLE, jobId.value(), refusal.getMessage());
+            return Optional.empty();
+        }
     }
 
     /**
      * One requested end: its cause, the end reason the terminal state carries (the loss signal refines the reason) and
      * whether the end's side effects already ran, which is the generation's own terminal mark.
      *
-     * @param cause     the cause
+     * @param cause     the cause; {@code null} when the supervisor requested none
      * @param reason    the end reason
      * @param completed whether the side effects of the end ran
      */
-    private record Request(EndCause cause, WorkerState.EndReason reason, boolean completed) {
-
-        /** @return the request after the end's side effects ran */
-        Request markCompleted() {
-            return new Request(cause, reason, true);
-        }
+    private record Request(@Nullable EndCause cause, WorkerState.EndReason reason, boolean completed) {
     }
 }
