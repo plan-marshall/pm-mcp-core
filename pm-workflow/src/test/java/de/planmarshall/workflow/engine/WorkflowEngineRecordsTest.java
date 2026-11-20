@@ -84,11 +84,12 @@ class WorkflowEngineRecordsTest {
         var callPath = List.of(Generators.letterStrings(1, 8).next());
         var phase = Generators.letterStrings(1, 8).next();
         var outcome = Generators.letterStrings(1, 8).next();
+        var reason = Generators.letterStrings(1, 8).next();
         var instanceVersion = Generators.integers(1, 9).next();
         var constructor = pendingClass.getDeclaredConstructor(PlanHistoryLine.Event.class, String.class, List.class,
-                String.class, String.class, int.class);
+                String.class, String.class, String.class, int.class);
         constructor.setAccessible(true);
-        var constructed = constructor.newInstance(event, node, callPath, phase, outcome, instanceVersion);
+        var constructed = constructor.newInstance(event, node, callPath, phase, outcome, reason, instanceVersion);
         var builderFactory = pendingClass.getDeclaredMethod("builder");
         builderFactory.setAccessible(true);
         var builder = builderFactory.invoke(null);
@@ -97,6 +98,7 @@ class WorkflowEngineRecordsTest {
         invokeSetter(builder, "callPath", callPath);
         invokeSetter(builder, "phase", phase);
         invokeSetter(builder, "outcome", outcome);
+        invokeSetter(builder, "reason", reason);
         invokeSetter(builder, "instanceVersion", instanceVersion);
         var build = builder.getClass().getDeclaredMethod("build");
         build.setAccessible(true);

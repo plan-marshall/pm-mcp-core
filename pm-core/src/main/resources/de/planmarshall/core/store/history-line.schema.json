@@ -13,7 +13,10 @@
     "call_path": { "type": "array", "maxItems": 5, "items": { "type": "string" }, "description": "The subworkflow_id of every frame of the call stack at the line, bottom to top; for a called line without the new frame, for a returned line without the popped one." },
     "phase": { "type": ["string", "null"], "description": "The plan's phase value at the line (store-schemas/03, Phases as Sub-Workflows); null before the first phase is called." },
     "outcome": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$", "description": "left: the outcome the state settled, by which the transition was chosen; returned: the sub-workflow's exit outcome; null otherwise." },
+    "reason": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "left: the wire name of the reason of the outcome; absent otherwise." },
     "instance_version": { "type": "integer", "minimum": 1, "description": "The plan instance version in force at the line; for an instance line the version that took force." },
     "at": { "type": "string", "format": "date-time" }
-  }
+  },
+  "if": { "properties": { "event": { "not": { "const": "left" } } } },
+  "then": { "not": { "required": ["reason"] } }
 }

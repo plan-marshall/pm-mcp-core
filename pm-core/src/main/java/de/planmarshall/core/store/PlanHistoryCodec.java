@@ -43,9 +43,11 @@ import de.planmarshall.core.store.PlanHistoryLine.Event;
 /**
  * Reads and writes one line of a plan's history {@code mcp/history.jsonl} (Store Schemas § The Plan's History).
  * <p>
- * One line is one JSON object; the codec reads exactly the declared members, each at most once, and writes every one of
- * them, {@code null} where the line carries no value, so a line this codec wrote is read back to the same record. The
- * file format version is checked by the append-only store before the line is read.
+ * One line is one JSON object; the codec reads exactly the declared members, each at most once, and writes every
+ * required one of them, {@code null} where the line carries no value, so a line this codec wrote is read back to the
+ * same record. The optional member {@code reason} of a {@code left} line is written only when the line carries one,
+ * so a line without a reason is byte-identical to a line of the same format version written before the member
+ * existed. The file format version is checked by the append-only store before the line is read.
  *
  * @since 0.1
  */
@@ -58,6 +60,7 @@ public class PlanHistoryCodec {
     private static final String FIELD_CALL_PATH = "call_path";
     private static final String FIELD_PHASE = "phase";
     private static final String FIELD_OUTCOME = "outcome";
+    private static final String FIELD_REASON = "reason";
     private static final String FIELD_INSTANCE_VERSION = "instance_version";
     private static final String FIELD_AT = "at";
 
@@ -81,6 +84,9 @@ public class PlanHistoryCodec {
             generator.writeEndArray();
             writeNullableString(generator, FIELD_PHASE, line.phase());
             writeNullableString(generator, FIELD_OUTCOME, line.outcome());
+            if (line.reason() != null) {
+                generator.writeStringField(FIELD_REASON, line.reason());
+            }
             generator.writeNumberField(FIELD_INSTANCE_VERSION, line.instanceVersion());
             writeInstant(generator, FIELD_AT, line.at());
             generator.writeEndObject();
@@ -117,6 +123,7 @@ public class PlanHistoryCodec {
         List<String> callPath = List.of();
         @Nullable String phase = null;
         @Nullable String outcome = null;
+        @Nullable String reason = null;
         @Nullable Long instanceVersion = null;
         @Nullable Instant at = null;
         var seen = new HashSet<String>();
@@ -136,6 +143,7 @@ public class PlanHistoryCodec {
                 case FIELD_CALL_PATH -> callPath = stringList(parser, field);
                 case FIELD_PHASE -> phase = nullableString(parser, field).orElse(null);
                 case FIELD_OUTCOME -> outcome = nullableString(parser, field).orElse(null);
+                case FIELD_REASON -> reason = string(parser, field);
                 case FIELD_INSTANCE_VERSION -> instanceVersion = integer(parser, field);
                 case FIELD_AT -> at = instant(parser, field);
                 default -> throw undeclared(field);
@@ -148,8 +156,18 @@ public class PlanHistoryCodec {
                 throw unreadable("'%s' is not an instance version: %d".formatted(FIELD_INSTANCE_VERSION,
                         instanceVersion));
             }
-            return PlanHistoryLine.of(seq, event, node, callPath, phase, outcome, Math.toIntExact(instanceVersion),
-                    at);
+            return PlanHistoryLine.builder()
+                    .formatVersion(PlanHistoryLine.FORMAT_VERSION)
+                    .seq(seq)
+                    .event(event)
+                    .node(node)
+                    .callPath(callPath)
+                    .phase(phase)
+                    .outcome(outcome)
+                    .reason(reason)
+                    .instanceVersion(Math.toIntExact(instanceVersion))
+                    .at(at)
+                    .build();
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }

@@ -24,6 +24,8 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 
@@ -199,5 +201,28 @@ class PlanHistoryEngineTest {
                 () -> assertEquals(List.of(), lines.stream()
                         .filter(line -> line.event() == PlanHistoryLine.Event.RETURNED).findFirst().orElseThrow()
                         .callPath(), "the returned line names the stack without the popped frame"));
+    }
+
+    @Test
+    @DisplayName("the left line names the reason of a failed outcome, and none for a primitive that returned none")
+    void leftLineCarriesTheReason() {
+        var reasons = new ReasonFixtures();
+        reasons.check.then(ReasonFixtures.CheckOutcome.FAILED, ReasonFixtures.CheckReason.TESTS_RED, Map.of());
+        var engine = reasons.engine(ReasonFixtures.autoUnit());
+        var start = planStatus(EXECUTE, ReasonFixtures.CHECK_STATE, INSTANCE_VERSION);
+
+        committed(transaction -> engine.advance(start, store, transaction, history));
+        committed(transaction -> engine.advance(start, store, transaction, history));
+
+        var left = history.read().records().stream().filter(line -> line.event() == PlanHistoryLine.Event.LEFT)
+                .toList();
+        assertAll(
+                () -> assertEquals(List.of("failed", "succeeded"),
+                        left.stream().map(PlanHistoryLine::outcome).toList(), "the two left lines carry their outcomes"),
+                // The reason wire name of the fixture is the contract the line carries.
+                () -> assertEquals(Optional.of("tests_red"), left.getFirst().reasonValue(),
+                        "the failed outcome's line names its reason"),
+                () -> assertEquals(Optional.empty(), left.getLast().reasonValue(),
+                        "a reasonless outcome's line names none"));
     }
 }
