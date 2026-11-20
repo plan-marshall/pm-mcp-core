@@ -101,6 +101,7 @@
 |PM_RUNTIME-148 |The git metadata change of project '%s' could not be reported: %s
 |PM_RUNTIME-149 |The supervision pass could not advance generation '%s': %s
 |PM_RUNTIME-150 |The idle yield of the supervision pass failed: %s
+|PM_RUNTIME-151 |The terminal worker state of generation '%s' cannot be read: %s
 |===
 
 === ERROR Level (200-299)
