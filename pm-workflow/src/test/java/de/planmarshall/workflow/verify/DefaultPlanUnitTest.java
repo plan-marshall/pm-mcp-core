@@ -265,7 +265,7 @@ class DefaultPlanUnitTest {
 
         assertAll(defaults().entrySet().stream().map(entry -> () -> assertEquals(List.of(),
                 new TransitionFuzzer().fuzz(entry.getValue(), configuration).deadStates(),
-                entry.getKey() + " has a dead state")));
+                "the default unit has no dead state")));
     }
 
     @Test
@@ -301,6 +301,6 @@ class DefaultPlanUnitTest {
                         UnitOrigin.DEFAULT),
                 "the phase clause is refused at parse time");
 
-        assertEquals(17, refused.diagnostic().line(), refused.diagnostic()::toString);
+        assertEquals(17, refused.diagnostic().line(), "the refusal is at the phase clause's line");
     }
 }

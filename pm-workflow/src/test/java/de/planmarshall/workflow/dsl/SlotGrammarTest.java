@@ -72,7 +72,7 @@ class SlotGrammarTest {
 
     private static WorkflowDefinition parse(String source) {
         var result = WorkflowParser.parse("slot.pmwf", source, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> "the unit was refused: " + result).definition();
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the slot unit follows the grammar").definition();
     }
 
     private static String refuse(String source) {
@@ -85,7 +85,7 @@ class SlotGrammarTest {
     void fillsWithoutFrom() {
         var refusal = refuse(SOURCE.replace("fills slot.commit_message from message", "fills slot.commit_message"));
 
-        assertTrue(refusal.contains("from"), () -> "the refusal names the missing 'from': " + refusal);
+        assertTrue(refusal.contains("from"), "the refusal names the missing 'from'");
     }
 
     @Test
@@ -94,7 +94,7 @@ class SlotGrammarTest {
         var refusal = refuse(SOURCE.replace("from message", "from"));
 
         assertTrue(refusal.contains("a parameter name"),
-                () -> "the refusal names the missing parameter: " + refusal);
+                "the refusal names the missing parameter");
     }
 
     @Test
@@ -103,7 +103,7 @@ class SlotGrammarTest {
         var refusal = refuse(SOURCE.replace("message = slot.commit_message", "message = slot."));
 
         assertTrue(refusal.contains("a parameter name"),
-                () -> "the refusal names the slot reference: " + refusal);
+                "the refusal names the slot reference");
     }
 
     @Test

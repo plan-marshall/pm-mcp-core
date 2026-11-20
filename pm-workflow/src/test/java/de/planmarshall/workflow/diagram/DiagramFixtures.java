@@ -128,7 +128,7 @@ final class DiagramFixtures {
         var text = read(INSTANCE_FIXTURE);
         var unit = parse(INSTANCE_FIXTURE, text);
         var result = validator().verify(unit);
-        assertTrue(result.passed(), () -> INSTANCE_FIXTURE + " was refused by the verifier: " + result);
+        assertTrue(result.passed(), "the instance fixture passes the static verifier");
         return instance(unit, text);
     }
 
@@ -186,7 +186,7 @@ final class DiagramFixtures {
     static WorkflowDefinition fixture() {
         var definition = parse(FIXTURE, read(FIXTURE));
         var result = validator().verify(definition);
-        assertTrue(result.passed(), () -> FIXTURE + " was refused by the verifier: " + result);
+        assertTrue(result.passed(), "the diagram fixture passes the static verifier");
         return definition;
     }
 
@@ -199,7 +199,7 @@ final class DiagramFixtures {
      */
     static WorkflowDefinition parse(String resourceName, String source) {
         var result = WorkflowParser.parse(resourceName, source, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> resourceName + " was refused: " + result)
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the unit text follows the grammar")
                 .definition();
     }
 

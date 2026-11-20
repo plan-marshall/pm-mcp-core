@@ -132,7 +132,7 @@ final class PlanFixtures {
      */
     static WorkflowDefinition parse(String file, String source, UnitOrigin origin) {
         var result = WorkflowParser.parse(file, source, origin);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> file + " was refused: " + result).definition();
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the unit text follows the grammar").definition();
     }
 
     /**

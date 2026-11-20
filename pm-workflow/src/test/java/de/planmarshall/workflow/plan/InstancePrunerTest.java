@@ -100,7 +100,7 @@ class InstancePrunerTest {
 
     private static WorkflowDefinition fillsTemplate() {
         var result = WorkflowParser.parse("pruner-fills.pmwf", FILLS_UNIT, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, result::toString).definition();
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the fills unit follows the grammar").definition();
     }
 
     @Test
@@ -116,7 +116,7 @@ class InstancePrunerTest {
 
     private static WorkflowDefinition linkTemplate() {
         var result = WorkflowParser.parse("pruner-link.pmwf", LINK_UNIT, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, result::toString).definition();
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the link unit follows the grammar").definition();
     }
 
     private static List<CompositionRequest.Step> finalizeSteps() {
@@ -140,9 +140,9 @@ class InstancePrunerTest {
         assertAll(
                 () -> assertEquals(List.of(adopt), pruned.pruned(), "the prune is listed with its reason"),
                 () -> assertFalse(pruned.steps().phase6().contains("default:create-pr"),
-                        pruned.steps().phase6()::toString),
+                        "create-pr is left out of the kept steps"),
                 () -> assertTrue(pruned.steps().phase6().contains("default:branch-cleanup"),
-                        pruned.steps().phase6()::toString));
+                        "branch-cleanup stays in the kept steps"));
     }
 
     @Test

@@ -95,7 +95,7 @@ final class DslFixtures {
      */
     static WorkflowDefinition parseValid(String resource, UnitOrigin origin) {
         var result = WorkflowParser.parse(resource, read(resource), origin);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> resource + " was refused: " + result)
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the fixture text follows the grammar")
                 .definition();
     }
 }

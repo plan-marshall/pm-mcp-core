@@ -148,7 +148,7 @@ final class UnitFixtures {
      */
     static Map<String, WorkflowDefinition> defaultUnits() {
         var result = defaultLoader().load();
-        assertTrue(result.isVerified(), () -> "the default fixtures are refused: " + result.findings());
+        assertTrue(result.isVerified(), "the default fixtures load verified");
         return result.units();
     }
 

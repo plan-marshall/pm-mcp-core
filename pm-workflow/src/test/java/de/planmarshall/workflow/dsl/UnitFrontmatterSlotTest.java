@@ -92,7 +92,7 @@ class UnitFrontmatterSlotTest {
 
     private static WorkflowDefinition parsed(List<String> lines) {
         var result = WorkflowParser.parse(RESOURCE, unit(lines), UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> "the unit was refused: " + result)
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the slot unit follows the grammar")
                 .definition();
     }
 
@@ -103,8 +103,7 @@ class UnitFrontmatterSlotTest {
     }
 
     private static void assertRefused(List<String> lines, String keyword) {
-        assertTrue(refusal(lines).contains(keyword),
-                () -> "the refusal does not name '" + keyword + "'");
+        assertTrue(refusal(lines).contains(keyword), "the refusal names the refused keyword");
     }
 
     @Nested
@@ -177,7 +176,7 @@ class UnitFrontmatterSlotTest {
                     "slot_type: list<path>[0..500]",
                     "slot_description: The paths the caller supplies."), CALL_BODY), UnitOrigin.DEFAULT);
             var definition = assertInstanceOf(ParseResult.Parsed.class, result,
-                    () -> "the unit was refused: " + result).definition();
+                    "the slot-binding unit follows the grammar").definition();
             var invoke = assertInstanceOf(StateBehavior.SubWorkflowCall.class,
                     definition.states().get("demo.invoke").behavior(), "the invoke state carries the call");
 

@@ -259,19 +259,26 @@ class WorkflowPrinterTest {
         var reparsed = parse("demo.inputs.pmwf", printed);
 
         assertAll(
-                () -> assertTrue(printed.contains("reads_config: project.review.currency"), printed),
-                () -> assertTrue(printed.contains("reads_fact: push_remote"), printed),
-                () -> assertTrue(printed.contains("input: push_mode"), printed),
-                () -> assertTrue(printed.contains("input_type: enum[push|no_push]"), printed),
-                () -> assertTrue(printed.contains("input_description: Whether the branch is pushed."), printed),
-                () -> assertTrue(printed.contains("input_default: 2"), printed),
-                () -> assertTrue(printed.contains("input_fallback: project.review.retries"), printed),
-                () -> assertTrue(printed.contains("input_type: int[1..3]?"), printed),
-                () -> assertTrue(printed.contains("input_default: []"), printed),
-                () -> assertTrue(printed.indexOf("reads_config:") < printed.indexOf("reads_fact:"), printed),
-                () -> assertTrue(printed.indexOf("reads_fact:") < printed.indexOf("input: push_mode"), printed),
+                () -> assertTrue(printed.contains("reads_config: project.review.currency"),
+                        "the reads_config line is printed"),
+                () -> assertTrue(printed.contains("reads_fact: push_remote"), "the reads_fact line is printed"),
+                () -> assertTrue(printed.contains("input: push_mode"), "the input line is printed"),
+                () -> assertTrue(printed.contains("input_type: enum[push|no_push]"),
+                        "the enum input_type line is printed"),
+                () -> assertTrue(printed.contains("input_description: Whether the branch is pushed."),
+                        "the input_description line is printed"),
+                () -> assertTrue(printed.contains("input_default: 2"), "the int input_default line is printed"),
+                () -> assertTrue(printed.contains("input_fallback: project.review.retries"),
+                        "the input_fallback line is printed"),
+                () -> assertTrue(printed.contains("input_type: int[1..3]?"),
+                        "the optional int input_type is printed"),
+                () -> assertTrue(printed.contains("input_default: []"), "the empty-list input_default is printed"),
+                () -> assertTrue(printed.indexOf("reads_config:") < printed.indexOf("reads_fact:"),
+                        "reads_config comes before reads_fact"),
+                () -> assertTrue(printed.indexOf("reads_fact:") < printed.indexOf("input: push_mode"),
+                        "reads_fact comes before the inputs"),
                 () -> assertTrue(printed.indexOf("input_default: 2") < printed.indexOf("modification_date:"),
-                        printed),
+                        "the inputs come before modification_date"),
                 () -> assertEquals(strip(definition), strip(reparsed), "the printed source must read back"),
                 () -> assertEquals(printed, WorkflowPrinter.print(reparsed), "the printer must be canonical"));
     }
@@ -286,7 +293,7 @@ class WorkflowPrinterTest {
 
     private static WorkflowDefinition parse(String resource, String source, UnitOrigin origin) {
         var result = WorkflowParser.parse(resource, source, origin);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> resource + " was refused: " + result)
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the unit text follows the grammar")
                 .definition();
     }
 
@@ -436,7 +443,8 @@ class WorkflowPrinterTest {
             var printed = WorkflowPrinter.print(definition);
 
             assertAll(
-                    () -> assertTrue(printed.startsWith(THREE_ENTRIES_FRONTMATTER), printed),
+                    () -> assertTrue(printed.startsWith(THREE_ENTRIES_FRONTMATTER),
+                            "the frontmatter is printed in field order"),
                     () -> assertEquals(strip(definition), strip(parse("printed-three-entries.pmwf", printed)),
                             "the three entries read back to the same tree"));
         }
@@ -454,10 +462,11 @@ class WorkflowPrinterTest {
                             entry repair -> review.fix
                             entry recheck -> review.check
 
-                            state\s"""), printed),
-                    () -> assertTrue(printed.lines().noneMatch(line -> line.startsWith("start ")), printed),
+                            state\s"""), "the entry bindings follow the scope line"),
+                    () -> assertTrue(printed.lines().noneMatch(line -> line.startsWith("start ")),
+                            "no start line is printed beside the entries"),
                     () -> assertTrue(printed.contains("    call git.commit_and_push entry stage(push = enabled)\n"),
-                            printed));
+                            "the call prints the entry it enters"));
         }
 
         @Test
@@ -503,8 +512,8 @@ class WorkflowPrinterTest {
             var reparsed = parse("quoted-value.pmwf", printed);
 
             assertAll(
-                    () -> assertFalse(UnitFrontmatterReader.isPlain(value), "isPlain accepted: " + value),
-                    () -> assertTrue(printed.contains("description: \""), printed),
+                    () -> assertFalse(UnitFrontmatterReader.isPlain(value), "isPlain refuses the case's value"),
+                    () -> assertTrue(printed.contains("description: \""), "the description is double-quoted"),
                     () -> assertEquals(value, reparsed.frontmatter().description(),
                             "the value reads back unchanged"));
         }
@@ -573,7 +582,8 @@ class WorkflowPrinterTest {
             var printed = WorkflowPrinter.print(definition);
 
             assertAll(
-                    () -> assertTrue(printed.lines().anyMatch(expected::equals), printed),
+                    () -> assertTrue(printed.lines().anyMatch(expected::equals),
+                            "the link line names its default form"),
                     () -> assertEquals(strip(definition), strip(parse("form.pmwf", printed)),
                             "the printed link form reads back"));
         }
@@ -591,7 +601,7 @@ class WorkflowPrinterTest {
                             "the workflow line follows the frontmatter"),
                     () -> assertEquals("instance " + header.json(), lines.get(FRONTMATTER_LINES + 1),
                             "the instance line comes second"),
-                    () -> assertTrue(header.json().contains("\"inputs\":{"), header::json),
+                    () -> assertTrue(header.json().contains("\"inputs\":{"), "the header JSON keeps its inputs"),
                     () -> assertEquals(header, parse("printed-instance.pmwf", String.join("\n", lines))
                             .instance(), "the printed instance line reads back equal"));
         }
@@ -622,7 +632,8 @@ class WorkflowPrinterTest {
             assertAll(
                     () -> assertEquals("workflow plan version 3 format 1", lineStartingWith(printed, "workflow "),
                             "the plan unit prints its workflow line"),
-                    () -> assertTrue(printed.contains("    call git.no_args\n"), printed));
+                    () -> assertTrue(printed.contains("    call git.no_args\n"),
+                            "a call without bindings prints no list"));
         }
 
         @Test

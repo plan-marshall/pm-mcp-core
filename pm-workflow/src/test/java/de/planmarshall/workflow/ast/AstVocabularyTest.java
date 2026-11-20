@@ -50,7 +50,7 @@ class AstVocabularyTest {
         var names = Arrays.stream(WorkflowScope.values()).map(Enum::name).toList();
 
         assertEquals(List.of("PLAN", "EPIC", "WORKSPACE", "MACHINE", "ENTITY", "SUBWORKFLOW"), names,
-                "the scopes are the six of the language");
+                "the scope names equal the pinned list of six");
     }
 
     @Test

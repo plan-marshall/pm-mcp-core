@@ -617,7 +617,8 @@ class CompositionRuleEvaluatorTest {
                     .build();
 
             assertAll(
-                    () -> assertTrue(facts.digest().matches("[0-9a-f]{64}"), facts.digest()),
+                    () -> assertTrue(facts.digest().matches("[0-9a-f]{64}"),
+                            "the digest is 64 lower-case hex digits"),
                     () -> assertEquals(facts.digest(), same.digest(), "equal facts have the same digest"),
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().lane(Lane.LIGHT)
                                     .steps(List.of("default:push")).tasks(List.of(task)).build().digest(),

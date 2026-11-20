@@ -60,11 +60,13 @@ class AuditLogSecurityAuditTest {
         var line = new String(content.lines().getFirst().content(), StandardCharsets.UTF_8);
         assertAll(
                 () -> assertEquals(1, content.lines().size(), "the audit log holds a single line"),
-                () -> assertTrue(line.contains("\"category\":\"security\""), line),
-                () -> assertTrue(line.contains("\"event\":\"agent_started\""), line),
-                () -> assertTrue(line.contains("\"actor\":\"supervisor\""), line),
-                () -> assertTrue(line.contains("\"executable\":\"" + executable + "\""), line),
-                () -> assertTrue(line.contains("\"generation_id\":\"" + TaskFixtures.GENERATION + "\""), line),
-                () -> assertTrue(line.contains("\"attempt\":" + attempt), line));
+                () -> assertTrue(line.contains("\"category\":\"security\""), "the line has the security category"),
+                () -> assertTrue(line.contains("\"event\":\"agent_started\""), "the line has the agent_started event"),
+                () -> assertTrue(line.contains("\"actor\":\"supervisor\""), "the line names the supervisor actor"),
+                () -> assertTrue(line.contains("\"executable\":\"" + executable + "\""),
+                        "the line names the started executable"),
+                () -> assertTrue(line.contains("\"generation_id\":\"" + TaskFixtures.GENERATION + "\""),
+                        "the line names the generation id"),
+                () -> assertTrue(line.contains("\"attempt\":" + attempt), "the line names the attempt number"));
     }
 }

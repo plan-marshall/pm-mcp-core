@@ -165,7 +165,7 @@ class FinalizePipelineValidatorTest {
         void refuses(String name, PipelineRule rule, String stepName, List<FinalizeStepDescriptor> roster) {
             var violations = FinalizePipelineValidator.validate(roster);
 
-            assertTrue(names(violations, rule, stepName), () -> name + ": " + violations);
+            assertTrue(names(violations, rule, stepName), "a violation names the case's rule and step");
         }
 
         @Test
@@ -175,9 +175,9 @@ class FinalizePipelineValidatorTest {
 
             assertAll(
                     () -> assertTrue(names(violations, PipelineRule.ORDER_UNIQUE, "default:create-pr"),
-                            violations::toString),
+                            "the collision is reported on create-pr"),
                     () -> assertTrue(names(violations, PipelineRule.ORDER_UNIQUE, "default:automatic-review"),
-                            violations::toString));
+                            "the collision is reported on automatic-review"));
         }
 
         @Test
@@ -209,7 +209,7 @@ class FinalizePipelineValidatorTest {
             var refused = refusals().anyMatch(arguments -> arguments.get()[1] == rule);
 
             assertTrue(refused || rule.namedHook().isPresent(),
-                    () -> rule + " has neither a refusing roster nor a named hook");
+                    "the rule has a refusing roster or a named hook");
         }
 
         @Test

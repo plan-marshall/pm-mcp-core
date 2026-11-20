@@ -395,7 +395,7 @@ class SubWorkflowExecutionTest {
             assertAll(
                     () -> assertEquals(expectedState, status.state(), "call rests in the state of its entry"),
                     () -> assertTrue(written.contains("\"subworkflow_id\":\"sub.two\",\"entry\":\"" + entry + "\""),
-                            written));
+                            "the written frame records the called entry"));
         }
 
         @Test
@@ -442,7 +442,7 @@ class SubWorkflowExecutionTest {
             var fault = assertThrows(InternalFaultException.class,
                     () -> engine.start(JournalScopeType.PLAN, PLAN_ID), "call naming no entry of several faults");
 
-            assertTrue(fault.getMessage().contains("binds 2 entries"), fault::getMessage);
+            assertTrue(fault.getMessage().contains("binds 2 entries"), "the fault says the callee binds 2 entries");
         }
 
         @Test
@@ -456,7 +456,8 @@ class SubWorkflowExecutionTest {
             var fault = assertThrows(InternalFaultException.class,
                     () -> engine.start(JournalScopeType.PLAN, PLAN_ID), "call through an unbound entry faults");
 
-            assertTrue(fault.getMessage().contains("binds no entry 'recheck'"), fault::getMessage);
+            assertTrue(fault.getMessage().contains("binds no entry 'recheck'"),
+                    "the fault names the unbound entry recheck");
         }
 
         @Test

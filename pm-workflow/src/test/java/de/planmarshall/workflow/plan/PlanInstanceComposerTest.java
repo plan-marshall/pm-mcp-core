@@ -80,11 +80,12 @@ class PlanInstanceComposerTest {
     private static final InstancePosition AT_START = InstancePosition.at("finalize.push-barrier");
 
     private static PlanInstance composed(CompositionResult result) {
-        return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+        return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
+                .instance();
     }
 
     private static CompositionResult.Refused refused(CompositionResult result) {
-        return assertInstanceOf(CompositionResult.Refused.class, result, result::toString);
+        return assertInstanceOf(CompositionResult.Refused.class, result, "the composition is refused");
     }
 
     private static PlanInstance version1() {
@@ -190,10 +191,11 @@ class PlanInstanceComposerTest {
             var reparsed = PlanFixtures.parse("plan.v1.pmwf", instance.text(), UnitOrigin.DEFAULT);
 
             assertAll(
-                    () -> assertTrue(instance.text().startsWith("---\n"), instance.text()),
-                    () -> assertTrue(instance.text().contains("\ntype: instance\n"), instance.text()),
+                    () -> assertTrue(instance.text().startsWith("---\n"), "the text opens with the frontmatter"),
+                    () -> assertTrue(instance.text().contains("\ntype: instance\n"),
+                            "the frontmatter declares type instance"),
                     () -> assertTrue(instance.text().contains("\n---\nworkflow plan version 1 format 1\ninstance {"),
-                            instance.text()),
+                            "the header and instance line follow"),
                     () -> assertEquals(instance.unit().states().keySet(), reparsed.states().keySet(),
                             "the reparsed states match the composed states"),
                     () -> assertEquals(UnitType.INSTANCE, reparsed.frontmatter().type(),
@@ -338,13 +340,14 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertNull(firstRecord.diffSummary(), "version 1 carries no diff summary"),
-                    () -> assertTrue(firstRecord.toJson().contains("\"diff_summary\":null"), firstRecord.toJson()),
+                    () -> assertTrue(firstRecord.toJson().contains("\"diff_summary\":null"),
+                            "the first record writes a null diff_summary"),
                     () -> assertEquals(DiffSummary.between(first.header(), second.header()), secondSummary,
                             "version 2 carries the summary against version 1"),
                     () -> assertEquals(List.of(new WaivedGate("ci_check:build", "W-2")), secondSummary.gatesWaived(),
                             "the summary names the waived gate"),
                     () -> assertTrue(secondRecord.toJson().contains("\"gates_waived\":[{\"gate\":\"ci_check:build\","
-                            + "\"waiver_id\":\"W-2\"}]"), secondRecord.toJson()));
+                            + "\"waiver_id\":\"W-2\"}]"), "the second record writes the waived gate"));
         }
 
         @Test
@@ -390,8 +393,9 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertTrue(refused.getMessage().contains("'" + event.wireName() + "'"),
-                            refused.getMessage()),
-                    () -> assertTrue(refused.getMessage().contains(PlanFacts.POST_RUN_FACT), refused.getMessage()));
+                            "the refusal names the event"),
+                    () -> assertTrue(refused.getMessage().contains(PlanFacts.POST_RUN_FACT),
+                            "the refusal names the post_run fact"));
         }
     }
 
@@ -680,7 +684,7 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal(),
                             "the override is refused position_not_contained"),
                     () -> assertTrue(refused.violations().getFirst().contains("finalize.merge-queue-wait"),
-                            refused.violations()::toString));
+                            "the violation names the merge-queue-wait state"));
         }
 
         @Test
@@ -747,7 +751,7 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> MERGE_EXECUTION.forEach(state -> assertFalse(instance.unit().states().containsKey(state),
-                            state)),
+                            "no merge execution state is composed")),
                     () -> assertEquals(MERGE_EXECUTION.stream().map(state -> new PrunedElement(Kind.STATE, state,
                                     PruneReason.MERGE_BY_OPERATOR, "axes.asking")).toList(),
                             rulePrunes(instance.header()),
@@ -831,7 +835,7 @@ class PlanInstanceComposerTest {
                             "the light version without the ratchet is refused"),
                     () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'init.light-gate': the ratchet"
                             + " transition 'deep' -> 'init.deep-exit' of 'init.light-gate' is"
-                            + " missing"), refused.violations()::toString));
+                            + " missing"), "the violations name the missing ratchet"));
         }
 
         @Test
@@ -845,7 +849,7 @@ class PlanInstanceComposerTest {
                             "the start version without the ratchet is refused"),
                     () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'init.light-gate': the ratchet"
                             + " transition 'deep' -> 'init.deep-exit' of 'init.light-gate' is"
-                            + " missing"), refused.violations()::toString));
+                            + " missing"), "the violations name the missing ratchet"));
         }
 
         @Test
@@ -858,9 +862,10 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
                             "the deep version is refused for the opened route"),
                     () -> assertTrue(refused.violations().stream().anyMatch(violation -> violation.startsWith(
-                            "INV-OUTLINE-2 in 'init.light-gate'")), refused.violations()::toString),
+                            "INV-OUTLINE-2 in 'init.light-gate'")), "the violations name INV-OUTLINE-2"),
                     () -> assertFalse(refused.violations().stream()
-                            .anyMatch(violation -> violation.startsWith("INV-INIT-2")), refused.violations()::toString));
+                            .anyMatch(violation -> violation.startsWith("INV-INIT-2")),
+                            "no violation names INV-INIT-2"));
         }
     }
 
@@ -972,7 +977,7 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(PlanInstanceStore.versionPath(1), composedUnits.getFirst().file(),
                             "the first composed file is the version path"),
-                    () -> assertTrue(composedUnits.size() > 2, composedUnits::toString),
+                    () -> assertTrue(composedUnits.size() > 2, "the header names more than two composed files"),
                     () -> composedUnits.stream().skip(1).forEach(reference ->
                             assertEquals(reference.digest(), instance.composed(reference.unit()).orElseThrow()
                                     .digest(), "each composed file matches its header digest")),
@@ -1009,7 +1014,8 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(1, phase.version(), "the phase file repeats version 1"),
                     () -> assertNull(phase.definition().instance(), "a composed phase file has no instance line"),
                     () -> assertTrue(phase.text().startsWith("---\n"), "the phase file opens with frontmatter"),
-                    () -> assertTrue(phase.text().contains("version 1 format 1"), phase.text()));
+                    () -> assertTrue(phase.text().contains("version 1 format 1"),
+                            "the phase file's header names version 1"));
         }
 
         @Test
@@ -1022,13 +1028,18 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertFalse(deep.unit().states().containsKey("phases.plan-light"),
                             "a deep version drops the light call state"),
-                    () -> assertTrue(deep.composed("phase-plan-light").isEmpty(), deep.units()::toString),
-                    () -> assertTrue(deep.composed("phase-execute-light").isEmpty(), deep.units()::toString),
-                    () -> assertTrue(deep.composed("phase-plan").isPresent(), deep.units()::toString),
-                    () -> assertTrue(light.composed("phase-plan-light").isPresent(), light.units()::toString),
-                    () -> assertTrue(light.composed("phase-execute-light").isPresent(), light.units()::toString),
+                    () -> assertTrue(deep.composed("phase-plan-light").isEmpty(),
+                            "the deep version composes no light plan"),
+                    () -> assertTrue(deep.composed("phase-execute-light").isEmpty(),
+                            "the deep version composes no light execute"),
+                    () -> assertTrue(deep.composed("phase-plan").isPresent(),
+                            "the deep version composes its plan phase"),
+                    () -> assertTrue(light.composed("phase-plan-light").isPresent(),
+                            "the light version composes the light plan"),
+                    () -> assertTrue(light.composed("phase-execute-light").isPresent(),
+                            "the light version composes light execute"),
                     () -> assertEquals(deep.units().size() + 2, light.units().size(),
-                            () -> deep.units() + " / " + light.units()));
+                            "the light version has two more files"));
         }
 
         @Test
@@ -1040,9 +1051,9 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertTrue(deep.unit().states().containsKey("refine.baseline-reconcile"),
-                            deep.unit().states().keySet()::toString),
+                            "the deep version keeps the shared state"),
                     () -> assertTrue(light.unit().states().containsKey("refine.baseline-reconcile"),
-                            light.unit().states().keySet()::toString),
+                            "the light version keeps the shared state"),
                     () -> assertTrue(deep.unit().states().containsKey("outline.deep"),
                             "the deep version keeps the deep route"),
                     () -> assertTrue(light.unit().states().containsKey("outline.deep"),
@@ -1070,12 +1081,12 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertFalse(phase.definition().states().containsKey("execute.deliverable-build"),
-                            phase.definition().states().keySet()::toString),
+                            "the phase file holds no pruned nested state"),
                     () -> assertTrue(instance.header().pruned().stream().anyMatch(pruned ->
                                     pruned.element() == PrunedElement.Kind.STATE
                                             && "execute.deliverable-build".equals(pruned.id())
                                             && pruned.reason() == PruneReason.OTHER_LANE),
-                            instance.header().pruned()::toString),
+                            "the header lists the nested prune other_lane"),
                     () -> assertEquals(PlanProcessStates.State.NOT_IN_THIS_PLAN,
                             PlanProcessStates.derive(instance, List.of()).stream()
                                     .filter(node -> "execute.deliverable-build".equals(node.node())).findFirst()
@@ -1099,11 +1110,11 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertTrue(phase.definition().states().containsKey("execute.land-entry"),
-                            phase.definition().states().keySet()::toString),
-                    () -> assertTrue(instance.composed("land").isPresent(), instance.units()::toString),
+                            "the entry-bound call state stays"),
+                    () -> assertTrue(instance.composed("land").isPresent(), "the callee land is composed"),
                     () -> assertFalse(instance.header().pruned().stream()
                                     .anyMatch(pruned -> "execute.land-entry/land".equals(pruned.id())),
-                            instance.header().pruned()::toString));
+                            "the header lists no prune of the call"));
         }
 
         @Test
@@ -1124,13 +1135,15 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertFalse(instance.unit().states().containsKey("phases.plan-light"),
-                            instance.unit().states().keySet()::toString),
-                    () -> assertTrue(instance.composed("phase-plan-light").isEmpty(), instance.units()::toString),
-                    () -> assertTrue(instance.composed("phase-execute-light").isEmpty(), instance.units()::toString),
-                    () -> assertTrue(instance.composed("phase-plan").isPresent(), instance.units()::toString),
+                            "the pruned light plan call is gone"),
+                    () -> assertTrue(instance.composed("phase-plan-light").isEmpty(),
+                            "no light plan file is composed"),
+                    () -> assertTrue(instance.composed("phase-execute-light").isEmpty(),
+                            "no light execute file is composed"),
+                    () -> assertTrue(instance.composed("phase-plan").isPresent(), "the deep plan file is composed"),
                     () -> assertFalse(instance.header().inputs().subUnits().stream()
                                     .anyMatch(reference -> "phase-plan-light".equals(reference.unit())),
-                            instance.header().inputs().subUnits()::toString));
+                            "the header names no light plan sub-unit"));
         }
 
         @Test
@@ -1149,13 +1162,13 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertTrue(phase.definition().states().containsKey("finalize.create-pr"),
-                            phase.definition().states().keySet()::toString),
+                            "the entry-bound create-pr state stays"),
                     () -> assertTrue(phase.definition().entryBindings().values().stream()
                                     .allMatch(binding -> phase.definition().states().containsKey(binding.stateId())),
-                            phase.definition().entryBindings()::toString),
+                            "every entry binds a state the file holds"),
                     () -> assertFalse(instance.header().pruned().stream()
                                     .anyMatch(pruned -> "finalize.create-pr".equals(pruned.id())),
-                            instance.header().pruned()::toString));
+                            "the header lists no prune of create-pr"));
         }
 
         @Test
@@ -1353,7 +1366,7 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(refused.violations().contains(
                                     "position: version 2 does not contain the state 'phase-plan-light.begin' of the "
                                             + "unit 'phase-plan-light'"),
-                            refused.violations()::toString));
+                            "the refusal names the pruned call's state"));
         }
     }
 
@@ -1397,7 +1410,7 @@ class PlanInstanceComposerTest {
                     () -> assertEquals("position_not_contained", refused.refusal().wireName(),
                             "the refusal carries its wire name"),
                     () -> assertTrue(refused.violations().getFirst().contains("finalize.merge-dispatch"),
-                            refused.violations()::toString));
+                            "the violation names the missing state"));
         }
 
         @Test
@@ -1422,7 +1435,7 @@ class PlanInstanceComposerTest {
                             "the broken compiled invariant is refused"),
                     () -> assertTrue(refused.violations().stream()
                                     .anyMatch(violation -> violation.startsWith("INV-INIT-2 in 'init.light-gate'")),
-                            refused.violations()::toString));
+                            "a violation names INV-INIT-2 at the gate"));
         }
 
         @Test
@@ -1436,7 +1449,7 @@ class PlanInstanceComposerTest {
                             "a header breaking its schema is refused"),
                     () -> assertTrue(refused.violations().stream()
                                     .anyMatch(violation -> violation.startsWith("header '/plan_id'")),
-                            refused.violations()::toString));
+                            "a violation names the header's plan_id"));
         }
 
         @Test
@@ -1468,7 +1481,7 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(refused.violations().stream()
                                     .anyMatch(violation -> violation.startsWith("landing: the variant "
                                             + "'landing.pull-request' does not fit the project:")),
-                            refused.violations()::toString));
+                            "a violation names the unfitting variant"));
         }
 
         @Test

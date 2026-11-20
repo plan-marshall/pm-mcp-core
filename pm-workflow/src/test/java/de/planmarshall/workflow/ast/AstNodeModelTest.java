@@ -333,7 +333,7 @@ class AstNodeModelTest {
             var thrown = assertThrows(IllegalArgumentException.class, () -> new CallValue.EnumList(values),
                     "a duplicate call value is refused");
 
-            assertTrue(thrown.getMessage().contains("'" + duplicate + "'"), thrown.getMessage());
+            assertTrue(thrown.getMessage().contains("'" + duplicate + "'"), "the refusal names the duplicate value");
         }
 
         @Test
@@ -346,14 +346,14 @@ class AstNodeModelTest {
             var thrown = assertThrows(IllegalArgumentException.class, () -> new ParamType.EnumOf(values),
                     "a duplicate enum value is refused");
 
-            assertTrue(thrown.getMessage().contains("'" + duplicate + "'"), thrown.getMessage());
+            assertTrue(thrown.getMessage().contains("'" + duplicate + "'"), "the refusal names the duplicate value");
         }
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("singleBounds")
         @DisplayName("a text or int type refuses a single bound")
         void singleBoundRefused(String shape, Executable construction) {
-            assertThrows(IllegalArgumentException.class, construction, shape);
+            assertThrows(IllegalArgumentException.class, construction, "a type with a single bound is refused");
         }
 
         @Test
@@ -534,7 +534,7 @@ class AstNodeModelTest {
 
             // the labels are this switch's own vocabulary, not product data
             assertEquals(List.of("links", "auto", "job", "llm", "call", "question", "terminal"), kinds,
-                    "every state behaviour is covered once");
+                    "the behaviour labels equal the pinned list");
         }
 
         @Test
@@ -564,7 +564,7 @@ class AstNodeModelTest {
             var names = types.stream().map(AstNodeModelTest::name).toList();
 
             assertEquals(List.of("text", "int", "enum", "schema[" + schemaName + "]", "list<enum>"), names,
-                    "every parameter type is covered once");
+                    "the parameter type names equal the pinned list");
         }
 
         @Test
@@ -580,7 +580,7 @@ class AstNodeModelTest {
             var rendered = values.stream().map(AstNodeModelTest::render).toList();
 
             assertEquals(List.of(value, Integer.toString(number), "[" + first + ", " + second + "]"), rendered,
-                    "every call value is covered once");
+                    "the rendered call values equal the pinned list");
         }
 
         @Test
@@ -597,7 +597,7 @@ class AstNodeModelTest {
             assertAll(
                     () -> assertEquals(
                             List.of("ask", "quorum(" + firstRole + ", " + secondRole + ", " + score + ")"), rendered,
-                            "every decision declaration is covered once"),
+                            "the rendered declarations equal the pinned list"),
                     () -> assertEquals(List.of(LOCATION, LOCATION),
                             declarations.stream().map(DecisionDeclaration::location).toList(),
                             "each declaration carries its location"));
@@ -625,7 +625,7 @@ class AstNodeModelTest {
             var rendered = results.stream().map(AstNodeModelTest::render).toList();
 
             assertEquals(List.of("held", "not_held", "could_not_evaluate(" + reason + ")"), rendered,
-                    "every guard result is covered once");
+                    "the rendered guard results equal the pinned list");
         }
 
         @Test
@@ -651,7 +651,7 @@ class AstNodeModelTest {
         void unitOrigins() {
             var names = Arrays.stream(UnitOrigin.values()).map(Enum::name).toList();
 
-            assertEquals(List.of("DEFAULT", "PROJECT"), names, "the unit origins are default and project");
+            assertEquals(List.of("DEFAULT", "PROJECT"), names, "the unit origin names equal the pinned list");
         }
 
         @Test

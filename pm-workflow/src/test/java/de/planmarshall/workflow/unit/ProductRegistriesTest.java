@@ -73,7 +73,7 @@ class ProductRegistriesTest {
                     "The registry should hold more keys than stems");
             for (var stem : EffectiveConfigKeys.stems()) {
                 assertTrue(keys.stream().anyMatch(key -> key.startsWith(stem + ".")),
-                        () -> "The registry should hold a key of the stem " + stem);
+                        "The registry should hold a key of each stem");
             }
         }
 

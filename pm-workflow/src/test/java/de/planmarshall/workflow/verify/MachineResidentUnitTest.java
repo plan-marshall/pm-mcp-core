@@ -80,7 +80,7 @@ class MachineResidentUnitTest {
         var violations = validator.verify(unit).violations();
 
         assertTrue(violations.stream().anyMatch(violation -> violation.rule() == VerificationRule.EXIT_PATH
-                && "onboard.orphan".equals(violation.stateId())), violations::toString);
+                && "onboard.orphan".equals(violation.stateId())), "the orphan state has an EXIT_PATH violation");
     }
 
     @Test
@@ -96,7 +96,8 @@ class MachineResidentUnitTest {
         var violations = validator.verify(unit).violations();
 
         assertTrue(violations.stream().anyMatch(violation -> violation.rule() == VerificationRule.EXIT_PATH
-                && violation.message().contains("onboard.completed")), violations::toString);
+                && violation.message().contains("onboard.completed")),
+                "an EXIT_PATH violation names onboard.completed");
     }
 
     @Test
@@ -120,7 +121,8 @@ class MachineResidentUnitTest {
 
         assertTrue(violations.stream().anyMatch(violation ->
                 violation.rule() == VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS
-                        && "onboard.stopped".equals(violation.stateId())), violations::toString);
+                        && "onboard.stopped".equals(violation.stateId())),
+                "the terminal onboard.stopped is refused");
     }
 
     private static WorkflowDefinition machineUnit(String states) {

@@ -77,7 +77,8 @@ class WorkflowParserRefusalTest {
 
     private static Diagnostic refuse(String resource, String source, UnitOrigin origin) {
         var result = WorkflowParser.parse(resource, source, origin);
-        return assertInstanceOf(ParseResult.Refused.class, result, () -> resource + " was parsed").diagnostic();
+        return assertInstanceOf(ParseResult.Refused.class, result, "the malformed unit is refused, not parsed")
+                .diagnostic();
     }
 
     /**
@@ -154,7 +155,7 @@ class WorkflowParserRefusalTest {
             var rules = EnumSet.noneOf(RefusalRule.class);
             for (var resource : malformedFixtures()) {
                 var expectation = EXPECTATION.matcher(DslFixtures.read(resource));
-                assertTrue(expectation.find(), () -> resource + " states no '# expect: <RULE> line <n>' comment");
+                assertTrue(expectation.find(), "the fixture states its expect comment");
                 rules.add(RefusalRule.valueOf(expectation.group(1)));
             }
             return rules;
@@ -166,7 +167,7 @@ class WorkflowParserRefusalTest {
             var stated = statedRules();
 
             assertEquals(EnumSet.allOf(RefusalRule.class), stated,
-                    () -> "the malformed fixtures state " + stated);
+                    "the stated rules equal every RefusalRule");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -175,18 +176,19 @@ class WorkflowParserRefusalTest {
         void refusesAsStated(String resource) {
             var source = DslFixtures.read(resource);
             var expectation = EXPECTATION.matcher(source);
-            assertTrue(expectation.find(), () -> resource + " states no '# expect: <RULE> line <n>' comment");
+            assertTrue(expectation.find(), "the fixture states its expect comment");
 
             var diagnostic = refuse(resource, source);
 
             assertAll(
                     () -> assertEquals(RefusalRule.valueOf(expectation.group(1)), diagnostic.rule(),
-                            diagnostic::message),
+                            "the refusal is under the stated rule"),
                     () -> assertEquals(resource, diagnostic.resourceName(),
                             "the diagnostic names the refused fixture"),
-                    () -> assertEquals(Integer.parseInt(expectation.group(2)), diagnostic.line(), diagnostic::message),
+                    () -> assertEquals(Integer.parseInt(expectation.group(2)), diagnostic.line(),
+                            "the refusal is at the stated line"),
                     () -> assertEquals(Optional.ofNullable(expectation.group(3)).map(Integer::parseInt)
-                            .orElse(diagnostic.column()), diagnostic.column(), diagnostic::message),
+                            .orElse(diagnostic.column()), diagnostic.column(), "the refusal is at the stated column"),
                     () -> assertTrue(diagnostic.column() >= 1, "the column starts at one"),
                     () -> assertFalse(diagnostic.message().isBlank(), "the refusal carries a message"));
         }
@@ -198,7 +200,7 @@ class WorkflowParserRefusalTest {
             var expectation = EXPECTATION.matcher(DslFixtures.read(resource));
 
             assertTrue(expectation.find() && expectation.group(3) != null,
-                    () -> resource + " states no '# expect: <RULE> line <n> column <c>' comment");
+                    "the fixture's expect comment states a column");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -207,7 +209,7 @@ class WorkflowParserRefusalTest {
         void refusesCrlfTwin(String resource) {
             var lf = DslFixtures.read(resource);
             var expectation = EXPECTATION.matcher(lf);
-            assertTrue(expectation.find(), () -> resource + " states no '# expect: <RULE> line <n>' comment");
+            assertTrue(expectation.find(), "the fixture states its expect comment");
             var expectedRule = RefusalRule.valueOf(expectation.group(1));
             var expectedLine = Integer.parseInt(expectation.group(2));
             var expectedColumn = Optional.ofNullable(expectation.group(3)).map(Integer::parseInt);
@@ -215,10 +217,10 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse(resource + "-crlf", lf.replace("\n", "\r\n"));
 
             assertAll(
-                    () -> assertEquals(expectedRule, diagnostic.rule(), diagnostic::message),
-                    () -> assertEquals(expectedLine, diagnostic.line(), diagnostic::message),
+                    () -> assertEquals(expectedRule, diagnostic.rule(), "the CRLF twin is refused by the same rule"),
+                    () -> assertEquals(expectedLine, diagnostic.line(), "the CRLF twin is refused at the same line"),
                     () -> assertEquals(expectedColumn.orElse(diagnostic.column()), diagnostic.column(),
-                            diagnostic::message));
+                            "the CRLF twin is refused at the same column"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -228,7 +230,7 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse(resource, DslFixtures.read(resource));
 
             assertEquals(resource.contains("/frontmatter-"), diagnostic.rule() == RefusalRule.FRONTMATTER,
-                    diagnostic::message);
+                    "only a frontmatter fixture gets FRONTMATTER");
         }
     }
 
@@ -321,10 +323,14 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("inline.pmwf", withHeaderLines("subworkflow", "param mode : int"));
 
             assertAll(
-                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule(), diagnostic::message),
-                    () -> assertEquals(FRONTMATTER_LINES + 3, diagnostic.line(), diagnostic::message),
-                    () -> assertTrue(diagnostic.message().contains("input"), diagnostic::message),
-                    () -> assertTrue(diagnostic.message().contains("frontmatter"), diagnostic::message));
+                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule(),
+                            "a body param is a STRUCTURE refusal"),
+                    () -> assertEquals(FRONTMATTER_LINES + 3, diagnostic.line(),
+                            "the refusal is at the param's line"),
+                    () -> assertTrue(diagnostic.message().contains("input"),
+                            "the refusal names the input key"),
+                    () -> assertTrue(diagnostic.message().contains("frontmatter"),
+                            "the refusal names the frontmatter"));
         }
 
         @Test
@@ -600,9 +606,9 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("inline.pmwf", source);
 
             assertAll(
-                    () -> assertEquals(rule, diagnostic.rule(), diagnostic::message),
+                    () -> assertEquals(rule, diagnostic.rule(), "the refusal is under the case's rule"),
                     () -> assertEquals("inline.pmwf", diagnostic.resourceName(), "the refusal names the inline unit"),
-                    () -> assertEquals(line, diagnostic.line(), diagnostic::message),
+                    () -> assertEquals(line, diagnostic.line(), "the refusal is at the case's line"),
                     () -> assertTrue(diagnostic.column() >= 1, "the refusal names no column below one"),
                     () -> assertFalse(diagnostic.message().isBlank(), "the refusal states its reason"));
         }
@@ -679,7 +685,7 @@ class WorkflowParserRefusalTest {
 
             assertAll(
                     () -> assertEquals(23, diagnostic.column(), "the duplicate parameter is refused at its name"),
-                    () -> assertTrue(diagnostic.message().contains("'a'"), diagnostic::message));
+                    () -> assertTrue(diagnostic.message().contains("'a'"), "the refusal names the duplicate 'a'"));
         }
 
         static Stream<Arguments> duplicateEnumValues() {
@@ -699,10 +705,12 @@ class WorkflowParserRefusalTest {
             var diagnostic = refuse("enum.pmwf", source);
 
             assertAll(
-                    () -> assertEquals(RefusalRule.DUPLICATE_ID, diagnostic.rule(), diagnostic::message),
-                    () -> assertEquals(line, diagnostic.line(), diagnostic::message),
-                    () -> assertEquals(column, diagnostic.column(), diagnostic::message),
-                    () -> assertTrue(diagnostic.message().contains("'" + value + "'"), diagnostic::message));
+                    () -> assertEquals(RefusalRule.DUPLICATE_ID, diagnostic.rule(),
+                            "a repeated value is a DUPLICATE_ID refusal"),
+                    () -> assertEquals(line, diagnostic.line(), "the refusal is at the repetition's line"),
+                    () -> assertEquals(column, diagnostic.column(), "the refusal is at the repetition's column"),
+                    () -> assertTrue(diagnostic.message().contains("'" + value + "'"),
+                            "the refusal names the repeated value"));
         }
 
         @Test
@@ -725,7 +733,7 @@ class WorkflowParserRefusalTest {
                     () -> assertEquals(RefusalRule.INSTANCE_HEADER, diagnostic.rule(),
                             "a repeated member is refused in the instance header"),
                     () -> assertEquals(instanceLine.lastIndexOf("\"event\"") + 1, diagnostic.column(),
-                            diagnostic::message),
+                            "the refusal points at the second name"),
                     () -> assertEquals("member 'event' of the instance header twice", diagnostic.message(),
                             "the refusal names the member it repeats"));
         }
@@ -737,7 +745,8 @@ class WorkflowParserRefusalTest {
 
             var diagnostic = refuse("type.pmwf", withInstance(instanceLine));
 
-            assertEquals(instanceLine.indexOf("\"1\"") + 1, diagnostic.column(), diagnostic::message);
+            assertEquals(instanceLine.indexOf("\"1\"") + 1, diagnostic.column(),
+                    "the refusal points at the mistyped value");
         }
 
         @Test
@@ -751,9 +760,11 @@ class WorkflowParserRefusalTest {
             assertAll(
                     () -> assertEquals(RefusalRule.INSTANCE_HEADER, diagnostic.rule(),
                             "a late syntax error is refused in the header"),
-                    () -> assertTrue(diagnostic.column() > instanceLine.indexOf("\"extra\""), diagnostic::message),
-                    () -> assertTrue(diagnostic.column() > jsonColumn, diagnostic::message),
-                    () -> assertTrue(diagnostic.column() <= instanceLine.length() + 1, diagnostic::message));
+                    () -> assertTrue(diagnostic.column() > instanceLine.indexOf("\"extra\""),
+                            "the column lies past the extra member"),
+                    () -> assertTrue(diagnostic.column() > jsonColumn, "the column lies past the JSON's start"),
+                    () -> assertTrue(diagnostic.column() <= instanceLine.length() + 1,
+                            "the column lies within the header line"));
         }
 
         @Test
@@ -803,8 +814,9 @@ class WorkflowParserRefusalTest {
 
             assertAll(
                     () -> assertTrue(refusal.getMessage().startsWith("the instance header is not valid JSON: "),
-                            refusal::getMessage),
-                    () -> assertTrue(refusal.getMessage().matches(".*\\(column \\d+\\)$"), refusal::getMessage));
+                            "the refusal says the header is no valid JSON"),
+                    () -> assertTrue(refusal.getMessage().matches(".*\\(column \\d+\\)$"),
+                            "the refusal ends with the column"));
         }
 
         @Test
