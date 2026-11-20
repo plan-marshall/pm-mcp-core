@@ -596,10 +596,11 @@ Guard:: `INV-GEN-1` compares an input's type by its closed identity, the `InputT
 the input (`CompiledInvariantsTest` of `pm-workflow`, the refusing case `INTERFACE_INPUT_WIDENED` for an enumerated input,
 and
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
-Developer Guide § INV-GEN-1 over Type and Interface]). The validator is chosen by the type, so a copy that swaps a
-`commit_message` for a `text` (or a `list<path>` for a `path`) is refused by the bind's `InputValidator` even where the
-bounds match. Owed: a refusing `CompiledInvariantsTest` case per weakened text and path type, and an `InputValidatorTest`
-case that shows the swapped type admits the value the default refuses.
+Developer Guide § INV-GEN-1 over Type and Interface]). A copy that swaps a `commit_message` for a `text` (or a
+`list<path>` for a `path`) is refused by `INV-GEN-1`, which compares each input's type with the default unit's type. The
+bind's `InputValidator` checks the value against the copy's own declared type, so it does not detect the swap. Owed: a
+refusing `CompiledInvariantsTest` case per weakened text and path type, and an `InputValidatorTest` case that shows the
+swapped type admits the value the default refuses.
 Source:: design review (PLAN-V2-15).
 
 == Positioned Layout

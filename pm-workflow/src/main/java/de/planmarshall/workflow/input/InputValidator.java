@@ -109,8 +109,11 @@ public final class InputValidator {
     /** The rule of a path carrying NUL. */
     public static final String RULE_PATH_NUL = "path.nul";
 
-    /** The rule of a path carrying git pathspec magic or a leading dash. */
+    /** The rule of a path carrying a git pathspec magic or a leading dash. */
     public static final String RULE_PATH_MAGIC = "path.magic";
+
+    /** The rule of a path carrying a glob character JGit would read as a pattern. */
+    public static final String RULE_PATH_GLOB = "path.glob";
 
     /** The rule of a path carrying a control character. */
     public static final String RULE_PATH_CONTROL = "path.control";
@@ -174,23 +177,45 @@ public final class InputValidator {
     }
 
     /**
+     * The value a slot or a link text carries, or the rule that refused it.
+     *
+     * @param value   the value; {@code null} exactly when {@code refusal} is set
+     * @param refusal the refusal; {@code null} when the text carries a value
+     */
+    public record Parsed(@Nullable CallValue value, @Nullable InputRefusal refusal) {
+
+        static Parsed of(CallValue value) {
+            return new Parsed(value, null);
+        }
+
+        static Parsed refused(String rule, String text) {
+            return new Parsed(null, new InputRefusal(rule, text));
+        }
+    }
+
+    /**
      * Parses the text a slot or a link parameter carries into the value of the given type. A {@code list<...>} value
-     * is the JSON array text of its entries.
+     * is the JSON array text of its entries; an entry that occurs twice is refused {@link #RULE_DUPLICATE} rather than
+     * left to the value type's constructor.
      *
      * @param type the type of the input the value is bound to
      * @param text the text as it was filled or submitted
-     * @return the value, or empty when the text does not fit the type
+     * @return the value, or the refusal
      */
-    public static Optional<CallValue> parse(InputType type, @Nullable String text) {
+    public static Parsed parse(InputType type, @Nullable String text) {
         Objects.requireNonNull(type, "type");
         if (text == null) {
-            return Optional.empty();
+            return Parsed.refused(RULE_MISSING, NULL_ECHO);
         }
         return switch (type) {
             case InputType.Text _, InputType.CommitMessage _, InputType.Path _, InputType.Enumeration _ ->
-                Optional.of(new CallValue.EnumValue(text));
-            case InputType.IntRange _ -> parseInt(text);
-            case InputType.PathList _, InputType.EnumList _ -> parseList(text).map(CallValue.EnumList::new);
+                Parsed.of(new CallValue.EnumValue(text));
+            case InputType.IntRange _ -> parseInt(text).map(Parsed::of)
+                    .orElseGet(() -> Parsed.refused(RULE_MALFORMED, text));
+            case InputType.PathList _, InputType.EnumList _ -> parseList(text)
+                    .map(values -> Parsed.of(new CallValue.EnumList(values)))
+                    .orElseGet(() -> duplicate(text) ? Parsed.refused(RULE_DUPLICATE, text)
+                            : Parsed.refused(RULE_MALFORMED, text));
         };
     }
 
@@ -313,6 +338,11 @@ public final class InputValidator {
         } catch (NumberFormatException _) {
             return Optional.empty();
         }
+    }
+
+    /** @return whether the JSON array text names an entry twice */
+    private static boolean duplicate(String text) {
+        return parseList(text).map(values -> new HashSet<>(values).size() < values.size()).orElse(false);
     }
 
     /** Reads a JSON array of strings; anything else, including a trailing token, is no list. */

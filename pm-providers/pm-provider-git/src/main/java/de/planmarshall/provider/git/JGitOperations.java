@@ -12,6 +12,7 @@ package de.planmarshall.provider.git;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +29,7 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.InvalidRemoteException;
 import org.eclipse.jgit.api.errors.JGitInternalException;
 import org.eclipse.jgit.dircache.DirCacheCheckout;
+import org.eclipse.jgit.dircache.DirCacheEntry;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.errors.TransportException;
 import org.eclipse.jgit.lib.Constants;
@@ -53,6 +55,7 @@ import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.FS;
+import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -363,6 +366,10 @@ public final class JGitOperations implements GitOperations {
             return GitResult.of(GitOutcome.PATH_REFUSED, refused.get());
         }
         try (Repository repository = openRepository(input.root()); Git git = Git.wrap(repository)) {
+            var trackedTree = refusedTrackedTree(repository, paths);
+            if (trackedTree.isPresent()) {
+                return GitResult.of(GitOutcome.PATH_REFUSED, trackedTree.get());
+            }
             var command = git.commit()
                     .setMessage(input.message())
                     .setAuthor(new PersonIdent(input.author().name(), input.author().email()))
@@ -425,10 +432,8 @@ public final class JGitOperations implements GitOperations {
             var index = repository.readDirCache();
             for (var path : paths) {
                 var entry = index.getEntry(path);
-                var stagedId = entry == null ? null : entry.getObjectId();
                 try (TreeWalk treeWalk = TreeWalk.forPath(repository, path, headTree)) {
-                    var headBlob = treeWalk == null ? null : treeWalk.getObjectId(0);
-                    if (!Objects.equals(stagedId, headBlob)) {
+                    if (!sameEntry(entry, treeWalk)) {
                         return true;
                     }
                 }
@@ -438,10 +443,23 @@ public final class JGitOperations implements GitOperations {
     }
 
     /**
+     * Compares a staged entry with the entry of the head tree: the object id and the file mode, so a change of the
+     * executable bit alone is a change.
+     */
+    private static boolean sameEntry(@Nullable DirCacheEntry entry, @Nullable TreeWalk head) {
+        if (entry == null || head == null || head.getObjectId(0) == null) {
+            return entry == null && head == null;
+        }
+        return entry.getObjectId().equals(head.getObjectId(0))
+                && entry.getFileMode() == head.getFileMode(0);
+    }
+
+    /**
      * Refuses a path JGit would expand beyond itself before anything is staged: a directory (its pathspec is
-     * prefix-based and would commit every path below it), a git pathspec magic and a glob. The staging set the bind
-     * checks is a set of files, so none of the three can arrive from a bound {@code list<path>}; this is the provider's
-     * own guard against a direct caller.
+     * prefix-based and would commit every path below it), a glob character ({@code *}, {@code ?}, {@code [}, which JGit
+     * reads as a pattern), a git pathspec magic and a path that is no legal path of the file system. A bound
+     * {@code list<path>} cannot carry a glob or a magic ({@link #refusedCommitPath(Path, List)} mirrors the bind's own
+     * rules); this is the provider's guard for a direct caller.
      *
      * @param root  the worktree root
      * @param paths the repository-relative paths to stage and commit
@@ -453,8 +471,44 @@ public final class JGitOperations implements GitOperations {
                     || path.indexOf('[') >= 0 || path.indexOf('\\') >= 0) {
                 return Optional.of(path);
             }
-            if (Files.isDirectory(root.resolve(path))) {
+            try {
+                if (Files.isDirectory(root.resolve(path))) {
+                    return Optional.of(path);
+                }
+            } catch (InvalidPathException _) {
                 return Optional.of(path);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Refuses a path that is a directory of the head tree or of the index even when the worktree no longer holds it: a
+     * deleted {@code src} handed as {@code paths = ["src"]} would otherwise pass the worktree check and stage every
+     * deletion below it, because a JGit pathspec is prefix-based.
+     *
+     * @param repository the repository
+     * @param paths      the repository-relative paths to stage and commit
+     * @return the first path that names a tracked directory, empty when every path is a tracked or new file
+     * @throws IOException when the head tree or the index cannot be read
+     */
+    private static Optional<String> refusedTrackedTree(Repository repository, List<String> paths) throws IOException {
+        var headId = repository.resolve(Constants.HEAD + "^{commit}");
+        if (headId == null || paths.isEmpty()) {
+            return Optional.empty();
+        }
+        var index = repository.readDirCache();
+        try (RevWalk walk = new RevWalk(repository)) {
+            var headTree = walk.parseCommit(headId).getTree();
+            for (var path : paths) {
+                if (index.getEntriesWithin(path + "/").length > 0) {
+                    return Optional.of(path);
+                }
+                try (TreeWalk treeWalk = TreeWalk.forPath(repository, path, headTree)) {
+                    if (treeWalk != null && treeWalk.isSubtree()) {
+                        return Optional.of(path);
+                    }
+                }
             }
         }
         return Optional.empty();

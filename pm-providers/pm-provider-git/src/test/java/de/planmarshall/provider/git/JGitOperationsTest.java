@@ -272,6 +272,53 @@ class JGitOperationsTest {
                             "the clean tree has nothing to commit"));
         }
 
+        @Test
+        @DisplayName("refuses a tracked directory whose worktree copy is gone")
+        void refusesATrackedDirectoryGone() throws Exception {
+            write("gone/one.txt", text());
+            git.commit(new CommitInput(repo, text(), author, agent, List.of("gone/one.txt")));
+            Files.delete(repo.resolve("gone/one.txt"));
+            Files.delete(repo.resolve("gone"));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("gone")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
+                            "a deleted tracked directory is no commit path"),
+                    () -> assertEquals("gone", result.detail(), "the refusal names the directory"),
+                    () -> assertEquals(2, git.log(repo, "HEAD", 5).value().size(),
+                            "the deletion below the directory was not committed"));
+        }
+
+        @Test
+        @DisplayName("refuses a path that is no legal path of the file system")
+        void refusesAnInvalidPath() {
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("a\u0000b")));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
+                            "a path with NUL is refused, not thrown"),
+                    () -> assertEquals("a\u0000b", result.detail(), "the refusal names the path"));
+        }
+
+        @Test
+        @DisplayName("commits a change of the executable bit alone")
+        void commitsAModeChange() throws Exception {
+            var script = "run.sh";
+            write(script, text());
+            git.commit(new CommitInput(repo, text(), author, agent, List.of(script)));
+            Files.setPosixFilePermissions(repo.resolve(script),
+                    PosixFilePermissions.fromString("rwxr-xr-x"));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(script)));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(),
+                            "a mode-only change is a change"),
+                    () -> assertEquals(3, git.log(repo, "HEAD", 5).value().size(),
+                            "the mode change is committed"));
+        }
+
         private boolean inCommit(String commitId, String path) throws Exception {
             try (var jgit = Git.open(repo.toFile())) {
                 var tree = jgit.getRepository().parseCommit(

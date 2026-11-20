@@ -32,11 +32,13 @@ registered with the entity kind. A clause on the link would therefore leave the 
   gains `SlotRef`; `InstancePruner` and `SubWorkflowInvariants` follow the new shape.
 * In a `job llm` state the clause fills from the argument of the accepted submission; in an operator wait from the free
   parameter of the link the operator followed. Only the task outcome `submitted` fills: a lost, asked or infeasible task
-  submitted nothing. The value is validated against the slot type where it arrives — the worker or the operator gets
-  `invalid_link_args` and can correct it — and again at the bind, because the staging set may have changed since. A call
-  that binds a slot no state filled is refused `precondition_unmet` / `input_unbound`, and a slot the call read is
-  consumed in the same transaction (link:../workflow-input/003-the-slot-key-names-the-declaring-unit.adoc[ADR
-  workflow-input/003]).
+  submitted nothing. The value is validated against the slot type where it arrives, and again at the bind, because the
+  staging set may have changed since. The engine meets a task only when it settles (`TasksSettled`), so an invalid task
+  value is refused there as an `IllegalArgumentException` whose message opens with `invalid_link_args`; mapping that
+  refusal back to the worker's submit call is the assembly's task-submit path, which this repository does not hold. An
+  invalid operator act is refused the same way, before the state moves. A call that binds a slot no state filled is
+  refused `precondition_unmet` / `input_unbound`, and a slot the call read is consumed in the same transaction
+  (link:../workflow-input/003-the-slot-key-names-the-declaring-unit.adoc[ADR workflow-input/003]).
 
 == Alternatives Considered
 

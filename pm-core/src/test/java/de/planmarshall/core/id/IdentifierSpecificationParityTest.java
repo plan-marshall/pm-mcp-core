@@ -67,18 +67,29 @@ class IdentifierSpecificationParityTest {
     @DisplayName("the registry rows of the command and correlation ids name the code's patterns")
     void commandAndCorrelationIdsEqualRegistry() {
         var registry = readRegistry();
+        var commandRow = row(registry, "[[id-command-id]]");
+        var correlationRow = row(registry, "[[id-correlation-id]]");
 
         assertAll(
-                () -> assertTrue(registry.contains("[[id-command-id]]"),
-                        "the registry should register the command id"),
-                () -> assertTrue(registry.contains(CommandId.PATTERN.pattern()),
-                        "the registry should name the command-id pattern"),
-                () -> assertTrue(registry.contains("[[id-correlation-id]]"),
-                        "the registry should register the correlation id"),
-                () -> assertTrue(registry.contains(CorrelationId.PATTERN.pattern()),
-                        "the registry should name the correlation-id pattern"),
                 () -> assertTrue(registry.contains("call_stack"),
-                        "the registry should name the call frame"));
+                        "the registry should name the call frame"),
+                () -> assertTrue(namesPattern(commandRow, CommandId.PATTERN.pattern()),
+                        "the command row should carry the code's complete pattern"),
+                () -> assertTrue(namesPattern(correlationRow, CorrelationId.PATTERN.pattern()),
+                        "the correlation row should carry the code's complete pattern"));
+    }
+
+    /** @return the text of the row whose anchor line carries the given anchor, up to the next row */
+    private static String row(String registry, String anchor) {
+        var start = registry.indexOf(anchor);
+        assertTrue(start >= 0, () -> "the registry should carry the row " + anchor);
+        var end = registry.indexOf("\n\n|", start);
+        return end < 0 ? registry.substring(start) : registry.substring(start, end);
+    }
+
+    /** @return whether the row names the pattern, in full and as one backticked token of the pattern cell */
+    private static boolean namesPattern(String row, String pattern) {
+        return row.contains("`" + pattern + "`");
     }
 
     private static String readRegistry() {

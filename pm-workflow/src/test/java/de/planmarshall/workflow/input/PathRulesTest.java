@@ -154,6 +154,8 @@ class PathRulesTest {
                 Arguments.of("an isolate initiator", "a\u2066b", "path.bidi"),
                 Arguments.of("a zero-width space", "a\u200Bb", "path.format"),
                 Arguments.of("a git pathspec exclusion", ":(exclude)x", "path.magic"),
+                Arguments.of("a glob star", "notes*.md", "path.glob"),
+                Arguments.of("a glob class", "notes[1].md", "path.glob"),
                 Arguments.of("a leading dash", "-rf", "path.magic"),
                 Arguments.of("a .git segment in upper case", ".GIT/config", "path.git"),
                 Arguments.of("a nested .git segment", "a/.git/b", "path.git"),

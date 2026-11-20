@@ -31,7 +31,7 @@ import org.jspecify.annotations.Nullable;
 public record CommandId(String value) {
 
     /** The grammar of the id: the prefix {@code cmd-} and 16 lower-case hexadecimal digits. */
-    public static final Pattern PATTERN = Pattern.compile("cmd-[0-9a-f]{16}");
+    public static final Pattern PATTERN = Pattern.compile("^cmd-[0-9a-f]{16}$");
 
     private static final int DRAWN_BYTES = 8;
     private static final RandomGenerator RANDOM = new SecureRandom();

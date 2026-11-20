@@ -1050,9 +1050,11 @@ public final class WorkflowEngine {
                     .filter(slot -> slot.name().equals(slotName)).findFirst()
                     .orElseThrow(() -> fault(Reason.UNRESOLVED_NAME, "the unit '%s' declares no slot '%s' at '%s'",
                             unit.id(), slotName, node.id()));
-            var parsed = InputValidator.parse(declaration.type(), value)
-                    .orElseThrow(() -> invalidLinkArgs(unit, declaration, InputValidator.RULE_MALFORMED, value));
-            var refusal = InputValidator.validate(declaration.type(), parsed);
+            var parsed = InputValidator.parse(declaration.type(), value);
+            if (parsed.refusal() != null) {
+                throw invalidLinkArgs(unit, declaration, parsed.refusal().ruleId(), value);
+            }
+            var refusal = InputValidator.validate(declaration.type(), parsed.value());
             if (refusal.isPresent()) {
                 throw invalidLinkArgs(unit, declaration, refusal.get().ruleId(), value);
             }
@@ -1510,22 +1512,22 @@ public final class WorkflowEngine {
                     if (slot == null) {
                         return new Resolution.Refused(unbound(callee, input));
                     }
-                    var value = InputValidator.parse(input.type(), slot.value());
-                    if (value.isEmpty()) {
-                        return new Resolution.Refused(refused(callee, input, InputValidator.RULE_MALFORMED));
+                    var parsed = InputValidator.parse(input.type(), slot.value());
+                    if (parsed.refusal() != null) {
+                        return new Resolution.Refused(refused(callee, input, parsed.refusal().ruleId()));
                     }
-                    return new Resolution.Bound(value.get(), new ArgSource(slot.source(), slot.sourceRef()));
+                    return new Resolution.Bound(parsed.value(), new ArgSource(slot.source(), slot.sourceRef()));
                 }
                 return new Resolution.Bound(bound, new ArgSource(ArgSource.LITERAL, null));
             }
             if (input.fallback() != null && bindingContext != null) {
                 var configured = bindingContext.configValue(input.fallback());
                 if (configured.isPresent()) {
-                    var value = InputValidator.parse(input.type(), configured.get());
-                    if (value.isEmpty()) {
-                        return new Resolution.Refused(refused(callee, input, InputValidator.RULE_MALFORMED));
+                    var parsed = InputValidator.parse(input.type(), configured.get());
+                    if (parsed.refusal() != null) {
+                        return new Resolution.Refused(refused(callee, input, parsed.refusal().ruleId()));
                     }
-                    return new Resolution.Bound(value.get(), new ArgSource(ArgSource.CONFIG, input.fallback()));
+                    return new Resolution.Bound(parsed.value(), new ArgSource(ArgSource.CONFIG, input.fallback()));
                 }
             }
             if (input.defaultValue() != null) {

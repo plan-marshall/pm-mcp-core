@@ -82,6 +82,9 @@ public final class PathRules {
         if (value.startsWith(":") || value.startsWith("-")) {
             return refusal(InputValidator.RULE_PATH_MAGIC, value);
         }
+        if (value.indexOf('*') >= 0 || value.indexOf('?') >= 0 || value.indexOf('[') >= 0) {
+            return refusal(InputValidator.RULE_PATH_GLOB, value);
+        }
         return Optional.empty();
     }
 
