@@ -38,6 +38,12 @@ A reason could travel the same way, as a member of the result record. A reason i
 * A caller's result guard sees the same record whether or not a callee's primitive carried a reason.
 * `ReasonConditionTest` shows the raise inside a sub-workflow frame with the frame still pushed, and the raise from an
   operator link without the `fills` slot written.
+* `ReasonMappedToCondition.bindsNoSpawnedJob` shows that a raise binds no job, and the group
+  `RoutedReasonInSubWorkflow` (`staysOutOfTheResultRecord` and its control `keepsTheResultFacts`) shows that a reason
+  never reaches the result guard of the caller.
+* That a raise merges no result fact into the frame is established by reading `Run.runPrimitive` of `WorkflowEngine`, not
+  by a test: the result record lives for one advance only and the raise ends that advance, so no test can tell a merged
+  record from an unmerged one.
 
 == Source
 

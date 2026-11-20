@@ -18,6 +18,7 @@ import static de.planmarshall.workflow.engine.ReasonFixtures.ANSWER_STATE;
 import static de.planmarshall.workflow.engine.ReasonFixtures.CHECK_STATE;
 import static de.planmarshall.workflow.engine.ReasonFixtures.FOOTPRINT_VIOLATION;
 import static de.planmarshall.workflow.engine.ReasonFixtures.INVOKE_STATE;
+import static de.planmarshall.workflow.engine.ReasonFixtures.ROUTE_STATE;
 import static de.planmarshall.workflow.engine.ReasonFixtures.SLOT_KEY;
 import static de.planmarshall.workflow.engine.ReasonFixtures.SUB_CHECK_STATE;
 import static de.planmarshall.workflow.engine.ReasonFixtures.SUB_UNIT;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -60,6 +62,7 @@ import de.planmarshall.core.store.PlanHistory;
 import de.planmarshall.core.store.PlanHistoryLine;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.core.store.WorkflowStatus;
+import de.planmarshall.core.store.WorkflowStatusCodec;
 import de.planmarshall.core.store.WorkflowStatusStore;
 import de.planmarshall.workflow.engine.ReasonFixtures.CheckOutcome;
 import de.planmarshall.workflow.engine.ReasonFixtures.CheckReason;
@@ -71,8 +74,9 @@ import de.planmarshall.workflow.engine.ReasonFixtures.SwitchOutcome;
  * interface): a reason that maps to no condition takes the transition of its outcome as an outcome without a reason
  * does; a reason that maps to a condition kind raises that condition instead of the transition, with the wire names of
  * the primitive, the outcome and the reason and the bounded facts of the result, from an {@code auto} state, a
- * sub-workflow frame, a resumed composite job state and an operator link alike; a reason the outcome does not declare
- * is an internal fault.
+ * sub-workflow frame, a resumed composite job state and an operator link alike, and binds no job the result spawned; a
+ * reason routed inside a sub-workflow stays out of the result record a caller's result guard reads; a reason the
+ * outcome does not declare is an internal fault.
  * <p>
  * The wire names of the fixture primitives, outcomes and reasons and the condition kind are the contract; the facts of
  * a result are generated.
@@ -187,6 +191,26 @@ class ReasonConditionTest {
             assertAll(
                     () -> assertEquals("outside_footprint", facts.get("reason"), "the reason fact is the wire name"),
                     () -> assertEquals(3, facts.size(), "the shadowing result fact is dropped"));
+        }
+
+        @Test
+        @DisplayName("binds no job of a result that carries a spawned job")
+        void bindsNoSpawnedJob() {
+            var jobId = "job-" + Generators.letterStrings(4, 12).next();
+            fixtures.check.then(PrimitiveResult.<CheckOutcome>builder().outcome(CheckOutcome.FAILED)
+                    .reason(CheckReason.OUTSIDE_FOOTPRINT).spawnedJobId(jobId)
+                    .updatedFacts(Map.of(factName(), factValue())).build());
+            var engine = fixtures.engine(ReasonFixtures.autoUnit());
+
+            var step = engine.advance(at(CHECK_STATE));
+
+            var raised = assertInstanceOf(EngineStep.ConditionRaised.class, step, "the reason raises a condition");
+            var written = new String(WorkflowStatusCodec.write(raised.status()), StandardCharsets.UTF_8);
+            assertAll(
+                    () -> assertTrue(raised.status().activeJobBinding().isEmpty(), "the raised status binds no job"),
+                    () -> assertTrue(raised.status().activeJobs().isEmpty(), "the raised status lists no active job"),
+                    () -> assertFalse(fixtures.fixtures.jobRequests.hasCaptured(), "the job starter is never asked"),
+                    () -> assertFalse(written.contains(jobId), "the spawned job id is written nowhere"));
         }
 
         @Test
@@ -357,6 +381,25 @@ class ReasonConditionTest {
         }
 
         @Test
+        @DisplayName("a text whose cut falls inside a surrogate pair is cut before the pair")
+        void cutsBeforeASurrogatePair() {
+            var name = factName();
+            var head = Generators.letterStrings(MAX_FACT_LENGTH - 2, MAX_FACT_LENGTH - 2).next();
+            var pair = new String(Character.toChars(Generators.integers(Character.MIN_SUPPLEMENTARY_CODE_POINT,
+                    Character.MAX_CODE_POINT).next()));
+            var text = head + pair + Generators.letterStrings(10, 40).next();
+
+            var facts = raisedFacts(Map.of(name, text));
+
+            assertAll(
+                    () -> assertTrue(Character.isHighSurrogate(text.charAt(MAX_FACT_LENGTH - 2)),
+                            "the plain cut would split the pair"),
+                    () -> assertEquals(head + ELLIPSIS, facts.get(name), "the cut drops the whole pair"),
+                    () -> assertEquals(MAX_FACT_LENGTH - 1, facts.get(name).length(),
+                            "the cut text is one under the bound"));
+        }
+
+        @Test
         @DisplayName("a number and a boolean are rendered as their text")
         void rendersScalars() {
             var number = Generators.integers(0, 10_000).next();
@@ -371,6 +414,38 @@ class ReasonConditionTest {
             assertAll(
                     () -> assertEquals(String.valueOf(number), facts.get("fact_number"), "a number is its text"),
                     () -> assertEquals(String.valueOf(flag), facts.get("fact_flag"), "a boolean is its text"));
+        }
+    }
+
+    @Nested
+    @DisplayName("A routed reason inside a sub-workflow")
+    class RoutedReasonInSubWorkflow {
+
+        @Test
+        @DisplayName("stays out of the result record the caller's result guard reads")
+        void staysOutOfTheResultRecord() {
+            fixtures.check.then(CheckOutcome.FAILED, CheckReason.TESTS_RED, Map.of(factName(), factValue()));
+            var engine = fixtures.engine(ReasonFixtures.routingUnit(), ReasonFixtures.routedSubUnit());
+
+            var step = engine.advance(at(ROUTE_STATE));
+
+            assertAll(
+                    () -> assertInstanceOf(EngineStep.Ended.class, step, "the returned done ends the plan"),
+                    () -> assertEquals("handed_back", step.status().state(), "the guard on result.reason fails"),
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the returned call pops its frame"));
+        }
+
+        @Test
+        @DisplayName("leaves the result facts in the record, so a fact named reason is read by the guard")
+        void keepsTheResultFacts() {
+            fixtures.check.then(CheckOutcome.FAILED, CheckReason.TESTS_RED, Map.of("reason", factValue()));
+            var engine = fixtures.engine(ReasonFixtures.routingUnit(), ReasonFixtures.routedSubUnit());
+
+            var step = engine.advance(at(ROUTE_STATE));
+
+            assertAll(
+                    () -> assertInstanceOf(EngineStep.Ended.class, step, "the returned done ends the plan"),
+                    () -> assertEquals("completed", step.status().state(), "the guard reads the result fact"));
         }
     }
 

@@ -51,7 +51,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * The fixtures of the reason tests: primitives whose failure outcome carries a reason enum built on
  * {@link OutcomeReason}, one reason mapped to {@code footprint_violation} and one mapped to none, the units that run
- * them from an {@code auto} state, a composite job state, an operator link and a sub-workflow frame, and an engine over
+ * them from an {@code auto} state, a composite job state, an operator link and a sub-workflow frame, a call whose
+ * {@code done} routes a caller's result guard on a field named {@code reason} splits, and an engine over
  * them assembled from the static helpers and the ports of {@link EngineFixtures}, which this class reads and does not
  * change.
  * <p>
@@ -87,6 +88,9 @@ final class ReasonFixtures {
 
     /** The sub-workflow {@link #callingUnit()} calls. */
     static final String SUB_UNIT = "sub.reason";
+
+    /** The calling state of {@link #routingUnit()}, whose {@code done} routes are split by a guard on the reason. */
+    static final String ROUTE_STATE = "execute.route";
 
     /** The key the operator unit's slot is stored under: the declaring unit's id and the slot name. */
     static final String SLOT_KEY = "plan:commit_message";
@@ -152,6 +156,52 @@ final class ReasonFixtures {
             state sub.done terminal done success
 
             state sub.stepped-out terminal stepped_out stepped_out
+            """;
+
+    /**
+     * The calling state of the plan that enters {@code sub.routed}: its {@code done} is split by the result guard on
+     * a field named {@code reason}, so the route shows whether the result record carries one.
+     */
+    private static final String ROUTING_STATES = """
+            state execute.route
+                call sub.routed
+                    done -> completed
+                        guard result.reason
+                    done -> handed_back
+                        guard not result.reason
+                    stepped_out -> plan.return
+            """;
+
+    /**
+     * A sub-workflow with a result schema whose only state runs {@code reason.check} and ends in {@code done} on its
+     * {@code failed} outcome, so a routed reason returns to the caller with the result record.
+     */
+    private static final String ROUTED_SOURCE = """
+            ---
+            name: sub.routed
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: main
+            exit: done
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow sub.routed version 1 format 1
+            scope subworkflow
+            result schema[commit-result]
+            entry main -> routed.check
+
+            state routed.check
+                auto reason.check
+                    succeeded -> routed.done
+                    failed -> routed.done
+                    cancelled -> routed.stepped-out
+
+            state routed.done terminal done success
+
+            state routed.stepped-out terminal stepped_out stepped_out
             """;
 
     /** A plan whose operator state fills its slot from the {@code note} of the link that runs {@code reason.answer}. */
@@ -248,6 +298,16 @@ final class ReasonFixtures {
     /** @return the sub-workflow {@link #SUB_UNIT} */
     static WorkflowDefinition subUnit() {
         return parse("sub.pmwf", SUB_SOURCE);
+    }
+
+    /** @return the plan whose start state {@link #ROUTE_STATE} calls {@code sub.routed} under a guard on the reason */
+    static WorkflowDefinition routingUnit() {
+        return callingPlan(ROUTE_STATE, ROUTING_STATES);
+    }
+
+    /** @return the sub-workflow {@code sub.routed}, which returns {@code done} on a failed {@code reason.check} */
+    static WorkflowDefinition routedSubUnit() {
+        return parse("routed.pmwf", ROUTED_SOURCE);
     }
 
     /** @return the registry of the reason primitives and of {@code test.step}, which the fallback of a call runs */
