@@ -47,6 +47,6 @@ it stood:
 
 == Source
 
-* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
   DSL § Six-Stage Execution Contract], Stage 4
 * `PLAN-V2-15` Deliverable 4; `PLAN-V2-157` Deliverable 4

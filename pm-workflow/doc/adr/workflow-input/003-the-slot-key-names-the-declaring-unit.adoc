@@ -49,4 +49,4 @@ of the member already said so; only the engine did not.
   Decisions 4 and 5 of the specification of PLAN-V2-15
 * link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store
   Schemas § Workflow State Store], `slots`
-* link:../../../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide]; `PLAN-V2-157` Deliverable 1
+* link:../../../../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide]; `PLAN-V2-157` Deliverable 1
