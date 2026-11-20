@@ -40,7 +40,7 @@ import de.planmarshall.runtime.launch.HarnessEnrolment.UsageReport;
 class VerifiedUsageTest {
 
     private static final String MODEL = Generators.letterStrings(5, 12).next();
-    private static final OptionalLong START_TOKENS = OptionalLong.of(Generators.longs(1_000, 9_000).next());
+    private static final Long START_TOKENS = Generators.longs(1_000, 9_000).next();
 
     @Test
     @DisplayName("the install path maps the stage figures and carries the start context")
@@ -53,7 +53,7 @@ class VerifiedUsageTest {
                 () -> assertEquals("reported", report.figures().get("input"), "the input figure is reported"),
                 () -> assertEquals("reported", report.figures().get("output"), "the output figure is reported"),
                 () -> assertFalse(report.figures().containsKey("cost_usd"), "the cost is never part of the report"),
-                () -> assertEquals(List.of(new UsageReport.StartContext("writer", MODEL, START_TOKENS)),
+                () -> assertEquals(List.of(new UsageReport.StartContext("writer", MODEL, OptionalLong.of(START_TOKENS))),
                         report.startContext(), "the start context crosses the seam"),
                 () -> assertEquals(HarnessEnrolment.UsageSource.VERIFIED, report.source(),
                         "a verified report names its source"));
@@ -102,7 +102,7 @@ class VerifiedUsageTest {
     @DisplayName("a start context one run measured is not a repeated measurement")
     void startContextMustAgree() {
         var evaluations = List.of(result(UsageStatus.REPORTED, new StartContext("writer", MODEL, START_TOKENS)),
-                result(UsageStatus.REPORTED, new StartContext("writer", MODEL, OptionalLong.empty())));
+                result(UsageStatus.REPORTED, new StartContext("writer", MODEL, null)));
 
         assertFalse(VerifiedUsage.trusted(evaluations), "A once-measured start context is not trusted");
     }

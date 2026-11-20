@@ -40,8 +40,7 @@ class AuditVerificationRecordsTest {
         var type = Class.forName("de.planmarshall.runtime.audit.AuditVerification$State");
         var head = Generators.letterStrings(1, 20).next().getBytes(StandardCharsets.UTF_8);
         var index = new AuditIndex.Snapshot(List.of(), Generators.letterStrings(64, 64).next(), OptionalLong.empty());
-        var log = new JsonlStoreFile.Content(Path.of(Generators.letterStrings(1, 20).next()), List.of(),
-                OptionalLong.empty());
+        var log = new JsonlStoreFile.Content(Path.of(Generators.letterStrings(1, 20).next()), List.of(), null);
         var logExists = Generators.booleans().next();
         Constructor<?> constructor = type.getDeclaredConstructor(byte[].class, AuditIndex.Snapshot.class,
                 JsonlStoreFile.Content.class, boolean.class);

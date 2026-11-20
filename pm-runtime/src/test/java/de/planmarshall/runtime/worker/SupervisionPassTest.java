@@ -34,7 +34,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -138,7 +137,7 @@ class SupervisionPassTest {
         ending = new WorkerEnding(environment, () -> false, () -> {
         });
         supervisor = new WorkerSupervisor(environment);
-        parameters = new WorkerParameters(true, OptionalInt.of(270), false, 600, 3, 300, false);
+        parameters = new WorkerParameters(true, 270, false, 600, 3, 300, false);
         recycling = new WorkerRecycling(environment, ending, supervisor::generations,
                 _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
                 parameters);

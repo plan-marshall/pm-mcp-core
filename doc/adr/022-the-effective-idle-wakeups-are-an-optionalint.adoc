@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Superseded by ADR link:029-primitive-optional-components-are-nullable-boxed-numbers.adoc[029]
 
 == Date
 

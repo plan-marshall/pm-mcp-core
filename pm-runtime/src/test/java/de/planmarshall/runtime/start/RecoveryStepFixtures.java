@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import de.planmarshall.core.service.AuditSink;
@@ -150,7 +149,7 @@ final class RecoveryStepFixtures {
         var staged = STORE + ".tmp." + transactionId.value();
         Files.write(scope.resolve(staged), content);
         var journal = new TransactionJournal(transactionId, scope.type(), scope.scopeId(), Instant.now(),
-                List.of(new Target(STORE, Mode.REPLACE, staged, OptionalLong.empty(), StoreDigest.of(content))));
+                List.of(new Target(STORE, Mode.REPLACE, staged, null, StoreDigest.of(content))));
         Files.write(scope.journalFile(), journal.write());
         return journal;
     }

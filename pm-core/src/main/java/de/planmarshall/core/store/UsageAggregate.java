@@ -18,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.OptionalLong;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Function;
@@ -41,18 +40,21 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * which reason, and whether the figure is a floor.
  * <p>
  * A total over a population with unmeasured rows is a floor ({@link #totalIsFloor()}), shown as <em>at least</em> its
- * value and never as exact. {@link #totalTokens()} is empty when the population is empty or has no measured row
- * ({@code population_count == 0} or every row unmeasured) and never a fabricated {@code 0}. The split is empty when any
- * row of the population left a component of it unmeasured, because a partial sum is never recorded.
+ * value and never as exact. {@link #totalTokens()} is {@code null} when the population is empty or has no measured
+ * row ({@code population_count == 0} or every row unmeasured) and never a fabricated {@code 0}. The split is
+ * {@code null} when any row of the population left a component of it unmeasured, because a partial sum is never
+ * recorded.
  * <p>
  * Sums and relations are formed only between figures of one population (Store Schemas § Metrics Store, Populations), so
  * a set of rows of different populations is refused rather than silently mixed. An epic's figure is the sum of its
  * plans' aggregates and its own rows, formed with {@link #plus(UsageAggregate)}.
  *
  * @param population         the population the figures count
- * @param totalTokens        the summed total tokens, empty when the population is empty
- * @param tokensIn           the summed input split, empty when the population is empty or a component is unmeasured
- * @param tokensOut          the summed output split, empty when the population is empty or a component is unmeasured
+ * @param totalTokens        the summed total tokens, {@code null} when the population has no measured row
+ * @param tokensIn           the summed input split, {@code null} when the population is empty or a component is
+ *                           unmeasured
+ * @param tokensOut          the summed output split, {@code null} when the population is empty or a component is
+ *                           unmeasured
  * @param rows               the rows the figure rests on: the measured rows plus the excluded ones
  * @param rowsUnmeasured     the rows whose total is unmeasured
  * @param unmeasuredReasons  how many unmeasured rows name each reason
@@ -62,8 +64,8 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * @since 0.1
  */
 @Builder
-public record UsageAggregate(Population population, OptionalLong totalTokens, OptionalLong tokensIn,
-OptionalLong tokensOut, long rows, long rowsUnmeasured, Map<UnmeasuredReason, Long> unmeasuredReasons,
+public record UsageAggregate(Population population, @Nullable Long totalTokens, @Nullable Long tokensIn,
+@Nullable Long tokensOut, long rows, long rowsUnmeasured, Map<UnmeasuredReason, Long> unmeasuredReasons,
 long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
 
     /** The population of a usage figure (Store Schemas § Metrics Store, Populations). The set is closed. */
@@ -134,9 +136,6 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
      */
     public UsageAggregate {
         Objects.requireNonNull(population, "population");
-        Objects.requireNonNull(totalTokens, "totalTokens");
-        Objects.requireNonNull(tokensIn, "tokensIn");
-        Objects.requireNonNull(tokensOut, "tokensOut");
         if (rows < 0 || rowsUnmeasured < 0 || populationCount < 0) {
             throw new IllegalArgumentException("A count of an aggregate is not negative");
         }
@@ -153,13 +152,13 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
         if (totalIsFloor != (rowsUnmeasured > 0)) {
             throw new IllegalArgumentException("'total_is_floor' is true exactly while 'rows_unmeasured' is above 0");
         }
-        if (populationCount == 0 && totalTokens.isPresent()) {
+        if (populationCount == 0 && totalTokens != null) {
             throw new IllegalArgumentException("An empty population has no total");
         }
-        if (populationCount > 0 && rows == 0 && totalTokens.isPresent()) {
+        if (populationCount > 0 && rows == 0 && totalTokens != null) {
             throw new IllegalArgumentException("A population without a measured row has no total");
         }
-        if (rows > 0 && totalTokens.isEmpty()) {
+        if (rows > 0 && totalTokens == null) {
             throw new IllegalArgumentException("A population with a measured row has a total, exact or a floor");
         }
         var reasons = new EnumMap<UnmeasuredReason, Long>(UnmeasuredReason.class);
@@ -179,9 +178,9 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
         var tally = tally(usages);
         var measured = tally.counted - tally.unmeasured;
         return new UsageAggregate(population,
-                measured == 0 ? OptionalLong.empty() : OptionalLong.of(tally.total),
-                tally.counted == 0 || !tally.inMeasured ? OptionalLong.empty() : OptionalLong.of(tally.in),
-                tally.counted == 0 || !tally.outMeasured ? OptionalLong.empty() : OptionalLong.of(tally.out),
+                measured == 0 ? null : Long.valueOf(tally.total),
+                tally.counted == 0 || !tally.inMeasured ? null : Long.valueOf(tally.in),
+                tally.counted == 0 || !tally.outMeasured ? null : Long.valueOf(tally.out),
                 measured, tally.unmeasured, tally.reasons, tally.counted, new TreeMap<>(), tally.unmeasured > 0);
     }
 
@@ -289,8 +288,8 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
     }
 
     /** A total: the identity of a population with no measured row, and unmeasured when a measured row has none. */
-    private static OptionalLong bothOrOne(boolean leftHasRows, OptionalLong left, boolean rightHasRows,
-            OptionalLong right) {
+    private static @Nullable Long bothOrOne(boolean leftHasRows, @Nullable Long left, boolean rightHasRows,
+            @Nullable Long right) {
         if (leftHasRows && rightHasRows) {
             return sum(left, right);
         }
@@ -351,11 +350,11 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
         return grouped(rows, row -> Population.of(row.population()), Population::compareTo);
     }
 
-    private static OptionalLong sum(OptionalLong left, OptionalLong right) {
-        if (left.isEmpty() || right.isEmpty()) {
-            return OptionalLong.empty();
+    private static @Nullable Long sum(@Nullable Long left, @Nullable Long right) {
+        if (left == null || right == null) {
+            return null;
         }
-        return OptionalLong.of(left.getAsLong() + right.getAsLong());
+        return left + right;
     }
 
     private static Population populationOf(Collection<MetricsRow> rows) {

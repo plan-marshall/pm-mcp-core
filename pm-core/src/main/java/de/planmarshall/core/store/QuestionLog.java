@@ -22,9 +22,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JsonlStoreFile.Accepted;
 import de.planmarshall.core.store.JsonlStoreFile.Entry;
@@ -97,16 +97,16 @@ public final class QuestionLog {
      *
      * @param store          the log that was read
      * @param entries        one entry per complete line, in the order of the log
-     * @param tornTailOffset the byte offset where a last line without a newline begins; empty if there is none
+     * @param tornTailOffset the byte offset where a last line without a newline begins; {@code null} if there is
+     *                       none
      * @since 0.1
      */
-    public record Lines(Path store, List<Entry<QuestionRecord>> entries, OptionalLong tornTailOffset) {
+    public record Lines(Path store, List<Entry<QuestionRecord>> entries, @Nullable Long tornTailOffset) {
 
-        /** @throws NullPointerException if a component is {@code null} */
+        /** @throws NullPointerException if the store or the entries are {@code null} */
         public Lines {
             Objects.requireNonNull(store, "store");
             entries = List.copyOf(entries);
-            Objects.requireNonNull(tornTailOffset, "tornTailOffset");
         }
 
         /** @return the records that were read, in the order of the log, without the refused lines */

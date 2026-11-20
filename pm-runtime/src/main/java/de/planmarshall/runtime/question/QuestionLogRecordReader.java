@@ -146,9 +146,9 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
             return new QuestionRead.Unreadable(
                     "the question log holds a refused line " + refused.getFirst().line());
         }
-        if (lines.tornTailOffset().isPresent()) {
-            return new QuestionRead.Unreadable(
-                    "the question log ends in a torn tail at byte " + lines.tornTailOffset().getAsLong());
+        var tornTailOffset = lines.tornTailOffset();
+        if (tornTailOffset != null) {
+            return new QuestionRead.Unreadable("the question log ends in a torn tail at byte " + tornTailOffset);
         }
         var current = lines.current(request.questionId());
         if (current.isEmpty()) {

@@ -19,8 +19,8 @@ import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -73,7 +73,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("the acknowledgement signal fires at its deadline and never earlier")
     void acknowledgementFiresAtItsDeadline() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        var detection = detection(RoleClass.WRITER, parameters(ACK_SECONDS, false));
         detection.started(SPAWN);
         detection.offered(task, SPAWN);
         var deadline = SPAWN.plusSeconds(ACK_SECONDS);
@@ -95,7 +95,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("the silence signal fires at the bounded wait plus the grace and never earlier")
     void silenceFiresAtItsDeadline() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
+        var detection = detection(RoleClass.WRITER, parameters(null, false));
         detection.started(SPAWN);
         detection.firstCall(SPAWN);
         var deadline = SPAWN.plusSeconds(SILENCE_SECONDS);
@@ -117,7 +117,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("the fired signal reaches the consumer when the timer runs at the deadline")
     void timerFiresAtTheDeadline() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        var detection = detection(RoleClass.WRITER, parameters(ACK_SECONDS, false));
         detection.started(SPAWN);
         detection.offered(task, SPAWN);
         var deadline = SPAWN.plusSeconds(ACK_SECONDS);
@@ -140,7 +140,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("an informational acknowledgement suppresses the acknowledgement signal")
     void informationalAcknowledgementIsSuppressed() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), true));
+        var detection = detection(RoleClass.WRITER, parameters(ACK_SECONDS, true));
         detection.started(SPAWN);
         detection.offered(task, SPAWN);
 
@@ -152,7 +152,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("an open wait suppresses the silence signal until it is answered")
     void openWaitSuppressesSilence() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
+        var detection = detection(RoleClass.WRITER, parameters(null, false));
         detection.started(SPAWN);
         detection.firstCall(SPAWN);
 
@@ -172,7 +172,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("an exit after the first call is the exit loss")
     void exitAfterTheFirstCallIsALoss() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
+        var detection = detection(RoleClass.WRITER, parameters(null, false));
         detection.started(SPAWN);
         detection.firstCall(SPAWN);
         detection.offered(task, SPAWN);
@@ -199,7 +199,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("an exit before the first call is a start failure and not a loss")
     void exitBeforeTheFirstCallIsAStartFailure() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
+        var detection = detection(RoleClass.WRITER, parameters(null, false));
         detection.started(SPAWN);
 
         var loss = detection.exit(SPAWN.plusMillis(500));
@@ -216,7 +216,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("a zero_tool worker's exit alone decides and is never a start failure")
     void zeroToolExitIsDecidedByItsResult() {
-        var detection = detection(RoleClass.ZERO_TOOL, parameters(OptionalInt.of(ACK_SECONDS), false));
+        var detection = detection(RoleClass.ZERO_TOOL, parameters(ACK_SECONDS, false));
         detection.started(SPAWN);
 
         var due = detection.due(SPAWN.plusSeconds(10 * SILENCE_SECONDS));
@@ -235,7 +235,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("a timer that wakes before its deadline re-arms instead of losing the signal")
     void anEarlyTimerReArms() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        var detection = detection(RoleClass.WRITER, parameters(ACK_SECONDS, false));
         detection.started(SPAWN);
         detection.offered(task, SPAWN);
 
@@ -254,7 +254,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("a cancelled detection schedules nothing more")
     void cancelledSchedulesNothing() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        var detection = detection(RoleClass.WRITER, parameters(ACK_SECONDS, false));
         detection.started(SPAWN);
         detection.offered(task, SPAWN);
 
@@ -273,7 +273,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("an answer delivered to a holding generation owes its acknowledgement from the delivery")
     void answerAcknowledgement() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        var detection = detection(RoleClass.WRITER, parameters(ACK_SECONDS, false));
         detection.started(SPAWN);
         detection.offered(task, SPAWN);
         detection.acknowledged(SPAWN.plusSeconds(1));
@@ -294,7 +294,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("an acknowledgement after the answer clears the answer's deadline")
     void answerAcknowledged() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        var detection = detection(RoleClass.WRITER, parameters(ACK_SECONDS, false));
         detection.started(SPAWN);
         detection.offered(task, SPAWN);
         detection.acknowledged(SPAWN.plusSeconds(1));
@@ -312,7 +312,7 @@ class WorkerLossDetectionTest {
     @Test
     @DisplayName("an informational acknowledgement leaves the answer's loss to silence")
     void informationalAnswerAcknowledgement() {
-        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), true));
+        var detection = detection(RoleClass.WRITER, parameters(ACK_SECONDS, true));
         detection.started(SPAWN);
         detection.offered(task, SPAWN);
         detection.acknowledged(SPAWN.plusSeconds(1));
@@ -330,7 +330,7 @@ class WorkerLossDetectionTest {
         return new LossDetection(generation, roleClass, parameters, clock, timers, signals::add);
     }
 
-    private static WorkerParameters parameters(OptionalInt ackDeadline, boolean informational) {
+    private static WorkerParameters parameters(@Nullable Integer ackDeadline, boolean informational) {
         return new WorkerParameters(true, ackDeadline, informational, GRACE_SECONDS, 3, BOUNDED_WAIT_SECONDS, true);
     }
 

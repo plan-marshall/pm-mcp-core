@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.easymock.Capture;
@@ -305,7 +304,7 @@ class ScopeTransactionTest {
             var journal = new TransactionJournal(transactionId, JournalScopeType.PLAN, plan, clock.instant(),
                     List.of(new TransactionJournal.Target(STATUS, TransactionJournal.Mode.REPLACE,
                             transactionId.stagedName(STATUS, TransactionJournal.Mode.REPLACE),
-                            OptionalLong.empty(), StoreDigest.of(bytes(newStatus)))));
+                            null, StoreDigest.of(bytes(newStatus)))));
             var leftover = scope.sidecarFile().resolveSibling(transactionId.stagedName(
                     scope.sidecarFile().getFileName().toString(), TransactionJournal.Mode.REPLACE));
             Files.write(leftover, bytes(oldStatus));

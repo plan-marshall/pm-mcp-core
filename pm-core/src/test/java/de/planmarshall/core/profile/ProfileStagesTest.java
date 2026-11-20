@@ -23,7 +23,6 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -301,8 +300,8 @@ class ProfileStagesTest {
                 List.of(new StartContextInput("writer", WRITER_MODEL, firstTurn),
                         new StartContextInput("read_only", READ_ONLY_MODEL, withoutCacheRead)));
 
-        assertAll(() -> assertEquals(List.of(new StartContext("writer", WRITER_MODEL, OptionalLong.of(115)),
-                        new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext(),
+        assertAll(() -> assertEquals(List.of(new StartContext("writer", WRITER_MODEL, 115L),
+                        new StartContext("read_only", READ_ONLY_MODEL, null)), result.startContext(),
                 "start context sums the first turn"));
     }
 
@@ -321,8 +320,8 @@ class ProfileStagesTest {
                 List.of(new StartContextInput("writer", WRITER_MODEL, firstTurn),
                         new StartContextInput("read_only", READ_ONLY_MODEL, negative)));
 
-        assertEquals(List.of(new StartContext("writer", WRITER_MODEL, OptionalLong.of(10)),
-                        new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext(),
+        assertEquals(List.of(new StartContext("writer", WRITER_MODEL, 10L),
+                        new StartContext("read_only", READ_ONLY_MODEL, null)), result.startContext(),
                 "negative figure leaves context unmeasured");
     }
 

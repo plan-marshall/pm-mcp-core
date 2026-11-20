@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -429,7 +428,7 @@ public final class ScopeTransaction {
         if (target.mode() == Mode.REPLACE) {
             SyncedFiles.writeNew(scope.resolve(stagedPath), target.content());
             return Target.builder().path(target.path()).mode(Mode.REPLACE).stagedPath(stagedPath)
-                    .sizeBefore(OptionalLong.empty()).newDigest(StoreDigest.of(target.content())).build();
+                    .sizeBefore(null).newDigest(StoreDigest.of(target.content())).build();
         }
         new JsonlStoreFile(store, scope.lockKey()).repairTail(transaction, auditSink);
         var after = StoreDigest.builder();
@@ -440,7 +439,7 @@ public final class ScopeTransaction {
         }
         SyncedFiles.writeNew(scope.resolve(stagedPath), target.content());
         return Target.builder().path(target.path()).mode(Mode.APPEND).stagedPath(stagedPath)
-                .sizeBefore(OptionalLong.of(sizeBefore)).newDigest(after.update(target.content()).build()).build();
+                .sizeBefore(sizeBefore).newDigest(after.update(target.content()).build()).build();
     }
 
     private void apply(TransactionJournal journal) throws IOException {

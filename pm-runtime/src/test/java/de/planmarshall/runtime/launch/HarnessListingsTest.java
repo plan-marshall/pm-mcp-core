@@ -62,7 +62,7 @@ class HarnessListingsTest {
         assertAll(
                 () -> assertEquals(HarnessUsageCoverage.Status.COMPLETE, row(list, AAA_ID).usage().status(),
                         "The verified harness shows its recorded coverage"),
-                () -> assertEquals(List.of(new ProfileStages.StartContext("writer", MODEL, START_TOKENS)),
+                () -> assertEquals(List.of(new ProfileStages.StartContext("writer", MODEL, START_TOKENS.getAsLong())),
                         row(list, AAA_ID).usage().startContext(), "The start context crosses over"),
                 () -> assertEquals(HarnessUsageCoverage.Status.NOT_REPORTED, row(list, BBB_ID).usage().status(),
                         "A harness without an enrolment is not reported"));
