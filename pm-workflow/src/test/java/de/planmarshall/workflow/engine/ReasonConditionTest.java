@@ -33,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,6 +44,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -215,7 +215,7 @@ class ReasonConditionTest {
 
         @Test
         @DisplayName("writes the entered line of the state and no left line")
-        void writesNoLeftLine() throws IOException {
+        void writesNoLeftLine() throws Exception {
             fixtures.check.then(CheckOutcome.FAILED, CheckReason.OUTSIDE_FOOTPRINT, Map.of(factName(), factValue()));
             var engine = fixtures.engine(ReasonFixtures.autoUnit());
             var scope = JournalScope.plan(base, "pm-mcp-core", PLAN_ID);
