@@ -229,7 +229,11 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(template.startState(), unit.startState(),
                             "the composed unit keeps the template start state"),
                     () -> assertEquals(template.entryBindings(), unit.entryBindings(),
-                            "the composed unit keeps the template entry bindings"));
+                            "the composed unit keeps the template entry bindings"),
+                    () -> assertEquals(1, unit.frontmatter().slots().size(),
+                            "the composed unit keeps the template slot"),
+                    () -> assertEquals(template.frontmatter().slots(), unit.frontmatter().slots(),
+                            "the composed unit's slots are the template's"));
         }
 
         @Test

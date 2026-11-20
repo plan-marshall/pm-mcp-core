@@ -15,9 +15,15 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -258,6 +264,87 @@ class WorkflowStatusSchemaParityTest {
         private static String json(Map<String, String> members) {
             return members.entrySet().stream().map(member -> "\"" + member.getKey() + "\":" + member.getValue())
                     .collect(Collectors.joining(",", "{", "}"));
+        }
+    }
+
+    @Nested
+    @DisplayName("the call frame and the slots")
+    class CallFrameParity {
+
+        private static final String CALL_STACK = "call_stack";
+        private static final String SLOTS = "slots";
+
+        @Test
+        @DisplayName("the codec writes the frame members in the order the schema declares them")
+        void frameMembersInSchemaOrder() {
+            var expected = names(SchemaResource.object(frameItem().get("properties")).keySet());
+
+            var written = new String(WorkflowStatusCodec.write(
+                    WorkflowStatusCodecTest.read(WorkflowStatusCodecTest.DOCUMENT)), UTF_8);
+
+            assertAll(
+                    () -> assertFalse(expected.isEmpty(), "the schema declares the frame members"),
+                    () -> assertEquals(expected, frameMembers(written), "the frame members should be in schema order"));
+        }
+
+        @Test
+        @DisplayName("the frame members the codec writes are the schema's required members")
+        void frameRequiredEqualSchema() {
+            var expected = Set.copyOf(names(SchemaResource.array(frameItem().get("required"))));
+
+            var written = new String(WorkflowStatusCodec.write(
+                    WorkflowStatusCodecTest.read(WorkflowStatusCodecTest.DOCUMENT)), UTF_8);
+
+            assertAll(
+                    () -> assertFalse(expected.isEmpty(), "the schema requires the frame members"),
+                    () -> assertEquals(expected, Set.copyOf(frameMembers(written)),
+                            "the required frame members should match"));
+        }
+
+        @Test
+        @DisplayName("the slot sources of the status are the values of the slots source enum")
+        void slotSourcesEqualSchema() {
+            var slots = SchemaResource.object(properties.get(SLOTS));
+            var item = SchemaResource.object(slots.get("additionalProperties"));
+            var source = SchemaResource.object(SchemaResource.object(item.get("properties")).get("source"));
+            var expected = SchemaResource.array(source.get("enum")).stream().map(String::valueOf)
+                    .collect(Collectors.toUnmodifiableSet());
+
+            assertAll(
+                    () -> assertFalse(expected.isEmpty(), "the schema names the slot sources"),
+                    () -> assertEquals(WorkflowStatus.Slot.SOURCES, expected,
+                            "the slot sources should equal the schema enum"));
+        }
+
+        private static Map<?, ?> frameItem() {
+            var callStack = SchemaResource.object(properties.get(CALL_STACK));
+            return SchemaResource.object(callStack.get("items"));
+        }
+
+        private static List<String> names(Collection<?> values) {
+            return values.stream().map(String::valueOf).toList();
+        }
+
+        /** @return the field names of the first frame of a written status, in their order */
+        private static List<String> frameMembers(String written) {
+            try (JsonParser parser = new JsonFactory().createParser(written)) {
+                while (parser.nextToken() != null) {
+                    if (parser.currentToken() == JsonToken.FIELD_NAME && CALL_STACK.equals(parser.currentName())) {
+                        parser.nextToken();
+                        parser.nextToken();
+                        var members = new ArrayList<String>();
+                        while (parser.nextToken() != JsonToken.END_OBJECT) {
+                            members.add(parser.currentName());
+                            parser.nextToken();
+                            parser.skipChildren();
+                        }
+                        return members;
+                    }
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException("the written status cannot be read", e);
+            }
+            throw new AssertionError("the written status carries no call frame");
         }
     }
 

@@ -1,0 +1,52 @@
+= ADR provider-git 004: A Directory Is Refused and Emptiness Is Read From the Index
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+`JGitOperations.commit` stages and commits the paths of `CommitInput.paths`. Two properties of JGit make that unsound as
+it stood:
+
+* A pathspec is prefix-based. `setOnly("src")` and `addFilepattern("src")` name every path below `src`, so a caller that
+  passed a directory committed every change below it, not the one path it named.
+* An empty commit is reported by a generic `JGitInternalException` whose message is a translatable `LocalizableText`
+  ("No changes"). Matching that text is a locale dependency: on another locale the same condition reads as a failure.
+
+== Decision
+
+* Before anything is staged, `commit` refuses a path that is empty, starts with `:` (git pathspec magic), carries a glob
+  (`*`, `?`, `[`, `\`) or resolves to a directory below the root. The refusal is `GitOutcome.PATH_REFUSED` with the path
+  as its detail.
+* Whether the commit would be empty is read from the typed state after staging: the index entry of each listed path is
+  compared with the path's blob in the head tree; for an empty path list the index tree is compared with the head tree. No
+  change is `GitOutcome.NOTHING_TO_COMMIT` with the detail `no changes`.
+* `CommitInput` fills an empty path list when its builder omits `paths`, so a caller that never sets the member keeps the
+  "every change" semantics instead of a `NullPointerException`.
+
+== Alternatives Considered
+
+* *Keep the message match.* Refused: the text is translatable, so the same condition is a failure in another locale.
+* *Let the caller guarantee a file path.* Refused as the only guard: the provider is a public contract of the assembly,
+  and the bind that refuses a directory is one caller of it.
+* *Recompute JGit's own emptiness decision per path with `setOnly`.* Not taken: the index-and-head comparison decides the
+  same question for the listed paths the provider itself staged, with the typed objects JGit exposes.
+
+== Consequences
+
+* A directory, a magic pathspec and a glob are refused before the index is touched, so a refused commit leaves the
+  worktree as it was.
+* The three construction sites that build a `CommitInput` without `paths` keep their expectation and no longer can fail
+  with a `NullPointerException`.
+
+== Source
+
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
+  DSL § Six-Stage Execution Contract], Stage 4
+* `PLAN-V2-15` Deliverable 4; `PLAN-V2-157` Deliverable 4

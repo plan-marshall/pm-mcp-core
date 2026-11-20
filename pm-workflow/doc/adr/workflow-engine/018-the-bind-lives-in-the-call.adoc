@@ -29,17 +29,16 @@ at which the engine still knows which call is entering which callee.
   port `InputBindingContext` of `Ports` supplies: the worktree root, the staging set, and the configuration value by key
   (the last for the `input_fallback`).
 * It writes `bound_args` and `arg_sources` into the pushed frame, with the `command_id` it draws for the call and the
-  `correlation_id` of the current `Run` (link:../../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/076]),
+  `correlation_id` of the current `Run` (link:../../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/078]),
   and clears the consumed slots in the same transaction.
 * A refusal raises the condition `precondition_unmet`: reason `input_refused` (naming the input and the rule) for a value
   that does not fit, reason `input_unbound` for an input no state filled. Both carry the bounded self-remedy, because
   their cause can clear.
 
-**Status of this decision: the target contract is stated above; the call-time bind itself is deferred (PLAN-V2-15 D3).**
-The persistence model (the frame's `bound_args`, `arg_sources`, `command_id`, `correlation_id`, and the scope-level
-`slots`), the slot fill and the provenance model are implemented. `WorkflowEngine.call` does not yet resolve, validate or
-record the inputs, and does not yet consume a slot; `InputBindingContext` exists as a port but is not yet read by the
-engine. The deferred bind is the D3 deliverable.
+**Status of this decision: the contract above is built.** `WorkflowEngine.call` resolves every input, validates it,
+records `bound_args` and `arg_sources`, consumes the slots it read, and refuses with `precondition_unmet`;
+`InputBindingContext` is read by the engine, and `InputBindingTest` shows the bind, the consumption and the refusals.
+PLAN-V2-157 finished the bind that PLAN-V2-15 left open.
 
 == Alternatives Considered
 
@@ -59,8 +58,9 @@ engine. The deferred bind is the D3 deliverable.
   root, the staging set of the scope, and the effective configuration value by key.
 * `EngineEvent.TasksSettled` gains `submissions` (entity to argument name to text) so a task state can fill a slot; the
   event's producer is outside this repository and learns of the change with the deployed `SNAPSHOT`.
-* A unit that declares a typed input without a `fills` clause on any path still verifies where the dominance check is not
-  afforded; the bind refuses with `input_unbound`.
+* A unit that declares a typed input whose slot no state fills is refused by the dominance check of Rule 6
+  (link:../workflow-verify/039-the-slot-dominance-is-checked-over-the-unit-graph.adoc[ADR workflow-verify/039]); the bind
+  refuses `input_unbound` where the value never reached the slot at run time.
 
 == Source
 

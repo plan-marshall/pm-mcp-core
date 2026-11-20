@@ -43,7 +43,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 class PathRulesTest {
 
     private static Optional<InputRefusal> refusal(String value) {
-        return Optional.ofNullable(PathRules.check(value));
+        return PathRules.check(value);
     }
 
     private static InputRefusal refused(String value) {
@@ -61,7 +61,8 @@ class PathRulesTest {
                 "src/main/java/A.java",
                 "docs/adr/001-slots-and-provenance.adoc",
                 ".github/workflows/ci.yml",
-                "target"
+                "target",
+                "docs/my file.md"
         })
         @DisplayName("a relative path of non-empty segments is accepted")
         void relativePathAccepted(String path) {
@@ -153,12 +154,16 @@ class PathRulesTest {
                 Arguments.of("an isolate initiator", "a\u2066b", "path.bidi"),
                 Arguments.of("a zero-width space", "a\u200Bb", "path.format"),
                 Arguments.of("a git pathspec exclusion", ":(exclude)x", "path.magic"),
+                Arguments.of("a glob star", "notes*.md", "path.glob"),
+                Arguments.of("a glob class", "notes[1].md", "path.glob"),
                 Arguments.of("a leading dash", "-rf", "path.magic"),
                 Arguments.of("a .git segment in upper case", ".GIT/config", "path.git"),
                 Arguments.of("a nested .git segment", "a/.git/b", "path.git"),
                 Arguments.of("a current-directory segment", "a/./b", "path.dot-segment"),
                 Arguments.of("a control character", "a\u0007b", "path.control"),
-                Arguments.of("a space inside the path", "a b", "path.whitespace"));
+                Arguments.of("a tab inside the path", "a\tb", "path.control"),
+                Arguments.of("a no-break space", "a\u00A0b", "path.whitespace"),
+                Arguments.of("a lone surrogate", "a\uD800b", "path.surrogate"));
     }
 
     static List<Arguments> dotSegmentPositions() {

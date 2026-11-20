@@ -682,7 +682,7 @@ class SubWorkflowExecutionTest {
     class CallStackValue {
 
         private final CallFrame frame = new CallFrame("plan", "execute.invoke", "sub.args", "main",
-                Map.of("mode", new CallValue.EnumValue("strict")), null, null, T0.toString());
+                Map.of("mode", new CallValue.EnumValue("strict")), Map.of(), null, null, T0.toString());
 
         @Test
         @DisplayName("Should push to five frames, the phase level adding one, and refuse a sixth")
@@ -702,7 +702,8 @@ class SubWorkflowExecutionTest {
         @Test
         @DisplayName("Should pop exactly one frame, unwind every frame top first, and refuse to pop an empty stack")
         void shouldPopAndUnwind() {
-            var other = new CallFrame("sub.args", "sub.wait", "sub.commit", "main", Map.of(), null, null, T0.toString());
+            var other = new CallFrame("sub.args", "sub.wait", "sub.commit", "main", Map.of(), Map.of(), null, null,
+                    T0.toString());
             var stack = CallStack.empty().push(frame).push(other);
 
             var popped = stack.pop();
@@ -725,7 +726,7 @@ class SubWorkflowExecutionTest {
             args.put("rounds", new CallValue.IntValue(Generators.integers(1, 5).next()));
             args.put("targets", new CallValue.EnumList(List.of("origin", "mirror")));
             var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", "sub.args", "repair",
-                    args, CommandId.random(),
+                    args, Map.of(), CommandId.random(),
                     CorrelationId.random(), T0.toString()));
 
             var stored = stack.toStore();

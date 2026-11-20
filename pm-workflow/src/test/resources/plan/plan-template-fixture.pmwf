@@ -3,6 +3,8 @@ name: plan
 description: A plan template written for the composer tests.
 type: workflow
 icon: unit.plan
+slot: message
+slot_type: commit_message[1..2000]
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
@@ -19,7 +21,7 @@ scope plan
 start finalize.push-barrier
 
 state finalize.push-barrier
-    call git.commit_and_push(push_mode = push)
+    call git.commit_and_push(message_mode = none_assert_clean, push_mode = push)
         done -> finalize.create-pr
         stepped_out -> finalize.hand-back
 

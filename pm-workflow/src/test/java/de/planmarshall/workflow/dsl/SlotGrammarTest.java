@@ -11,7 +11,10 @@ package de.planmarshall.workflow.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +23,7 @@ import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
@@ -66,8 +70,52 @@ class SlotGrammarTest {
     }
 
     private static WorkflowDefinition parse(String source) {
-        var result = WorkflowParser.parse("slot.pmwf", source, de.planmarshall.workflow.ast.UnitOrigin.DEFAULT);
+        var result = WorkflowParser.parse("slot.pmwf", source, UnitOrigin.DEFAULT);
         return assertInstanceOf(ParseResult.Parsed.class, result, () -> "the unit was refused: " + result).definition();
+    }
+
+    private static String refuse(String source) {
+        var result = WorkflowParser.parse("slot.pmwf", source, UnitOrigin.DEFAULT);
+        return assertInstanceOf(ParseResult.Refused.class, result, "the unit was accepted").diagnostic().message();
+    }
+
+    @Test
+    @DisplayName("a fills clause without its from keyword is refused")
+    void fillsWithoutFrom() {
+        var refusal = refuse(SOURCE.replace("fills slot.commit_message from message", "fills slot.commit_message"));
+
+        assertTrue(refusal.contains("from"), () -> "the refusal names the missing 'from': " + refusal);
+    }
+
+    @Test
+    @DisplayName("a fills clause without the from-parameter is refused")
+    void fillsWithoutFromParameter() {
+        var refusal = refuse(SOURCE.replace("from message", "from"));
+
+        assertTrue(refusal.contains("a parameter name"),
+                () -> "the refusal names the missing parameter: " + refusal);
+    }
+
+    @Test
+    @DisplayName("a slot reference without a name is refused")
+    void slotReferenceWithoutName() {
+        var refusal = refuse(SOURCE.replace("message = slot.commit_message", "message = slot."));
+
+        assertTrue(refusal.contains("a parameter name"),
+                () -> "the refusal names the slot reference: " + refusal);
+    }
+
+    @Test
+    @DisplayName("the CRLF twin of a fills line reads the same tree")
+    void crlfTwin() {
+        var lf = parse();
+        var crlf = parse(SOURCE.replace("\n", "\r\n"));
+
+        assertAll(
+                () -> assertEquals(lf.states().get("demo.choose").fills(), crlf.states().get("demo.choose").fills(),
+                        "the fills clause is read from a CRLF line"),
+                () -> assertEquals(lf.frontmatter().slots(), crlf.frontmatter().slots(),
+                        "the slot declaration is read from a CRLF line"));
     }
 
     @Test
@@ -80,7 +128,7 @@ class SlotGrammarTest {
                 () -> assertEquals("commit_message", slots.getFirst().name(), "the slot keeps its name"),
                 () -> assertEquals(new InputType.CommitMessage(1, 2000), slots.getFirst().type(),
                         "the slot keeps its type"),
-                () -> assertEquals(false, slots.getFirst().optional(), "a slot is never optional"));
+                () -> assertFalse(slots.getFirst().optional(), "a slot is never optional"));
     }
 
     @Test

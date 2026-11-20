@@ -11,12 +11,14 @@ package de.planmarshall.workflow.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -111,13 +113,13 @@ class UnitFrontmatterSlotTest {
 
         static Stream<Arguments> acceptedTypes() {
             return Stream.of(
-                    Arguments.of("text", new InputType.Text(null, null)),
                     Arguments.of("text[1..2000]", new InputType.Text(1, 2000)),
-                    Arguments.of("commit_message", new InputType.CommitMessage(null, null)),
+                    Arguments.of("text[1..10]", new InputType.Text(1, 10)),
                     Arguments.of("commit_message[1..2000]", new InputType.CommitMessage(1, 2000)),
+                    Arguments.of("commit_message[10..72]", new InputType.CommitMessage(10, 72)),
                     Arguments.of("path", new InputType.Path()),
-                    Arguments.of("list<path>", new InputType.PathList(null, null)),
-                    Arguments.of("list<path>[0..500]", new InputType.PathList(0, 500)));
+                    Arguments.of("list<path>[0..500]", new InputType.PathList(0, 500)),
+                    Arguments.of("list<path>[1..3]", new InputType.PathList(1, 3)));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -139,13 +141,13 @@ class UnitFrontmatterSlotTest {
 
         static Stream<Arguments> acceptedTypes() {
             return Stream.of(
-                    Arguments.of("text", new InputType.Text(null, null)),
                     Arguments.of("text[1..2000]", new InputType.Text(1, 2000)),
-                    Arguments.of("commit_message", new InputType.CommitMessage(null, null)),
+                    Arguments.of("text[1..10]", new InputType.Text(1, 10)),
                     Arguments.of("commit_message[1..2000]", new InputType.CommitMessage(1, 2000)),
+                    Arguments.of("commit_message[10..72]", new InputType.CommitMessage(10, 72)),
                     Arguments.of("path", new InputType.Path()),
-                    Arguments.of("list<path>", new InputType.PathList(null, null)),
-                    Arguments.of("list<path>[0..500]", new InputType.PathList(0, 500)));
+                    Arguments.of("list<path>[0..500]", new InputType.PathList(0, 500)),
+                    Arguments.of("list<path>[1..3]", new InputType.PathList(1, 3)));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -164,7 +166,7 @@ class UnitFrontmatterSlotTest {
                             "the slot keeps the type of its source form"),
                     () -> assertEquals("The value the caller supplies.", slots.getFirst().description(),
                             "the slot keeps the description of its source"),
-                    () -> assertEquals(false, slots.getFirst().optional(), "a slot is never optional"));
+                    () -> assertFalse(slots.getFirst().optional(), "a slot is never optional"));
         }
 
         @Test
@@ -195,25 +197,27 @@ class UnitFrontmatterSlotTest {
                     Arguments.of("a slot name that is a reserved keyword", "is a reserved keyword",
                             List.of("slot: slot")),
                     Arguments.of("a slot name declared twice", "is declared twice",
-                            List.of("slot: subject", "slot_type: text",
-                                    "slot: subject", "slot_type: text")),
+                            List.of("slot: subject", "slot_type: text[1..10]",
+                                    "slot: subject", "slot_type: text[1..10]")),
                     Arguments.of("a slot without its slot_type", "lacks its slot_type",
                             List.of("slot: subject")),
                     Arguments.of("a slot_type after the slot_description", "stands out of the order",
                             List.of("slot: subject", "slot_description: The subject line.",
-                                    "slot_type: text")),
+                                    "slot_type: text[1..10]")),
                     Arguments.of("a slot_description before the slot_type", "stands out of the order",
                             List.of("slot: subject", "slot_description: The subject line.")),
                     Arguments.of("a slot_type that carries the optional '?'", "a slot_type must not be optional",
-                            List.of("slot: subject", "slot_type: text?")),
+                            List.of("slot: subject", "slot_type: text[1..10]?")),
                     Arguments.of("a slot_type without a slot line", "does not stand below a 'slot' line",
-                            List.of("slot_type: text")),
+                            List.of("slot_type: text[1..10]")),
                     Arguments.of("a slot_description without a slot line", "does not stand below a 'slot' line",
                             List.of("slot_description: The subject line.")),
                     Arguments.of("a slot that repeats an input name", "is the name of an input of this unit",
-                            List.of("input: subject", "input_type: text", "slot: subject", "slot_type: text")),
+                            List.of("input: subject", "input_type: text[1..10]", "slot: subject",
+                                    "slot_type: text[1..10]")),
                     Arguments.of("an input that repeats a slot name", "is the name of a slot of this unit",
-                            List.of("slot: subject", "slot_type: text", "input: subject", "input_type: text")));
+                            List.of("slot: subject", "slot_type: text[1..10]", "input: subject",
+                                    "input_type: text[1..10]")));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -229,7 +233,7 @@ class UnitFrontmatterSlotTest {
             var lines = new ArrayList<String>();
             for (var index = 0; index < 17; index++) {
                 lines.add("slot: slot_" + index);
-                lines.add("slot_type: text");
+                lines.add("slot_type: text[1..10]");
             }
 
             assertTrue(refusal(lines).contains("more than 16 slots"),
@@ -256,12 +260,24 @@ class UnitFrontmatterSlotTest {
                             List.of("input: payload", "input_type: list<path>[5..1]")),
                     Arguments.of("a text range beyond the integer bounds", "is out of range",
                             List.of("input: payload", "input_type: text[0..99999999999999]")),
-                    Arguments.of("an unknown input_type", "is none of enum[...], int, text, commit_message, path",
+                    Arguments.of("an unknown input_type", "is none of enum[...], int, text[...], commit_message[...]",
                             List.of("input: payload", "input_type: bogus")),
                     Arguments.of("a list<path> with trailing content", "is no list<path> or list<path>",
                             List.of("input: payload", "input_type: list<pathx>")),
                     Arguments.of("a text input with a default outside its type", "is outside the type text",
-                            List.of("input: payload", "input_type: text", "input_default: Hello")));
+                            List.of("input: payload", "input_type: text[1..100]", "input_default: Hello")),
+                    Arguments.of("a text input without its range", "lacks its range",
+                            List.of("input: payload", "input_type: text")),
+                    Arguments.of("a commit_message input without its range", "lacks its range",
+                            List.of("input: payload", "input_type: commit_message")),
+                    Arguments.of("a list<path> input without its range", "lacks its range",
+                            List.of("input: payload", "input_type: list<path>")),
+                    Arguments.of("a text range above the compiled cap", "widens beyond the compiled cap 2000",
+                            List.of("input: payload", "input_type: text[1..2001]")),
+                    Arguments.of("a commit_message range above the compiled cap", "widens beyond the compiled cap 2000",
+                            List.of("input: payload", "input_type: commit_message[1..2001]")),
+                    Arguments.of("a list<path> range above the compiled cap", "widens beyond the compiled cap 500",
+                            List.of("input: payload", "input_type: list<path>[0..501]")));
         }
 
         @ParameterizedTest(name = "{0}")

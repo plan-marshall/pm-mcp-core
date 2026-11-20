@@ -522,6 +522,7 @@ public final class PlanInstanceComposer {
                 .readsConfig(template.readsConfig())
                 .readsFact(template.readsFact())
                 .inputs(template.inputs())
+                .slots(template.slots())
                 .modificationDate(template.modificationDate())
                 .version(template.version())
                 .author(template.author())

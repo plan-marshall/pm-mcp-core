@@ -37,14 +37,17 @@ _Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
 `commit_message` it additionally runs `ConventionalCommitValidator` of `core.spi.validation`, whose rule
 `RULE_CO_AUTHORED_BY` refuses a `Co-Authored-By:` line in any case and at any position.
 `InputRefusal`:: The refused value as a value: `ruleId` (which rule rejected it) and `inputValue` (the value as it was
-offered, cut to `MAX_ECHO_LENGTH` = 80 characters, so a long or sensitive value never leaves the refusal). `of(value,
-rule)` builds one from a value that may be `null`, echoing `<null>` for an absent value.
+offered, cut to `MAX_ECHO_LENGTH` = 80 code points and stripped of control, format and bidi characters, so a long,
+sensitive or spoofing value never leaves the refusal). `of(value, rule)` builds one from a value that may be `null`,
+echoing `<null>` for an absent value.
 `PathRules`:: The syntactic path rules, in the pure layer of Decision 3
 (link:../adr/workflow-input/002-the-path-rules-in-two-layers.adoc[ADR workflow-input/002]), as one static
-`check(value)` that returns an `InputRefusal` or `null`. `MAX_PATH_LENGTH` is 1024 characters. The rules: non-empty,
-relative (`/` only, never a leading `/`), no backslash, no NUL, no control character, no whitespace, no bidi or format
-character, no empty, `.` or `..` segment, no `.git` segment in any case, no leading `:` (git pathspec magic) or `-`, no
-`//`.
+`check(value)` that returns an `Optional<InputRefusal>` (empty for the accepted path). `MAX_PATH_LENGTH` is 1024 code
+points. The rules: non-empty, relative (`/` only, never a leading `/`), no backslash, no NUL, no control character, no
+white space but a single space (link:../adr/workflow-input/005-a-space-is-a-legal-path-member.adoc[ADR workflow-input/005]),
+no bidi or format character, no empty, `.` or `..` segment, no `.git` segment in any case, no leading `:` (git pathspec
+magic) or `-`, no `//`. A `text`, `commit_message` or `list<path>` type declares its range; the compiled caps are 2000,
+2000 and 500, and `UnitFrontmatterReader` refuses a declaration without a range or one that widens beyond a cap.
 
 [source]
 ----
@@ -77,6 +80,20 @@ A refusal names the rule that rejected the value, so a caller can show or group 
 |`input.duplicate`
 |A path that occurs twice in one list.
 
+|`input.surrogate`, `input.commit-control`
+|A text that carries a lone surrogate; a commit message whose body carries a control character, ESC or NUL.
+
+|`input.enum`, `input.range`, `input.malformed`
+|A value outside a closed enumeration, an integer outside its range, or a slot or link text the type cannot parse.
+
+|`input.empty`
+|An explicitly bound `list<path>` with no entry: it binds no path and never means "every change"
+(link:../adr/workflow-input/004-an-empty-files-list-is-refused.adoc[ADR workflow-input/004]).
+
+|`path.confinement`, `path.staging`, `path.no-context`
+|A path that leaves the worktree, one that is not in the scope's staging set, and one bound where no bind context is
+wired.
+
 |`path.empty`
 |A path of zero characters.
 
@@ -89,11 +106,16 @@ A refusal names the rule that rejected the value, so a caller can show or group 
 |`path.backslash`
 |A path that contains `\`.
 
-|`path.nul`, `path.control`, `path.whitespace`, `path.bidi`
-|A path that holds NUL, a control character, whitespace, or a bidi or format character.
+|`path.nul`, `path.control`, `path.whitespace`, `path.bidi`, `path.format`, `path.surrogate`
+|A path that holds NUL, a control character, white space other than a space, a bidi control, a format character, or a
+lone surrogate.
 
 |`path.magic`
 |A path that starts with `:` (git pathspec magic) or `-` (which `git` would read as an option).
+
+|`path.glob`
+|A path that carries `*`, `?` or `[`: JGit reads such a path as a pattern, so the provider refuses it and the bind
+refuses it too, and an accepted path is always a path the commit can stage.
 
 |`path.empty-segment`, `path.dot-segment`, `path.double-slash`
 |A path with an empty, `.` or `..` segment, or with `//`.

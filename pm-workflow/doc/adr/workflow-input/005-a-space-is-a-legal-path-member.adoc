@@ -1,0 +1,43 @@
+= ADR workflow-input 005: A Space Is a Legal Member of a Path
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+The path rules of Decision 3 name no whitespace, but the first implementation refused every white-space code point, so a
+file whose name carries a space — `docs/my file.md`, a real and common name — could never be bound, and the
+specification did not say so. The question is ask-at-refine (R07), and the operator decided it on 2026-11-19.
+
+== Decision
+
+* A space (U+0020) is a legal member of a path: `docs/my file.md` passes the syntactic rules.
+* Every other white-space code point stays refused, the no-break space included: a tab is a control character and keeps
+  its `path.control`; a no-break space, a separator or any other space character is `path.whitespace`.
+* The length bound counts code points, not UTF-16 units, and a control, format or bidi character keeps its refusal.
+
+== Alternatives Considered
+
+* *Keep every white-space code point refused.* Refused by the operator: it makes a legal file name unbindable, and the
+  staging set of a real worktree holds such names.
+* *Admit every white-space code point.* Refused: a tab and a no-break space are invisible in a rendered path and are the
+  kind of character a reviewer cannot see; the space alone is the case that occurs.
+
+== Consequences
+
+* The path still never reaches a command line: the commit message and the paths go to git over its API, and the CLI rule
+  sends them NUL-separated over stdin, so a space is no quoting hazard.
+* `PathRulesTest` pins the accepted space and the refused no-break space; the accepted list of paths carries
+  `docs/my file.md`.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc[Workflow DSL § Reusable Sub-Workflows],
+  Decision 3 of the specification of PLAN-V2-15
+* the operator's answer of 2026-11-19 to `PLAN-V2-157` Deliverable 3; `PLAN-V2-157` Deliverable 3

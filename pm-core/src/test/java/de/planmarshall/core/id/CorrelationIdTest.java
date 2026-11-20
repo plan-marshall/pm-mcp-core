@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Optional;
 import java.util.SplittableRandom;
 import java.util.random.RandomGenerator;
@@ -28,6 +30,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * The {@code correlation_id} of a workflow engine advance (PLAN-V2-15, Deliverable 6): the grammar
  * {@code ^cor-[0-9a-f]{16}$}, the random draw, and the round-trip through {@link CorrelationId#parse(String)}.
  */
+@EnableGeneratorController
 @DisplayName("Correlation id")
 class CorrelationIdTest {
 
@@ -112,6 +115,19 @@ class CorrelationIdTest {
         void nullGenerator() {
             assertThrows(NullPointerException.class, () -> CorrelationId.random((RandomGenerator) null),
                     "A null generator is refused");
+        }
+
+        @Test
+        @DisplayName("a generated value of the grammar is accepted")
+        void generatedAccepted() {
+            var digits = new StringBuilder();
+            for (var index = 0; index < 16; index++) {
+                digits.append(Character.forDigit(Generators.integers(0, 15).next(), 16));
+            }
+            var value = "cor-" + digits;
+
+            assertEquals(Optional.of(new CorrelationId(value)), CorrelationId.parse(value),
+                    "A generated value of the grammar parses back to itself");
         }
     }
 }
