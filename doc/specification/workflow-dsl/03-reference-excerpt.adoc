@@ -132,7 +132,7 @@ state finalize.concurrent-wait
     bot_refused_awaitable    -> finalize.review-window-wait
     bot_no_unreviewed_commit -> finalize.review-full-trigger
     watch_interrupted        -> finalize.restart-watch
-    cancelled                -> finalize.restart-watch
+    cancelled                -> finalize.restart-watch  # Rule 2 only: the act that cancels enters plan.aborted first
 
 state finalize.restart-watch
   auto finalize.restart-watch

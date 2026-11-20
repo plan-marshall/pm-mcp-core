@@ -10,8 +10,6 @@
 
 == Purpose
 
-A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
-
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 Package `de.planmarshall.runtime.enrolment` of `pm-runtime` holds the runtime's side of the enrolment store of
@@ -426,8 +424,9 @@ The reporting of a project whose recovery failed, on stderr and in `pm-operator 
 * *Recovery and job verification run the check.* The project's recovery runs `EnrolmentCheck.verify` as its first step,
   and the verify-not-resolve pipeline of a project's jobs (`VerifyNotResolvePipeline` of `runtime.job`) as its first
   stage. The runtime has no path for the `enter` request or the operator verbs; such a path must run the check too.
-* *The project root is not checked for uniqueness.* `enrolment_root_conflict` (two enrolments with one `project_root`)
-  and `project_store_root_mismatch` are refused nowhere in `pm-mcp-core`.
+* *The project root is checked for uniqueness at path resolution, not at the enrolment write.* `ProjectResolver` of
+  `core.store` answers `enrolment_root_conflict` (`ProjectResolution.RootConflict`) when more than one readable
+  enrolment names the main checkout; `enrol` refuses neither that conflict nor `project_store_root_mismatch`.
 * *An interrupted `unenrol` is settled later, not at once.* A stop between the removal of the file and of the sidecar
   leaves an orphan sidecar and the owed record; the background pass of the recovery hands the record over and removes
   the sidecar after the next start or the next pass, and running `unenrol` again settles it too. An orphan sidecar

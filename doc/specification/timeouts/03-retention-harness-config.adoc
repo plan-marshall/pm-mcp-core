@@ -21,13 +21,13 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |minimum `1` day
 |`<PM_MCP_BASE>/logs/audit.jsonl`
 |Checkpoint record, rename to `audit-<first_event_id>.jsonl`, index entry.
-|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security.adoc[CLI & Security] (Security Audit Trail); link:../store-schemas/12-machine-stores.adoc#audit-log[Store Schemas, Audit Log]
+|link:../credentials-and-enrolment/03-audit-and-outbound-https.adoc#_security_audit_trail_three_tier_identity_verification[Credentials & Enrolment, Security Audit Trail]; link:../store-schemas/12-machine-stores.adoc#audit-log[Store Schemas, Audit Log]
 
 |[[retention-days]]Retention of residue
 |Compiled defaults: `task_records_days` `5`, `retired_lesson_bodies_days` `0`, `arch_constraint_quiet_days` `90`, `workspace_rows_days` `90`. The governed stores are machine-local, so retention is operator posture, never team configuration. Work history (archived plans, archived epics' machine stores, the logs of ended work, read reports, the stores of unenrolled projects) has no retention period: it goes only through the cleanup (<<cleanup>>).
 |`retention.{task_records_days, retired_lesson_bodies_days, arch_constraint_quiet_days, workspace_rows_days}` in `<PM_MCP_BASE>/projects/<project_id>/local-config.json`, machine-wide defaults in `machine-config.json` `project_defaults.retention`
 |minimum `0`
-|ended queue task records (`task_records_days`); retired lesson bodies, whatever the retirement's verdict (`retired_lesson_bodies_days`); quiet-window retirement of `arch-constraint` lessons (`arch_constraint_quiet_days`); the workspace scope's technical rows older than the period: closed findings, the metrics rows of its own tasks (never a plan's), closed decisions whose facts are no longer referenced (with their facts snapshots), and screen verdicts (`workspace_rows_days`)
+|ended queue task records (`task_records_days`); retired lesson bodies, whatever the retirement's verdict (`retired_lesson_bodies_days`); quiet-window retirement of `arch-constraint` lessons (`arch_constraint_quiet_days`); the workspace scope's technical rows older than the period: closed findings, the metrics rows of its own tasks, answered questions, closed decisions whose facts are no longer referenced (with their facts snapshots), and screen verdicts; the workspace holds no row of a plan (`workspace_rows_days`)
 |Removed by the periodic sweep by itself, one audit record each, under the evidence rules of the removal sweeps; `pm-operator sweep` lists what the next pass would remove and runs it at once with `--apply`. The quiet-window retirement (verdict `obsolete`) is a verdict on a lesson, not residue: it runs only by `pm-operator sweep --apply`.
 |link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle, Periodic Sweep]; link:../store-schemas/13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Store Schemas, Evidence-Based Removal Sweeps]; link:../store-schemas.adoc[Store Schemas] (Lesson Store); link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas, Operator Local Configuration]
 
@@ -37,7 +37,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |minimum `0`
 |`logs/audit-*.jsonl`
 |Removed by the periodic sweep by itself, as whole files, one audit record each; `pm-operator sweep --machine` lists them and runs the removal at once with `--apply`; their index entries in `audit-index.jsonl` are never removed.
-|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security.adoc[CLI & Security] (Security Audit Trail)
+|link:../credentials-and-enrolment/03-audit-and-outbound-https.adoc#_security_audit_trail_three_tier_identity_verification[Credentials & Enrolment, Security Audit Trail]
 |===
 
 [#cleanup]
@@ -46,7 +46,7 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 Work history is the operator's and goes only on the operator's word, through one cleanup the operator confirms in either client; technical residue needs no judgement and goes by itself (<<retention-days>>; link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle, Periodic Sweep]).
 
-* *Work history*: an archived plan with its whole archive entry (records, history, decisions, transcripts, metrics rows, and the workspace's metrics rows of the plan); an archived epic's machine store `epics/<epic_id>/`; the logs of ended work (the logs of ended jobs and the worker logs of archived plans; a job record stays with its plan); read reports (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime Model, Reports to the Operator]); and the machine store of an unenrolled project, whole. No sweep and no retention period ever removes it.
+* *Work history*: an archived plan with its whole archive entry (records, history, decisions, transcripts, and metrics rows); an archived epic's machine store `epics/<epic_id>/`; the logs of ended work (the logs of ended jobs and the worker logs of archived plans; a job record stays with its plan); read reports (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime Model, Reports to the Operator]); and the machine store of an unenrolled project, whole. No sweep and no retention period ever removes it.
 
 [cols="2,3,2,2,2,3,2"]
 |===
@@ -107,7 +107,31 @@ Work history is the operator's and goes only on the operator's word, through one
 |minimum `1`
 |outbound calls
 |A Sonar step records the call as `indeterminate` (never clean); a server-side upstream call ends `upstream_timeout`, which its workflow step routes; a credential verification reports `unverified`.
-|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security.adoc[CLI & Security] (Outbound HTTPS Security); link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools] (Upstream MCP Proxy)
+|link:../credentials-and-enrolment/03-audit-and-outbound-https.adoc#outbound-https[Credentials & Enrolment, Outbound HTTPS Security]; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools] (Upstream MCP Proxy)
+
+|[[provider-rate-limit-reset]]Provider rate-limit reset instant
+|`resets_at` only from the forge's answer: the time of the answer plus its `Retry-After` seconds, else its reset instant (`x-ratelimit-reset` or `ratelimit-reset`, epoch seconds). An answer that names neither leaves `resets_at` absent; no instant is assumed.
+|fixed
+|—
+|every answer of a forge to the native HTTP client that is a rate limit (`429`, or `403` with an exhausted limit or a `Retry-After`)
+|The operation fails with the cause `rate_limited` and is not retried by itself; a wait defers its next observation to `resets_at` where it is present and otherwise keeps its re-poll cadence (xref:01-job-budgets-and-waits.adoc#ci-repoll-cadence[Provider re-poll cadence]).
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#cross-repository-reads[Credentials & Enrolment, Cross-Repository Reads & Issues]
+
+|[[secret-service-bus-timeout]]Secret Service exchange bound
+|`2` per exchange with the Secret Service over the user's session bus.
+|fixed (compiled constant)
+|—
+|every read, write, and check of the Linux OS credential store, the check before the store is recorded included
+|The exchange fails; the OS store is reported unavailable for it with its cause, and the step that needed the credential is held as for an unavailable store.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#os-keyring-backends[Credentials & Enrolment, Credential Stores]
+
+|[[verifying-binary-answer]]Verifying-binary answer bound
+|`10` for the installed harness binary's answer to its fixed argument vector `--version`.
+|fixed (compiled constant)
+|—
+|the verifying-binary control of the runtime check of a profile verification record on load
+|A binary that does not answer within the bound is unreadable: the verification record is not believed.
+|link:../harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles, Profile Verification]
 
 |[[github-app-jwt-window]]GitHub App JWT validity window
 |`iat` back-dated `60` against clock skew; `exp` at most `600` after signing.

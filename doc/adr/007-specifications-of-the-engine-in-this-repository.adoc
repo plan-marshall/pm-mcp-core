@@ -31,6 +31,14 @@ The specifications that the modules of this repository implement live here, besi
   identifiers of the items unchanged.
 * `doc/Traceability.adoc`: what each requirement implemented here is implemented by, verified by and documented in.
 
+The cut is made at section level by the repository whose code implements a section: a section that a module of
+another repository implements alone lives there, under the same family path, and a section both implement with no
+heading between the two halves stays here and is named as shared. The sections of `job-runtime` that the launcher
+`pm-exec` implements alone (its Linux mechanisms beside the Landlock sets, the macOS confinement, the runtime loss) and
+their watch items `PM-WATCH-JOB-41` to `PM-WATCH-JOB-44` are therefore in `pm-mcp-clients`
+(link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/adr/001-specifications-of-the-clients.adoc[its ADR
+001]).
+
 The requirements, use cases and roadmap, the specifications of the other repositories and those every repository
 shares (`module-structure.adoc` among them), `implementation-watch/cross-cutting.adoc` and the concept and user
 documentation stay in `plan-marshall-documentation`. A work package of this repository is one pull request here: code,

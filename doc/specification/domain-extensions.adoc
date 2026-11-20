@@ -41,6 +41,7 @@ Implemented in (link:../../../plan-marshall-documentation/doc/specification/modu
 
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: parts 01–03, 05, 06: descriptors, merges, module discovery, recipes, configuration
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-workflow[`pm-workflow`]: part 04: the project setup state machine; part 06: plan instance composition
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-runtime[`pm-runtime`]: part 05: the project-script input and output schemas and their codec, and the `log_parser` failure records
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-git[`pm-provider-git`]: part 04: the integration variants
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-mcp-server[`pm-mcp-server`]: part 06: the build tests of the default units and their check against the assembled primitive catalogue
 

@@ -54,6 +54,21 @@ Remaining: the members of `judge-score` beyond `score` are validated by no reade
 undeclared member, or omits one, is accepted; validating the reply against its schema is what is left.
 Source:: design review.
 
+[#PM-WATCH-DISP-77]
+=== PM-WATCH-DISP-77: An item the model did not answer is scored 0, never left ungraded
+
+Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#item-without-result[Model Work § Grading, An Item without an Answer],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
+Hazard:: The grading leaves every item without an answer ungraded, whatever ended its task: a configuration whose model
+refuses odd but harmless text, or whose context does not hold an item, is graded on the items it answered alone and
+qualifies, and the next run offers the refused items again instead of counting them.
+Guard:: The grading run receives the closing reason of every item task, not only its answer. Table test over the
+grading of one role: an item task that ends for a reason of the model — a refusal, an answer that does not validate
+until its re-offers are spent, `infeasible`, `asked`, `input_too_large` — is scored `0`, counted as not agreeing, and
+not offered again by the next run. Matched control: an item task closed `role_unavailable` or `withdrawn`, and an
+item whose judge task closed `lost`, are ungraded and re-graded by the next run.
+Source:: design review.
+
 [#PM-WATCH-DISP-57]
 === PM-WATCH-DISP-57: Open: `judge` and `steward` as fixed roles
 
@@ -102,6 +117,38 @@ ended or fenced while holding the task is offered again first, never closed `los
 counts as open, never as lost; after a restart such a task is offered again without counting a re-offer; reports and
 `pm-operator status` count outcomes only from closed queue records.
 Source:: harness-as-worker evaluation (doc/specification/evaluation.adoc).
+
+[#PM-WATCH-DISP-78]
+=== PM-WATCH-DISP-78: The submit checks its arguments and its consultation references on the production path
+
+Anchor:: link:../specification/model-work/02-task-protocol.adoc#execute-submit[Model Work § Execute & Submit],
+link:../specification/model-work/05-consultation.adoc#consult-reference[§ The Submit Refers to the Consultation],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-4[PM-WORK-4]
+Hazard:: A check that exists only beside the submit path, never in it, accepts every submit: a result whose arguments
+do not match the link's closed schema closes the task and reaches the return evaluation, and a submit that omits a
+delivered consultation, or names one never delivered, loses the link between the decision and the judgment it rested
+on.
+Guard:: Tests through the submit path of the task protocol, not of the check alone: a submit with an argument outside
+the link's closed schema is refused `invalid_link_args` with a reason the worker can act on and leaves the task
+executing; after a consultation answer, a submit that omits a delivered `consultation_id` or lists an unknown one is
+refused `invalid_link_args` naming it, and the corrected submit closes the task. Matched control: a submit whose
+arguments match and whose `consultation_ids` list exactly the delivered consultations closes the task `submitted`.
+Source:: design review.
+
+[#PM-WATCH-DISP-79]
+=== PM-WATCH-DISP-79: The recorded worker state holds `awaiting_answer`
+
+Anchor:: link:../specification/model-work/02-task-protocol.adoc#worker-states[Model Work § Worker States],
+link:../specification/model-work/06-envelopes-questions-deadlines.adoc#continuation[§ Continuing after a Question],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2]
+Hazard:: The queue task moves to `awaiting_answer` while the worker's recorded state has no such value: a worker that
+holds its task for an answer is recorded as executing, so the supervisor and both clients read a worker that is
+waiting for the operator as one that works, and its silence or idle handling diverges from the hold the task is in.
+Guard:: Transition test over the worker state record: an `ask` link where the task continues records `awaiting_answer`
+on the worker, the acknowledged answer records `acknowledged`, the hold limit records `ended`, and the loss of the
+worker records `lost`. Matched control: a consultation link records `consulting`, never `awaiting_answer`.
+Source:: design review.
 
 [#PM-WATCH-DISP-47]
 === PM-WATCH-DISP-47: A task is offered by the role's current configuration digest
@@ -207,6 +254,62 @@ Fixture:: OpenCode 1.18.34, fault matrix: the driver that launched the workers w
 they were deleted by hand. In the complete run, 73 worker generations that were killed, stopped, fenced, or ended
 left none.
 Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gate 16.
+
+[#PM-WATCH-DISP-81]
+=== PM-WATCH-DISP-81: A start failure the supervision pass observes is counted by the start-failure guard
+
+Anchor:: link:../specification/model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work § Start-Failure Guard]
+Hazard:: A worker that exits before its first call is a start failure, and only the supervision pass reads the settled
+record that shows it. Where nothing hands that exit to the live guard, the guard never reaches its count: the role
+keeps starting workers that fail at start, its tasks wait instead of closing `role_unavailable` with their fallback,
+and only a guard rebuilt later over the generation registry holds.
+Guard:: The pass calls the guard for every exit before the first call it completes. Test over a live guard: three
+workers of one role and harness that exit before their first call, observed by the pass alone, hold the guard at the
+third and close the role's queued tasks `role_unavailable`; matched control: an exit after the first call is a loss and
+counts nothing, and a `zero_tool` worker is never counted.
+Source:: design review (runtime-worker developer guide).
+
+[#PM-WATCH-DISP-82]
+=== PM-WATCH-DISP-82: A terminal generation's process tree is forgotten by the second-agent detection
+
+Anchor:: link:../specification/model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work § A Worker Off Track] (`agent_started`)
+Hazard:: The detection of a second agent keeps the recorded process tree of every generation it examined. Without a
+removal when the generation ends, the trees of every generation the runtime ever supervised stay in a component the
+pass keeps for the runtime's whole life, and a recycled process id of a new generation is compared against the tree of
+an ended one.
+Guard:: The end of a generation forgets its tree in the detection. Test: a generation that ended is no longer held by
+the detection after the pass completed its end, and a new generation that reuses its process id starts from an empty
+tree; matched control: the tree of a running generation is kept from pass to pass.
+Source:: design review (runtime-worker developer guide).
+
+[#PM-WATCH-DISP-83]
+=== PM-WATCH-DISP-83: A generation retired another way leaves no state of the supervision behind
+
+Anchor:: link:../specification/model-work/03-supervision-and-recycling.adoc#ending[Model Work § Ending a Worker]
+Hazard:: The supervision keeps per-generation state beside the registry: the pump and the finished attempt of the pass,
+the detection, loss and digest of the calls, and the process tree the second-agent detection compares. When only the
+pass's own completion of an end removes it, a generation retired from the registry another way (a cleared start-failure
+guard, a fence by the drain or the recovery) leaves its entries behind, so a long-running runtime grows with every such
+generation, and a later generation can be judged against the stale state of an earlier one.
+Guard:: Every way a generation leaves the registry removes its entries in every per-generation map, the second-agent
+detection's included. Test: retire a generation through each path (the pass's end, a cleared guard, a fence) and assert
+that no map holds its id afterwards; matched control: a running generation keeps its entries through a pass.
+Source:: design review (runtime-worker developer guide).
+
+[#PM-WATCH-DISP-84]
+=== PM-WATCH-DISP-84: The `events` stage of a profile verification is recorded and kept with the enrolment
+
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles § Profile Verification] (`events`, kept with the enrolment),
+link:../specification/harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles § What a Worker Does]
+Hazard:: The activity a client shows for a worker rests on the per-kind result of the `events` stage, `reported` or
+`missing`. When no component writes that stage into the verification record and the harness's enrolment, every kind
+reads as never verified: a client cannot tell a kind the harness does not report from one that was never checked, and an
+event mapping that no longer resolves on a new harness version goes unnoticed.
+Guard:: The stage runner writes the `events` stage with its per-kind result into the verification record, and the
+installation of a verified profile for an enrolled harness keeps it with the enrolment. Test over a fixture harness
+output: a mapping that resolves records `reported`, an expected kind that never appears records `missing`, and both are
+read back from the enrolment; matched control: a draft whose `headless.events` is `null` records no `events` stage.
+Source:: design review (runtime-worker developer guide).
 
 == Task Envelope Bin-Packing & Sequential Task Yield
 
@@ -941,6 +1044,22 @@ whose tool calls write one file through a shell command eight times, with no har
 two, a write to an ignored path and a tool call that writes nothing yield none. The compiled `edit_churn` threshold is checked
 against the changes per file of recorded envelope tasks before the shipped roles choose an action other than `show`.
 Source:: Repository analyses `claude-code-bill-tokeneconomizer` and `orkas` of plan-marshall-documentation.
+
+[#PM-WATCH-DISP-80]
+=== PM-WATCH-DISP-80: The `over_size` distribution shows what the multiple did, from the runtime's measurement alone
+
+Anchor:: link:../specification/model-work/03-supervision-and-recycling.adoc#over-size-distribution[Model Work § The `over_size` Distribution],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7]
+Hazard:: The operator lowers or raises a role's multiple on a chart that misstates past work: plan tasks without a
+predicted cost counted as ratio zero, the spent tokens of a plan task taken from the whole attempt instead of its own
+turns, flagged tasks counted against the multiple in force instead of the proposed one, empty buckets drawn as zero
+bars, or a client that recomputes buckets from raw tokens and disagrees with the runtime's signal.
+Guard:: Unit test of the computation over a fixture of activity journals of one role: plan tasks with known turns and
+predicted costs land in the buckets their ratios name, the last bucket is open-ended, a plan task without a predicted
+cost is not counted, and under a proposed multiple each bucket counts exactly the plan tasks whose ratio exceeds it;
+matched controls: the same fixture without a proposal flags no task, and a role without a measured plan task is served
+without a bucket. The served distribution of the fixture equals the `pm-api` resource the clients read.
+Source:: design review.
 
 [#PM-WATCH-DISP-72]
 === PM-WATCH-DISP-72: A row a task proposes reaches the ledger only through the operator's review

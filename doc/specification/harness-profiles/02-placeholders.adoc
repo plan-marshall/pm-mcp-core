@@ -15,13 +15,13 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-2[PM-WATCH-CLIENT-2]_
 
-Vocabulary skill templates (`SKILL.md`), the launch prompts of workers, and the model-facing guidance strings of representations are authored once in canonical placeholder notation and rendered on the fly by `HarnessProfileRenderer`. A worker's prompt and every call of its job connection render with the profile of the harness of its role's effective configuration, recorded in its job record (xref:01-profile-schema.adoc#headless-block[Harness Profile Schema, `headless`]); a harness is a worker only, so every rendering is a worker's.
+Vocabulary skill templates (`SKILL.md`), the launch prompts of workers, and the model-facing guidance strings of representations are authored once in canonical placeholder notation and rendered on the fly by the server. A worker's prompt and every call of its job connection render with the profile of the harness of its role's effective configuration, recorded in its job record (xref:01-profile-schema.adoc#headless-block[Harness Profile Schema, `headless`]); a harness is a worker only, so every rendering is a worker's.
 
 === Normative Placeholder Syntax & Resolution Table
 
 [cols="2,2,2,2,2"]
 |===
-|Canonical Placeholder |`claude` Resolution |`opencode` Resolution |`antigravity` Resolution |`codex` Resolution
+|Canonical Placeholder |`claude` Resolution |`opencode` Resolution |`antigravity` Resolution _(provisional)_ |`codex` Resolution _(provisional)_
 
 |`{{tool:read_file}}`
 |`Read`
@@ -71,6 +71,8 @@ Vocabulary skill templates (`SKILL.md`), the launch prompts of workers, and the 
 |`pm_skill(uri="<uri>")`
 |`pm_skill(uri="<uri>")`
 |===
+
+The table is the target of the shipped profiles' `tools` (xref:01-profile-schema.adoc[Harness Profile Schema]); the `antigravity` and `codex` columns are provisional until those harnesses' tool names are measured.
 
 `{{tool:ask_user}}` names the harness's own tool that asks a human. It is rendered only where a skill tells a worker not to use it: a worker asks only through its task's `ask` links, the server delivers the decision to the operator's clients (link:../model-work/06-envelopes-questions-deadlines.adoc#question-delivery[Model Work Specification, Delivery to the Operator]), and the tool is never in a worker's tool set (`tool_not_permitted`, link:../model-work/01-roles-and-configuration.adoc#role-validation[Model Work Specification, Role Validation]).
 

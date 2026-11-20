@@ -33,6 +33,13 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 * `worker`: the worker supervisor, one per project and role.
 * `workspace`: the entry through which the file, git and build operations of the daemon obtain a confined path of a project.
 
+== Null Contract
+
+The packages are `@NullMarked`. A field, parameter or record component whose value may be absent is `@Nullable T`;
+absence a method returns is `Optional<T>`
+(link:../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[ADR 013],
+link:../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[ADR 021]).
+
 == Build and Test
 
 Run from the root of the repository:
@@ -82,6 +89,7 @@ a `SNAPSHOT` that carries this suffix. The signatures `create(String)` and `dele
 * link:doc/developer/runtime-security.adoc[Authentication Seams (`runtime.security`)]
 * link:doc/developer/runtime-start.adoc[Sweep Steps, the Audit Chain Seam, the Store Move Resume and Job Recovery (`runtime.start`)]
 * link:doc/developer/runtime-web.adoc[Web Access and the TLS Certificate (`runtime.web`)]
+* link:doc/developer/runtime-worker.adoc[Worker Supervision (`runtime.worker`)]
 * link:doc/developer/runtime-workspace.adoc[Workspace Confinement (`runtime.workspace`)]
 
 == ADRs
@@ -97,7 +105,7 @@ a `SNAPSHOT` that carries this suffix. The signatures `create(String)` and `dele
 ** link:doc/adr/runtime-endpoint/003-answer-validated-against-a-closed-schema-subset.adoc[ADR 003] the server validates an
    answer against a closed schema subset;
 ** link:doc/adr/runtime-endpoint/004-context-budget-estimated-per-character.adoc[ADR 004] the context budget is estimated
-   at four characters per token.
+   at four characters per token, superseded as the target by the specification's bytes-per-token rule.
 * link:doc/adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
 * link:doc/adr/runtime-job/[`doc/adr/runtime-job/`]: the verification of a job and the job runner:
 ** link:doc/adr/runtime-job/004-runner-implements-job-runner-and-job-starter.adoc[ADR 004] one runner class implements
@@ -112,6 +120,9 @@ a `SNAPSHOT` that carries this suffix. The signatures `create(String)` and `dele
    a replaceable primitive;
 ** link:doc/adr/runtime-job/009-launch-report-wait-bounded-apart-from-the-budget.adoc[ADR 009] the wait for the launch
    report bounded apart from the budget.
+* link:doc/adr/runtime-launch/[`doc/adr/runtime-launch/`]: the worker launch from the profile's headless block, the
+  harness verification before every spawn, the start through the job runner, the model-slot admission, the events stage
+  and the usage report kept with an enrolment.
 * link:doc/adr/runtime-lock/[`doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.
 * link:doc/adr/runtime-lsp/[`doc/adr/runtime-lsp/`]: the language-server client; ADR 001 waits for a document's
   diagnostics on a condition.
@@ -120,5 +131,9 @@ a `SNAPSHOT` that carries this suffix. The signatures `create(String)` and `dele
 * link:doc/adr/runtime-start/[`doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime;
   link:doc/adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013] the jobs part of recovery step 3,
   its worker part a seam.
+* link:doc/adr/runtime-web/[`doc/adr/runtime-web/`]: the activity served from a cursor and a pull stream.
+* link:doc/adr/runtime-worker/[`doc/adr/runtime-worker/`]: the worker supervisor: one per project and role, the protocol
+  adapter, the worker state in the job record, the deadlines, the verification-record gate, idle, the activity recorder,
+  the stream reader, the hold and the end of a generation.
 
 The index of all ADRs of the repository is link:../doc/adr/README.adoc[`doc/adr/README.adoc`].

@@ -51,6 +51,10 @@ link:{spec}/harness-profiles/01-profile-schema.adoc#profile-hardening[§ A Profi
 |The same, plus equality of `detection`, `identity` and `headless.executable` with the machine or shipped document.
 |===
 
+The validator reads the id member of a profile as `client_id`, and the file names above use that value. The schema file
+`harness-profile-v1.schema.json` and the specification name the member `harness_id`; `HarnessProfileSchemaParityTest`
+pins that difference (`ID_MEMBER` against `READER_ID_MEMBER`).
+
 The nearest set wins *as a whole document*, never merged. A project profile only exists for a client id the machine or
 shipped set defines; a machine profile of a client id the release does not ship adds a harness.
 

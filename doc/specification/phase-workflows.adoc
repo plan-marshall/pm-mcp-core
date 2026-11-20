@@ -56,7 +56,8 @@ _See Requirements:_
 
 Implemented in (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]):
 
-* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-workflow[`pm-workflow`]: the phase units, their primitives and the finalize step descriptors
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-workflow[`pm-workflow`]: the engine and the primitives of the phase units, and the finalize step descriptors
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-mcp-server[`pm-mcp-server`] (`plan-marshall-mcp`): the default phase units the binary ships, as its content
 * the CI contract of the provider module `pm-provider-ci` (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-ci[Module Structure § `pm-provider-ci`]): part 06: merge and merge queue
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: parts 04 and 05: the findings and code-analysis contracts
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-github[`pm-provider-github`], link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-gitlab[`pm-provider-gitlab`]: part 05: review-bot findings

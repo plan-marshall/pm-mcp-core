@@ -254,12 +254,12 @@ composition still run steps the new version pruned (a post-run-only fallback sti
 order `900`).
 Guard:: Scenario per server event (`outline`, `plan`, `fallback`, `empty_harvest`, `replan`): the
 transition that enters the composing target state records the new `instance_version`, and every state that chains on
-reads it (`finalize.next-step` after `plan.return` selects only post-run steps); an operator or configuration event
-composed mid-chain takes effect only from the next transition; the history keeps the version in force per firing.
-Kept (2026-11-18, PLAN-V2-13): `InstanceVersionEngineTest` guards the per-event scenario — the version is recorded in
-the entering transaction, the chain selects from it, its `instance` history line is written, and an operator event takes
-force from the next transition — but not yet the `finalize.next-step` half, which needs a fixture plan whose composed
-version prunes a finalize step below order `900`; the watch item stays until that scenario exists.
+reads it (`finalize.next-step` after `plan.return` and after `finalize.hand-back` selects only post-run steps, one
+fixture per route); an operator or configuration event composed mid-chain takes effect only from the next transition;
+the history keeps the version in force per firing.
+Guarded: `InstanceVersionEngineTest` (the version is recorded in the entering transaction, the chain selects from it,
+its `instance` history line is written, and an operator event takes force from the next transition). Open: the
+`finalize.next-step` half, which needs a fixture plan whose composed version prunes a finalize step below order `900`.
 Source:: design review.
 
 [#PM-WATCH-DSL-22]
@@ -556,13 +556,16 @@ Hazard:: A bound text or path concatenated into a shell command or into the argu
 with `:` is read by git as pathspec magic (`:(exclude)x` names everything but `x`), a path or a message that starts with
 `-` is read as an option (`-rf`), a message with a newline becomes a second command, and no quoting rule survives a value
 that comes from outside the unit.
-Guard:: Every value of a typed input reaches the tool over a channel that takes data: the commit message through the JGit
-API or `git commit -F -` over stdin, the paths in the CLI variant on stdin with literal pathspecs
-(`--pathspec-from-file=- --pathspec-file-nul`). `PathRules` refuses a leading `:` and `-` and every control character
-before the value is bound (link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]).
-Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound, and
-`JGitOperationsTest` refuses a pathspec magic and a glob before anything is staged. The CLI variant of this repository
-does not exist, so the stdin pathspec fixture stays owed to the assembly that ships it.
+Guard:: Every value of a typed input and every derived path reaches the tool over a channel that takes data: the
+commit message through the JGit API or `git commit -F -` over stdin, the paths in the CLI variant on stdin with literal
+pathspecs (`--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`), in the native variant as exact paths.
+`PathRules` refuses a leading `:` and `-` and every control character before the value is bound
+(link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]).
+Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound. Owed: a fixture
+whose dirty worktree holds files named `:(glob)**`, `-rf` and `app/[slug]/page.tsx`, which both variants stage as
+exactly those files (matched control: no other file of the worktree is staged); the CLI half belongs to the assembly that
+ships the CLI variant. A refusal of the glob characters `*`, `?` and `[` in the native variant or in `PathRules` fails
+the fixture.
 Source:: design review (PLAN-V2-15).
 
 [#PM-WATCH-DSL-42]
