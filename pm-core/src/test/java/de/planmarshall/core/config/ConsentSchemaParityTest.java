@@ -107,8 +107,8 @@ class ConsentSchemaParityTest {
                 recorded, Consent.Channel.CLI, null);
         var written = ConsentCodec.write(List.of(machine, scripts), 2);
 
-        assertEquals(List.of(), SchemaValidation.validate(validator(), new String(written, UTF_8)),
-                () -> "The written store is valid: " + new String(written, UTF_8));
+        assertEquals(List.of(), violationsIn(new String(written, UTF_8)),
+                "the written store has no schema violation");
     }
 
     @Test
@@ -123,6 +123,12 @@ class ConsentSchemaParityTest {
 
     private static Schema validator() {
         return SchemaValidation.compile(SchemaResource.text(SCHEMA));
+    }
+
+    /** @return each violation of the document followed by the document, so a failure shows what was validated */
+    private static List<String> violationsIn(String document) {
+        return SchemaValidation.validate(validator(), document).stream()
+                .map(violation -> violation + " in " + document).toList();
     }
 
     private static Map<?, ?> document(byte[] written) {

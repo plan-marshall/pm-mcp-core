@@ -96,14 +96,11 @@ class AuditSchemaParityTest {
     }
 
     private static void assertValid(Schema validator, byte[] document) {
-        assertValid(validator, document, "the written document is valid");
-    }
-
-    private static void assertValid(Schema validator, byte[] document, String message) {
         var written = new String(document, UTF_8);
+        var violations = SchemaValidation.validate(validator, written).stream()
+                .map(violation -> violation + " in " + written).toList();
 
-        assertEquals(List.of(), SchemaValidation.validate(validator, written),
-                () -> message + ": violations of " + written);
+        assertEquals(List.of(), violations, "the written document has no schema violation");
     }
 
     @Nested
@@ -224,8 +221,7 @@ class AuditSchemaParityTest {
                     () -> assertValid(validator,
                             AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE,
                                     Generators.longs(1, 1_000).next(), EVENT_ID, HASH, AuditCodec.GENESIS_HASH,
-                                    HASH)),
-                            "the head of a log with records is valid"),
+                                    HASH))),
                     () -> assertValid(validator, AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 0,
                             null, AuditCodec.GENESIS_HASH, HASH, HASH))));
         }
@@ -273,8 +269,7 @@ class AuditSchemaParityTest {
             assertValid(validator(SCHEMA),
                     AuditCodec.writeIndexEntry(new AuditIndexEntry(AuditCodec.GENESIS_HASH,
                             AuditIndexEntry.rotatedFileName(EVENT_ID), EVENT_ID, OTHER_EVENT_ID,
-                            Generators.longs(1, 1_000).next(), HASH)),
-                    "the written entry is valid");
+                            Generators.longs(1, 1_000).next(), HASH)));
         }
     }
 }

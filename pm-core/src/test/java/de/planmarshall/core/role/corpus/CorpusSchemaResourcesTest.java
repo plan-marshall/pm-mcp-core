@@ -80,7 +80,7 @@ class CorpusSchemaResourcesTest {
 
     static String resource(String name) {
         try (var in = CorpusSchemaResourcesTest.class.getResourceAsStream(name)) {
-            assertNotNull(in, () -> "the schema resource " + name + " exists beside the package");
+            assertNotNull(in, "the schema resource exists beside the package");
             return new String(in.readAllBytes(), UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -90,6 +90,12 @@ class CorpusSchemaResourcesTest {
     private static List<?> validate(String schemaName, byte[] document) {
         var schema = SchemaValidation.compile(resource(schemaName));
         return SchemaValidation.validate(schema, new String(document, UTF_8));
+    }
+
+    /** @return each violation of the document followed by the document, so a failure shows what was validated */
+    private static List<String> violationsIn(String schemaName, byte[] document) {
+        var text = new String(document, UTF_8);
+        return validate(schemaName, document).stream().map(violation -> violation + " in " + text).toList();
     }
 
     static SourceManifest manifest() {
@@ -143,7 +149,7 @@ class CorpusSchemaResourcesTest {
     @MethodSource("writtenDocuments")
     @DisplayName("a document a codec writes is valid against its schema resource")
     void writtenDocumentIsValid(String name, String schemaName, byte[] document) {
-        assertEquals(List.of(), validate(schemaName, document), () -> "violations of " + new String(document, UTF_8));
+        assertEquals(List.of(), violationsIn(schemaName, document), "the written document has no schema violation");
     }
 
     @Nested
@@ -190,8 +196,10 @@ class CorpusSchemaResourcesTest {
                     .replace("\"canary\"", "\"contamination\" : \"\",\n  \"canary\"");
 
             assertAll(
-                    () -> assertFalse(validate(OVERLAY_SCHEMA, overlay.getBytes(UTF_8)).isEmpty(), overlay),
-                    () -> assertFalse(validate(ITEM_SCHEMA, item.getBytes(UTF_8)).isEmpty(), item));
+                    () -> assertFalse(validate(OVERLAY_SCHEMA, overlay.getBytes(UTF_8)).isEmpty(),
+                            "an overlay row with an empty group is rejected"),
+                    () -> assertFalse(validate(ITEM_SCHEMA, item.getBytes(UTF_8)).isEmpty(),
+                            "an item with an empty contamination is rejected"));
         }
     }
 

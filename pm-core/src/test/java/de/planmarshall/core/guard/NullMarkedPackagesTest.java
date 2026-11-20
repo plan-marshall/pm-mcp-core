@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.guard;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -60,7 +61,7 @@ class NullMarkedPackagesTest {
             unmarked.addAll(unmarkedPackages(productionRoot));
         }
 
-        assertTrue(unmarked.isEmpty(), () -> "Every production package must be @NullMarked: " + unmarked);
+        assertEquals(List.of(), unmarked, "Every production package must be @NullMarked");
     }
 
     @Test

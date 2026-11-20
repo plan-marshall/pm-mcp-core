@@ -84,8 +84,9 @@ class SchemaSubsetTest {
     @DisplayName("a keyword accepts its passing value and reports its failing value")
     void keyword(String name, String schema, String passing, String failing, String violation) {
         assertAll(
-                () -> assertEquals(List.of(), validate(passing, schema), "passing " + passing),
-                () -> assertEquals(List.of(violation), validate(failing, schema), "failing " + failing));
+                () -> assertEquals(List.of(), validate(passing, schema), "the keyword accepts its passing value"),
+                () -> assertEquals(List.of(violation), validate(failing, schema),
+                        "the keyword reports its failing value"));
     }
 
     /**
@@ -170,8 +171,9 @@ class SchemaSubsetTest {
 
             var errors = validate(value, schema);
 
-            assertEquals(1, errors.size(), errors::toString);
-            assertTrue(errors.getFirst().startsWith("$: the schema pattern ( does not compile:"), errors::toString);
+            assertEquals(1, errors.size(), "the broken pattern reports exactly one error");
+            assertTrue(errors.getFirst().startsWith("$: the schema pattern ( does not compile:"),
+                    "the error says the schema pattern does not compile");
         }
 
         @Test
@@ -257,7 +259,7 @@ class SchemaSubsetTest {
         void brokenPattern() {
             var errors = validate("\"a\"", "{\"pattern\":\"(\"}");
 
-            assertEquals(1, errors.size(), errors::toString);
+            assertEquals(1, errors.size(), "the broken pattern is reported as one error");
         }
     }
 

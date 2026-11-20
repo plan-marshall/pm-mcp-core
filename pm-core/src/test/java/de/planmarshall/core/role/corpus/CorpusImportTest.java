@@ -214,7 +214,10 @@ class CorpusImportTest {
     private ImportedItem item(String relative) throws IOException {
         var file = items().resolve(relative);
         var document = Files.readAllBytes(file);
-        assertEquals(List.of(), ItemGeneratorTest.violations(document), () -> new String(document, UTF_8));
+        var text = new String(document, UTF_8);
+        var violations = ItemGeneratorTest.violations(document).stream()
+                .map(violation -> violation + " in " + text).toList();
+        assertEquals(List.of(), violations, "the imported item has no schema violation");
         return ImportedItemCodec.read(file, document);
     }
 
@@ -298,7 +301,7 @@ class CorpusImportTest {
             var result = run();
 
             assertAll(
-                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), result.missed()::toString),
+                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), "one row selected three times is COMPLETE"),
                     () -> assertEquals(Set.of("screening/alpha/q-a.json", "screening/alpha/q-b.json",
                                     "screening/alpha/q-c.json", BETA_D2), itemFiles(),
                             "the three overlay ids give three items"),
@@ -330,7 +333,7 @@ class CorpusImportTest {
             var second = item("screening/alpha/q-b.json");
             var alone = item(ALPHA_Q2);
             assertAll(
-                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), result.missed()::toString),
+                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), "the import of a grouped row is COMPLETE"),
                     () -> assertEquals(group, first.group(), "the first item carries the group"),
                     () -> assertEquals(group, second.group(), "the second item carries the group"),
                     () -> assertEquals("shares its question with " + second.id(), first.contamination(),
@@ -428,8 +431,10 @@ class CorpusImportTest {
                     () -> corpusImport.run(missing, cacheRoot), "a corpus root that does not exist is refused");
 
             assertAll(
-                    () -> assertTrue(refusal.getMessage().contains("does not exist"), refusal::getMessage),
-                    () -> assertInstanceOf(NoSuchFileException.class, refusal.getCause(), refusal::toString),
+                    () -> assertTrue(refusal.getMessage().contains("does not exist"),
+                            "the refusal says the corpus root does not exist"),
+                    () -> assertInstanceOf(NoSuchFileException.class, refusal.getCause(),
+                            "the refusal is caused by the missing root"),
                     () -> assertTrue(Files.exists(stale), "the items of the earlier import stay"),
                     () -> assertEquals(Set.of(), repository.cacheRoots, "no source is fetched"));
         }
@@ -444,7 +449,8 @@ class CorpusImportTest {
                     () -> corpusImport.run(file, cacheRoot), "a corpus root that is a file is refused");
 
             assertAll(
-                    () -> assertInstanceOf(NotDirectoryException.class, refusal.getCause(), refusal::toString),
+                    () -> assertInstanceOf(NotDirectoryException.class, refusal.getCause(),
+                            "the refusal is caused by the root being a file"),
                     () -> assertTrue(Files.exists(stale), "the items of the earlier import stay"));
         }
 
@@ -459,7 +465,8 @@ class CorpusImportTest {
                     () -> corpusImport.run(root, cacheRoot), "a sources entry that is a file is refused");
 
             assertAll(
-                    () -> assertInstanceOf(NotDirectoryException.class, refusal.getCause(), refusal::toString),
+                    () -> assertInstanceOf(NotDirectoryException.class, refusal.getCause(),
+                            "the refusal is caused by sources being a file"),
                     () -> assertTrue(Files.exists(stale), "the items of the earlier import stay"));
         }
 
@@ -478,7 +485,8 @@ class CorpusImportTest {
                         "a sources directory that cannot be listed is refused");
 
                 assertAll(
-                        () -> assertTrue(refusal.getMessage().contains("cannot be listed"), refusal::getMessage),
+                        () -> assertTrue(refusal.getMessage().contains("cannot be listed"),
+                                "the refusal says the sources cannot be listed"),
                         () -> assertTrue(Files.exists(stale), "the items of the earlier import stay"),
                         () -> assertEquals(Set.of(), repository.cacheRoots, "no source is fetched"));
             } finally {
@@ -535,7 +543,7 @@ class CorpusImportTest {
         var missed = result.missed();
         assertAll(
                 () -> assertEquals(Verdict.FAILED, result.verdict(), "a hash mismatch fails the import"),
-                () -> assertEquals(1, missed.size(), missed::toString),
+                () -> assertEquals(1, missed.size(), "exactly the one changed source is missed"),
                 () -> assertEquals(source, missed.getFirst().name(), "the missed source is named"),
                 () -> assertEquals(Reason.HASH_MISMATCH, missed.getFirst().reason(),
                         "the missed reason is the hash mismatch"),
@@ -543,9 +551,9 @@ class CorpusImportTest {
                 () -> assertEquals(List.of(other), result.covered().stream().map(CoveredSource::name).toList(),
                         "the other source is still covered"),
                 () -> assertTrue(itemFiles().stream().noneMatch(item -> item.contains("/" + source + "/")),
-                        () -> "no item of " + source),
+                        "no item of the failed source is written"),
                 () -> assertTrue(itemFiles().stream().anyMatch(item -> item.contains("/" + other + "/")),
-                        () -> "the items of " + other),
+                        "the items of the other source are written"),
                 () -> assertEquals(before, snapshot(corpusRoot), "the corpus root is unchanged"));
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                 ERROR.CORPUS_SOURCE_HASH_MISMATCH.resolveIdentifierString());
@@ -585,19 +593,19 @@ class CorpusImportTest {
         var missed = result.missed();
         assertAll(
                 () -> assertEquals(Verdict.PARTIAL, result.verdict(), "the import is PARTIAL"),
-                () -> assertEquals(1, missed.size(), missed::toString),
+                () -> assertEquals(1, missed.size(), "exactly the one unfetched source is missed"),
                 () -> assertEquals(source, missed.getFirst().name(), "the missed source keeps its name"),
                 () -> assertEquals(reason, missed.getFirst().reason(), "the missed reason is the expected one"),
                 () -> assertEquals(file, missed.getFirst().file(), "the missed file is the expected one"),
                 () -> assertTrue(missed.getFirst().detail().startsWith("https://github.com/example/" + source),
-                        missed.getFirst()::detail),
+                        "the detail starts with the source repository"),
                 () -> assertFalse(missed.getFirst().detail().contains("secret"), "the detail carries no credential"),
                 () -> assertEquals(List.of(other), result.covered().stream().map(CoveredSource::name).toList(),
                         "the other source's items are kept"),
                 () -> assertTrue(itemFiles().stream().noneMatch(item -> item.contains("/" + source + "/")),
-                        () -> "no item of " + source),
+                        "no item of the missed source is written"),
                 () -> assertTrue(itemFiles().stream().anyMatch(item -> item.contains("/" + other + "/")),
-                        () -> "the items of " + other),
+                        "the items of the other source are written"),
                 () -> assertEquals(before, snapshot(corpusRoot), "the corpus root stayed untouched"));
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                 WARN.CORPUS_SOURCE_MISSED.resolveIdentifierString());
@@ -650,7 +658,7 @@ class CorpusImportTest {
                             "the source is missed as MALFORMED"),
                     () -> assertEquals("alpha", result.missed().getFirst().name(), "the missed source is alpha"),
                     () -> assertTrue(result.missed().getFirst().detail().contains("'nothing'"),
-                            result.missed().getFirst()::detail),
+                            "the detail names the field the row lacks"),
                     () -> assertEquals(Set.of(BETA_D2), itemFiles(), "only the beta item is written"));
             LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                     WARN.CORPUS_SOURCE_MISSED.resolveIdentifierString());
@@ -691,7 +699,7 @@ class CorpusImportTest {
                     () -> assertEquals(Reason.MALFORMED, result.missed().getFirst().reason(),
                             "the malformed source is reported"),
                     () -> assertTrue(result.missed().getFirst().detail().contains("generates the item"),
-                            result.missed().getFirst()::detail),
+                            "the detail names the item generated twice"),
                     () -> assertEquals(Set.of(BETA_D2), itemFiles(), "only the beta item remains written"));
         }
 
@@ -846,14 +854,15 @@ class CorpusImportTest {
             var missed = result.missed();
             assertAll(
                     () -> assertEquals(Verdict.FAILED, result.verdict(), "a malformed source fails the import"),
-                    () -> assertEquals(1, missed.size(), missed::toString),
+                    () -> assertEquals(1, missed.size(), "exactly the one malformed source is missed"),
                     () -> assertEquals(source, missed.getFirst().name(), "the missed source is the one expected"),
                     () -> assertEquals(Reason.MALFORMED, missed.getFirst().reason(),
                             "the source is missed as malformed"),
                     () -> assertEquals(file, missed.getFirst().file(), "the missed file is the one expected"),
-                    () -> assertTrue(missed.getFirst().detail().contains(detail), missed.getFirst()::detail),
+                    () -> assertTrue(missed.getFirst().detail().contains(detail),
+                            "the detail says why the source is malformed"),
                     () -> assertTrue(itemFiles().stream().noneMatch(item -> item.contains("/" + source + "/")),
-                            () -> "no item of " + source));
+                            "no item of the malformed source is written"));
             LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                     WARN.CORPUS_SOURCE_MISSED.resolveIdentifierString());
             LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
@@ -880,9 +889,9 @@ class CorpusImportTest {
             var result = run();
 
             assertAll(
-                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), result.missed()::toString),
+                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), "the import of the other host is COMPLETE"),
                     () -> assertTrue(result.covered().contains(new CoveredSource("gamma", 1)),
-                            result.covered()::toString),
+                            "the source of the other host is covered"),
                     () -> assertEquals(new Origin(gamma, ALPHA_COMMIT, ALPHA_FILE, 2),
                             item("screening/gamma/q-1.json").provenance().origin(),
                             "the origin names the other repository"));
@@ -980,7 +989,8 @@ class CorpusImportTest {
                     "overlapping roots are refused before any fetch");
 
             assertAll(
-                    () -> assertTrue(refusal.getMessage().contains(message), refusal::getMessage),
+                    () -> assertTrue(refusal.getMessage().contains(message),
+                            "the refusal says how the roots overlap"),
                     () -> assertEquals(before, snapshot(roots.corpusFiles()),
                             "the corpus of the roots is untouched"),
                     () -> assertEquals(Set.of(), repository.cacheRoots, "no source is fetched"));
@@ -991,7 +1001,7 @@ class CorpusImportTest {
         void siblingWithSharedPrefix() {
             var result = new CorpusImport(repository, lfs).run(corpusRoot, base.resolve("corpus-cache"));
 
-            assertEquals(Verdict.COMPLETE, result.verdict(), result.missed()::toString);
+            assertEquals(Verdict.COMPLETE, result.verdict(), "the sibling cache root imports COMPLETE");
         }
     }
 

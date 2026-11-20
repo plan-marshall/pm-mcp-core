@@ -142,10 +142,10 @@ class ProviderNeutralityArchTest {
 
             assertAll(
                     () -> assertTrue(details.stream().anyMatch(detail -> detail.contains("FindingSourceKind.GITHUB_PR")),
-                            details::toString),
+                            "The rule fails on the exempt GITHUB_PR constant"),
                     () -> assertTrue(details.stream().anyMatch(detail -> detail.contains("FindingSourceKind.GITLAB_MR")),
-                            details::toString),
-                    () -> assertEquals(2, details.size(), details::toString));
+                            "The rule fails on the exempt GITLAB_MR constant"),
+                    () -> assertEquals(2, details.size(), "The rule fails on the two exempt constants only"));
         }
     }
 
@@ -161,7 +161,7 @@ class ProviderNeutralityArchTest {
             assertTrue(result.hasViolation(), "The rule must fail on GitHubNamedFixture");
             assertTrue(result.getFailureReport().getDetails().stream()
                             .anyMatch(detail -> detail.contains("Class " + GitHubNamedFixture.class.getName())),
-                    () -> result.getFailureReport().toString());
+                    "The failure report names the provider-named class");
         }
 
         @Test
@@ -172,7 +172,7 @@ class ProviderNeutralityArchTest {
             assertTrue(result.hasViolation(), "The rule must fail on ExemptionScopeFixture");
             assertTrue(result.getFailureReport().getDetails().stream()
                             .anyMatch(detail -> detail.contains(ExemptionScopeFixture.class.getName() + ".GITHUB_PR")),
-                    () -> result.getFailureReport().toString());
+                    "The failure report names the constant outside the scope");
         }
 
         @Test

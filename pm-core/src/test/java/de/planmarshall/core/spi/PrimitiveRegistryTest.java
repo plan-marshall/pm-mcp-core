@@ -64,7 +64,7 @@ class PrimitiveRegistryTest {
             var registry = new PrimitiveRegistry(primitives);
 
             assertAll(primitives.stream().<Executable>map(primitive -> () -> assertSame(primitive,
-                    registry.find(primitive.id()).orElseThrow(), primitive.id())));
+                    registry.find(primitive.id()).orElseThrow(), "the registry finds the primitive by its id")));
         }
 
         @Test
@@ -221,7 +221,7 @@ class PrimitiveRegistryTest {
                     () -> assertEquals(refusal.refusedId(), thrown.getPrimitiveId(),
                             "the refusal names the refused primitive id"),
                     () -> assertTrue(thrown.getMessage().startsWith(refusal.reason() + ": primitive '"
-                            + refusal.refusedId() + "' "), thrown.getMessage()));
+                            + refusal.refusedId() + "' "), "the refusal message leads with reason and id"));
         }
 
         @Test
@@ -311,8 +311,10 @@ class PrimitiveRegistryTest {
             assertAll(
                     () -> assertEquals(Reason.EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP, thrown.getReason(),
                             "an exhaustion outcome without a cap is refused"),
-                    () -> assertTrue(thrown.getMessage().contains("'failed'"), thrown.getMessage()),
-                    () -> assertTrue(thrown.getMessage().contains("STEP_LIST"), thrown.getMessage()));
+                    () -> assertTrue(thrown.getMessage().contains("'failed'"),
+                            "the refusal names the exhaustion outcome"),
+                    () -> assertTrue(thrown.getMessage().contains("STEP_LIST"),
+                            "the refusal names the cycle measure"));
         }
 
         /**

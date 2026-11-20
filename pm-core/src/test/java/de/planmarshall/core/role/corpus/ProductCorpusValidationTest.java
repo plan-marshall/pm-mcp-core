@@ -12,7 +12,6 @@ package de.planmarshall.core.role.corpus;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +32,6 @@ class ProductCorpusValidationTest {
 
         var violations = new CorpusValidator(corpus).validate();
 
-        assertEquals(List.of(), violations,
-                () -> violations.stream().map(CorpusViolation::toString).collect(Collectors.joining("\n")));
+        assertEquals(List.of(), violations, "the product corpus reports no violation");
     }
 }

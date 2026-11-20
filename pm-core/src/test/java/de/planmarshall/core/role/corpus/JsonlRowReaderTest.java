@@ -136,8 +136,9 @@ class JsonlRowReaderTest {
 
         assertAll(
                 () -> assertEquals(line, refusal.line(), "the refusal names the malformed line"),
-                () -> assertTrue(refusal.getMessage().startsWith("line " + line + ": "), refusal::getMessage),
-                () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
+                () -> assertTrue(refusal.getMessage().startsWith("line " + line + ": "),
+                        "the refusal message starts with the line number"),
+                () -> assertTrue(refusal.getMessage().contains(detail), "the refusal message names what is malformed"));
     }
 
     @Test
@@ -147,6 +148,6 @@ class JsonlRowReaderTest {
                 () -> JsonlRowReader.read(new byte[]{'{', '"', 'a', '"', ':', '"', (byte) 0xC3, '"', '}'}),
                 "a file that is not UTF-8 is refused");
 
-        assertTrue(refusal.getMessage().contains("not UTF-8"), refusal::getMessage);
+        assertTrue(refusal.getMessage().contains("not UTF-8"), "the refusal message says the file is not UTF-8");
     }
 }

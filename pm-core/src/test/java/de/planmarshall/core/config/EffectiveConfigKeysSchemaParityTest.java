@@ -110,8 +110,7 @@ class EffectiveConfigKeysSchemaParityTest {
         assertEquals(expected.size(), EffectiveConfigKeys.all().size(),
                 "The table should register every key once");
         assertEquals(new TreeSet<>(expected), new TreeSet<>(actual),
-                () -> "The table should hold exactly the schema keys; missing %s, extra %s"
-                        .formatted(difference(expected, actual), difference(actual, expected)));
+                "The table should hold exactly the schema keys");
     }
 
     @Test
@@ -128,7 +127,7 @@ class EffectiveConfigKeysSchemaParityTest {
             }
         }
 
-        assertTrue(mismatches.isEmpty(), () -> "Every domain should equal the schema's: " + mismatches);
+        assertEquals(List.of(), mismatches, "Every domain should equal the schema's domain");
     }
 
     @Test
@@ -147,7 +146,7 @@ class EffectiveConfigKeysSchemaParityTest {
             }
         }
 
-        assertTrue(mismatches.isEmpty(), () -> "The default flag should follow the schema: " + mismatches);
+        assertEquals(List.of(), mismatches, "The default flag should follow the schema");
     }
 
     @Test
@@ -162,17 +161,17 @@ class EffectiveConfigKeysSchemaParityTest {
             }
         });
 
-        assertTrue(undeclared.isEmpty(), () -> "A stated default should be classified: " + undeclared);
+        assertEquals(List.of(), undeclared, "A stated default should be classified");
         var absent = STATED_BUT_NOT_COMPILED.keySet().stream().filter(key -> !nodes.containsKey(key)).toList();
-        assertTrue(absent.isEmpty(), () -> "A classified absence should name a real node: " + absent);
+        assertEquals(List.of(), absent, "A classified absence should name a real node");
         var proseAbsent = PROSE_DEFAULTS.keySet().stream().filter(key -> !nodes.containsKey(key)).toList();
-        assertTrue(proseAbsent.isEmpty(), () -> "A prose default should name a real node: " + proseAbsent);
+        assertEquals(List.of(), proseAbsent, "A prose default should name a real node");
         var staleProse = PROSE_DEFAULTS.entrySet().stream()
                 .filter(entry -> !nodes.get(entry.getKey()).description().contains(entry.getValue())).toList();
-        assertTrue(staleProse.isEmpty(), () -> "A prose default should state its evidence: " + staleProse);
+        assertEquals(List.of(), staleProse, "A prose default should state its evidence");
         var stale = STATED_BUT_NOT_COMPILED.entrySet().stream()
                 .filter(entry -> !nodes.get(entry.getKey()).description().contains(entry.getValue())).toList();
-        assertTrue(stale.isEmpty(), () -> "A classified default should state its evidence: " + stale);
+        assertEquals(List.of(), stale, "A classified default should state its evidence");
     }
 
     @Test
@@ -186,13 +185,12 @@ class EffectiveConfigKeysSchemaParityTest {
         var leftOut = LEFT_OUT.keySet().stream()
                 .filter(key -> EffectiveConfigKeys.find(key).isPresent())
                 .toList();
-        assertTrue(leftOut.isEmpty(), () -> "A metadata member should be no configuration key: " + leftOut);
+        assertEquals(List.of(), leftOut, "A metadata member should be no configuration key");
         var walked = walk();
         var unread = LEFT_OUT.keySet().stream().filter(key -> !walked.containsKey(key)).toList();
-        assertTrue(unread.isEmpty(), () -> "The schema should still carry the metadata member: " + unread);
+        assertEquals(List.of(), unread, "The schema should still carry the metadata members");
         for (var stem : List.of("domains", "build-map")) {
-            assertFalse(EffectiveConfigKeys.stems().contains(stem),
-                    () -> "The records-only file %s should contribute no key".formatted(stem));
+            assertFalse(EffectiveConfigKeys.stems().contains(stem), "A records-only file should contribute no key");
         }
     }
 
@@ -206,12 +204,6 @@ class EffectiveConfigKeysSchemaParityTest {
                         new ConfigValueDomain.Enumeration(List.of("never")))),
                 expected.domain(), "The union should follow machine-config's definition");
         assertTrue(expected.keywordDefault(), "The cleanup duration should carry its default");
-    }
-
-    private static Set<String> difference(Set<String> left, Set<String> right) {
-        var only = new TreeSet<>(left);
-        only.removeAll(right);
-        return only;
     }
 
     private static Map<String, String> files() {

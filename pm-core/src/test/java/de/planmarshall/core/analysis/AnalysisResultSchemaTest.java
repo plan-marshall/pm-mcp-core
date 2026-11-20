@@ -90,13 +90,18 @@ class AnalysisResultSchemaTest {
         return SchemaValidation.validate(schema, line);
     }
 
+    /** @return each violation of the line followed by the line, so a failure shows the document it was found in */
+    private static List<String> violationsIn(String line) {
+        return validate(line).stream().map(violation -> violation + " in " + line).toList();
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("fixtures")
     @DisplayName("a written line is valid against the schema of the specification")
     void writtenLineIsValid(String name, AnalysisResult result) {
         var line = new String(AnalysisResultCodec.write(result), UTF_8);
 
-        assertEquals(List.of(), validate(line), () -> "violations of " + line);
+        assertEquals(List.of(), violationsIn(line), "the written line has no schema violation");
     }
 
     @Test

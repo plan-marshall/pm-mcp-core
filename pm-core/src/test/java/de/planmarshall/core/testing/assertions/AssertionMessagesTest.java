@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -41,6 +42,9 @@ class AssertionMessagesTest {
 
     /** The indentation the planted fixture lines carry inside the generated method body. */
     private static final String INDENT = "                ";
+
+    /** The package path the planted fixtures are written to, the prefix of every path a scan reports. */
+    private static final String FIXTURE = "de/planmarshall/fixture/";
 
     @Test
     @DisplayName("a missing message, an out-of-range message, a boundary and a planted shape are measured")
@@ -135,7 +139,8 @@ class AssertionMessagesTest {
         var root = packageFixture(temp,
                 "assertTrue(refusal.isPresent(), \"the refusal must be present\");",
                 "assertEquals(\"the refusal\", refusal.orElseThrow().getMessage(), failure::getMessage);",
-                "assertThrows(IllegalStateException.class, () -> store.read(file), () -> \"the store refuses\");",
+                "assertThrows(IllegalStateException.class, () -> store.read(file),"
+                        + " () -> \"the store refuses the file\");",
                 "fail(\"the root of the test sources was not found\");",
                 "fail(() -> \"the store refused the file\");",
                 "fail(failure.getMessage());");
@@ -169,7 +174,7 @@ class AssertionMessagesTest {
         assertNotReported(temp.resolve("upper-case-both-comparisons"),
                 "assertEquals(actual < MAX, EXPECTED > 0, \"the comparison results must agree\");");
         assertNotReported(temp.resolve("quoted-number"),
-                "assertEquals(List.of(\"1.0\"), actual, MESSAGE);");
+                "String MESSAGE = describe(); assertEquals(List.of(\"1.0\"), actual, MESSAGE);");
         assertNotReported(temp.resolve("spaced-type-argument"),
                 "assertEquals(Map.of(), new HashMap <String, String>(), \"both maps are equal here\");");
         assertNotReported(temp.resolve("trailing-comment"),
@@ -211,9 +216,79 @@ class AssertionMessagesTest {
         assertNotReported(temp.resolve("fail-computed"),
                 "fail(new StringBuilder(\"operation failed: \").append(detail).toString());");
         assertNotReported(temp.resolve("item-name"),
-                "assertEquals(ITEM_2D, actual, MESSAGE);");
+                "String MESSAGE = describe(); assertEquals(ITEM_2D, actual, MESSAGE);");
         assertNotReported(temp.resolve("computed-message"),
                 "assertEquals(declared.size(), new HashSet<>(declared).size(), declared.toString());");
+    }
+
+    @Test
+    @DisplayName("a comparison of two upper-case operands is not read as a type argument")
+    void aComparisonOfConstantsIsNotATypeArgument(@TempDir Path temp) throws Exception {
+        assertNotReported(temp.resolve("bounded-comparison"),
+                "assertTrue(v < MAX && v > MIN, \"the value lies between the two bounds\");");
+        assertNotReported(temp.resolve("constant-comparisons"),
+                "assertEquals(LOW < MAX, MIN > HIGH, \"the two bound checks must agree\");");
+    }
+
+    @Test
+    @DisplayName("a primitive-array type argument is read as a type")
+    void aPrimitiveArrayTypeArgumentIsAType(@TempDir Path temp) throws Exception {
+        assertReported(temp.resolve("primitive-array-type-argument"), "assertEquals: no message",
+                "assertEquals(Map.of(), new HashMap<String, int[]>());");
+    }
+
+    @Test
+    @DisplayName("a qualified or statically imported upper-case third argument is a tolerance")
+    void aNamedToleranceIsNotAMessage(@TempDir Path temp) throws Exception {
+        assertReported(temp.resolve("qualified-tolerance"), "a tolerance is not a message",
+                "assertEquals(expected, actual, Fixtures.EPS);");
+        assertReported(temp.resolve("imported-tolerance"), "a tolerance is not a message",
+                "assertEquals(expected, actual, EPS);");
+    }
+
+    @Test
+    @DisplayName("a same-file String constant and a supplier over one literal are measured like the literal")
+    void aConstantAndALiteralSupplierAreMeasured(@TempDir Path temp) throws Exception {
+        assertNotReported(fieldFixture(temp.resolve("constant-in-range"),
+                "private static final String MESSAGE = \"the two values must be equal here\";",
+                "assertEquals(expected, actual, MESSAGE);"));
+        assertReported(fieldFixture(temp.resolve("constant-short"), "static final String SHORT = \"too short\";",
+                "assertTrue(value, SHORT);"), "shorter than " + AssertionMessages.MIN_MESSAGE_LENGTH);
+        assertReported(fieldFixture(temp.resolve("constant-long"),
+                "final static String LONG = \"" + "x".repeat(AssertionMessages.MAX_MESSAGE_LENGTH + 1) + "\";",
+                "fail(LONG);"), "longer than " + AssertionMessages.MAX_MESSAGE_LENGTH);
+        assertNotReported(temp.resolve("supplier-in-range"), "assertTrue(value, () -> \"the value is present here\");");
+        assertReported(temp.resolve("supplier-short"), "shorter than " + AssertionMessages.MIN_MESSAGE_LENGTH,
+                "assertTrue(value, () -> \"too short\");");
+    }
+
+    @Test
+    @DisplayName("a message the scan does not measure is listed with its shape and is no violation")
+    void anUnmeasuredMessageIsListed(@TempDir Path temp) throws Exception {
+        var scan = scanTree(packageFixture(temp,
+                "assertTrue(value, message);",
+                "assertTrue(value, \"the value of \" + name);",
+                "assertTrue(value, failure.getMessage());"));
+
+        assertTrue(scan.violations().isEmpty(), "an unmeasured message is not a violation");
+        assertEquals(3, scan.unmeasured().size(), "each unmeasured message is listed once");
+        assertTrue(scan.unmeasured().get(0).endsWith("assertTrue: identifier"), "a bare name is an identifier");
+        assertTrue(scan.unmeasured().get(1).endsWith("assertTrue: concatenation"),
+                "a joined message is listed as a concatenation");
+        assertTrue(scan.unmeasured().get(2).endsWith("assertTrue: method call"),
+                "the exception's message is listed as a method call");
+    }
+
+    @Test
+    @DisplayName("an assertAll heading is not measured while the assertions inside the group are")
+    void anAssertAllHeadingIsNotMeasured(@TempDir Path temp) throws Exception {
+        assertNotReported(temp.resolve("short-heading"),
+                "assertAll(\"short\", () -> assertTrue(value, \"the value is present here\"));");
+        assertNotReported(temp.resolve("long-heading"), "assertAll(\""
+                + "h".repeat(AssertionMessages.MAX_MESSAGE_LENGTH + 1)
+                + "\", () -> assertTrue(value, \"the value is present here\"));");
+        assertReported(temp.resolve("short-inside"), "shorter than " + AssertionMessages.MIN_MESSAGE_LENGTH,
+                "assertAll(\"short\", () -> assertTrue(value, \"too short\"));");
     }
 
     @Test
@@ -257,17 +332,170 @@ class AssertionMessagesTest {
         assertTrue(scan.violations().getFirst().contains("kept/Kept.java"), "the violation names the kept file");
     }
 
+    /** The shapes the review of the scanner named, each planted as the source it was found in. */
+    @Nested
+    @DisplayName("the reviewed shapes")
+    class ReviewedShapes {
+
+        @Test
+        @DisplayName("a comparison of mixed-case operands is not read as a type argument")
+        void aMixedCaseComparisonIsNoTypeArgument(@TempDir Path temp) throws Exception {
+            assertNotReported(temp.resolve("mixed-case-comparisons"),
+                    "assertEquals(Low < Max, Min > High, \"both bound checks must agree\");");
+            assertReported(temp.resolve("method-reference-type-argument"), "assertEquals: no message",
+                    "assertEquals(Map.of(), HashMap<String, String>::new);");
+        }
+
+        @Test
+        @DisplayName("an upper-case-only class name constructed with new carries a type argument")
+        void anUpperCaseOnlyConstructedTypeIsAType(@TempDir Path temp) throws Exception {
+            assertReported(temp, "assertNotNull: no message", "assertNotNull(new KV<String, Integer>());");
+        }
+
+        @Test
+        @DisplayName("a block comment starts after both of its opening characters")
+        void aBlockCommentStartsAfterBothOpeningCharacters(@TempDir Path temp) throws Exception {
+            assertNotReported(temp.resolve("slash-star-slash"), "/*/ assertTrue(false); */");
+            assertReported(temp.resolve("empty-comment"), "assertTrue: no message", "/**/ assertTrue(value);");
+        }
+
+        @ParameterizedTest(name = "a {0} line terminator")
+        @ValueSource(strings = {"CR", "CRLF", "LF"})
+        @DisplayName("a line comment ends at each line terminator and the lines are counted once")
+        void aLineCommentEndsAtEveryTerminator(String name, @TempDir Path temp) throws Exception {
+            var terminator = switch (name) {
+                case "CR" -> "\r";
+                case "CRLF" -> "\r\n";
+                default -> "\n";
+            };
+            var source = String.join(terminator, "class Lines {", "    void planted() {", "        // the note",
+                    "        assertTrue(value);", "    }", "}", "");
+
+            assertEquals(List.of(FIXTURE + "Lines.java:4 assertTrue: no message"),
+                    rawFixture(temp, "Lines", source).violations(), "the call after the comment is on line four");
+        }
+
+        @Test
+        @DisplayName("a text-block line joined by a backslash keeps its line terminator")
+        void aJoinedTextBlockLineKeepsItsTerminator(@TempDir Path temp) throws Exception {
+            var source = String.join("\n", "class Blocks {", "    void planted() {", "        var block = \"\"\"",
+                    "            a \\\"quoted\\\" word and \\", "            a joined line\"\"\";",
+                    "        assertTrue(value);", "    }", "}", "");
+
+            assertEquals(List.of(FIXTURE + "Blocks.java:6 assertTrue: no message"),
+                    rawFixture(temp, "Blocks", source).violations(), "the call after the block is on line six");
+        }
+
+        @ParameterizedTest(name = "fail(new {0}())")
+        @ValueSource(strings = {"Exception", "Throwable", "Error"})
+        @DisplayName("a constructed base throwable passed to fail is a cause")
+        void aConstructedBaseThrowableIsACause(String type, @TempDir Path temp) throws Exception {
+            assertReported(temp, "a cause is not a message", "fail(new " + type + "());");
+        }
+
+        @Test
+        @DisplayName("a cause is the whole argument of fail, read as code")
+        void aCauseIsTheWholeArgument(@TempDir Path temp) throws Exception {
+            assertNotReported(temp.resolve("quoted-constructor"), "fail(\"expected new IllegalStateException()\");");
+            assertReported(temp.resolve("constructed-cause"), "a cause is not a message",
+                    "fail(new IllegalStateException());");
+            var scan = scanTree(packageFixture(temp.resolve("constructed-message"),
+                    "fail(new IllegalStateException().getMessage());"));
+
+            assertEquals(List.of(), scan.violations(), "the message of a new throwable is no cause");
+            assertTrue(scan.unmeasured().getFirst().endsWith("fail: method call"),
+                    "the message of a new throwable is a method call");
+        }
+
+        @Test
+        @DisplayName("a literal supplier with a comment inside is measured by its literal")
+        void aCommentedLiteralSupplierIsMeasured(@TempDir Path temp) throws Exception {
+            assertReported(temp, "shorter than " + AssertionMessages.MIN_MESSAGE_LENGTH,
+                    "assertTrue(value, () /* explanation */ -> \"short\");");
+        }
+
+        @Test
+        @DisplayName("a constant qualified by its own class is measured and an unknown qualifier is not")
+        void aQualifiedConstantIsMeasured(@TempDir Path temp) throws Exception {
+            var source = String.join("\n", "class Fixture {", "    static final String SHORT = \"short\";",
+                    "    void planted() {", "        assertTrue(value, SHORT);",
+                    "        assertFalse(value, Fixture.SHORT);", "        assertNull(value, Other.SHORT);", "    }", "}",
+                    "");
+
+            var scan = rawFixture(temp, "Fixture", source);
+
+            assertEquals(List.of(FIXTURE + "Fixture.java:4 assertTrue: message shorter than 20 characters (5)",
+                            FIXTURE + "Fixture.java:5 assertFalse: message shorter than 20 characters (5)"),
+                    scan.violations(), "the bare and the qualified constant are measured");
+            assertEquals(List.of(FIXTURE + "Fixture.java:6 assertNull: identifier"), scan.unmeasured(),
+                    "an unknown qualifier is left unmeasured");
+        }
+
+        @Test
+        @DisplayName("a third argument the file declares as a String is a message, not a tolerance")
+        void aDeclaredStringIsNoTolerance(@TempDir Path temp) throws Exception {
+            assertNotReported(temp, "String detail = describe(); assertEquals(1.0, 2.0, detail);");
+        }
+
+        @Test
+        @DisplayName("quotes inside a comment are no message while a text block is one")
+        void quotesInACommentAreNoMessage(@TempDir Path temp) throws Exception {
+            assertReported(temp.resolve("commented-quotes"), "fail: no message", "fail(/* \"reason\" */);");
+            assertNotReported(temp.resolve("text-block-reason"),
+                    "fail(\"\"\"\n" + INDENT + "the reason is a text block\n" + INDENT + "\"\"\");");
+        }
+
+        @Test
+        @DisplayName("a constant is resolved in the scope of the assertion that names it")
+        void aConstantIsResolvedInItsScope(@TempDir Path temp) throws Exception {
+            var source = String.join("\n", "class Scopes {", "    static class A {",
+                    "        static final String MSG = \"tiny\";", "        void planted() {", "            fail(MSG);",
+                    "        }", "    }", "    static class B {",
+                    "        static final String MSG = \"the message of the second class\";",
+                    "        void planted() {", "            fail(MSG);", "        }", "    }", "    static class C {",
+                    "        void planted() {", "            fail(MSG);", "        }", "    }", "}", "");
+
+            var scan = rawFixture(temp, "Scopes", source);
+
+            assertEquals(List.of(FIXTURE + "Scopes.java:5 fail: message shorter than 20 characters (4)"),
+                    scan.violations(), "only the constant of the first class is short");
+            assertEquals(List.of(FIXTURE + "Scopes.java:16 fail: identifier"), scan.unmeasured(),
+                    "an unresolved constant is left unmeasured");
+        }
+    }
+
+    /** @return the scan of a fixture tree holding one class with the given source, written verbatim */
+    private static AssertionMessages.Scan rawFixture(Path root, String className, String source) throws IOException {
+        var directory = root.resolve(FIXTURE);
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve(className + ".java"), source);
+        return scanTree(root);
+    }
+
     private static void assertReported(Path root, String reason, String statement) throws IOException {
         var violations = scanTree(packageFixture(root, statement)).violations();
 
         assertTrue(violations.stream().anyMatch(violation -> violation.contains(reason)),
-                () -> "expected '" + reason + "' for " + statement + " but got " + violations);
+                "the scan reports the statement for its reason");
+    }
+
+    private static void assertReported(Path fixtureRoot, String reason) {
+        var violations = scanTree(fixtureRoot).violations();
+
+        assertTrue(violations.stream().anyMatch(violation -> violation.contains(reason)),
+                "the scan reports the fixture tree for its reason");
     }
 
     private static void assertNotReported(Path root, String statement) throws IOException {
         var violations = scanTree(packageFixture(root, statement)).violations();
 
-        assertTrue(violations.isEmpty(), () -> "expected no violation for " + statement + " but got " + violations);
+        assertEquals(List.of(), violations, "the scan reports no violation for the statement");
+    }
+
+    private static void assertNotReported(Path fixtureRoot) {
+        var violations = scanTree(fixtureRoot).violations();
+
+        assertEquals(List.of(), violations, "the scan reports no violation for the fixture tree");
     }
 
     private static AssertionMessages.Scan scanTree(Path root) {
@@ -280,6 +508,17 @@ class AssertionMessagesTest {
         var className = "C" + Generators.letterStrings(3, 10).next();
         var source = "class " + className + " {\n    void planted() {\n        "
                 + String.join("\n        ", statements) + "\n    }\n}\n";
+        Files.writeString(directory.resolve(className + ".java"), source);
+        return root;
+    }
+
+    /** @return the root of a fixture whose class declares one field and plants one statement in a method */
+    private static Path fieldFixture(Path root, String field, String statement) throws IOException {
+        var directory = root.resolve("de/planmarshall/fixture");
+        Files.createDirectories(directory);
+        var className = "C" + Generators.letterStrings(3, 10).next();
+        var source = "class " + className + " {\n    " + field + "\n    void planted() {\n        " + statement
+                + "\n    }\n}\n";
         Files.writeString(directory.resolve(className + ".java"), source);
         return root;
     }

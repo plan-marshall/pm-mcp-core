@@ -121,8 +121,9 @@ class SourceOverlayCodecTest {
         assertAll(
                 () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal outcome is UNREADABLE"),
                 () -> assertEquals(FILE, refusal.file(), "the refusal names the file"),
-                () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()), refusal::getMessage),
-                () -> assertTrue(refusal.getMessage().contains(detail), refusal::getMessage));
+                () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()),
+                        "the refusal message starts with the file"),
+                () -> assertTrue(refusal.getMessage().contains(detail), "the refusal message names what is wrong"));
     }
 
     @Nested
@@ -478,8 +479,8 @@ class SourceOverlayCodecTest {
             assertAll(
                     () -> assertNull(row.group(), "both null members read as null"),
                     () -> assertNull(row.contamination(), "the absent contamination note is null"),
-                    () -> assertTrue(text.contains("\"group\" : null"), text),
-                    () -> assertTrue(text.contains("\"contamination\" : null"), text),
+                    () -> assertTrue(text.contains("\"group\" : null"), "the null group is written as null"),
+                    () -> assertTrue(text.contains("\"contamination\" : null"), "the null note is written as null"),
                     () -> assertEquals(overlay, SourceOverlayCodec.read(FILE, written),
                             "the written overlay reads back equal"),
                     () -> assertEquals(List.of(), overlaySchemaErrors(document), "the document passes the schema"));
@@ -492,9 +493,12 @@ class SourceOverlayCodecTest {
                     withMembers("\"" + GROUP + "\"", "\"" + CONTAMINATION + "\""))), StandardCharsets.UTF_8);
 
             assertAll(
-                    () -> assertTrue(text.indexOf("\"tags\" :") < text.indexOf("\"group\" :"), text),
-                    () -> assertTrue(text.indexOf("\"group\" :") < text.indexOf("\"question\" :"), text),
-                    () -> assertTrue(text.indexOf("\"review\" :") < text.indexOf("\"contamination\" :"), text));
+                    () -> assertTrue(text.indexOf("\"tags\" :") < text.indexOf("\"group\" :"),
+                            "the group is written after the tags"),
+                    () -> assertTrue(text.indexOf("\"group\" :") < text.indexOf("\"question\" :"),
+                            "the group is written before the question"),
+                    () -> assertTrue(text.indexOf("\"review\" :") < text.indexOf("\"contamination\" :"),
+                            "the note is written after the review"));
         }
 
         @ParameterizedTest(name = "missing {0}")

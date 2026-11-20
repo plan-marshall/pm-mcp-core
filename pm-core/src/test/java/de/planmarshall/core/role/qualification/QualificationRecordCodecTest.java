@@ -25,10 +25,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalLong;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.RoleForm;
@@ -141,39 +145,43 @@ class QualificationRecordCodecTest {
                         "the missed sources are listed"));
     }
 
-    @Test
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unreadableDocuments")
     @DisplayName("an unreadable document is refused with the file named")
-    void unreadable() {
+    void unreadable(String description, String document) {
         var file = directory.resolve("review-code.json");
-        var cases = Map.ofEntries(
-                Map.entry("no members", "{\"format_version\":1}"),
-                Map.entry("another version", "{\"format_version\":2}"),
-                Map.entry("content after", QualificationRecordCodec.write(fullRecord()) + "{}"),
-                Map.entry("undeclared member", text().replace("\"role\"", "\"role_\"")),
-                Map.entry("a string agreement", text().replace("\"agreement\":90", "\"agreement\":\"90\"")),
-                Map.entry("another score word",
+        var bytes = document.getBytes(StandardCharsets.UTF_8);
+
+        var refused = assertThrows(StoreRefusal.class,
+                () -> QualificationRecordCodec.read(file, bytes), "a record outside the one shape is refused");
+
+        assertEquals(file, refused.file(), "the refusal names the record file");
+    }
+
+    /** @return each invalid document by the case it plants; the documents are the wire contract, so they are literals */
+    static Stream<Arguments> unreadableDocuments() {
+        return Stream.of(
+                Arguments.of("no members", "{\"format_version\":1}"),
+                Arguments.of("another version", "{\"format_version\":2}"),
+                Arguments.of("content after", text() + "{}"),
+                Arguments.of("undeclared member", text().replace("\"role\"", "\"role_\"")),
+                Arguments.of("a string agreement", text().replace("\"agreement\":90", "\"agreement\":\"90\"")),
+                Arguments.of("another score word",
                         text().replace("\"score\":\"ungraded\"", "\"score\":\"lost\"")),
-                Map.entry("zero tokens",
+                Arguments.of("zero tokens",
                         text().replace("\"total_tokens\":\"unmeasured\"", "\"total_tokens\":0")),
-                Map.entry("another form", text().replace("\"form\":\"fresh\"", "\"form\":\"lukewarm\"")),
-                Map.entry("another checkout",
+                Arguments.of("another form", text().replace("\"form\":\"fresh\"", "\"form\":\"lukewarm\"")),
+                Arguments.of("another checkout",
                         text().replace("\"checkout\":\"current\"", "\"checkout\":\"elsewhere\"")),
-                Map.entry("a form input split",
+                Arguments.of("a form input split",
                         text().replace("\"total_tokens\":\"unmeasured\"",
                                 "\"total_tokens\":\"unmeasured\",\"tokens_in\":3000")),
-                Map.entry("an item output split",
+                Arguments.of("an item output split",
                         text().replace("\"total_tokens\":1200", "\"total_tokens\":1200,\"tokens_out\":300")),
-                Map.entry("a thin mark that contradicts the count",
+                Arguments.of("a thin mark that contradicts the count",
                         text().replace("\"thin\":true", "\"thin\":false")),
-                Map.entry("another judge check result",
+                Arguments.of("another judge check result",
                         text().replace("\"judge_check\":\"passed\"", "\"judge_check\":\"unknown\"")));
-
-        for (var entry : cases.entrySet()) {
-            var bytes = entry.getValue().getBytes(StandardCharsets.UTF_8);
-            var refused = assertThrows(StoreRefusal.class,
-                    () -> QualificationRecordCodec.read(file, bytes), entry.getKey());
-            assertEquals(file, refused.file(), "the refusal names the record file");
-        }
     }
 
     @Test
@@ -224,7 +232,7 @@ class QualificationRecordCodecTest {
         assertRefused(() -> new TokenTotal(null, 1L, 0L));
     }
 
-    private String text() {
+    private static String text() {
         return new String(QualificationRecordCodec.write(fullRecord()), StandardCharsets.UTF_8);
     }
 

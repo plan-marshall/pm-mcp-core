@@ -81,9 +81,8 @@ class UnparsedEvidenceTest {
         assertAll(
                 () -> assertEquals(UnparsedEvidence.MAX_LINES, evidence.excerpt().lines().count(),
                         "the excerpt keeps fifty lines"),
-                () -> assertTrue(allocated >= 0, "the allocation count must be measured: " + allocated),
-                () -> assertTrue(allocated < 16_777_216,
-                        "the whole log is never listed, allocation: " + allocated));
+                () -> assertTrue(allocated >= 0, "the allocation count must be measured"),
+                () -> assertTrue(allocated < 16_777_216, "the whole log is never listed in memory"));
     }
 
     @Test

@@ -120,7 +120,7 @@ class HandWrittenDoubleScanTest {
 
         if (!baseline.equals(found)) {
             Files.write(FOUND, found);
-            fail("the hand-written double scan differs from its baseline; compare " + FOUND + " with " + BASELINE);
+            fail("the double scan differs from hand-written-doubles.txt");
         }
     }
 

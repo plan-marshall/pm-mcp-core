@@ -74,7 +74,7 @@ class ShippedProfilesTest {
                 continue;
             }
             var value = precedence.get().integerValue().getAsLong();
-            assertTrue(seen.add(value), () -> "The detection precedence %d occurs twice".formatted(value));
+            assertTrue(seen.add(value), "No two shipped profiles share a detection precedence");
         }
     }
 
@@ -108,7 +108,7 @@ class ShippedProfilesTest {
             var thrown = assertThrows(IllegalStateException.class, () -> ShippedProfiles.read(loader),
                     "file name without client id is refused");
 
-            assertTrue(thrown.getMessage().contains("Acme CLI.json"), thrown.getMessage());
+            assertTrue(thrown.getMessage().contains("Acme CLI.json"), "the refusal names the refused file name");
         }
     }
 

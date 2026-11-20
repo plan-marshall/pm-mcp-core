@@ -174,8 +174,10 @@ class CorpusPatternParityTest {
         var expected = PythonRegex.compile(patternAt(resource, path));
 
         assertAll(
-                () -> assertEquals(expected.pattern(), pattern.pattern(), name),
-                () -> assertEquals(expected.flags(), pattern.flags(), name));
+                () -> assertEquals(expected.pattern(), pattern.pattern(),
+                        "the record's pattern text is the schema's pattern"),
+                () -> assertEquals(expected.flags(), pattern.flags(),
+                        "the record's pattern flags are Python's meaning"));
     }
 
     private static String key(String resource, String... path) {
@@ -313,7 +315,7 @@ class CorpusPatternParityTest {
     @MethodSource("bounds")
     @DisplayName("every bound of a record is the maxLength of the schema member it copies")
     void boundEqualsSchema(String name, int bound, String resource, String[] path) {
-        assertEquals(bound, maxLengthAt(resource, path), name);
+        assertEquals(bound, maxLengthAt(resource, path), "the record's bound is the schema member's maxLength");
     }
 
     /**

@@ -9,7 +9,7 @@
  */
 package de.planmarshall.core.guard;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -22,10 +22,10 @@ import de.planmarshall.core.testing.assertions.AssertionMessages;
  * Guards the rule of the {@code junit-core} skill that every assertion carries a message of 20 to 60 characters, for
  * the test tree of this module.
  * <p>
- * The scan walks every test source below {@code de/planmarshall/core} and skips the two packages this list exempts, by
- * name and with a reason: a new package is guarded as soon as it is written, because the list is the exemption and not
- * the population. The scan itself is the shared scanner of the {@code tests} JAR
- * ({@link AssertionMessages}), which a module's own thin guard reuses for its own tree.
+ * The scan walks every test source below {@code de/planmarshall/core}, with no package left out, so a new package is
+ * guarded as soon as it is written. The scan itself is the shared scanner of the {@code tests} JAR
+ * ({@link AssertionMessages}), which a module's own thin guard reuses for its own tree. The messages the scan accepts
+ * without measuring are written beside the violations as a report; they do not fail the guard.
  */
 @DisplayName("Every assertion carries a message")
 class AssertionMessageScanTest {
@@ -36,25 +36,21 @@ class AssertionMessageScanTest {
     /** Where the offenders of a failing scan are written, so the failure names a readable list. */
     private static final Path VIOLATIONS = Path.of("target/assertion-message-violations.txt");
 
-    /**
-     * The packages the walk leaves out. Both are outside the scope of the assertion-message family and were clean when
-     * the walk replaced the list (PLAN-V2-102 landing, L3-8); a plan that takes one of them up removes its entry.
-     */
-    private static final Map<String, String> EXEMPTIONS = Map.of(
-            "de/planmarshall/core/id", "outside the family's scope and clean when the walk replaced the list",
-            "de/planmarshall/core/testing", "outside the family's scope and clean when the walk replaced the list");
+    /** Where the messages the scan accepts without measuring are listed, the count of what the rule does not reach. */
+    private static final Path UNMEASURED = Path.of("target/assertion-message-unmeasured.txt");
 
     @Test
     @DisplayName("every assertion below the base package carries a 20 to 60 character message")
     void everyAssertionOfTheModuleCarriesAMessage() {
         var root = AssertionMessages.testSourceRoot(BASE_PACKAGE);
-        var scan = AssertionMessages.scan(root, BASE_PACKAGE, EXEMPTIONS);
+        var scan = AssertionMessages.scan(root, BASE_PACKAGE, Map.of());
+        AssertionMessages.writeViolations(UNMEASURED, scan.unmeasured());
         var violations = scan.violations();
         if (violations.isEmpty()) {
             return;
         }
         AssertionMessages.writeViolations(VIOLATIONS, violations);
 
-        assertTrue(violations.isEmpty(), () -> AssertionMessages.failureMessage(violations, VIOLATIONS));
+        fail(() -> AssertionMessages.failureMessage(violations, VIOLATIONS));
     }
 }

@@ -450,8 +450,7 @@ class FindingTest {
             var refusal = assertThrows(IllegalArgumentException.class, builder::build,
                     "building the invalid finding is refused");
 
-            assertTrue(refusal.getMessage().contains(rule),
-                    () -> "the refusal names the rule " + rule + ": " + refusal.getMessage());
+            assertTrue(refusal.getMessage().contains(rule), "the refusal message names the broken rule");
         }
     }
 }

@@ -19,6 +19,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -132,7 +133,7 @@ class RoleSetLoaderTest {
 
         assertAll(
                 () -> assertTrue(set.effective(RoleFixtures.ROLE).isPresent(), "the higher set restores the role"),
-                () -> assertTrue(set.refused().isEmpty(), () -> set.refused().toString()),
+                () -> assertEquals(List.of(), set.refused(), "no document of the sets is refused"),
                 () -> assertEquals(RoleSetKind.PROJECT, set.kind(RoleFixtures.ROLE).orElseThrow(),
                         "the project set defines the role"));
     }
