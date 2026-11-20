@@ -193,7 +193,7 @@ class JobSettlementTest {
         var stale = workerRunning(workerJob, workerState(workerJob, digest, createdAt.plusSeconds(1)));
         var newestConnectedAt = createdAt.plusSeconds(5);
         var newest = workerState(workerJob, digest, newestConnectedAt).toBuilder()
-                .state(WorkerState.State.WAITING).stateAt(newestConnectedAt).build();
+                .state(WorkerState.State.WAITING).stateAt(newestConnectedAt).task(null).build();
         try (var transaction = lockManager.openTransaction()) {
             records.writeAhead(transaction, stale);
         }
@@ -234,7 +234,7 @@ class JobSettlementTest {
                 .spawnedAt(createdAt).endedAt(createdAt.plusSeconds(60)).childWallMs(59_000L).exitCode(0L).build();
     }
 
-    /** @return the worker state of a running worker job, connected at the given instant */
+    /** @return the worker state of a running worker job, connected at the given instant and holding a leased task */
     private WorkerState workerState(JobId workerJob, String digest, Instant connectedAt) {
         return WorkerState.builder()
                 .role("implementer")
@@ -251,6 +251,7 @@ class JobSettlementTest {
                 .connectedAt(connectedAt)
                 .state(WorkerState.State.EXECUTING)
                 .stateAt(connectedAt)
+                .task(RuntimeGenerators.queueTaskIds().next())
                 .servedTasks(List.of())
                 .idleWakeups(0L)
                 .contextTokens(WorkerState.ContextTokens.NOT_MEASURED)
