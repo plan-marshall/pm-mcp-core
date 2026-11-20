@@ -172,12 +172,14 @@ final class SupervisorTestFixture {
 
     final ModelSlots slots = slots();
 
-    final WorkerProtocol protocol = protocol();
+    /** The protocol the fixture's environment hands to the end path; a test that drives a lock replaces it. */
+    WorkerProtocol protocol = protocol();
 
     /** The facts of a served task the recycling reads, at the first attempt while a test needs one. */
     final WorkerTaskActivity tasks = taskActivity();
 
-    final SupervisorEnvironment.WorkerStateWriter stateWriter = stateWriter();
+    /** The terminal-state writes, in order; a test that wants the project's real store replaces the writer. */
+    SupervisorEnvironment.WorkerStateWriter stateWriter = stateWriter();
 
     final ProjectEnrolment enrolment;
 

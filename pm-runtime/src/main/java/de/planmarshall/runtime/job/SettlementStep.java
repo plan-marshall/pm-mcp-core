@@ -14,12 +14,14 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.LeaseOwner;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.StoreRefusal;
+import de.planmarshall.core.store.WorkerStateCodec;
 
 /**
  * One step of the settlement of a job at its end (PM-EXEC-4, PM-ARCH-7), in the fixed write order of
@@ -183,8 +185,10 @@ public interface SettlementStep {
 
     /**
      * The first step: the settled record replaces the job's record, in one transaction under the lock of the scope
-     * that owns the job. For a worker, the revocation of its job token and the fence of its generation are a seam
-     * reported with the step.
+     * that owns the job. For a worker, the terminal worker block is written with the fate in that same transaction, so
+     * a settled record carries its terminal state and no later write has to change it ({@link JobRecordStore} refuses
+     * a worker write into a settled record, and that refusal stays). The revocation of the job token and the fence of
+     * the generation stay a seam of the supervisor, reported with the step.
      *
      * @param store       the job records of the job's store
      * @param lockManager the lock manager of the runtime
@@ -204,16 +208,51 @@ public interface SettlementStep {
             public Outcome run(Settled settled) {
                 var job = settled.job();
                 try (var transaction = lockManager.openTransaction()) {
-                    store.writeFate(transaction, job);
+                    store.writeFate(transaction, withTerminalWorker(store, job, transaction));
                 } catch (UncheckedIOException | StoreRefusal e) {
                     return new Outcome.Failed("the fate of %s was not recorded: %s".formatted(job.jobId(),
                             e.getMessage()));
                 }
                 var report = "fate %s recorded".formatted(job.fate().wireName());
                 return new Outcome.Done(job.jobId().kind() == JobId.Kind.LLM
-                        ? report + "; worker token and fence " + NOT_IMPLEMENTED : report);
+                        ? report + "; worker block terminal, token and fence " + NOT_IMPLEMENTED : report);
             }
         };
+    }
+
+    /**
+     * Replaces the worker block of a settled record with its terminal state; a job that is no worker keeps its record
+     * as it is, and so does a record whose block is terminal already or cannot be read — the fate is what must be
+     * durable, and a block the codec refuses is left for the reader that reports it.
+     * <p>
+     * The block is the one the record carries under the transaction's lock, not the one the runner read when it decided
+     * the fate: a worker state the transport wrote after that read ({@code writeWorker}) is newer than the runner's
+     * snapshot, and the fate write replaces the whole record. Deriving the terminal state from the stored block keeps
+     * that newer state — the connection instant among it — from being overwritten by the older text.
+     *
+     * @param store       the job records of the job's store
+     * @param job         the settled record
+     * @param transaction the transaction that holds the lock of the record's scope
+     * @return the record the fate write stores
+     */
+    private static JobRecord withTerminalWorker(JobRecordStore store, JobRecord job, LockTransaction transaction) {
+        if (job.kind() != JobId.Kind.LLM) {
+            return job;
+        }
+        transaction.acquire(store.lockKey(job.scope()));
+        var block = store.read(job.jobId()).map(JobRecord::worker).orElse(job.worker());
+        if (block == null) {
+            return job;
+        }
+        // The stored block is what the fate write persists, whatever it says: converting a readable nonterminal block
+        // and keeping every other one as it is — also one the codec refuses — never restores the runner's older text.
+        try {
+            var current = WorkerStateCodec.read(store.recordPath(job.jobId()), block);
+            return current.state().isTerminal() ? job.withWorker(block)
+                    : job.withWorker(WorkerStateCodec.write(WorkerTermination.terminal(current, job)));
+        } catch (StoreRefusal _) {
+            return job.withWorker(block);
+        }
     }
 
     /**
