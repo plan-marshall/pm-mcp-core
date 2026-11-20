@@ -35,6 +35,7 @@ import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
 import de.planmarshall.workflow.ast.UnitType;
+import de.planmarshall.workflow.input.InputValidator;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
@@ -622,17 +623,22 @@ public final class UnitFrontmatterReader {
                         text.substring("list<enum[".length(), text.length() - 2), number, column));
             }
             if ("text".equals(text)) {
-                return new InputType.Text(null, null);
+                throw new Refusal(number, column,
+                        "the input_type 'text' lacks its range; write text[<low>..<high>] within the cap %d"
+                                .formatted(InputValidator.TEXT_CAP));
             }
             if (text.startsWith("text[") && text.endsWith("]")) {
-                return textRange(text.substring("text[".length(), text.length() - 1), number, column, InputType.Text::new);
+                return withinCaps(textRange(text.substring("text[".length(), text.length() - 1), number, column,
+                        InputType.Text::new), text, number, column);
             }
             if ("commit_message".equals(text)) {
-                return new InputType.CommitMessage(null, null);
+                throw new Refusal(number, column,
+                        "the input_type 'commit_message' lacks its range; write commit_message[<low>..<high>] within "
+                                + "the cap %d".formatted(InputValidator.COMMIT_MESSAGE_CAP));
             }
             if (text.startsWith("commit_message[") && text.endsWith("]")) {
-                return textRange(text.substring("commit_message[".length(), text.length() - 1), number, column,
-                        InputType.CommitMessage::new);
+                return withinCaps(textRange(text.substring("commit_message[".length(), text.length() - 1), number,
+                        column, InputType.CommitMessage::new), text, number, column);
             }
             if ("path".equals(text)) {
                 return new InputType.Path();
@@ -640,18 +646,50 @@ public final class UnitFrontmatterReader {
             if (text.startsWith("list<path")) {
                 var inner = text.substring("list<path".length()).trim();
                 if (">".equals(inner)) {
-                    return new InputType.PathList(null, null);
+                    throw new Refusal(number, column,
+                            "the input_type 'list<path>' lacks its range; write list<path>[<low>..<high>] within the "
+                                    + "cap %d".formatted(InputValidator.PATH_LIST_CAP));
                 }
                 if (inner.startsWith(">[") && inner.endsWith("]")) {
-                    return pathListRange(inner.substring(2, inner.length() - 1), number, column);
+                    return withinCaps(pathListRange(inner.substring(2, inner.length() - 1), number, column), text,
+                            number, column);
                 }
                 throw new Refusal(number, column,
                         "the input_type '%s' is no list<path> or list<path>[<low>..<high>]"
                                 .formatted(echo(value)));
             }
             throw new Refusal(number, column,
-                    "the input_type '%s' is none of enum[...], int, text, commit_message, path and list<...>"
+                    "the input_type '%s' is none of enum[...], int, text[...], commit_message[...], path and list<...>"
                             .formatted(echo(value)));
+        }
+
+        /**
+         * Refuses a range that widens beyond the compiled cap of its type: "a unit narrows and never widens".
+         *
+         * @param type   the type as the source declared it
+         * @param source the source text, for the refusal
+         * @param number the line
+         * @param column the column
+         * @return the type
+         */
+        private static InputType withinCaps(InputType type, String source, int number, int column) {
+            var high = switch (type) {
+                case InputType.Text(_, var max) -> max;
+                case InputType.CommitMessage(_, var max) -> max;
+                case InputType.PathList(_, var max) -> max;
+                default -> null;
+            };
+            var cap = switch (type) {
+                case InputType.Text _ -> InputValidator.TEXT_CAP;
+                case InputType.CommitMessage _ -> InputValidator.COMMIT_MESSAGE_CAP;
+                case InputType.PathList _ -> InputValidator.PATH_LIST_CAP;
+                default -> Integer.MAX_VALUE;
+            };
+            if (high != null && high > cap) {
+                throw new Refusal(number, column, "the input_type '%s' widens beyond the compiled cap %d"
+                        .formatted(echo(source), cap));
+            }
+            return type;
         }
 
         private static List<String> enumValues(String text, int number, int column) {

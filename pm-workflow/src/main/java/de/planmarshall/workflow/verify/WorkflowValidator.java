@@ -145,7 +145,7 @@ public final class WorkflowValidator {
             "inherit", "skill", "facts", "auto", "job", "composite_job", "call", "question", "link", "guard",
             "depends_on_config", "do", "llm", "role", "each", "consult", "completes", "as", "and", "or", "not",
             "in_worktree", "has_open_findings", "all_tasks_completed", "predicate", "text", "int", "enum", "schema",
-            "list");
+            "list", "slot", "fills", "from");
 
     private final PrimitiveRegistry registry;
 
@@ -1886,7 +1886,8 @@ public final class WorkflowValidator {
         for (var slot : definition.frontmatter().slots()) {
             slotNames.add(slot.name());
         }
-        var filledSomewhere = new LinkedHashSet<String>();
+        var graph = UnitGraph.of(definition);
+        var fillers = new LinkedHashMap<String, Set<String>>();
         for (var state : definition.states().values()) {
             var fills = state.fills();
             if (fills == null) {
@@ -1912,7 +1913,7 @@ public final class WorkflowValidator {
                                 .formatted(state.id()))
                         .build());
             } else {
-                filledSomewhere.add(fills.slotName());
+                fillers.computeIfAbsent(fills.slotName(), name -> new LinkedHashSet<>()).add(state.id());
             }
             if (state.behavior() instanceof StateBehavior.InteractiveLinks links) {
                 var found = links.links().stream().anyMatch(link -> link.freeParams().stream()
@@ -1933,8 +1934,11 @@ public final class WorkflowValidator {
                 continue;
             }
             for (var value : call.paramBindings().values()) {
-                if (value instanceof CallValue.SlotRef slotRef && slotNames.contains(slotRef.name())
-                        && !filledSomewhere.contains(slotRef.name())) {
+                if (!(value instanceof CallValue.SlotRef slotRef) || !slotNames.contains(slotRef.name())) {
+                    continue;
+                }
+                var filling = fillers.getOrDefault(slotRef.name(), Set.of());
+                if (filling.isEmpty()) {
                     violations.add(Violation.builder()
                             .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
                             .stateId(state.id())
@@ -1942,9 +1946,55 @@ public final class WorkflowValidator {
                             .message("the slot '%s' read at the call in '%s' is never filled in the unit"
                                     .formatted(slotRef.name(), state.id()))
                             .build());
+                } else if (!dominatedByAny(graph, definition.startingStates(), filling, state.id())) {
+                    violations.add(Violation.builder()
+                            .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                            .stateId(state.id())
+                            .location(state.location())
+                            .message("the slot '%s' read at the call in '%s' is not filled on every path that reaches it"
+                                    .formatted(slotRef.name(), state.id()))
+                            .build());
                 }
             }
         }
+    }
+
+    /**
+     * Whether every path from one of the starting states to the target passes one of the dominators.
+     * <p>
+     * The dominance is over states: it proves that the call is reached through a state that fills the slot, and it
+     * cannot express the outcome a task settlement carried. The engine closes that dimension at run time: only the
+     * outcome {@code submitted} fills a slot, and a call that binds an unfilled slot is refused with
+     * {@code precondition_unmet} / {@code input_unbound}.
+     *
+     * @param graph        the graph of the unit
+     * @param starts       the states the unit is entered at
+     * @param dominators   the states one of which every path must pass
+     * @param target       the state that must be dominated
+     * @return whether one of the dominators dominates the target
+     */
+    private static boolean dominatedByAny(UnitGraph graph, Collection<String> starts, Set<String> dominators,
+            String target) {
+        if (dominators.contains(target)) {
+            return true;
+        }
+        var seen = new LinkedHashSet<>(starts);
+        var queue = new ArrayDeque<>(starts.stream().filter(start -> !dominators.contains(start)).toList());
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            for (var next : graph.successors(current)) {
+                if (dominators.contains(next)) {
+                    continue;
+                }
+                if (next.equals(target)) {
+                    return false;
+                }
+                if (seen.add(next)) {
+                    queue.add(next);
+                }
+            }
+        }
+        return true;
     }
 
     private static boolean assignable(InputType slotType, InputType inputType) {

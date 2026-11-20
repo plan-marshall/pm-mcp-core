@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.engine;
 
 import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
@@ -70,8 +71,10 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.plan.InstanceComposition;
 import de.planmarshall.workflow.plan.InstanceUnits;
 import de.planmarshall.workflow.testing.LockDoubles;
+import de.planmarshall.workflow.verify.ConfigKeyRegistry;
 import de.planmarshall.workflow.verify.EntityKind;
 import de.planmarshall.workflow.verify.EntityKindRegistry;
+import de.planmarshall.workflow.verify.FactKindRegistry;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
@@ -381,6 +384,32 @@ final class EngineFixtures {
                 .clock(clock).ids(ids).build();
     }
 
+    /**
+     * @param bindingContext the context of a call-time bind: worktree root, staging set and configuration values
+     * @return the ports of the engine with the bind context mounted
+     */
+    WorkflowEngine.Ports ports(InputBindingContext bindingContext) {
+        return WorkflowEngine.Ports.builder().jobs(jobStarter).tasks(taskCreator).questions(questionReader)
+                .clock(clock).ids(ids).bindingContext(bindingContext).build();
+    }
+
+    /**
+     * @param root    the worktree root the paths are confined against
+     * @param staging the paths of the scope's staging set
+     * @param config  the configuration values by key
+     * @return the bind context of a test, an EasyMock double
+     */
+    static InputBindingContext bindingContext(java.nio.file.Path root, Set<String> staging,
+            Map<String, String> config) {
+        InputBindingContext context = createMock(InputBindingContext.class);
+        expect(context.worktreeRoot()).andReturn(root).anyTimes();
+        expect(context.stagingSet()).andReturn(staging).anyTimes();
+        expect(context.configValue(anyString())).andAnswer(
+                () -> Optional.ofNullable(config.get((String) getCurrentArguments()[0]))).anyTimes();
+        replay(context);
+        return context;
+    }
+
     /** @return the address resolver over this fixture's pending entry port and {@link #entityKinds()} */
     EntityAddressResolver resolver() {
         return new EntityAddressResolver(entryReader, entityKinds());
@@ -476,8 +505,17 @@ final class EngineFixtures {
      * @return the verifier over this fixture's primitives and the callees
      */
     WorkflowValidator validator(WorkflowDefinition... callees) {
+        return validator(ConfigKeyRegistry.empty(), callees);
+    }
+
+    /**
+     * @param configKeys the keys of the closed configuration a unit may read
+     * @param callees    the sub-workflows the units may call
+     * @return the verifier over this fixture's primitives, the configuration keys and the callees
+     */
+    WorkflowValidator validator(ConfigKeyRegistry configKeys, WorkflowDefinition... callees) {
         return new WorkflowValidator(registry(), List.of(), entityKinds(), QuestionClassRegistry.defaults(),
-                SchemaRegistry.defaults(), WorkflowCatalog.of(callees));
+                SchemaRegistry.defaults(), WorkflowCatalog.of(callees), configKeys, FactKindRegistry.empty());
     }
 
     /**

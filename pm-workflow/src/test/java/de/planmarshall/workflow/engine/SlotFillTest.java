@@ -20,6 +20,7 @@ import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
@@ -35,9 +36,14 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 
 /**
- * Slot fills of PLAN-V2-15 (Deliverable 2): the engine fills the slot a state declares from the task submission it
- * accepts and from the operator's answer to the link its act names, and records the provenance of the value. The units
- * are written for the test; the operator link binds the free parameter of the fixture primitive {@code test.note}.
+ * Slot fills of PLAN-V2-15 as PLAN-V2-157 finishes them: the engine fills the slot a state declares from the task
+ * submission it accepted (only the outcome {@code submitted}) and from the operator's answer to the link its act names,
+ * validates the value against the slot's closed type, and stores it under {@code <declaring unit id>:<slot name>}. A
+ * value that does not fit the type is refused {@code invalid_link_args}, so the submitter or the operator can correct
+ * it.
+ * <p>
+ * The units are written for the test; the operator link binds the free parameter of the fixture primitive
+ * {@code test.note}.
  */
 @EnableGeneratorController
 @DisplayName("Slot fills")
@@ -45,6 +51,12 @@ class SlotFillTest {
 
     /** The slot the fixture units declare and fill. */
     private static final String SLOT = "commit_message";
+
+    /** The key the store holds the slot under: the declaring unit's id and the slot name (Decision 4). */
+    private static final String SLOT_KEY = "plan:" + SLOT;
+
+    /** The conventional-commit type of a generated message: the grammar is the contract. */
+    private static final String COMMIT_TYPE = "fix(engine): ";
 
     /** A plan whose task state fills the declared slot from the submission's {@code message}. */
     private static final String TASK_UNIT = """
@@ -128,6 +140,11 @@ class SlotFillTest {
         return binder;
     }
 
+    /** @return a generated Conventional Commit message: the type prefix is the grammar, the rest is generated */
+    private static String generatedMessage() {
+        return COMMIT_TYPE + Generators.letterStrings(1, 40).next();
+    }
+
     @Nested
     @DisplayName("Task submission")
     class TaskSubmission {
@@ -135,14 +152,14 @@ class SlotFillTest {
         @Test
         @DisplayName("Should fill the declared slot from the submission the settlement carries")
         void shouldFillFromTheSubmission() {
-            var message = Generators.letterStrings(1, 40).next();
+            var message = generatedMessage();
             var engine = fixtures.engine(parse("plan.pmwf", TASK_UNIT));
             var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
 
             var filled = engine.advance(atTask, new EngineEvent.TasksSettled(Map.of("change", "submitted"),
                     Map.of("change", Map.of("message", message)), "approved")).status();
 
-            var slot = filled.slots().get(SLOT);
+            var slot = filled.slots().get(SLOT_KEY);
             assertNotNull(slot, "the settlement fills the declared slot");
             assertAll(
                     () -> assertEquals("completed", filled.state(), "the approved settlement routes the task"),
@@ -150,6 +167,37 @@ class SlotFillTest {
                     () -> assertEquals("task_submit", slot.source(), "the slot records a task submission"),
                     () -> assertEquals("change", slot.sourceRef(), "the slot names the submitting entity"),
                     () -> assertEquals(T0, slot.filledAt(), "the slot records the instant it was filled"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a submitted value that is no commit message")
+        void shouldRefuseAnInvalidSubmission() {
+            var notACommit = Generators.letterStrings(1, 40).next();
+            var engine = fixtures.engine(parse("plan.pmwf", TASK_UNIT));
+            var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+            var settlement = new EngineEvent.TasksSettled(Map.of("change", "submitted"),
+                    Map.of("change", Map.of("message", notACommit)), "approved");
+
+            var refusal = assertThrows(IllegalArgumentException.class, () -> engine.advance(atTask, settlement),
+                    "a submitted value that is no commit message is refused");
+
+            assertTrue(refusal.getMessage().startsWith("invalid_link_args:"),
+                    "the refusal is the link-argument refusal to correct");
+        }
+
+        @Test
+        @DisplayName("Should not fill the slot for an outcome that submitted nothing")
+        void shouldNotFillForALostOutcome() {
+            var message = generatedMessage();
+            var engine = fixtures.engine(parse("plan.pmwf", TASK_UNIT));
+            var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+
+            var filled = engine.advance(atTask, new EngineEvent.TasksSettled(Map.of("change", "lost"),
+                    Map.of("change", Map.of("message", message)), "lost")).status();
+
+            assertAll(
+                    () -> assertTrue(filled.slots().isEmpty(), "a lost task fills no slot"),
+                    () -> assertEquals("handed_back", filled.state(), "the lost settlement routes the task"));
         }
 
         @Test
@@ -168,7 +216,7 @@ class SlotFillTest {
         @Test
         @DisplayName("Should ignore a submission keyed by an entity the state does not await")
         void shouldIgnoreANonAwaitedSubmission() {
-            var message = Generators.letterStrings(1, 40).next();
+            var message = generatedMessage();
             var engine = fixtures.engine(parse("plan.pmwf", TASK_UNIT));
             var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
 
@@ -186,14 +234,14 @@ class SlotFillTest {
         @Test
         @DisplayName("Should fill the declared slot from the answer the operator act carries")
         void shouldFillFromTheOperatorAct() {
-            var note = Generators.letterStrings(1, 40).next();
+            var note = generatedMessage();
             var engine = operatorEngine(parse("plan.pmwf", OPERATOR_UNIT));
             var atLink = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
 
             var filled = engine.advance(atLink, new EngineEvent.OperatorAct("execute.answer", "answer",
                     Map.of("note", note))).status();
 
-            var slot = filled.slots().get(SLOT);
+            var slot = filled.slots().get(SLOT_KEY);
             assertNotNull(slot, "the operator answer fills the declared slot");
             assertAll(
                     () -> assertEquals("completed", filled.state(), "the accepted act routes the link's done"),
@@ -201,6 +249,21 @@ class SlotFillTest {
                     () -> assertEquals("operator_answer", slot.source(), "the slot records an operator answer"),
                     () -> assertEquals("answer", slot.sourceRef(), "the slot names the link the act followed"),
                     () -> assertEquals(T0, slot.filledAt(), "the slot records the instant it was filled"));
+        }
+
+        @Test
+        @DisplayName("Should refuse an answer that does not fit the slot's type")
+        void shouldRefuseAnInvalidAnswer() {
+            var notACommit = Generators.letterStrings(1, 40).next();
+            var engine = operatorEngine(parse("plan.pmwf", OPERATOR_UNIT));
+            var atLink = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+            var act = new EngineEvent.OperatorAct("execute.answer", "answer", Map.of("note", notACommit));
+
+            var refusal = assertThrows(IllegalArgumentException.class, () -> engine.advance(atLink, act),
+                    "an answer that is no commit message is refused");
+
+            assertTrue(refusal.getMessage().startsWith("invalid_link_args:"),
+                    "the refusal is the link-argument refusal to correct");
         }
 
         @Test

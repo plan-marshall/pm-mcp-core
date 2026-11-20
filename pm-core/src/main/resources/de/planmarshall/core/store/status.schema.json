@@ -154,7 +154,7 @@
         "additionalProperties": false,
         "properties": {
           "value": { "type": "string" },
-          "source": { "type": "string", "enum": ["literal", "config", "default", "task_submit", "operator_answer"] },
+          "source": { "type": "string", "enum": ["task_submit", "operator_answer"] },
           "source_ref": { "type": ["string", "null"] },
           "filled_at": { "type": "string", "format": "date-time" }
         }

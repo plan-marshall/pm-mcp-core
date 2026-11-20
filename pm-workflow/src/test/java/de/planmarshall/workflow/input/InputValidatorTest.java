@@ -189,12 +189,12 @@ class InputValidatorTest {
         }
 
         @Test
-        @DisplayName("a lone surrogate has no Conventional Commit header")
+        @DisplayName("a lone surrogate is refused as a surrogate")
         void loneSurrogateRefused() {
             var refusal = refusal(InputValidator.validateText(COMMIT_MESSAGE, "\uD800"));
 
-            assertEquals("input.commit-message", refusal.ruleId(),
-                    "a lone surrogate is no commit header");
+            assertEquals("input.surrogate", refusal.ruleId(),
+                    "a lone surrogate is refused as a surrogate");
         }
 
         @Test

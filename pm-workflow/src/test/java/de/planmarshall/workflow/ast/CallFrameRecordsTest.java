@@ -43,7 +43,7 @@ class CallFrameRecordsTest {
         var commandId = CommandId.random();
         var correlationId = CorrelationId.random();
 
-        var constructed = new CallFrame(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs,
+        var constructed = new CallFrame(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs, Map.of(),
                 commandId, correlationId, pushedAt);
         var built = CallFrame.builder()
                 .callerWorkflowId(callerWorkflowId)
@@ -51,6 +51,7 @@ class CallFrameRecordsTest {
                 .subWorkflowId(subWorkflowId)
                 .entry(entry)
                 .boundArgs(boundArgs)
+                .argSources(Map.of())
                 .commandId(commandId)
                 .correlationId(correlationId)
                 .pushedAt(pushedAt)

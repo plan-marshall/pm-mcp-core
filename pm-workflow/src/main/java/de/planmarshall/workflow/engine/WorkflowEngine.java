@@ -41,6 +41,8 @@ import de.planmarshall.core.spi.QueueTaskCreator;
 import de.planmarshall.core.spi.WorkflowClock;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
 import de.planmarshall.core.store.JournalScopeType;
+import de.planmarshall.core.store.PathConfinement;
+import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.core.store.PlanHistory;
 import de.planmarshall.core.store.PlanHistoryLine;
 import de.planmarshall.core.store.RetryCounters;
@@ -50,7 +52,12 @@ import de.planmarshall.core.store.WorkflowStatus.ActiveJob;
 import de.planmarshall.core.store.WorkflowStatus.JobEntry;
 import de.planmarshall.core.store.WorkflowStatus.TaskEntry;
 import de.planmarshall.core.store.WorkflowStatusStore;
+import de.planmarshall.core.store.WorkspaceRoots;
+import de.planmarshall.workflow.ast.ArgSource;
 import de.planmarshall.workflow.ast.CallFrame;
+import de.planmarshall.workflow.ast.CallValue;
+import de.planmarshall.workflow.ast.InputDecl;
+import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.LinkAction;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
@@ -60,6 +67,8 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.input.InputRefusal;
+import de.planmarshall.workflow.input.InputValidator;
 import de.planmarshall.workflow.plan.CompositionEvent;
 import de.planmarshall.workflow.plan.CompositionResult;
 import de.planmarshall.workflow.plan.InstanceComposition;
@@ -989,7 +998,10 @@ public final class WorkflowEngine {
             record(PlanHistoryLine.Event.LEFT, node.id(), outcome);
         }
 
-        /** Fills the state's slot from the accepted task submission, when the state declares a fills clause. */
+        /**
+         * Fills the state's slot from the accepted task submission, when the state declares a fills clause. Only the
+         * outcome {@code submitted} fills: a lost, asked or infeasible task submitted nothing.
+         */
         void fillSlotFromTask(StateNode node, Map<String, String> taskOutcomes,
                 Map<String, Map<String, String>> submissions) {
             var fills = node.fills();
@@ -997,12 +1009,12 @@ public final class WorkflowEngine {
                 return;
             }
             for (var entry : submissions.entrySet()) {
-                if (!taskOutcomes.containsKey(entry.getKey())) {
+                if (!"submitted".equals(taskOutcomes.get(entry.getKey()))) {
                     continue;
                 }
                 var value = entry.getValue().get(fills.fromParam());
                 if (value != null) {
-                    storeSlot(fills.slotName(), value, "task_submit", entry.getKey());
+                    storeSlot(node, fills.slotName(), value, ArgSource.TASK_SUBMIT, entry.getKey());
                     return;
                 }
             }
@@ -1016,14 +1028,46 @@ public final class WorkflowEngine {
             }
             var value = act.parameters().get(fills.fromParam());
             if (value != null) {
-                storeSlot(fills.slotName(), value, "operator_answer", act.linkId());
+                storeSlot(node, fills.slotName(), value, ArgSource.OPERATOR_ANSWER, act.linkId());
             }
         }
 
-        private void storeSlot(String name, String value, String source, String sourceRef) {
+        /**
+         * Validates the filled value against the slot's closed type and stores it under
+         * {@code <declaring unit id>:<slot name>}.
+         *
+         * @param node      the state whose {@code fills} clause names the slot
+         * @param slotName  the name of the slot
+         * @param value     the value as the submission or the act carried it
+         * @param source    {@code task_submit} or {@code operator_answer}
+         * @param sourceRef the queue task id or the link id
+         * @throws IllegalArgumentException if the value does not fit the slot's type, which the submitter or the
+         *                                  operator corrects by submitting again
+         */
+        private void storeSlot(StateNode node, String slotName, String value, String source, String sourceRef) {
+            var unit = unitOf(stack);
+            var declaration = unit.frontmatter().slots().stream()
+                    .filter(slot -> slot.name().equals(slotName)).findFirst()
+                    .orElseThrow(() -> fault(Reason.UNRESOLVED_NAME, "the unit '%s' declares no slot '%s' at '%s'",
+                            unit.id(), slotName, node.id()));
+            var parsed = InputValidator.parse(declaration.type(), value)
+                    .orElseThrow(() -> invalidLinkArgs(unit, declaration, InputValidator.RULE_MALFORMED, value));
+            var refusal = InputValidator.validate(declaration.type(), parsed);
+            if (refusal.isPresent()) {
+                throw invalidLinkArgs(unit, declaration, refusal.get().ruleId(), value);
+            }
             var slots = new LinkedHashMap<>(status.slots());
-            slots.put(name, new WorkflowStatus.Slot(value, source, sourceRef, clock.now()));
+            slots.put(unit.id() + ":" + slotName,
+                    new WorkflowStatus.Slot(value, source, sourceRef, clock.now()));
             status = status.toBuilder().slots(slots).build();
+        }
+
+        private static IllegalArgumentException invalidLinkArgs(WorkflowDefinition unit, InputDecl declaration,
+                String rule, String value) {
+            var echo = new InputRefusal(rule, value);
+            return new IllegalArgumentException(
+                    "invalid_link_args: the %s of the slot '%s' refuses the submitted value (%s)"
+                            .formatted(declaration.type().sourceText(), declaration.name(), echo.ruleId()));
         }
 
         /** Records the state as left and returns the target its transition was chosen for. */
@@ -1077,7 +1121,14 @@ public final class WorkflowEngine {
                 switch (node.behavior()) {
                     case StateBehavior.AutoStep auto -> stateId = runPrimitive(node, auto.primitiveId(),
                             auto.transitions());
-                    case StateBehavior.SubWorkflowCall call -> stateId = call(node, call);
+                    case StateBehavior.SubWorkflowCall call -> {
+                        var outcome = call(node, call);
+                        if (outcome.refusal() != null) {
+                            return EngineStep.ConditionRaised.raise(finish(), PRECONDITION_UNMET,
+                                    outcome.refusal(), clock.now());
+                        }
+                        stateId = outcome.targetStateId();
+                    }
                     case StateBehavior.TerminalState _ -> {
                         if (stack.isEmpty()) {
                             return ended(finish(), node);
@@ -1355,15 +1406,63 @@ public final class WorkflowEngine {
             return transitionOf(node, transitions, outcome, Map.of()).targetStateId();
         }
 
-        private String call(StateNode node, StateBehavior.SubWorkflowCall call) {
+        /**
+         * The outcome of one call: the state the callee is entered at, or the facts of a refused bind.
+         *
+         * @param targetStateId the entry state of the callee; {@code null} when the bind refused
+         * @param refusal       the facts of the refusal, {@code null} when the call bound and pushed its frame
+         */
+        private record CallOutcome(@Nullable String targetStateId, @Nullable Map<String, String> refusal) {
+
+            static CallOutcome into(String stateId) {
+                return new CallOutcome(stateId, null);
+            }
+
+            static CallOutcome refused(Map<String, String> facts) {
+                return new CallOutcome(null, facts);
+            }
+        }
+
+        /**
+         * Binds a call: resolves every input of the callee in the order of ADR {@code workflow-dsl/014}, resolves a slot
+         * reference to the slot's value and consumes it, validates every value against the input's closed type and
+         * pushes the frame with the provenance of each value. A refusal leaves the state and the stack as they are.
+         *
+         * @param node the calling state
+         * @param call the call
+         * @return the entry state, or the facts of the refusal
+         */
+        private CallOutcome call(StateNode node, StateBehavior.SubWorkflowCall call) {
             var callee = unitById(call.subWorkflowId());
             var entry = entryOf(callee, call);
+            var declaringUnit = unitOf(stack);
+            var slots = new LinkedHashMap<>(status.slots());
+            var bound = new LinkedHashMap<String, CallValue>();
+            var sources = new LinkedHashMap<String, ArgSource>();
+            for (var input : callee.frontmatter().inputs()) {
+                var resolution = resolve(declaringUnit, callee, input, call.paramBindings(), slots);
+                if (resolution instanceof Resolution.Refused(var facts)) {
+                    return CallOutcome.refused(facts);
+                }
+                if (resolution instanceof Resolution.Bound(var value, var source)) {
+                    var refusal = validateInput(callee, input, value);
+                    if (refusal.isPresent()) {
+                        return CallOutcome.refused(refusal.get());
+                    }
+                    bound.put(input.name(), value);
+                    sources.put(input.name(), source);
+                }
+            }
+            if (!slots.equals(status.slots())) {
+                status = status.toBuilder().slots(slots).build();
+            }
             var frame = CallFrame.builder()
-                    .callerWorkflowId(unitOf(stack).id())
+                    .callerWorkflowId(declaringUnit.id())
                     .callerStateId(node.id())
                     .subWorkflowId(callee.id())
                     .entry(entry)
-                    .boundArgs(call.paramBindings())
+                    .boundArgs(bound)
+                    .argSources(sources)
                     .commandId(CommandId.random(ids))
                     .correlationId(correlationId)
                     .pushedAt(clock.now().toString())
@@ -1371,7 +1470,141 @@ public final class WorkflowEngine {
             record(PlanHistoryLine.Event.CALLED, callee.id(), null);
             stack = stack.push(frame);
             results.push(new LinkedHashMap<>());
-            return callee.entryBindings().get(entry).stateId();
+            return CallOutcome.into(callee.entryBindings().get(entry).stateId());
+        }
+
+        /** The resolution of one input of a call: a value with its provenance, an absent optional input, or a refusal. */
+        private sealed interface Resolution {
+
+            /** @param value the value to bind @param source its provenance */
+            record Bound(CallValue value, ArgSource source) implements Resolution {
+            }
+
+            /** An input whose absence the optional form admits. */
+            record Absent() implements Resolution {
+            }
+
+            /** @param facts the facts of the refusal */
+            record Refused(Map<String, String> facts) implements Resolution {
+            }
+        }
+
+        /**
+         * Resolves one input of the callee in the order of ADR {@code workflow-dsl/014}: the value the call site binds,
+         * the value of the {@code input_fallback} configuration key, the compiled default, and absence under {@code ?}.
+         *
+         * @param declaringUnit the unit that declares the slot the call site may bind
+         * @param callee        the called unit
+         * @param input         the input to resolve
+         * @param bindings      the values the call site binds
+         * @param slots         the slots of the scope, from which a bound slot is consumed
+         * @return the resolution
+         */
+        private Resolution resolve(WorkflowDefinition declaringUnit, WorkflowDefinition callee, InputDecl input,
+                Map<String, CallValue> bindings, Map<String, WorkflowStatus.Slot> slots) {
+            var bound = bindings.get(input.name());
+            if (bound != null) {
+                if (bound instanceof CallValue.SlotRef(var name)) {
+                    var key = declaringUnit.id() + ":" + name;
+                    var slot = slots.remove(key);
+                    if (slot == null) {
+                        return new Resolution.Refused(unbound(callee, input));
+                    }
+                    var value = InputValidator.parse(input.type(), slot.value());
+                    if (value.isEmpty()) {
+                        return new Resolution.Refused(refused(callee, input, InputValidator.RULE_MALFORMED));
+                    }
+                    return new Resolution.Bound(value.get(), new ArgSource(slot.source(), slot.sourceRef()));
+                }
+                return new Resolution.Bound(bound, new ArgSource(ArgSource.LITERAL, null));
+            }
+            if (input.fallback() != null && bindingContext != null) {
+                var configured = bindingContext.configValue(input.fallback());
+                if (configured.isPresent()) {
+                    var value = InputValidator.parse(input.type(), configured.get());
+                    if (value.isEmpty()) {
+                        return new Resolution.Refused(refused(callee, input, InputValidator.RULE_MALFORMED));
+                    }
+                    return new Resolution.Bound(value.get(), new ArgSource(ArgSource.CONFIG, input.fallback()));
+                }
+            }
+            if (input.defaultValue() != null) {
+                return new Resolution.Bound(input.defaultValue(), new ArgSource(ArgSource.DEFAULT, null));
+            }
+            if (input.optional()) {
+                return new Resolution.Absent();
+            }
+            return new Resolution.Refused(unbound(callee, input));
+        }
+
+        /**
+         * Validates a bound value against the closed type of the callee's input, the confinement and the staging set.
+         *
+         * @return the facts of the refusal, empty when the value is accepted
+         */
+        private Optional<Map<String, String>> validateInput(WorkflowDefinition callee, InputDecl input,
+                CallValue value) {
+            var type = input.type();
+            if (type instanceof InputType.PathList && value instanceof CallValue.EnumList(var texts)
+                    && texts.isEmpty()) {
+                return Optional.of(refused(callee, input, InputValidator.RULE_EMPTY));
+            }
+            var refusal = InputValidator.validate(type, value);
+            if (refusal.isPresent()) {
+                return Optional.of(refused(callee, input, refusal.get().ruleId()));
+            }
+            if (type instanceof InputType.Path && value instanceof CallValue.EnumValue(var text)) {
+                return confined(text) ? Optional.empty()
+                        : Optional.of(refused(callee, input, confinementRule(text)));
+            }
+            if (type instanceof InputType.PathList && value instanceof CallValue.EnumList(var texts)) {
+                for (var text : texts) {
+                    if (!confined(text)) {
+                        return Optional.of(refused(callee, input, confinementRule(text)));
+                    }
+                }
+            }
+            return Optional.empty();
+        }
+
+        /**
+         * @param text a path that passed the syntactic rules
+         * @return whether the path is confined to the worktree and belongs to the staging set
+         */
+        private boolean confined(String text) {
+            if (bindingContext == null) {
+                return false;
+            }
+            var roots = new WorkspaceRoots(bindingContext.worktreeRoot(), Set.of());
+            if (!(PathConfinement.confine(roots, text) instanceof ConfinementOutcome.Confined)) {
+                return false;
+            }
+            return bindingContext.stagingSet().contains(text);
+        }
+
+        private String confinementRule(String text) {
+            if (bindingContext == null) {
+                return InputValidator.RULE_PATH_NO_CONTEXT;
+            }
+            var roots = new WorkspaceRoots(bindingContext.worktreeRoot(), Set.of());
+            return PathConfinement.confine(roots, text) instanceof ConfinementOutcome.Confined
+                    ? InputValidator.RULE_PATH_STAGING
+                    : InputValidator.RULE_PATH_CONFINEMENT;
+        }
+
+        private static Map<String, String> unbound(WorkflowDefinition callee, InputDecl input) {
+            var facts = new LinkedHashMap<String, String>();
+            facts.put("reason", "input_unbound");
+            facts.put("input", callee.id() + ".input." + input.name());
+            return facts;
+        }
+
+        private static Map<String, String> refused(WorkflowDefinition callee, InputDecl input, String rule) {
+            var facts = new LinkedHashMap<String, String>();
+            facts.put("reason", "input_refused");
+            facts.put("input", callee.id() + ".input." + input.name());
+            facts.put("rule", rule);
+            return facts;
         }
 
         /**
