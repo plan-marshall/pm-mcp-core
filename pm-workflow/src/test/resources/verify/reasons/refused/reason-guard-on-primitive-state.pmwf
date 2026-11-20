@@ -1,0 +1,23 @@
+---
+name: verify.reason-guard-on-primitive-state
+description: A unit written for the verifier tests.
+type: workflow
+icon: workflow.default
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 19
+# A plan unit whose auto state guards an outcome on result.reason; the state is no call.
+workflow verify.reason-guard-on-primitive-state version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    auto reason.check
+        passed -> verify.done
+        failed -> verify.done
+            guard result.reason
+        skipped -> verify.done
+
+state verify.done terminal done success

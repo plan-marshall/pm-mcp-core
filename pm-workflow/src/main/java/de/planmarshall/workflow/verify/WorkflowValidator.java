@@ -1117,7 +1117,12 @@ public final class WorkflowValidator {
         }
     }
 
-    /** Rule 2 over the transitions of one primitive; an outcome in {@code settled} a prune record settles. */
+    /**
+     * Rule 2 over the transitions of one primitive; an outcome in {@code settled} a prune record settles. A routed name
+     * that is no outcome of the primitive but the wire name of a reason of one of its outcomes is named as such, still
+     * one violation of the rule: a reason is carried as data and never routed. An omitted per-reason edge is never
+     * reported, because no reason is an outcome.
+     */
     private void coverOutcomes(StateNode state, String primitiveId, List<OutcomeTransition> transitions,
             Set<String> settled, SourceLocation siteLocation, List<Violation> violations) {
         var primitive = registry.find(primitiveId);
@@ -1125,13 +1130,17 @@ public final class WorkflowValidator {
             return;
         }
         var wireNames = wireNamesOf(primitive.get());
+        var reasonOutcomes = reasonOutcomesOf(primitive.get());
         var routed = new HashSet<String>();
         for (var transition : transitions) {
             var outcome = transition.outcomeName();
             if (!wireNames.contains(outcome)) {
-                violations.add(outcomeViolation(state, transition.location(),
-                        "routes the outcome '%s', which the primitive '%s' does not have".formatted(outcome,
-                                primitiveId)));
+                var reasonOf = reasonOutcomes.get(outcome);
+                violations.add(outcomeViolation(state, transition.location(), reasonOf == null
+                        ? "routes the outcome '%s', which the primitive '%s' does not have".formatted(outcome,
+                                primitiveId)
+                        : ("routes '%s', which is a reason of the outcome '%s' of the primitive '%s': a reason is "
+                                + "carried as data and never routed").formatted(outcome, reasonOf, primitiveId)));
             } else if (!routed.add(outcome)) {
                 violations.add(outcomeViolation(state, transition.location(),
                         "routes the outcome '%s' of the primitive '%s' twice".formatted(outcome, primitiveId)));
@@ -1263,6 +1272,23 @@ public final class WorkflowValidator {
             wireNames.add(((PrimitiveOutcome) constant).wireName());
         }
         return wireNames;
+    }
+
+    /**
+     * @return by the wire name of each reason an outcome of the primitive declares, the wire name of that outcome; a
+     *         reason name two outcomes share maps to the first of them in declaration order
+     */
+    private static Map<String, String> reasonOutcomesOf(Primitive<?, ?> primitive) {
+        var reasonOutcomes = new HashMap<String, String>();
+        for (var constant : primitive.outcomeType().getEnumConstants()) {
+            var outcome = (PrimitiveOutcome) constant;
+            outcome.reasonType().ifPresent(type -> {
+                for (var reason : type.getEnumConstants()) {
+                    reasonOutcomes.putIfAbsent(reason.wireName(), outcome.wireName());
+                }
+            });
+        }
+        return reasonOutcomes;
     }
 
     private static void checkLinkIdentifiers(WorkflowScope scope, StateNode state, List<Violation> violations) {

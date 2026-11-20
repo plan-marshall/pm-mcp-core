@@ -17,7 +17,8 @@ import java.util.Set;
  * (PM-IMPL-5). A primitive author declares the reasons of one outcome through
  * {@link PrimitiveOutcome#reasonType()}, and the reason travels in {@link PrimitiveResult#reason()} as data.
  * <p>
- * A reason is data only: no grammar production, guard or verifier reads it. An operation whose callers continue
+ * A reason is data only: no grammar production or guard reads it, and the verifier reads the wire name of a reason
+ * only to name a reason routed as an outcome. An operation whose callers continue
  * differently per cause gets a named outcome instead; every other failure, skip or indeterminacy is one outcome of
  * its class plus a reason. The rule, the classes that admit a reason and the closed table to conditions are stated in
  * {@code doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons}.
