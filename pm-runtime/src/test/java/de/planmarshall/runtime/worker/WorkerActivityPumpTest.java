@@ -154,7 +154,7 @@ class WorkerActivityPumpTest {
 
     @Test
     @DisplayName("an attempt whose tail cannot be read stays open instead of moving to the next task")
-    void anUnreadableTailKeepsTheAttemptOpen(@TempDir Path base) throws IOException {
+    void anUnreadableTailKeepsTheAttemptOpen(@TempDir Path base) throws Exception {
         var journal = ActivityJournal.ofScope(base, project,
                 new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
                 new FileLockManager(_ -> {

@@ -810,7 +810,7 @@ public final class LessonStore {
             case LessonResolution.Found(_, Lesson found, _, _) -> found.frontMatter().derivedFromUntrusted();
             case LessonResolution.EmptyShell(_, Lesson shell, _, _) -> shell.frontMatter().derivedFromUntrusted();
             case LessonResolution.PresentUnreadable _, LessonResolution.StoreTampered _,
-                    LessonResolution.DeletedOutOfBand _, LessonResolution.Untracked _ -> true;
+                LessonResolution.DeletedOutOfBand _, LessonResolution.Untracked _ -> true;
             case LessonResolution.Absent _ -> false;
         };
     }
