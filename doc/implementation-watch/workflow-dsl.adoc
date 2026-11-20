@@ -603,6 +603,24 @@ refusing `CompiledInvariantsTest` case per weakened text and path type, and an `
 swapped type admits the value the default refuses.
 Source:: design review (PLAN-V2-15).
 
+[#PM-WATCH-DSL-44]
+=== PM-WATCH-DSL-44: A reason becomes a route
+
+Anchor:: link:../specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons],
+link:../specification/workflow-dsl/04-ast-node-model.adoc#condition-overlays[Workflow DSL § Condition Overlays],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
+Hazard:: A unit branches on the cause of a failure instead of its outcome: a transition names the wire name of a
+reason, a guard reads `result.reason`, or a unit branches on a fact that copies the reason. The reason is then a hidden
+outcome that Rule 2 does not cover, so a new reason a primitive adds silently changes where a unit goes, and a reason
+that maps to a condition is no longer raised as one.
+Guard:: The refusing fixtures of the verifier: `reason-routed-as-outcome.pmwf` is refused by Rule 2 with a message that
+names the reason and its outcome, and `reason-guard-on-primitive-state.pmwf` keeps the refusal of Rule 6 for a result
+guard outside a call; matched control: `reason-bearing-outcome.pmwf` routes the outcome with three reasons by one
+transition and passes (`WorkflowValidatorTest`, group `Reasons`, of `pm-workflow`). `ReasonConditionTest` of
+`pm-workflow` proves that a reason mapped to a condition raises it instead of the transition and that a reason mapped to
+none takes the transition of its outcome. Open: a fact a unit branches on that copies a reason is not detected.
+Source:: design review (PLAN-V2-19).
+
 == Positioned Layout
 
 [#PM-WATCH-DSL-37]

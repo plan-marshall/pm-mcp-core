@@ -389,16 +389,23 @@ Verified by (the domain validators): link:../pm-core/src/test/java/de/planmarsha
 link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/AsciiDocValidatorTest.java[AsciiDocValidatorTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/OutlineValidatorTest.java[OutlineValidatorTest]
 
-Implementation (the reason of an outcome, declared as a closed enum and refused at registration when malformed; the outcome set stays closed because a reason is not an outcome):
+Implementation (the reason of an outcome, declared as a closed enum and refused at registration when malformed; the outcome set stays closed because a reason is not an outcome; the engine's independent check of every result, which faults on a reason its outcome does not declare and raises the condition a reason maps to instead of the transition, and the verifier's naming of a reason routed as an outcome):
 link:../pm-core/src/main/java/de/planmarshall/core/spi/OutcomeReason.java[OutcomeReason],
-link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveRegistry.java[PrimitiveRegistry]
+link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveRegistry.java[PrimitiveRegistry],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator]
 
 Verified by (the reason of an outcome): link:../pm-core/src/test/java/de/planmarshall/core/spi/ReasonPrimitives.java[ReasonPrimitives],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveRegistryTest.java[PrimitiveRegistryTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/OutcomeReasonTest.java[OutcomeReasonTest],
-link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveResultTest.java[PrimitiveResultTest]
+link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveResultTest.java[PrimitiveResultTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/ReasonConditionTest.java[ReasonConditionTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest] (group `Reasons`)
 
 Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
+link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
+link:../pm-workflow/doc/adr/workflow-engine/019-a-reason-with-a-condition-raises-it-instead-of-the-transition.adoc[ADR workflow-engine/019],
+link:../pm-workflow/doc/adr/workflow-verify/040-a-reason-routed-as-an-outcome-is-named-by-rule-2.adoc[ADR workflow-verify/040],
 link:../pm-core/doc/developer/core-spi.adoc#_the_content_validators[Developer Guide § The Content Validators],
 link:../pm-core/doc/developer/core-spi.adoc#outcomes-and-reasons[Developer Guide § Outcomes and Reasons]
 
@@ -736,6 +743,13 @@ link:../pm-workflow/doc/developer/workflow-ast.adoc[Workflow AST Developer Guide
 link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
 link:../pm-core/doc/developer/core-store.adoc#_the_call_stack[Scope Stores Developer Guide § The Call Stack]
+
+Implementation (the reason of a primitive's result inside a called unit: a reason that maps to a condition raises it on the callee's state with the call stack unchanged, and a reason never enters the result a sub-workflow returns to its caller): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine]
+
+Verified by (the reason inside a called unit): link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/ReasonConditionTest.java[ReasonConditionTest]
+
+Documentation (the reason inside a called unit): link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
+link:../pm-workflow/doc/adr/workflow-engine/022-a-reason-stays-out-of-the-sub-workflow-result-record.adoc[ADR workflow-engine/022]
 
 Implementation (the call-time channel: the closed `text`, `commit_message`, `path` and `list<path>` input types and their validation; the caller's slots with the state-level `fills` clause and the `slot.<name>` call value; the `InputBindingContext` port; the commit and correlation identity of a call frame; and, in the provider, the commit set of the listed paths. **Deferred (PLAN-V2-15 D3):** the call-time bind that resolves every declared input in the order call site, configuration, default, optional absence, validates it against its type and the scope's staging set, records its provenance in `arg_sources` and consumes the slot in the same transaction — the persistence model, the slot fill and the provenance model are implemented, the bind itself is not): link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputValidator.java[InputValidator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputRefusal.java[InputRefusal],
@@ -2534,6 +2548,28 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessState
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistorySchemaParityTest.java[PlanHistorySchemaParityTest]
+
+Implementation (the reason of a primitive's result, as far as the library modules carry it: the engine checks that the reason pairs with its outcome and faults on a foreign one, raises the condition a reason maps to instead of the transition with the primitive, the outcome, the reason and the bounded facts of the result as its facts, and records the wire name of the reason on the `left` history line of a routed result; the verifier names a reason routed as an outcome in its Rule 2 refusal; the persisted command log is not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PlanHistoryLine.java[PlanHistoryLine],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PlanHistoryCodec.java[PlanHistoryCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/OutcomeReason.java[OutcomeReason]
+
+Verified by (the reason of a primitive's result): link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/ReasonConditionTest.java[ReasonConditionTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest] (group `Reasons`),
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistorySchemaParityTest.java[PlanHistorySchemaParityTest]
+
+Documentation (the reason of a primitive's result): link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
+link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
+link:../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide],
+link:../pm-workflow/doc/adr/workflow-engine/019-a-reason-with-a-condition-raises-it-instead-of-the-transition.adoc[ADR workflow-engine/019],
+link:../pm-workflow/doc/adr/workflow-engine/020-the-facts-of-a-raised-reason-are-bounded-text.adoc[ADR workflow-engine/020],
+link:../pm-workflow/doc/adr/workflow-engine/021-the-reason-table-belongs-to-the-primitive.adoc[ADR workflow-engine/021],
+link:../pm-workflow/doc/adr/workflow-engine/022-a-reason-stays-out-of-the-sub-workflow-result-record.adoc[ADR workflow-engine/022],
+link:../pm-workflow/doc/adr/workflow-verify/040-a-reason-routed-as-an-outcome-is-named-by-rule-2.adoc[ADR workflow-verify/040],
+link:../pm-core/doc/adr/core-store/080-the-reason-is-an-optional-member-of-the-left-line.adoc[ADR core-store/080]
 
 Implementation (the production registries of the configuration keys and the fact kinds, and the one factory that assembles the verifier context from them): link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProductRegistries.java[ProductRegistries],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/ConfigKeyRegistry.java[ConfigKeyRegistry],
