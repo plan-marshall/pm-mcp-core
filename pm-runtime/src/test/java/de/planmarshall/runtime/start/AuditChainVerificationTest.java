@@ -142,17 +142,29 @@ class AuditChainVerificationTest {
         }
 
         @Test
-        @DisplayName("refuses a missing reason or diagnostic")
+        @DisplayName("refuses a missing reason or diagnostic, naming the missing component")
         void shouldRefuseMissingComponent() {
             var line = Long.valueOf(line());
             var lineNumber = line();
             var diagnostic = diagnostic();
 
+            var missingReason = assertThrows(NullPointerException.class, () -> new Broken(null, line, diagnostic),
+                    "a missing reason must be refused");
+            var missingDiagnostic = assertThrows(NullPointerException.class,
+                    () -> new Broken(BreakReason.LINK_BROKEN, line, null),
+                    "a missing diagnostic must be refused");
+            var factoryDiagnostic = assertThrows(NullPointerException.class,
+                    () -> Broken.linkBroken(lineNumber, null),
+                    "the factory refuses a missing diagnostic");
+
+            // the component name is the contract of the constructor's refusal
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> new Broken(null, line, diagnostic),
-                            "a missing reason must be refused"),
-                    () -> assertThrows(NullPointerException.class, () -> Broken.linkBroken(lineNumber, null),
-                            "a missing diagnostic must be refused"));
+                    () -> assertEquals("reason", missingReason.getMessage(),
+                            "the refusal names the missing reason"),
+                    () -> assertEquals("diagnostic", missingDiagnostic.getMessage(),
+                            "the refusal names the missing diagnostic"),
+                    () -> assertEquals(missingDiagnostic.getMessage(), factoryDiagnostic.getMessage(),
+                            "the factory refuses like the constructor"));
         }
     }
 }
