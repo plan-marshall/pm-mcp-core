@@ -113,7 +113,10 @@ advisory beside it.
 
 `RoleAssignmentValidation` is what `roles.write` runs first: the harness is enrolled and worker-eligible, the profile runs
 the role's class, the model is allowed by the effective catalogue and the effort is one the harness accepts — for the
-role's own values and for its escalation, with the reason of the validation table. The steward never appears in the
+role's own values and for its escalation, with the reason of the validation table. Its lookups are
+`RoleAssignmentValidation.Facts`: the profile and the enrolment of a harness by client id, and the effective model
+catalogue, `@Nullable` because a machine may have none yet; a value written while no catalogue exists is refused
+`model_not_allowed`, as a model the catalogue does not allow is. The steward never appears in the
 proposal, and `model_not_allowed` never applies to it: its configuration comes from the machine's default harness and
 that harness's tier `standard`, which `StewardConfiguration` and `RoleCatalog` resolve.
 
@@ -220,7 +223,8 @@ neither has a key whose value is derived.
 * *A named effort is never `null`*: `RoleAssignmentValue` refuses `VALUE` with an `EffortValue` whose value is `null`
   (`IllegalArgumentException`, "A named effort value must not be null"). The cleared effort is `DEFAULT`, written as
   `effort: null`; a `VALUE` with a `null` value would be written the same way and read back as `DEFAULT`, a silent
-  change of the effort setting.
+  change of the effort setting
+  (link:../../../doc/adr/032-a-named-effort-value-is-never-null.adoc[repository ADR 032]).
 * A document of another format version, or one that does not parse as its one shape, is refused with a `StoreRefusal`
   naming the file; a reader never repairs, migrates or rewrites it.
 * A write happens only under the document's lock, and only while the caller's revision is the one the document holds.

@@ -243,11 +243,8 @@ refusal.
 
 == Invariants and Failure Modes
 
-* *Absence is `Optional` or `@Nullable`*: a qualification's `effort` and `duration_ms` and a grading's
-  `pass_threshold` are `@Nullable`; the JSON readers that may see a `null` answer `Optional`, and the caller keeps the
-  `orElse(null)` in the member. `HarnessProfile.askUserTool` is non-null: the profile projection always supplies a value
-  (`""` for an endpoint and for a harness that declares no tool).
-
+* *Absence is `Optional` or `@Nullable`*: the members and the rule are listed once, in
+  <<_the_null_contract_of_this_package>>.
 * A role set, an assignment and an override are operator files. Never add a code path that reads them from the repository.
 * Validation is per read. A value that a later change makes invalid (an unenrolled harness, a model the catalogue no
   longer allows) makes the role invalid at its next read, exactly like an invalid artifact.
@@ -294,7 +291,30 @@ that named those two records as writers of the split; its decision for the decis
 == The Null Contract of This Package
 
 A field, a parameter and a record component of this package carry `@Nullable` where the state may be absent; `Optional`
-stays the type of the absence a method returns (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]). The weights identity of `EffectiveRole`, the `harness`, `model` and `effort` components of `RoleAssignment`, the default harness of `MachineConfiguration`, the reason of `RoleResolution.Undefined`, the `catalogue` of `RoleAssignmentValidation.Facts` and the `previous` record of `GradingPlan` are `@Nullable`. `EffectiveRole.idleWakeups` is a `@Nullable Integer`, `null` when neither the artifact nor the harness sets it, which the launch composer writes as the zero-defaulted `idle_wakeups` (link:../../../doc/adr/029-primitive-optional-components-are-nullable-boxed-numbers.adoc[repository ADR 029]).
+stays the type of the absence a method returns
+(link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR
+021]). The JSON readers that may see a `null` answer `Optional`, and the caller keeps the `orElse(null)` in the member.
+
+The `@Nullable` members of the package:
+
+* the weights identity of `EffectiveRole`;
+* the `harness`, `model` and `effort` components of `RoleAssignment`;
+* the default harness of `MachineConfiguration`;
+* the reason of `RoleResolution.Undefined`;
+* the `previous` record of `GradingPlan`;
+* a qualification's `effort` and `duration_ms`, and a grading's `pass_threshold`;
+* `QualificationCheck.Verdict.qualifiedForm`, `null` when the record qualifies no form;
+* the `profile`, `enrolled` and `catalogue` parameters of `RoleValidation.check`: no client profile has the harness,
+  the harness is not enrolled, or no effective model catalogue exists; each refuses the role with its reason.
+
+`EffectiveRole.idleWakeups` is a `@Nullable Integer`, `null` when neither the artifact nor the harness sets it, which
+the launch composer writes as the zero-defaulted `idle_wakeups`
+(link:../../../doc/adr/029-primitive-optional-components-are-nullable-boxed-numbers.adoc[repository ADR 029]).
+`HarnessProfile.askUserTool` is non-null: the profile projection always supplies a value, `""` for an endpoint and for
+a harness that declares no tool
+(link:../../../doc/adr/031-the-harness-profile-ask-user-tool-is-non-null.adoc[repository ADR 031]). The `catalogue` of
+`RoleAssignmentValidation.Facts` is a type of `core.config` and is described in its guide
+(link:core-config.adoc[`core.config`]).
 
 == Related
 
