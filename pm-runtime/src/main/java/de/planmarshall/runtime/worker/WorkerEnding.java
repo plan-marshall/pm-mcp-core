@@ -240,11 +240,10 @@ public final class WorkerEnding {
             return generation;
         }
         if (cause == null) {
-            var state = recorded == null ? WorkerState.State.LOST : recorded.state();
-            if (state == WorkerState.State.LOST) {
+            if (recorded == null || recorded.state() == WorkerState.State.LOST) {
                 return generation.advanceTo(WorkerLifecycle.LOST);
             }
-            return recorded != null && recorded.startFailure()
+            return recorded.startFailure()
                     ? generation.advanceTo(WorkerLifecycle.ENDING).advanceTo(WorkerLifecycle.START_FAILED)
                     : generation.advanceTo(WorkerLifecycle.ENDING).advanceTo(WorkerLifecycle.ENDED);
         }

@@ -111,12 +111,11 @@ public final class ActivityRecorder {
      * attempt it belongs to. Used for the tail a worker wrote before its task closed and for that attempt's end.
      *
      * @param queueTaskId  the task
-     * @param generationId the worker's generation
      * @param attempt      the attempt the entry belongs to
      * @param builder      the entry, without its sequence, attempt and instant
      * @return the entry as the journal wrote it
      */
-    public ActivityEntry appendClosed(String queueTaskId, String generationId, int attempt,
+    public ActivityEntry appendClosed(String queueTaskId, int attempt,
             ActivityEntry.ActivityEntryBuilder builder) {
         Objects.requireNonNull(queueTaskId, "queueTaskId");
         Objects.requireNonNull(builder, "builder");

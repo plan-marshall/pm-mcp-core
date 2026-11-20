@@ -110,7 +110,7 @@ public final class WorkerActivityPump {
         if (read instanceof JobLog.Lines lines) {
             appendLines(closed, generationId, attempt, lines, true);
         }
-        var written = recorder.appendClosed(closed, generationId, attempt, ActivityEntry.builder()
+        var written = recorder.appendClosed(closed, attempt, ActivityEntry.builder()
                 .source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.ATTEMPT_END)
                 .end(QueueTaskRecord.AttemptEnd.CLOSED.wireName())
@@ -156,7 +156,7 @@ public final class WorkerActivityPump {
                 continue;
             }
             if (closed) {
-                recorder.appendClosed(queueTaskId, generationId, attempt, builder(mapped.get()));
+                recorder.appendClosed(queueTaskId, attempt, builder(mapped.get()));
             } else {
                 recorder.append(queueTaskId, generationId, builder(mapped.get()));
             }

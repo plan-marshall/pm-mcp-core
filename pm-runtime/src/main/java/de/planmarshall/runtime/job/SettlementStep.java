@@ -250,7 +250,7 @@ public interface SettlementStep {
                 return job;
             }
             return job.withWorker(WorkerStateCodec.write(WorkerTermination.terminal(current, job)));
-        } catch (StoreRefusal e) {
+        } catch (StoreRefusal _) {
             return job;
         }
     }

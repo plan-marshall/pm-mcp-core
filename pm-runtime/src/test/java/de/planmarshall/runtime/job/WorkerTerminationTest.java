@@ -139,7 +139,6 @@ class WorkerTerminationTest {
     }
 
     private JobRecord settled(JobRecord.Fate fate) {
-        var digest = RuntimeGenerators.sha256Digests().next();
         return JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
                 .scope(new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null))
                 .worker("{}")

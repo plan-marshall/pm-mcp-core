@@ -297,15 +297,8 @@ class SupervisionPassTest {
 
     /** @return the worker block the settled record of the generation carries */
     private WorkerState recorded(WorkerGeneration gen) {
-        var record = jobs.read(gen.jobId()).orElseThrow();
-        return WorkerStateCodec.read(jobs.recordPath(gen.jobId()), record.worker());
-    }
-
-    private JobRecord running(@Nullable Long pid) {
-        var builder = running(generation).toBuilder();
-        return pid == null ? builder.build()
-                : builder.pid(pid).processStartedAt(SupervisorTestFixture.NOW)
-                .spawnedAt(SupervisorTestFixture.NOW).build();
+        return WorkerStateCodec.read(jobs.recordPath(gen.jobId()),
+                jobs.read(gen.jobId()).orElseThrow().worker());
     }
 
     private void writeRunning(WorkerGeneration gen, @Nullable Long pid) {
@@ -316,11 +309,6 @@ class SupervisionPassTest {
                         .processStartedAt(SupervisorTestFixture.NOW).spawnedAt(SupervisorTestFixture.NOW).build());
             }
         }
-    }
-
-    /** Settles the job the way the runner does: the fate and the terminal worker block in one record. */
-    private void settle(long pid) {
-        settle(generation);
     }
 
     private void append(String line) {
@@ -394,7 +382,7 @@ class SupervisionPassTest {
         var journal = journal("exit");
         var pass = pass(journal);
         pass.run();
-        settle(pid);
+        settle(generation);
 
         pass.run();
         var terminal = supervisor.generation(generation.generationId()).orElseThrow();
@@ -486,7 +474,7 @@ class SupervisionPassTest {
         var journal = journal("terminal");
         var pass = pass(journal);
         pass.run();
-        settle(pid);
+        settle(generation);
         pass.run();
         var writes = fixture.writes.size();
         var entries = journal.entries(task).size();
@@ -914,7 +902,7 @@ class SupervisionPassTest {
             inside.countDown();
             try {
                 gate.await(5, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
             }
             return null;
