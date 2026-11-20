@@ -251,15 +251,12 @@ enrolment is owed (see § Owed).
 * *The events stage goes to the verification path*, which runs the profile verification and writes its record: the
   computation here returns a `Result`; recording it in `VerificationRecord.stages` and `HarnessEnrolment.events` is that
   path's. The recorded outputs per shipped harness version are written where the shipped profiles live.
-* *The start-failure guard goes to `supervisor` (PLAN-30)*, which resumes at 4-plan and is re-outlined against the merged
-  launch package. It hooks in at the worker start path: `SubprocessJobRunner.startWorker` returns a `Started` job and
-  `refuseWorker` a refused `JobId`; a refused launch (a `HarnessVerification.Refused` from `HarnessVerifier`) is the
-  start-failure event, counted per role and harness by the supervisor, with the tasks of the role closing `lost` with
-  `role_unavailable` after the compiled count.
-* *Specification sections left in place*: the launch sections of Model Work § Worker Launch are implemented and their
-  prose carries an `Implemented by` pointer; what remains in place is the start-failure guard (above) and, in
-  § Skill Delivery Record & Re-Delivery, the warm offer, the re-delivery, the offer bound, harness activation and the
-  `skills_not_loaded` submit refusal, which are the task protocol's.
+* *Specification sections left in place*: the launch sections of Model Work § Worker Launch are condensed and pointed
+  (ADR 027): they keep their anchors and the requirement text, carry no `Implemented by` pointer, and keep every
+  sentence no class or test of this repository covers. The start-failure guard they cite is the supervisor's
+  `StartFailureGuard` (link:runtime-worker.adoc[`runtime.worker`]); in § Skill Delivery Record & Re-Delivery the warm
+  offer, the re-delivery, the offer bound, harness activation and the `skills_not_loaded` submit refusal are the task
+  protocol's.
 * *Output and usage reading* is not a Done-when clause of this package: the mapping of the output stream to activity,
   the per-turn usage and the result parsing remain in Model Work § Output Read While the Worker Runs.
 * *The Linux child subreaper* of the launcher (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, a binary of `pm-mcp-clients`) is
