@@ -148,8 +148,8 @@ class HarnessProfileSchemaParityTest {
                 SchemaResource.object(declared.get("long_context_thresholds")).get("additionalProperties"));
 
         assertAll(
-                () -> assertEquals(Set.of("model_efforts", "context_budget_tokens", "long_context_thresholds"),
-                        Set.copyOf(optional), "The optional headless members are the three"),
+                () -> assertEquals(ProfileValidator.HEADLESS_OPTIONAL, Set.copyOf(optional),
+                        "The optional headless members are the validator's"),
                 () -> assertEquals(10_000, ((Number) budget.get("minimum")).intValue(),
                         "The budget minimum is the validator's"),
                 () -> assertEquals(Integer.MAX_VALUE, ((Number) budget.get("maximum")).longValue(),

@@ -35,8 +35,9 @@ conditional on the account being free.
   and runs. An entry without the marker is foreign: the check refuses it with `write.occupied` as before, writes
   nothing and deletes nothing. A foreign value is never restored or overwritten.
 * *The cleanup after a failed step is limited to the run's own value.* It reads the account and deletes the entry only
-  while it holds the value this run wrote; an entry another writer put there in the meantime is kept. The two other
-  deletes are not limited to it: the delete of a leftover removes an entry that carries the marker, whichever check
+  while it holds the value this run wrote; an entry another writer put there before that read is kept. A writer that
+  replaces the entry between that read and the delete is not excluded: the store offers no conditional delete the
+  runtime uses. The two other deletes are not limited to it: the delete of a leftover removes an entry that carries the marker, whichever check
   wrote it, and the delete step after a matching read-back deletes the entry without reading it again.
 * *The runs of one runtime are serialized.* `CredentialStoreCheck.check(SecretStore)` holds one process-wide lock for
   the whole run, so no two checks of this runtime interleave between a read and a write; with `RuntimeLock` no second
@@ -60,7 +61,8 @@ conditional on the account being free.
 == Consequences
 
 * An interrupted check no longer blocks the next one; a foreign entry under the account is still refused and kept.
-* A failed step never deletes an entry the run did not write.
+* A failed step does not delete an entry another writer put under the account before the cleanup reads it; a writer
+  that replaces the entry between that read and the delete is not excluded.
 * The check's value is longer by the marker; it is still never logged and never part of a check line.
 * `CredentialStoreCheckTest` holds the leftover marker entry that is cleared before the check passes, the foreign entry
   that is still refused, and the entry that appears between the read and the write and is not deleted by the cleanup.

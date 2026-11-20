@@ -255,8 +255,10 @@ public final class CredentialStoreCheck {
     }
 
     /**
-     * Deletes the test entry after a failed step, and only while it holds the value this run wrote: an entry another
-     * writer put under the account is never deleted. A store that fails here too has its failure line already.
+     * Deletes the test entry after a failed step, only while it still holds the value this run wrote. An entry another
+     * writer put under the account before this read is kept. A writer that replaces the entry between this read and the
+     * delete is not excluded: the store offers no conditional delete the runtime uses. A store that fails here too has
+     * its failure line already.
      */
     private static void cleanUp(SecretStore store, CredentialAccount account, String value) {
         try {

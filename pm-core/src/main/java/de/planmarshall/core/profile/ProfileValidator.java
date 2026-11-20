@@ -217,7 +217,8 @@ public class ProfileValidator {
             NAME_WRITABLE_PATHS, NAME_DATA_HOME, NAME_TOOL_RESULT_LIMIT_CHARS, NAME_RESOURCE_TOOLS, NAME_SESSION_RESIDUE,
             NAME_RESUMABILITY);
 
-    private static final Set<String> HEADLESS_OPTIONAL = Set.of(NAME_MODEL_EFFORTS, NAME_CONTEXT_BUDGET_TOKENS,
+    /** The optional members of the headless block; package-private so the schema parity test compares against it. */
+    static final Set<String> HEADLESS_OPTIONAL = Set.of(NAME_MODEL_EFFORTS, NAME_CONTEXT_BUDGET_TOKENS,
             NAME_LONG_CONTEXT_THRESHOLDS);
 
     private static final Set<String> CAPABILITIES = Set.of(NAME_RESULT_SCHEMA, NAME_EPHEMERAL, "usage_fields", "cost_field",
