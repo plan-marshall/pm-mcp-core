@@ -27,16 +27,16 @@ class PlanHistoryLineBuilderContractTest {
     @DisplayName("the builder builds the constructor's history line")
     void builderBuildsHistoryLine() {
         var canonical = new PlanHistoryLine(PlanHistoryLine.FORMAT_VERSION, 1, Event.ENTERED, "init.start",
-                List.of(), null, null, 1, Instant.parse("2026-10-22T10:00:00Z"));
+                List.of(), null, null, null, 1, Instant.parse("2026-10-22T10:00:00Z"));
 
         var built = PlanHistoryLine.builder().formatVersion(canonical.formatVersion()).seq(canonical.seq())
                 .event(canonical.event()).node(canonical.node()).callPath(canonical.callPath())
-                .phase(canonical.phase()).outcome(canonical.outcome())
+                .phase(canonical.phase()).outcome(canonical.outcome()).reason(canonical.reason())
                 .instanceVersion(canonical.instanceVersion()).at(canonical.at()).build();
 
         var fromConstructor = assertThrows(NullPointerException.class,
                 () -> new PlanHistoryLine(canonical.formatVersion(), canonical.seq(), null, canonical.node(),
-                        canonical.callPath(), canonical.phase(), canonical.outcome(),
+                        canonical.callPath(), canonical.phase(), canonical.outcome(), null,
                         canonical.instanceVersion(), canonical.at()),
                 "the constructor refuses an absent event");
         var incomplete = PlanHistoryLine.builder().formatVersion(canonical.formatVersion()).seq(canonical.seq())

@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.BeforeEach;
@@ -146,6 +147,74 @@ class PlanHistoryTest {
         assertEquals(line, history.read().records().getFirst(), "the line should round-trip unchanged");
     }
 
+    /** @return a {@code left} line of the state whose outcome carries the reason given */
+    private PlanHistoryLine leftWithReason(long seq, String reason) {
+        return PlanHistoryLine.builder().formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(seq).event(Event.LEFT)
+                .node(node).callPath(List.of(PHASE)).phase(PHASE).outcome(outcome).reason(reason).instanceVersion(1)
+                .at(t0.plusSeconds(seq)).build();
+    }
+
+    @Test
+    @DisplayName("a left line with a reason and one without round-trip as those lines")
+    void reasonRoundTrip() {
+        var reason = lowerName();
+        var withReason = leftWithReason(1, reason);
+        var withoutReason = left(2, node, outcome);
+        committed(transaction -> history.append(transaction, List.of(withReason, withoutReason)));
+
+        var lines = history.read().records();
+        assertAll(
+                () -> assertEquals(List.of(withReason, withoutReason), lines, "both lines should round-trip"),
+                () -> assertEquals(Optional.of(reason), lines.getFirst().reasonValue(),
+                        "the reason of the left line should be read"),
+                () -> assertEquals(Optional.empty(), lines.getLast().reasonValue(),
+                        "a line without a reason should read none"));
+    }
+
+    @Test
+    @DisplayName("a line without a reason is written without the reason member")
+    void reasonlessLineOmitsTheMember() {
+        var written = new String(PlanHistoryCodec.write(left(1, node, outcome)), StandardCharsets.UTF_8);
+        var reasoned = new String(PlanHistoryCodec.write(leftWithReason(1, lowerName())), StandardCharsets.UTF_8);
+
+        assertAll(
+                () -> assertFalse(written.contains("\"reason\""), "a reasonless line should omit the member"),
+                () -> assertTrue(reasoned.contains("\"reason\""), "a reason should be written as a member"));
+    }
+
+    @Test
+    @DisplayName("a reason on a line that is no left line, or without an outcome, is refused at construction")
+    void reasonOnlyOnALeftLineWithAnOutcome() {
+        var reason = lowerName();
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
+                        .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(1).event(Event.ENTERED).node(node)
+                        .callPath(List.of()).outcome(outcome).reason(reason).instanceVersion(1).at(t0).build(),
+                        "a reason on an entered line should be refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
+                        .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(1).event(Event.LEFT).node(node)
+                        .callPath(List.of()).reason(reason).instanceVersion(1).at(t0).build(),
+                        "a reason without an outcome should be refused"));
+    }
+
+    @Test
+    @DisplayName("a line with an unknown member is refused, naming the history file of the plan")
+    void unknownMemberIsRefused() {
+        var written = new String(PlanHistoryCodec.write(left(1, node, outcome)), StandardCharsets.UTF_8);
+        var extended = written.substring(0, written.length() - 1) + ",\"unknown_" + lowerName() + "\":1}";
+        var file = history.store();
+
+        var refusal = assertThrows(StoreRefusal.class,
+                () -> PlanHistoryCodec.read(file, extended.getBytes(StandardCharsets.UTF_8)),
+                "an unknown member should be refused");
+
+        assertAll(
+                () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome(),
+                        "the unknown member should be unreadable"),
+                () -> assertEquals(scope.resolve(PlanHistory.FILE_NAME), refusal.file(),
+                        "the refusal should name the plan's history"));
+    }
+
     @Test
     @DisplayName("the next sequence number is one above the last readable line")
     void nextSeq() {
@@ -222,7 +291,7 @@ class PlanHistoryTest {
         var sixFrames = List.of(lowerName(), lowerName(), lowerName(), lowerName(), lowerName(), lowerName());
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new PlanHistoryLine(2, 1, Event.ENTERED, node, List.of(), null, null, 1, t0),
+                        () -> new PlanHistoryLine(2, 1, Event.ENTERED, node, List.of(), null, null, null, 1, t0),
                         "another format version should be refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> PlanHistoryLine.of(0, Event.ENTERED, node, List.of(), null, null, 1, t0),

@@ -42,11 +42,13 @@ import de.planmarshall.core.store.PlanHistoryLine.Event;
 
 /**
  * The codec of the plan's history keeps parity with the schema of Store Schemas § The Plan's History (PM-ARCH-11): the
- * members {@link PlanHistoryCodec#write(PlanHistoryLine)} emits are the schema's members in schema order and every one
- * of them is required, the values of {@code event} are the wire names of {@link Event}, the format version is the
- * schema's {@code const}, the bounds of the schema (the {@code maxItems} of the call path, the minimums of {@code seq}
- * and {@code instance_version}, the {@code minLength} of {@code node}, the pattern of {@code outcome}) are the limits
- * the codec enforces, and every line the
+ * members {@link PlanHistoryCodec#write(PlanHistoryLine)} emits for a {@code left} line with a reason are the schema's
+ * members in schema order, every member of a line without a reason is required and the optional {@code reason} is
+ * not, a {@code reason} on a line that is no {@code left} line violates the schema, the values of {@code event} are
+ * the wire names of {@link Event}, the format version is the schema's {@code const}, the bounds of the schema (the
+ * {@code maxItems} of the call path, the minimums of {@code seq} and {@code instance_version}, the {@code minLength}
+ * of {@code node}, the pattern of {@code outcome} and of {@code reason}) are the limits the codec enforces, and every
+ * line the
  * codec writes is valid against the schema. The codec exposes no member
  * list, so the test reads the members of a written line. The schema is the file
  * {@code de/planmarshall/core/store/history-line.schema.json} beside the codec, read from the class path.
@@ -74,7 +76,7 @@ class PlanHistorySchemaParityTest {
     void membersEqualSchema() {
         var expected = names(properties.keySet());
 
-        var written = names(writtenMembers(line(Event.LEFT, lowerWord(), lowerWord())).keySet());
+        var written = names(writtenMembers(reasonLine()).keySet());
 
         assertAll(
                 () -> assertFalse(expected.isEmpty(), "The schema declares the members of a line"),
@@ -82,12 +84,29 @@ class PlanHistorySchemaParityTest {
     }
 
     @Test
-    @DisplayName("every member the codec writes is required by the schema")
+    @DisplayName("every member the codec writes for a line without a reason is required by the schema")
     void requiredEqualsMembers() {
         var written = Set.copyOf(names(writtenMembers(line(Event.ENTERED, null, null)).keySet()));
+        var required = Set.copyOf(names(SchemaResource.array(schema.get("required"))));
 
-        assertEquals(written, Set.copyOf(names(SchemaResource.array(schema.get("required")))),
-                "The schema requires every member the codec writes");
+        assertAll(
+                () -> assertEquals(written, required, "The schema requires every member the codec writes"),
+                () -> assertFalse(required.contains("reason"), "The reason member is not required"),
+                () -> assertTrue(properties.containsKey("reason"), "The reason is a member of the schema"));
+    }
+
+    @Test
+    @DisplayName("a left line with a reason is valid, and a reason on another line violates the schema")
+    void reasonOnlyOnALeftLine() {
+        var reasoned = text(reasonLine());
+        var entered = text(line(Event.ENTERED, lowerWord(), lowerWord()));
+        var injected = entered.substring(0, entered.length() - 1) + ",\"reason\":\"" + lowerWord() + "\"}";
+
+        assertAll(
+                () -> assertEquals(List.of(), SchemaValidation.validate(validator, reasoned),
+                        "A left line with a reason is valid"),
+                () -> assertFalse(SchemaValidation.validate(validator, injected).isEmpty(),
+                        "A reason on an entered line is a violation"));
     }
 
     @Test
@@ -111,12 +130,15 @@ class PlanHistorySchemaParityTest {
     void writtenLinesAreValid(Event event) {
         var bare = text(line(event, null, null));
         var full = text(line(event, lowerWord(), lowerWord()));
+        var reasoned = text(reasonLine());
 
         assertAll(
                 () -> assertEquals(List.of(), SchemaValidation.validate(validator, bare),
                         "A line without phase and outcome is valid"),
                 () -> assertEquals(List.of(), SchemaValidation.validate(validator, full),
-                        "A line with phase and outcome is valid"));
+                        "A line with phase and outcome is valid"),
+                () -> assertEquals(List.of(), SchemaValidation.validate(validator, reasoned),
+                        "A left line with a reason is valid"));
     }
 
     @Test
@@ -139,6 +161,7 @@ class PlanHistorySchemaParityTest {
         var nodeMin = ((Number) SchemaResource.object(properties.get("node")).get("minLength")).intValue();
         var outcomePattern = Pattern.compile(
                 String.valueOf(SchemaResource.object(properties.get("outcome")).get("pattern")));
+        var reasonPattern = String.valueOf(SchemaResource.object(properties.get("reason")).get("pattern"));
         var word = lowerWord();
         var notWord = word.toUpperCase(Locale.ROOT);
 
@@ -178,6 +201,13 @@ class PlanHistorySchemaParityTest {
                         "The codec refuses what the pattern refuses"),
                 () -> assertEquals(outcomePattern.pattern(), PlanHistoryLine.OUTCOME_PATTERN.pattern(),
                         "The codec's outcome pattern is the schema's"),
+                () -> assertEquals(reasonPattern, PlanHistoryLine.OUTCOME_PATTERN.pattern(),
+                        "The record's reason pattern is the schema's"),
+                () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
+                        .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(seqMin).event(Event.LEFT)
+                        .node(word).callPath(List.of()).outcome(word).reason(notWord)
+                        .instanceVersion(versionMin).at(Instant.EPOCH).build(),
+                        "The record refuses a reason the pattern refuses"),
                 () -> assertFalse(PlanHistoryLine.OUTCOME_PATTERN.matcher("1a").matches(),
                         "A digit-first outcome is refused by the codec"),
                 () -> assertFalse(PlanHistoryLine.OUTCOME_PATTERN.matcher("_x").matches(),
@@ -214,6 +244,22 @@ class PlanHistorySchemaParityTest {
         return PlanHistoryLine.of(Generators.longs(1, 1_000_000).next(), event, Generators.letterStrings(1, 32).next(),
                 callPath, phase, outcome, Generators.integers(1, 1_000).next(),
                 Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next()));
+    }
+
+    /** @return a {@code left} line whose outcome carries a reason, so every member of the schema is written */
+    private static PlanHistoryLine reasonLine() {
+        return PlanHistoryLine.builder()
+                .formatVersion(PlanHistoryLine.FORMAT_VERSION)
+                .seq(Generators.longs(1, 1_000_000).next())
+                .event(Event.LEFT)
+                .node(Generators.letterStrings(1, 32).next())
+                .callPath(List.of())
+                .phase(lowerWord())
+                .outcome(lowerWord())
+                .reason(lowerWord())
+                .instanceVersion(Generators.integers(1, 1_000).next())
+                .at(Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next()))
+                .build();
     }
 
     /** A lowercase word, which fits the outcome pattern of the schema. */
