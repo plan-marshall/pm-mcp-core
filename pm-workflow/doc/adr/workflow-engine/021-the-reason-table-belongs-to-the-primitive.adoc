@@ -1,0 +1,45 @@
+= ADR workflow-engine 021: The Reason Table Belongs to the Primitive
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+The specification states a closed table from reasons to conditions
+(link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]).
+Each reason constant answers its own `conditionKind()`, and `PrimitiveRegistry` refuses at registration a kind outside
+`OutcomeReason.MAPPABLE_CONDITION_KINDS` (link:../../../../pm-core/doc/adr/core-spi/010-the-reason-to-condition-table-is-total-and-closed.adoc[ADR core-spi/010]).
+The engine needs the kind at the moment a result arrives; the question was whether it keeps a table of its own and who
+else may raise the condition a reason maps to.
+
+== Decision
+
+* Only the engine raises the condition of a reason, and it holds no table: it reads `conditionKind()` of the reason the
+  result carries and raises that kind, or takes the transition when the answer is empty.
+* No primitive raises a condition itself and no unit names one; the primitive declares the mapping on its reason enum,
+  and the registry has already checked it.
+
+== Alternatives Considered
+
+* *A table of reasons in the engine.* Not taken: it would repeat the mapping the reason enum states, and every new reason
+  of a primitive would need an engine change; two copies of one table drift.
+* *A primitive raises the condition itself.* Not taken: a primitive returns a result and has no access to the status or
+  the overlay; raising is the engine's act on the scope.
+
+== Consequences
+
+* A new reason with a mappable kind takes effect without a change of `pm-workflow`.
+* The set of kinds a primitive can originate stays the registry's concern; the engine trusts a registered primitive and
+  checks only that the reason pairs with its outcome.
+
+== Source
+
+* Pull request of `PLAN-V2-19` (`engine-carries-reasons`), deliverable 1
+* link:../../../../pm-core/doc/adr/core-spi/010-the-reason-to-condition-table-is-total-and-closed.adoc[ADR core-spi/010]
+* link:../../developer/workflow-engine.adoc#_reasons_and_conditions[Workflow Engine Developer Guide § Reasons and Conditions]

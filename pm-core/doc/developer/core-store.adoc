@@ -233,6 +233,34 @@ set, a slot without `value` or `filled_at` is refused), by the engine's `SlotFil
 operator-answered value filling the slot with its provenance, and by `InputBindingTest`, which binds the value into the
 frame and shows the slot consumed.
 
+[#_the_reason_of_a_left_line]
+== The Reason of a `left` History Line
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-ARCH-11[PM-ARCH-11]_
+
+A line of the plan's history `mcp/history.jsonl` (`PlanHistoryLine`, written by `PlanHistory` through `PlanHistoryCodec`,
+link:{spec}/store-schemas/02-workflow-state-store.adoc#plan-history[Store Schemas § The Plan's History]) carries the
+optional member `reason` after `outcome`: the wire name of the reason the result of the state's primitive carried with the
+outcome its transition was chosen by. The workflow engine writes it on the `left` line of a routed result and on no other
+line; a reason that raises a condition writes no `left` line at all
+(link:../../../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide], Reasons and Conditions).
+
+* *Optional, omitted when absent.* `PlanHistoryLine.reason` is a `@Nullable` component after `outcome`, read through
+  `reasonValue()` as an `Optional`; the codec writes the member only when it is present and reads it as an optional
+  member, so a line without a reason is byte for byte the line it was before.
+* *Bound to a `left` line with an outcome.* The record's constructor refuses a reason on a line whose event is not `left`,
+  a reason without an outcome, and a reason that does not match the outcome pattern; the schema
+  `history-line.schema.json` states the same with the optional property `reason` of the outcome pattern and an `if`/`then`
+  that admits it on a `left` line only. An unknown member is still refused.
+* *Format version 1 unchanged.* The member is added in place; `FORMAT_VERSION` stays `1`, and `PlanHistoryLine.of(...)`
+  keeps its eight parameters and builds a line without a reason
+  (link:../adr/core-store/080-the-reason-is-an-optional-member-of-the-left-line.adoc[ADR 080]).
+
+Tested by `PlanHistoryTest` (a `left` line with a reason and one without round-trip, a line without a reason writes no
+member, a reason on another event or without an outcome is refused, an unknown member is refused) and
+`PlanHistorySchemaParityTest` (the optional member is in the schema and not required, a reason on a line that is no
+`left` line violates the schema, the record's reason pattern is the schema's and a reason outside it is refused); the
+engine's `PlanHistoryEngineTest` shows the routed reason on the line and none for a reasonless outcome.
+
 [#_retry_counters]
 == Retry Counters
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
@@ -2691,6 +2719,8 @@ read and the aggregate carries its coverage.
   changes it, and an identifier a revision removed is never reused.
 * link:../adr/core-store/050-five-call-frames-and-no-caller-phase.adoc[ADR 050]: the stored call stack holds five
   frames, and a frame carries no caller phase.
+* link:../adr/core-store/080-the-reason-is-an-optional-member-of-the-left-line.adoc[ADR 080]: the reason of a routed
+  result is an optional member of the `left` history line, omitted when absent, in format version 1.
 
 == The Intent Record
 
