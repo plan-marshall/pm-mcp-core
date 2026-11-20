@@ -312,7 +312,7 @@ class WorkflowStatusSchemaParityTest {
 
             assertAll(
                     () -> assertFalse(expected.isEmpty(), "the schema names the slot sources"),
-                    () -> assertEquals(expected, WorkflowStatus.Slot.SOURCES,
+                    () -> assertEquals(WorkflowStatus.Slot.SOURCES, expected,
                             "the slot sources should equal the schema enum"));
         }
 

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.ast;
 
+import java.util.Objects;
+
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -45,6 +47,6 @@ public record ArgSource(String source, @Nullable String sourceRef) {
      * @throws NullPointerException if the source is {@code null}
      */
     public ArgSource {
-        java.util.Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(source, "source");
     }
 }

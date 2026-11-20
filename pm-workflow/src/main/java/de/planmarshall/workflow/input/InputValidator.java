@@ -164,7 +164,7 @@ public final class InputValidator {
                     && values.contains(text) ? Optional.empty() : refused(RULE_ENUM, value.toString());
             case InputType.IntRange(var min, var max) -> value instanceof CallValue.IntValue(var number)
                     && (min == null || number >= min) && (max == null || number <= max) ? Optional.empty()
-                            : refused(RULE_RANGE, value.toString());
+                    : refused(RULE_RANGE, value.toString());
             case InputType.EnumList(var values) -> value instanceof CallValue.EnumList(var list)
                     && values.containsAll(list) ? Optional.empty() : refused(RULE_ENUM, value.toString());
         };
@@ -301,7 +301,7 @@ public final class InputValidator {
         if (high != null) {
             max = high;
         }
-        return new int[] {min, max};
+        return new int[]{min, max};
     }
 
     private static Optional<CallValue> parseInt(String text) {

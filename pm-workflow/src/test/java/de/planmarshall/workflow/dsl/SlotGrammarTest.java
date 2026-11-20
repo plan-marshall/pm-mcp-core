@@ -11,8 +11,10 @@ package de.planmarshall.workflow.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
@@ -67,12 +70,12 @@ class SlotGrammarTest {
     }
 
     private static WorkflowDefinition parse(String source) {
-        var result = WorkflowParser.parse("slot.pmwf", source, de.planmarshall.workflow.ast.UnitOrigin.DEFAULT);
+        var result = WorkflowParser.parse("slot.pmwf", source, UnitOrigin.DEFAULT);
         return assertInstanceOf(ParseResult.Parsed.class, result, () -> "the unit was refused: " + result).definition();
     }
 
     private static String refuse(String source) {
-        var result = WorkflowParser.parse("slot.pmwf", source, de.planmarshall.workflow.ast.UnitOrigin.DEFAULT);
+        var result = WorkflowParser.parse("slot.pmwf", source, UnitOrigin.DEFAULT);
         return assertInstanceOf(ParseResult.Refused.class, result, "the unit was accepted").diagnostic().message();
     }
 
@@ -125,7 +128,7 @@ class SlotGrammarTest {
                 () -> assertEquals("commit_message", slots.getFirst().name(), "the slot keeps its name"),
                 () -> assertEquals(new InputType.CommitMessage(1, 2000), slots.getFirst().type(),
                         "the slot keeps its type"),
-                () -> assertEquals(false, slots.getFirst().optional(), "a slot is never optional"));
+                () -> assertFalse(slots.getFirst().optional(), "a slot is never optional"));
     }
 
     @Test

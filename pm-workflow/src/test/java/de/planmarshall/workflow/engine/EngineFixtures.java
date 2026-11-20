@@ -19,6 +19,7 @@ import static org.easymock.EasyMock.newCapture;
 import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -399,7 +400,7 @@ final class EngineFixtures {
      * @param config  the configuration values by key
      * @return the bind context of a test, an EasyMock double
      */
-    static InputBindingContext bindingContext(java.nio.file.Path root, Set<String> staging,
+    static InputBindingContext bindingContext(Path root, Set<String> staging,
             Map<String, String> config) {
         InputBindingContext context = createMock(InputBindingContext.class);
         expect(context.worktreeRoot()).andReturn(root).anyTimes();

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -481,8 +482,8 @@ class InputBindingTest {
 
             assertAll(
                     () -> assertEquals(Map.of("mode", new WorkflowStatus.CallFrame.ArgSource("literal", null),
-                            "rounds", new WorkflowStatus.CallFrame.ArgSource("literal", null),
-                            "targets", new WorkflowStatus.CallFrame.ArgSource("literal", null)),
+                                    "rounds", new WorkflowStatus.CallFrame.ArgSource("literal", null),
+                                    "targets", new WorkflowStatus.CallFrame.ArgSource("literal", null)),
                             stored.argSources(), "the frame names the provenance of every literal"),
                     () -> assertEquals(stored.argSources(), roundTripped.argSources(),
                             "the provenance survives the store round trip"));
