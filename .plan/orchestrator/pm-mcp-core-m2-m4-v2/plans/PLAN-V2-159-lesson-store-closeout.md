@@ -3,11 +3,11 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 origin: the landing of PLAN-V2-156 (`landings/PLAN-V2-156.md`, 2026-11-20: part one merged as #516; D3(i), D5(a) and (b) and the defects L1-4, L3-5 and L3-6 open) and the operator's rule that leftovers go into a staged plan
-lane: plan-marshall
+lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-159-lesson-store-closeout.md` and is queued as one row file, `queue/PLAN-159.json`,
-> in the epic ledger (lane `plan-marshall`: the operator runs it with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `runbook`: a small closeout plan, run in the runbook lane). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
 > authored here and the epic-wide rules are in `standing-rules.md`, read first.
