@@ -68,7 +68,7 @@ class StateKindTest {
     void shouldDeriveKindFromBehaviour(String name, StateBehavior behavior, String expectedLabel) {
         var kind = StateKind.of(behavior);
 
-        assertEquals(expectedLabel, kind.label(), name);
+        assertEquals(expectedLabel, kind.label(), "the behaviour derives the expected kind label");
     }
 
     @Test

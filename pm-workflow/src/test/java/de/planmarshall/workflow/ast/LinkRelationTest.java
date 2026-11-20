@@ -58,6 +58,6 @@ class LinkRelationTest {
     void closed() {
         assertEquals(9, LinkRelation.values().length, "the relations are closed at nine");
         assertEquals(List.of("SUBMIT", "NOOP"), Arrays.stream(LinkForm.values()).map(Enum::name).toList(),
-                "the forms are closed at two");
+                "the form names equal the pinned list of two");
     }
 }

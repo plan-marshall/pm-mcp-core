@@ -191,13 +191,17 @@ class TaskProtocolSubmitTest {
         var records = queue.records().stream().filter(QueueTaskRecord::isClosed).toList();
         var lastResult = last;
         assertAll(
-                () -> assertEquals(1, records.size(), name),
-                () -> assertEquals(Outcome.SUBMITTED, records.getFirst().outcome(), name),
+                () -> assertEquals(1, records.size(), "exactly one record of the task is closed"),
+                () -> assertEquals(Outcome.SUBMITTED, records.getFirst().outcome(),
+                        "the closed record's outcome is SUBMITTED"),
                 () -> assertEquals(1, records.getFirst().attempts().stream()
-                        .filter(attempt -> attempt.end() == AttemptEnd.CLOSED).count(), name),
-                () -> assertEquals(lastRefusal == null, lastResult instanceof CallResult.Accepted, name));
+                        .filter(attempt -> attempt.end() == AttemptEnd.CLOSED).count(),
+                        "exactly one attempt ends CLOSED"),
+                () -> assertEquals(lastRefusal == null, lastResult instanceof CallResult.Accepted,
+                        "the last call is accepted unless one is refused"));
         if (lastRefusal != null) {
-            assertEquals(lastRefusal, ((CallResult.Refused) lastResult).refusal(), name);
+            assertEquals(lastRefusal, ((CallResult.Refused) lastResult).refusal(),
+                    "the last call is refused with the case's refusal");
         }
     }
 

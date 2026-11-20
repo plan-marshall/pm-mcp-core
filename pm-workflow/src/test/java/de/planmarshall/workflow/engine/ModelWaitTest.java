@@ -257,8 +257,7 @@ class ModelWaitTest {
             var previous = points.get(index - 1);
             var point = points.get(index);
             var gap = Duration.between(previous, point);
-            assertFalse(gap.compareTo(interval) > 0,
-                    () -> "a gap of " + gap + " before " + point + " exceeds " + interval);
+            assertFalse(gap.compareTo(interval) > 0, "no gap between two points exceeds the interval");
         }
     }
 }

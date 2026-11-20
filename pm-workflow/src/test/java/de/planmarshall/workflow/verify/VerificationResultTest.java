@@ -199,7 +199,7 @@ class VerificationResultTest {
                         Map.entry(VerificationRule.PRIMITIVE_BINDING, "verify.a"),
                         Map.entry(VerificationRule.SCHEMA_BINDING, "verify.begin")),
                 byStateFound.stream().map(v -> Map.entry(v.rule(), v.stateId())).toList(),
-                () -> "expected declaration order, not discovery order: " + byStateFound);
+                "the violations follow the declaration order");
 
         var byRule = VerifyFixtures.parseSource("ordering-rule.pmwf", """
                 ---
@@ -228,6 +228,6 @@ class VerificationResultTest {
                         Map.entry(VerificationRule.PRIMITIVE_BINDING, "verify.entry"),
                         Map.entry(VerificationRule.STATE_EXISTS, "verify.entry")),
                 byRuleFound.stream().map(v -> Map.entry(v.rule(), v.stateId())).toList(),
-                () -> "expected rule ordinal, not discovery order: " + byRuleFound);
+                "the violations of one state follow the rule order");
     }
 }

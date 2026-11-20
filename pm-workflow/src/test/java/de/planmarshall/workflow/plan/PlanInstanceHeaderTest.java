@@ -201,7 +201,8 @@ class PlanInstanceHeaderTest {
                     + "\"value\":[\"retry\"],\"waiver_id\":null},\"fix_budget\":{\"file\":null,\"source\":\"waiver\","
                     + "\"value\":4,\"waiver_id\":\"W-1\"},\"mode\":{\"file\":\"finalize.pmwf\",\"source\":\"template\","
                     + "\"value\":\"strict\",\"waiver_id\":null},\"retry_budget\":{\"file\":\"finalize.pmwf\","
-                    + "\"source\":\"template\",\"value\":2,\"waiver_id\":null}}"), json);
+                    + "\"source\":\"template\",\"value\":2,\"waiver_id\":null}}"),
+                    "the arguments and members are sorted by name");
         }
 
         @Test
@@ -210,7 +211,8 @@ class PlanInstanceHeaderTest {
             var json = HeaderJson.write(fullHeader("plan-24", 1, "Größe"));
 
             assertAll(
-                    () -> assertTrue(json.contains("\"source_fact\":\"Größe\""), json),
+                    () -> assertTrue(json.contains("\"source_fact\":\"Größe\""),
+                            "the non-ASCII fact is written unescaped"),
                     () -> assertTrue(new String(json.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8)
                             .contains("Größe"), "a character outside ASCII survives UTF-8"));
         }
@@ -420,7 +422,7 @@ class PlanInstanceHeaderTest {
             var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
                     "a header breaking the schema is refused");
 
-            assertTrue(refused.getMessage().contains("/plan_id"), refused.getMessage());
+            assertTrue(refused.getMessage().contains("/plan_id"), "the refusal names the /plan_id pointer");
         }
 
         @Test
@@ -431,7 +433,7 @@ class PlanInstanceHeaderTest {
             var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
                     "an argument that is no DSL literal is refused");
 
-            assertTrue(refused.getMessage().contains("fix_budget"), refused.getMessage());
+            assertTrue(refused.getMessage().contains("fix_budget"), "the refusal names the fix_budget argument");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -444,7 +446,7 @@ class PlanInstanceHeaderTest {
             var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
                     "an unparsable composed_at is refused");
 
-            assertTrue(refused.getMessage().contains("/composed_at"), refused.getMessage());
+            assertTrue(refused.getMessage().contains("/composed_at"), "the refusal names the /composed_at pointer");
         }
 
         @Test
@@ -470,7 +472,7 @@ class PlanInstanceHeaderTest {
                     "a huge version is refused within five seconds");
 
             assertTrue(refused.getMessage().startsWith("Instance header refused: 'version' is out of range: "),
-                    refused.getMessage());
+                    "the refusal says the version is out of range");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -483,7 +485,8 @@ class PlanInstanceHeaderTest {
             var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
                     "an exponent too large to strip is refused");
 
-            assertTrue(refused.getMessage().startsWith("Instance header refused: "), refused.getMessage());
+            assertTrue(refused.getMessage().startsWith("Instance header refused: "),
+                    "the refusal is an instance header refusal");
         }
 
         @Test
@@ -496,7 +499,7 @@ class PlanInstanceHeaderTest {
                     "a policy argument out of range is refused");
 
             assertTrue(refused.getMessage().startsWith("Instance header refused: 'fix_budget' is out of range: "),
-                    refused.getMessage());
+                    "the refusal says fix_budget is out of range");
         }
 
         @ParameterizedTest(name = "{0}")

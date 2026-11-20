@@ -51,7 +51,8 @@ class DiffSummaryTest {
             "default:ci-verify", "default:automatic-review", "default:analysis-roundtrip");
 
     private static PlanInstance composed(CompositionResult result) {
-        return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+        return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
+                .instance();
     }
 
     private static PlanInstance version1() {
@@ -310,7 +311,7 @@ class DiffSummaryTest {
                     () -> new CeilingChange(REMEDIATION_SITE, "fix_budget", three, three),
                     "a ceiling that changes nothing is refused");
 
-            assertTrue(refused.getMessage().contains("fix_budget"), refused.getMessage());
+            assertTrue(refused.getMessage().contains("fix_budget"), "the refusal names the fix_budget argument");
         }
 
         @Test
@@ -320,7 +321,7 @@ class DiffSummaryTest {
                     () -> new CeilingChange(REMEDIATION_SITE, "fix_budget", null, null),
                     "a ceiling unbound on both sides is refused");
 
-            assertTrue(refused.getMessage().contains("did not change"), refused.getMessage());
+            assertTrue(refused.getMessage().contains("did not change"), "the refusal says the ceiling did not change");
         }
     }
 }

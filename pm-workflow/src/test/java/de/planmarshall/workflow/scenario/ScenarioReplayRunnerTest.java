@@ -202,7 +202,8 @@ class ScenarioReplayRunnerTest {
 
             assertAll(
                     () -> assertEquals(3, startedTwice.line(), "the second start failed at its own line"),
-                    () -> assertTrue(startedTwice.getMessage().contains("started already"), startedTwice.getMessage()),
+                    () -> assertTrue(startedTwice.getMessage().contains("started already"),
+                            "the failure says the scope started already"),
                     () -> assertThrows(IllegalStateException.class, () -> runner.run(script),
                             "a second replay of the same runner is refused"));
         }
@@ -221,7 +222,7 @@ class ScenarioReplayRunnerTest {
             assertAll(
                     () -> assertEquals(line, failure.line(), "the failure carries the assertion's line"),
                     () -> assertTrue(failure.getMessage().startsWith("line %d: %s".formatted(line, message)),
-                            failure.getMessage()));
+                            "the failure states the line and both values"));
         }
     }
 
@@ -241,7 +242,8 @@ class ScenarioReplayRunnerTest {
 
             assertAll(
                     () -> assertEquals(3, failure.line(), "the failure names the event's line"),
-                    () -> assertTrue(failure.getMessage().contains(message), failure.getMessage()),
+                    () -> assertTrue(failure.getMessage().contains(message),
+                            "the failure names the rejected event"),
                     () -> assertTrue(runner.snapshots().stream().noneMatch(snapshot -> snapshot.line() == 3),
                             "the failed step leaves no snapshot"));
         }
@@ -288,7 +290,7 @@ class ScenarioReplayRunnerTest {
             assertAll(
                     () -> assertEquals(5, failure.line(), "the failure names the directive's line"),
                     () -> assertTrue(failure.getMessage().contains("the worker of role reviewer"),
-                            failure.getMessage()));
+                            "the failure names the reviewer's worker"));
         }
 
         @Test
@@ -388,7 +390,7 @@ class ScenarioReplayRunnerTest {
             assertAll(
                     () -> assertEquals(3, failure.line(), "the failure names the act's line"),
                     () -> assertTrue(failure.getMessage().contains("offers no link '" + unknown + "'"),
-                            failure.getMessage()));
+                            "the failure names the link not offered"));
         }
 
         @Test
@@ -409,7 +411,7 @@ class ScenarioReplayRunnerTest {
             assertAll(
                     () -> assertEquals(3, failure.line(), "the failure carries the act's line"),
                     () -> assertTrue(failure.getMessage().contains("free parameter 'note'"),
-                            failure.getMessage()));
+                            "the failure names the free parameter note"));
         }
 
         @Test
@@ -988,8 +990,10 @@ class ScenarioReplayRunnerTest {
 
             assertAll(
                     () -> assertEquals(7, failure.line(), "the failure names the fault's line"),
-                    () -> assertTrue(failure.getMessage().contains("is a consultation"), failure.getMessage()),
-                    () -> assertTrue(failure.getMessage().contains("role reviewer"), failure.getMessage()));
+                    () -> assertTrue(failure.getMessage().contains("is a consultation"),
+                            "the failure says the task is a consultation"),
+                    () -> assertTrue(failure.getMessage().contains("role reviewer"),
+                            "the failure names the reviewer role"));
         }
 
         @Test
@@ -1090,7 +1094,7 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals(11, failure.line(), "the failure names the submit's line"),
                     () -> assertTrue(failure.getMessage().startsWith(
                                     "line 11: the submit was refused: the submit omits the delivered consultation_id "),
-                            "the refusal names the missing reference: " + failure.getMessage()));
+                            "the refusal names the missing consultation_id"));
         }
 
         @Test

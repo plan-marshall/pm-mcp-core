@@ -561,17 +561,18 @@ class WorkflowEngineTest {
                 for (var outcome : StepOutcome.values()) {
                     var declared = auto.transitions().stream()
                             .filter(transition -> transition.outcomeName().equals(outcome.wireName())).toList();
-                    assertEquals(1, declared.size(), () -> state.id() + " routes " + outcome + " once");
+                    assertEquals(1, declared.size(), "each outcome of the state has one transition");
                     var target = unit.states().get(declared.getFirst().targetStateId());
                     fixtures.step.then(outcome);
 
                     var step = engine.advance(planStatus(EXECUTE, state.id()));
 
                     if (target.behavior() instanceof StateBehavior.JobStep) {
-                        assertEquals(target.id(), step.status().state(), () -> state.id() + " on " + outcome);
+                        assertEquals(target.id(), step.status().state(), "the outcome rests in its job target");
                     } else {
                         assertFalse(step.status().state().startsWith("execute.hold-"
-                                + state.id().substring("execute.s".length())), () -> state.id() + " on " + outcome);
+                                + state.id().substring("execute.s".length())),
+                                "the outcome does not rest in the state's hold");
                     }
                 }
             }

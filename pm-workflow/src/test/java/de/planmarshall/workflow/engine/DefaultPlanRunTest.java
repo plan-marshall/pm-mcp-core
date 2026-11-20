@@ -198,7 +198,7 @@ class DefaultPlanRunTest {
             var resting = assertInstanceOf(EngineStep.Resting.class, step, "a run either rests or ends");
             step = engine.advance(resting.status(), answer(engine, resting.status()));
         }
-        return fail("the run of lane " + lane + " did not end within " + MAX_RESTS + " rests");
+        return fail("the run of the lane ends within MAX_RESTS rests");
     }
 
     /** @return the engine of the fixture plan unit over its catalog, the scripted primitives and the fixture ports */
@@ -226,7 +226,7 @@ class DefaultPlanRunTest {
             case OPERATOR_ACT -> new EngineEvent.OperatorAct(wait.stateId(), assertInstanceOf(
                     StateBehavior.InteractiveLinks.class, state.behavior(), "an operator wait offers links")
                     .links().getFirst().idPattern());
-            default -> fail("the state " + wait.stateId() + " awaits " + wait.awaitedEvent());
+            default -> fail("a resting state awaits an event the run answers");
         };
     }
 

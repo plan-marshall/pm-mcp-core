@@ -100,8 +100,10 @@ class DeclarationBoundsTest {
                             "the fixture declares every name of the schema"),
                     () -> schema.forEach(declaration -> assertAll(
                             () -> assertEquals(declaration.shipped(),
-                                    unit.declarations().get(declaration.name()).value(), declaration::name),
-                            () -> assertTrue(declaration.bound().admits(declaration.shipped()), declaration::name))));
+                                    unit.declarations().get(declaration.name()).value(),
+                                    "the fixture declares the shipped value"),
+                            () -> assertTrue(declaration.bound().admits(declaration.shipped()),
+                                    "the bound admits the shipped value"))));
         }
 
         @Test
@@ -140,7 +142,7 @@ class DeclarationBoundsTest {
                     () -> assertEquals(DeclarationBounds.DECLARATION_INVALID, findings.getFirst().code(),
                             "the finding code is declaration_invalid"),
                     () -> assertTrue(findings.getFirst().bound().contains(refusing.bound()),
-                            () -> findings.getFirst().bound()));
+                            "the finding names the case's bound"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -214,7 +216,7 @@ class DeclarationBoundsTest {
         void sharedKindAdmittedByBoth(String kind) {
             var result = parseDecide(kind);
 
-            var parsed = assertInstanceOf(ParseResult.Parsed.class, result, result::toString);
+            var parsed = assertInstanceOf(ParseResult.Parsed.class, result, "the parser admits the shared kind");
             assertAll(
                     () -> assertEquals(List.of(kind), List.copyOf(parsed.definition().decisions().keySet()),
                             "the parser reads the decision kind"),
@@ -269,9 +271,9 @@ class DeclarationBoundsTest {
             var aboveFindings = check(file, replaceValue(file, name, shipped, above));
 
             assertAll(
-                    () -> assertEquals(List.of(), withinFindings, () -> name + " = " + within),
+                    () -> assertEquals(List.of(), withinFindings, "a value within the bound has no finding"),
                     () -> assertEquals(List.of(name), aboveFindings.stream().map(DeclarationBounds.Finding::name)
-                            .toList(), () -> name + " = " + above));
+                            .toList(), "a value above the bound is its one finding"));
         }
 
         private static String fileOf(String name) {
@@ -356,13 +358,13 @@ class DeclarationBoundsTest {
                             schema.stream().map(DeclarationBounds.Declaration::name).toList(),
                             "the variant declares its schema names in order"),
                     () -> schema.forEach(declaration -> assertEquals(shipped.get(declaration.name()),
-                            declaration.shipped(), declaration::name)),
+                            declaration.shipped(), "each declaration ships the stated value")),
                     () -> schema.forEach(declaration -> assertTrue(declaration.bound().admits(declaration.shipped()),
-                            declaration::name)),
+                            "each bound admits its shipped value")),
                     () -> assertTrue(schema.stream().allMatch(declaration ->
                                     declaration.bound() instanceof DeclarationBounds.EnumOf
                                             || declaration.bound() instanceof DeclarationBounds.EnumListOf),
-                            schema::toString));
+                            "every bound is an enumeration or a list"));
         }
 
         /*
@@ -380,17 +382,18 @@ class DeclarationBoundsTest {
 
             assertAll(axis.wireName(),
                     () -> axis.variants().forEach(variant -> assertTrue(
-                            DeclarationBounds.schema(variant).isPresent(), variant)),
-                    () -> assertTrue(variantSchemaKeys.containsAll(axis.variants()), variantSchemaKeys::toString),
+                            DeclarationBounds.schema(variant).isPresent(), "every variant of the axis has a schema")),
+                    () -> assertTrue(variantSchemaKeys.containsAll(axis.variants()),
+                            "the schema keys hold every variant"),
                     () -> variantSchemaKeys.forEach(unitId -> assertTrue(PlanFacts.Axis.ofVariant(unitId)
-                            .filter(schemaAxes::contains).isPresent(), unitId)));
+                            .filter(schemaAxes::contains).isPresent(), "every schema key is an axis variant")));
         }
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.workflow.verify.DeclarationBoundsTest#writableVariants")
         @DisplayName("a variant unit that declares its shipped values passes")
         void variantUnitPasses(String name, String source) {
-            assertEquals(List.of(), check(VARIANT_FILE, source), name);
+            assertEquals(List.of(), check(VARIANT_FILE, source), "the shipped variant has no finding");
         }
 
         @Test

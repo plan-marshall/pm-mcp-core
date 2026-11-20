@@ -33,7 +33,7 @@ class SlotVerifierTest {
 
     private static WorkflowDefinition parse(String source) {
         var result = WorkflowParser.parse("slot-verify.pmwf", source, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> "the unit was refused: " + result).definition();
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the slot unit follows the grammar").definition();
     }
 
     private List<Violation> violations(String source) {

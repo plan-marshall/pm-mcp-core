@@ -123,7 +123,7 @@ class SlotBindingVerifierTest {
 
     private static WorkflowDefinition parse(String resource, String source) {
         var result = WorkflowParser.parse(resource, source, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> resource + " was refused: " + result)
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the unit text follows the grammar")
                 .definition();
     }
 
@@ -190,8 +190,8 @@ class SlotBindingVerifierTest {
             var found = violations("", "text[1..80]");
 
             var declaring = reporting(found, "is not declared");
-            assertEquals(1, found.size(), () -> "only the undeclared slot is refused: " + found);
-            assertEquals(1, declaring.size(), () -> "the undeclared slot is refused: " + found);
+            assertEquals(1, found.size(), "only the undeclared slot is refused");
+            assertEquals(1, declaring.size(), "the undeclared slot is refused once");
             assertTrue(declaring.getFirst().message().contains("slot 'value'"),
                     "the refusal names the slot the call reads");
         }
@@ -205,7 +205,7 @@ class SlotBindingVerifierTest {
 
             var found = validator.verify(parse("caller.inline.pmwf", FILLING_CALLER)).violations();
 
-            assertEquals(List.of(), found, () -> "the filled slot passes every check: " + found);
+            assertEquals(List.of(), found, "the filled slot passes every check");
         }
     }
 
@@ -221,9 +221,9 @@ class SlotBindingVerifierTest {
 
             var mismatches = reporting(found, "is not assignable");
             if (assignable) {
-                assertEquals(List.of(), mismatches, () -> "a fitting slot type is admitted: " + found);
+                assertEquals(List.of(), mismatches, "a fitting slot type is admitted");
             } else {
-                assertEquals(1, mismatches.size(), () -> "the fitting slot type is refused: " + found);
+                assertEquals(1, mismatches.size(), "an unfitting slot type is refused once");
                 assertTrue(mismatches.getFirst().message().contains("not assignable to the input type"),
                         "the refusal names the two types of the binding");
             }

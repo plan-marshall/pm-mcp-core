@@ -93,7 +93,7 @@ class UnitInterfaceChecksTest {
 
         var found = VALIDATOR.verify(definition).violations();
 
-        assertEquals(List.of(), found, found::toString);
+        assertEquals(List.of(), found, "the declared fallback passes the checks");
     }
 
     @Test
@@ -108,7 +108,7 @@ class UnitInterfaceChecksTest {
 
         var found = VALIDATOR.verify(definition).violations();
 
-        assertEquals(List.of(), found, found::toString);
+        assertEquals(List.of(), found, "the defaulted fallback passes the checks");
     }
 
     @Test
@@ -118,7 +118,7 @@ class UnitInterfaceChecksTest {
 
         var found = new WorkflowValidator(TestPrimitives.registry(), List.of()).verify(definition).violations();
 
-        assertEquals(List.of(), found, found::toString);
+        assertEquals(List.of(), found, "a unit without reads passes the checks");
     }
 
     @Test
@@ -135,8 +135,9 @@ class UnitInterfaceChecksTest {
                         found.stream().map(violation -> violation.rule().name()).toList(),
                         "the empty registries refuse both declared reads"),
                 () -> assertTrue(found.getFirst().message().contains("not a key of the closed configuration"),
-                        found.getFirst()::message),
-                () -> assertTrue(found.get(1).message().contains("not a known fact kind"), found.get(1)::message));
+                        "the first refusal names the unknown key"),
+                () -> assertTrue(found.get(1).message().contains("not a known fact kind"),
+                        "the second refusal names the unknown kind"));
     }
 
     static Stream<Arguments> refusedReads() {
@@ -174,8 +175,9 @@ class UnitInterfaceChecksTest {
         var found = VALIDATOR.verify(definition).violations();
 
         assertAll(
-                () -> assertEquals(List.of(rule), rules(definition), found::toString),
-                () -> assertTrue(found.getFirst().message().contains(message), found.getFirst()::message));
+                () -> assertEquals(List.of(rule), rules(definition), "the read is refused by the case's rule"),
+                () -> assertTrue(found.getFirst().message().contains(message),
+                        "the refusal states the case's reason"));
     }
 
     @Nested

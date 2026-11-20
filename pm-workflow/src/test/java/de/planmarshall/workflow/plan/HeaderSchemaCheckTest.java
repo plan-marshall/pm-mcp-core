@@ -258,7 +258,8 @@ class HeaderSchemaCheckTest {
         @DisplayName("a wrong constant, minimum, enumeration value, pattern, type or date-time is reported")
         void wrongValue(String name, String pointer, String value, String reason) {
             assertEquals(List.of(new HeaderViolation(pointer, reason)),
-                    HeaderSchemaCheck.check(edited(pointer, Optional.of(json(value)))), name);
+                    HeaderSchemaCheck.check(edited(pointer, Optional.of(json(value)))),
+                    "the wrong value is the case's one violation");
         }
 
         @Test
@@ -337,7 +338,7 @@ class HeaderSchemaCheckTest {
                     () -> assertEquals("", invalid.getFirst().pointer(),
                             "the violation names the whole header"),
                     () -> assertTrue(invalid.getFirst().reason().startsWith("the header is not valid JSON"),
-                            invalid.getFirst().reason()));
+                            "the reason says the header is no valid JSON"));
         }
     }
 

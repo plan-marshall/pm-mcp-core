@@ -60,11 +60,13 @@ class PlanProcessStatesTest {
     private static PlanInstance outline(PlanInstanceHeader.Lane lane) {
         var start = PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(CompositionEvent.START,
                 PlanFixtures.facts().lane(lane).build(), null, AT_INIT));
-        var first = assertInstanceOf(CompositionResult.Composed.class, start, start::toString).instance();
+        var first = assertInstanceOf(CompositionResult.Composed.class, start, "the start yields version 1")
+                .instance();
         var outline = PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
                 CompositionEvent.OUTLINE, PlanFixtures.facts().lane(lane).build(), first,
                 InstancePosition.at(lane == PlanInstanceHeader.Lane.DEEP ? "outline.deep" : "outline.light")));
-        return assertInstanceOf(CompositionResult.Composed.class, outline, outline::toString).instance();
+        return assertInstanceOf(CompositionResult.Composed.class, outline, "the outline yields version 2")
+                .instance();
     }
 
     private static PlanHistoryLine line(long seq, Event event, String node, String outcome) {
@@ -101,7 +103,7 @@ class PlanProcessStatesTest {
                         "a pruned call names its prune reason"),
                 () -> assertNull(node(states, "phases.plan-light").outcome(), "a pruned call carries no outcome"),
                 () -> assertTrue(states.stream().anyMatch(state -> state.node().startsWith("phase-plan.")),
-                        states::toString));
+                        "a state of the composed phase-plan is listed"));
     }
 
     @Test

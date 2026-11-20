@@ -57,12 +57,12 @@ class WorkflowLogMessagesTest {
     void ranges(String level, int first, int last) throws Exception {
         var records = records(level);
 
-        assertFalse(records.isEmpty(), level);
+        assertFalse(records.isEmpty(), "the level holds at least one record");
         for (LogRecord logRecord : records) {
             assertEquals(WorkflowLogMessages.PREFIX, logRecord.getPrefix(),
                     "Every record carries the holder prefix");
             assertTrue(logRecord.getIdentifier() >= first && logRecord.getIdentifier() <= last,
-                    logRecord.resolveIdentifierString());
+                    "the identifier lies in the level's range");
         }
     }
 
@@ -76,7 +76,7 @@ class WorkflowLogMessagesTest {
         var seen = new HashSet<Integer>();
 
         for (LogRecord logRecord : all) {
-            assertTrue(seen.add(logRecord.getIdentifier()), logRecord.resolveIdentifierString());
+            assertTrue(seen.add(logRecord.getIdentifier()), "no identifier is used by two records");
         }
     }
 

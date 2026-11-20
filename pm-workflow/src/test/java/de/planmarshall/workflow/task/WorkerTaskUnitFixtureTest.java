@@ -54,7 +54,7 @@ class WorkerTaskUnitFixtureTest {
             var source = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             var parsed = WorkflowParser.parse(RESOURCE, source, UnitOrigin.DEFAULT);
             return assertInstanceOf(ParseResult.Parsed.class, parsed,
-                    () -> "the fixture unit is refused: " + parsed).definition();
+                    "the worker task fixture follows the grammar").definition();
         }
     }
 

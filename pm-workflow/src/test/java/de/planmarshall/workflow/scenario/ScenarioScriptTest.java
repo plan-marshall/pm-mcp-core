@@ -445,9 +445,10 @@ class ScenarioScriptTest {
                     "a directive the harness does not run is refused");
 
             assertAll(
-                    () -> assertTrue(refused.getMessage().startsWith(expected), refused.getMessage()),
+                    () -> assertTrue(refused.getMessage().startsWith(expected),
+                            "the refusal names the line and the directive"),
                     () -> assertTrue(refused.getMessage().endsWith(ScenarioScript.REFUSED.get(directive)),
-                            refused.getMessage()));
+                            "the refusal ends with the bringing package"));
         }
 
         @Test
@@ -455,7 +456,7 @@ class ScenarioScriptTest {
         void shouldNamePackageOfRefusedDirectives() {
             assertAll(
                     () -> assertTrue(ScenarioScript.REFUSED.values().stream().noneMatch(String::isBlank),
-                            ScenarioScript.REFUSED.toString()),
+                            "every refused directive names a package"),
                     () -> assertEquals("plan-instance", ScenarioScript.REFUSED.get("assert_instance_version"),
                             "the refused directive names its work package"),
                     () -> assertFalse(ScenarioScript.REFUSED.containsKey("worker_wait"),
@@ -483,9 +484,10 @@ class ScenarioScriptTest {
                     "an unknown directive is refused by name");
 
             assertAll(
-                    () -> assertTrue(refused.getMessage().startsWith("line 3: "), refused.getMessage()),
+                    () -> assertTrue(refused.getMessage().startsWith("line 3: "),
+                            "the refusal names line 3"),
                     () -> assertTrue(refused.getMessage().endsWith("'%s' is no directive".formatted(directive)),
-                            refused.getMessage()));
+                            "the refusal names the unknown directive"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -498,8 +500,10 @@ class ScenarioScriptTest {
                     "a malformed line is refused with its reason");
 
             assertAll(
-                    () -> assertTrue(refused.getMessage().startsWith("line 3: "), refused.getMessage()),
-                    () -> assertTrue(refused.getMessage().contains(reason), refused.getMessage()));
+                    () -> assertTrue(refused.getMessage().startsWith("line 3: "),
+                            "the diagnostic names line 3"),
+                    () -> assertTrue(refused.getMessage().contains(reason),
+                            "the diagnostic states the case's reason"));
         }
     }
 
@@ -520,7 +524,8 @@ class ScenarioScriptTest {
             assertAll(
                     () -> assertEquals("line 2: a script starts with scenario <name>, not with 'start'",
                             noScenario.getMessage(), "the refusal names the missing scenario line"),
-                    () -> assertTrue(empty.getMessage().contains("names no scenario"), empty.getMessage()));
+                    () -> assertTrue(empty.getMessage().contains("names no scenario"),
+                            "the empty script names no scenario"));
         }
 
         @Test
@@ -543,7 +548,7 @@ class ScenarioScriptTest {
 
             assertAll(
                     () -> assertTrue(badName.getMessage().startsWith("line 1: the scenario name does not match"),
-                            badName.getMessage()),
+                            "the refusal says the name does not match"),
                     () -> assertEquals("line 3: the worker of role reviewer is declared twice", twice.getMessage(),
                             "the refusal names the twice-declared role"),
                     () -> assertEquals("the scenario idle names no step", noStep.getMessage(),

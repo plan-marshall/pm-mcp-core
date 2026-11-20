@@ -105,7 +105,7 @@ class ProductRegistriesWiringTest {
         void shouldPassThePassingUnit() {
             var result = loadDefault(PASSING, PRODUCT);
 
-            assertTrue(result.isVerified(), result.findings()::toString);
+            assertTrue(result.isVerified(), "The default loader should pass the unit");
         }
 
         @Test
@@ -129,12 +129,12 @@ class ProductRegistriesWiringTest {
             assertEquals(List.of("CONFIG_KEY_BINDING"), codes(derived),
                     "A derived fact named as a key should be refused");
             assertTrue(messages(derived).getFirst().contains("derived fact"),
-                    () -> "The refusal should direct the author to reads_fact: " + messages(derived));
+                    "The refusal should direct the author to reads_fact");
             var noDefault = loadDefault(NO_DEFAULT, PRODUCT);
             assertEquals(List.of("INPUT_DECLARATION"), codes(noDefault),
                     "A fallback without a compiled default should be refused");
             assertTrue(messages(noDefault).stream().anyMatch(message -> message.contains("has no compiled default")),
-                    () -> "The refusal should name the missing default: " + messages(noDefault));
+                    "The refusal should name the missing default");
         }
 
         @Test
@@ -142,7 +142,7 @@ class ProductRegistriesWiringTest {
         void shouldPassAWorkflowKey() {
             var result = loadDefault(WORKFLOW_KEY, PRODUCT);
 
-            assertTrue(result.isVerified(), result.findings()::toString);
+            assertTrue(result.isVerified(), "The workflow.json key read should pass");
         }
 
         @Test
@@ -151,7 +151,7 @@ class ProductRegistriesWiringTest {
             var result = loadDefault(TEXT_FALLBACK, PRODUCT);
 
             assertTrue(messages(result).stream().anyMatch(message -> message.contains("no closed input type")),
-                    () -> "The refusal should name the absent domain: " + messages(result));
+                    "The refusal should name the absent domain");
         }
     }
 
@@ -164,7 +164,7 @@ class ProductRegistriesWiringTest {
         void shouldPassThePassingUnit() {
             var result = loadProject(PASSING, read(PASSING), PRODUCT);
 
-            assertTrue(result.isVerified(), result.findings()::toString);
+            assertTrue(result.isVerified(), "The project loader should pass the unit");
         }
 
         @Test
@@ -174,7 +174,7 @@ class ProductRegistriesWiringTest {
 
             var result = loadProject("declared-reads-crlf.pmwf", crlf, PASSING, PRODUCT);
 
-            assertTrue(result.isVerified(), result.findings()::toString);
+            assertTrue(result.isVerified(), "The CRLF twin should pass the project loader");
         }
 
         @Test
@@ -198,12 +198,12 @@ class ProductRegistriesWiringTest {
             assertEquals(List.of("CONFIG_KEY_BINDING"), codes(derived),
                     "A derived fact named as a key should be refused");
             assertTrue(messages(derived).getFirst().contains("derived fact"),
-                    () -> "The refusal should direct the author to reads_fact: " + messages(derived));
+                    "The refusal should direct the author to reads_fact");
             var noDefault = loadProject(NO_DEFAULT, read(NO_DEFAULT), PRODUCT);
             assertEquals(List.of("INPUT_DECLARATION"), codes(noDefault),
                     "A fallback without a compiled default should be refused");
             assertTrue(messages(noDefault).stream().anyMatch(message -> message.contains("has no compiled default")),
-                    () -> "The refusal should name the missing default: " + messages(noDefault));
+                    "The refusal should name the missing default");
         }
     }
 
@@ -218,12 +218,12 @@ class ProductRegistriesWiringTest {
             var product = violations(result);
 
             assertInstanceOf(CompositionResult.Refused.class, result,
-                    () -> "The standalone fixture should be refused only for its missing plan default: " + result);
-            assertFalse(product.isEmpty(), () -> "The refusal should name the missing default: " + product);
+                    "The standalone fixture should be refused");
+            assertFalse(product.isEmpty(), "The refusal should name the missing default");
             assertFalse(product.stream().anyMatch(violation -> violation.contains("Rule 1 (")),
-                    () -> "The product context should accept the reads: " + product);
+                    "The product context should accept the reads");
             assertTrue(product.stream().allMatch(violation -> violation.contains("INV-GEN-1")),
-                    () -> "Only the standalone fixture's missing default should remain: " + product);
+                    "Only the fixture's missing default should remain");
         }
 
         @Test
@@ -232,7 +232,7 @@ class ProductRegistriesWiringTest {
             var product = violations(compose(PRODUCT, UNKNOWN_KEY));
 
             assertTrue(product.stream().anyMatch(violation -> violation.contains("CONFIG_KEY_BINDING")),
-                    () -> "The product context should refuse the misspelt key: " + product);
+                    "The product context should refuse the misspelt key");
         }
 
         @Test
@@ -256,7 +256,7 @@ class ProductRegistriesWiringTest {
             var empty = violations(compose(EMPTY, PASSING));
 
             assertTrue(empty.stream().anyMatch(violation -> violation.contains("CONFIG_KEY_BINDING")),
-                    () -> "The empty registries should refuse the declared key: " + empty);
+                    "The empty registries should refuse the declared key");
         }
     }
 

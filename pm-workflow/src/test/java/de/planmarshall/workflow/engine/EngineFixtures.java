@@ -432,7 +432,7 @@ final class EngineFixtures {
      */
     static WorkflowDefinition parse(String name, String source) {
         var result = WorkflowParser.parse(name, source, UnitOrigin.DEFAULT);
-        return assertInstanceOf(ParseResult.Parsed.class, result, () -> name + " was refused: " + result)
+        return assertInstanceOf(ParseResult.Parsed.class, result, "the unit text follows the grammar")
                 .definition();
     }
 

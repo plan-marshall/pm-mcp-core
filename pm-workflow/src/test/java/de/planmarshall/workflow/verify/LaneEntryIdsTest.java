@@ -34,7 +34,9 @@ class LaneEntryIdsTest {
                 .flatMap(unit -> unit.states().keySet().stream()).toList();
 
         assertAll(
-                () -> assertTrue(states.contains(LaneEntryIds.DEEP_ENTRY), LaneEntryIds.DEEP_ENTRY),
-                () -> assertTrue(states.contains(LaneEntryIds.LIGHT_ENTRY), LaneEntryIds.LIGHT_ENTRY));
+                () -> assertTrue(states.contains(LaneEntryIds.DEEP_ENTRY),
+                        "a default unit declares the deep entry"),
+                () -> assertTrue(states.contains(LaneEntryIds.LIGHT_ENTRY),
+                        "a default unit declares the light entry"));
     }
 }

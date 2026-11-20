@@ -78,8 +78,7 @@ class WorkflowDiagramGeneratorTest {
 
             var rendered = render.apply(FIXTURE).getBytes(StandardCharsets.UTF_8);
 
-            assertArrayEquals(expected, rendered, () -> form + " differs from " + golden + ":\n"
-                    + new String(rendered, StandardCharsets.UTF_8));
+            assertArrayEquals(expected, rendered, "the rendered bytes equal the golden file");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -90,7 +89,7 @@ class WorkflowDiagramGeneratorTest {
 
             var second = render.apply(DiagramFixtures.fixture()).getBytes(StandardCharsets.UTF_8);
 
-            assertArrayEquals(first, second, form);
+            assertArrayEquals(first, second, "a second rendering gives the same bytes");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -116,7 +115,7 @@ class WorkflowDiagramGeneratorTest {
             assertTrue(rendered.endsWith("""
                         classDef active fill:#90ee90
                         class build_judge active
-                    """), rendered);
+                    """), "the diagram ends with the active style lines");
         }
 
         @Test
@@ -124,7 +123,7 @@ class WorkflowDiagramGeneratorTest {
         void shouldDefineNoStyleWithoutActiveState() {
             var rendered = WorkflowDiagramGenerator.renderMermaid(FIXTURE, null);
 
-            assertFalse(rendered.contains("classDef"), rendered);
+            assertFalse(rendered.contains("classDef"), "no style is defined without an active state");
         }
 
         @Test
@@ -132,8 +131,8 @@ class WorkflowDiagramGeneratorTest {
         void shouldMarkActiveStateInTerminalTable() {
             var rendered = WorkflowDiagramGenerator.renderAscii(FIXTURE, "build.judge");
 
-            assertAll(() -> assertTrue(rendered.contains("│ *build.judge "), rendered),
-                    () -> assertTrue(rendered.contains("│  (ACTIVE) "), rendered),
+            assertAll(() -> assertTrue(rendered.contains("│ *build.judge "), "the active state's row is starred"),
+                    () -> assertTrue(rendered.contains("│  (ACTIVE) "), "the active state carries the ACTIVE mark"),
                     () -> assertEquals(1, rendered.lines().filter(line -> line.contains("(ACTIVE)")).count(),
                             "the active mark appears on one line"));
         }
@@ -143,8 +142,8 @@ class WorkflowDiagramGeneratorTest {
         void shouldMarkNoStateWithoutActiveState() {
             var rendered = WorkflowDiagramGenerator.renderAscii(FIXTURE, null);
 
-            assertAll(() -> assertFalse(rendered.contains("(ACTIVE)"), rendered),
-                    () -> assertFalse(rendered.contains("│ *"), rendered));
+            assertAll(() -> assertFalse(rendered.contains("(ACTIVE)"), "no row carries the ACTIVE mark"),
+                    () -> assertFalse(rendered.contains("│ *"), "no row of the table is starred"));
         }
 
         @Test
@@ -211,12 +210,15 @@ class WorkflowDiagramGeneratorTest {
 
             var block = rendered.lines().dropWhile(line -> !line.startsWith("│ build.judge "))
                     .takeWhile(line -> !line.startsWith("├") && !line.startsWith("└")).toList();
-            assertAll(() -> assertEquals(2, block.size(), String.join("\n", block)),
-                    () -> assertTrue(block.get(1).startsWith("│  task reviewer "), block.get(1)),
+            assertAll(() -> assertEquals(2, block.size(), "the task state's block has two lines"),
+                    () -> assertTrue(block.get(1).startsWith("│  task reviewer "),
+                            "the second line names the task's role"),
                     () -> assertTrue(block.stream().allMatch(line -> line.contains(" │ - ")),
                             "no link leaves the task state"),
-                    () -> assertTrue(block.get(0).contains("approved -> build.commit"), block.get(0)),
-                    () -> assertTrue(block.get(1).contains("lost -> diagram.failed"), block.get(1)));
+                    () -> assertTrue(block.get(0).contains("approved -> build.commit"),
+                            "the first line shows the approved outcome"),
+                    () -> assertTrue(block.get(1).contains("lost -> diagram.failed"),
+                            "the second line shows the lost outcome"));
         }
 
         @Test
@@ -225,9 +227,10 @@ class WorkflowDiagramGeneratorTest {
             var rendered = WorkflowDiagramGenerator.renderMermaid(FIXTURE, null);
 
             assertAll(() -> assertTrue(rendered.contains("build_judge --> build_commit : task reviewer / approved"),
-                            rendered),
+                            "the transition label names the reviewer role"),
                     () -> assertTrue(rendered.contains(
-                            "build_implement : task implementer each diagram.list-changes"), rendered));
+                            "build_implement : task implementer each diagram.list-changes"),
+                            "the state label names the implementer role"));
         }
 
         @Test
@@ -258,7 +261,7 @@ class WorkflowDiagramGeneratorTest {
             var rendered = WorkflowDiagramGenerator.renderMermaid(unit, null);
 
             assertTrue(rendered.contains("decide_vote --> decide_done : task role each diagram.list-roles / approved"),
-                    rendered);
+                    "the label names the primitive that returns the roles");
         }
     }
 
@@ -304,11 +307,14 @@ class WorkflowDiagramGeneratorTest {
         void shouldDrawEveryEntryAsStartingPoint() {
             var rendered = WorkflowDiagramGenerator.renderMermaid(ENTRIES, null);
 
-            assertAll(() -> assertTrue(rendered.contains("[*] --> build_review : entry review\n"), rendered),
-                    () -> assertTrue(rendered.contains("[*] --> build_repair : entry repair\n"), rendered),
-                    () -> assertTrue(rendered.contains("[*] --> build_review : entry recheck\n"), rendered),
+            assertAll(() -> assertTrue(rendered.contains("[*] --> build_review : entry review\n"),
+                            "the review entry has its start arrow"),
+                    () -> assertTrue(rendered.contains("[*] --> build_repair : entry repair\n"),
+                            "the repair entry has its start arrow"),
+                    () -> assertTrue(rendered.contains("[*] --> build_review : entry recheck\n"),
+                            "the recheck entry has its start arrow"),
                     () -> assertEquals(3, rendered.lines().filter(line -> line.contains("[*] -->")).count(),
-                            rendered));
+                            "exactly the three entries draw a start arrow"));
         }
 
         @Test
@@ -316,9 +322,10 @@ class WorkflowDiagramGeneratorTest {
         void shouldNameEntriesInEnteredFrom() {
             var rendered = WorkflowDiagramGenerator.renderAsciiDocTables(ENTRIES);
 
-            assertAll(() -> assertTrue(rendered.contains("entry `review`, entry `recheck`, `build.repair`"), rendered),
-                    () -> assertTrue(rendered.contains("|entry `repair`\n"), rendered),
-                    () -> assertFalse(rendered.contains("|start"), rendered));
+            assertAll(() -> assertTrue(rendered.contains("entry `review`, entry `recheck`, `build.repair`"),
+                            "the entries come before the source state"),
+                    () -> assertTrue(rendered.contains("|entry `repair`\n"), "the repair state is entered from repair"),
+                    () -> assertFalse(rendered.contains("|start"), "no state is entered from a bare start"));
         }
     }
 
@@ -358,14 +365,21 @@ class WorkflowDiagramGeneratorTest {
 
             var rendered = WorkflowDiagramGenerator.renderMermaid(unit, "build_judge");
 
-            assertAll(() -> assertTrue(rendered.contains("state \"build.judge\" as build_judge\n"), rendered),
-                    () -> assertTrue(rendered.contains("state \"build-judge\" as build_judge_2\n"), rendered),
-                    () -> assertTrue(rendered.contains("state \"build_judge\" as build_judge_3\n"), rendered),
-                    () -> assertTrue(rendered.contains("build_judge --> build_judge_2 : "), rendered),
-                    () -> assertTrue(rendered.contains("build_judge_2 --> build_judge_3 : "), rendered),
-                    () -> assertTrue(rendered.contains("build_judge_3 --> build_judge : "), rendered),
-                    () -> assertTrue(rendered.contains("[*] --> build_judge\n"), rendered),
-                    () -> assertTrue(rendered.endsWith("class build_judge_3 active\n"), rendered));
+            assertAll(() -> assertTrue(rendered.contains("state \"build.judge\" as build_judge\n"),
+                            "the first state keeps the plain node"),
+                    () -> assertTrue(rendered.contains("state \"build-judge\" as build_judge_2\n"),
+                            "the second state gets the node suffix _2"),
+                    () -> assertTrue(rendered.contains("state \"build_judge\" as build_judge_3\n"),
+                            "the third state gets the node suffix _3"),
+                    () -> assertTrue(rendered.contains("build_judge --> build_judge_2 : "),
+                            "the first link joins the nodes one and two"),
+                    () -> assertTrue(rendered.contains("build_judge_2 --> build_judge_3 : "),
+                            "the second link joins the nodes two and three"),
+                    () -> assertTrue(rendered.contains("build_judge_3 --> build_judge : "),
+                            "the third link joins the nodes three and one"),
+                    () -> assertTrue(rendered.contains("[*] --> build_judge\n"), "the start arrow enters node one"),
+                    () -> assertTrue(rendered.endsWith("class build_judge_3 active\n"),
+                            "the active style marks the third node"));
         }
 
         @Test
@@ -395,12 +409,17 @@ class WorkflowDiagramGeneratorTest {
             var rendered = WorkflowDiagramGenerator.renderMermaid(unit, "execute.end");
 
             assertAll(() -> assertTrue(rendered.contains("state \"phase.phase-5-execute\" as phase_phase_5_execute\n"),
-                            rendered),
-                    () -> assertTrue(rendered.contains("    state phase_phase_5_execute_2 {\n"), rendered),
-                    () -> assertTrue(rendered.contains("        state \"execute.end\" as execute_end\n"), rendered),
-                    () -> assertTrue(rendered.contains("        phase_phase_5_execute --> execute_end : "), rendered),
-                    () -> assertTrue(rendered.contains("    [*] --> phase_phase_5_execute\n"), rendered),
-                    () -> assertTrue(rendered.endsWith("    class execute_end active\n"), rendered));
+                            "the state keeps the plain node identifier"),
+                    () -> assertTrue(rendered.contains("    state phase_phase_5_execute_2 {\n"),
+                            "the phase composite takes the suffix _2"),
+                    () -> assertTrue(rendered.contains("        state \"execute.end\" as execute_end\n"),
+                            "the end state sits inside the composite"),
+                    () -> assertTrue(rendered.contains("        phase_phase_5_execute --> execute_end : "),
+                            "the link joins the state to the end state"),
+                    () -> assertTrue(rendered.contains("    [*] --> phase_phase_5_execute\n"),
+                            "the start arrow enters the state's node"),
+                    () -> assertTrue(rendered.endsWith("    class execute_end active\n"),
+                            "the active style marks the end state"));
         }
 
         @Test
@@ -427,8 +446,10 @@ class WorkflowDiagramGeneratorTest {
 
             var rendered = WorkflowDiagramGenerator.renderMermaid(unit, null);
 
-            assertAll(() -> assertTrue(rendered.contains("state \"build_missing\" as build_missing\n"), rendered),
-                    () -> assertTrue(rendered.contains("build_missing --> build_missing_2 : "), rendered));
+            assertAll(() -> assertTrue(rendered.contains("state \"build_missing\" as build_missing\n"),
+                            "the declared state keeps the plain node"),
+                    () -> assertTrue(rendered.contains("build_missing --> build_missing_2 : "),
+                            "the undeclared target gets the node _2"));
         }
     }
 
@@ -446,8 +467,7 @@ class WorkflowDiagramGeneratorTest {
 
             var rendered = render.apply(instance, null).getBytes(StandardCharsets.UTF_8);
 
-            assertArrayEquals(expected, rendered, () -> form + " differs from " + golden + ":\n"
-                    + new String(rendered, StandardCharsets.UTF_8));
+            assertArrayEquals(expected, rendered, "the rendered bytes equal the golden file");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -475,8 +495,9 @@ class WorkflowDiagramGeneratorTest {
             var rendered = render.apply(composed, null);
 
             assertAll(form,
-                    () -> assertTrue(rendered.contains("instance/phase-x.v3.pmwf"), rendered),
-                    () -> assertTrue(rendered.contains(entry.digest()), rendered));
+                    () -> assertTrue(rendered.contains("instance/phase-x.v3.pmwf"),
+                            "the rendering names the composed file"),
+                    () -> assertTrue(rendered.contains(entry.digest()), "the rendering names the file's digest"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -490,8 +511,8 @@ class WorkflowDiagramGeneratorTest {
                     DiagramFixtures.PRUNED.stream().flatMap(pruned -> Stream.of(pruned.element().wireName(),
                             pruned.id(), pruned.reason().wireName(), pruned.sourceFact())),
                     Stream.of(DiagramFixtures.WAIVED_GATE, DiagramFixtures.WAIVER_ID, "plan diagram-fixture v3 (plan)"))
-                    .map(expected -> () -> assertTrue(rendered.contains(expected), expected + " missing in\n"
-                            + rendered)));
+                    .map(expected -> () -> assertTrue(rendered.contains(expected),
+                            "the rendering names each annotation value")));
         }
 
         @Test
@@ -503,7 +524,7 @@ class WorkflowDiagramGeneratorTest {
             assertAll(() -> assertTrue(rendered.contains("""
                                 classDef active fill:#90ee90
                                 class finalize_merge_gate active
-                            """), rendered),
+                            """), "the instance diagram styles the active gate"),
                     () -> assertFalse(WorkflowDiagramGenerator.renderInstanceMermaid(instance, null)
                             .contains("classDef"), "no style without an active state"));
         }
@@ -514,7 +535,8 @@ class WorkflowDiagramGeneratorTest {
             var rendered = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance,
                     DiagramFixtures.WAIVED_GATE);
 
-            assertAll(() -> assertTrue(rendered.contains("|Active state\n|`finalize.merge-gate`\n"), rendered),
+            assertAll(() -> assertTrue(rendered.contains("|Active state\n|`finalize.merge-gate`\n"),
+                            "the tables name the active merge gate"),
                     () -> assertTrue(WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, null)
                             .contains("|Active state\n|-\n"), "no active state is named"));
         }
@@ -525,7 +547,8 @@ class WorkflowDiagramGeneratorTest {
             var rendered = WorkflowDiagramGenerator.renderInstanceAscii(instance,
                     DiagramFixtures.WAIVED_GATE);
 
-            assertAll(() -> assertTrue(rendered.contains("│ *finalize.merge-gate "), rendered),
+            assertAll(() -> assertTrue(rendered.contains("│ *finalize.merge-gate "),
+                            "the active merge gate's row is starred"),
                     () -> assertEquals(1, rendered.lines().filter(line -> line.contains("(ACTIVE)")).count(),
                             "the active mark appears on one line"),
                     () -> assertFalse(WorkflowDiagramGenerator.renderInstanceAscii(instance, null)
@@ -551,7 +574,8 @@ class WorkflowDiagramGeneratorTest {
         @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
         @DisplayName("Should refuse a missing instance")
         void shouldRefuseMissingInstance(String form, String golden, InstanceForm render) {
-            assertThrows(NullPointerException.class, () -> render.apply(null, null), form + " refuses no instance");
+            assertThrows(NullPointerException.class, () -> render.apply(null, null),
+                    "the instance form refuses a missing instance");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -602,14 +626,15 @@ class WorkflowDiagramGeneratorTest {
             var asciiDoc = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(bare, null);
             var terminal = WorkflowDiagramGenerator.renderInstanceAscii(bare, null);
 
-            assertAll(() -> assertFalse(mermaid.contains("instance_pruned"), mermaid),
-                    () -> assertFalse(mermaid.contains("instance_waived"), mermaid),
-                    () -> assertFalse(asciiDoc.contains("pruned elements"), asciiDoc),
-                    () -> assertFalse(asciiDoc.contains("waived gates"), asciiDoc),
-                    () -> assertFalse(terminal.contains("Source fact"), terminal),
-                    () -> assertFalse(terminal.contains("Waiver id"), terminal),
-                    () -> assertTrue(asciiDoc.contains("|Lane\n|-\n"), asciiDoc),
-                    () -> assertTrue(terminal.contains("│ Posture      │ -"), terminal));
+            assertAll(() -> assertFalse(mermaid.contains("instance_pruned"), "Mermaid draws no pruned composite"),
+                    () -> assertFalse(mermaid.contains("instance_waived"), "Mermaid draws no waived composite"),
+                    () -> assertFalse(asciiDoc.contains("pruned elements"), "AsciiDoc has no pruned-elements table"),
+                    () -> assertFalse(asciiDoc.contains("waived gates"), "AsciiDoc has no waived-gates table"),
+                    () -> assertFalse(terminal.contains("Source fact"), "the terminal has no pruned table"),
+                    () -> assertFalse(terminal.contains("Waiver id"), "the terminal has no waived-gate table"),
+                    () -> assertTrue(asciiDoc.contains("|Lane\n|-\n"), "AsciiDoc shows the absent lane as -"),
+                    () -> assertTrue(terminal.contains("│ Posture      │ -"),
+                            "the terminal shows the absent posture as -"));
         }
 
         @Test
@@ -642,13 +667,20 @@ class WorkflowDiagramGeneratorTest {
             var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(
                     DiagramFixtures.instance(unit, source), null);
 
-            assertAll(() -> assertTrue(rendered.contains("state \"instance-pruned\" as instance_pruned_2\n"), rendered),
-                    () -> assertTrue(rendered.contains("instance_pruned --> instance_pruned_2 : "), rendered),
-                    () -> assertTrue(rendered.contains("state \"pruned\" as instance_pruned_5 {\n"), rendered),
-                    () -> assertTrue(rendered.contains("as instance_pruned_1\n"), rendered),
-                    () -> assertTrue(rendered.contains("as instance_pruned_2_2\n"), rendered),
-                    () -> assertTrue(rendered.contains("state \"waived gates\" as instance_waived {\n"), rendered),
-                    () -> assertTrue(rendered.contains("as instance_waived_1_5\n"), rendered));
+            assertAll(() -> assertTrue(rendered.contains("state \"instance-pruned\" as instance_pruned_2\n"),
+                            "the second unit state gets the suffix _2"),
+                    () -> assertTrue(rendered.contains("instance_pruned --> instance_pruned_2 : "),
+                            "the unit link joins the two unit states"),
+                    () -> assertTrue(rendered.contains("state \"pruned\" as instance_pruned_5 {\n"),
+                            "the pruned composite takes the free _5"),
+                    () -> assertTrue(rendered.contains("as instance_pruned_1\n"),
+                            "the first pruned element takes _1"),
+                    () -> assertTrue(rendered.contains("as instance_pruned_2_2\n"),
+                            "the second pruned element takes _2_2"),
+                    () -> assertTrue(rendered.contains("state \"waived gates\" as instance_waived {\n"),
+                            "the waived composite keeps its plain node"),
+                    () -> assertTrue(rendered.contains("as instance_waived_1_5\n"),
+                            "the waived gate takes the free _1_5"));
         }
 
         @Test
@@ -668,12 +700,12 @@ class WorkflowDiagramGeneratorTest {
 
             assertAll(
                     () -> assertTrue(rendered.contains("state \"step default:#quot;quoted#quot; step: local_only "
-                            + "(fact #35;1; line)\" as instance_pruned_1\n"), rendered),
+                            + "(fact #35;1; line)\" as instance_pruned_1\n"), "the pruned label escapes quote and hash"),
                     () -> assertTrue(rendered.contains("state \"gate #quot;x#quot; next: waived W-1\" as "
-                            + "instance_waived_1\n"), rendered),
+                            + "instance_waived_1\n"), "the waived label escapes the quote"),
                     () -> assertTrue(rendered.lines().filter(line -> line.contains(" as instance_"))
                                     .allMatch(line -> line.chars().filter(character -> character == '"').count() == 2),
-                            rendered));
+                            "each annotation line holds two quotes only"));
         }
 
         @Test
@@ -684,7 +716,7 @@ class WorkflowDiagramGeneratorTest {
                     null);
 
             assertEquals("---\ntitle: \"plan a: \\\"b\\\" \\\\c v3 (plan)\"\n---\n", frontMatter(rendered),
-                    rendered);
+                    "the title is an escaped double-quoted scalar");
         }
 
         @Test
@@ -693,7 +725,8 @@ class WorkflowDiagramGeneratorTest {
             var planId = Generators.letterStrings(1, 8).next();
             var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(withPlanId(planId), null);
 
-            assertEquals("---\ntitle: \"plan " + planId + " v3 (plan)\"\n---\n", frontMatter(rendered), rendered);
+            assertEquals("---\ntitle: \"plan " + planId + " v3 (plan)\"\n---\n", frontMatter(rendered),
+                    "the plain title is quoted without escapes");
         }
 
         private PlanInstance withPlanId(String planId) {
@@ -718,11 +751,12 @@ class WorkflowDiagramGeneratorTest {
                     .lines().filter("|==="::equals).count();
 
             assertAll(
-                    () -> assertEquals(expectedDelimiters, rendered.lines().filter("|==="::equals).count(), rendered),
+                    () -> assertEquals(expectedDelimiters, rendered.lines().filter("|==="::equals).count(),
+                            "the hostile cells add no table delimiter"),
                     () -> assertTrue(rendered.contains("|`default:a\\|b c`\n|`local_only`\n|`fact \\| next line`\n"),
-                            rendered),
-                    () -> assertTrue(rendered.contains("|`x \\|===`\n|`W\\|1`\n"), rendered),
-                    () -> assertFalse(rendered.contains("\r"), rendered));
+                            "the pruned cells escape pipe and line feed"),
+                    () -> assertTrue(rendered.contains("|`x \\|===`\n|`W\\|1`\n"), "the waived cells escape the pipe"),
+                    () -> assertFalse(rendered.contains("\r"), "no carriage return remains in AsciiDoc"));
         }
 
         @Test
@@ -733,11 +767,11 @@ class WorkflowDiagramGeneratorTest {
             var misaligned = Stream.of(rendered.split("\n\n")).filter(block -> block.lines()
                     .mapToInt(line -> line.codePointCount(0, line.length())).distinct().count() != 1).toList();
 
-            assertAll(() -> assertEquals(List.of(), misaligned, rendered),
+            assertAll(() -> assertEquals(List.of(), misaligned, "every block of the box has aligned lines"),
                     () -> assertTrue(rendered.contains("│ step    │ default:a|b c │ local_only │ fact | next line │\n"),
-                            rendered),
-                    () -> assertTrue(rendered.contains("│ x |=== │ W|1       │\n"), rendered),
-                    () -> assertFalse(rendered.contains("\r"), rendered));
+                            "the pruned row flattens the line feeds"),
+                    () -> assertTrue(rendered.contains("│ x |=== │ W|1       │\n"), "the waived row flattens the line feed"),
+                    () -> assertFalse(rendered.contains("\r"), "no carriage return remains in the box"));
         }
 
         @Test
@@ -757,9 +791,9 @@ class WorkflowDiagramGeneratorTest {
             var mermaid = WorkflowDiagramGenerator.renderInstanceMermaid(c1Instance, null);
 
             assertAll(
-                    () -> assertTrue(terminal.contains("│ fact [31m end │"), terminal),
-                    () -> assertTrue(asciiDoc.contains("|`fact [31m end`\n"), asciiDoc),
-                    () -> assertTrue(mermaid.contains("(fact [31m end)"), mermaid),
+                    () -> assertTrue(terminal.contains("│ fact [31m end │"), "the terminal replaces the C1 characters"),
+                    () -> assertTrue(asciiDoc.contains("|`fact [31m end`\n"), "AsciiDoc replaces the C1 characters"),
+                    () -> assertTrue(mermaid.contains("(fact [31m end)"), "Mermaid replaces the C1 characters"),
                     () -> assertTrue(Stream.of(terminal, asciiDoc, mermaid)
                             .noneMatch(form -> form.chars().anyMatch(character -> character >= 0x80
                                     && character <= 0x9F)), "no C1 control character may remain"));
@@ -833,7 +867,8 @@ class WorkflowDiagramGeneratorTest {
             var rendered = WorkflowDiagramGenerator.renderAsciiDocTables(unit);
 
             assertTrue(rendered.contains("|`choice: enum[FIX\\|SUPPRESS]`, `body: schema[fix-plan]`, "
-                    + "`count: int[0..5]`, `size: int`, `items: list<text>`, `note: text[1..80]?`\n"), rendered);
+                    + "`count: int[0..5]`, `size: int`, `items: list<text>`, `note: text[1..80]?`\n"),
+                    "the cell prints every type, the pipe escaped");
         }
     }
 }
