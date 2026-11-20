@@ -221,10 +221,15 @@ public final class SupervisionPass {
     private void completeEnd(WorkerGeneration generation, Instant now, JobRecordStore jobs, JobRecord job) {
         var generationId = generation.generationId();
         var task = generation.leasedTask();
-        if (task != null && !finished.contains(generationId)) {
-            // The log's tail is read before the monitor is taken: a pump writes the journal, not the generation, and the
-            // monitor must not hold the supervisor's timer thread for the length of a log read.
-            pump(generation, task, jobs);
+        if (!finished.contains(generationId)) {
+            if (task != null) {
+                // The log's tail is read before the monitor is taken: a pump writes the journal, not the generation,
+                // and the monitor must not hold the supervisor's timer thread for the length of a log read.
+                pump(generation, task, jobs);
+            } else {
+                // The task closed before the job settled: the tail and the attempt's end still belong to that task.
+                closeAttempt(generation, jobs);
+            }
         }
         claimEnd(generation, now, jobs, job);
         WorkerGeneration terminal = null;
