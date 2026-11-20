@@ -17,6 +17,14 @@
     "instance_version": { "type": "integer", "minimum": 1, "description": "The plan instance version in force at the line; for an instance line the version that took force." },
     "at": { "type": "string", "format": "date-time" }
   },
-  "if": { "properties": { "event": { "not": { "const": "left" } } } },
-  "then": { "not": { "required": ["reason"] } }
+  "allOf": [
+    {
+      "if": { "properties": { "event": { "not": { "const": "left" } } } },
+      "then": { "not": { "required": ["reason"] } }
+    },
+    {
+      "if": { "properties": { "outcome": { "type": "null" } } },
+      "then": { "not": { "required": ["reason"] } }
+    }
+  ]
 }

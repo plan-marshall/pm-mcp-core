@@ -20,8 +20,9 @@ closed schema in format version 1, read by `PlanHistoryCodec`, which refuses an 
 == Decision
 
 * `PlanHistoryLine` gains the `@Nullable` component `reason` after `outcome`, read through `reasonValue()`; the schema
-  `history-line.schema.json` gains the optional property `reason` of the outcome pattern, not required, and an `if`/`then`
-  that admits it on a `left` line only.
+  `history-line.schema.json` gains the optional property `reason` of the outcome pattern, not required, and an `allOf`
+  of two `if`/`then` clauses that admit it on a `left` line only and only beside an outcome that is not `null`, so the
+  schema states the same invariants as the record.
 * The record refuses a reason on a line whose event is not `left`, a reason without an outcome, and a reason outside the
   pattern. The codec writes the member after `outcome` only when it is present and reads it as an optional member.
 * `FORMAT_VERSION` stays `1`, and `PlanHistoryLine.of(...)` keeps its eight parameters and builds a line without a reason.
@@ -40,7 +41,8 @@ closed schema in format version 1, read by `PlanHistoryCodec`, which refuses an 
 * The engine writes the reason on the `left` line of a routed result and on no other line; a raise writes no `left` line.
 * The canonical constructor of `PlanHistoryLine` gains a component, a breaking change before 1.0; the engine builds a
   line through the builder, and the tests that called the constructor were rewritten with it.
-* `PlanHistoryTest` and `PlanHistorySchemaParityTest` pin the member, its omission and its `left`-only rule.
+* `PlanHistoryTest` and `PlanHistorySchemaParityTest` pin the member, its omission, its `left`-only rule and its refusal
+  without an outcome.
 
 == Source
 

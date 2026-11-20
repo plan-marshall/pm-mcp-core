@@ -450,11 +450,11 @@ class ReasonConditionTest {
     }
 
     @Nested
-    @DisplayName("A foreign reason")
-    class ForeignReasonCase {
+    @DisplayName("A reason that does not pair with its outcome")
+    class UnpairedReasonCase {
 
         @Test
-        @DisplayName("is an internal fault UNDECLARED_OUTCOME naming the primitive and the state")
+        @DisplayName("of a foreign type is an internal fault UNDECLARED_OUTCOME naming the primitive and the state")
         void isAnInternalFault() {
             fixtures.switching.then(PrimitiveResult.<SwitchOutcome>builder().outcome(SwitchOutcome.FAILED)
                     .reason(CheckReason.TESTS_RED).build());
@@ -472,6 +472,50 @@ class ReasonConditionTest {
                     () -> assertTrue(fault.getMessage().contains("'" + SWITCH_STATE + "'"),
                             "the fault names the state"),
                     () -> assertTrue(fault.getMessage().contains("'tests_red'"), "the fault names the reason"));
+        }
+
+        @Test
+        @DisplayName("on an outcome that declares no reason type is an internal fault UNDECLARED_OUTCOME")
+        void reasonOnAnOutcomeWithoutReasonType() {
+            fixtures.switching.then(PrimitiveResult.<SwitchOutcome>builder().outcome(SwitchOutcome.FAILED)
+                    .reason(CheckReason.TESTS_RED).build());
+            ReasonFixtures.switchToNoReasonType();
+            var engine = fixtures.engine(ReasonFixtures.switchUnit());
+            var start = at(SWITCH_STATE);
+
+            var fault = assertThrows(InternalFaultException.class, () -> engine.advance(start),
+                    "a reason the outcome lacks is an internal fault");
+
+            assertAll(
+                    () -> assertEquals(InternalFaultException.Reason.UNDECLARED_OUTCOME, fault.reason(),
+                            "the fault is an undeclared outcome"),
+                    () -> assertTrue(fault.getMessage().contains("'reason.switch'"), "the fault names the primitive"),
+                    () -> assertTrue(fault.getMessage().contains("'" + SWITCH_STATE + "'"),
+                            "the fault names the state"),
+                    () -> assertTrue(fault.getMessage().contains("'tests_red'"), "the fault names the reason"));
+        }
+
+        @Test
+        @DisplayName("missing on an outcome that declares a reason type is an internal fault UNDECLARED_OUTCOME")
+        void noReasonOnAnOutcomeWithReasonType() {
+            ReasonFixtures.switchToNoReasonType();
+            fixtures.switching.then(PrimitiveResult.<SwitchOutcome>builder().outcome(SwitchOutcome.FAILED).build());
+            ReasonFixtures.switchReasonType(CheckReason.class);
+            var engine = fixtures.engine(ReasonFixtures.switchUnit());
+            var start = at(SWITCH_STATE);
+
+            var fault = assertThrows(InternalFaultException.class, () -> engine.advance(start),
+                    "a missing reason is an internal fault");
+
+            // 'none' is the contract: the engine's fault message names an absent reason so.
+            assertAll(
+                    () -> assertEquals(InternalFaultException.Reason.UNDECLARED_OUTCOME, fault.reason(),
+                            "the fault is an undeclared outcome"),
+                    () -> assertTrue(fault.getMessage().contains("'reason.switch'"), "the fault names the primitive"),
+                    () -> assertTrue(fault.getMessage().contains("'" + SWITCH_STATE + "'"),
+                            "the fault names the state"),
+                    () -> assertTrue(fault.getMessage().contains("the reason 'none'"),
+                            "the fault names the absent reason"));
         }
     }
 }
