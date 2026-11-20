@@ -1,0 +1,51 @@
+= ADR workflow-engine 020: The Facts of a Raised Reason Are Bounded Text
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+A condition overlay carries `facts`, which the status store persists and both clients show with the hold
+(link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#condition-overlays[Workflow DSL § Condition Overlays]).
+When a reason raises a condition (link:019-a-reason-with-a-condition-raises-it-instead-of-the-transition.adoc[ADR 019]),
+the result the primitive returned holds `updatedFacts` of any type and any size: a list of offending paths may run to
+thousands of entries, and a text may carry the content of a file. Persisting them as they are would let one primitive
+grow the status document without bound and copy content into a store an operator reads on another device.
+
+== Decision
+
+* The facts of a raised condition are, in this order, `primitive`, `outcome` and `reason` (the wire names), then the facts
+  of the result in their order; a result fact named like one of the three is dropped.
+* Every value is rendered as text: a collection by its elements joined with `,`, at most `MAX_FACT_ELEMENTS` (50) of them
+  and then `,…`; every other value by `String.valueOf`. The text is cut to `MAX_FACT_LENGTH` (256) characters, the last
+  of them `…`, never inside a surrogate pair.
+* The bounds are private constants of `WorkflowEngine`: a bound on size and on what a fact can disclose, not a setting.
+
+== Alternatives Considered
+
+* *Persist the result facts as JSON values.* Not taken: no bound on size, and the overlay's `facts` would depend on the
+  type a primitive happens to return.
+* *Persist only the three wire names.* Not taken: the self-remedy and the operator need the offending files or values the
+  primitive found, which only the result facts name.
+* *A configurable bound.* Not taken: rationale not recorded beyond the plan's statement that the bound is a privacy and
+  size bound of the engine.
+
+== Consequences
+
+* A fact the hold shows may be cut; the marker `…` says so, and the primitive's own record keeps the whole value where it
+  has one.
+* `ReasonConditionTest` (group *The bounds of the facts*) pins the order, the dropped shadowing fact, the collection cut
+  at 50 elements, the short collection joined whole, the text cut at 256 characters and the rendering of a number and a
+  boolean.
+
+== Source
+
+* Pull request of `PLAN-V2-19` (`engine-carries-reasons`), deliverable 1
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* link:../../developer/workflow-engine.adoc#_reasons_and_conditions[Workflow Engine Developer Guide § Reasons and Conditions]

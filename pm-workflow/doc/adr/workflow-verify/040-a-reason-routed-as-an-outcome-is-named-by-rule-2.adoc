@@ -1,0 +1,54 @@
+= ADR workflow-verify 040: A Reason Routed as an Outcome Is Named by Rule 2
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+A unit author who wants to branch on a cause may write the wire name of a reason as a transition, for example
+`tests_red -> …` under a state whose primitive's `failed` carries the reason `tests_red`. Rule 2 already refuses it,
+because `tests_red` is no outcome of the primitive, but its message — the primitive "does not have" the outcome — reads
+as a typo and hides the rule the author broke: a reason is carried as data and never routed
+(link:../../../../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011]). That ADR
+also stated that no verifier reads a reason.
+
+== Decision
+
+* `WorkflowValidator.coverOutcomes` names the case: when a routed name is no outcome but the wire name of a reason of one
+  of the primitive's outcomes, the `OUTCOME_COVERAGE` violation reads `routes '<reason>', which is a reason of the outcome
+  '<outcome>' of the primitive '<primitive>': a reason is carried as data and never routed`. The private helper
+  `reasonOutcomesOf` maps each reason wire name to the wire name of its outcome from the outcome enum and `reasonType()`.
+* It is a diagnostic, not a new rule: the rule id, the location and the count of violations are those of the generic
+  refusal, one violation per routed name. An omitted per-reason edge is never reported.
+* This refines ADR core-spi/011's "no verifier reads a reason" to "the verifier reads the wire name of a reason only to name
+  a mistake", which routes nothing; `OutcomeReason`'s Javadoc and
+  link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+  say the same.
+
+== Alternatives Considered
+
+* *A new `VerificationRule` member for a routed reason.* Not taken: the defect is a routed name that is no outcome, which
+  Rule 2 already owns; a second member would report one defect twice or split one rule's checklist.
+* *Keep the generic message.* Not taken: the author learns nothing about why the name cannot be routed.
+
+== Consequences
+
+* The verifier's rule set and the count of a unit's violations are unchanged; only the message of one case differs.
+* A result guard `result.reason` on a primitive state keeps the refusal of Rule 6 with its message; reasons add no Rule 6
+  case.
+* The group `Reasons` of `WorkflowValidatorTest` pins the message with `verify/reasons/refused/reason-routed-as-outcome.pmwf`,
+  the Rule 6 refusal with `reason-guard-on-primitive-state.pmwf`, and the passing control
+  `verify/reasons/passing/reason-bearing-outcome.pmwf`.
+
+== Source
+
+* Pull request of `PLAN-V2-19` (`engine-carries-reasons`), deliverable 3
+* link:../../../../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 2)
+* link:../../developer/workflow-verify.adoc#_rule_2_outcome_coverage[Workflow Verification Developer Guide § Rule 2]
