@@ -18,8 +18,8 @@ Envelope Budget, item 4).
 
 Two questions had to be answered together. First, where the member is read: `core.role.HarnessProfile` is the projection
 of a validated profile that role validation reads, and it already carries the sibling member
-`headless.context_budget_tokens` as `contextBudgetTokens`. Second, whether the record gains a component: seven test
-classes and two constructors of `HarnessProfile` build that record positionally or through its builder, so a twelfth
+`headless.context_budget_tokens` as `contextBudgetTokens`. Second, whether the record gains a component: eight test
+classes (`HarnessProfileBuilderContractTest` among them) and two constructors of `HarnessProfile` build that record positionally or through its builder, so a twelfth
 component touches all of them.
 
 == Decision
@@ -27,16 +27,23 @@ component touches all of them.
 The thresholds are read by `core.role.LongContextThresholds`, a value of one map component beside `HarnessProfile`:
 `of(JsonNode)` reads `headless.long_context_thresholds` of a profile document's tree, `of(LoadedProfile)` delegates to it, and
 `forModel(String)` answers `OptionalInt` — the entry of the model, or empty where the profile names none for it. A
-document without the member, a `null` `headless` block and an endpoint profile all answer the empty value.
+document without the member, a member that is the JSON null, a `null` `headless` block and an endpoint profile all
+answer the empty value. `OptionalInt` is harmless here: every entry the validator accepts lies below
+`Integer.MAX_VALUE` or at it, so no threshold is cut by the primitive. `forModel(null)` throws a
+`NullPointerException`.
 
 `HarnessProfile` keeps its eleven components. `ProfileValidator` validates the member where the optional
-`context_budget_tokens` is validated: an object whose names are at most 128 characters and whose values are integers of at
-least 10 000. An endpoint profile declares no `headless` member, so it carries no threshold and there is nothing to read.
+`context_budget_tokens` is validated: an object whose names are at most 128 characters and whose values are integers of
+10 000 to 2147483647, the schema's maximum of both members. The validator counts the 128 characters of a name in UTF-16
+units (`String.length()`), while the schema's `maxLength` counts code points, so a name with characters outside the
+Basic Multilingual Plane is refused by the validator below the length the schema would accept; the validator is the
+stricter of the two, never the looser. An endpoint profile declares no `headless` member, so it carries no threshold and
+there is nothing to read.
 
 == Alternatives Considered
 
 1. *A twelfth component of `HarnessProfile` (`Map<String, Integer> longContextThresholds`).*
-   _Rejected_: the record is constructed positionally and through its builder in seven test classes and in the production
+   _Rejected_: the record is constructed positionally and through its builder in eight test classes and in the production
    wiring, so the component forces an edit of all of them for a member that only the envelope computation reads. The
    projection also serves role validation, which never asks for a threshold.
 2. *A component of `EffectiveRole` instead of the profile projection.*

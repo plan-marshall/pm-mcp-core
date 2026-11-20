@@ -1,0 +1,55 @@
+= ADR 032: A Named Effort Value Is Never Null
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+`RoleAssignmentValue` keeps the three states of the effort of a role assignment (Store Schemas § Role Assignments):
+`INHERIT` (the member is absent and the lower level's effort stays), `DEFAULT` (`effort: null`, the profile's default
+effort) and `VALUE` (an effort value the harness accepts). The value is an `EffortValue`, whose own component is
+`@Nullable` because a level may name the absence of an effort flag.
+
+The Optional-to-`@Nullable` conversion of `pm-core` (PLAN-V2-97) added a refusal to the canonical constructor of
+`RoleAssignmentValue`: a `VALUE` whose `EffortValue.value()` is `null` throws an `IllegalArgumentException`. Before the
+conversion such a value was accepted, written as `effort: null` and read back as `DEFAULT`. The spec of PLAN-V2-97 did
+not ask for the refusal, and no ADR records it (`landings/PLAN-V2-97.md` L3-1, L2-6). PLAN-V2-158 had to keep it with
+its documentation and a test, or remove it, and record which.
+
+== Decision
+
+The refusal stays. A named effort is never `null`: `RoleAssignmentValue` refuses `EffortSetting.VALUE` with an
+`EffortValue` whose value is `null`, with the message "A named effort value must not be null" and the harness. The
+cleared effort is `EffortSetting.DEFAULT`, and only it is written as `effort: null`. The Javadoc of the record and of
+its constructor state the rule, `core-config.adoc` states it among the invariants, and
+`RoleAssignmentValidationTest.refusesNullNamedEffort` asserts the refusal with its reason.
+
+== Alternatives Considered
+
+1. **Remove the refusal and accept a `VALUE` with a `null` value**: *Rejected*: the store writes it as `effort: null`,
+   which reads back as `DEFAULT`, so a value written as one setting is read as another. That is a silent change of the
+   effort setting of a role, the defect the refusal closes.
+2. **Map a `VALUE` with a `null` value to `DEFAULT` in the constructor**: *Rejected*: a caller that meant a value and
+   passed none would get the profile's default without being told; the refusal names the fault where it is made.
+
+== Consequences
+
+* A caller that clears the effort says `DEFAULT` (`RoleAssignmentValue.of(harness, model, null)` does), never `VALUE`
+  with a `null` value.
+* A role assignment read from a store keeps the setting it was written with: `DEFAULT` and `VALUE` cannot meet in the
+  same written form.
+* A later change that removes the refusal must change the written form of a `null` value first, and replaces this ADR.
+
+== Source
+
+* Pull requests of `PLAN-V2-158` (`null-contracts-and-optional-conversion`), carried items 4 and 5
+* `landings/PLAN-V2-97.md` L3-1, L2-6
+* link:../../pm-core/src/main/java/de/planmarshall/core/config/RoleAssignmentValue.java[`RoleAssignmentValue`]
+* link:../../pm-core/doc/developer/core-config.adoc[`core.config` Developer Guide], § Invariants and Failure Modes
+* ADR link:021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[021 `Optional` Fields, Parameters and Record Components Are Nullable States]

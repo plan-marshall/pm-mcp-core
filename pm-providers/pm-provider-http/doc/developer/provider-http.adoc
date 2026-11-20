@@ -93,6 +93,10 @@ A new provider adapter depends on this module and `pm-core` alone among the modu
   one, otherwise the client's failing step; the client never appends its token, a credential or the request body.
   A provider message is remote text, so a caller that emits or persists a detail passes it through the runtime's
   `SecretRedactor` (`PM-CRED-5`; the canary-token guard of the implementation watch).
+* *A conditional GET has an etag*: `get(path, etag)` refuses a `null` etag with a `NullPointerException` naming
+  `etag`; a request without a cached representation is the unconditional `get(path)`. Only the general
+  `send(method, path, jsonBody, etag)` takes a `@Nullable` etag. A response without an `ETag` header carries a `null`
+  `etag()`, whatever its outcome.
 * *Timeouts*: every request carries the connect timeout (10 s) and the read timeout (60 s) of
   `HttpClient`.
 

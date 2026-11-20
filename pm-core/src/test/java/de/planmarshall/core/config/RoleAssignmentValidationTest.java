@@ -114,6 +114,20 @@ class RoleAssignmentValidationTest {
     }
 
     @Test
+    @DisplayName("a named effort whose value is null is refused with its reason")
+    void refusesNullNamedEffort() {
+        var nullEffort = new EffortValue(null);
+
+        var thrown = assertThrows(IllegalArgumentException.class,
+                () -> new RoleAssignmentValue(HARNESS, MODEL, EffortSetting.VALUE, nullEffort, null),
+                "a VALUE effort without a value is refused");
+
+        // contract: the reason text of the named-effort refusal
+        assertEquals("A named effort value must not be null: " + HARNESS, thrown.getMessage(),
+                "the refusal states the named-effort rule");
+    }
+
+    @Test
     @DisplayName("a value the harness and the catalogue allow passes")
     void passes() {
         assertDoesNotThrow(() -> require(RoleAssignmentValue.of(HARNESS, MODEL, "high"),

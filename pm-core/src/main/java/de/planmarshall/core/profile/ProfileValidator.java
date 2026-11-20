@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,7 +37,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1
  */
-public final class ProfileValidator {
+@UtilityClass
+public class ProfileValidator {
 
     /** The one schema version a profile declares. */
     public static final int SCHEMA_VERSION = 1;
@@ -215,7 +217,8 @@ public final class ProfileValidator {
             NAME_WRITABLE_PATHS, NAME_DATA_HOME, NAME_TOOL_RESULT_LIMIT_CHARS, NAME_RESOURCE_TOOLS, NAME_SESSION_RESIDUE,
             NAME_RESUMABILITY);
 
-    private static final Set<String> HEADLESS_OPTIONAL = Set.of(NAME_MODEL_EFFORTS, NAME_CONTEXT_BUDGET_TOKENS,
+    /** The optional members of the headless block; package-private so the schema parity test compares against it. */
+    static final Set<String> HEADLESS_OPTIONAL = Set.of(NAME_MODEL_EFFORTS, NAME_CONTEXT_BUDGET_TOKENS,
             NAME_LONG_CONTEXT_THRESHOLDS);
 
     private static final Set<String> CAPABILITIES = Set.of(NAME_RESULT_SCHEMA, NAME_EPHEMERAL, "usage_fields", "cost_field",
@@ -268,9 +271,6 @@ public final class ProfileValidator {
     /** The slot as a whole token: a ``{`` immediately before or a ``}`` immediately after is a different spelling. */
     private static final Pattern SKILL_URI_SLOT_TOKEN =
             Pattern.compile("(?<!\\{)\\Q" + SKILL_URI_SLOT + "\\E(?!\\})");
-
-    private ProfileValidator() {
-    }
 
     /**
      * @param document the profile document, UTF-8 encoded

@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -503,6 +504,39 @@ class HttpClientTest {
 
             assertEquals(Outcome.NOT_MODIFIED, response.outcome(), "a 304 is reported not modified");
             assertEquals(tag, header(nextRequest(), "If-None-Match"), "the entity tag is sent");
+        }
+
+        @Test
+        @DisplayName("refuses a conditional GET without an etag, naming the parameter etag")
+        void refusesNullEtag() {
+            String path = "/" + segment("n");
+
+            var thrown = assertThrows(NullPointerException.class, () -> client.get(path, null),
+                    "a null etag is refused");
+
+            assertAll("the refused conditional read",
+                    // contract: the parameter name the refusal carries
+                    () -> assertEquals("etag", thrown.getMessage(), "the refusal names the parameter etag"),
+                    () -> assertEquals(0, server.getRequestCount(), "nothing is sent for a refused read"));
+        }
+
+        @Test
+        @DisplayName("keeps a null etag for a 200 and a 304 without an ETag header")
+        // the static 200 answers without an ETag header: the absent-ETag wire shape of the mapper
+        @MockResponseConfig(path = "/untagged", method = HttpMethodMapper.GET, status = 200, stringContent = "{}")
+        void absentEtag() {
+            String path = segment("u");
+            on("GET", "/" + path, response(304, "", Map.of()));
+
+            Response ok = client.get("/untagged");
+            Response notModified = client.get("/" + path, etag());
+
+            assertAll("the responses without an ETag",
+                    () -> assertEquals(Outcome.OK, ok.outcome(), "the untagged 200 is OK"),
+                    () -> assertNull(ok.etag(), "a 200 without ETag carries no etag"),
+                    () -> assertEquals(Outcome.NOT_MODIFIED, notModified.outcome(),
+                            "the untagged 304 is not modified"),
+                    () -> assertNull(notModified.etag(), "a 304 without ETag carries no etag"));
         }
 
         @Test

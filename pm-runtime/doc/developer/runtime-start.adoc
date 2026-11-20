@@ -146,8 +146,8 @@ choice.
 `Outcome.Intact`:: The chain is intact from its last checkpoint.
 `Outcome.Broken(reason, firstBrokenLine, diagnostic)`:: The chain is broken. `reason` is one `BreakReason` of the closed
 set of the specification, by wire name `link_broken`, `missing`, `reset`, `truncated` or `head_mismatch`.
-`firstBrokenLine` (an `OptionalLong`, counted from 1 in the file the diagnostic names: the current log, the audit index
-or a rotated file) is present exactly for `link_broken`; the record's constructor refuses a line for any other reason,
+`firstBrokenLine` (a `@Nullable Long`, counted from 1 in the file the diagnostic names: the current log, the audit index
+or a rotated file) is non-null exactly for `link_broken`; the record's constructor refuses a line for any other reason,
 a missing one for `link_broken` and a line below 1. The factories are `Broken.linkBroken(line, diagnostic)` and
 `Broken.withoutLine(reason, diagnostic)`. The diagnostic names the file and the position, never a key or a hash
 secret.

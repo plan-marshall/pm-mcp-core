@@ -228,8 +228,9 @@ class CredentialStoreAspectTest {
                 () -> assertEquals(State.CONFIRM_MOVE, checked.next(),
                         "a passed check with another store reaches confirm-move"),
                 () -> assertEquals(State.MOVE, confirmed.next(), "confirming the move reaches the move state"),
-                () -> assertEquals(1, confirmed.moveEntries().orElseThrow(),
-                        "the move reports one entry to move"));
+                () -> assertEquals(Integer.valueOf(1), confirmed.moveEntries(),
+                        "the move reports one entry to move"),
+                () -> assertNull(checked.moveEntries(), "the check itself carries no move count"));
     }
 
     @Test

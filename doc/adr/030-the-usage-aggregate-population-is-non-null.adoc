@@ -1,0 +1,53 @@
+= ADR 030: The Population of a Usage Aggregate Is Non-Null
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+The Optional-to-`@Nullable` conversion of `pm-core` (PLAN-V2-97, ADR 021) went through every component of
+`UsageAggregate` and decided for each whether its absence is a state. The landing analysis of PLAN-V2-97
+(`landings/PLAN-V2-97.md` L2-6) found that the conversion kept `UsageAggregate.population` non-null, refused by
+`Objects.requireNonNull(population, "population")` in the canonical constructor, without an ADR that records why.
+
+An aggregate counts the rows of one population (Store Schemas § Metrics Store, Populations): sums and relations are
+formed only between figures of one population, and a set of rows of different populations is refused rather than
+mixed. `UsageAggregate.of(Population, List)` takes the population first, and `plus(UsageAggregate)` adds only an
+aggregate of the same population.
+
+== Decision
+
+`UsageAggregate.population` is a non-null component. Every aggregate names the population its figures count, the
+empty one included (`population_count == 0`): an empty aggregate is the empty figure of a known population, never a
+figure without a population. The canonical constructor refuses a `null` population with a `NullPointerException`
+naming `population`. The absent states of the aggregate are the figures (`totalTokens`, `tokensIn`, `tokensOut`,
+`@Nullable Long`), never the population.
+
+== Alternatives Considered
+
+1. **A `@Nullable` population for an empty aggregate**: *Rejected*: an aggregate without a population could be added
+   to one of any population, which is the mixing the Populations rule forbids, and every reader would have to decide
+   what a `null` population sums with.
+2. **A fourth enumeration value for "no population"**: *Rejected*: the closed set of the store schema names three
+   populations, and a value that names none would be written into no store and would only restate the `null`.
+
+== Consequences
+
+* A caller builds an aggregate from a known population, also when it has no row; a figure over an empty population
+  has a `null` total and is still of that population.
+* `plus` can refuse a sum across populations by comparing two non-null values.
+* A later change that makes the population optional has to say how such an aggregate sums, and replaces this ADR.
+
+== Source
+
+* Pull requests of `PLAN-V2-158` (`null-contracts-and-optional-conversion`), carried item 5
+* `landings/PLAN-V2-97.md` L2-6
+* link:../../pm-core/src/main/java/de/planmarshall/core/store/UsageAggregate.java[`UsageAggregate`]
+* ADR link:021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[021 `Optional` Fields, Parameters and Record Components Are Nullable States]
+* ADR link:029-primitive-optional-components-are-nullable-boxed-numbers.adoc[029 Primitive-Optional Record Components Are Nullable Boxed Numbers]

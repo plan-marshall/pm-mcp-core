@@ -11,6 +11,7 @@ package de.planmarshall.runtime.config;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.StoreRefusal;
@@ -33,7 +35,7 @@ import de.planmarshall.core.store.StoreRefusal;
  * with the two settings every document requires inside the bounds of the schema, and every member the codec does not own
  * copied through unchanged.
  * <p>
- * The settings bounds (1 to 16 build slots, at least 60 seconds of LSP idle timeout), the member names and the format
+ * The settings bounds (1 to 16 build slots, 60 to 2147483647 seconds of LSP idle timeout), the member names and the format
  * version are the schema's contract. The revision and the unknown member's values are generated.
  */
 @EnableGeneratorController
@@ -142,12 +144,30 @@ class MachineConfigurationCodecTest {
                         "a write refuses an out-of-bounds LSP idle timeout"));
     }
 
-    @Test
-    @DisplayName("the bounds of both settings are accepted at their edges")
-    void boundsAccepted() {
-        var read = MachineConfigurationCodec.read(file, bytes(document("1", "60")));
+    @ParameterizedTest(name = "{0} build slots and an idle timeout of {1} seconds are accepted")
+    @CsvSource({"1, 60", "16, 2147483647"})
+    @DisplayName("the bounds of both settings are accepted at their lower and upper edges (the schema's bounds)")
+    void boundsAccepted(String maxBuildSlots, String lspIdleTimeout) {
+        var read = MachineConfigurationCodec.read(file, bytes(document(maxBuildSlots, lspIdleTimeout)));
 
-        assertEquals(revision, read.revision(), "a document at the lower bounds must be read");
+        assertEquals(revision, read.revision(), "a document at the bounds must be read");
+    }
+
+    @Test
+    @DisplayName("an LSP idle timeout above the integer maximum 2147483647 is refused naming the bound")
+    void lspIdleTimeoutAboveMaximumRefused() {
+        var document = document("2", "2147483648");
+
+        var read = readRefused(document);
+        var written = writeRefused(document);
+
+        assertAll(
+                () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, read.outcome(),
+                        "a timeout above the maximum is unreadable"),
+                () -> assertTrue(read.getMessage().contains("60 to 2147483647"),
+                        "the read refusal names the bounds of the timeout"),
+                () -> assertTrue(written.getMessage().contains("60 to 2147483647"),
+                        "the write refusal names the bounds of the timeout"));
     }
 
     @Test
@@ -169,20 +189,32 @@ class MachineConfigurationCodecTest {
     }
 
     @Test
-    @DisplayName("a write keeps an unknown member byte-identical and replaces providers alone")
+    @DisplayName("a write of a pretty-printed document copies an unknown member with its value, compact, and replaces "
+            + "providers alone (the expected bytes are the codec's wire form)")
     void keepsUnknownMember() {
-        var unknown = "\"harnesses\":{\"default\":\"" + harness + "\"}";
         var document = """
-                {"format_version":1,"revision":%d,"max_build_slots":2,"lsp_idle_timeout_seconds":900,%s}"""
-                .formatted(revision, unknown);
+                {
+                  "format_version": 1,
+                  "revision": %d,
+                  "max_build_slots": 2,
+                  "lsp_idle_timeout_seconds": 900,
+                  "harnesses": {
+                    "default": "%s"
+                  }
+                }
+                """.formatted(revision, harness);
         var defaults = new ProviderDefaults(Map.of(Provider.SONAR,
                 ProviderDefault.unavailable(null)));
+        var expected = """
+                {"format_version":1,"revision":%d,"max_build_slots":2,"lsp_idle_timeout_seconds":900,\
+                "harnesses":{"default":"%s"},"providers":{"sonar":{"available":false}}}"""
+                .formatted(revision + 1, harness);
 
-        var written = new String(
-                MachineConfigurationCodec.write(file, bytes(document), defaults, revision + 1), UTF_8);
+        var bytes = MachineConfigurationCodec.write(file, bytes(document), defaults, revision + 1);
+        var written = new String(bytes, UTF_8);
 
         assertAll(
-                () -> assertTrue(written.contains(unknown), "the unknown member must be copied verbatim"),
+                () -> assertArrayEquals(bytes(expected), bytes, "the written bytes are the compact document"),
                 () -> assertEquals(revision + 1,
                         MachineConfigurationCodec.read(file, written.getBytes(UTF_8)).revision(),
                         "the write must carry the given revision"),

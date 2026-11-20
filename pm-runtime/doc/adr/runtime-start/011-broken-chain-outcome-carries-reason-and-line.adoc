@@ -46,6 +46,9 @@ Alternatives not recorded.
   `first_broken_line` therefore does not say which file it counts in; only the log does, until the specification
   gives the record a field for the file.
 * A new break reason is a change of the specification and of `BreakReason` together.
+* The first broken line is a `@Nullable Long` since
+  link:../../../../doc/adr/029-primitive-optional-components-are-nullable-boxed-numbers.adoc[ADR 029], non-null exactly
+  for `link_broken`; the decision on the reason and the line stands.
 
 == Source
 

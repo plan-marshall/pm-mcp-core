@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -101,8 +102,8 @@ class CredentialStoreCheckTest {
                         "the write line carries its failed key"),
                 () -> assertEquals("credential_store_locked: put refused", line.answer(),
                         "the write line keeps the store's answer"),
-                () -> assertEquals(List.of("get", "put", "delete"), store.calls,
-                        "the failed write still deletes the entry"),
+                () -> assertEquals(List.of("get", "put", "get"), store.calls,
+                        "the cleanup reads and finds no value of its own"),
                 () -> assertTrue(store.secrets.isEmpty(), "the failed write leaves no test entry"));
     }
 
@@ -121,7 +122,7 @@ class CredentialStoreCheckTest {
                 () -> assertEquals("credential_store_check.read_back.differs", result.lines().get(1).messageKey(),
                         "the read back line carries its differs key"),
                 () -> assertNull(result.lines().get(1).answer(), "a differing read back carries no answer"),
-                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls,
+                () -> assertEquals(List.of("get", "put", "get", "get", "delete"), store.calls,
                         "the differing read back deletes the test entry"),
                 () -> assertTrue(store.secrets.isEmpty(), "the differing read back leaves no entry"));
     }
@@ -144,6 +145,7 @@ class CredentialStoreCheckTest {
     void readBackFails() {
         store.failOn = "get";
         store.succeedFirst = 1;
+        store.failures = 1;
 
         var result = check.check(store);
 
@@ -152,7 +154,7 @@ class CredentialStoreCheckTest {
                         "a refused read back reports its key"),
                 () -> assertEquals("credential_store_locked: get refused", result.lines().get(1).answer(),
                         "the read back line keeps the store's answer"),
-                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls,
+                () -> assertEquals(List.of("get", "put", "get", "get", "delete"), store.calls,
                         "a refused read back still deletes the entry"),
                 () -> assertTrue(store.secrets.isEmpty(), "a refused read back leaves no test entry"));
     }
@@ -176,7 +178,7 @@ class CredentialStoreCheckTest {
     }
 
     @Test
-    @DisplayName("an occupied account fails the write step and nothing is written or deleted")
+    @DisplayName("an account with a foreign entry fails the write step as occupied and nothing is written or deleted")
     void occupied() {
         var existing = Generators.letterStrings(20, 40).next();
         store.occupies(Optional.of(existing));
@@ -198,6 +200,67 @@ class CredentialStoreCheckTest {
     }
 
     @Test
+    @DisplayName("a leftover entry with the check's marker is cleared and the check passes (ADR 014)")
+    void leftoverCleared() {
+        store.occupies(Optional.of(CredentialStoreCheck.MARKER + Generators.letterStrings(20, 40).next()));
+
+        var result = check.check(store);
+
+        assertAll(
+                () -> assertTrue(result.passed(), "a leftover of an earlier check passes"),
+                () -> assertEquals(List.of(Step.WRITE, Step.READ_BACK, Step.DELETE),
+                        result.lines().stream().map(CheckLine::step).toList(),
+                        "the check runs write, read back and delete"),
+                () -> assertEquals(List.of("get", "delete", "put", "get", "delete"), store.calls,
+                        "the leftover is deleted before the write"),
+                () -> assertTrue(store.secrets.isEmpty(), "neither leftover nor test entry is left"));
+    }
+
+    @Test
+    @DisplayName("the value the check writes carries its marker")
+    void writtenValueCarriesMarker() {
+        check.check(store);
+
+        assertTrue(store.written.getFirst().startsWith(CredentialStoreCheck.MARKER),
+                "the written value starts with the marker");
+    }
+
+    @Test
+    @DisplayName("an entry that appears between the read and a failed write is not deleted")
+    void entryAppearingBeforeWriteIsKept() {
+        var foreign = Generators.letterStrings(20, 40).next();
+        store.appearsBeforeWrite(foreign);
+        store.failOn = "put";
+
+        var result = check.check(store);
+
+        assertAll(
+                () -> assertFalse(result.passed(), "the failed write fails the check"),
+                () -> assertEquals("credential_store_check.write.failed", result.lines().getFirst().messageKey(),
+                        "the write line carries its failed key"),
+                () -> assertEquals(List.of("get", "put", "get"), store.calls,
+                        "the cleanup reads and does not delete"),
+                () -> assertEquals(foreign, store.secrets.get(CredentialStoreCheck.ACCOUNT),
+                        "the entry of the other writer is kept"));
+    }
+
+    @Test
+    @DisplayName("a read-back of another writer's value fails and leaves that value in place")
+    void foreignValueAfterWriteIsKept() {
+        store.replacedAfterWrite(otherValue);
+
+        var result = check.check(store);
+
+        assertAll(
+                () -> assertEquals("credential_store_check.read_back.differs", result.lines().get(1).messageKey(),
+                        "the read back line carries its differs key"),
+                () -> assertEquals(List.of("get", "put", "get", "get"), store.calls,
+                        "the cleanup reads and does not delete"),
+                () -> assertEquals(otherValue, store.secrets.get(CredentialStoreCheck.ACCOUNT),
+                        "the value of the other writer is kept"));
+    }
+
+    @Test
     @DisplayName("a failed delete fails the third line with the store's answer")
     void deleteFails() {
         store.failOn = "delete";
@@ -214,8 +277,8 @@ class CredentialStoreCheckTest {
                         "the delete line carries its failed key"),
                 () -> assertEquals("credential_store_locked: delete refused", line.answer(),
                         "the delete line keeps the store's answer"),
-                () -> assertEquals(List.of("get", "put", "get", "delete", "delete"), store.calls,
-                        "the failed delete tries the delete twice"),
+                () -> assertEquals(List.of("get", "put", "get", "delete", "get", "delete"), store.calls,
+                        "the failed delete reads and tries the delete twice"),
                 () -> assertTrue(store.secrets.isEmpty(), "the failed delete leaves no test entry"));
     }
 
@@ -305,6 +368,8 @@ class CredentialStoreCheckTest {
         private boolean readBackScripted;
         private boolean putCalled;
         private boolean deleteFinds = true;
+        private @Nullable String appearsBeforeWrite;
+        private @Nullable String replacedAfterWrite;
 
         void readBack(Optional<String> answer) {
             readBack = answer;
@@ -337,12 +402,31 @@ class CredentialStoreCheckTest {
             return SECRET_SERVICE;
         }
 
+        /** Lets another writer put that value under the account between the check's read and its write. */
+        void appearsBeforeWrite(String value) {
+            appearsBeforeWrite = value;
+        }
+
+        /** Lets another writer replace the check's entry with that value right after the check wrote it. */
+        void replacedAfterWrite(String value) {
+            replacedAfterWrite = value;
+        }
+
         @Override
         public void put(CredentialAccount account, String secret) {
+            var foreign = appearsBeforeWrite;
+            if (foreign != null) {
+                secrets.put(account.account(), foreign);
+                occupied = Optional.of(foreign);
+            }
             failIfAsked("put");
             written.add(secret);
             secrets.put(account.account(), secret);
             putCalled = true;
+            var replacement = replacedAfterWrite;
+            if (replacement != null) {
+                secrets.put(account.account(), replacement);
+            }
         }
 
         @Override
@@ -351,7 +435,12 @@ class CredentialStoreCheckTest {
             if (!putCalled) {
                 return occupied;
             }
-            return readBackScripted ? readBack : Optional.ofNullable(secrets.get(account.account()));
+            if (readBackScripted) {
+                // the scripted answer is the read-back alone; a later read sees what the store holds
+                readBackScripted = false;
+                return readBack;
+            }
+            return Optional.ofNullable(secrets.get(account.account()));
         }
 
         @Override

@@ -5,13 +5,15 @@
 :nofooter:
 
 :docs: ../../../../plan-marshall-documentation/doc
+:core-java: https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/src/main/java
 
 == Purpose
-_Requirements: link:{docs}/Requirements.adoc#PM-WORK-1[PM-WORK-1], link:{docs}/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]_
+_Requirements: link:{docs}/Requirements.adoc#PM-WORK-1[PM-WORK-1],
+link:{docs}/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]_
 
 Package `de.planmarshall.core.role` of `pm-core` owns the *role*: one JSON artifact per role, the shipped, machine and
-project sets it lives in, the effective configuration the role runs on, and the two digests that bind a worker generation
-and a qualification record to it. No class of this package names a harness: a harness is its harness profile
+project sets it lives in, the effective configuration the role runs on, and the two digests that bind a worker
+generation and a qualification record to it. No class of this package names a harness: a harness is its harness profile
 (link:core-profile.adoc[`core.profile`]), and a role is the document an operator or the release supplies. The two roles
 the specification fixes by name — the judge and the steward — appear only as the model caller's and the catalog's
 named exemptions.
@@ -28,9 +30,9 @@ The package owns five things:
 
 The stores the package reads — the machine and project `role-assignments.json`, the plan's `overrides.json`, the model
 catalogues, the harness profiles, the enrolment, the skills and the machine configuration — arrive through one port,
-link:https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/src/main/java/de/planmarshall/core/role/RoleEnvironment.java[`RoleEnvironment`].
-Writing them is `machine-onboarding-unit`'s, `project-onboarding-unit`'s and `plan-and-epic-control`'s; the runtime never
-reads a role, a harness or a model from git-tracked configuration.
+link:{core-java}/de/planmarshall/core/role/RoleEnvironment.java[`RoleEnvironment`].
+Writing them is `machine-onboarding-unit`'s, `project-onboarding-unit`'s and `plan-and-epic-control`'s; the runtime
+never reads a role, a harness or a model from git-tracked configuration.
 
 Specification (the sections this package was built against): `model-work/01-roles-and-configuration.adoc`,
 `harness-profiles/01-profile-schema.adoc#role-classes`,
@@ -65,8 +67,8 @@ member a role artifact names validates through `HarnessId` of the same package.
 
 An artifact replaces the artifact of the same name in a lower set *as a whole*; members are never merged. A higher set
 adds a role the lower sets do not define. An artifact of a higher set that fails validation leaves the role *undefined*:
-`RoleSetLoader` removes the lower artifact rather than falling back to it, because the specification says an invalid role
-counts as undefined.
+`RoleSetLoader` removes the lower artifact rather than falling back to it, because the specification says an invalid
+role counts as undefined.
 
 The loader reads the sets afresh at every call. The specification requires an edited artifact or a changed assignment to
 apply at every composition, every task creation and every offer, so `RoleCatalog` creates the set per resolution rather
@@ -84,7 +86,8 @@ overriding only what it names:
 |1 |The shipped artifact's own `harness`, `model`, `effort`, where it defines the role
 |2 |The machine artifact's three members, where it defines the role (it replaces the shipped artifact as a whole)
 |3 |The machine's `role-assignments.json`
-|4 |The project artifact's three members, where it defines the role (it replaces the artifact of the lower sets as a whole, so its members come after the machine assignment)
+|4 |The project artifact's three members, where it defines the role (it replaces the artifact of the lower sets as a
+whole, so its members come after the machine assignment)
 |5 |The project's `role-assignments.json`
 |6 |The plan's `overrides.json` (`roles.<name>`)
 |===
@@ -98,8 +101,8 @@ lands on the machine or shipped artifact and applies.
 whose `value` is `null` means "this level names no effort flag", which clears the effort of the levels below. The
 distinction is load-bearing and is the reason `EffortValue` exists as a wrapper.
 
-The steward is the exception: `resolveSteward()` takes its harness from `harnesses.default` of `machine-config.json`, its
-model from the tier `standard` of that harness's profile, and the effort of its default assignment. Its artifact's
+The steward is the exception: `resolveSteward()` takes its harness from `harnesses.default` of `machine-config.json`,
+its model from the tier `standard` of that harness's profile, and the effort of its default assignment. Its artifact's
 `harness` and `model` are not read, and `model_not_allowed` never applies to it. Every resolution of the steward routes
 there, also when a composed unit names it, so no caller reads its artifact's values.
 
@@ -194,8 +197,8 @@ item's run with its answer, score, tokens, duration and `checkout`. A topic resu
 graded count (`TopicResult.THIN_LIMIT`, twenty): the mark never becomes a stored state that could contradict the count,
 it changes no verdict, and the codec writes it beside the count as the schema requires.
 `QualificationRecordCodec` is its one wire shape; `QualificationRecordStore` writes the project set's
-`qualification/<role>.json` by atomic rename under the store's lock, and a lookup reads the project set before the set of
-the artifact (`QualificationRecords.firstOf`). `JudgeCheck` and `JudgeCheckStore` do the same for
+`qualification/<role>.json` by atomic rename under the store's lock, and a lookup reads the project set before the set
+of the artifact (`QualificationRecords.firstOf`). `JudgeCheck` and `JudgeCheckStore` do the same for
 `qualification/judge-check.json`.
 
 `RoleTopics` gives a role its topics from the corpus items' `role` field: `own` and `generic` for a writer or read-only
@@ -234,21 +237,19 @@ suspicious items, or when the form has no graded run of a suspicious item.
 percent of the graded items whose reference is that key, the largest being the baseline. A rubric item sits in the
 denominator and never in a numerator. `Scoring` scores a closed item against its reference and accepted alternatives (a
 control is right only when it reports nothing) and decides whether a rubric score reaches the item's pass threshold.
-`JudgeInstrumentCheck` runs the judge twice per judge-topic item — oracle and blind, with the reference withheld from the
-blind prompt — and records the two accuracies and the baseline; `JudgeCheck.Verdict.of` passes only when the oracle
+`JudgeInstrumentCheck` runs the judge twice per judge-topic item — oracle and blind, with the reference withheld from
+the blind prompt — and records the two accuracies and the baseline; `JudgeCheck.Verdict.of` passes only when the oracle
 exceeds the baseline and the blind accuracy by the margin and nothing is unscored. The check blocks no grading: the role
-grading records its result (`JudgeCheckResult.PASSED` or `FAILED`) in the qualification record and runs either way, and a
-corpus without a `judge/` item records no result at all. The conformance harness keeps its own `judge_unchecked`
+grading records its result (`JudgeCheckResult.PASSED` or `FAILED`) in the qualification record and runs either way, and
+a corpus without a `judge/` item records no result at all. The conformance harness keeps its own `judge_unchecked`
 refusal.
 
 == Invariants and Failure Modes
 
-* *Absence is `Optional` or `@Nullable`*: a qualification's `effort` and `duration_ms` and a grading's
-  `pass_threshold` are `@Nullable`; the JSON readers that may see a `null` answer `Optional`, and the caller keeps the
-  `orElse(null)` in the member. `HarnessProfile.askUserTool` is non-null: the profile projection always supplies a value
-  (`""` for an endpoint and for a harness that declares no tool).
-
-* A role set, an assignment and an override are operator files. Never add a code path that reads them from the repository.
+* *Absence is `Optional` or `@Nullable`*: the members and the rule are listed once, in
+  <<_the_null_contract_of_this_package>>.
+* A role set, an assignment and an override are operator files. Never add a code path that reads them from the
+  repository.
 * Validation is per read. A value that a later change makes invalid (an unenrolled harness, a model the catalogue no
   longer allows) makes the role invalid at its next read, exactly like an invalid artifact.
 * An invalid role never falls back to a lower set.
@@ -259,16 +260,16 @@ refusal.
 == Tests
 
 `RoleArtifactValidatorTest` (the closed schema, every `schema_invalid` case), `RoleSetLoaderTest` (whole-artifact
-precedence, the invalid higher artifact, the name check, the superseded refusal), `RoleValidationTableTest` (the table row
-by row, the reason set and the steward control), `RoleEffectiveConfigurationTest` (the levels, the fresh read, the
+precedence, the invalid higher artifact, the name check, the superseded refusal), `RoleValidationTableTest` (the table
+row by row, the reason set and the steward control), `RoleEffectiveConfigurationTest` (the levels, the fresh read, the
 steward, the catalogue precedence), `RoleDigestTest` (the digest table), `EffectiveRoleFactsTest` (the resumability cut,
-the context-budget and idle fallbacks, the off-track defaults), `ShippedRolesTest` (the classpath reader and the reserved
-file), `QualificationCheckTest` (the validity matrix, the level change, the baseline and the warm downgrade),
+the context-budget and idle fallbacks, the off-track defaults), `ShippedRolesTest` (the classpath reader and the
+reserved file), `QualificationCheckTest` (the validity matrix, the level change, the baseline and the warm downgrade),
 `ConstantBaselineTest`, `RoleTopicsTest`, `ScoringTest`, `JudgeCheckTest` (the oracle and blind accuracies, the lost
 judge task, the stale record), `QualificationRecordCodecTest`, `QualificationRecordStoreTest` and
-`QualificationSchemaParityTest` (the two grading schema files, their members, enumerations and the validity of the written
-documents: the judge-check record as written, and the qualification record with its topic mark and its optional judge
-check).
+`QualificationSchemaParityTest` (the two grading schema files, their members, enumerations and the validity of the
+written documents: the judge-check record as written, and the qualification record with its topic mark and its optional
+judge check).
 
 == Tokens and the Split
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5]_
@@ -279,22 +280,45 @@ carries no split, and `plus` sums the split only when both addends have one. The
 persist `total_tokens` alone (`store-schemas/16`); a view derives the split on read
 (link:../adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/048]), and a
 document that carries either member is refused as undeclared. The decision calibration record's schema requires the two
-members, and `TokenTotal` keeps the split for it until the codec owed with the package that builds it exists. The cost is
-never part of a grading record. A total of `0` is refused (the lower bound is `1`), and a split that does not sum to the
-total is refused at construction.
+members, and `TokenTotal` keeps the split for it until the codec owed with the package that builds it exists. The cost
+is never part of a grading record. A total of `0` is refused (the lower bound is `1`), and a split that does not sum to
+the total is refused at construction.
 
 `QualificationRecordCodecTest` covers the split of `TokenTotal` and asserts that a record is written without it;
-`QualificationSchemaParityTest` reads the two schema files and validates the written documents against their schemas: the
-judge-check record as written, and the qualification record with its topic mark and its optional judge check.
+`QualificationSchemaParityTest` reads the two schema files and validates the written documents against their schemas:
+the judge-check record as written, and the qualification record with its topic mark and its optional judge check.
 
-link:../adr/core-role/006-grading-records-persist-the-total-only.adoc[ADR 006]: the qualification and judge-check records
-persist the total only. link:../adr/core-role/005-token-total-carries-the-split.adoc[ADR 005] is superseded in the part
-that named those two records as writers of the split; its decision for the decision calibration record stands.
+link:../adr/core-role/006-grading-records-persist-the-total-only.adoc[ADR 006]: the qualification and judge-check
+records persist the total only. link:../adr/core-role/005-token-total-carries-the-split.adoc[ADR 005] is superseded in
+the part that named those two records as writers of the split; its decision for the decision calibration record stands.
 
 == The Null Contract of This Package
 
 A field, a parameter and a record component of this package carry `@Nullable` where the state may be absent; `Optional`
-stays the type of the absence a method returns (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]). The weights identity of `EffectiveRole`, the `harness`, `model` and `effort` components of `RoleAssignment`, the default harness of `MachineConfiguration`, the reason of `RoleResolution.Undefined`, the `catalogue` of `RoleAssignmentValidation.Facts` and the `previous` record of `GradingPlan` are `@Nullable`. `EffectiveRole.idleWakeups` is a `@Nullable Integer`, `null` when neither the artifact nor the harness sets it, which the launch composer writes as the zero-defaulted `idle_wakeups` (link:../../../doc/adr/029-primitive-optional-components-are-nullable-boxed-numbers.adoc[repository ADR 029]).
+stays the type of the absence a method returns
+(link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR
+021]). The JSON readers that may see a `null` answer `Optional`, and the caller keeps the `orElse(null)` in the member.
+
+The `@Nullable` members of the package:
+
+* the weights identity of `EffectiveRole`;
+* the `harness`, `model` and `effort` components of `RoleAssignment`;
+* the default harness of `MachineConfiguration`;
+* the reason of `RoleResolution.Undefined`;
+* the `previous` record of `GradingPlan`;
+* a qualification's `effort` and `duration_ms`, and a grading's `pass_threshold`;
+* `QualificationCheck.Verdict.qualifiedForm`, `null` when the record qualifies no form;
+* the `profile`, `enrolled` and `catalogue` parameters of `RoleValidation.check`: no client profile has the harness,
+  the harness is not enrolled, or no effective model catalogue exists; each refuses the role with its reason.
+
+`EffectiveRole.idleWakeups` is a `@Nullable Integer`, `null` when neither the artifact nor the harness sets it, which
+the launch composer writes as the zero-defaulted `idle_wakeups`
+(link:../../../doc/adr/029-primitive-optional-components-are-nullable-boxed-numbers.adoc[repository ADR 029]).
+`HarnessProfile.askUserTool` is non-null: the profile projection always supplies a value, `""` for an endpoint and for
+a harness that declares no tool
+(link:../../../doc/adr/031-the-harness-profile-ask-user-tool-is-non-null.adoc[repository ADR 031]). The `catalogue` of
+`RoleAssignmentValidation.Facts` is a type of `core.config` and is described in its guide
+(link:core-config.adoc[`core.config`]).
 
 == Related
 

@@ -19,18 +19,23 @@ import static de.planmarshall.core.store.QuestionRecordCodecTest.id;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.json;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.lower;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Which members belong to which event of the question line (PM-WF-12, PM-IMPL-2): a member of another event is
@@ -130,6 +135,52 @@ class QuestionRecordMembersOnTheirEventsTest {
         assertAll(
                 () -> assertRefused(part),
                 () -> assertRefused(first));
+    }
+
+    @Test
+    @DisplayName("a delivered line keeps the four members of an asked line null")
+    void askedMembersAreNullOnDelivered() {
+        var delivered = QuestionRecord.builder().event(QuestionEvent.DELIVERED)
+                .questionId(id("Q-%03d", Generators.integers(1, 999).next()))
+                .revision(Generators.integers(1, 99).next()).at(Instant.now()).build();
+
+        assertAll("the members of an asked line",
+                () -> assertNull(delivered.questionClass(), "a delivered line carries no class"),
+                () -> assertNull(delivered.origin(), "a delivered line carries no origin"),
+                () -> assertNull(delivered.sourceEntity(), "a delivered line carries no source entity"),
+                () -> assertNull(delivered.questionSet(), "a delivered line carries no question set"));
+    }
+
+    // contract: the member names an asked line without them is refused with
+    @ParameterizedTest(name = "an asked line without {0}")
+    @ValueSource(strings = {"class", "origin", "source_entity", "question_set"})
+    @DisplayName("an asked line without a member it requires is refused, naming the member")
+    void askedLineRequiresItsMembers(String member) {
+        var complete = asked();
+        var builder = complete.toBuilder();
+        switch (member) {
+            case "class" -> builder.questionClass(null);
+            case "origin" -> builder.origin(null);
+            case "source_entity" -> builder.sourceEntity(null);
+            default -> builder.questionSet(null);
+        }
+
+        var thrown = assertThrows(NullPointerException.class, builder::build,
+                "an asked line without the member is refused");
+
+        assertEquals(member, thrown.getMessage(), "the refusal names the missing member");
+    }
+
+    /** @return a complete asked line of the server: the first question of its set, carrying the decision */
+    private static QuestionRecord asked() {
+        var questionId = id("Q-%03d", Generators.integers(1, 999).next());
+        var decision = QuestionRecord.Decision.builder().title(lower(3, 20)).header(lower(3, 40))
+                .description(lower(1, 80)).evidence(List.of()).blocks(QuestionRecord.Blocks.NOTHING)
+                .reversibility(QuestionRecord.Reversibility.REVERSIBLE).build();
+        return QuestionRecord.builder().event(QuestionEvent.ASKED).questionId(questionId)
+                .questionClass(QuestionRecord.QuestionClass.CLARIFICATION).origin(QuestionRecord.Origin.SERVER)
+                .sourceEntity(lower(3, 20)).questionSet(questionId).revision(1).decision(decision)
+                .envelope("{}").at(Instant.now()).build();
     }
 
     @Test
