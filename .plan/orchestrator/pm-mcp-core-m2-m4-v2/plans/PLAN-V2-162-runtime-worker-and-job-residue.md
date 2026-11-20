@@ -76,6 +76,7 @@ Source, tests, specification and documentation (specific files, R19; the outline
 
 - Depends on: PLAN-V2-156 (shipped, #516, `landings/PLAN-V2-156.md`: the plan this one succeeds), PLAN-V2-83.
 - Sequence: after PLAN-V2-154 (it edits `SupervisorCalls`, `WorkerEnding`, `SupervisionPass` and the worker classes this plan reads). Overlaps with PLAN-V2-146, 147, 148, 149, 150 (the confinement and profile chain) and 158, 126: the gate decides at emit.
+- Note 2026-11-20: PLAN-V2-154 shipped as #518 (`landings/PLAN-V2-154.md`); this plan no longer waits for it. The parts of carried item 42 that #518 closed (the Traceability wording, the `run()` Javadoc, the ADR 014 blocker text, the yield-masking decision) are stale and read at the head; the rest of item 42 stays here, and the end path's own closeout (the persisted end reason, the missing tests, the windows and false documents #518 left, the lane's four follow-ups) is PLAN-V2-165 `supervisor-end-path-closeout`: emit 165 first or read its tree, both edit `SupervisionPass`, `WorkerEnding` and `SupervisorCalls`.
 
 ## Hand-Off Command
 

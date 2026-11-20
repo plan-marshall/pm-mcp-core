@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-01
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
 > Lives at `plans/PLAN-V2-19-engine-carries-reasons.md` and is queued as one row file, `queue/PLAN-V2-19.json`,
-> in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `plan-marshall`: a normal-sized engine plan, run with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
 > authored here and the epic-wide rules are in `standing-rules.md`, read first.
@@ -181,7 +181,7 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf 
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-19-engine-carries-reasons.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-19-engine-carries-reasons.md"
 ```
 
 ## Write-Boundary
