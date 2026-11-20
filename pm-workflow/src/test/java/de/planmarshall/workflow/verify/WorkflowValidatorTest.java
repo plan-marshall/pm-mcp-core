@@ -236,7 +236,7 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "fills-undeclared-slot.pmwf"),
             new Check("Rule 6: a fills clause names a from-parameter an operator link declares",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "fills-from-parameter-unknown.pmwf"),
-            new Check("Rule 6: a slot a call reads is filled on every path that reaches the call",
+            new Check("Rule 6: a slot a call reads is never filled in the unit",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-never-filled.pmwf"),
             new Check("Rule 6: a slot a call reads is filled on every branch that reaches the call",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "slot-filled-on-one-branch.pmwf"),

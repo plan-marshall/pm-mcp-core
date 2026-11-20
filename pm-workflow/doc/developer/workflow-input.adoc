@@ -106,8 +106,9 @@ wired.
 |`path.backslash`
 |A path that contains `\`.
 
-|`path.nul`, `path.control`, `path.whitespace`, `path.bidi`
-|A path that holds NUL, a control character, whitespace, or a bidi or format character.
+|`path.nul`, `path.control`, `path.whitespace`, `path.bidi`, `path.format`, `path.surrogate`
+|A path that holds NUL, a control character, white space other than a space, a bidi control, a format character, or a
+lone surrogate.
 
 |`path.magic`
 |A path that starts with `:` (git pathspec magic) or `-` (which `git` would read as an option).
