@@ -18,6 +18,8 @@ import java.util.Optional;
 import java.util.SplittableRandom;
 import java.util.random.RandomGenerator;
 import java.util.regex.Pattern;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * The {@code command_id} of a call frame (PLAN-V2-15, Deliverable 6): the grammar {@code ^cmd-[0-9a-f]{16}$},
  * the random draw, and the round-trip through {@link CommandId#parse(String)}.
  */
+@EnableGeneratorController
 @DisplayName("Command id")
 class CommandIdTest {
 
@@ -113,6 +116,19 @@ class CommandIdTest {
         void nullGenerator() {
             assertThrows(NullPointerException.class, () -> CommandId.random((RandomGenerator) null),
                     "A null generator is refused");
+        }
+
+        @Test
+        @DisplayName("a generated value of the grammar is accepted")
+        void generatedAccepted() {
+            var digits = new StringBuilder();
+            for (var index = 0; index < 16; index++) {
+                digits.append(Character.forDigit(Generators.integers(0, 15).next(), 16));
+            }
+            var value = "cmd-" + digits;
+
+            assertEquals(Optional.of(new CommandId(value)), CommandId.parse(value),
+                    "A generated value of the grammar parses back to itself");
         }
     }
 }

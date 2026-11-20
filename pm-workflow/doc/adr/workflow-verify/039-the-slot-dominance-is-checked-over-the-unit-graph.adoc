@@ -30,9 +30,9 @@ the path of a lost settlement too, and a state-level dominator would admit it.
   pair is the safety net ADR `workflow-dsl/015` claimed.
 * A slot a call reads that is never filled in the unit is refused with its own message, so the two failures stay
   distinguishable.
-* The measurement: on the largest fixture of the verifier (`verify/passing/every-construct.pmwf`, 39 states) the walk
-  adds no measurable time to the verification of the fixture suite; the check is linear in the graph and runs once per
-  slot and call.
+* The measurement: the check is one breadth-first walk per slot a call reads, linear in the states and transitions of the
+  unit; no separate benchmark was taken, so the cost is argued from the algorithm and measured only insofar as the
+  verifier suite, the largest fixture (`verify/passing/every-construct.pmwf`, 39 states) included, runs unchanged.
 
 == Alternatives Considered
 
@@ -46,8 +46,9 @@ the path of a lost settlement too, and a state-level dominator would admit it.
 
 * A unit whose only fill of a slot is on one branch of a diamond and whose call is reached from both is refused, with a
   message that names the slot and the call state.
-* Three refusing fixtures pin the checks: `slot-undeclared-read.pmwf`, `slot-never-filled.pmwf` and
-  `slot-type-not-assignable.pmwf`; `verify/passing/slots-and-inputs.pmwf` is the matched control.
+* Four refusing fixtures pin the checks: `slot-undeclared-read.pmwf`, `slot-never-filled.pmwf`,
+  `slot-filled-on-one-branch.pmwf` (the consequence above) and `slot-type-not-assignable.pmwf`;
+  `verify/passing/slots-and-inputs.pmwf` is the matched control.
 
 == Source
 

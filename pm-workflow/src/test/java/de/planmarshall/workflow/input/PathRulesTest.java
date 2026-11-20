@@ -160,7 +160,8 @@ class PathRulesTest {
                 Arguments.of("a current-directory segment", "a/./b", "path.dot-segment"),
                 Arguments.of("a control character", "a\u0007b", "path.control"),
                 Arguments.of("a tab inside the path", "a\tb", "path.control"),
-                Arguments.of("a no-break space", "a\u00A0b", "path.whitespace"));
+                Arguments.of("a no-break space", "a\u00A0b", "path.whitespace"),
+                Arguments.of("a lone surrogate", "a\uD800b", "path.surrogate"));
     }
 
     static List<Arguments> dotSegmentPositions() {

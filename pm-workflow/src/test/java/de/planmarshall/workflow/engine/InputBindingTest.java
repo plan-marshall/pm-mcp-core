@@ -239,6 +239,26 @@ class InputBindingTest {
                     stepped_out -> plan.return
             """;
 
+    /** A plan that fills the path-list slot, rests, and binds it in a later advance. */
+    private static final String FILL_FILES_REST_AND_CALL = """
+            state execute.fill
+                fills slot.files from files
+                job llm change role reviewer
+                    approved -> execute.pause
+                    lost -> handed_back
+
+            state execute.pause
+                link next proceed ()
+                    do test.proceed
+                        done -> execute.invoke
+                        failed -> handed_back
+
+            state execute.invoke
+                call sub.files(files = slot.files)
+                    done -> completed
+                    stepped_out -> plan.return
+            """;
+
     /** A plan that fills the slot, rests, and binds it in a later advance. */
     private static final String FILL_REST_AND_CALL = """
             state execute.fill
@@ -561,6 +581,25 @@ class InputBindingTest {
                     () -> assertEquals("task_submit", status.callStack().getFirst().argSources().get("message").source(),
                             "the resumed frame keeps the provenance"),
                     () -> assertTrue(status.slots().isEmpty(), "the resumed bind consumes the slot"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a filled path the staging set no longer holds")
+        void shouldRefuseAStagingSetThatChanged() {
+            var before = bindEngine(new EngineFixtures(), FILL_FILES_REST_AND_CALL, SUB_FILES,
+                    Set.of("src/A.java"), Map.of());
+            var atTask = before.start(JournalScopeType.PLAN, PLAN_ID).status();
+            var paused = before.advance(atTask, submitted("files", "[\"src/A.java\"]")).status();
+            var after = bindEngine(new EngineFixtures(), FILL_FILES_REST_AND_CALL, SUB_FILES, Set.of(), Map.of());
+
+            var step = after.advance(paused, new EngineEvent.OperatorAct("execute.pause", "proceed"));
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_refused\""),
+                            "the changed set refuses the filled path"),
+                    () -> assertTrue(facts.get("facts").contains("path.staging"),
+                            "the refusal names the staging rule"));
         }
 
         @Test

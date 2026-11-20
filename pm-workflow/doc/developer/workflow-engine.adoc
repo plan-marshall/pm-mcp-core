@@ -319,7 +319,7 @@ provenance is recorded, and the value is validated. It happens in `WorkflowEngin
   membership in the scope's staging set. The bound of a path is the staging set and not the footprint
   (link:../adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017]).
 * *The provenance*: `arg_sources` of the frame records, per input, one of `literal`, `config`, `default`, `task_submit`
-  or `operator_answer`, with the queue task id or the act as `source_ref` where the source has one. A value that came from
+  or `operator_answer`, with the submitting entity or the act as `source_ref` where the source has one. A value that came from
   a filled slot names `task_submit` or `operator_answer`, never `literal`.
 * *The identity of the frame*: `call` draws one `command_id` for the call from `Ports.ids` and takes the `correlation_id`
   of the current `Run`, which the engine mints once per advance. Both are `core.id` records written and read by

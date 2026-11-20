@@ -124,6 +124,9 @@ public final class InputValidator {
     /** The rule of a path carrying a format character. */
     public static final String RULE_PATH_FORMAT = "path.format";
 
+    /** The rule of a path carrying a lone surrogate. */
+    public static final String RULE_PATH_SURROGATE = "path.surrogate";
+
     /** The rule of a path with an empty segment. */
     public static final String RULE_PATH_EMPTY_SEGMENT = "path.empty-segment";
 

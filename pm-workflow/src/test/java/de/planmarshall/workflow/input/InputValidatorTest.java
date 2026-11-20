@@ -266,6 +266,24 @@ class InputValidatorTest {
         }
 
         @Test
+        @DisplayName("an empty list against a low bound is refused as input.count")
+        void emptyBelowCountRefused() {
+            var refusal = refusal(InputValidator.validatePathList(new InputType.PathList(1, 500), List.of()));
+
+            assertEquals("input.count", refusal.ruleId(), "the empty list misses its low bound");
+        }
+
+        @Test
+        @DisplayName("a type that declares a high bound above the cap is capped")
+        void highBoundCapped() {
+            var tooLong = "x".repeat(InputValidator.TEXT_CAP + 1);
+
+            var refusal = refusal(InputValidator.validateText(new InputType.Text(1, 9999), tooLong));
+
+            assertEquals("input.too-long", refusal.ruleId(), "the compiled cap bounds the declared range");
+        }
+
+        @Test
         @DisplayName("a list below its count bound is refused as input.count")
         void belowCountRefused() {
             var refusal = refusal(InputValidator.validatePathList(new InputType.PathList(2, 500),

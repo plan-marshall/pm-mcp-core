@@ -58,7 +58,8 @@ PLAN-V2-157 finished the bind that PLAN-V2-15 left open.
   root, the staging set of the scope, and the effective configuration value by key.
 * `EngineEvent.TasksSettled` gains `submissions` (entity to argument name to text) so a task state can fill a slot; the
   event's producer is outside this repository and learns of the change with the deployed `SNAPSHOT`.
-* A unit that declares a typed input whose slot no state fills is refused by the dominance check of Rule 6 (link:../../workflow-verify/039-the-slot-dominance-is-checked-over-the-unit-graph.adoc[ADR workflow-verify/039]); the bind
+* A unit that declares a typed input whose slot no state fills is refused by the dominance check of Rule 6
+  (link:../workflow-verify/039-the-slot-dominance-is-checked-over-the-unit-graph.adoc[ADR workflow-verify/039]); the bind
   refuses `input_unbound` where the value never reached the slot at run time.
 
 == Source

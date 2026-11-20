@@ -57,6 +57,9 @@ public final class PathRules {
         if (value.codePoints().anyMatch(PathRules::isFormat)) {
             return Optional.of(new InputRefusal(InputValidator.RULE_PATH_FORMAT, value));
         }
+        if (value.codePoints().anyMatch(PathRules::isSurrogate)) {
+            return Optional.of(new InputRefusal(InputValidator.RULE_PATH_SURROGATE, value));
+        }
         return checkSegments(value);
     }
 
@@ -118,5 +121,10 @@ public final class PathRules {
 
     private static boolean isFormat(int codePoint) {
         return Character.getType(codePoint) == Character.FORMAT;
+    }
+
+    /** A code point in the surrogate range: {@code codePoints()} yields one only for an unpaired surrogate. */
+    private static boolean isSurrogate(int codePoint) {
+        return codePoint >= Character.MIN_SURROGATE && codePoint <= Character.MAX_SURROGATE;
     }
 }

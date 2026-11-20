@@ -578,8 +578,9 @@ Guard:: The bind consumes the slot in the transaction of the call that read it, 
 filled is refused with `input_unbound`; a slot key names the declaring unit, so no unit inherits another's value
 (`InputBindingTest` of `pm-workflow`, link:../../pm-workflow/doc/developer/workflow-engine.adoc#_the_input_bind[Workflow
 Engine Developer Guide § The Input Bind at a Call]). Tests: two calls of one state, the second refused with
-`input_unbound`; the status holds no slot after the call; `WorkflowStatusCodecTest` refuses a slot whose provenance lies
-outside the closed set. Owed: a resumed call after a restart between the fill and the call is not yet a test.
+`input_unbound`; a resumed call after a restart between the fill and the call binds the value once
+(`shouldBindASlotFilledBeforeARestart`); the status holds no slot after the call; `WorkflowStatusCodecTest` refuses a slot
+whose provenance lies outside the closed set.
 Source:: design review (PLAN-V2-15).
 
 [#PM-WATCH-DSL-43]

@@ -52,7 +52,7 @@ registered with the entity kind. A clause on the link would therefore leave the 
 * The verifier checks the fills clause (Rule 6): the slot exists, its type fits the input type, one clause per state per
   slot, the `from` parameter exists on a link of an operator wait that carries the clause, and every path to a call that
   reads a slot passes a state that fills it — the dominance check over `UnitGraph`
-  (link:../../adr/workflow-verify/039-the-slot-dominance-is-checked-over-the-unit-graph.adoc[ADR workflow-verify/039]); the
+* link:../workflow-verify/039-the-slot-dominance-is-checked-over-the-unit-graph.adoc[ADR workflow-verify/039]); the
   outcome a settlement carried is the engine's, which fills only on `submitted` and refuses `input_unbound` otherwise
   (link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL §
   Static AST Verification Rules], Rule 6).
