@@ -217,6 +217,10 @@ neither has a key whose value is derived.
 * *An optional effort is `Optional` at the parser and `@Nullable` at the validator*: `nullableString` answers
   `Optional`, the codec maps it with `EffortValue::new`, and `RoleAssignmentValue.of` accepts a `@Nullable String`.
 
+* *A named effort is never `null`*: `RoleAssignmentValue` refuses `VALUE` with an `EffortValue` whose value is `null`
+  (`IllegalArgumentException`, "A named effort value must not be null"). The cleared effort is `DEFAULT`, written as
+  `effort: null`; a `VALUE` with a `null` value would be written the same way and read back as `DEFAULT`, a silent
+  change of the effort setting.
 * A document of another format version, or one that does not parse as its one shape, is refused with a `StoreRefusal`
   naming the file; a reader never repairs, migrates or rewrites it.
 * A write happens only under the document's lock, and only while the caller's revision is the one the document holds.

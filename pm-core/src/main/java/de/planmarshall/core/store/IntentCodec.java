@@ -107,6 +107,8 @@ public class IntentCodec {
     private static final String FIELD_REASON = "reason";
     private static final String FIELD_CLAIM = "claim";
     private static final String FIELD_LANDED_IN = "landed_in";
+    /** The reason of a wire name that names no value of its enumeration; formatted with the field name. */
+    private static final String UNKNOWN_VALUE = "'%s' names no known value";
 
     /**
      * @param store the store
@@ -264,7 +266,8 @@ public class IntentCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value)
+            throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -374,9 +377,10 @@ public class IntentCodec {
             switch (field) {
                 case FIELD_ID -> id = string(parser, field);
                 case FIELD_TEXT -> text = string(parser, field);
-                case FIELD_KIND -> kind = required(CriterionKind.fromWireName(string(parser, field)).orElse(null), field);
-                case FIELD_VERIFIED_BY ->
-                    verifiedBy = required(VerifiedBy.fromWireName(string(parser, field)).orElse(null), field);
+                case FIELD_KIND -> kind = CriterionKind.fromWireName(string(parser, field))
+                        .orElseThrow(() -> unreadable(UNKNOWN_VALUE.formatted(field)));
+                case FIELD_VERIFIED_BY -> verifiedBy = VerifiedBy.fromWireName(string(parser, field))
+                        .orElseThrow(() -> unreadable(UNKNOWN_VALUE.formatted(field)));
                 default -> throw undeclared(field);
             }
         }
@@ -421,7 +425,8 @@ public class IntentCodec {
             switch (field) {
                 case FIELD_ID -> id = string(parser, field);
                 case FIELD_TEXT -> text = string(parser, field);
-                case FIELD_SOURCE -> source = required(ConstraintSource.fromWireName(string(parser, field)).orElse(null), field);
+                case FIELD_SOURCE -> source = ConstraintSource.fromWireName(string(parser, field))
+                        .orElseThrow(() -> unreadable(UNKNOWN_VALUE.formatted(field)));
                 case FIELD_EVIDENCE -> evidence = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
@@ -450,7 +455,8 @@ public class IntentCodec {
                 case FIELD_ID -> id = string(parser, field);
                 case FIELD_TEXT -> text = string(parser, field);
                 case FIELD_OPTIONS_WEIGHED -> options = stringList(parser, field);
-                case FIELD_DECIDER -> decider = required(Decider.fromWireName(string(parser, field)).orElse(null), field);
+                case FIELD_DECIDER -> decider = Decider.fromWireName(string(parser, field))
+                        .orElseThrow(() -> unreadable(UNKNOWN_VALUE.formatted(field)));
                 case FIELD_QUESTION_ID -> questionId = nullableString(parser, field).orElse(null);
                 case FIELD_EVIDENCE -> evidence = nullableString(parser, field).orElse(null);
                 case FIELD_ADR -> adr = parser.currentToken() == JsonToken.VALUE_NULL ? null : readAdr(parser, field);
@@ -475,7 +481,8 @@ public class IntentCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_ADR_ID -> adrId = string(parser, field);
-                case FIELD_RELATION -> relation = required(AdrRelation.fromWireName(string(parser, field)).orElse(null), field);
+                case FIELD_RELATION -> relation = AdrRelation.fromWireName(string(parser, field))
+                        .orElseThrow(() -> unreadable(UNKNOWN_VALUE.formatted(field)));
                 default -> throw undeclared(field);
             }
         }
@@ -500,7 +507,8 @@ public class IntentCodec {
             switch (field) {
                 case FIELD_ID -> id = string(parser, field);
                 case FIELD_TEXT -> text = string(parser, field);
-                case FIELD_STATUS -> status = required(AssumptionStatus.fromWireName(string(parser, field)).orElse(null), field);
+                case FIELD_STATUS -> status = AssumptionStatus.fromWireName(string(parser, field))
+                        .orElseThrow(() -> unreadable(UNKNOWN_VALUE.formatted(field)));
                 case FIELD_RISKIEST -> riskiest = bool(parser, field);
                 case FIELD_TEST -> test = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
@@ -524,7 +532,8 @@ public class IntentCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_TEXT -> text = string(parser, field);
-                case FIELD_RESOLVER -> resolver = required(Resolver.fromWireName(string(parser, field)).orElse(null), field);
+                case FIELD_RESOLVER -> resolver = Resolver.fromWireName(string(parser, field))
+                        .orElseThrow(() -> unreadable(UNKNOWN_VALUE.formatted(field)));
                 default -> throw undeclared(field);
             }
         }
@@ -580,12 +589,5 @@ public class IntentCodec {
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }
-    }
-
-    private static <T> T required(@Nullable T value, String field) {
-        if (value == null) {
-            throw unreadable("'%s' names no known value".formatted(field));
-        }
-        return value;
     }
 }

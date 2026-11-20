@@ -600,11 +600,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         if (jobTokens != null && !launch.jobTokenSha256().isEmpty()) {
             jobTokens.register(jobId.value(), launch.jobTokenSha256());
         }
-        var token = launch.jobToken().isEmpty() ? Optional.<String>empty() : Optional.of(launch.jobToken());
+        @Nullable String token = launch.jobToken().isEmpty() ? null : launch.jobToken();
         return run(job.get(), log -> Launch.builder()
                 .workingDirectory(launch.workingDirectory())
                 .argv(launch.argv())
-                .environment(environment.ofWorker(request.enrolment(), jobId, launch.env(), token.orElse(null),
+                .environment(environment.ofWorker(request.enrolment(), jobId, launch.env(), token,
                         null, request.egressProxy()))
                 .stdin(null)
                 .log(log)
