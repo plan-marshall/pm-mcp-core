@@ -105,7 +105,7 @@ class EnrolmentFileCheckTest {
                 () -> assertEquals(file, refusal.file(),
                         "the refusal names the offending file"),
                 () -> assertTrue(refusal.getMessage().contains("mode %s broader than 0600".formatted(octal)),
-                        refusal.getMessage()));
+                        "the refusal names the mode broader than 0600"));
     }
 
     @Test
@@ -138,7 +138,8 @@ class EnrolmentFileCheckTest {
         assertAll(
                 () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome(),
                         "the outcome is enrolment_insecure"),
-                () -> assertTrue(refusal.getMessage().contains("foreign owner " + USER), refusal.getMessage()));
+                () -> assertTrue(refusal.getMessage().contains("foreign owner " + USER),
+                        "the refusal names the foreign owner"));
     }
 
     @Test
@@ -244,7 +245,7 @@ class EnrolmentFileCheckTest {
             var failure = assertThrows(UncheckedIOException.class, () -> check.snapshot(file),
                     "an unreadable file is an I/O failure");
 
-            assertTrue(failure.getMessage().contains(file.toString()), failure.getMessage());
+            assertTrue(failure.getMessage().contains(file.toString()), "the I/O failure names the unreadable file");
         }
 
         @Test

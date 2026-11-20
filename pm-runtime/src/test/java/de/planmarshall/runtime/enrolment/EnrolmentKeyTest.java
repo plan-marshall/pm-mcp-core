@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -163,7 +164,7 @@ class EnrolmentKeyTest {
                     "a keyring that refuses the write is unavailable");
 
             assertAll(
-                    () -> assertEquals(Reason.FAILED, thrown.reason(), "the failure is reported as failed"),
+                    () -> assertEquals(Reason.FAILED, thrown.reason(), "the refused write fails with reason FAILED"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()));
         }
@@ -317,7 +318,7 @@ class EnrolmentKeyTest {
 
         private void assertFailedWithoutKey(SecretStoreException thrown, EnrolmentKey key, String encoded) {
             assertAll(
-                    () -> assertEquals(Reason.FAILED, thrown.reason(), "the failure is reported as failed"),
+                    () -> assertEquals(Reason.FAILED, thrown.reason(), "the failed create fails with reason FAILED"),
                     () -> assertTrue(thrown.getMessage().contains(key.keyFile().toString()),
                             "the message names the key file"),
                     () -> assertFalse(thrown.getMessage().contains(encoded), "the message never carries the key"),
@@ -605,9 +606,9 @@ class EnrolmentKeyTest {
                     "an entry that vanished after the write is unavailable");
 
             assertAll(
-                    () -> assertEquals(Reason.FAILED, thrown.reason(), "the failure is reported as failed"),
+                    () -> assertEquals(Reason.FAILED, thrown.reason(), "the vanished entry fails with reason FAILED"),
                     () -> assertTrue(thrown.getMessage().contains("vanished after it was written"),
-                            thrown.getMessage()),
+                            "the failure says the entry vanished"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()),
                     () -> assertTrue(TestLoggerFactory.getTestHandler()
@@ -942,7 +943,7 @@ class EnrolmentKeyTest {
                     () -> assertArrayEquals(created.getEncoded(), again.getEncoded(),
                             "the reused key is the created key"),
                     () -> assertTrue(Files.exists(key.keyFile()), "the key file exists on disk"),
-                    () -> assertTrue(keyring.entries.isEmpty(), keyring.entries.keySet().toString()));
+                    () -> assertEquals(Set.of(), keyring.entries.keySet(), "the keyring holds no entry of the key"));
         }
 
         @Test

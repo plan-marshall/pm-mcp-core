@@ -223,7 +223,7 @@ class QuestionLogRecordReaderBoundaryTest {
             var unreadable = assertInstanceOf(Unreadable.class, read,
                     "a refused first line is an unreadable value");
             assertEquals("the question log holds a refused line 1", unreadable.reason(),
-                    "a log of only a refused line reads unreadable");
+                    "the reason text names the refused line as line 1");
         }
     }
 }

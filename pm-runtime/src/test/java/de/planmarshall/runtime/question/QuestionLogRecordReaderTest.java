@@ -496,7 +496,7 @@ class QuestionLogRecordReaderTest {
                     "a project id that is no identifier is refused");
 
             assertTrue(refusal.getMessage().contains("projectId"),
-                    "the refusal names the project id: " + refusal.getMessage());
+                    "the refusal names the projectId parameter");
         }
 
         @Test

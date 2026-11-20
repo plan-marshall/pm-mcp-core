@@ -84,7 +84,7 @@ class WebTlsTest {
         var names = tls.names();
         // Contract literals: the mDNS suffix and the IPv4 loopback address every certificate names
         for (var expected : List.of(host, host + ".local", LOCALHOST, address, "127.0.0.1")) {
-            assertTrue(names.contains(expected), "the names of the certificate must hold " + expected);
+            assertTrue(names.contains(expected), "the certificate names every expected host");
         }
         // Contract literal: a SHA-256 fingerprint of 32 bytes, two hex digits each and a colon between them
         assertEquals(32 * 3 - 1, tls.fingerprint().length(), "the fingerprint must be a colon-separated SHA-256");
@@ -152,13 +152,13 @@ class WebTlsTest {
 
             var certificateDer = der(tls.certificatePem());
             assertEquals(certificateDer.length, strictLength(certificateDer, 0),
-                    "the certificate DER must be strict, pair " + i);
+                    "the certificate DER of every pair is strict");
             var keyDer = der(tls.privateKeyPem());
-            assertEquals(keyDer.length, strictLength(keyDer, 0), "the key DER must be strict, pair " + i);
+            assertEquals(keyDer.length, strictLength(keyDer, 0), "the key DER of every pair is strict");
             var certificate = tls.certificate();
             certificate.verify(certificate.getPublicKey());
             certificate.checkValidity();
-            assertTrue(certificate.getSerialNumber().signum() > 0, "the serial must be positive, pair " + i);
+            assertTrue(certificate.getSerialNumber().signum() > 0, "the serial of every pair is positive");
             var key = KeyFactory.getInstance("EC").generatePrivate(new PKCS8EncodedKeySpec(keyDer));
             var signer = Signature.getInstance(SIGNATURE_ALGORITHM);
             signer.initSign(key, random);
@@ -166,7 +166,7 @@ class WebTlsTest {
             var verifier = Signature.getInstance(SIGNATURE_ALGORITHM);
             verifier.initVerify(certificate.getPublicKey());
             verifier.update(certificateDer);
-            assertTrue(verifier.verify(signer.sign()), "key and certificate must match, pair " + i);
+            assertTrue(verifier.verify(signer.sign()), "the key and certificate of every pair match");
         }
     }
 

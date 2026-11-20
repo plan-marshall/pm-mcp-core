@@ -267,7 +267,7 @@ class CredentialStoreCheckTest {
                 () -> assertEquals("credential_store_check.write.unavailable", line.messageKey(),
                         "an unavailable store reports the write key"),
                 () -> assertTrue(line.answer().startsWith("credential_store_unavailable: "),
-                        line.answer()),
+                        "the answer names the unavailable store code"),
                 () -> assertTrue(store.calls.isEmpty(), "no store call happens on an unavailable store"));
     }
 

@@ -156,10 +156,11 @@ class EndpointHarnessTest {
                 .task(EndpointFixtures.profile(base), EndpointFixtures.enrolment(), request(), null);
 
         assertAll("the refused foreign program",
-                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate(), outcome::detail),
+                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate(), "a foreign program is REFUSED"),
                 () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, outcome.reason(),
                         "the refusal names the missing enrolment"),
-                () -> assertTrue(outcome.detail().contains("the enrolled executable"), outcome::detail),
+                () -> assertTrue(outcome.detail().contains("the enrolled executable"),
+                        "the detail names the enrolled executable"),
                 () -> assertEquals(0, server.getRequestCount(), "no task text reached the server"));
     }
 
@@ -173,10 +174,10 @@ class EndpointHarnessTest {
                 .task(EndpointFixtures.profile(base), EndpointFixtures.enrolment(), request(), null);
 
         assertAll("the refused unknown owner",
-                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate(), outcome::detail),
+                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate(), "an unknown owner is REFUSED"),
                 () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, outcome.reason(),
                         "the refusal names the missing enrolment"),
-                () -> assertTrue(outcome.detail().contains(detail), outcome::detail),
+                () -> assertTrue(outcome.detail().contains(detail), "the detail carries the lookup's detail"),
                 () -> assertEquals(0, server.getRequestCount(), "no request reached the mock web server"));
     }
 
@@ -190,10 +191,11 @@ class EndpointHarnessTest {
                 .task(EndpointFixtures.profile(base), previousBuild, request(), null);
 
         assertAll("the refused changed build",
-                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate(), outcome::detail),
+                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate(), "a changed build is REFUSED"),
                 () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, outcome.reason(),
                         "the refusal names the missing enrolment"),
-                () -> assertTrue(outcome.detail().contains("not the build the enrolment recorded"), outcome::detail),
+                () -> assertTrue(outcome.detail().contains("not the build the enrolment recorded"),
+                        "the detail says the build is not the enrolled one"),
                 () -> assertEquals(0, server.getRequestCount(), "no request reached the mock web server"));
     }
 
@@ -209,7 +211,7 @@ class EndpointHarnessTest {
         assertNotNull(recorded, "a request reached the mock web server");
         var body = recorded.getBody().utf8();
         assertAll("the accepted answer",
-                () -> assertEquals(EndpointOutcome.Fate.ANSWERED, outcome.fate(), outcome::detail),
+                () -> assertEquals(EndpointOutcome.Fate.ANSWERED, outcome.fate(), "the enrolled program ANSWERED"),
                 () -> assertEquals(content(), outcome.content(), "the content of the answer is delivered"),
                 () -> assertEquals(promptTokens + completionTokens, outcome.usage().totalTokens().orElseThrow(),
                         "the usage of the answer is the token sum"),
@@ -230,7 +232,7 @@ class EndpointHarnessTest {
                 request(), schema);
 
         assertAll("the validated answer",
-                () -> assertEquals(EndpointOutcome.Fate.ENDED, outcome.fate(), outcome::detail),
+                () -> assertEquals(EndpointOutcome.Fate.ENDED, outcome.fate(), "the answer outside the schema ENDED"),
                 () -> assertEquals(EndpointOutcome.Reason.INVALID_ANSWER, outcome.reason(),
                         "an answer outside the schema is invalid"));
     }

@@ -1748,7 +1748,7 @@ class SubprocessJobRunnerTest {
         private void awaitReaped(Long pid) {
             var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
             while (alive(pid)) {
-                assertTrue(System.nanoTime() < deadline, "the process %s did not end".formatted(pid));
+                assertTrue(System.nanoTime() < deadline, "the process ends within ten seconds");
                 Thread.onSpinWait();
             }
         }
@@ -1976,7 +1976,7 @@ class SubprocessJobRunnerTest {
             for (var kind : JobId.Kind.values()) {
                 assertEquals(kind == JobId.Kind.PROBE || kind == JobId.Kind.LLM,
                         SubprocessJobRunner.tracksDescendants(kind),
-                        () -> "descendants tracked only for probe and LLM: " + kind.wireName());
+                        "descendants are tracked for probe and LLM only");
             }
         }
     }

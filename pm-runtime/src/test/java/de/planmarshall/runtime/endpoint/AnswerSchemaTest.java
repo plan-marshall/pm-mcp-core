@@ -75,7 +75,7 @@ class AnswerSchemaTest {
 
         assertAll(
                 () -> assertFalse(check.valid(), "an answer outside the schema is refused"),
-                () -> assertTrue(check.detail().startsWith(pointer), check.detail()));
+                () -> assertTrue(check.detail().startsWith(pointer), "the detail starts at the failing member"));
     }
 
     @Test

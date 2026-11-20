@@ -118,7 +118,7 @@ class WeightsReaderTest {
         var reading = new WeightsReader().read(profile(probe), "mid", null);
 
         assertAll(
-                () -> assertTrue(reading.isRead(), reading.detail()),
+                () -> assertTrue(reading.isRead(), "the argv probe reads the weights identity"),
                 () -> assertEquals(weightsId, reading.weightsId(),
                         "the argv probe reports the identity"));
     }
