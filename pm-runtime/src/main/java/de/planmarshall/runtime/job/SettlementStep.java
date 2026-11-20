@@ -244,14 +244,17 @@ public interface SettlementStep {
         if (block == null) {
             return job;
         }
+        // The stored block is what the fate write persists, whatever it says: converting a readable nonterminal block
+        // and keeping every other one as it is — also one the codec refuses — never restores the runner's older text.
+        var record = job.withWorker(block);
         try {
             var current = WorkerStateCodec.read(store.recordPath(job.jobId()), block);
             if (current.state().isTerminal()) {
-                return job;
+                return record;
             }
-            return job.withWorker(WorkerStateCodec.write(WorkerTermination.terminal(current, job)));
+            return record.withWorker(WorkerStateCodec.write(WorkerTermination.terminal(current, job)));
         } catch (StoreRefusal _) {
-            return job;
+            return record;
         }
     }
 

@@ -31,9 +31,11 @@ connected failed to start, a succeeded job served its task, a timed-out job reac
 cancelled job was withdrawn and every other fate is the exit loss. The state, its instant (the record's `ended_at`), the
 end reason, the start-failure flag and the cleared lease reach the value in one construction.
 
-`WorkerEnding.exited` reads the terminal state from the record instead of writing it. A worker block the codec cannot read
-is left as it is: the fate is what must be durable. Its reader reports the refusal (`PM_RUNTIME-151`) and answers no
-terminal state, so the end completes without it instead of failing on that record on every pass.
+`WorkerEnding.exited` reads the terminal state from the record instead of writing it. A settled record is never written,
+whatever its block says: a block the codec refuses is left as it is, the fate is what must be durable, and its reader
+reports the refusal (`PM_RUNTIME-151`) and finishes the end without a terminal state instead of failing on that record on
+every pass. A `zero_tool` worker is the one class that connects by no call: its exit is never a start failure, so a
+succeeded job of it records the task-done end and only its other fates record the exit loss.
 
 == Alternatives considered
 
@@ -49,8 +51,10 @@ terminal state, so the end completes without it instead of failing on that recor
 * The end path needs no store write, so a settled worker always carries its terminal state and the fence, the revoke
   and the slot release are the only effects left to the supervisor.
 * The mapping is as coarse as the fate: a recycle and a drain are both a `cancelled` fate, so the record calls them
-  `withdrawn`/`drained` by the fate's vocabulary; the supervisor's own cause stays the attempt's end
-  (`SupervisionPass.attemptEnd`) and the `WORKER_GENERATION_ENDED` line.
+  `withdrawn`; a kill, which the supervisor requests as its drain, records `drained`, and the fate of a destroyed
+  process of another cause is `withdrawn` as well. The supervisor's own requested cause stays the attempt's end
+  (`SupervisionPass.attemptEnd`) and the `WORKER_GENERATION_ENDED` line, so a drain the supervisor requested and a drain
+  the fate only implies stay distinguishable there.
 * A change of a fate's meaning now also changes the record's worker block, and `Doc: doc/Traceability.adoc` names the
   tests that hold the mapping.
 

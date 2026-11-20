@@ -231,9 +231,20 @@ public final class SupervisionPass {
                 closeAttempt(generation, jobs);
             }
         }
-        claimEnd(generation, now, jobs, job);
+        // The classification reads the settled record, which is I/O: it happens before the monitor is taken, so a
+        // deadline of another generation never waits for it.
+        var recorded = recordedEnd(jobs, job);
+        var claim = claimEnd(generation, now, recorded);
         WorkerGeneration terminal = null;
         try {
+            if (claim != null) {
+                // The journal write is I/O too, and it runs outside the monitor for the same reason; the claim is
+                // recorded only once it is written, so a retry after a failure here appends it instead of losing it.
+                finishAttempt(generation, claim.cause(), claim.loss(), claim.recorded());
+                synchronized (calls) {
+                    finished.add(generationId);
+                }
+            }
             terminal = ending.exited(generation);
         } finally {
             recordEnd(generation, terminal);
@@ -241,17 +252,19 @@ public final class SupervisionPass {
     }
 
     /**
-     * Claims a generation's end under the monitor of the calls: the detection settles, the requested end is read, the
-     * attempt's end is appended once and the generation is marked as ending, so a retry after a failed end neither
-     * re-pumps the log nor appends a second end.
+     * Claims a generation's end under the monitor of the calls: the detection settles, the requested end is read, and
+     * the claim is answered with what the attempt's end needs, so the caller appends it and the reading of the settled
+     * record and the journal write stay outside the monitor. A generation whose end was claimed before answers
+     * {@code null}: its attempt's end is written already.
+     *
+     * @return the claim, or {@code null} when the generation's end was claimed before
      */
-    private void claimEnd(WorkerGeneration generation, Instant now, JobRecordStore jobs, JobRecord job) {
+    private @Nullable Claim claimEnd(WorkerGeneration generation, Instant now, @Nullable EndReason recorded) {
         var generationId = generation.generationId();
         synchronized (calls) {
             if (finished.contains(generationId)) {
-                return;
+                return null;
             }
-            var recorded = recordedEnd(jobs, job);
             var detection = calls.detection(generation);
             // The detection settles with every claimed end, so a deadline cannot fire into an end that already ran —
             // also for a settled worker that holds no task. An exit is a loss only while the generation still leases a
@@ -259,17 +272,19 @@ public final class SupervisionPass {
             // and the settled record names its end.
             var exit = detection.exit(now);
             var lostTask = generation.leasedTask() != null ? exit : Optional.<LossSignal>empty();
-            lostTask.ifPresent(signal -> ending.end(generation, signal));
+            lostTask.ifPresent(signal -> {
+                // The exit is kept for a retry whose attempt end is not written yet: the settled detection answers
+                // nothing, and the pass must still name the exit rather than a plain loss.
+                calls.remember(generationId, signal);
+                ending.end(generation, signal);
+            });
             var loss = lostTask.or(() -> calls.loss(generationId)).orElse(null);
             var requested = ending.requestedCause(generationId).orElse(null);
             if (requested == null && detection.startFailure()) {
                 ending.end(generation, EndCause.START_FAILURE);
                 requested = ending.requestedCause(generationId).orElse(null);
             }
-            // The attempt's end is appended once, before the terminal state is recorded, so a refused end cannot
-            // swallow it and a retried completion neither re-pumps the log nor appends a second one.
-            finishAttempt(generation, requested, loss, recorded);
-            finished.add(generationId);
+            return new Claim(requested, loss, recorded);
         }
     }
 
@@ -322,8 +337,7 @@ public final class SupervisionPass {
      * @return how the attempt of the held task ended
      */
     static QueueTaskRecord.AttemptEnd attemptEnd(@Nullable EndCause cause, @Nullable LossSignal loss,
-            @Nullable EndReason recorded) {
-        if (cause == null) {
+            @Nullable EndReason recorded) {        if (cause == null) {
             return recorded == null ? QueueTaskRecord.AttemptEnd.WORKER_LOST : attemptEndOf(recorded);
         }
         return switch (cause) {
@@ -364,5 +378,15 @@ public final class SupervisionPass {
      */
     private static @Nullable EndReason recordedEnd(JobRecordStore jobs, JobRecord job) {
         return WorkerEnding.recordedTerminal(jobs, job.jobId()).map(WorkerState::endReason).orElse(null);
+    }
+
+    /**
+     * What a claimed end hands to the attempt's journal write, so that write runs outside the calls' monitor.
+     *
+     * @param cause    why the generation was ended; {@code null} when the registry holds no requested end
+     * @param loss     the signal that settled its detection; {@code null} when it was not lost
+     * @param recorded the end reason the settled record carries; {@code null} when it carries none
+     */
+    private record Claim(@Nullable EndCause cause, @Nullable LossSignal loss, @Nullable EndReason recorded) {
     }
 }

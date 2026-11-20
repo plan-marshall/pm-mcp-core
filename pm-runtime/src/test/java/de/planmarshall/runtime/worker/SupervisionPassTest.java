@@ -617,16 +617,17 @@ class SupervisionPassTest {
         var firstDirectory = Files.createDirectories(base.resolve("first-worktree"));
         var otherDirectory = Files.createDirectories(base.resolve("second-worktree"));
         var failed = new AtomicBoolean();
-        fixture.stateWriter = (generationId, state, at, reason, startFailure) -> {
-            if (!failed.getAndSet(true)) {
-                throw new UncheckedIOException("the end's store is unavailable", new IOException("unavailable"));
-            }
-            fixture.writes.add(new SupervisorTestFixture.Write(generationId, state, at, reason, startFailure, true));
-        };
         var ownEnvironment = fixture.environment(SupervisorEnvironment.StartGuard.open(),
                 SupervisorEnvironment.EligibilityGate.open());
         var ownSupervisor = new WorkerSupervisor(ownEnvironment);
-        var ownEnding = new WorkerEnding(ownEnvironment, () -> false, () -> {
+        // The end fails once after its effects: the successor answer is what a store failure of an end reaches last,
+        // so the retry has to keep the claim and repeat nothing.
+        var ownEnding = new WorkerEnding(ownEnvironment, () -> {
+            if (!failed.getAndSet(true)) {
+                throw new UncheckedIOException("the end's store is unavailable", new IOException("unavailable"));
+            }
+            return false;
+        }, () -> {
         });
         var ownRecycling = new WorkerRecycling(ownEnvironment, ownEnding, ownSupervisor::generations,
                 _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
@@ -832,19 +833,37 @@ class SupervisionPassTest {
     @Test
     @DisplayName("a settled record whose worker block is unreadable still completes its end")
     void anUnreadableWorkerBlockDoesNotBlockTheEnd() throws Exception {
-        writeRunning(generation);
-        settleWithUnreadableWorkerBlock(generation);
-        var pass = pass(journal("unreadable-block"));
+        fixture.stateWriter = SupervisorEnvironment.WorkerStateWriter.over(fixture.base, fixture.project, locks);
+        var realEnvironment = fixture.environment(SupervisorEnvironment.StartGuard.open(),
+                SupervisorEnvironment.EligibilityGate.open());
+        var realSupervisor = new WorkerSupervisor(realEnvironment);
+        var realEnding = new WorkerEnding(realEnvironment, () -> false, () -> {
+        });
+        var realRecycling = new WorkerRecycling(realEnvironment, realEnding, realSupervisor::generations,
+                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
+                parameters);
+        var realCalls = new SupervisorCalls(realSupervisor, realEnding, realRecycling, parameters,
+                _ -> RoleClass.WRITER);
+        var started = ((WorkerSupervisor.StartOutcome.Started) realSupervisor
+                .start(List.of(fixture.warmRequest(role, fixture.workdir))).getFirst()).generation();
+        writeRunning(started);
+        settleWithUnreadableWorkerBlock(started);
+        var before = jobs.read(started.jobId()).orElseThrow();
+        var realPass = new SupervisionPass(realSupervisor, realCalls, realEnding, realRecycling, tasks,
+                new AgentStartedDetector(realEnvironment, _ -> new ProcessExecutables.Absent(), List::of, realEnding),
+                pumps(journal("unreadable-block")));
 
-        pass.run();
+        realPass.run();
 
         assertAll(
-                () -> assertTrue(supervisor.generation(generation.generationId()).orElseThrow().terminal(),
+                () -> assertTrue(realSupervisor.generation(started.generationId()).orElseThrow().terminal(),
                         "the pass completes the end of the unreadable record"),
                 () -> assertEquals(1, fixture.fences.size(), "the end path fences the generation once"),
-                () -> assertTrue(fixture.jobTokens.revoked(generation.generationId()),
+                () -> assertTrue(fixture.jobTokens.revoked(started.generationId()),
                         "the end path revokes the job token"),
-                () -> assertEquals(1, released(generation), "the end path releases the model slot once"));
+                () -> assertEquals(1, released(started), "the end path releases the model slot once"),
+                () -> assertEquals(before, jobs.read(started.jobId()).orElseThrow(),
+                        "the pass changes no member of the settled record"));
         LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                 RuntimeLogMessages.WARN.WORKER_TERMINAL_STATE_UNREADABLE.resolveIdentifierString());
     }

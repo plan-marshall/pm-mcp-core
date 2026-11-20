@@ -62,7 +62,8 @@ public final class WorkerActivityPump {
     public int pump(String queueTaskId, String generationId, int attempt, JobLog log) {
         Objects.requireNonNull(queueTaskId, "queueTaskId");
         Objects.requireNonNull(log, "log");
-        if (task != null && !task.equals(queueTaskId) && !closeTracked(generationId, log).switched()) {
+        if (task != null && (!task.equals(queueTaskId) || this.attempt != attempt)
+                && !closeTracked(generationId, log).switched()) {
             // The previous attempt's tail cannot be read yet: switching now would append its lines to the next task.
             return 0;
         }

@@ -216,6 +216,35 @@ class JobSettlementTest {
                         "the terminal instant is the job's ended-at"));
     }
 
+    @Test
+    @DisplayName("the fate step keeps a stored terminal block as the record carries it")
+    void theFateStepKeepsAStoredTerminalBlock() {
+        var workerJob = new JobId(RuntimeGenerators.jobIds(JobId.Kind.LLM).next());
+        var digest = RuntimeGenerators.sha256Digests().next();
+        var stale = workerRunning(workerJob, workerState(workerJob, digest, createdAt.plusSeconds(1)));
+        var terminalStateAt = createdAt.plusSeconds(5);
+        var terminal = workerState(workerJob, digest, terminalStateAt).toBuilder()
+                .state(WorkerState.State.ENDED).stateAt(terminalStateAt).task(null)
+                .endReason(WorkerState.EndReason.WITHDRAWN).build();
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeAhead(transaction, stale);
+        }
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeWorker(transaction, workerJob, terminal);
+        }
+
+        JobSettlement.of(records, lockManager).settle(new Settled(workerSettled(stale), null));
+
+        var written = writtenWorker(workerJob);
+        assertAll(
+                () -> assertEquals(WorkerState.State.ENDED, written.state(),
+                        "the settled record keeps the terminal block the store carried"),
+                () -> assertEquals(WorkerState.EndReason.WITHDRAWN, written.endReason(),
+                        "the stored end reason is not replaced by the fate's"),
+                () -> assertEquals(terminalStateAt, written.stateAt(),
+                        "the stored terminal instant survives the fate write"));
+    }
+
     /** @return the running record of a worker job, carrying the given worker state */
     private JobRecord workerRunning(JobId workerJob, WorkerState worker) {
         return JobRecord.builder().jobId(workerJob).execution(Execution.PROCESS)

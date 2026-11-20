@@ -12,14 +12,17 @@ package de.planmarshall.runtime.worker;
 import de.cuioss.tools.logging.CuiLogger;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobId;
+import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.WorkerState;
@@ -84,7 +87,8 @@ public final class WorkerEnding {
         if (requests.containsKey(generation.generationId())) {
             return;
         }
-        requests.put(generation.generationId(), new Request(cause, cause.endReason(), false));
+        requests.put(generation.generationId(),
+                new Request(cause, cause.endReason(), new Progress(false, Set.of())));
         var at = environment.clock().instant().plus(TerminationProtocol.GRACE_PERIOD);
         graces.put(generation.generationId(),
                 environment.timers().schedule(at, () -> forceIfRequested(generation, cause)));
@@ -102,7 +106,8 @@ public final class WorkerEnding {
         if (requests.containsKey(generation.generationId())) {
             return;
         }
-        requests.put(generation.generationId(), new Request(EndCause.LOST, signal.reason().endReason(), false));
+        requests.put(generation.generationId(),
+                new Request(EndCause.LOST, signal.reason().endReason(), new Progress(false, Set.of())));
         force(generation, EndCause.LOST);
     }
 
@@ -115,7 +120,8 @@ public final class WorkerEnding {
     public synchronized void forceEnd(WorkerGeneration generation, EndCause cause) {
         Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         Objects.requireNonNull(cause, "cause");
-        requests.putIfAbsent(generation.generationId(), new Request(cause, cause.endReason(), false));
+        requests.putIfAbsent(generation.generationId(),
+                new Request(cause, cause.endReason(), new Progress(false, Set.of())));
         force(generation, cause);
     }
 
@@ -142,15 +148,17 @@ public final class WorkerEnding {
      * reads the terminal state the settlement wrote, logs the end and starts a successor when work remains.
      * <p>
      * The settlement writes the terminal worker block with the fate, so this path never writes the worker state of a
-     * settled record — the store refuses that write, and the refusal stays. A retry after a failed end repeats none of
-     * the side effects: the generation's own request carries the mark that they ran, and the request stays available,
-     * so the retry re-reads the cause instead of re-deriving it as a loss.
+     * settled record — the store refuses that write, and the refusal stays; a settled record whose block cannot be
+     * decoded finishes the end without a terminal state. A retry after a failed end resumes at the first effect that did
+     * not complete, because the generation's own request carries both the claim and the progress of its effects, and the
+     * request stays available, so the retry re-reads the cause instead of re-deriving it as a loss.
      * <p>
-     * The monitor of this instance covers the request's claim and its removal only; the fence, the token revoke, the
-     * slot release, the read of the terminal state and the successor start run outside it. Those waits include writes
-     * of the store and a process start, so a deadline that fires on the supervisor's one timer thread travels through
-     * {@link #end(WorkerGeneration, LossSignal)} without waiting for them. The mark of the claim is written before the
-     * effects run, so a deadline that lands meanwhile installs no second end.
+     * The monitor of this instance covers the request's claim, its progress and its removal only; the fence, the token
+     * revoke, the slot release, the read of the terminal state and the successor start run outside it. Those waits
+     * include writes of the store and a process start, so a deadline that fires on the supervisor's one timer thread
+     * travels through {@link #end(WorkerGeneration, LossSignal)} without waiting for them. The claim is written before
+     * the effects run, so a deadline that lands meanwhile installs no second end and the grace timer's force is not
+     * forwarded for a generation that already exited.
      *
      * @param generation the generation whose process exited
      * @return the generation in its terminal state
@@ -159,46 +167,42 @@ public final class WorkerEnding {
         Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         var generationId = generation.generationId();
         var at = environment.clock().instant();
-        WorkerState.EndReason reason;
         EndCause cause;
-        boolean effects;
+        WorkerState.EndReason reason;
+        Set<Effect> missing;
         synchronized (this) {
             var request = requests.get(generationId);
             // An end the supervisor never requested keeps its cause absent: a retry after a failed read is then
             // classified by the terminal block the settlement wrote, not by a loss this path would have invented.
             cause = request != null ? request.cause() : null;
             reason = request != null ? request.reason() : WorkerState.EndReason.EXITED;
-            effects = request == null || !request.completed();
-            if (effects) {
-                cancelGrace(generationId);
-                if (request == null) {
-                    // The claim is the generation's own mark while the effects run: a deadline that lands meanwhile
-                    // finds the request and installs no second end. It is not completed yet, so a failure here is
-                    // retried rather than leaving the end owed.
-                    requests.put(generationId, new Request(null, reason, false));
-                }
-            }
+            request = request == null ? new Request(null, reason, new Progress(true, Set.of()))
+                    : request.claimed();
+            requests.put(generationId, request);
+            cancelGrace(generationId);
+            missing = request.missing();
         }
-        if (effects) {
-            environment.protocol().fence(generationId);
-            environment.jobTokens().revoke(generationId);
-            environment.slots().release(generation.slot());
+        for (var effect : missing) {
+            run(effect, generation);
             synchronized (this) {
-                requests.put(generationId, new Request(cause, reason, true));
+                requests.put(generationId, requests.get(generationId).with(effect));
             }
         }
-        var recorded = JobId.parse(generationId)
-                .flatMap(jobId -> recordedTerminal(
-                        JobRecordStore.ofProject(environment.base(), environment.projectId()), jobId));
-        if (recorded.isEmpty()) {
-            // A record the settlement has not written yet: the supervisor's own write is the only terminal state.
+        var jobId = JobId.parse(generationId).orElse(null);
+        var jobs = JobRecordStore.ofProject(environment.base(), environment.projectId());
+        var settledRecord = jobId == null ? Optional.<JobRecord>empty()
+                : jobs.read(jobId).filter(job -> job.status().isSettled());
+        var recorded = settledRecord.flatMap(job -> terminalBlock(jobs, jobId, job)).orElse(null);
+        if (settledRecord.isEmpty()) {
+            // A record the settlement has not written yet: the supervisor's own write is the only terminal state. A
+            // settled record is never written, whatever its block says — the store refuses that write.
             var written = cause == null ? EndCause.LOST : cause;
             environment.stateWriter().write(generationId, written.terminalState(), at, reason,
                     written == EndCause.START_FAILURE);
         }
         LOGGER.info(INFO.WORKER_GENERATION_ENDED, generationId, generation.role(),
-                endName(cause, recorded.orElse(null)));
-        var terminal = terminal(generation, cause, recorded.orElse(null));
+                endName(cause, recorded));
+        var terminal = terminal(generation, cause, recorded);
         if (workQueued.getAsBoolean()) {
             successor.run();
         }
@@ -209,15 +213,31 @@ public final class WorkerEnding {
     }
 
     /**
-     * Forwards the grace timer's force to the runner, but only while the generation's end is still requested: the timer
-     * action runs on the timer thread, and the worker's exit may have completed the end in the meantime. The monitor is
-     * taken so the check and the effect are one step against the methods that remove the request.
+     * Runs one effect of the end.
+     *
+     * @param effect     the effect to run
+     * @param generation the generation whose end completes
+     */
+    private void run(Effect effect, WorkerGeneration generation) {
+        switch (effect) {
+            case FENCE -> environment.protocol().fence(generation.generationId());
+            case REVOKE -> environment.jobTokens().revoke(generation.generationId());
+            case RELEASE -> environment.slots().release(generation.slot());
+        }
+    }
+
+    /**
+     * Forwards the grace timer's force to the runner, but only while the generation's end is still requested and has not
+     * been claimed by the exit: the timer action runs on the timer thread, and a force that started before the exit
+     * cannot be stopped by cancelling the grace, so it must not reach a worker that has exited. The monitor is taken so
+     * the check and the effect are one step against the methods that remove the request.
      *
      * @param generation the generation whose grace expired
      * @param cause      why it is being ended
      */
     private synchronized void forceIfRequested(WorkerGeneration generation, EndCause cause) {
-        if (requests.containsKey(generation.generationId())) {
+        var request = requests.get(generation.generationId());
+        if (request != null && !request.progress().claimed()) {
             force(generation, cause);
         }
     }
@@ -288,8 +308,20 @@ public final class WorkerEnding {
     static Optional<WorkerState> recordedTerminal(JobRecordStore jobs, JobId jobId) {
         return jobs.read(jobId)
                 .filter(job -> job.status().isSettled() && job.kind() == JobId.Kind.LLM && job.worker() != null)
-                .flatMap(job -> readTerminalBlock(jobs.recordPath(jobId), jobId, job.worker()))
-                .filter(state -> state.state().isTerminal());
+                .flatMap(job -> terminalBlock(jobs, jobId, job));
+    }
+
+    /**
+     * @param jobs  the job records of the generation's project
+     * @param jobId the generation's job
+     * @param job   the settled record
+     * @return the terminal state its worker block carries; empty when it carries none, the block is not terminal or the
+     *         codec refuses it
+     */
+    private static Optional<WorkerState> terminalBlock(JobRecordStore jobs, JobId jobId, JobRecord job) {
+        return job.worker() == null ? Optional.empty()
+                : readTerminalBlock(jobs.recordPath(jobId), jobId, job.worker())
+                        .filter(state -> state.state().isTerminal());
     }
 
     /**
@@ -308,13 +340,61 @@ public final class WorkerEnding {
     }
 
     /**
-     * One requested end: its cause, the end reason the terminal state carries (the loss signal refines the reason) and
-     * whether the end's side effects already ran, which is the generation's own terminal mark.
-     *
-     * @param cause     the cause; {@code null} when the supervisor requested none
-     * @param reason    the end reason
-     * @param completed whether the side effects of the end ran
+     * The effects a completed end runs, in their order: the fence of the generation, the revoke of its job token and the
+     * release of its model slot.
      */
-    private record Request(@Nullable EndCause cause, WorkerState.EndReason reason, boolean completed) {
+    private enum Effect {
+
+        FENCE,
+        REVOKE,
+        RELEASE
+    }
+
+    /**
+     * One requested end: its cause, the end reason the terminal state carries (the loss signal refines the reason) and
+     * its progress, which is the generation's own terminal mark.
+     *
+     * @param cause    the cause; {@code null} when the supervisor requested none
+     * @param reason   the end reason
+     * @param progress how far the end's effects are
+     */
+    private record Request(@Nullable EndCause cause, WorkerState.EndReason reason, Progress progress) {
+
+        /** @return the effects still owed, in the order they run */
+        Set<Effect> missing() {
+            var missing = EnumSet.noneOf(Effect.class);
+            for (var effect : Effect.values()) {
+                if (!progress.done().contains(effect)) {
+                    missing.add(effect);
+                }
+            }
+            return missing;
+        }
+
+        /** @return the request once the exit claimed it */
+        Request claimed() {
+            return new Request(cause, reason, new Progress(true, progress.done()));
+        }
+
+        /**
+         * @param effect the effect that completed
+         * @return the request with that effect recorded
+         */
+        Request with(Effect effect) {
+            var completed = progress.done().isEmpty() ? EnumSet.noneOf(Effect.class)
+                    : EnumSet.copyOf(progress.done());
+            completed.add(effect);
+            return new Request(cause, reason, new Progress(progress.claimed(), completed));
+        }
+    }
+
+    /**
+     * How far the effects of one end are: whether the exit claimed the end, and the effects that already completed, so a
+     * retry resumes at the first effect that did not run.
+     *
+     * @param claimed whether the exit claimed the end
+     * @param done    the effects that completed
+     */
+    private record Progress(boolean claimed, Set<Effect> done) {
     }
 }

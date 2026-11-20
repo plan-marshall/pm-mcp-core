@@ -294,6 +294,19 @@ public final class SupervisorCalls implements WorkerCalls {
     }
 
     /**
+     * Keeps a loss the pass derived from the settlement for the generation's later steps: the exit the pass observed is
+     * the attempt's end on a retry as well, which the detection can no longer answer once it settled.
+     *
+     * @param generationId the worker's generation
+     * @param signal       the loss
+     */
+    public synchronized void remember(String generationId, LossSignal signal) {
+        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(signal, "signal");
+        losses.put(generationId, signal);
+    }
+
+    /**
      * Forgets every value the calls keep for one generation, once its end is complete: its detection, its loss and the
      * configuration digest its last wait carried.
      *

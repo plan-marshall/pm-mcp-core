@@ -31,10 +31,17 @@ attempt's end once) and to record its result (replace the generation, forget its
 The claim settles the generation's detection in both cases, also for a settled worker that holds no task, so no silence
 deadline fires into an end that already ran.
 
-`WorkerEnding.exited` holds its own monitor only for the request's claim and its removal. The fence, the token revoke, the
-slot release, the read of the terminal state and the successor start run outside it, and the claim is written before the
-effects run, so a deadline that lands meanwhile finds the request and installs no second end. An end the supervisor never
-requested keeps its cause absent in the claim, so a retry after a failed read is classified by the record again.
+`WorkerEnding.exited` holds its own monitor only for the request's claim, the progress of its effects and the removal of
+the request. The fence, the token revoke, the slot release, the read of the terminal state and the successor start run
+outside it, so a deadline that lands meanwhile finds the request and installs no second end, and the grace timer's force
+is not forwarded for a generation the exit already claimed. Each effect is recorded as it completes, so a failure inside
+them resumes at the first effect that did not run; an end the supervisor never requested keeps its cause absent in the
+claim, so a retry after a failed read is classified by the record again.
+
+`completeEnd` reads the settled record and writes the attempt's end outside the calls' monitor too: both are I/O, and a
+summary taken under the monitor would make a deadline of another generation wait for the journal. The claim is recorded
+in the pass's finished set only once the attempt's end is written, so a failure before it makes the retry append the
+attempt's end instead of losing it.
 
 == Alternatives considered
 
