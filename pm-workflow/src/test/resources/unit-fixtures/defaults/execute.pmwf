@@ -41,7 +41,7 @@ state execute.evaluate-envelope-return
         deliverable_done -> execute.commit
 
 state execute.commit
-    call git.commit_and_push(push_mode = no_push)
+    call git.commit_and_push(message_mode = step_or_fallback, push_mode = no_push)
         done -> execute.deliverable-build
         stepped_out -> execute.hand-back-exit
 
