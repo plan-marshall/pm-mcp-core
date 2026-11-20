@@ -1178,8 +1178,8 @@ class WorkflowValidatorTest {
 
             assertAll(() -> assertEquals(1, found.size(), "the routed reason is one violation"),
                     () -> assertEquals("the state 'verify.entry' routes 'tests_red', which is a reason of the outcome"
-                                    + " 'failed' of the primitive 'reason.check': a reason is carried as data and never"
-                                    + " routed", found.getFirst().message(),
+                            + " 'failed' of the primitive 'reason.check': a reason is carried as data and never"
+                            + " routed", found.getFirst().message(),
                             "the violation names the reason and its outcome"));
         }
 
@@ -1191,7 +1191,7 @@ class WorkflowValidatorTest {
 
             assertAll(() -> assertEquals(1, found.size(), "the guard outside a call is one violation"),
                     () -> assertEquals("a result guard is admitted only on the outcome 'done' of a call, but found on"
-                                    + " the outcome 'failed' of the state 'verify.entry', which is no call",
+                            + " the outcome 'failed' of the state 'verify.entry', which is no call",
                             found.getFirst().message(), "the violation keeps the Rule 6 message"));
         }
 

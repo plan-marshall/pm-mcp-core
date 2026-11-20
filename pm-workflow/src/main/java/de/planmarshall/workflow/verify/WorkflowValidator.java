@@ -1138,9 +1138,9 @@ public final class WorkflowValidator {
                 var reasonOf = reasonOutcomes.get(outcome);
                 violations.add(outcomeViolation(state, transition.location(), reasonOf == null
                         ? "routes the outcome '%s', which the primitive '%s' does not have".formatted(outcome,
-                                primitiveId)
+                        primitiveId)
                         : ("routes '%s', which is a reason of the outcome '%s' of the primitive '%s': a reason is "
-                                + "carried as data and never routed").formatted(outcome, reasonOf, primitiveId)));
+                        + "carried as data and never routed").formatted(outcome, reasonOf, primitiveId)));
             } else if (!routed.add(outcome)) {
                 violations.add(outcomeViolation(state, transition.location(),
                         "routes the outcome '%s' of the primitive '%s' twice".formatted(outcome, primitiveId)));

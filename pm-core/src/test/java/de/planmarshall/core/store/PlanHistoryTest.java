@@ -188,12 +188,12 @@ class PlanHistoryTest {
         var reason = lowerName();
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
-                        .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(1).event(Event.ENTERED).node(node)
-                        .callPath(List.of()).outcome(outcome).reason(reason).instanceVersion(1).at(t0).build(),
+                                .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(1).event(Event.ENTERED).node(node)
+                                .callPath(List.of()).outcome(outcome).reason(reason).instanceVersion(1).at(t0).build(),
                         "a reason on an entered line should be refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
-                        .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(1).event(Event.LEFT).node(node)
-                        .callPath(List.of()).reason(reason).instanceVersion(1).at(t0).build(),
+                                .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(1).event(Event.LEFT).node(node)
+                                .callPath(List.of()).reason(reason).instanceVersion(1).at(t0).build(),
                         "a reason without an outcome should be refused"));
     }
 

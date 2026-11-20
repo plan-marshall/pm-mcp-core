@@ -120,10 +120,10 @@ class PlanHistorySchemaParityTest {
                 () -> assertFalse(SchemaValidation.validate(validator, injected).isEmpty(),
                         "A reason without an outcome is a violation"),
                 () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
-                        .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(Generators.longs(1, 1_000_000).next())
-                        .event(Event.LEFT).node(Generators.letterStrings(1, 32).next()).callPath(List.of())
-                        .outcome(null).reason(reason).instanceVersion(Generators.integers(1, 1_000).next())
-                        .at(Instant.EPOCH).build(),
+                                .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(Generators.longs(1, 1_000_000).next())
+                                .event(Event.LEFT).node(Generators.letterStrings(1, 32).next()).callPath(List.of())
+                                .outcome(null).reason(reason).instanceVersion(Generators.integers(1, 1_000).next())
+                                .at(Instant.EPOCH).build(),
                         "The record refuses a reason without outcome"));
     }
 
@@ -222,9 +222,9 @@ class PlanHistorySchemaParityTest {
                 () -> assertEquals(reasonPattern, PlanHistoryLine.OUTCOME_PATTERN.pattern(),
                         "The record's reason pattern is the schema's"),
                 () -> assertThrows(IllegalArgumentException.class, () -> PlanHistoryLine.builder()
-                        .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(seqMin).event(Event.LEFT)
-                        .node(word).callPath(List.of()).outcome(word).reason(notWord)
-                        .instanceVersion(versionMin).at(Instant.EPOCH).build(),
+                                .formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(seqMin).event(Event.LEFT)
+                                .node(word).callPath(List.of()).outcome(word).reason(notWord)
+                                .instanceVersion(versionMin).at(Instant.EPOCH).build(),
                         "The record refuses a reason the pattern refuses"),
                 () -> assertFalse(PlanHistoryLine.OUTCOME_PATTERN.matcher("1a").matches(),
                         "A digit-first outcome is refused by the codec"),
