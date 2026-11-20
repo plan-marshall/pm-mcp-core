@@ -20,7 +20,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +52,7 @@ class VerifiedUsageTest {
                 () -> assertEquals("reported", report.figures().get("input"), "the input figure is reported"),
                 () -> assertEquals("reported", report.figures().get("output"), "the output figure is reported"),
                 () -> assertFalse(report.figures().containsKey("cost_usd"), "the cost is never part of the report"),
-                () -> assertEquals(List.of(new UsageReport.StartContext("writer", MODEL, OptionalLong.of(START_TOKENS))),
+                () -> assertEquals(List.of(new UsageReport.StartContext("writer", MODEL, START_TOKENS)),
                         report.startContext(), "the start context crosses the seam"),
                 () -> assertEquals(HarnessEnrolment.UsageSource.VERIFIED, report.source(),
                         "a verified report names its source"));

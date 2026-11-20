@@ -12,7 +12,6 @@ package de.planmarshall.runtime.launch;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.profile.ProfileStages;
@@ -81,8 +80,7 @@ public class VerifiedUsage {
 
     private static List<UsageReport.StartContext> startContext(ProfileStages.UsageResult result) {
         return result.startContext().stream()
-                .map(context -> new UsageReport.StartContext(context.workerClass(), context.model(),
-                        context.tokens() == null ? OptionalLong.empty() : OptionalLong.of(context.tokens())))
+                .map(context -> new UsageReport.StartContext(context.workerClass(), context.model(), context.tokens()))
                 .toList();
     }
 

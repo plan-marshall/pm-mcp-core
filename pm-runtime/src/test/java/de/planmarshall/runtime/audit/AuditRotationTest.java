@@ -38,7 +38,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.OptionalLong;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -865,7 +864,7 @@ class AuditRotationTest {
             assertAll(
                     () -> assertEquals(AuditChainVerification.BreakReason.LINK_BROKEN, broken.reason(),
                             "the verification reports link_broken"),
-                    () -> assertEquals(OptionalLong.of(line), broken.firstBrokenLine(),
+                    () -> assertEquals(Long.valueOf(line), broken.firstBrokenLine(),
                             "the verification names the broken line"));
         }
     }
@@ -961,7 +960,7 @@ class AuditRotationTest {
                             WARN.AUDIT_ROTATION_FAILED.resolveIdentifierString()),
                     () -> assertEquals(AuditChainVerification.BreakReason.LINK_BROKEN, broken.reason(),
                             "verify reports link_broken"),
-                    () -> assertEquals(OptionalLong.of(1), broken.firstBrokenLine(),
+                    () -> assertEquals(Long.valueOf(1), broken.firstBrokenLine(),
                             "verify names the first line as broken"),
                     () -> assertEquals(AuditChainVerification.BreakReason.LINK_BROKEN,
                             reason(trail.verification().full()), "full reports link_broken"));

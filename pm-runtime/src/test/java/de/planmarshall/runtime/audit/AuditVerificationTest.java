@@ -31,7 +31,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.DisplayName;
@@ -86,7 +85,7 @@ class AuditVerificationTest {
 
     private static void assertLinkBroken(long line, Outcome outcome) {
         var broken = assertBroken(BreakReason.LINK_BROKEN, outcome);
-        assertEquals(OptionalLong.of(line), broken.firstBrokenLine(), "the verification names the broken line");
+        assertEquals(Long.valueOf(line), broken.firstBrokenLine(), "the verification names the broken line");
     }
 
     @Test
