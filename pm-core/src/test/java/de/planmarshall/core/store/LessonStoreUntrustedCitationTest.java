@@ -214,7 +214,7 @@ class LessonStoreUntrustedCitationTest {
         var untrusted = inTransaction(write -> store.create(write, REVISED, LessonFixtures.newLesson()
                 .derivedFromUntrusted(true).build(), CLOCK)).frontMatter().lessonId();
         var merged = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(CITED)
-                .mergedFrom(List.of(new MergedFrom(untrusted, LessonFixtures.instant(), "a plan"))).build(),
+                        .mergedFrom(List.of(new MergedFrom(untrusted, LessonFixtures.instant(), "a plan"))).build(),
                 LessonFixtures.body());
         Files.write(lessons.pathBase().resolve(CITED.fileName()), LessonCodec.encode(merged));
         acceptEdit(CITED);
@@ -358,7 +358,7 @@ class LessonStoreUntrustedCitationTest {
 
         @Test
         @DisplayName("a citation of bytes that do not decode is present_unreadable and marks the revision")
-        void presentUnreadable() throws IOException {
+        void presentUnreadable() throws Exception {
             created(CITED);
             var target = revisionTarget();
             Files.write(lessons.pathBase().resolve(CITED.fileName()),
@@ -377,7 +377,7 @@ class LessonStoreUntrustedCitationTest {
 
         @Test
         @DisplayName("a citation of a file that differs from its entry is store_tampered and marks the revision")
-        void storeTampered() throws IOException {
+        void storeTampered() throws Exception {
             created(CITED);
             var target = revisionTarget();
             Files.write(lessons.pathBase().resolve(CITED.fileName()),
@@ -396,7 +396,7 @@ class LessonStoreUntrustedCitationTest {
 
         @Test
         @DisplayName("a citation of a file whose entry remains is deleted_out_of_band and marks the revision")
-        void deletedOutOfBand() throws IOException {
+        void deletedOutOfBand() throws Exception {
             created(CITED);
             var target = revisionTarget();
             Files.delete(lessons.pathBase().resolve(CITED.fileName()));
@@ -413,7 +413,7 @@ class LessonStoreUntrustedCitationTest {
 
         @Test
         @DisplayName("a citation of a file without an entry is untracked and marks the revision")
-        void untracked() throws IOException {
+        void untracked() throws Exception {
             var target = revisionTarget();
             Files.write(lessons.pathBase().resolve(CITED.fileName()),
                     LessonCodec.encode(new Lesson(LessonFixtures.frontMatterBuilder().lessonId(CITED).build(),
