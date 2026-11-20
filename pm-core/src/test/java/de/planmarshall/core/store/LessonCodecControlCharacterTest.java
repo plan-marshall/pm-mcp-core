@@ -37,8 +37,8 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
 /**
  * U+007F (DEL) and a C0 control character in the front matter of a lesson (Store Schemas § Lesson Record; ADR
  * core-store/061): the writer escapes them, so every string member reads back unchanged instead of being refused by
- * the YAML reader. DEL is the one control character below U+0080 the YAML writer must escape itself, beside the
- * non-ASCII characters; the C0 range is escaped by the JSON writer already.
+ * the YAML reader. DEL is the one control character below U+0080 the front-matter writer spares from the JSON standard
+ * escapes, beside the non-ASCII characters; the C0 range is escaped by those standard escapes already.
  * <p>
  * The literals the assertions pin are the contract — the escaped wire form {@code \u007F}, DEL itself and the C0
  * control character the round trip is stated for; every prose member of a fixture is generated.

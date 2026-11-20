@@ -214,7 +214,8 @@ class LessonStoreUntrustedCitationTest {
         var untrusted = inTransaction(write -> store.create(write, REVISED, LessonFixtures.newLesson()
                 .derivedFromUntrusted(true).build(), CLOCK)).frontMatter().lessonId();
         var merged = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(CITED)
-                        .mergedFrom(List.of(new MergedFrom(untrusted, LessonFixtures.instant(), "a plan"))).build(),
+                        .mergedFrom(List.of(new MergedFrom(untrusted, LessonFixtures.instant(),
+                                LessonFixtures.text()))).build(),
                 LessonFixtures.body());
         Files.write(lessons.pathBase().resolve(CITED.fileName()), LessonCodec.encode(merged));
         acceptEdit(CITED);

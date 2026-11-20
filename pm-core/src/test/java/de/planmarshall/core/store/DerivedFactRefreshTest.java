@@ -280,7 +280,8 @@ class DerivedFactRefreshTest {
             assertAll("Two successful snapshots are ordered by the write, never by the instant",
                     () -> assertInstanceOf(DerivedFactReading.Value.class, reading, "the success reads as a value"),
                     () -> assertEquals(DIGEST_A, stored.inputDigest(), "the attempted digest is stored"),
-                    () -> assertEquals(NOW, stored.derivedAt(), "the attempted instant is stored"));
+                    () -> assertEquals(NOW, stored.derivedAt(), "the attempted instant is stored"),
+                    () -> assertEquals(value, stored.value(), "the attempted value is stored"));
         }
 
         @Test
