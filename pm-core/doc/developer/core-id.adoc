@@ -13,10 +13,10 @@ Package `de.planmarshall.core.id` of `pm-core` holds the shared identifier types
 owns nothing else and depends on nothing of the product: every store, the queue, the role packages, `pm-workflow` and
 `pm-runtime` use it, and a dependency from `core.id` into any of them is a defect.
 
-Today the package holds the one definition of the short lower-case name grammar: two to 32 characters, a lower-case
+The package holds the one definition of the short lower-case name grammar: two to 32 characters, a lower-case
 letter first, then lower-case letters, digits or `-`. The specification states that text under two registry entries —
-`id-role-name` and `id-harness-id` — and it was written out as a private `Pattern` in twenty-two classes of three
-modules before this package held it. The grammar is specified in
+`id-role-name` and `id-harness-id`. It also holds the two random identifiers of an engine advance, `CommandId` and
+`CorrelationId`. The grammar is specified in
 link:{spec}/identifiers.adoc[Identifiers] and, entry by entry, in
 link:{spec}/identifiers/01-general-rules-and-registry.adoc[General Rules & Registry] and
 link:{spec}/identifiers/02-registry-stores-to-web.adoc[Registry (Stores, Surfaces, Configuration, Web)].
@@ -35,6 +35,16 @@ names.
 `HarnessId`::
 The harness id, the identifier of an enrolled harness. It has the same shape as `RoleName` and reads the same
 `ShortName.TEXT`, but it is a type of its own.
+
+`CommandId`::
+The `command_id` of a call frame, `^cmd-[0-9a-f]{16}$`: one per pushed call frame, drawn by the engine from the `ids`
+component of its ports. The canonical constructor refuses a value that does not match `PATTERN`; `parse(String)`
+answers an empty `Optional` for one; `random()` and `random(RandomGenerator)` draw 16 hexadecimal digits. It is a
+reference, never a secret, unique within the scope that owns the status.
+
+`CorrelationId`::
+The `correlation_id` of an engine advance, `^cor-[0-9a-f]{16}$`: drawn once per advance and shared by every frame the
+advance pushes. Its API is `CommandId`'s.
 
 Both patterns are anchored. Only `WorkflowStatus.requireMatch` prints the name-grammar pattern in its refusal message,
 so the anchored text keeps that message byte-identical; every other caller matches through `Matcher.matches()`, which
@@ -83,7 +93,7 @@ root the way `NullMarkedPackagesTest` does, from the working directory or `pm.ro
 
 == The Grammars That Stay Local
 
-The grammars of this plan's keep-list, plus two further name grammars the reactor carries, grouped by the text they
+The grammars that keep their own constant, grouped by the text they
 carry:
 
 * the one-to-32 character form `^[a-z][a-z0-9-]{0,31}$` — `RoleArtifactValidator.CLIENT_ID`,
@@ -95,7 +105,7 @@ carry:
 
 Other lower-case identifier grammars of the reactor (`ProjectEnrolment.VERB` and `LANGUAGE_ID`, `Finding.BOT_KIND`,
 `CompositionRules.RULE_ID`, `UnitFrontmatterReader.IDENTIFIER`) are not this text either and keep their own constants;
-they are outside the plan's keep-list and the guard reports none of them.
+the guard reports none of them.
 
 The `harness_id` grammar itself is stated as 2 to 32 in the registry and the store schemas and as 1 to 32 in the harness
 profile and role artifact schemas. The two forms are reported as a specification inconsistency; the code keeps each

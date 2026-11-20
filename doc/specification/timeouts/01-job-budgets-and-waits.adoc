@@ -19,6 +19,7 @@ Every job, and every in-process `git` or `ci` operation of the native variant (<
 * `project_script` jobs: `project_script:<project_script_id>`;
 * workers (kind `llm`): `llm:<role>`, one key per role whatever the harness, for example `llm:implement` or `llm:screener` (role names of the link:../model-work/01-roles-and-configuration.adoc[effective role set]);
 * [[probe-budget]]probe jobs (kind `probe`): `probe:<probe>`, one key per kind of probe: `probe:version`, `probe:login`, `probe:models`, and `probe:script`. A probe job runs before its program is enrolled and has no project store, so its key has no learned value: its budget is fixed per key and never learned or escalated, as compiled constants (link:../../../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Developer Guide § Probe Jobs]). A probe over its budget ends `timed_out` and is never retried by itself; the step that asked for it shows the failure with the harness's or tool's own output and its acts (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]).
+* [[speech-budget]]speech jobs (kind `speech`): the one key `speech`. The job runs in the machine scope and has no project store, so its budget is fixed, never learned or escalated: the transcription timeout of the xref:02-runtime-leases-operator-web.adoc#transcription-bounds[Transcription Bounds]. A `speech` job over its budget ends `timed_out` and is never retried by itself (link:../job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime Specification, Speech Jobs]).
 
 The budget of every job starts at its spawn: a job recorded `queued` while it waits for a build or model slot (<<build-slot-wait>>, <<model-slot-wait>>; link:../store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas, Machine Lease Stores]) has no budget running, and its queued time is outside the budget and outside the worker's measured duration.
 
@@ -267,7 +268,7 @@ a|* *Rate window*: `reset_at` is the bot-stated reset ETA when one is published 
 |`timed_out` (`no_verdict`, <<no-verdict-rule>>) enters `finalize.merge-queue-exit`, which resumes the wait while the pull request is still queued (within the <<watch-restart-budget>>) or re-enters `finalize.merge-gate`; it ends in `finalize.hand-back` when the budget is spent or the pull request is closed. A `timed_out` landing records no merge verdict.
 |link:../phase-workflows/06-finalize-re-entry-and-merge.adoc#_cross_plan_merge_mutex_fifo_admission_queue[Phase Workflows, Cross-Plan Merge Mutex]; link:../model-work.adoc[Model Work] (Epic Landing); _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-78[PM-WATCH-PHASE-78]_
 
-|[[release-landing-wait]]Release landing wait (`release.landing_wait_seconds`)
+|[[release-landing-wait]]Release landing wait
 |`600` from the release's confirmation, while a short landing of the project (`git.land-removal`, `git.land-unit`, `git.land-setup`) runs.
 |fixed (compiled constant)
 |—
@@ -327,7 +328,7 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |link:../model-work/03-supervision-and-recycling.adoc[Model Work, Supervision & Recycling]
 
 |[[token-budget]]Token budget
-|`recycling.token_budget` of the role artifact, compared with the context of the worker's last turn from the harness's per-turn usage; `recycling.tasks_per_generation` bounds the tasks of one generation. A generation serves at least one task before either recycles it.
+|`recycling.token_budget` of the role artifact, compared with the context of the worker's last turn from the harness's per-turn usage; `recycling.tasks_per_generation` bounds the tasks of one generation. A generation serves at least one task before either recycles it, except a generation that reaches its token budget while it holds a task for an answer: its hold ends and it is recycled at once (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work, Continuing after a Question]).
 |role artifact
 |`token_budget` minimum `10000`
 |warm workers
@@ -363,7 +364,7 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |role artifact (`questions.hold_seconds`)
 |cap `3600` and the harness's measured maximum
 |every task of the role that asks, where its state and harness allow a continuation
-|The hold ends: the task is suspended where it may resume, else it closes `asked`.
+|The hold ends, also before its time when the worker reaches its token budget (<<token-budget>>): the task is suspended where it may resume, else it closes `asked`.
 |link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work, Continuing after a Question]
 
 |[[question-resume-window]]Question resume window

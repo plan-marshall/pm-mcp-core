@@ -31,17 +31,13 @@ The package owns five things:
 The stores the package reads — the machine and project `role-assignments.json`, the plan's `overrides.json`, the model
 catalogues, the harness profiles, the enrolment, the skills and the machine configuration — arrive through one port,
 link:{core-java}/de/planmarshall/core/role/RoleEnvironment.java[`RoleEnvironment`].
-Writing them is `machine-onboarding-unit`'s, `project-onboarding-unit`'s and `plan-and-epic-control`'s; the runtime
-never reads a role, a harness or a model from git-tracked configuration.
+This package does not write them; the runtime never reads a role, a harness or a model from git-tracked configuration.
 
-Specification (the sections this package was built against): `model-work/01-roles-and-configuration.adoc`,
+Specification: `model-work/01-roles-and-configuration.adoc`,
 `harness-profiles/01-profile-schema.adoc#role-classes`,
 `store-schemas/12-machine-stores.adoc#model-catalogue` and `#role-assignments-store`,
-`workflow-dsl/09-plan-instance.adoc#plan-overrides`. The package's pull request does not delete those specification
-sections or their watch items: other specification parts link to them from more than a hundred places, and
-`model-work/01` still carries the escalation assignment, the shipped role content and the qualification text that this
-package does not implement, so the deletion belongs to the packages that complete the document. The package's own file
-and its index row are removed.
+`workflow-dsl/09-plan-instance.adoc#plan-overrides`. The escalation assignment, the shipped role content and the
+qualification text of `model-work/01` are not implemented by this package.
 
 A role name validates through link:core-id.adoc[`RoleName` of `core.id`], the one definition of the grammar; the harness
 member a role artifact names validates through `HarnessId` of the same package.

@@ -109,6 +109,9 @@ in. The acceptance of unenforced egress reaches the gate as an input value that 
 runtime-worker/015), so the narrower reading holds until a consent store supplies it, and the `egress` stage states the
 unenforced case in its `results` as `"enforcement": "unenforced"` — ADR 015's contract until the verification runner's
 plan names that carrier in the specification.
+Remaining: the start path consults the gate before every start (`SupervisorEnvironment.EligibilityGate`, wired by the
+assembly `pm-mcp-server`): a scenario test starts no worker of a profile the gate refuses and records the refusal with
+its reason; matched control: a profile with a conforming record starts its worker.
 Source:: the issues pass of 2026-11-14 (owner-register row Wa41, "the record's stage and platform gate had no owner"; the
 row named PLAN-V2-39, which shipped without it, and PLAN-V2-43 and 50, whose specs do not carry it); plan PLAN-V2-145
 deliverable 2 (epic `pm-mcp-core-m2-m4-v2`, workstream WS-04).

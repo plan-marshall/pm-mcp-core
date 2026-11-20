@@ -62,30 +62,50 @@ artifact.
 
 * link:doc/developer/workflow-ast.adoc[Workflow AST (`workflow.ast`)]
 * link:doc/developer/workflow-classification.adoc[Change Classification (`workflow.classification`)]
+* link:doc/developer/workflow-consult.adoc[Consultation (`workflow.consult`)]
 * link:doc/developer/workflow-diagram.adoc[Workflow Diagrams (`workflow.diagram`)]
 * link:doc/developer/workflow-dsl.adoc[Workflow DSL (`workflow.dsl`)]
 * link:doc/developer/workflow-engine.adoc[Workflow Engine (`workflow.engine`)]
 * link:doc/developer/workflow-envelope.adoc[Task Envelopes (`workflow.envelope`)]
+* link:doc/developer/workflow-epic.adoc[Epic Tokens (`workflow.epic`)]
 * link:doc/developer/workflow-finalize.adoc[Finalize Steps (`workflow.finalize`)]
+* link:doc/developer/workflow-hypermedia.adoc[Hypermedia Representation Forms (`workflow.hypermedia`)]
 * link:doc/developer/workflow-input.adoc[Workflow Inputs, Slots and Path Rules (`workflow.input`)]
 * link:doc/developer/workflow-log.adoc[Log Messages (`workflow.log`)]
+* link:doc/developer/workflow-model.adoc[The One Model Caller (`workflow.model`)]
 * link:doc/developer/workflow-onboarding.adoc[Machine Onboarding (`workflow.onboarding`)]
+* link:doc/developer/workflow-plan.adoc[Plan Instance (`workflow.plan`)]
+* link:doc/developer/workflow-question.adoc[Question Continuation and Question Bound (`workflow.question`)]
 * link:doc/developer/workflow-scenario.adoc[Scenario Replay Harness (`workflow.scenario`)]
 * link:doc/developer/workflow-setup.adoc[Setup Gate, Onboarding Start and Setup Run (`workflow.setup`)]
+* link:doc/developer/workflow-task.adoc[Task Protocol (`workflow.task`)]
 * link:doc/developer/workflow-unit.adoc[Workflow Unit Loaders (`workflow.unit`)]
 * link:doc/developer/workflow-verify.adoc[Workflow Verification (`workflow.verify`)]
 
 == ADRs
 
 * link:doc/adr/workflow-ast/[`doc/adr/workflow-ast/`]: the tree of the workflow language.
+* link:doc/adr/workflow-consult/[`doc/adr/workflow-consult/`]: the consultation: its delivery, its link rules, its record
+  in the asking task and the links its task refuses.
 * link:doc/adr/workflow-diagram/[`doc/adr/workflow-diagram/`]: the documentation generator of a workflow unit.
 * link:doc/adr/workflow-dsl/[`doc/adr/workflow-dsl/`]: the parser and printer of the workflow language.
 * link:doc/adr/workflow-engine/[`doc/adr/workflow-engine/`]: the interpreter of the state machine.
 * link:doc/adr/workflow-envelope/[`doc/adr/workflow-envelope/`]: the cost sizing, the size-to-token table and the envelope budget.
 * link:doc/adr/workflow-finalize/[`doc/adr/workflow-finalize/`]: the finalize step descriptor and the pipeline checks.
+* link:doc/adr/workflow-hypermedia/[`doc/adr/workflow-hypermedia/`]: the typed values of the representation forms.
+* link:doc/adr/workflow-input/[`doc/adr/workflow-input/`]: the input types, the path rules and the slot key.
+* link:doc/adr/workflow-model/[`doc/adr/workflow-model/`]: the one model caller, the grading run and the model identity
+  of a quorum.
+* link:doc/adr/workflow-onboarding/[`doc/adr/workflow-onboarding/`]: the automatic run's vocabulary and its router.
+* link:doc/adr/workflow-plan/[`doc/adr/workflow-plan/`]: the plan instance: the composition, its verification, its
+  versions and log, the pruning and the plan's token facts.
+* link:doc/adr/workflow-question/[`doc/adr/workflow-question/`]: the continuation form of a question and the question
+  bound.
 * link:doc/adr/workflow-scenario/[`doc/adr/workflow-scenario/`]: the scenario replay harness.
 * link:doc/adr/workflow-setup/[`doc/adr/workflow-setup/`]: the setup gate the machine's onboarding decides, the start
   that consults it before the checkout, and the derivation of the setup run.
+* link:doc/adr/workflow-task/[`doc/adr/workflow-task/`]: the task protocol: the protocol decides and the runtime
+  transports, the re-offer budget, the `agent_started` audit and the delivery record.
 * link:doc/adr/workflow-unit/[`doc/adr/workflow-unit/`]: the loaders of the default and the project-owned units.
 * link:doc/adr/workflow-verify/[`doc/adr/workflow-verify/`]: the static verifier, the fuzzer, the compiled invariants and the declaration bounds.
 

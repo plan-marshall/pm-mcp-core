@@ -14,35 +14,33 @@ Package `de.planmarshall.core.config` of `pm-core` owns the machine's and the pr
 writes and that everything else only reads:
 
 * the *consent store* `consents.json`, its closed list of kinds and the consent-before-acting rule
-  ({spec}/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting]);
+  (link:{spec}/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting]);
 * the *model catalogue* `model-catalogue.json`, of the machine or of one project
-  ({spec}/store-schemas/12-machine-stores.adoc#model-catalogue[§ Model Catalogue]);
+  (link:{spec}/store-schemas/12-machine-stores.adoc#model-catalogue[§ Model Catalogue]);
 * the *role assignments* `role-assignments.json`, of the machine or of one project
-  ({spec}/store-schemas/12-machine-stores.adoc#role-assignments-store[§ Role Assignments]), with the release's default
+  (link:{spec}/store-schemas/12-machine-stores.adoc#role-assignments-store[§ Role Assignments]), with the release's default
   assignment and the proposal {@code roles.default} shows
-  ({spec}/model-work/01-roles-and-configuration.adoc#default-assignment[Model Work § Default Role Assignment]);
+  (link:{spec}/model-work/01-roles-and-configuration.adoc#default-assignment[Model Work § Default Role Assignment]);
 * the *settings-conflict refusal* every one of those stores raises on a change against an older revision
-  ({spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store], the
+  (link:{spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store], the
   operator-file revision rule);
 * the *effective configuration key table*: every addressable node of the three configuration files with its value domain
   and whether the configuration compiles a default for it
-  ({spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective
+  (link:{spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective
   Configuration and Sources]).
 
 The package never reads a file for a fact another package owns: the role package reads the assignments through
-`RoleEnvironment`, the model catalogue through the same port, and the runtime is to wire both (no production
-implementation of the port exists in this repository yet; the onboarding's units and the assembly are owed). The package names no provider
+`RoleEnvironment`, the model catalogue through the same port; no production implementation of the port exists in this
+repository. The package names no provider
 and no harness beyond the client-id grammar; the machine's provider defaults live in the runtime
 (link:../../../pm-runtime/doc/developer/runtime-config.adoc[`runtime.config`]), because `pm-core` stays
 provider-neutral (its architecture guard).
 
-Specification (the sections this package was built against): `store-schemas/12-machine-stores.adoc#consent`,
+Specification: `store-schemas/12-machine-stores.adoc#consent`,
 `#model-catalogue`, `#role-assignments-store`; `model-work/01-roles-and-configuration.adoc#role-assignment`,
 `#default-assignment` and `#steward-role`; `credentials-and-enrolment/01-provider-credentials.adoc#provider-verification`
-for the consent `verify_providers`. The package's pull request does not delete those specification sections: the
-onboarding units that run them live in `plan-marshall-mcp`, and the sections also describe the settings, the automatic
-run and the plan axes, which other plans still owe (`machine-onboarding-unit`, PLAN-108 and PLAN-109). The deletion
-belongs to the packages that complete the document.
+for the consent `verify_providers`. The onboarding units that run them live in `plan-marshall-mcp`; the settings, the
+automatic run and the plan axes those sections also describe are not implemented by this package.
 
 == The Consent Store
 
@@ -178,7 +176,7 @@ value, which the store-refusal vocabulary has no field for
 _Requirements: link:{docs}/Requirements.adoc#PM-EXT-6[PM-EXT-6]_
 
 `EffectiveConfigKeys` is the compiled table of the keys the effective configuration resolves
-({spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective Configuration
+(link:{spec}/store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas § Effective Configuration
 and Sources]). It holds 100 keys: 16 of `project.json`, 20 of `workflow.json` and 64 of `local-config.json`. Each is an
 `EffectiveConfigKey` — the key, its `ConfigValueDomain` and whether the configuration compiles a default for it.
 

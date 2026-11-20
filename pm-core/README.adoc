@@ -78,7 +78,9 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 * link:doc/developer/core-findings.adoc[Findings (`core.findings`)]
 * link:doc/developer/core-id.adoc[Identifier Types (`core.id`)]
 * link:doc/developer/core-log.adoc[Log Messages (`core.log`)]
+* link:doc/developer/core-profile.adoc[Harness Profiles (`core.profile`)]
 * link:doc/developer/core-queue.adoc[Task Queue (`core.queue`)]
+* link:doc/developer/core-role.adoc[Role Artifacts, Role Sets and the Effective Configuration (`core.role`)]
 * link:doc/developer/core-role-corpus.adoc[Corpus Sources (`core.role.corpus`)]
 * link:doc/developer/core-service.adoc[Service Interfaces (`core.service`)]
 * link:doc/developer/core-spi.adoc[Primitive SPI and Content Validators (`core.spi`, `core.spi.validation`)]
@@ -90,6 +92,8 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 * link:doc/adr/core-analysis/[`doc/adr/core-analysis/`]: the code-analysis contract.
 * link:doc/adr/core-architecture/[`doc/adr/core-architecture/`]: the architecture values the setup drives; ADR 001 the
   enrichment cost as a compiled token estimate.
+* link:doc/adr/core-build/[`doc/adr/core-build/`]: the build output parsers, the unparsed excerpt, the coverage model, the
+  redactor and the bounds of untrusted build input.
 * link:doc/adr/core-config/[`doc/adr/core-config/`]: the consent store's gate and the settings conflict that carries the
   current value.
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.
@@ -115,7 +119,9 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
   margin;
   link:doc/adr/core-profile/016-the-long-context-thresholds-sit-beside-the-harness-profile.adoc[ADR 016] the long-context
   thresholds sit beside `HarnessProfile`.
-* link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the task queue; ADRs 001 and 003 are superseded, ADR 002 stands, ADRs 004 to 006 record the generation fence, the record's combinations at the write boundary and the journal's sibling lock.
+* link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the task queue; ADRs 001 and 003 are superseded, ADR 002 stands, ADRs 004 to 008 and 010 record the generation fence, the record's combinations at the write boundary, the journal's sibling lock, the projected events mapping, the journal's masking and the refused destination.
+* link:doc/adr/core-role/[`doc/adr/core-role/`]: the role sets, the digests of the effective configuration, the
+  qualification and grading records and where the grading adapter lives.
 * link:doc/adr/core-role-corpus/[`doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
 * link:doc/adr/core-service/[`doc/adr/core-service/`]: the service interfaces:
   link:doc/adr/core-service/001-job-runner-service-interface-beside-the-engine-port.adoc[ADR 001] the job runner beside

@@ -16,7 +16,7 @@ stage that decides whether a Markdown text an untrusted party wrote may be hande
 refusing mode: a text with any finding is refused, and nothing is changed silently.
 
 The package implements stage 2 of the validator, the Markdown AST stage. The other stages (Unicode fixpoint, bounds, the
-rule table and spotlighting) are not part of this slice and are not simulated here.
+rule table and spotlighting) are not implemented in this package and are not simulated here.
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-SEC-1[PM-SEC-1]_

@@ -9,10 +9,10 @@
 == Purpose
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-EXEC-2[PM-EXEC-2], link:{docs}/Requirements.adoc#PM-EXEC-4[PM-EXEC-4]_
 
-Package `de.planmarshall.core.service` of `pm-core` holds the service interfaces the foundation declares and
-`pm-runtime` implements. The engine and the stores of `pm-core` reach the runtime through them alone: no class of
-`pm-core` implements one of them, and a component that needs a service depends on its interface, not on the class of
-the runtime that implements it.
+Package `de.planmarshall.core.service` of `pm-core` holds the service interfaces the foundation declares. The engine
+and the stores of `pm-core` reach the runtime through them alone, and a component that needs a service depends on its
+interface, not on the class that implements it. `pm-runtime` implements them, with one exception: the production
+`AuditSink`, `AuditLogSink`, is a class of `core.store`.
 
 [cols="1,3,2"]
 |===
@@ -25,7 +25,7 @@ call, `holds(key)` asks, `close()` releases them, the last acquired first. |`Fil
 |`AuditSink` |Where a component hands over an audit record (`AuditEvent`); delivery of a store mutation's record is at
 least once, deduplicated by its `transaction_id`. |`AuditLogSink` of `core.store` over the audit log
 |`LiveWork` |The live work of an enrolled project (its non-terminal plans and epics and its running jobs), which refuses
-its `unenrol` with `scope_active`. |the runtime, from its lease and scope records
+its `unenrol` with `scope_active`. |no production class; `Enrolments` of `runtime.enrolment` takes it
 |`JobRunner` |The job runner: start a job or a probe, cancel a job, read its record (<<_job_runner>>).
 |`SubprocessJobRunner` of `runtime.job`
 |===
@@ -145,8 +145,8 @@ link:core-store.adoc#_lock_keys_and_order[Scope Stores § Lock Keys and the Lock
 (the audit event `lock_order_violation` and its details, the internal fault with its reason, details and message, and
 the closed set of fault reasons).
 
-`LiveWork` is the runtime's answer to "does this project have live work?" — its non-terminal plans and epics and its
-running jobs. `unenrol` asks it while it holds the project's enrolment lock, and refuses with `scope_active` naming the
+`LiveWork` answers "does this project have live work?" — its non-terminal plans and epics and its running jobs. No
+production class implements it; `Enrolments` of `runtime.enrolment` takes it as a constructor argument. `unenrol` asks it while it holds the project's enrolment lock, and refuses with `scope_active` naming the
 items; the live-work set and that refusal are
 link:../../../pm-runtime/doc/adr/runtime-enrolment/004-unenrol-refused-while-live-work.adoc[ADR runtime-enrolment/004].
 
@@ -162,8 +162,8 @@ hand.
 Delivery of a store mutation's record is at least once, deduplicated by the record's `transaction_id`: the mutation owes
 the record in a durable intent before it changes the store, and the next recovery or repair hands it over again if the
 sink refused it. `AuditLogSink` of `core.store` is the production sink over the audit log
-(link:core-store.adoc#_audit_log[Scope Stores § The Audit Log]); the audit store that implements the deduplication is not
-part of `pm-core`. A sink that refuses a record does not fail the data operation: the record stays owed and is logged.
+(link:core-store.adoc#_audit_log[Scope Stores § The Audit Log]). It appends what it is handed and drops nothing; the
+reader of the audit log drops a record whose `transaction_id` it has seen. A sink that refuses a record does not fail the data operation: the record stays owed and is logged.
 
 The records of a lock-order violation and of a tampered or insecure enrolment are appended directly, not owed: they
 changed nothing and recur with the next attempt.

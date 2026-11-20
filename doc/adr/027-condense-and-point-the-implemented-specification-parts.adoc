@@ -27,7 +27,7 @@ developer guide.
 
 An implemented specification section is **condensed and pointed**, not deleted:
 
-* The section keeps its heading and its anchor. A section is never deleted while an anchor of it is referenced; it is
+* The section keeps its heading and its anchor. An implemented section is never deleted; it is
   condensed instead, to the one statement of what the specification requires plus the link to the developer guide of
   the module that implements it.
 * No "Implemented by" and no "Remaining:" paragraph is written. The status of an implemented section is held by
