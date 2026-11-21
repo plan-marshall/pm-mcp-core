@@ -70,10 +70,10 @@ coordinates, and the classes the tests rely on — `SchemaRegistry`, `Schema`, `
   `com.networknt.schema.Error`, whose `getMessage()` carries the same text.
 * No change of what a schema accepts was observed. The positive checks and the negative controls of the schema tests
   pass with their schema files, specification blocks, codecs and expected values unchanged, so no `format`, `$ref` or
-  `unevaluatedProperties` difference surfaced. At `9375041f` the helper has fifteen calling classes, the fourteen that
-  compile a schema and `CorpusImportTest`; they hold 18 positive checks (an assertion that a written document has no
-  violation) and 18 negative controls (an assertion that a changed document has one), and eleven of the fifteen carry
-  a negative control. The `date-time` change the 3.0.9 notes mention is not exercised: at draft 2020-12 a `format`
+  `unevaluatedProperties` difference surfaced. The helper `SchemaValidation` has fifteen calling classes; each holds
+  positive checks (an assertion that a written document has no violation), and most hold negative controls (an
+  assertion that a changed document has one). The figure this record once gave for the checks was not derived by a
+  stated method and is not repeated; the guarantee is the two kinds of check, not their number. The `date-time` change the 3.0.9 notes mention is not exercised: at draft 2020-12 a `format`
   keyword is an annotation unless format assertions are enabled, and the tests enable none.
 * A `$ref` the registry cannot resolve is refused, never skipped and never fetched. The registry of `SchemaValidation`
   is built without a customizer, so it uses `SchemaLoader.getDefault()`, which fetches no remote resource: it maps the
