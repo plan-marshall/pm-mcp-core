@@ -266,11 +266,12 @@ class JobSettlementTest {
 
         var stored = records.read(workerJob).orElseThrow();
         var recordPath = records.recordPath(workerJob);
+        var keptBlock = stored.worker();
         assertAll(
                 () -> assertEquals(new Outcome.Done(WORKER_FATE_REPORT), outcome,
                         "the fate step reports the recorded fate"),
-                () -> assertEquals(refused, stored.worker(), "the refused worker block is kept as stored"),
-                () -> assertThrows(StoreRefusal.class, () -> WorkerStateCodec.read(recordPath, stored.worker()),
+                () -> assertEquals(refused, keptBlock, "the refused worker block is kept as stored"),
+                () -> assertThrows(StoreRefusal.class, () -> WorkerStateCodec.read(recordPath, keptBlock),
                         "the kept block is still one the codec refuses"),
                 () -> assertEquals(Status.ENDED, stored.status(), "the record is settled despite its block"),
                 () -> assertEquals(Fate.SUCCEEDED, stored.fate(), "the record carries the job's fate"));

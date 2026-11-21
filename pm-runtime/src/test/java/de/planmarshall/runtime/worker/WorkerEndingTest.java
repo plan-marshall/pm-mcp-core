@@ -285,6 +285,33 @@ class WorkerEndingTest {
     }
 
     @Test
+    @DisplayName("a retry after a throwing queue lookup asks again and starts the successor once")
+    void aRetryAfterAThrowingQueueLookupStartsTheSuccessor() {
+        var generation = startedFresh();
+        var lookups = new AtomicInteger();
+        var successors = new AtomicInteger();
+        var failure = Generators.nonBlankStrings().next();
+        var ending = new WorkerEnding(environment, () -> {
+            if (lookups.incrementAndGet() == 1) {
+                throw new IllegalStateException(failure);
+            }
+            return true;
+        }, successors::incrementAndGet);
+        ending.end(generation, EndCause.TASK_DONE);
+        assertThrows(IllegalStateException.class, () -> ending.exited(generation),
+                "the throwing queue lookup fails the end");
+
+        var terminal = ending.exited(generation);
+
+        assertAll(
+                () -> assertTrue(terminal.terminal(), "the retry completes the end"),
+                () -> assertEquals(2, lookups.get(), "the retry runs the queue lookup again"),
+                () -> assertEquals(1, successors.get(), "the retry starts the successor exactly once"));
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                INFO.WORKER_GENERATION_ENDED.resolveIdentifierString());
+    }
+
+    @Test
     @DisplayName("a retry after a failed effect repeats no effect that completed and completes the rest")
     void aRetryResumesAtTheFailedEffect() {
         var released = new ArrayList<ModelSlots.Lease>();

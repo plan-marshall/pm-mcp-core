@@ -59,6 +59,9 @@ public final class WorkerEnding {
     /** The name of the generation argument, as a null check reports it. */
     private static final String GENERATION_ARGUMENT = "generation";
 
+    /** The name of the generation id argument, as a null check reports it. */
+    private static final String GENERATION_ID_ARGUMENT = "generationId";
+
     private final SupervisorEnvironment environment;
     private final BooleanSupplier workQueued;
     private final Runnable successor;
@@ -138,7 +141,7 @@ public final class WorkerEnding {
      * @return whether the generation's next wait is answered with {@code end}
      */
     public synchronized boolean endRequested(String generationId) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         return requests.containsKey(generationId);
     }
 
@@ -147,7 +150,7 @@ public final class WorkerEnding {
      * @return why the generation is being ended, while an end is requested
      */
     public synchronized Optional<EndCause> requestedCause(String generationId) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         return Optional.ofNullable(requests.get(generationId)).map(Request::cause);
     }
 
@@ -161,8 +164,9 @@ public final class WorkerEnding {
      * decoded finishes the end without a terminal state. A retry after a failed end resumes at the first effect that did
      * not complete, because the generation's own request carries both the claim and the progress of its effects, and the
      * request stays available, so the retry re-reads the cause instead of re-deriving it as a loss. The log line and the
-     * successor start are effects of the same guard: a retry logs nothing a second time, and the successor start is
-     * recorded before it runs, so a start that failed is not repeated by the end path.
+     * successor start are effects of the same guard: a retry logs nothing a second time. The successor effect completes
+     * only once the queue lookup answered, so a lookup that threw is asked again by the retry; it is recorded before the
+     * start runs, so a start that failed is not repeated by the end path.
      * <p>
      * The request outlives this method: it is removed by {@link #completed(String)} once the caller registered the
      * terminal generation, so {@link #endRequested(String)} stays {@code true}, and {@link #end(WorkerGeneration,
@@ -222,10 +226,13 @@ public final class WorkerEnding {
         }
         var terminal = terminal(generation, cause, recorded);
         if (missing.contains(Effect.SUCCESSOR)) {
-            // Recorded before it runs: a successor start that fails is not repeated by a retry of this end, because
-            // the next start of the role is the supervisor's start decision, not the end path's.
+            // The queue lookup runs first: a lookup that throws completed nothing, so a retry of this end asks again.
+            // The effect is recorded once the lookup answered and before the start runs: a successor start that fails
+            // is not repeated by a retry of this end, because the next start of the role is the supervisor's start
+            // decision, not the end path's.
+            var workRemains = workQueued.getAsBoolean();
             done(generationId, Effect.SUCCESSOR);
-            if (workQueued.getAsBoolean()) {
+            if (workRemains) {
                 successor.run();
             }
         }
@@ -240,7 +247,7 @@ public final class WorkerEnding {
      * @param generationId the generation whose end is complete
      */
     synchronized void completed(String generationId) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         requests.remove(generationId);
     }
 
