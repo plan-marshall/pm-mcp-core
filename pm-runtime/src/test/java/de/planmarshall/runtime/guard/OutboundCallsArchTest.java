@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.guard;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,10 +35,13 @@ import java.net.http.WebSocket;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.net.SocketFactory;
@@ -107,6 +111,10 @@ import de.planmarshall.runtime.job.WorkerEgressProxy;
 @DisplayName("The closed list of outbound calls of the runtime")
 class OutboundCallsArchTest {
 
+    /** The specification section of the closed list, below the root of this repository. */
+    private static final Path CLOSED_LIST_SPECIFICATION = Path.of("..", "doc", "specification",
+            "credentials-and-enrolment", "03-audit-and-outbound-https.adoc");
+
     /** The packages the rule imports: the main classes of the runtime and of the foundation on its test classpath. */
     private static final List<String> MAIN_PACKAGES = List.of("de.planmarshall.runtime", "de.planmarshall.core");
 
@@ -158,7 +166,7 @@ class OutboundCallsArchTest {
     private static final List<DestinationClass> DESTINATION_CLASSES = List.of(
             new DestinationClass("de.planmarshall.runtime.endpoint.EndpointClient", "loopback endpoint",
                     "Credentials & Enrolment § Closed List of Outbound Calls: the loopback endpoint of a client "
-                            + "profile (Client Profiles § The Request)"),
+                            + "profile (Harness Profiles § The Request)"),
             new DestinationClass("de.planmarshall.runtime.corpus.HuggingFaceSourceRepository", "corpus sources",
                     "Credentials & Enrolment § Closed List of Outbound Calls: the fetch of the corpus sources at "
                             + "their pinned commit over HTTPS (Model Work § Corpus Sources)"),
@@ -263,14 +271,15 @@ class OutboundCallsArchTest {
 
     /**
      * The message of an assertion of the control tests: what the assertion checks, then the failure report of the
-     * evaluation, so a failing control prints the class, the dependency and the call the rule refused.
+     * evaluation, so a failing control prints the class, the dependency and the call the rule refused. The report is
+     * built only when the assertion fails.
      *
      * @param check  what the assertion checks, 20 to 60 characters
      * @param result the evaluation whose report the message carries
-     * @return the assertion message
+     * @return the supplier of the assertion message
      */
-    private static String withReport(String check, EvaluationResult result) {
-        return check + System.lineSeparator() + result.getFailureReport();
+    private static Supplier<String> withReport(String check, EvaluationResult result) {
+        return () -> check + System.lineSeparator() + result.getFailureReport();
     }
 
     private static boolean isInPackage(String packageName, String root) {
@@ -301,8 +310,15 @@ class OutboundCallsArchTest {
                 .evaluate(new ClassFileImporter().importClasses(fixture));
     }
 
-    /** A destination class of the closed list: the class that may use the client, the reason it does, and its sentence. */
+    /**
+     * A destination class of the closed list: the class that may use the client, the reason it does, and its sentence.
+     */
     private record DestinationClass(String name, String reason, String specification) {
+    }
+
+    /** @return the simple name of a class named by its fully qualified name, the name the specification writes */
+    private static String simpleName(String className) {
+        return className.substring(className.lastIndexOf('.') + 1);
     }
 
     @Nested
@@ -324,6 +340,27 @@ class OutboundCallsArchTest {
         @DisplayName("without the exemptions the rule fails on exactly the exempt classes")
         void exemptionsAreLoadBearing() {
             assertEquals(EXEMPTIONS.keySet(), connectionViolators(), "Only the exempt classes may connect");
+        }
+
+        @Test
+        @DisplayName("the rule's condition holds on an exempt class only with its exemption, never on a fixture")
+        void conditionHonoursTheExemption() {
+            var exempt = new ClassFileImporter().importClasses(WorkerEgressProxy.class);
+            var fixture = new ClassFileImporter().importClasses(ClientSocketFixture.class);
+            var exemptWith = classes().should(NO_CONNECTION).evaluate(exempt);
+            var exemptWithout = classes().should(NO_CONNECTION_UNEXEMPTED).evaluate(exempt);
+            var fixtureWith = classes().should(NO_CONNECTION).evaluate(fixture);
+            var fixtureWithout = classes().should(NO_CONNECTION_UNEXEMPTED).evaluate(fixture);
+
+            assertAll(
+                    () -> assertFalse(exemptWith.hasViolation(),
+                            withReport("the exemption clears the exempt class", exemptWith)),
+                    () -> assertTrue(exemptWithout.hasViolation(),
+                            withReport("without it the exempt class violates", exemptWithout)),
+                    () -> assertTrue(fixtureWith.hasViolation(),
+                            withReport("no exemption clears a fixture", fixtureWith)),
+                    () -> assertTrue(fixtureWithout.hasViolation(),
+                            withReport("the fixture violates without exemptions", fixtureWithout)));
         }
     }
 
@@ -405,6 +442,22 @@ class OutboundCallsArchTest {
                     .toList();
 
             assertEquals(List.of(), unnamed, "Each sentence names its destination's reason");
+        }
+
+        @Test
+        @DisplayName("the specification's closed list names every destination class and every exempt class")
+        void specificationNamesEveryListedClass() throws Exception {
+            // the specification file of this repository, read from the module's own working directory
+            var specification = Files.readString(CLOSED_LIST_SPECIFICATION);
+            var listed = Stream.concat(DESTINATION_CLASSES.stream().map(DestinationClass::name),
+                    EXEMPTIONS.keySet().stream()).map(OutboundCallsArchTest::simpleName).toList();
+
+            var unnamed = listed.stream().filter(name -> !specification.contains("`" + name + "`")).toList();
+
+            assertAll(
+                    () -> assertEquals(DESTINATION_CLASSES.size() + EXEMPTIONS.size(), listed.size(),
+                            "every listed class is looked for"),
+                    () -> assertEquals(List.of(), unnamed, "the specification names every listed class"));
         }
     }
 

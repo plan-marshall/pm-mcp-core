@@ -327,9 +327,9 @@ public final class ProviderVerification {
     }
 
     /**
-     * Cuts an answer at the line bound before it is redacted, never splitting a surrogate pair: the redactor's URL shape
-     * costs the square of one line's length at worst, and the bound is what keeps an unbounded provider answer from
-     * paying it.
+     * Cuts an answer at the line bound before it is redacted, never splitting a surrogate pair: the redactor's URL
+     * shape costs the square of one line's length at worst, and the bound is what keeps an unbounded provider answer
+     * from paying it.
      */
     private static String bounded(String detail) {
         if (detail.length() <= BuildLogText.MAX_LINE_LENGTH) {

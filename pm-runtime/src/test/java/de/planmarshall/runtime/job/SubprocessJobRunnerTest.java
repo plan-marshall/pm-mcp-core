@@ -1626,27 +1626,22 @@ class SubprocessJobRunnerTest {
         void failingSweepDoesNotAbortTheSettlement() {
             var start = Instant.ofEpochSecond(Generators.integers(0, Integer.MAX_VALUE).next());
             var failureMessage = Generators.nonEmptyStrings().next();
-            ProcessGroupSignals throwing = new ProcessGroupSignals() {
-
-                @Override
-                public Answer signalGroup(long pgid, Signal signal) {
-                    throw new IllegalStateException(failureMessage);
-                }
-
-                @Override
-                public Answer signalProcess(long pid, Signal signal) {
-                    throw new IllegalStateException(failureMessage);
-                }
-            };
             int root = Generators.integers(2, 4_000_000).next();
-            ProcessHandle throwingHandle = createMock(ProcessHandle.class);
-            expect(throwingHandle.destroy()).andThrow(new IllegalStateException(failureMessage));
-            replay(throwingHandle);
+            ProcessHandle untouchedHandle = createMock(ProcessHandle.class);
+            replay(untouchedHandle);
+            var refreshed = new AtomicBoolean();
+            // the process table fails once the tree is recorded, so the sweep throws before it signals anything
             var tracker = new ProcessTreeTracker(root, ignoredRoot -> Set.of(new ProcessTreeTracker.Member(root + 1,
-                            start, throwingHandle)),
-                    pid -> Optional.of(start), throwing, InstantSource.system(), duration -> {
+                            start, untouchedHandle)),
+                    pid -> {
+                        if (refreshed.get()) {
+                            throw new IllegalStateException(failureMessage);
+                        }
+                        return Optional.of(start);
+                    }, InstantSource.system(), duration -> {
                     });
             tracker.refresh();
+            refreshed.set(true);
             var jobId = JobId.random(JobId.Kind.PROBE);
             var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
                     .scope(new Scope(Scope.Type.MACHINE, null)).status(Status.RUNNING).budgetKey(BUDGET_KEY)

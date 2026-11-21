@@ -27,6 +27,12 @@ JSON is `FAILED`, and a failed read keeps its own outcome. `issueComment` refuse
 "is a pull request" as before and posts otherwise. The full parse of `GitHubClient.issue` is unchanged for
 `issueView`, which returns the issue's fields and needs them.
 
+Two consequences of reading one member are part of the decision. The read accepts any successful (`2xx`) answer whose
+body is JSON, whatever its other members or its shape. And the absence of the `pull_request` key is the answer "an
+issue": any JSON body without that key — an object of another resource, an empty object, an array or a scalar —
+answers `false`, and the comment is posted. The guard does not check that the answer is an issue; it checks only that
+it is not a pull request.
+
 ADR 010's decision stands: the read before the post, the credential of the post, the refusal of a pull request and the
 propagation of a failed read. Only what the read demands of the answer is narrowed.
 
@@ -44,6 +50,9 @@ propagation of a failed read. Only what the read demands of the answer is narrow
 * The guard and the issue view read the same endpoint through two methods with two demands; a change of what the guard
   needs changes `isPullRequest` alone.
 * The request count of ADR 010 is unchanged: one read and one post per comment.
+* A `2xx` JSON answer that carries no `pull_request` key is taken for an issue, whatever it is; a server that answered
+  the issue endpoint with another resource would have the comment posted. The guard is a refusal of pull requests, not
+  a proof of an issue (amended by PLAN-V2-163, carried item 60 (c), 2026-11-21).
 
 == Source
 
