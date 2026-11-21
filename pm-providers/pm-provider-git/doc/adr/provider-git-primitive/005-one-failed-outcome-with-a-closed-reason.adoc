@@ -33,7 +33,8 @@ home.
 * The primitive declares `cycleMeasure() = ATTEMPT_CAP` with the exhaustion outcome `attempts_exhausted` (operator
   decision of 2026-11-21); the engine counts the attempts and returns `attempts_exhausted` at the cap, the primitive
   never does.
-* The shipped unit routes `failed` once, to `git.stepped-out` with the cause `failed` (operator decision of 2026-11-21);
+* The shipped unit routes `failed` once, to `git.stepped-out`, whose cause is the reason the outcome carries (`message_refused` or `commit_failed`), as the
+  cause of every other server step-out is the reason of its entering outcome (operator decision of 2026-11-21);
   the catalogue gets one exit row, not three.
 
 == Alternatives Considered
