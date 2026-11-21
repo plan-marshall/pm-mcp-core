@@ -273,8 +273,8 @@ lone surrogate, a control character and a trailer line in any case and position,
 U+2029, are refused naming the line; the result holds exactly one trailer.
 link:{test}/CommitTrailerTest.java[`CommitTrailerTest`]:: The three trailer sources per half and `invalid_ignored` for an
 angle bracket, a line break and an empty value; an unpaired high or low surrogate in a name or an email is invalid, a
-surrogate pair stays valid, and a stored value with an unpaired surrogate falls through to the machine value or to the
-compiled default as `invalid_ignored`.
+surrogate pair stays valid, and a stored value with an unpaired surrogate is passed over: a valid machine value is used
+as `configured`, and without one the compiled default is used as `invalid_ignored`.
 link:{test}/StagingSetsTest.java[`StagingSetsTest`]:: The staging set per scope with a path outside, `..`, an absolute
 path, a non-normal name, on Linux and macOS a path through a symbolic link that leads out of the worktree (outside), a
 dirty link to outside and a dangling link (both staged with the rest of the scope), a name shaped like a link target,
