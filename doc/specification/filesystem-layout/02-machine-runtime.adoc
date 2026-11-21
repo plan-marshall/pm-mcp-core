@@ -108,7 +108,7 @@ The runtime (`pm-mcpd`) persists machine-wide configuration and the machine's ot
 │   ├── runtime.lock                     # Runtime singleton lock (held for the runtime lifetime)
 │   ├── runtime-start.lock               # Serializes on-demand runtime start by pm-operator (its only lock)
 │   │                                    # Machine store locks, one sibling lock per renamed store,
-│   │                                    # acquired alphabetically after all scope locks:
+│   │                                    # alphabetical among themselves (order: Store Schemas § Transaction Locks):
 │   ├── build-slots.lock                 # state/build-slots.json
 │   ├── consents.lock                    # consents.json
 │   ├── credentials.lock                 # credentials/ (file store), the move between the stores and the first

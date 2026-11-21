@@ -20,7 +20,7 @@ The specification sections named are the single statement of what each task buil
 . *The activity served to the clients* from a cursor and as a live stream: § What a Worker Does.
 . *The stage `events`* of the profile verification with a recorded output fixture per shipped harness version: link:../specification/harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles § Profile Verification].
 
-Left out: the report `task.off_track` (link:operator-reports.adoc[`operator-reports`]); a running plan's `off_track` in the project's resource (link:process-and-overview.adoc[`process-and-overview`]). Dropped: the navigation figures and the skill residency (link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/later-improvements.adoc#L-40[L-40]).
+Left out: the report `task.off_track` (link:operator-reports.adoc[`operator-reports`]); a running plan's `off_track` in the project's resource (link:process-and-overview.adoc[`process-and-overview`]). Dropped: the navigation figures and the skill residency (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-40[L-40]).
 
 == Trace
 

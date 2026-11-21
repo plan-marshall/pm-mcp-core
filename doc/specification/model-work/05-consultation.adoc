@@ -29,7 +29,7 @@ While a task is executing, its entity offers exactly one link `consult:<role>` (
 Following it creates a queue task of the consulted role (kind `consultation`, xref:02-task-protocol.adoc#queue-task[Queue Task]) whose `queue_task_id` is the `consultation_id`, records it on the asking task, and moves the asking task and its worker to `consulting` (xref:02-task-protocol.adoc#worker-states[Worker States]); the answer of the call is the asking entity's representation in `consulting`, whose only next step is `pm_wait` (link:../../../pm-workflow/doc/developer/workflow-consult.adoc[Consultation Developer Guide]).
 
 * *One at a time*: A task has at most one open consultation; while it is open, no `consult` link is offered.
-* *Bound*: A task follows at most the compiled `3` consultation links over all its attempts (link:../timeouts/01-job-budgets-and-waits.adoc#consultation-bound[Timeouts & Budgets Specification, Consultation Bound]); after that, no `consult` link is offered.
+* *Bound*: A task follows at most the compiled number of consultation links over all its attempts (link:../timeouts/01-job-budgets-and-waits.adoc#consultation-bound[Timeouts & Budgets Specification, Consultation Bound]); after that, no `consult` link is offered.
 
 [#consult-serving]
 === Serving the Consultation

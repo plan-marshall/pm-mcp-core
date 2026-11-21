@@ -24,7 +24,7 @@ Run for the machine from `onboard.models`, and for a project from its onboarding
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-catalogue.consent]]`catalogue.consent`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`operator_wait`
 |`onboard.models`, `project.models` (entry state).
 |Two consents in one state, each answered on its own and each shown with its tokens: `probe_harness_models` (run the model probes of the enrolled harnesses) and `model_advice` (a task of the steward), optional.
@@ -32,7 +32,7 @@ Run for the machine from `onboard.models`, and for a project from its onboarding
 |link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
 
 |[[state-catalogue.models]]`catalogue.models`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`composite_job`
 |`catalogue.consent`.
 |The models each enrolled harness offers, from its `headless.models_probe`, or none where it cannot list them.
@@ -40,7 +40,7 @@ Run for the machine from `onboard.models`, and for a project from its onboarding
 |link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]
 
 |[[state-catalogue.advise]]`catalogue.advise`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`job`
 |`catalogue.models` (`advice`).
 |`job llm catalogue-advice role steward`: on the default harness, which models suit which kind of work, with their limits and a recommendation (link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]).
@@ -48,7 +48,7 @@ Run for the machine from `onboard.models`, and for a project from its onboarding
 |link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]
 
 |[[state-catalogue.select]]`catalogue.select`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`operator_wait`
 |`catalogue.models` (`no_advice`), `catalogue.advise`.
 |The models to allow per harness, the recommendation preselected; model ids typed for a harness that cannot list them. `set`.
@@ -56,7 +56,7 @@ Run for the machine from `onboard.models`, and for a project from its onboarding
 |link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]
 
 |[[state-catalogue.record]]`catalogue.record`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`auto`
 |`catalogue.select` (`set`).
 |Records the allowed models per harness, each with its source (`probe` or `operator`) and when, at the run's level.
@@ -74,7 +74,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-roles.load]]`roles.load`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`auto`
 |`onboard.assign-roles`, `project.roles` (entry state).
 |The roles with their class, tools, and form, and the effective catalogue.
@@ -82,7 +82,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |link:../model-work/01-roles-and-configuration.adoc#role-sets[Model Work Specification, Role Sets]
 
 |[[state-roles.default]]`roles.default`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`auto`
 |`roles.load`.
 |Applies the shipped default assignment to the catalogue: per role the tier's model on the preferred harness when it is enrolled, else the first enrolled harness that runs the role's class, and the effort, each with its advisory; a role whose default cannot be met is shown without a value.
@@ -90,15 +90,15 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |link:../model-work/01-roles-and-configuration.adoc#default-assignment[Model Work Specification, Default Role Assignment]
 
 |[[state-roles.review]]`roles.review`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`operator_wait`
 |`roles.default`; `roles.consent` (`no`); `roles.propose`; `roles.validate` (`invalid`); `roles.speech` (`back`); `roles.speech-write`.
-|The overview: the default applied to every role, grouped, with what departs from it and each advisory beside it; the steward's departures marked, each to accept or reject; after a refused validation the role and the reason. `accept`; `change` (single roles or groups: harness, model, effort); `ask_steward`.
+|The overview: the default applied to every role, grouped, with what departs from it and each advisory beside it; the steward's departures marked, each to accept or reject; per role its optional escalation assignment where one is set (link:../model-work/01-roles-and-configuration.adoc#escalation-assignment[Model Work Specification, Escalation assignment]), shown as none where it is not; after a refused validation the role and the reason. `accept`; `change` (single roles or groups: harness, model, effort, and a role's escalation assignment, set or removed); `ask_steward`.
 |`accept` -> `roles.validate`; `change` -> this state; `ask_steward` -> `roles.consent`; `speech` -> `roles.speech` (the machine's run only).
 |link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]
 
 |[[state-roles.consent]]`roles.consent`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`operator_wait`
 |`roles.review` (`ask_steward`).
 |Consent kind `model_advice`, with the tokens the steward's task is expected to use. Optional: `no` returns unchanged.
@@ -106,7 +106,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
 
 |[[state-roles.propose]]`roles.propose`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`job`
 |`roles.consent` (`yes`, `yes_remember`).
 |`job llm role-proposal role steward`: departures from the defaults, each with its reason, never a replacement of the advisory.
@@ -114,7 +114,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]
 
 |[[state-roles.validate]]`roles.validate`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`auto`
 |`roles.review` (`accept`).
 |Each role: its harness enrolled and eligible, its class runnable, its model allowed by the effective catalogue (`model_not_allowed` otherwise), its effort supported.
@@ -122,7 +122,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |link:../model-work/01-roles-and-configuration.adoc#role-validation[Model Work Specification, Role Validation]
 
 |[[state-roles.write]]`roles.write`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`auto`
 |`roles.validate` (`valid`).
 |Writes per role only `harness`, `model`, and `effort` into the role assignment of the run's level; the qualification of a changed role becomes stale per project.
@@ -130,7 +130,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]
 
 |[[state-roles.speech]]`roles.speech`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`operator_wait`
 |`roles.review` (`speech`); `roles.speech-check` (`not_found`, `check_failed`, `cancelled`).
 |The methods of transcription (`transcribe`), each with where its audio goes, the ones allowed marked; after a failed check the local model with its reason. `allow` (the methods, the provider with its base URL, model id, and credential key; in the first run the provider's token is asked later, in `providers.credentials`); `back`.
@@ -138,7 +138,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |link:../model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work Specification, Speech Transcription (`transcribe`)]
 
 |[[state-roles.speech-consent]]`roles.speech-consent`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`operator_wait`
 |`roles.speech` (`allow`).
 |Consent kinds `transcribe_browser`, `transcribe_provider` (each answered alone with `yes_remember` or `no`), and `scan_speech_model` (`yes`, `yes_remember`, or `no`), one per chosen method; a method answered `no` is not allowed.
@@ -146,7 +146,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
 
 |[[state-roles.speech-check]]`roles.speech-check`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`composite_job`
 |`roles.speech-consent` (`answered`); `roles.speech` (`allow`).
 |The local speech model, a `whisper.cpp` program the operator installed, looked for on the login `PATH` and checked with a fixed sample, each a probe job; a line ending in ✓ or ✗ with its cause.
@@ -154,7 +154,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]
 
 |[[state-roles.speech-write]]`roles.speech-write`
-|`machine`
+|`machine`; `workspace` in a project's run
 |`auto`
 |`roles.speech-consent`, `roles.speech-check` (`found`), `roles.speech` (`allow`).
 |Writes `transcribe` of `machine-config.json`: the methods allowed, the local model with the path and digest of its command, the provider with its credential key.

@@ -106,15 +106,14 @@ the unchanged gate, in `ProfileWorkerEligibilityTest`: `aMissingPathsStageRefuse
 Positive controls: `aConformingRecordIsEligible`, `acceptedUnenforcedEgressIsEligible` and
 `theRefusalDoesNotDependOnStageOrder`, the last stating that no refusal depends on the order the record lists its stages
 in. The acceptance of unenforced egress reaches the gate as an input value that defaults to not accepted (ADR
-runtime-worker/015), so the narrower reading holds until a consent store supplies it, and the `egress` stage states the
-unenforced case in its `results` as `"enforcement": "unenforced"` — ADR 015's contract until the verification runner's
-plan names that carrier in the specification.
+runtime-worker/015), so the narrower reading holds while the act that accepts it is open
+(link:../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#unenforced-egress-acceptance[Open Questions, The Act That Accepts Unenforced Egress]),
+and the `egress` stage states the unenforced case in its `results` as `"enforcement": "unenforced"`
+(link:../specification/harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles § Profile Verification], `egress`).
 Remaining: the start path consults the gate before every start (`SupervisorEnvironment.EligibilityGate`, wired by the
 assembly `pm-mcp-server`): a scenario test starts no worker of a profile the gate refuses and records the refusal with
 its reason; matched control: a profile with a conforming record starts its worker.
-Source:: the issues pass of 2026-11-14 (owner-register row Wa41, "the record's stage and platform gate had no owner"; the
-row named PLAN-V2-39, which shipped without it, and PLAN-V2-43 and 50, whose specs do not carry it); plan PLAN-V2-145
-deliverable 2 (epic `pm-mcp-core-m2-m4-v2`, workstream WS-04).
+Source:: an issues pass of the owner register (the record's stage and platform gate had no owner).
 
 [#PM-WATCH-CLIENT-17]
 === PM-WATCH-CLIENT-17: An inline setting the harness accepts is not one it applies

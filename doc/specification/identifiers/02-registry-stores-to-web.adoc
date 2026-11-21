@@ -278,14 +278,14 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 
 |[[id-domain-id]]`domain_id`
 |`^[a-z][a-z0-9-]{1,31}$`, 2–32.
-|build (built-in domains) or operator (project-local descriptors)
+|build (the domains compiled into the binary)
 |Project's enabled domains
 |Immutable
 |link:../domain-extensions.adoc[Domain Extensions], Declarative Domain Descriptor Schema
 
 |[[id-rule-id]]Applicability rule identifier (`rule_id`)
 |`^[a-z][a-z0-9-]{0,63}$`, 1–64.
-|build (built-in domains) or operator (project-local descriptors)
+|build (the domains compiled into the binary)
 |Domain descriptor (`applicability_rules[]`)
 |Immutable per descriptor version
 |`applicability_rules[].rule_id` link:../domain-extensions/01-four-axis-architecture.adoc[Domain Extensions], Declarative Domain Descriptor Schema
@@ -298,7 +298,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |`pm://architecture/modules/{module_id}`, `pm_build.module` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools]; link:../domain-extensions.adoc[Domain Extensions]
 
 |[[id-build-verb]]Canonical build verb
-|`^(clean\|compile\|test-compile\|module-tests\|integration-tests\|e2e\|coverage\|benchmark\|quality-gate\|arch-gate\|verify\|install\|clean-install\|package)$`, at most 17: exactly the link:../job-runtime/02-confinement-and-environment.adoc#canonical-build-verbs[Canonical Build Verb Set].
+|`^(clean\|compile\|test-compile\|module-tests\|integration-tests\|e2e\|coverage\|benchmark\|mutation\|quality-gate\|arch-gate\|verify\|install\|clean-install\|package)$`, at most 17: exactly the link:../job-runtime/02-confinement-and-environment.adoc#canonical-build-verbs[Canonical Build Verb Set].
 |build
 |Binary
 |Closed; equal to `plan-marshall`'s `ALL_CANONICAL_COMMANDS`
@@ -337,7 +337,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |build (review-bot registry)
 |Registry
 |Immutable
-|link:../store-schemas/03-findings-and-review-records.adoc#review-bot-registry[Store Schemas, Review-Bot Registry]; `retry:<bot_kind>` link:../workflow-dsl.adoc[Workflow DSL]
+|link:../store-schemas/03-findings-and-review-records.adoc#review-bot-registry[Store Schemas, Review-Bot Registry]; the review findings and the missing evidence of a bot, remedied by the `retry` of `remediation.review-findings` link:../workflow-dsl/08-remediation-units.adoc#remediation-units[Workflow DSL, Remediation Policy Units]
 
 |[[id-analysis-provider-id]]Analysis provider identifier (`provider`)
 |`^[a-z][a-z0-9-]{0,31}$`, 1–32 (for example `sonar`, `codeql`).
@@ -400,7 +400,7 @@ None of these identifiers is model-facing; they appear only on the Local API, in
 
 |[[id-pairing-code]]Pairing code
 |`^[BCDFGHJKLMNPQRSTVWXZ]{8}$`, 8 (the RFC 8628 base-20 alphabet, about 34.5 bits). Displayed as `XXXX-XXXX`; input is normalized to upper case with `-` and whitespace removed before validation. Carried in a URL only in the fragment (`/pair#code=<code>`).
-|server (runtime, on the CLI-only pairing request of the terminal client; while the terminal client is open a redeemed code is replaced at once, link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#fresh-code[CLI & Security, A Fresh Code after a Redemption])
+|server (runtime, on the CLI-only pairing request of the terminal client; while the terminal client is open a redeemed code is replaced at once, link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/01-cli-and-installer.adoc#fresh-code[CLI & Security, A Fresh Code after a Redemption])
 |Machine (at most one open pairing)
 |Single use; valid for the link:../timeouts/02-runtime-leases-operator-web.adoc#pairing-code-ttl[pairing code lifetime] and for at most the link:../timeouts/02-runtime-leases-operator-web.adoc#pairing-attempt-limit[pairing failed-attempt limit] of failed redemptions; held in memory as SHA-256; lost on runtime restart
 |link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-pairing[CLI & Security, Pairing Protocol]

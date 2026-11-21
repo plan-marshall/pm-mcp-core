@@ -17,7 +17,7 @@ _See Requirements:_
 
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-5[PM-ARCH-5: Worktree-Bound Plan Execution & Main-Bound Epic Location]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8: Asynchronous Job Links & Wait Transitions]_
-* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States & Short-Circuit Failure Handling]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States, Short-Circuit Failure Handling & Finalize Providers]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-2[PM-TOOL-2: Orthogonal Service Capability Tools (pm_build, pm_lsp)]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SVC-1[PM-SVC-1: Integrated Build Server & Working-Tree Hash Freshness]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SVC-2[PM-SVC-2: Warm Language Server Pool & Semantic Code Navigation]_

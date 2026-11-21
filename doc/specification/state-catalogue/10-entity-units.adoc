@@ -77,7 +77,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |the caller's phase value (entity scope)
 |`link`
 |The `implement` worker's `ack` of the task of `envelope-M`; itself after each `submit:TASK-i` that is neither the last plan task nor a chain tail; `envelope.task.awaiting_answer` (`ack`, the same plan task).
-|`submit:TASK-NNN` (`own_calls:list<schema[own-call]>`, link:../phase-workflows/03-q-gate-and-execute.adoc#own-calls[Own Calls of a Writer]); `ask:TASK-NNN` (`decision:schema[decision-envelope]`: records a decision of class `task` and ends the entity); `infeasible:TASK-NNN`; `yield:envelope-M` (no parameter). `facts.task_id` names the current plan task. The server records the `yield_reason` from the exit taken: `chain_tail`, `question`, or `context`.
+|`submit:TASK-NNN` (`own_calls:list<schema[own-call]>`, link:../phase-workflows/03-q-gate-and-execute.adoc#own-calls[Own Calls of a Writer]); `ask:TASK-NNN` (`decision:schema[decision-envelope]`: records a decision of class `task`; it ends the entity unless the task continues after its question); `infeasible:TASK-NNN`; `yield:envelope-M` (no parameter). `facts.task_id` names the current plan task. The server records the `yield_reason` from the exit taken: `chain_tail`, `question`, or `context`.
 |Next plan task -> this state; `ask` where the task continues -> `envelope.task.awaiting_answer`; the last plan task, a chain-tail task, `ask` without continuation, or `yield` -> `envelope.completed`; on every early end the remaining plan tasks, an asking task included, move to `envelope-(M+1)`, whose task carries a question's answer in `facts`.
 |link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Sequential Task Yield]
 
@@ -110,7 +110,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |[[state-task.queued]]`task.queued`
 |the caller's phase value
 |`auto`
-|The model state's entry (start state); `task.waiting`, `task.offered`, `task.executing`, `task.consulting` (`released`).
+|The model state's entry (start state); `task.waiting`, `task.offered`, `task.executing`, `task.consulting`, `task.awaiting_answer` (`released`).
 |`auto task.call-model`, the model caller: resolves the role's artifact, checks its class against the class the entity kind requires, resolves its qualification and its availability, checks that the in-band input of a `zero_tool` role fits its context budget, and counts the attempts against the state's re-offer budget.
 |`queued` -> `task.waiting`; `closed` (`role_undefined`, `class_mismatch`, `role_unqualified`, `role_unavailable`, `input_too_large`, `attempts_spent`) -> `task.lost`.
 |link:../model-work/01-roles-and-configuration.adoc#model-caller[Model Work Specification, The Model Caller]
@@ -126,7 +126,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |[[state-task.offered]]`task.offered`
 |the caller's phase value
 |`composite_job`
-|`task.waiting` (`offered`).
+|`task.waiting` (`offered`); `task.suspended` (`offered`, the resumed generation).
 |`task.await-ack`: the implicit `ack` (rel `next`, form `noop`) of the generation that holds the lease, within the harness's acknowledgement deadline.
 |`acknowledged` -> `task.executing`; `released` (worker lost, deadline missed, or offer withdrawn) -> `task.queued`; `cancelled` -> `task.lost`.
 |link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]
@@ -134,9 +134,9 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |[[state-task.executing]]`task.executing`
 |the caller's phase value
 |`composite_job`
-|`task.offered` (`acknowledged`); `task.consulting` (`answered`).
+|`task.offered` (`acknowledged`); `task.consulting` (`answered`); `task.awaiting_answer` (`answered`).
 |`task.await-entity`: the entity unit of the kind runs, and its links are the task's links; the `consult:<role>` links of the calling state are offered beside them. The entity's terminal maps to the task outcome: `entity.completed`, `entity-multi.completed` -> `submitted`; `envelope.completed` -> `submitted`, or `asked` where the envelope ended through `ask:TASK-NNN` (`yield_reason: question`); `entity.infeasible`, `entity-multi.infeasible` -> `infeasible`; `entity.asked`, `entity-multi.asked` -> `asked`.
-|`submitted` -> `task.submitted`; `asked` -> `task.asked`; `infeasible` -> `task.infeasible`; `consulting` -> `task.consulting`; `released` (worker lost or ended without the required submission, or the task withdrawn by the operator's pause `now`, which is offered again when the plan starts and counts no attempt) -> `task.queued`; `cancelled` -> `task.lost`.
+|`submitted` -> `task.submitted`; `asked` -> `task.asked`; `infeasible` -> `task.infeasible`; `consulting` -> `task.consulting`; `awaiting_answer` (an `ask` where the task continues after its question) -> `task.awaiting_answer`; `released` (worker lost or ended without the required submission, or the task withdrawn by the operator's pause `now`, which is offered again when the plan starts and counts no attempt) -> `task.queued`; `cancelled` -> `task.lost`.
 |link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]
 
 |[[state-task.consulting]]`task.consulting`
@@ -147,10 +147,26 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |`answered` -> `task.executing`; `released` (the answer reaches the successor in the task's `facts`) -> `task.queued`; `cancelled` -> `task.lost`.
 |link:../model-work/05-consultation.adoc[Model Work Specification, Consultation]
 
+|[[state-task.awaiting_answer]]`task.awaiting_answer`
+|the caller's phase value
+|`composite_job`
+|`task.executing` (`awaiting_answer`).
+|`task.await-answer`: the adjudication of the new question set and its decision (`QUESTION_ANSWER`, no time limit), and the role's hold limit (`TIME`); the entity rests in its `awaiting_answer` state.
+|`answered` (the answer, acknowledged by the holding generation) -> `task.executing`; `suspended` (the hold limit, where the task may resume) -> `task.suspended`; `fell_back` (the hold limit, where it may not) -> `task.asked`; `released` (worker lost; the answer reaches the successor in `facts.answers`) -> `task.queued`; `cancelled` -> `task.asked`.
+|link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]; link:../workflow-dsl/02-units-jobs-decisions.adoc#worker-task-unit[Workflow DSL Specification, Task Protocol Unit]
+
+|[[state-task.suspended]]`task.suspended`
+|the caller's phase value
+|`composite_job`
+|`task.awaiting_answer` (`suspended`).
+|`task.await-resume`: the worker has ended with its session stored; no lease is held.
+|`offered` (the answer starts the resumed generation) -> `task.offered`; `released` (the resume limit or a refused resume, with its reason) -> `task.asked`; `cancelled` -> `task.asked`.
+|link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]; link:../workflow-dsl/02-units-jobs-decisions.adoc#worker-task-unit[Workflow DSL Specification, Task Protocol Unit]
+
 |[[state-task.submitted]][[state-task.asked]][[state-task.infeasible]][[state-task.lost]]`task.submitted`, `task.asked`, `task.infeasible`, `task.lost`
 |the caller's phase value
 |`terminal`
-|`task.executing` (`submitted`, `asked`, `infeasible`); `task.queued` (`closed`) and every `cancelled` (`task.lost`, reason `withdrawn`: the state or scope ended while the task was open).
+|`task.executing` (`submitted`, `asked`, `infeasible`); `task.awaiting_answer` (`fell_back`, `cancelled`) and `task.suspended` (`released`, `cancelled`) (`task.asked`); `task.queued` (`closed`) and every other `cancelled` (`task.lost`, reason `withdrawn`: the state or scope ended while the task was open).
 |`links: []`. Declared `terminal submitted success`, `terminal asked unsettled`, `terminal infeasible failure`, `terminal lost indeterminate`; the queue task record holds the outcome and its reason.
 |The calling model state's routing: the return evaluation runs for `submitted`, `asked`, and `infeasible`, and its outcomes include the question state `<state>.asked` and the infeasible exit the row names; `lost` takes the `lost` exit the row names.
 |link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]

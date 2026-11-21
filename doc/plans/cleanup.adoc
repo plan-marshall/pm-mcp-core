@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `cleanup`
 
 [horizontal]
-Roadmap item:: _Implement the periodic removal of technical residue under the evidence rules of the removal sweeps, and the one cleanup of work history_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Roadmap item:: _Implement the periodic removal of technical residue under the evidence rules of the removal sweeps, with `pm-operator sweep` listing or running that pass, and the one cleanup of work history_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
 Where:: pm-core (the cleanup settings and their resolution, the cleanup journal and the kept list, the usage aggregate, the tombstones, `unenrolled_at`); pm-runtime (the sweep's steps, the daily check, the deletion per kind with its audit, the endpoints and the operator verbs)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 

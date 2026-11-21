@@ -11,7 +11,7 @@ link:../../Specification.adoc[Specification] » link:../hypermedia-format.adoc[H
 == Composite Wait Representation & Short-Circuit Semantics
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8: Asynchronous Job Links & Wait Transitions]_
 
-_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States & Short-Circuit Failure Handling]_
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States, Short-Circuit Failure Handling & Finalize Providers]_
 
 During Phase 6 (`finalize`), CI verification, the configured code analysis providers (Sonar, CodeQL, and others behind the code-analysis contract of `pm-core`), and automated PR review bots run concurrently after branch push. The workflow engine observes them as the composite wait state `finalize.concurrent-wait`, the one joint observation of the three classes, and advances the plan on its completion as one engine event; no model polls or cancels it.
 
@@ -44,9 +44,7 @@ _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-W
 * Per-bot `state` (one row of `facts.bots` per tracked bot, rendered separately from its `completion_check` and `at_head` evidence, because participation, a finished completion check, and a green check prove different things): `participated` | `participated_but_empty` | `participated_stale` | `refused` | `declined` | `absent` | `not_triggered` | `not_wired` | `rereview_silent_failure` | `run_stuck` | `in_progress` | `unproven` | `unreadable` | `silent` | `unsatisfiable` | `unregistered_kind`.
 ** `refusal_mode` (set only for `refused`, otherwise `none`): `rate` | `weekly_quota` | `size` | `no_unreviewed_commit` | `unknown`.
 ** `completion_check`: `passed` | `pending` | `failed` | `not_declared`; `at_head`: `true` | `false`.
-** The three "nobody reviewed" shapes stay distinct: `not_triggered` (never triggered), `rereview_silent_failure` (a re-review failed silently), and `run_stuck` (the bot's run never left the queue).
-** An exhausted poll yields `unproven`, never `absent`. `unreadable` (the read failed) and `silent` (the read succeeded and nothing was published) are opposite claims and are never merged.
-** `declined` requires review evidence naming a commit that is not the merge candidate; evidence that names no commit resolves `unproven`. A fetch that returns zero comments resolves to exactly one of: no review covering `HEAD` (`absent` or `unproven`), reviewed clean (`participated_but_empty`), or fetch unreachable (`unreadable`).
+** What resolves a bot to each state (the distinct "nobody reviewed" shapes, `unproven` and never `absent` after an exhausted poll, `unreadable` against `silent`, `declined` against `unproven`, and the one resolution of a fetch with zero comments) is defined once in link:../phase-workflows/05-finalize-review-metrics-descriptor.adoc#_per_bot_participation_states[Phase Workflows Specification, Per-Bot Participation States].
 * `bot_status` is the aggregate over the required bots only (optional bots are reported in `facts.bots` but never gate): `pending` | `running` | `completed` | `not_configured` | `unestablished` | `refused_awaitable` | `refused_hard` | `refused_structural` | `no_unreviewed_commit` | `unproven`.
 ** `pending`: no run of a required bot has been observed yet; `running`: a run of a required bot has been observed and has not finished.
 ** `completed`: every required bot is `participated` or `participated_but_empty` for the current `HEAD`.
@@ -220,10 +218,12 @@ Each `finalize.remediate-*` call state routes the unit's reachable domain outcom
 == Deterministic Native TOON Encoder Specification
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-3[PM-IMPL-3: Deterministic Native TOON Encoder]_
 
-`pm-core` encodes TOON with a dedicated, zero-reflection Java encoder (`ToonEncoder`) of the official TOON specification at the version `PM-IMPL-3` pins, with the canonical options only: for every value it emits the form the official rules require, and identical input produces byte-for-byte identical UTF-8 output across JVM and GraalVM native image executions (link:../../../pm-core/doc/developer/core-toon.adoc[The TOON Encoder Developer Guide]).
+`pm-core` encodes TOON with a dedicated, zero-reflection Java encoder (`ToonEncoder`) of the official TOON specification at its pinned version (<<_encoding_rules>>), with the canonical options only: for every value it emits the form the official rules require, and identical input produces byte-for-byte identical UTF-8 output across JVM and GraalVM native image executions (link:../../../pm-core/doc/developer/core-toon.adoc[The TOON Encoder Developer Guide]).
 
 === Encoding Rules
 _Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM-WATCH-HYP-4[PM-WATCH-HYP-4]_
+
+*Pinned release*: the encoder follows the official TOON specification version 4.1, release v4.1.3 (commit `a6b801a3326980ab2cb615b0ffe44457e091f7b6`).
 
 The encoder writes the official syntax of the pinned version and passes byte-exact every encode fixture of that version except the fixtures that set an encoder option outside the canonical options; a newer official version is pinned only when its fixtures pass the same way (link:../../../pm-core/doc/developer/core-toon.adoc#_the_encoder[The TOON Encoder Developer Guide, The Encoder]).
 

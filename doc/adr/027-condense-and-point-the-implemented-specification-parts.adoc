@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted.
+Accepted, amended in scope: the developer guide is the pointer of a condensed section of this repository, because the engine's developer documentation lives beside its modules; the concept and user documentation that a slice writes in the documentation are named by the `Documentation:` lines of link:../Traceability.adoc[Traceability], not by the condensed section (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc[Project Setup], the skill `traced-implementation`).
 
 == Date
 

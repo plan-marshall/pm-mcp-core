@@ -14,7 +14,7 @@ byte stability of resident content, summary budgets, summary/fact consistency, a
 encoder. The sections mirror the specification. Item format and lifecycle:
 link:../ImplementationWatch.adoc[Implementation Watch].
 
-== Normative TOON Representation Structure
+== Representation Structure & Link Forms
 
 [#PM-WATCH-HYP-1]
 === PM-WATCH-HYP-1: Long-lived early bytes are byte-stable
@@ -31,7 +31,7 @@ Source:: plan-marshall defect code-intelligence-substrate inbox other-approaches
 === PM-WATCH-HYP-2: The summary budget holds at worst-case expansion
 
 Anchor:: link:../specification/hypermedia-format/01-representation-and-link-forms.adoc#canonical-top-level-fields[Hypermedia Format § Canonical Top-Level Fields] (`summary`),
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5]
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1]
 Hazard:: A composed status line exceeded 80 characters and was not ASCII.
 Guard:: Property test over the maximum segment count times the maximum numeric width: the composed `summary` stays
 within 160 ASCII characters; counts saturate (`99+`).
@@ -84,6 +84,41 @@ waivable list, and the unit then rests in an operator wait ended by `waive` or `
 no other form and no other action.
 Source:: design review.
 
+[#PM-WATCH-HYP-9]
+=== PM-WATCH-HYP-9: A workspace or machine task carries no scope identifier and is addressed with `NO_PLAN`
+
+Anchor:: link:../specification/hypermedia-format/01-representation-and-link-forms.adoc#representation-kinds[Hypermedia Format § Representation Kinds],
+link:../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc#pm-wait[MCP Tools § `pm_wait` — Receive a Task],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
+Hazard:: A task entity of the workspace or the machine scope that carries the `NO_PLAN` sentinel, or a made-up
+identifier, as its `plan_id` invites the worker to treat the sentinel as a plan; a server that refuses
+`NO_PLAN` for such a task leaves the worker no way to follow its links.
+Guard:: Test over the `pm_wait` offer and `pm_state` of a task of the workspace scope (a `project-setup` task) and of
+the machine scope (a role task of the machine's onboarding): the representation carries neither `plan_id` nor
+`epic_id`; `pm_do` and `pm_state` with `plan_id: "NO_PLAN"` and the task's `entity` are accepted from the worker holding the
+lease. Matched control: a task of a plan scope carries its
+`plan_id`, and the same call with `NO_PLAN` for it is refused.
+Source:: design review.
+
+== Link Relation & Identifier Grammar
+
+[#PM-WATCH-HYP-10]
+=== PM-WATCH-HYP-10: Open: `recipe_params` outside the free-parameter grammar
+
+Anchor:: link:../specification/hypermedia-format/02-link-grammar.adoc#_free_parameter_descriptor_grammar_free_column[Hypermedia Format § Free Parameter Descriptor Grammar]
+Hazard:: Undecided: the operator link `set` of the operator wait `recipe.parameters` takes `recipe_params`, an object
+validated against the recipe's own `parameters_schema` with option lists the server computes at runtime
+(`x-pm-options`), while an operator link's `params` is written in the free-parameter grammar, which has no type for a
+per-recipe dynamic schema; project recipes bring uncompiled schemas. The link's `params` either cannot be rendered by
+the grammar or bypasses the closed parameter validation. Options: (1) a grammar type for a per-recipe dynamic schema
+and its rendering in `params`; (2) flatten to typed scalar parameters rendered from the schema; (3) restrict
+`parameters_schema` to compiled recipes. Recommendation: 1, it keeps project recipes and one validation path.
+Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
+the result in the specification and the requirement it touches, and deletes this item.
+Source:: `state-catalogue/09-bootstrap-and-lessons.adoc` § `recipe.parameters`, `domain-extensions/05-recipes-and-extension-points.adoc` § Recipe Parameters.
+
+== Composite Wait & TOON Encoder
+
 [#PM-WATCH-HYP-8]
 === PM-WATCH-HYP-8: The wait-region matrix and the bot mapping are total
 
@@ -101,38 +136,6 @@ value; an externally cancelled CI run settles `ci_failed`, an engine cancellatio
 operator act that ends the plan) `cancelled`, and the plan then enters `plan.aborted`, never `finalize.restart-watch`
 (matched control: the same act on a plan resting in another wait).
 Source:: design review.
-
-[#PM-WATCH-HYP-9]
-=== PM-WATCH-HYP-9: A workspace task carries no scope identifier and is addressed with `NO_PLAN`
-
-Anchor:: link:../specification/hypermedia-format/01-representation-and-link-forms.adoc#representation-kinds[Hypermedia Format § Representation Kinds],
-link:../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc#pm-wait[MCP Tools § `pm_wait` — Receive a Task],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
-Hazard:: A task entity of the workspace scope that carries the `NO_PLAN` sentinel, or a made-up identifier, as its
-`plan_id` invites the worker to treat the sentinel as a plan; a server that refuses `NO_PLAN` for a workspace task
-leaves the worker no way to follow its links.
-Guard:: Test over the `pm_wait` offer and `pm_state` of a task of the workspace scope (a `project-setup` task): the
-representation carries neither `plan_id` nor `epic_id`; `pm_do` and `pm_state` with `plan_id: "NO_PLAN"` and the
-task's `entity` are accepted from the worker holding the lease. Matched control: a task of a plan scope carries its
-`plan_id`, and the same call with `NO_PLAN` for it is refused.
-Source:: design review.
-
-[#PM-WATCH-HYP-10]
-=== PM-WATCH-HYP-10: Open: `recipe_params` outside the free-parameter grammar
-
-Anchor:: link:../specification/hypermedia-format/02-link-grammar.adoc#_free_parameter_descriptor_grammar_free_column[Hypermedia Format § Free Parameter Descriptor Grammar]
-Hazard:: Undecided: the operator link `set` of the operator wait `recipe.parameters` takes `recipe_params`, an object
-validated against the recipe's own `parameters_schema` with option lists the server computes at runtime
-(`x-pm-options`), while an operator link's `params` is written in the free-parameter grammar, which has no type for a
-per-recipe dynamic schema; project recipes bring uncompiled schemas. The link's `params` either cannot be rendered by
-the grammar or bypasses the closed parameter validation. Options: (1) a grammar type for a per-recipe dynamic schema
-and its rendering in `params`; (2) flatten to typed scalar parameters rendered from the schema; (3) restrict
-`parameters_schema` to compiled recipes. Recommendation: 1, it keeps project recipes and one validation path.
-Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
-the result in the specification and the requirement it touches, and deletes this item.
-Source:: `state-catalogue/09-bootstrap-and-lessons.adoc` § `recipe.parameters`, `domain-extensions/05-recipes-and-extension-points.adoc` § Recipe Parameters.
-
-== Deterministic Native TOON Encoder Specification
 
 [#PM-WATCH-HYP-4]
 === PM-WATCH-HYP-4: Multi-line values survive the full hop

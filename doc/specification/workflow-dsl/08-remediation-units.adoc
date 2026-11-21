@@ -13,7 +13,7 @@ link:../../Specification.adoc[Specification] » link:../workflow-dsl.adoc[Workfl
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-7[PM-WF-7: Remediation Policies, Loop-Back & Iteration Bounds]_
 _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-13[PM-WATCH-PHASE-13]_
 
-_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States & Short-Circuit Failure Handling]_
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States, Short-Circuit Failure Handling & Finalize Providers]_
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push]_
 
@@ -32,7 +32,7 @@ Every blocking failure of a plan gets a bounded self-remedy through a remediatio
 
 |`remediation.review-findings`
 |Open findings without a terminal disposition (wait region, barrier re-fetch, self-review, security audit), structural refusals, and missing review evidence (`evidence_missing`); the screen job `remediation-review.screen` and the triage task `remediation-review.triage` (role `triage-review`, one disposition per finding group) precede the budget check
-|`retry` (window-gated per-bot re-trigger; never for `unregistered_kind` or `not_wired`), `fix` (in-branch; bound only at call sites after the pull request exists), `loop_back`; review-chain-terminus findings are fix-free, dependency-delta findings `FIX`-only (`triage-review`)
+|`retry` (window-gated per-bot re-trigger; never for `unregistered_kind`, `not_wired`, or `refused_hard`), `fix` (in-branch; bound only at call sites after the pull request exists), `loop_back`; review-chain-terminus findings are fix-free, dependency-delta findings `FIX`-only (`triage-review`)
 |`resolved`, `waived` (`review_evidence[:<bot_kind>]`, `findings:<class>`; security findings are never waivable), `exhausted`, `fix_requested`
 
 |`remediation.analysis`
@@ -94,6 +94,11 @@ The budgets are call arguments of the phase units (the template values). The pla
 |`remediation.merge-conflict`
 |0 / 2
 |`resolved` -> `finalize.settle-commit` (from `finalize.remediate-sync-conflict`) or `finalize.merge-gate` (from `finalize.remediate-merge-conflict`); `exhausted` -> `finalize.replan` (trigger `ceiling`); `stepped_out` -> `finalize.hand-back`
+
+|`replan.resolve-conflict` (link:../state-catalogue/12-re-planning.adoc#state-replan.resolve-conflict[State Catalogue, `replan.resolve-conflict`])
+|`remediation.merge-conflict`
+|0 / 2
+|`resolved` -> `replan.done`; `exhausted`, `stepped_out` -> `replan.hand-back`
 
 |===
 

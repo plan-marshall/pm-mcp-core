@@ -112,7 +112,7 @@ Detection decides only whether a worker is alive. A worker that is alive and bus
 |===
 
 * *Told, not asked*: a `yield` or a `restart` the server took is a report to the operator of the kind `task.off_track`, whose detail is the task's activity (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator]); no signal adds to what needs the operator.
-* *Verified by scenarios*: each signal and each action is a scenario of the fixture harness with a scripted output stream (a looping worker, a busy worker without links, a worker far over its size, a worker changing an unplanned file, a worker building into one failure, a worker changing one file without building), beside the fault matrix of link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4].
+* *Verified by scenarios*: each signal and each action is a scenario of the fixture harness with a scripted output stream (a looping worker, a busy worker without links, a worker far over its size, a worker changing an unplanned file, a worker building into one failure, a worker changing one file without building, a worker whose process tree starts an enrolled harness or the operator binary), beside the fault matrix of link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4].
 
 A model that watches the activity and judges whether a worker is on track is a later improvement (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#L-17[Later Improvements, L-17]).
 

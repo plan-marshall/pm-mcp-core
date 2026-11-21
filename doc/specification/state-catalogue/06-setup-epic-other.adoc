@@ -46,7 +46,7 @@ Declared in `project-setup.pmwf` (`scope subworkflow`, compiled only, never desi
 |`workspace`
 |`auto`
 |`project.setup` (the entry `integrations`); `setup.check-operator-files` (`valid`, reconcile run); `setup.verify-credentials` (a refreshed fact invalidates an effective `native` variant).
-|Per checked integration the effective variant is the project's operator value, else the machine's provider default, else `cli` where its host tool is enrolled (for the machine or the project), else `native`; it is invalid while it is `native` and the derived fact `git_native_capability` reports a used feature native cannot serve, or a `cli` value lacks its enrolled host tool; the commit identity must resolve (the project's, else the machine's `project_defaults.commit_identity`).
+|Per checked integration the effective variant (link:../domain-extensions/04-setup-state-machine.adoc#setup-integration-variants[Domain Extensions Specification, Integration Variants]) is invalid while it is `native` and the derived fact `git_native_capability` reports a used feature native cannot serve, or a `cli` value lacks its enrolled host tool; the commit identity must resolve (the project's, else the machine's `project_defaults.commit_identity`).
 |`current` -> `setup.verify-credentials`; `needs_answer` -> `setup.operator-values` (its findings named).
 |link:../domain-extensions/04-setup-state-machine.adoc#setup-integration-variants[Domain Extensions Specification, Integration Variants]
 
@@ -102,7 +102,7 @@ Declared in `project-setup.pmwf` (`scope subworkflow`, compiled only, never desi
 |`workspace`
 |`operator_wait`
 |`setup.seed-build-map` (first run); `setup.entry` (`providers`).
-|The team's providers, each proposed: `configure_providers` shows the CI provider derived from the remote (`ci_provider` override only for self-hosted remotes), the analysis providers, and the review bots (`review.required_bots`, `review.optional_bots`) in `project.json`; the VCS provider is always `git`.
+|The team's providers, each proposed: `configure_providers` shows the CI provider derived from the remote (`ci_provider` override only for self-hosted remotes), the analysis providers, and the review bots (`review.required_bots`, `review.optional_bots`) in `project.json`; the VCS provider is always `git`. The snippet provenance provider is never offered here: it is the operator's per project (`project.operator`), never a team value.
 |`configured` -> `setup.configure-finalize`; `aspect_done` -> `setup.commit-changes`.
 |link:../domain-extensions/04-setup-state-machine.adoc#_steward_wizard_step_mapping[Domain Extensions Specification, Steps 7, 13]
 

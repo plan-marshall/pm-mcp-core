@@ -11,7 +11,7 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 == Watch Documents
 
-The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtime model of the documentation; its new items take the area code `LIFE`, which only this repository uses. The job-runtime watch holds the items of the runtime's sections; `PM-WATCH-JOB-41` to `PM-WATCH-JOB-44`, which watch the sections the launcher `pm-exec` implements alone, are in link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/implementation-watch/job-runtime.adoc[the job-runtime watch of `pm-mcp-clients`].
+The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtime model of the documentation; its new items take the area code `LIFE`, which only this repository uses. The job-runtime watch holds the items of the runtime's sections; `PM-WATCH-JOB-41` to `PM-WATCH-JOB-44`, which watch the sections the launcher `pm-exec` implements alone, are in link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/implementation-watch/job-runtime.adoc[the job-runtime watch of `pm-mcp-clients`]. An archetype of the documentation's cross-cutting watch that applies first to a section here keeps its `GEN` id in the watch of that section (`PM-WATCH-GEN-59` in the job-runtime watch, `PM-WATCH-GEN-10` in the phase-workflows watch). The area code `CLI` is shared: the model-work and credentials watches here, the CLI watch of the documentation (link:../../plan-marshall-documentation/doc/implementation-watch/cli-and-security.adoc[cli-and-security.adoc]) and that of `pm-mcp-clients` (link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/implementation-watch/cli-and-security.adoc[cli-and-security.adoc]) draw their `CLI` items from one sequence, so an id names one item across all of them.
 
 [cols="3,1,1,4"]
 |===
@@ -23,12 +23,12 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/workflow-dsl.adoc[Workflow DSL]
 |`DSL`
-|39
+|40
 |link:specification/workflow-dsl.adoc[Workflow DSL & Engine Specification]
 
 |link:implementation-watch/phase-workflows.adoc[Phase Workflows]
-|`PHASE`
-|122
+|`PHASE`, `GEN`
+|123
 |link:specification/phase-workflows.adoc[Phase Workflows & Finalize Specification]
 
 |link:implementation-watch/model-work.adoc[Model Work]
@@ -38,7 +38,7 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/domain-extensions.adoc[Domain Extensions]
 |`EXT`
-|40
+|41
 |link:specification/domain-extensions.adoc[Domain Extensions, Build Map & Configuration Split Specification]
 
 |link:implementation-watch/filesystem-layout.adoc[Filesystem Layout]
@@ -52,8 +52,8 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 |link:specification/store-schemas.adoc[Store Schemas Specification]
 
 |link:implementation-watch/job-runtime.adoc[Job Runtime]
-|`JOB`
-|38
+|`JOB`, `GEN`
+|39
 |link:specification/job-runtime.adoc[Job Runtime Specification]
 
 |link:implementation-watch/harness-profiles.adoc[Harness Profiles]

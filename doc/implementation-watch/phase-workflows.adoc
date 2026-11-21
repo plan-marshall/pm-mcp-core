@@ -359,7 +359,7 @@ Hazard:: Q-Gate judgments drifted to prose, used untested exclusions, and filed 
 touched.
 Guard:: The Q-Gate vocabulary skill carries the judgment rules: classification from `Affected files`, not prose; an
 exclusion rationale re-tested per coupled deliverable; partial delegation recorded; an invariant criterion
-attached to the editing deliverable. A Q-Gate pass over zero assessments is `not_evaluated`, never clean.
+attached to the editing deliverable. A Q-Gate submit with zero assessments is refused, so an empty pass is never clean.
 Fixture:: finding class C-019; the outline reached Q-Gate with `findings_store_state: missing`, and 26 assessments
 were recorded afterwards.
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-151 (self-review lessons, C-019; item -001).
@@ -723,7 +723,7 @@ link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc
 Hazard:: A currency exemption for one bot disabled the currency test for the whole ANDed gate; a quota-declined
 re-trigger left stale credit for an older head (~10.7 h uncovered); "round 4 clean" was reported for a head the
 last review did not cover; valid head evidence was misread and produced false declines.
-Guard:: Currency is evaluated per bot record for every required bot and no registry field exempts a bot: a bot declaring `participation_requires_update: false` with a stale review fails the predicate beside a current one; a trigger
+Guard:: Currency is evaluated per bot record for every required bot and no registry field exempts a bot: a bot with a stale review fails the predicate beside a current one; a trigger
 refused by quota never lets a participation for an older head satisfy Predicate 2. Head evidence per bot is the
 record's `covered_commit_sha`, taken from provider evidence only: evidence naming the merge candidate proves the
 head, evidence naming another commit resolves `declined`, evidence naming no commit resolves `unproven` under
@@ -1162,6 +1162,19 @@ Fixture:: #1438 merged 2026-09-07T07:58:16Z with zero CodeRabbit reviews; #1407 
 into #1423 + #1429; #1343 second firing `98f8bc27` with `new_count: 12`; #1386: a looped-back PR with several
 reviewed trees, for which no single reviewed SHA may be synthesised (delta per round).
 Source:: plan-marshall defects review-apparatus PLAN-PR-058 Evidence amendment, PLAN-PR-052 D4, PLAN-PR-031, PLAN-PR-071 D6.
+
+[#PM-WATCH-GEN-10]
+=== PM-WATCH-GEN-10: Check versions are orderable
+
+Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (`plan-retrospective`, order 995)
+Hazard:: Check versions were stamped `plan-10`, which is not orderable; one change altered 4 checks without bumping
+their stamps; a "since X" rule could not be evaluated from a checkout.
+Guard:: A report's check version is the engine version its instruments record
+(link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#instrument-stratum[Phase Workflows § One Instrument Version per Population]) and its time bound is
+`measured_until`; no other stamp versions a check. Test: two reports of different engine versions are ordered by
+release, never by label; a rule keyed on "since X" names a release or a commit derivable from the repository.
+Fixture:: 24 entries, 9 stamped `plan-10` at `7d82d5d9`.
+Source:: plan-marshall defect code-intelligence-substrate PLAN-CIS-050 D5(a), PLAN-CIS-054 D4 item 4, first bullet.
 
 [#PM-WATCH-PHASE-54]
 === PM-WATCH-PHASE-54: Review cost never decides which defects are fixed

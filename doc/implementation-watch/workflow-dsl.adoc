@@ -76,8 +76,8 @@ a class unreachable in all of them is made reachable or deleted. The verifier ch
 reachability; configuration reachability over the values of the `depends_on_config` keys waits for a rule by which a
 value activates a guard
 (link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_3_the_state_graph[Workflow Verification Developer Guide § Rule 3: The State Graph]).
-The item waits on https://github.com/plan-marshall/plan-marshall-documentation/issues/71[issue #71], which defines
-that rule.
+The item waits on the open question of that rule
+(link:../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#config-reachability[Open Questions, Configuration Reachability]).
 Source:: plan-marshall review-apparatus PLAN-PR-069 D7.
 
 [#PM-WATCH-DSL-8]
@@ -344,7 +344,7 @@ link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_2_outcome_covera
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_3_the_state_graph[§ Rule 3: The State Graph]).
 Loader test: a state that declares `ask` yields `<state>.asked` in the AST, subject to Rules 2 and 3 (the
 loader does not add the state yet); an `ask` on a state of a `zero_tool` role is refused (Rule 13, at composition).
-Matched control: `answered` and `assumed` re-enter the asking state.
+Matched control: `answered`, the one resolution outcome of the class `ask`, re-enters the asking state.
 Source:: design review.
 
 [#PM-WATCH-DSL-40]
@@ -361,6 +361,49 @@ of every phase with the plan unit's catalogue; a fixture whose `execute` call si
 `finalize.hand-back` fails validation with its file and line. Matched control: the same call site routing
 `stepped_out` to the phase's own exit `hand_back` passes.
 Source:: design review.
+
+[#PM-WATCH-DSL-39]
+=== PM-WATCH-DSL-39: A project copy loosens an input
+
+Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow
+Units, Levels & Compiled Invariants] (`INV-GEN-1`), link:../specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+
+Hazard:: A project's copy of a designable sub-workflow widens the domain of an input, drops one, or moves a default into
+the input of its own, so a call site written against the default unit binds a value the copy no longer admits, or the copy
+silently changes what the default does. The input is part of the interface a caller relies on, and the copy is resolved
+over the default without a warning.
+
+Guard:: `INV-GEN-1` compares the inputs of a project unit with those of its default unit (name, type, optional form,
+default and fallback, in declaration order) and names the differing input; a widened enum domain, a widened int range
+and a missing input are refused (`CompiledInvariantsTest`, the cases `INTERFACE_INPUT_WIDENED`,
+`INTERFACE_INPUT_RANGE` and `INTERFACE_INPUT_MISSING`, of `pm-workflow`,
+link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
+Developer Guide § INV-GEN-1 over Type and Interface]). Open: a project unit that changes an input's default or
+fallback, its optional form, or the order of the inputs fails naming the input; matched control: a copy that only
+rewords an input's description passes. The type is compared by its closed identity, so a copy that swaps `text` for
+`commit_message` is refused too (link:../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-43[PM-WATCH-DSL-43]).
+
+Source:: design review (PLAN-V2-04).
+
+[#PM-WATCH-DSL-43]
+=== PM-WATCH-DSL-43: A project copy weakens a type
+
+Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow Units, Levels & Compiled Invariants] (`INV-GEN-1`),
+link:../specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+Hazard:: A copy declares `text[1..2000]` where its default unit declares `commit_message[1..2000]`, or `path` where the
+default declares `list<path>`. The validator is chosen by the type, so the copy drops the Conventional Commit and trailer
+check — or admits one path where the unit stages a set — while its bounds, its optional form and its order look identical.
+A comparison of the ranges alone passes the copy.
+Guard:: `INV-GEN-1` compares an input's type by its closed identity, the `InputType` member with its bounds, and names
+the input (`CompiledInvariantsTest` of `pm-workflow`, the refusing case `INTERFACE_INPUT_WIDENED` for an enumerated input,
+and
+link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
+Developer Guide § INV-GEN-1 over Type and Interface]). A copy that swaps a `commit_message` for a `text` (or a
+`list<path>` for a `path`) is refused by `INV-GEN-1`, which compares each input's type with the default unit's type. The
+bind's `InputValidator` checks the value against the copy's own declared type, so it does not detect the swap. Owed: a
+refusing `CompiledInvariantsTest` case per weakened text and path type, and an `InputValidatorTest` case that shows the
+swapped type admits the value the default refuses.
+Source:: design review (PLAN-V2-15).
 
 == Reusable Compound Sub-Workflows & Call-Stack Execution
 
@@ -586,25 +629,17 @@ Engine Developer Guide § The Input Bind at a Call]). Tests: two calls of one st
 whose provenance lies outside the closed set.
 Source:: design review (PLAN-V2-15).
 
-[#PM-WATCH-DSL-43]
-=== PM-WATCH-DSL-43: A project copy weakens a type
+[#PM-WATCH-DSL-45]
+=== PM-WATCH-DSL-45: A server step-out names its reason, not the generic outcome
 
-Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow Units, Levels & Compiled Invariants] (`INV-GEN-1`),
-link:../specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
-Hazard:: A copy declares `text[1..2000]` where its default unit declares `commit_message[1..2000]`, or `path` where the
-default declares `list<path>`. The validator is chosen by the type, so the copy drops the Conventional Commit and trailer
-check — or admits one path where the unit stages a set — while its bounds, its optional form and its order look identical.
-A comparison of the ranges alone passes the copy.
-Guard:: `INV-GEN-1` compares an input's type by its closed identity, the `InputType` member with its bounds, and names
-the input (`CompiledInvariantsTest` of `pm-workflow`, the refusing case `INTERFACE_INPUT_WIDENED` for an enumerated input,
-and
-link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
-Developer Guide § INV-GEN-1 over Type and Interface]). A copy that swaps a `commit_message` for a `text` (or a
-`list<path>` for a `path`) is refused by `INV-GEN-1`, which compares each input's type with the default unit's type. The
-bind's `InputValidator` checks the value against the copy's own declared type, so it does not detect the swap. Owed: a
-refusing `CompiledInvariantsTest` case per weakened text and path type, and an `InputValidatorTest` case that shows the
-swapped type admits the value the default refuses.
-Source:: design review (PLAN-V2-15).
+Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL § Call-Stack Execution & Persistence Semantics] (item 4, Step-Out)
+Hazard:: The `cause` of a server step-out names the outcome that entered the step-out (`exhausted`, `retry_spent`)
+instead of the reason it carries, so the operator's hand-back and the step record say that a budget was spent but not
+what failed, and an oracle failure cannot be told from a push failure.
+Guard:: The rules are the anchor's. Test: the artifact detection with a failing `.gitignore` oracle after its retry
+budget steps out with `cause: oracle_failed`, and a push that fails after its server-rule retry budget steps out with
+`cause: push_failed`; an entering outcome that carries no reason is the cause itself.
+Source:: design review.
 
 [#PM-WATCH-DSL-44]
 === PM-WATCH-DSL-44: A reason becomes a route
@@ -652,27 +687,3 @@ East Asian character against the table. A browser test of the web app draws the 
 diagram font and checks that the drawn width of every label lies within its box.
 Source:: obsidianmd/pele (commit `4eff76f`), `src/text/measurer.ts`, `src/text/metrics.ts` (advance widths of Arial
 compiled into the renderer, measured without a DOM).
-
-[#PM-WATCH-DSL-39]
-=== PM-WATCH-DSL-39: A project copy loosens an input
-
-Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow
-Units, Levels & Compiled Invariants] (`INV-GEN-1`), link:../specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
-
-Hazard:: A project's copy of a designable sub-workflow widens the domain of an input, drops one, or moves a default into
-the input of its own, so a call site written against the default unit binds a value the copy no longer admits, or the copy
-silently changes what the default does. The input is part of the interface a caller relies on, and the copy is resolved
-over the default without a warning.
-
-Guard:: `INV-GEN-1` compares the inputs of a project unit with those of its default unit (name, type, optional form,
-default and fallback, in declaration order) and names the differing input; a widened enum domain, a widened int range
-and a missing input are refused (`CompiledInvariantsTest`, the cases `INTERFACE_INPUT_WIDENED`,
-`INTERFACE_INPUT_RANGE` and `INTERFACE_INPUT_MISSING`, of `pm-workflow`,
-link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
-Developer Guide § INV-GEN-1 over Type and Interface]). Open: a project unit that changes an input's default or
-fallback, its optional form, or the order of the inputs fails naming the input; matched control: a copy that only
-rewords an input's description passes. The type is compared by its closed identity, so a copy that swaps `text` for
-`commit_message` is refused too (link:../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-43[PM-WATCH-DSL-43]).
-
-Source:: design review (PLAN-V2-04).
-

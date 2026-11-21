@@ -18,9 +18,9 @@ link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[Sta
 |[[state-plan.derive-tasks]]`plan.derive-tasks`
 |`phase-4-plan`
 |`auto`
-|`outline.gate` (`pass`), `outline.route-review` (`approve`); the Phase 4 re-entry after a `loop_back_outline` (additive derivation; completed tasks are kept).
+|The phase's entry `start` (the phase `outline` ended with its exit `passed`: `outline.gate` (`pass`), `outline.route-review` (`approve`)), also after a `loop_back_outline` (additive derivation; completed tasks are kept).
 |Profile-to-task mapping, DAG construction and cycle rejection, two-tier skill resolution, atomic non-idempotent creation, lane re-evaluation logged as `lane_reevaluation`. The same derivation already ran as a dry-run when the outline was submitted.
-|`derived` -> `plan.order-tasks`; `derivation_failed` (inputs changed since the dry-run, for example the skill registry; no task is created) -> `outline.remediate-qgate` (phase set back to `phase-3-outline`, the failure filed as a blocking `3-outline` Q-Gate finding).
+|`derived` -> `plan.order-tasks`; `derivation_failed` (inputs changed since the dry-run, for example the skill registry; no task is created) -> the phase's exit `loop_back_outline` (the failure filed as a blocking `3-outline` Q-Gate finding), on which the plan unit calls the phase `outline` again at the authoring entry of the calling lane (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]).
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_deterministic_task_derivation_dag_cycle_detection[Phase Workflows Specification, Deterministic Task Derivation]
 
 |[[state-plan.order-tasks]]`plan.order-tasks`
@@ -37,7 +37,7 @@ link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[Sta
 |`plan.order-tasks` (`done`).
 |`job llm task-descriptions role plan`: the entity submits the enriched task descriptions (`description`, `steps`, `target_files`, `depends_on`) under declared-path discipline and in the order the method variant recorded; on submission the server sizes and packs the envelopes and composes the plan instance version of event `plan` (tasks and steps; provider and footprint prunes beside the posture prunes; budgets bound; in force from the transition into `plan.qgate`).
 |`described` -> `plan.qgate` (every path; the Q-Gate is not configurable); `infeasible`, `lost` -> `plan.return`.
-|link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_deterministic_task_derivation_dag_cycle_detection[Phase Workflows Specification, Deterministic Task Derivation items 4–7]; link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas Specification, Plan Instance]
+|link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_deterministic_task_derivation_dag_cycle_detection[Phase Workflows Specification, Deterministic Task Derivation items 5 and 6]; link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas Specification, Plan Instance]
 
 |[[state-plan.qgate]]`plan.qgate`
 |`phase-4-plan`

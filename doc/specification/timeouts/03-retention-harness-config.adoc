@@ -27,7 +27,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |Compiled defaults: `task_records_days` `5`, `retired_lesson_bodies_days` `0`, `arch_constraint_quiet_days` `90`, `workspace_rows_days` `90`. The governed stores are machine-local, so retention is operator posture, never team configuration. Work history (archived plans, archived epics' machine stores, the logs of ended work, read reports, the stores of unenrolled projects) has no retention period: it goes only through the cleanup (<<cleanup>>).
 |`retention.{task_records_days, retired_lesson_bodies_days, arch_constraint_quiet_days, workspace_rows_days}` in `<PM_MCP_BASE>/projects/<project_id>/local-config.json`, machine-wide defaults in `machine-config.json` `project_defaults.retention`
 |minimum `0`
-|ended queue task records (`task_records_days`); retired lesson bodies, whatever the retirement's verdict (`retired_lesson_bodies_days`); quiet-window retirement of `arch-constraint` lessons (`arch_constraint_quiet_days`); the workspace scope's technical rows older than the period: closed findings, the metrics rows of its own tasks, answered questions, closed decisions whose facts are no longer referenced (with their facts snapshots), and screen verdicts; the workspace holds no row of a plan (`workspace_rows_days`)
+|ended queue task records and the records of ended jobs of the workspace scope, of the machine scope, and of workers (`task_records_days`; a job record of a plan or epic goes with its archived plan or epic through the cleanup); retired lesson bodies, whatever the retirement's verdict (`retired_lesson_bodies_days`); quiet-window retirement of `arch-constraint` lessons (`arch_constraint_quiet_days`); the workspace scope's technical rows older than the period: closed findings, the metrics rows of its own tasks, answered questions, closed decisions whose facts are no longer referenced (with their facts snapshots), and screen verdicts; the workspace holds no row of a plan (`workspace_rows_days`)
 |Removed by the periodic sweep by itself, one audit record each, under the evidence rules of the removal sweeps; `pm-operator sweep` lists what the next pass would remove and runs it at once with `--apply`. The quiet-window retirement (verdict `obsolete`) is a verdict on a lesson, not residue: it runs only by `pm-operator sweep --apply`.
 |link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle, Periodic Sweep]; link:../store-schemas/13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Store Schemas, Evidence-Based Removal Sweeps]; link:../store-schemas.adoc[Store Schemas] (Lesson Store); link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas, Operator Local Configuration]
 
@@ -102,12 +102,36 @@ Work history is the operator's and goes only on the operator's word, through one
 |link:../harness-profiles/01-profile-schema.adoc#_normative_harness_profile_json_schema[Harness Profiles, Normative Schema]
 
 |[[outbound-http-timeouts]]Outbound HTTPS and upstream MCP call timeouts
-|Connect `10`, read `60` for every `cui-http` call (Sonar REST, credential verification, upstream MCP servers, which are remote HTTPS servers only). Requests of native `git` and `ci` operations use the same values as the xref:01-job-budgets-and-waits.adoc#http-request-timeout[Http request timeout]. An operator `proxy` (`machine-config.json`) changes the route of these calls, never their timeouts.
-|Per upstream server in the machine's server list (`machine-config.json` `upstream_mcp.servers.<server_id>.connect_timeout_seconds`, `read_timeout_seconds`, link:../store-schemas/12-machine-stores.adoc#upstream-servers[Store Schemas, Upstream MCP Servers]); fixed for Sonar and credential verification
+|Connect `10`, read `60` for every `cui-http` call of the closed list of outbound calls (link:../credentials-and-enrolment/03-audit-and-outbound-https.adoc#closed-outbound-list[Credentials & Enrolment, Closed List of Outbound Calls]): Sonar REST, credential verification, upstream MCP servers (remote HTTPS servers only), the release check (`check_updates` and the operator's upgrade), the harness icon fetch (`fetch_icons`), and the fetch of the corpus sources (the Hugging Face dataset reads, the Git LFS batch request and its download). Requests of native `git` and `ci` operations use the same values as the xref:01-job-budgets-and-waits.adoc#http-request-timeout[Http request timeout]; the speech provider's call is bounded by the xref:02-runtime-leases-operator-web.adoc#transcription-bounds[Transcription bounds], and the loopback endpoint of an endpoint harness by <<endpoint-request-timeout>>. An operator `proxy` (`machine-config.json`) changes the route of these calls, never their timeouts.
+|Per upstream server in the machine's server list (`machine-config.json` `upstream_mcp.servers.<server_id>.connect_timeout_seconds`, `read_timeout_seconds`, link:../store-schemas/12-machine-stores.adoc#upstream-servers[Store Schemas, Upstream MCP Servers]); fixed for every other call
 |minimum `1`
 |outbound calls
-|A Sonar step records the call as `indeterminate` (never clean); a server-side upstream call ends `upstream_timeout`, which its workflow step routes; a credential verification reports `unverified`.
+|A Sonar step records the call as `indeterminate` (never clean); a server-side upstream call ends `upstream_timeout`, which its workflow step routes; a credential verification reports `unverified`; a corpus source not fetched fails the import (link:../model-work/01-roles-and-configuration.adoc#corpus-sources[Model Work, Corpus Sources]).
 |link:../credentials-and-enrolment/03-audit-and-outbound-https.adoc#outbound-https[Credentials & Enrolment, Outbound HTTPS Security]; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools] (Upstream MCP Proxy)
+
+|[[corpus-file-bound]]Corpus source file bound
+|`67108864` bytes (64 MiB) per raw file read from a corpus source's dataset.
+|fixed (compiled constant)
+|—
+|the fetch of the corpus sources (`HuggingFaceSourceRepository`)
+|A larger body is refused before it is held, and the source counts as not fetched: the import fails (link:../model-work/01-roles-and-configuration.adoc#corpus-sources[Model Work, Corpus Sources]).
+|link:../credentials-and-enrolment/03-audit-and-outbound-https.adoc#outbound-https[Credentials & Enrolment, Outbound HTTPS Security] (The fetch of the corpus sources)
+
+|[[endpoint-request-timeout]]Endpoint request and connect timeouts
+|The request: the endpoint profile's `endpoint.request_timeout_seconds`, from the send until the endpoint answers (streaming is off, so it bounds the model's whole work on one attempt). The connection: a compiled connect timeout of `5`.
+|request: `endpoint.request_timeout_seconds` of the endpoint profile; connect: fixed (compiled constant)
+|request: `5`..`3600`
+|every request of `EndpointClient` to the loopback endpoint of an endpoint harness (readiness check, models listing, task request)
+|The attempt ends as a timeout, like a worker without a valid result; the task's own rules apply.
+|link:../harness-profiles/03-endpoint-harness.adoc#endpoint-request[Harness Profiles, The Request]
+
+|[[weights-probe-bound]]Weights probe bound
+|`10` for an `argv` weights probe to finish.
+|fixed (compiled constant)
+|—
+|the weights identity read of a profile whose `weights_probe` has the source `argv`, at enrolment, at every runtime start, and at every project setup run
+|The probe is stopped and the identity is recorded as unread, never as an identity.
+|link:../harness-profiles/03-endpoint-harness.adoc#weights-identity[Harness Profiles, Weights Identity]
 
 |[[provider-rate-limit-reset]]Provider rate-limit reset instant
 |`resets_at` only from the forge's answer: the time of the answer plus its `Retry-After` seconds, else its reset instant (`x-ratelimit-reset` or `ratelimit-reset`, epoch seconds). An answer that names neither leaves `resets_at` absent; no instant is assumed.
@@ -222,6 +246,14 @@ Two compiled size bounds and one per-harness limit shape what a worker receives 
 |Every tool result the server returns to a worker of that harness: the offer answering `pm_wait`, entity representations, skills, and resource reads
 |The result keeps the canonical order, identifiers and links first (link:../hypermedia-format/01-representation-and-link-forms.adoc#canonical-top-level-fields[Hypermedia Format, Canonical Top-Level Fields]), and names the remaining content as parts, each below the limit, which the worker reads as resources; nothing is cut and no task is refused for size.
 |link:../model-work/02-task-protocol.adoc#offer[Model Work Specification, Offer]; link:../harness-profiles/01-profile-schema.adoc#headless-tool-result-limit[Harness Profiles, Tool-Result Limit]
+
+|[[changed-paths-bound]]Changed-since-last-task bound
+|`200` paths in the fact `changed_since_last_task`.
+|fixed (compiled constant)
+|—
+|The offer to a warm generation with a working-directory mark
+|The list is not offered: the task goes to a fresh worker of the role; a `chat-reply` task re-primes the chat's own worker in a new generation of the chat (link:../model-work/02-task-protocol.adoc#changed-since-last-task[Model Work Specification, Changed since the last task]).
+|link:../model-work/02-task-protocol.adoc#changed-since-last-task[Model Work Specification, Changed since the last task]
 |===
 
 [#view-bounds]
@@ -256,6 +288,14 @@ Compiled bounds of what the runtime records for the operator's views. None is co
 |Every harness icon fetched into `<PM_MCP_BASE>/icons/`
 |A larger file is not stored or served; the clients show the harness's monogram.
 |link:../harness-profiles/01-profile-schema.adoc#harness-icons[Harness Profiles, Harness Icons]; link:../store-schemas/12-machine-stores.adoc[Store Schemas, Machine Stores]
+
+|[[side-state-bound]]Untracked side state bound
+|`100` paths in a gate's `side_state`, with the total count.
+|fixed (compiled constant)
+|—
+|The `side_state` of a whole-tree gate marked `fresh`
+|The paths beyond the bound are not listed; the total count still names them.
+|link:../job-runtime/03-parsers-and-gates.adoc#side-state[Job Runtime Specification, Untracked Side State]
 |===
 
 [#configuration-keys]
@@ -270,6 +310,6 @@ The configurable values above, by store:
 * Harness profile (compiled; the operator override is the `harness_profiles` object of `machine-config.json` above, for the `connection` keys only): `connection.bounded_wait_seconds`, `connection.idle_timeout_seconds`, `connection.progress_resets_timeout`, the worker values `worker.ack_deadline_seconds`, `worker.ack_informational`, `worker.silence_grace_seconds`, `worker.idle_wakeups` (xref:01-job-budgets-and-waits.adoc#worker-supervision[Worker Supervision & Recycling]), the question limits `headless.resumability.max_hold_seconds` and `headless.resumability.resume.max_age_seconds` (xref:01-job-budgets-and-waits.adoc#question-hold[Question hold], xref:01-job-budgets-and-waits.adoc#question-resume-window[Question resume window]), and `headless.tool_result_limit_chars` (<<tool-result-limit>>).
 * Role artifacts (operator files of the role sets, link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]): `budget_floor_seconds` (xref:01-job-budgets-and-waits.adoc#model-job-budget[Worker budget]), `recycling.idle_wakeups`, `recycling.token_budget`, `recycling.tasks_per_generation`, `questions.hold_seconds` and `questions.resume_within_seconds` (xref:01-job-budgets-and-waits.adoc#question-hold[Question hold], xref:01-job-budgets-and-waits.adoc#question-resume-window[Question resume window]), and the lowered thresholds of the off-track signals (xref:01-job-budgets-and-waits.adoc#off-track-thresholds[Off-track signal thresholds]).
 
-No team configuration file (`.marshall/config/*.json`) holds a timeout, wait, threshold, or retention value; the remediation budgets are unit call arguments, not configuration keys. Tuning values that calibrate server algorithms are fixed and never operator configuration: a compiled constant, or a value of the implementing module's properties resource (`fixed` above, and in the owning specification: the refine confidence threshold (link:../phase-workflows/01-planning-phases-1-2.adoc#quality-dimensions[Phase Workflows Specification, Six Quality Dimensions]), the iteration caps, the review rate-window floor `3600`, the re-review completion allowance `600`, the default review attempt ceiling `6`, the provider re-poll cadence `30`, the merge-queue stall fallback `3600`, the native request timeouts, the attempt caps of `git.commit_and_push` (xref:01-job-budgets-and-waits.adoc#commit-attempt-caps[Commit sub-process attempt caps], xref:01-job-budgets-and-waits.adoc#commit-fix-change-set-cap[`git.commit-fix` change-set cap]), the language server restart cap (xref:02-runtime-leases-operator-web.adoc#lsp-restart-cap[Language server restart cap]), the compiled minimum of the role floors (xref:01-job-budgets-and-waits.adoc#model-job-budget[Worker budget]), the start-failure guard, the task re-offer budget, the hard caps of the remediation budgets, the condition budget, the watch restart budget, the failed-step re-fire, the release landing wait, the off-track thresholds as caps, the event buffer, the metrics event interval, and the update check interval); per-project tuning would make metrics incomparable across projects (`PM-MIG-5` triggers).
+No team configuration file (`.marshall/config/*.json`) holds a timeout, wait, threshold, or retention value; the remediation budgets are unit call arguments, not configuration keys. Tuning values that calibrate server algorithms are fixed and never operator configuration: a compiled constant, or a value of the implementing module's properties resource (`fixed` above, and in the owning specification: the refine confidence threshold (link:../phase-workflows/01-planning-phases-1-2.adoc#quality-dimensions[Phase Workflows Specification, Six Quality Dimensions]), the iteration caps, the review rate-window floor `3600`, the re-review completion allowance `600`, the default review attempt ceiling `6`, the provider re-poll cadence `30`, the merge-queue stall fallback `3600`, the native request timeouts, the attempt caps of `git.commit_and_push` (xref:01-job-budgets-and-waits.adoc#commit-attempt-caps[Commit sub-process attempt caps], xref:01-job-budgets-and-waits.adoc#commit-fix-change-set-cap[`git.commit-fix` change-set cap]), the language server restart cap (xref:02-runtime-leases-operator-web.adoc#lsp-restart-cap[Language server restart cap]), the compiled minimum of the role floors (xref:01-job-budgets-and-waits.adoc#model-job-budget[Worker budget]), the start-failure guard, the re-offer budget, the hard caps of the remediation budgets, the condition budget, the watch restart budget, the failed-step re-fire, the release landing wait, the off-track thresholds as caps, the event buffer, the metrics event interval, and the update check interval); per-project tuning would make metrics incomparable across projects (`PM-MIG-5` triggers).
 
 A value outside its floor or cap is never used: the runtime clamps it to the bound, unless its row states another rule (the drain timeout applies its default to an invalid value, xref:02-runtime-leases-operator-web.adoc#drain-timeout[Drain timeout]), and reports the configured value, the used value, and the source (`machine_config`, `local_config`, `enrolment`, `profile_override`, `compiled_default`, `invalid`, or `unreadable`) in the runtime status and in the record of the affected job (`clamped_values`, link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas, Job Record]) or wait, never in its facts: the model cannot change an operator value.
