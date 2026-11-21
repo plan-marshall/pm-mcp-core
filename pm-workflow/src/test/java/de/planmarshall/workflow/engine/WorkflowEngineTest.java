@@ -770,7 +770,7 @@ class WorkflowEngineTest {
             var steps = steps(List.of(settlement()));
 
             assertAll(steps.stream().<Executable>map(step -> () -> assertThrows(UnsupportedOperationException.class,
-                    () -> step.settlements().clear(), "the settlements of a step are unmodifiable")));
+                    step.settlements()::clear, "the settlements of a step are unmodifiable")));
         }
 
         @Test
@@ -809,13 +809,16 @@ class WorkflowEngineTest {
             var resting = planStatus(EXECUTE, "execute.build");
             var raised = fixtures.engine(plan("execute.first", CHAIN_TO_JOB))
                     .raise(resting, "job_incomplete", Map.of()).status();
-            return List.of(
+            var built = List.<EngineStep>of(
                     EngineStep.Resting.builder().status(resting).stateId("execute.build")
                             .awaitedEvent(AwaitedEvent.JOB_SETTLED).settlements(settlements).build(),
                     EngineStep.Ended.builder().status(resting).outcomeId("done").outcomeClass(OutcomeClass.SUCCESS)
                             .settlements(settlements).build(),
                     EngineStep.ConditionRaised.builder().status(raised).kind("job_incomplete").facts("{}")
                             .settlements(settlements).build());
+            assertEquals(EngineStep.class.getPermittedSubclasses().length, built.size(),
+                    "the fixture covers every EngineStep variant");
+            return built;
         }
 
         private static CommandSettlement settlement() {

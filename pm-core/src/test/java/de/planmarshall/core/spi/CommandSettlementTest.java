@@ -191,7 +191,7 @@ class CommandSettlementTest {
             assertAll(
                     () -> assertEquals(names, List.copyOf(settlement.facts().keySet()), "the facts keep their order"),
                     () -> assertEquals(5, settlement.facts().size(), "a change of the argument does not reach it"),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> settlement.facts().clear(),
+                    () -> assertThrows(UnsupportedOperationException.class, settlement.facts()::clear,
                             "the facts of a settlement are unmodifiable"));
         }
 
