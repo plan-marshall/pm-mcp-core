@@ -1,0 +1,50 @@
+= ADR workflow-verify 042: Rule 6 Models the Consumption of a Slot
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The bind removes a slot from the status at the first read (ADR `workflow-input/003`), so a second read of the same slot can
+only fail at run time with `precondition_unmet` / `input_unbound`. Rule 6 proved only that every path to a read passes a
+state that fills the slot; it did not count the reads. A unit that fills a slot once and reads it from two calls, or binds
+one slot to two inputs of one call, verified and then failed on the second read — a unit the verifier declared sound and
+the engine refused. The analysis of `PLAN-V2-157` found the shape (`a = slot.m, b = slot.m`) and left it to this plan.
+
+== Decision
+
+* Rule 6 counts the reads of a slot per unit: the first read is the one the bind serves, and every later read of the same
+  slot is refused with a message naming both states.
+* The count is per slot name, over every call of the unit, in the order the states are walked; two references inside one
+  call are counted as two reads, so the two-inputs-of-one-call shape is refused by the same rule.
+* The dominance check stays: consumption says a slot is read once, dominance says it is filled before that read.
+
+== Alternatives Considered
+
+* *Leave it to the run time.* Refused: the run-time refusal is a safety net for a unit the verifier never saw, and a
+  verified unit that fails its first call is exactly the defect this plan closes.
+* *Model the consumption as part of the dominance graph (a read removes an edge).* Refused: the graph carries no state
+  values, a per-read reachability pass per call would multiply the cost measured in ADR 039, and the count is exact where
+  a graph trick is an approximation.
+* *Refuse only a second read inside one call.* Refused: a slot read by two calls is the identical hazard, and the
+  run-time failure is the same.
+
+== Consequences
+
+* `WorkflowValidatorTest § Slot consumption` pins both shapes; `verify/passing/slots-and-inputs.pmwf` stays the matched
+  control (one fill, one read), and the default plan unit and the compiled invariants are unchanged.
+* A unit that wants two calls to use the same text fills two slots, or the callers take the value as an input.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static
+  AST Verification Rules], Rule 6
+* link:../workflow-verify/039-the-slot-dominance-is-checked-over-the-unit-graph.adoc[ADR workflow-verify/039];
+  link:../workflow-input/003-the-slot-key-names-the-declaring-unit.adoc[ADR workflow-input/003]
+* `PLAN-V2-164` Deliverable 3

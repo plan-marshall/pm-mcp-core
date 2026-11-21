@@ -42,6 +42,7 @@ import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
+import de.planmarshall.workflow.ast.ReservedKeywords;
 import de.planmarshall.workflow.ast.ResultGuard;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -140,12 +141,7 @@ public final class WorkflowValidator {
     private static final List<String> RESERVED_TARGET_SUFFIXES = List.of(
             ".blocked", ".footprint-violation", ".config-drift");
 
-    private static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
-            "scope", "param", "result", "declare", "decide", "start", "migrate", "state", "terminal", "phase",
-            "inherit", "skill", "facts", "auto", "job", "composite_job", "call", "question", "link", "guard",
-            "depends_on_config", "do", "llm", "role", "each", "consult", "completes", "as", "and", "or", "not",
-            "in_worktree", "has_open_findings", "all_tasks_completed", "predicate", "text", "int", "enum", "schema",
-            "list", "slot", "fills", "from");
+    private static final Set<String> RESERVED_KEYWORDS = ReservedKeywords.ALL;
 
     private final PrimitiveRegistry registry;
 
@@ -1914,6 +1910,7 @@ public final class WorkflowValidator {
         }
         var graph = UnitGraph.of(definition);
         var fillers = new LinkedHashMap<String, Set<String>>();
+        var firstRead = new LinkedHashMap<String, String>();
         for (var state : definition.states().values()) {
             var fills = state.fills();
             if (fills == null) {
@@ -1979,6 +1976,16 @@ public final class WorkflowValidator {
                             .location(state.location())
                             .message("the slot '%s' read at the call in '%s' is not filled on every path that reaches it"
                                     .formatted(slotRef.name(), state.id()))
+                            .build());
+                }
+                var earlier = firstRead.putIfAbsent(slotRef.name(), state.id());
+                if (earlier != null) {
+                    violations.add(Violation.builder()
+                            .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                            .stateId(state.id())
+                            .location(state.location())
+                            .message("the slot '%s' is read at '%s' after the read at '%s'; the first read consumes it"
+                                    .formatted(slotRef.name(), state.id(), earlier))
                             .build());
                 }
             }

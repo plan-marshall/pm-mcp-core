@@ -1257,4 +1257,159 @@ class WorkflowValidatorTest {
                             "every refusal is one of Rule 9"));
         }
     }
+
+    /**
+     * The reserved words the verifier reads are the parser's set, which is the specification's: a word the grammar leaves
+     * positional (`decide`, `quorum_term`, `phase`, `inherit`, `entry`) is a legal role name and a legal state-id
+     * segment.
+     */
+    @Nested
+    @DisplayName("Reserved words")
+    class ReservedWords {
+
+        @Test
+        @DisplayName("Should accept a role named decide, which the grammar does not reserve")
+        void shouldAcceptThePositionalKeywordAsARole() {
+            var result = validator.verify(unit("plan", """
+                    state verify.entry
+                        job llm change role decide ask
+                            approved -> verify.done
+                            lost -> verify.done
+                    """ + DONE_TERMINAL));
+
+            assertEquals(List.of(), result.violations(), "a positional keyword is a legal role name");
+        }
+    }
+
+    /**
+     * Rule 6 models the consumption of a slot: the bind removes the value at the first read, so a second read of the same
+     * slot can only fail at run time with {@code input_unbound}. The verifier refuses the second read instead.
+     */
+    @Nested
+    @DisplayName("Slot consumption")
+    class SlotConsumption {
+
+        private static final String TWO_INPUTS = """
+                ---
+                name: consume.two
+                description: A unit written for the verifier tests.
+                type: subworkflow
+                icon: workflow.default
+                entry: main
+                exit: done
+                input: first
+                input_type: commit_message[1..2000]
+                input: second
+                input_type: commit_message[1..2000]
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow consume.two version 1 format 1
+                scope subworkflow
+                entry main -> consume.wait
+
+                state consume.wait
+                    job test.build
+                        succeeded -> consume.done
+                        failed -> consume.stepped-out
+                        cancelled -> consume.stepped-out
+
+                state consume.done terminal done success
+
+                state consume.stepped-out terminal stepped_out stepped_out
+                """;
+
+        private final WorkflowValidator consumption = new WorkflowValidator(TestPrimitives.registry(),
+                List.of("verify.entry"), TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(),
+                SchemaRegistry.defaults(), WorkflowCatalog.of(VerifyFixtures.parseSource("consume-two.pmwf",
+                        TWO_INPUTS)));
+
+        @Test
+        @DisplayName("Should refuse a slot that two calls read")
+        void shouldRefuseTwoCalls() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill
+                            skipped -> verify.fill
+
+                    state verify.fill
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke
+                            lost -> verify.done
+
+                    state verify.invoke
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.invoke-again
+                            stepped_out -> plan.return
+
+                    state verify.invoke-again
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.invoke-again' after the read at"
+                            + " 'verify.invoke'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "the second read of the slot is refused");
+        }
+
+        @Test
+        @DisplayName("Should refuse a slot bound to two inputs of one call")
+        void shouldRefuseTwoInputsOfOneCall() {
+            var result = consumption.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill
+                            skipped -> verify.fill
+
+                    state verify.fill
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke
+                            lost -> verify.done
+
+                    state verify.invoke
+                        call consume.two(first = slot.message, second = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertTrue(result.violations().stream().map(Violation::message).anyMatch(message ->
+                            message.equals("the slot 'message' is read at 'verify.invoke' after the read at"
+                                    + " 'verify.invoke'; the first read consumes it")),
+                    "the second input of the call refuses the slot");
+        }
+
+        /**
+         * @param states the states of the plan unit
+         * @return the plan unit with one commit-message slot and the two terminals
+         */
+        private static WorkflowDefinition slotPlan(String states) {
+            return VerifyFixtures.parseSource("consume-plan.pmwf", """
+                    ---
+                    name: consume.plan
+                    description: A unit written for the verifier tests.
+                    type: workflow
+                    icon: workflow.default
+                    slot: message
+                    slot_type: commit_message[1..2000]
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
+                    workflow consume.plan version 1 format 1
+                    scope plan
+                    start verify.entry
+
+                    %s
+                    state plan.return terminal returned failure
+
+                    state verify.done terminal done success
+                    """.formatted(states));
+        }
+    }
 }

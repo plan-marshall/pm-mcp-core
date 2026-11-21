@@ -31,8 +31,10 @@ the path of a lost settlement too, and a state-level dominator would admit it.
 * A slot a call reads that is never filled in the unit is refused with its own message, so the two failures stay
   distinguishable.
 * The measurement: the check is one breadth-first walk per slot a call reads, linear in the states and transitions of the
-  unit; no separate benchmark was taken, so the cost is argued from the algorithm and measured only insofar as the
-  verifier suite, the largest fixture (`verify/passing/every-construct.pmwf`, 39 states) included, runs unchanged.
+  unit. It was measured on 2026-11-21 by `SlotDominanceCostTest` (`pm-workflow`): a plan unit of 2 006 states, whose
+  2 000-state bypass chain must be crossed before the walk finds the call it cannot dominate, verifies in 115 ms
+  (surefire testcase time, parse and verification together; bound 2 000 ms). The earlier suite-based argument is
+  superseded by that run.
 
 == Alternatives Considered
 

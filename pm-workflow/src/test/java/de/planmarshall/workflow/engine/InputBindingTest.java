@@ -405,6 +405,27 @@ class InputBindingTest {
         return Map.of("kind", raised.kind(), "facts", raised.facts());
     }
 
+    /**
+     * An engine over a clean unit whose version in force carries another unit, unverified: the shape a composed version
+     * reaches the bind through.
+     *
+     * @param clean   the unit the engine is built and verified with
+     * @param inForce the plan unit the version in force carries
+     * @param callee  the called unit
+     * @return the engine
+     */
+    private static WorkflowEngine versioned(WorkflowDefinition clean, WorkflowDefinition inForce,
+            WorkflowDefinition callee) {
+        var fixtures = new EngineFixtures();
+        InstanceUnits units = createMock(InstanceUnits.class);
+        expect(units.planUnit(1)).andReturn(Optional.of(inForce)).anyTimes();
+        expect(units.composedUnit(1, callee.id())).andReturn(Optional.of(callee)).anyTimes();
+        expect(units.subUnit(anyInt(), anyString())).andReturn(Optional.empty()).anyTimes();
+        replay(units);
+        return new WorkflowEngine(clean, WorkflowCatalog.of(callee), fixtures.validator(callee), fixtures.registry(),
+                (primitive, status) -> new EngineFixtures.NoParams(), fixtures.instancePorts(null, units));
+    }
+
     @Nested
     @DisplayName("The frame's identity")
     class FrameIdentity {
@@ -649,12 +670,12 @@ class InputBindingTest {
         @Test
         @DisplayName("Should refuse a second call that binds a consumed slot")
         void shouldRefuseAConsumedSlot() {
-            var fixtures = new EngineFixtures();
-            var message = generatedMessage();
-            var engine = fixtures.engine(slotPlan(FILL_AND_CALL_TWICE),
+            // the version in force carries the two-read unit, which Rule 6 refuses; the bind is the safety net
+            var engine = versioned(slotPlan(FILL_AND_CALL), slotPlan(FILL_AND_CALL_TWICE),
                     parse("sub.commit.pmwf", SUB_COMMIT));
-            var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
-            var first = engine.advance(atTask, submitted("message", message)).status();
+            var message = generatedMessage();
+            var atTask = engine.advance(EngineFixtures.planStatus("phase-1-init", "execute.fill", 1));
+            var first = engine.advance(atTask.status(), submitted("message", message)).status();
             var job = first.activeJobBinding().orElseThrow().jobId();
 
             var step = engine.advance(first, new EngineEvent.JobSettled(job, "succeeded"));
