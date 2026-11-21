@@ -670,9 +670,10 @@ class ProfileValidatorTest {
     @DisplayName("a document that carries both id members is refused at the canonical member")
     void bothIdMembersRefused() {
         var document = ProfileFixtures.valid().set("/client_id", "acme-cli").bytes();
+        var rules = ProfileRules.none();
 
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(document, DOCUMENT, ProfileRules.none()),
+                () -> ProfileValidator.validate(document, DOCUMENT, rules),
                 "both id members are refused");
 
         assertEquals("/harness_id", refusal.pointer(), "the refusal names the canonical member");

@@ -46,8 +46,8 @@ class HarnessVerificationBuilderContractTest {
                 .build();
 
         assertEquals(canonical, built, "the builder builds the constructor's value");
-        var refusal = assertThrows(NullPointerException.class,
-                () -> HarnessVerification.Request.builder().draft("{}").build(),
+        var partial = HarnessVerification.Request.builder().draft("{}");
+        var refusal = assertThrows(NullPointerException.class, partial::build,
                 "the builder refuses what the constructor refuses");
         assertEquals("state", refusal.getMessage(), "the refusal names the first missing component");
     }

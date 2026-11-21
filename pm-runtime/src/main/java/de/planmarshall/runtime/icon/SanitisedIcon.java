@@ -35,4 +35,20 @@ public record SanitisedIcon(IconMediaType mediaType, byte[] content) {
             throw new IllegalArgumentException("A sanitised icon carries its content");
         }
     }
+
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof SanitisedIcon icon && mediaType == icon.mediaType
+                && java.util.Arrays.equals(content, icon.content);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * mediaType.hashCode() + java.util.Arrays.hashCode(content);
+    }
+
+    @Override
+    public String toString() {
+        return "SanitisedIcon[mediaType=%s, content.length=%d]".formatted(mediaType, content.length);
+    }
 }

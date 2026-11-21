@@ -133,7 +133,7 @@ public final class IconStore {
         final long size;
         try {
             size = Files.size(file);
-        } catch (IOException unreadable) {
+        } catch (IOException _) {
             return Optional.empty();
         }
         if (size > IconSanitiser.MAX_BYTES || size != recorded.size()) {
@@ -142,7 +142,7 @@ public final class IconStore {
         final byte[] content;
         try (var stream = Files.newInputStream(file)) {
             content = stream.readNBytes((int) size + 1);
-        } catch (IOException unreadable) {
+        } catch (IOException _) {
             return Optional.empty();
         }
         if (content.length != size || !sha256(content).equals(recorded.sha256())) {
@@ -218,7 +218,7 @@ public final class IconStore {
         try {
             var uri = URI.create(sourceUrl);
             return HTTPS.equals(uri.getScheme()) && uri.getHost() != null && !uri.getHost().isEmpty();
-        } catch (IllegalArgumentException notAUri) {
+        } catch (IllegalArgumentException _) {
             return false;
         }
     }

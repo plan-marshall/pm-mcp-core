@@ -91,7 +91,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("writes a PNG icon with its extension and media type")
-    void writesPng() throws Exception {
+    void writesPng() {
         var harnessId = harnessId();
 
         var stored = store.accept(harnessId, "https://example.invalid/a.png", fetchedAt, PngFixtures.png());
@@ -204,11 +204,12 @@ class IconStoreTest {
     @Test
     @DisplayName("refuses a source URL without a host or with whitespace")
     void refusesAMalformedSource() {
+        var harnessId = harnessId();
         var withoutHost = assertThrows(IconRefusal.class,
-                () -> store.accept(harnessId(), "https:///a.svg", fetchedAt, SVG),
+                () -> store.accept(harnessId, "https:///a.svg", fetchedAt, SVG),
                 "a source URL without a host is refused");
         var withWhitespace = assertThrows(IconRefusal.class,
-                () -> store.accept(harnessId(), "https://example.invalid/a b.svg", fetchedAt, SVG),
+                () -> store.accept(harnessId, "https://example.invalid/a b.svg", fetchedAt, SVG),
                 "a source URL with whitespace is refused");
 
         assertAll(
@@ -220,8 +221,9 @@ class IconStoreTest {
     @Test
     @DisplayName("refuses a source that is not an https URL")
     void refusesNonHttpsSource() {
+        var harnessId = harnessId();
         var refusal = assertThrows(IconRefusal.class,
-                () -> store.accept(harnessId(), "http://example.invalid/a.svg", fetchedAt, SVG),
+                () -> store.accept(harnessId, "http://example.invalid/a.svg", fetchedAt, SVG),
                 "a source that is not https is refused");
 
         assertEquals(IconRefusal.SOURCE_URL_INVALID, refusal.code(), "the refusal names the source URL");
@@ -230,10 +232,11 @@ class IconStoreTest {
     @Test
     @DisplayName("refuses a source URL above the bound")
     void refusesASourceUrlAboveTheBound() {
+        var harnessId = harnessId();
         var sourceUrl = "https://example.invalid/" + "a".repeat(2048) + ".svg";
 
         var refusal = assertThrows(IconRefusal.class,
-                () -> store.accept(harnessId(), sourceUrl, fetchedAt, SVG),
+                () -> store.accept(harnessId, sourceUrl, fetchedAt, SVG),
                 "a source URL above 2048 characters is refused");
 
         assertEquals(IconRefusal.SOURCE_URL_INVALID, refusal.code(), "the refusal names the source URL");

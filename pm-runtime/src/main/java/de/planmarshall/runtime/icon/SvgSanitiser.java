@@ -16,8 +16,10 @@ import java.util.Locale;
 import java.util.Set;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import lombok.experimental.UtilityClass;
@@ -27,10 +29,11 @@ import lombok.experimental.UtilityClass;
  * <p>
  * The document is parsed with the JDK's StAX reader configured without a DTD and without external entities, and a
  * document that declares a DOCTYPE is refused before the reader sees it, so no entity expansion and no external DTD is
- * ever reached. The rendered result keeps only the elements and attributes of the allow-list: an element outside it is
- * refused, an attribute outside it is dropped, an {@code on*} attribute and a reference outside the document are
- * refused, and a {@code style} that reaches a URL or imports a sheet is refused. The rendered result is therefore the
- * allow-list of the input and nothing else, which is what the store writes and a client is served.
+ * ever reached. The rendered result keeps only the elements and attributes of the allow-list: an element outside it, or
+ * one in a namespace other than the SVG one, is refused, an attribute outside it is dropped, an {@code on*} attribute
+ * and a reference outside the document are refused, and a {@code style} that reaches a URL, imports a sheet or escapes a
+ * name is refused. The rendered result is therefore the allow-list of the input and nothing else, which is what the
+ * store writes and a client is served.
  * <p>
  * The closed lists grow only with a decision recorded in the package's ADR; a caller never adds to them.
  *
@@ -83,7 +86,7 @@ public class SvgSanitiser {
             } finally {
                 close(reader);
             }
-        } catch (XMLStreamException malformed) {
+        } catch (XMLStreamException _) {
             throw new IconRefusal(IconRefusal.SVG_MALFORMED, "The SVG does not parse as an XML document");
         }
     }
@@ -94,9 +97,8 @@ public class SvgSanitiser {
     private static void close(XMLEventReader reader) {
         try {
             reader.close();
-        } catch (XMLStreamException alreadyRefused) {
+        } catch (XMLStreamException _) {
             // the render's own refusal names the fault; a failing close never replaces it
-            return;
         }
     }
 
@@ -128,48 +130,69 @@ public class SvgSanitiser {
 
     private static String render(XMLEventReader reader) throws XMLStreamException {
         var out = new StringBuilder();
-        var depth = 0;
-        var elements = 0;
-        var rootSeen = false;
+        var rendered = new Rendered();
         while (reader.hasNext()) {
             var event = reader.nextEvent();
-            if (event.getEventType() == XMLEvent.DTD) {
+            if (event.getEventType() == XMLStreamConstants.DTD) {
                 throw new IconRefusal(IconRefusal.SVG_DOCTYPE, "An SVG that declares a DOCTYPE is refused");
             }
+            rendered.accept(out, event);
+        }
+        rendered.requireRoot();
+        return out.toString();
+    }
+
+    /** The rendered document's state: its depth, its element count and whether its root was seen. */
+    private static final class Rendered {
+
+        private int depth;
+        private int elements;
+        private boolean rootSeen;
+
+        private void accept(StringBuilder out, XMLEvent event) {
             if (event.isStartElement()) {
-                var element = event.asStartElement();
-                var local = element.getName().getLocalPart();
-                if (!rootSeen) {
-                    requireSvgRoot(local);
-                    rootSeen = true;
-                }
-                requireSvgNamespace(element);
-                requireAllowedElement(local);
-                depth++;
-                elements++;
-                if (depth > MAX_DEPTH) {
-                    throw new IconRefusal(IconRefusal.SVG_TOO_DEEP, "The SVG nests deeper than the bound");
-                }
-                if (elements > MAX_ELEMENTS) {
-                    throw new IconRefusal(IconRefusal.SVG_TOO_COMPLEX, "The SVG carries more elements than the bound");
-                }
-                out.append('<').append(local);
-                if (depth == 1) {
-                    out.append(" xmlns=\"").append(SVG_NAMESPACE).append('"');
-                }
-                appendAttributes(out, element);
-                out.append('>');
+                start(out, event.asStartElement());
             } else if (event.isEndElement()) {
-                depth--;
-                out.append("</").append(event.asEndElement().getName().getLocalPart()).append('>');
+                end(out, event.asEndElement());
             } else if (event.isCharacters()) {
                 escapeText(out, event.asCharacters().getData());
             }
         }
-        if (!rootSeen) {
-            throw new IconRefusal(IconRefusal.NOT_SVG_OR_PNG, "The document carries no SVG root element");
+
+        private void start(StringBuilder out, StartElement element) {
+            var local = element.getName().getLocalPart();
+            if (!rootSeen) {
+                requireSvgRoot(local);
+                rootSeen = true;
+            }
+            requireSvgNamespace(element);
+            requireAllowedElement(local);
+            depth++;
+            elements++;
+            if (depth > MAX_DEPTH) {
+                throw new IconRefusal(IconRefusal.SVG_TOO_DEEP, "The SVG nests deeper than the bound");
+            }
+            if (elements > MAX_ELEMENTS) {
+                throw new IconRefusal(IconRefusal.SVG_TOO_COMPLEX, "The SVG carries more elements than the bound");
+            }
+            out.append('<').append(local);
+            if (depth == 1) {
+                out.append(" xmlns=\"").append(SVG_NAMESPACE).append('"');
+            }
+            appendAttributes(out, element);
+            out.append('>');
         }
-        return out.toString();
+
+        private void end(StringBuilder out, EndElement element) {
+            depth--;
+            out.append("</").append(element.getName().getLocalPart()).append('>');
+        }
+
+        private void requireRoot() {
+            if (!rootSeen) {
+                throw new IconRefusal(IconRefusal.NOT_SVG_OR_PNG, "The document carries no SVG root element");
+            }
+        }
     }
 
     private static void requireSvgRoot(String local) {

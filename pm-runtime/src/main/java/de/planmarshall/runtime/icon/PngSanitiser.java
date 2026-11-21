@@ -17,7 +17,7 @@ import lombok.experimental.UtilityClass;
 
 /**
  * The PNG half of the icon accept step (Harness Profiles § Harness Icons; Store Schemas § Harness Icon Store): the
- * signature, the chunk structure and the stripping of the text chunks, so a stored image carries no free text.
+ * signature, the chunk structure and the stripping of the chunks that carry free text, so a stored image carries none.
  * <p>
  * The bytes are walked as the format defines them: eight signature bytes, then chunks of a length, a four-letter type,
  * the data and a CRC-32 over the type and the data. The first chunk must be {@code IHDR} with a positive width and
@@ -57,69 +57,18 @@ public class PngSanitiser {
 
     /**
      * @param candidate a PNG image, led by its signature
-     * @return the image with its text chunks stripped
+     * @return the image with the chunks that carry free text stripped
      * @throws IconRefusal if the signature, the chunk structure, a checksum or the boundaries are not those of a PNG
      */
     static byte[] sanitise(byte[] candidate) {
         var stripped = new ByteArrayOutputStream(candidate.length);
         stripped.writeBytes(SIGNATURE);
-        var position = SIGNATURE.length;
-        var sawHeader = false;
-        var sawData = false;
-        var sawEnd = false;
-        while (position < candidate.length) {
-            if (sawEnd) {
-                throw malformed("bytes follow the end chunk");
-            }
-            if (candidate.length - position < CHUNK_OVERHEAD) {
-                throw malformed("a chunk header is truncated");
-            }
-            var length = readInt(candidate, position);
-            if (length < 0 || length > candidate.length - position - CHUNK_OVERHEAD) {
-                throw malformed("a chunk length exceeds the document");
-            }
-            var type = new String(candidate, position + 4, 4, StandardCharsets.US_ASCII);
-            if (!isTypeName(type)) {
-                throw malformed("a chunk type is not four ASCII letters");
-            }
-            if (!CRITICAL.contains(type) && Character.isUpperCase(type.charAt(0))) {
-                throw malformed("an unknown critical chunk");
-            }
-            var storedCrc = readInt(candidate, position + 8 + length);
-            if (storedCrc != crc32(candidate, position + 4, 4 + length)) {
-                throw malformed("a chunk checksum differs");
-            }
-            if (!sawHeader) {
-                if (!"IHDR".equals(type) || length != HEADER_LENGTH) {
-                    throw malformed("the first chunk is not the header");
-                }
-                requirePositiveSize(candidate, position + 8);
-                sawHeader = true;
-            }
-            if ("IEND".equals(type)) {
-                if (length != 0) {
-                    throw malformed("the end chunk carries data");
-                }
-                sawEnd = true;
-            }
-            if (!STRIPPED.contains(type)) {
-                stripped.write(candidate, position, CHUNK_OVERHEAD + length);
-            }
-            if ("IDAT".equals(type)) {
-                sawData = true;
-            }
-            position += CHUNK_OVERHEAD + length;
-        }
-        if (!sawHeader || !sawData || !sawEnd) {
-            throw malformed("the header, the image data or the end chunk is missing");
-        }
+        new Walk(candidate, stripped).run();
         return stripped.toByteArray();
     }
 
-    private static void requirePositiveSize(byte[] candidate, int headerData) {
-        if (readInt(candidate, headerData) < 1 || readInt(candidate, headerData + 4) < 1) {
-            throw malformed("the image size is not positive");
-        }
+    private static IconRefusal malformed(String reason) {
+        return new IconRefusal(IconRefusal.PNG_MALFORMED, "Not a PNG image: " + reason);
     }
 
     private static boolean isTypeName(String type) {
@@ -143,7 +92,103 @@ public class PngSanitiser {
         return (int) crc.getValue();
     }
 
-    private static IconRefusal malformed(String reason) {
-        return new IconRefusal(IconRefusal.PNG_MALFORMED, "Not a PNG image: " + reason);
+    /** One walk over a PNG document: the bytes, the stripped output and the chunks seen so far. */
+    private static final class Walk {
+
+        private final byte[] candidate;
+        private final ByteArrayOutputStream stripped;
+        private int position = SIGNATURE.length;
+        private boolean header;
+        private boolean data;
+        private boolean end;
+
+        private Walk(byte[] candidate, ByteArrayOutputStream stripped) {
+            this.candidate = candidate;
+            this.stripped = stripped;
+        }
+
+        private void run() {
+            while (position < candidate.length) {
+                step();
+            }
+            if (!header || !data || !end) {
+                throw malformed("the header, the image data or the end chunk is missing");
+            }
+        }
+
+        private void step() {
+            if (end) {
+                throw malformed("bytes follow the end chunk");
+            }
+            var length = requireChunk();
+            var type = requireType();
+            requireKnown(type);
+            requireChecksum(length);
+            observe(type, length);
+            if (!STRIPPED.contains(type)) {
+                stripped.write(candidate, position, CHUNK_OVERHEAD + length);
+            }
+            position += CHUNK_OVERHEAD + length;
+        }
+
+        private int requireChunk() {
+            if (candidate.length - position < CHUNK_OVERHEAD) {
+                throw malformed("a chunk header is truncated");
+            }
+            var length = readInt(candidate, position);
+            if (length < 0 || length > candidate.length - position - CHUNK_OVERHEAD) {
+                throw malformed("a chunk length exceeds the document");
+            }
+            return length;
+        }
+
+        private String requireType() {
+            var type = new String(candidate, position + 4, 4, StandardCharsets.US_ASCII);
+            if (!isTypeName(type)) {
+                throw malformed("a chunk type is not four ASCII letters");
+            }
+            return type;
+        }
+
+        private void requireKnown(String type) {
+            if (!CRITICAL.contains(type) && Character.isUpperCase(type.charAt(0))) {
+                throw malformed("an unknown critical chunk");
+            }
+        }
+
+        private void requireChecksum(int length) {
+            if (readInt(candidate, position + 8 + length) != crc32(candidate, position + 4, 4 + length)) {
+                throw malformed("a chunk checksum differs");
+            }
+        }
+
+        private void observe(String type, int length) {
+            if (!header) {
+                requireHeader(type, length);
+                header = true;
+            }
+            if ("IDAT".equals(type)) {
+                data = true;
+            }
+            if ("IEND".equals(type)) {
+                requireEnd(length);
+                end = true;
+            }
+        }
+
+        private void requireHeader(String type, int length) {
+            if (!"IHDR".equals(type) || length != HEADER_LENGTH) {
+                throw malformed("the first chunk is not the header");
+            }
+            if (readInt(candidate, position + 8) < 1 || readInt(candidate, position + 12) < 1) {
+                throw malformed("the image size is not positive");
+            }
+        }
+
+        private void requireEnd(int length) {
+            if (length != 0) {
+                throw malformed("the end chunk carries data");
+            }
+        }
     }
 }
