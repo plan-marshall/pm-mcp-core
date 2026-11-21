@@ -48,5 +48,6 @@ A reason could travel the same way, as a member of the result record. A reason i
 == Source
 
 * Pull request of `PLAN-V2-19` (`engine-carries-reasons`), deliverables 1 and 2
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
 * link:../../../../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011]
 * link:../../developer/workflow-engine.adoc#_reasons_and_conditions[Workflow Engine Developer Guide § Reasons and Conditions]

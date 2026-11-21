@@ -41,5 +41,6 @@ else may raise the condition a reason maps to.
 == Source
 
 * Pull request of `PLAN-V2-19` (`engine-carries-reasons`), deliverable 1
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
 * link:../../../../pm-core/doc/adr/core-spi/010-the-reason-to-condition-table-is-total-and-closed.adoc[ADR core-spi/010]
 * link:../../developer/workflow-engine.adoc#_reasons_and_conditions[Workflow Engine Developer Guide § Reasons and Conditions]

@@ -57,6 +57,15 @@ The components converted by PLAN-V2-158 are, in `pm-core`, `ProfileStages.StartC
 * The codecs map `null` to the absent member exactly as they mapped the empty optional: no stored byte and no format
   version changes.
 * ADR 022 is superseded by this ADR; ADR 021's rule now covers the primitive optionals.
+* A behaviour change of the builders: a Lombok builder that omits one of these components now builds the record with
+  `null`, the absent state, where the omitted `OptionalInt` or `OptionalLong` was `null` before and the compact
+  constructor threw a `NullPointerException`; among them the builders of `EffectiveRole` (`idleWakeups`) and
+  `TransactionJournal.Target` (`sizeBefore`).
+* The rule beyond record components (amended 2026-11-21, PLAN-V2-163): this ADR is scoped to record components, and
+  the `Optional<T>` parameters and fields that remained after PLAN-V2-158 were converted to `@Nullable` under ADR 021's
+  rule — `HarnessUsage.fromEndpoint` and the field and parameter of `MetricsCodec` in `pm-core`, and
+  `WorkflowValidator.checkCompletionAdmission`, `FinalizeInvariants.describe` and the `HeaderRefusal` constructors of
+  `InstanceHeaderReader` in `pm-workflow`. No `Optional` parameter, field or record component of these sites remains.
 
 == Source
 
