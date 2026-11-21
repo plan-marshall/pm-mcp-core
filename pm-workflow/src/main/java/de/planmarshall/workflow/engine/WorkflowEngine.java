@@ -33,11 +33,14 @@ import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.Command;
 import de.planmarshall.core.spi.CommandSettlement;
 import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
+import de.planmarshall.core.spi.Provenance;
+import de.planmarshall.core.spi.Provenance.Trigger;
 import de.planmarshall.core.spi.QuestionRecordReader;
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead;
 import de.planmarshall.core.spi.QueueTaskCreator;
@@ -316,7 +319,7 @@ public final class WorkflowEngine {
      */
     public EngineStep start(JournalScopeType scopeType, @Nullable String scopeId) {
         var status = initialStatus(scopeType, scopeId);
-        return new Run(status).chain(startStateOf(unit).id());
+        return new Run(status, Provenance.of(Trigger.START)).chain(startStateOf(unit).id());
     }
 
     /**
@@ -342,7 +345,7 @@ public final class WorkflowEngine {
         Objects.requireNonNull(transaction, "transaction");
         Objects.requireNonNull(history, "history");
         var before = initialStatus(scopeType, scopeId);
-        var run = new Run(before, history, transaction);
+        var run = new Run(before, history, transaction, Provenance.of(Trigger.START));
         run.composeStart();
         return persisted(before, run.chain(startStateOf(run.unitOf(CallStack.empty())).id()), store, transaction);
     }
@@ -410,7 +413,7 @@ public final class WorkflowEngine {
             throw new IllegalArgumentException("the %s scope composes no plan instance"
                     .formatted(status.scopeType().wireName()));
         }
-        var run = new Run(status, history, transaction);
+        var run = new Run(status, history, transaction, null);
         var result = run.composeOperator(event);
         var composed = run.flush();
         store.write(transaction, composed);
@@ -447,7 +450,7 @@ public final class WorkflowEngine {
      *                                primitive returns an outcome its state does not route, or the chain does not end
      */
     public EngineStep advance(WorkflowStatus status) {
-        return advance(status, new Run(status));
+        return advance(status, new Run(status, Provenance.of(Trigger.RESUME)));
     }
 
     private EngineStep advance(WorkflowStatus status, Run run) {
@@ -483,7 +486,27 @@ public final class WorkflowEngine {
      * @throws InternalFaultException   see {@link #advance(WorkflowStatus)}
      */
     public EngineStep advance(WorkflowStatus status, EngineEvent event) {
-        return advance(status, event, new Run(status));
+        Objects.requireNonNull(event, "event");
+        return advance(status, event, new Run(status, provenanceOf(event)));
+    }
+
+    /**
+     * The cause of an advance an event resumes: the trigger of the event's kind, with the job id of a settled job, the
+     * question id of a resolved question, or {@code <state id>/<link id>} of an operator act as its reference.
+     *
+     * @param event the event that resumes the resting state
+     * @return the provenance of the commands the advance runs
+     */
+    static Provenance provenanceOf(EngineEvent event) {
+        return switch (event) {
+            case EngineEvent.JobSettled settled -> new Provenance(Trigger.JOB_SETTLED, settled.jobId());
+            case EngineEvent.TasksSettled _ -> Provenance.of(Trigger.TASKS_SETTLED);
+            case EngineEvent.QuestionResolved resolved ->
+                new Provenance(Trigger.QUESTION_RESOLVED, resolved.questionId());
+            case EngineEvent.OperatorAct act ->
+                new Provenance(Trigger.OPERATOR_ACT, act.stateId() + "/" + act.linkId());
+            case EngineEvent.TimeElapsed _ -> Provenance.of(Trigger.TIME_ELAPSED);
+        };
     }
 
     private EngineStep advance(WorkflowStatus status, EngineEvent event, Run run) {
@@ -527,11 +550,11 @@ public final class WorkflowEngine {
      * raised condition keeps neither.
      */
     private EngineStep chainOrRaise(WorkflowStatus status, Run run, Run.PrimitiveRun primitiveRun) {
-        if (primitiveRun.conditionKind() != null) {
-            return EngineStep.ConditionRaised.raise(status, primitiveRun.conditionKind(),
-                    Objects.requireNonNull(primitiveRun.facts(), "facts"), clock.now(), run.settlements());
-        }
-        return run.chain(primitiveRun.targetStateId());
+        return switch (primitiveRun) {
+            case Run.PrimitiveRun.Raised(var conditionKind, var facts) ->
+                EngineStep.ConditionRaised.raise(status, conditionKind, facts, clock.now(), run.settlements());
+            case Run.PrimitiveRun.Routed(var targetStateId) -> run.chain(targetStateId);
+        };
     }
 
     /**
@@ -587,7 +610,8 @@ public final class WorkflowEngine {
      * @throws InternalFaultException see {@link #advance(WorkflowStatus)}
      */
     public EngineStep advance(WorkflowStatus status, WorkflowStatusStore store, ScopeTransaction transaction) {
-        return persisted(status, advance(status, new Run(status, null, transaction)), store, transaction);
+        return persisted(status, advance(status, new Run(status, null, transaction, Provenance.of(Trigger.RESUME))),
+                store, transaction);
     }
 
     /**
@@ -605,7 +629,9 @@ public final class WorkflowEngine {
     public EngineStep advance(WorkflowStatus status, WorkflowStatusStore store, ScopeTransaction transaction,
             PlanHistory history) {
         Objects.requireNonNull(history, "history");
-        return persisted(status, advance(status, new Run(status, history, transaction)), store, transaction);
+        return persisted(status,
+                advance(status, new Run(status, history, transaction, Provenance.of(Trigger.RESUME))), store,
+                transaction);
     }
 
     /**
@@ -620,7 +646,9 @@ public final class WorkflowEngine {
      */
     public EngineStep advance(WorkflowStatus status, EngineEvent event, WorkflowStatusStore store,
             ScopeTransaction transaction) {
-        return persisted(status, advance(status, event, new Run(status, null, transaction)), store, transaction);
+        Objects.requireNonNull(event, "event");
+        return persisted(status, advance(status, event, new Run(status, null, transaction, provenanceOf(event))),
+                store, transaction);
     }
 
     /**
@@ -638,7 +666,9 @@ public final class WorkflowEngine {
     public EngineStep advance(WorkflowStatus status, EngineEvent event, WorkflowStatusStore store,
             ScopeTransaction transaction, PlanHistory history) {
         Objects.requireNonNull(history, "history");
-        return persisted(status, advance(status, event, new Run(status, history, transaction)), store, transaction);
+        Objects.requireNonNull(event, "event");
+        return persisted(status, advance(status, event, new Run(status, history, transaction, provenanceOf(event))),
+                store, transaction);
     }
 
     /**
@@ -647,7 +677,7 @@ public final class WorkflowEngine {
      */
     public Optional<RestingWait> restingWait(WorkflowStatus status) {
         Objects.requireNonNull(status, "status");
-        var run = new Run(status);
+        var run = new Run(status, null);
         var node = stateOf(run.unitOf(CallStack.fromStore(status.callStack())), status.state());
         return switch (node.behavior()) {
             case StateBehavior.InteractiveLinks _, StateBehavior.JobStep _, StateBehavior.ModelJob _,
@@ -712,7 +742,7 @@ public final class WorkflowEngine {
         if (stack.isEmpty()) {
             throw new IllegalStateException("the scope is in no sub-workflow; there is no frame to step out of");
         }
-        var run = new Run(status);
+        var run = new Run(status, Provenance.of(Trigger.STEP_OUT));
         var node = stateOf(run.unitOf(stack), status.state());
         if (!(node.behavior() instanceof StateBehavior.InteractiveLinks)) {
             throw new IllegalStateException("only a resting link state offers the step-out, not '%s'"
@@ -757,7 +787,7 @@ public final class WorkflowEngine {
             throw new IllegalArgumentException("the unit '%s' has no fallback state '%s'"
                     .formatted(unit.id(), fallbackStateId));
         }
-        var run = new Run(status.toBuilder().pendingCondition(null).build());
+        var run = new Run(status.toBuilder().pendingCondition(null).build(), Provenance.of(Trigger.FALLBACK));
         run.unwindAll();
         return run.chain(fallbackStateId);
     }
@@ -985,18 +1015,23 @@ public final class WorkflowEngine {
         /** The settlements of the primitives this advance ran, in run order; the step of the advance copies them. */
         private final List<CommandSettlement> settlements = new ArrayList<>();
 
-        Run(WorkflowStatus status) {
-            this(status, null, null);
-        }
-
-        /** The correlation id of this advance: one per Run, shared by every frame it pushes. */
+        /** The correlation id of this advance: one per Run, shared by every frame it pushes and every command it runs. */
         private final CorrelationId correlationId;
 
-        Run(WorkflowStatus status, @Nullable PlanHistory history, @Nullable ScopeTransaction transaction) {
+        /** The cause of this advance, which every command it runs carries; {@code null} for a run that runs none. */
+        private final @Nullable Provenance provenance;
+
+        Run(WorkflowStatus status, @Nullable Provenance provenance) {
+            this(status, null, null, provenance);
+        }
+
+        Run(WorkflowStatus status, @Nullable PlanHistory history, @Nullable ScopeTransaction transaction,
+                @Nullable Provenance provenance) {
             this.status = status;
             this.stack = CallStack.fromStore(status.callStack());
             this.history = history;
             this.transaction = transaction;
+            this.provenance = provenance;
             this.instanceVersion = status.instanceVersionInForce().orElse(1);
             this.correlationId = CorrelationId.random(ids);
             for (var index = 0; index < stack.depth(); index++) {
@@ -1230,12 +1265,13 @@ public final class WorkflowEngine {
                 spawnedJobId = null;
                 switch (node.behavior()) {
                     case StateBehavior.AutoStep auto -> {
-                        var run = runPrimitive(node, auto.primitiveId(), auto.transitions());
-                        if (run.conditionKind() != null) {
-                            return EngineStep.ConditionRaised.raise(finish(), run.conditionKind(),
-                                    Objects.requireNonNull(run.facts(), "facts"), clock.now(), settlements);
+                        switch (runPrimitive(node, auto.primitiveId(), auto.transitions())) {
+                            case PrimitiveRun.Raised(var conditionKind, var facts) -> {
+                                return EngineStep.ConditionRaised.raise(finish(), conditionKind, facts, clock.now(),
+                                        settlements);
+                            }
+                            case PrimitiveRun.Routed(var targetStateId) -> stateId = targetStateId;
                         }
-                        stateId = run.targetStateId();
                     }
                     case StateBehavior.SubWorkflowCall call -> {
                         var outcome = call(node, call);
@@ -1497,20 +1533,32 @@ public final class WorkflowEngine {
 
         /**
          * Runs the primitive of an {@code auto} state, or of a composite job state its event resumes, and selects the
-         * transition of the returned outcome. A reason the outcome does not declare is a fault; a reason that maps to a
-         * condition kind raises that condition instead of the transition: the result's facts are not merged, no job is
-         * bound, no {@code left} line is recorded and no transition is taken.
+         * transition of the returned outcome. The primitive runs as a {@link Command}: the record the binder returns is
+         * its input, with a fresh command id, the correlation id and the provenance of the advance. A reason the outcome
+         * does not declare is a fault; a reason that maps to a condition kind raises that condition instead of the
+         * transition: the result's facts are not merged, no job is bound, no {@code left} line is recorded and no
+         * transition is taken. Either exit appends one {@link CommandSettlement} of the run to the advance.
          *
          * @param operatorParameters the operator's submission for an operator link's free parameters; empty otherwise
          * @return the target of that transition, or the condition to raise instead of it
+         * @throws NullPointerException if the run carries no provenance: a primitive never runs without a cause
          */
         PrimitiveRun runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions,
                 Map<String, String> operatorParameters) {
+            var cause = Objects.requireNonNull(provenance, "provenance");
             var primitive = primitiveOf(primitiveId);
             var parameters = Objects.requireNonNull(binder.bind(primitive, status, operatorParameters), "parameters");
+            var command = Command.builder()
+                    .commandId(CommandId.random(ids))
+                    .correlationId(correlationId)
+                    .primitiveId(primitive.id())
+                    .input(parameters)
+                    .provenance(cause)
+                    .issuedAt(clock.now())
+                    .build();
             var scopeId = Optional.ofNullable(status.scopeId());
             WorkflowExecutionContext context = () -> scopeId;
-            PrimitiveResult<?> result = execute(primitive, context, parameters);
+            PrimitiveResult<?> result = execute(primitive, context, command.input());
             if (!primitive.outcomeType().isInstance(result.outcome())) {
                 throw fault(Reason.UNDECLARED_OUTCOME, "the primitive '%s' of the state '%s' returned %s",
                         primitive.id(), node.id(), result.outcome());
@@ -1520,7 +1568,8 @@ public final class WorkflowEngine {
             var reason = result.reason();
             var conditionKind = reason == null ? Optional.<String>empty() : reason.conditionKind();
             if (reason != null && conditionKind.isPresent()) {
-                return PrimitiveRun.raised(conditionKind.get(),
+                settle(command, result, conditionKind.get());
+                return new PrimitiveRun.Raised(conditionKind.get(),
                         conditionFacts(primitive.id(), outcome, reason.wireName(), result.updatedFacts()));
             }
             if (!results.isEmpty()) {
@@ -1528,7 +1577,29 @@ public final class WorkflowEngine {
             }
             spawnedJobId = result.spawnedJobId();
             leave(node, outcome, reason == null ? null : reason.wireName());
-            return PrimitiveRun.routed(transitionOf(node, transitions, outcome, Map.of()).targetStateId());
+            var targetStateId = transitionOf(node, transitions, outcome, Map.of()).targetStateId();
+            settle(command, result, null);
+            return new PrimitiveRun.Routed(targetStateId);
+        }
+
+        /**
+         * Appends the settlement of one run to the advance: the command, the outcome, its class and reason, the raw
+         * facts, the job the result reported, and the condition the reason raised.
+         *
+         * @param raisedCondition the condition kind the reason raised; {@code null} on the routed exit
+         */
+        private void settle(Command command, PrimitiveResult<?> result, @Nullable String raisedCondition) {
+            var reason = result.reason();
+            settlements.add(CommandSettlement.builder()
+                    .command(command)
+                    .outcome(result.outcome().wireName())
+                    .outcomeClass(result.outcome().outcomeClass())
+                    .reason(reason == null ? null : reason.wireName())
+                    .facts(result.updatedFacts())
+                    .spawnedJobId(result.spawnedJobId())
+                    .raisedCondition(raisedCondition)
+                    .settledAt(clock.now())
+                    .build());
         }
 
         /**
@@ -1555,20 +1626,24 @@ public final class WorkflowEngine {
         /**
          * What running a primitive ends in: the target of the transition of its outcome, or the condition its reason
          * maps to, raised instead of the transition.
-         *
-         * @param targetStateId the target of the transition; {@code null} when a condition is raised
-         * @param conditionKind the condition kind the reason maps to; {@code null} when the transition is taken
-         * @param facts         the facts of the condition; {@code null} when the transition is taken
          */
-        private record PrimitiveRun(@Nullable String targetStateId, @Nullable String conditionKind,
-        @Nullable Map<String, String> facts) {
+        private sealed interface PrimitiveRun {
 
-            static PrimitiveRun routed(String targetStateId) {
-                return new PrimitiveRun(targetStateId, null, null);
+            /**
+             * The transition of the outcome is taken.
+             *
+             * @param targetStateId the target of the transition
+             */
+            record Routed(String targetStateId) implements PrimitiveRun {
             }
 
-            static PrimitiveRun raised(String conditionKind, Map<String, String> facts) {
-                return new PrimitiveRun(null, conditionKind, facts);
+            /**
+             * The condition the reason maps to is raised instead of the transition.
+             *
+             * @param conditionKind the condition kind the reason maps to
+             * @param facts         the facts of the condition
+             */
+            record Raised(String conditionKind, Map<String, String> facts) implements PrimitiveRun {
             }
         }
 
