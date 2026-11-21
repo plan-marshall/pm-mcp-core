@@ -195,7 +195,7 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf 
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-25-command-record-and-dispatch.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-25-command-record-and-dispatch.md"
 ```
 
 ## Write-Boundary
