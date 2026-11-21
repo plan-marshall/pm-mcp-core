@@ -32,8 +32,8 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * <p>
  * A recycle ends the generation by the answer {@code end} to its next wait, never in the middle of a task: every
  * decision here hands the generation to {@link WorkerEnding} through {@link EndCause#RECYCLE}, so the one end path
- * fences, revokes, releases the slot, writes the terminal state and starts a successor when work remains. Each recycle
- * logs {@code WORKER_GENERATION_RECYCLED} once with its {@link RecycleCause}.
+ * fences, revokes, releases the slot, records the ended generation and starts a successor when work remains. Each
+ * recycle logs {@code WORKER_GENERATION_RECYCLED} once with its {@link RecycleCause}.
  * <p>
  * A generation that reached the budget while it holds its task for an answer ends its hold before the recycle, through
  * {@link WorkerProtocol#holdEnded}: the task protocol decides there whether the task is suspended or falls back, and it

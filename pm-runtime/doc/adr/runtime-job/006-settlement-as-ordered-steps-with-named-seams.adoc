@@ -11,8 +11,9 @@ Accepted
 
 == Context
 
-The specification fixes the write order at the end of a job: the fate of the job record first (for a worker with the
-revocation of its token and the fence of its generation), then the worker queue task, the metrics row, the
+The specification fixes the write order at the end of a job: the fate of the job record first (for a worker with its
+terminal worker block; the specification of this ADR's date also placed the revocation of its token and the fence of
+its generation in that write, which it no longer does, see the Decision), then the worker queue task, the metrics row, the
 change-ledger row and the timing observation, then the release of the build or model slot, and last the removal of a
 worker's job-private directory. A crash between two writes may lose only what the order allows; a released slot must
 never precede the recorded fate. Of these stores, this repository has the job record store and the machine lease

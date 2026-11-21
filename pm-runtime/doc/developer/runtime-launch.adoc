@@ -60,7 +60,7 @@ where the digest changed, the update evidence and then the version probe. An acc
 and is audited `harness_updated`; every other case returns a `HarnessVerification.Refused` carrying a `LaunchRefusal`.
 
 `JobTokenStore`::
-Resolves a presented token's SHA-256 to the generation it was minted for, and revokes the token with the job's fate. The
+Resolves a presented token's SHA-256 to the generation it was minted for, and revokes the token when the supervision pass has read the job's settled fate. The
 token itself is never stored.
 
 `WorkerStart` (in `runtime.job`)::
