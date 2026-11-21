@@ -3,11 +3,11 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-01
 origin: the three-layer analysis of the landing of PLAN-V2-157 (`landings/PLAN-V2-157.md`, 2026-11-20, PR #522 merged as `d65dbc66`) and the operator's rule that leftovers go into a staged plan
-lane: plan-marshall
+lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-164-call-bind-closeout.md` and is queued as one row file, `queue/PLAN-V2-164.json`,
-> in the epic ledger (lane `plan-marshall`: a medium plan, run with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
 > authored here and the epic-wide rules are in `standing-rules.md`, read first.
@@ -93,7 +93,7 @@ Source, tests, specification and documentation (specific files, R19):
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-164-call-bind-closeout.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-164-call-bind-closeout.md
 ```
 
 ## Write-Boundary
