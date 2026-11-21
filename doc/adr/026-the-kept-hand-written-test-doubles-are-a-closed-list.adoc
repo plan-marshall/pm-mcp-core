@@ -185,6 +185,24 @@ lists the outcome enums of `EngineFixtures`, `TestPrimitives` and `InvariantFixt
   fixtures of `ReasonPrimitives` the baseline already lists. The registry reads the outcome set and the reason set from
   enum classes, so the same type-system constraint holds; no conversion is possible.
 
+=== The 2026-11-21 amendment
+
+A pull request of PLAN-V2-163 (`core-and-doc-statement-residue`, deliverable 4, item 31d) adds two more enums to the
+scan's population of `pm-core`, by the operator's decision of 2026-11-21 to amend this ADR. They are the two additions
+of this plan to the closed list, and, like those of the 2026-11-20 amendment, they are no doubles by this ADR's
+definition (an enum constant keeps no state and records no call) but are listed by the scan because they implement
+production interfaces.
+
+* `pm-core` `spi.ReasonPrimitives.NumberConditionReason` and `NumberConditionReasonOutcome` — the refusal case of a
+  reason whose condition kind is a number: `NumberConditionReason#conditionKind()` hands a number out through a raw
+  `OutcomeReason`, the way code compiled against the raw type can, and the registry has a branch that refuses it. The
+  registry reads the outcome set and the reason set from enum classes, and `PrimitiveOutcome#reasonType()` answers an
+  enum class of `OutcomeReason`, so the same type-system constraint holds as for the fixtures above: EasyMock cannot
+  create an enum, and an enum is what the registry needs to reach that branch with a numeric condition kind. No
+  conversion is possible. Both sit beside the other malformed reason fixtures of `ReasonPrimitives` (for example
+  `NullConditionReason` and `UnmappableConditionReason`) and carry a line each in
+  `pm-core/src/test/resources/hand-written-doubles.txt`, so the scan baseline entry exists.
+
 == Alternatives Considered
 
 * *Keep the open vocabulary with a stated reason per class.* Not taken: that is PLAN-V2-106's rule, and the analysis
