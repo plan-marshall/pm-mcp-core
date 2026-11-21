@@ -29,6 +29,13 @@ The existing `ConventionalCommitValidator` of `pm-core` already refuses a `Co-Au
   when a stored value, local then machine, is used; `default` when the compiled default is used and no stored value was
   refused; `invalid_ignored` when a stored value broke the constraints of the key and was treated as absent. The source
   is returned for the audit record and is never rendered in facts.
+* The carrier of the source is the fact `trailer_source` of the outcome `committed` of `git.stage-and-commit`
+  (`GitStageAndCommitPrimitive.TRAILER_SOURCE_FACT`), the map `{name, email}` of the two `TrailerSource` wire names
+  (`CommitTrailer.Resolution.sourceFact()`). It is the smallest carrier that reaches the audit record: the decision of
+  the plan returns the source as a fact, `PrimitiveResult` has no other component that could hold it, and a new
+  `CommitSite` method would add a write path to a port that only reads. The fact holds no value of the trailer and no
+  state names it in a `facts` clause, so it is never rendered; only `committed` carries it, because only a commit has a
+  trailer to account for.
 * `CoAuthoredBySourceScanTest` guards the rule: it finds the key in no production source of the module but
   `CommitMessages.java`, with a matched control that the scan sees the one occurrence there.
 
@@ -38,6 +45,8 @@ The existing `ConventionalCommitValidator` of `pm-core` already refuses a `Co-Au
   silent strip would hide a message that tried to name another co-author.
 * *Resolve the trailer as a whole, not per half.* Not taken: a valid stored name beside a refused stored email would lose
   the valid half.
+* *Hand the source to the site through a new `CommitSite` method.* Not taken: the port is the primitives' read side,
+  and a fact of the result already reaches the audit record without a second channel.
 
 == Consequences
 

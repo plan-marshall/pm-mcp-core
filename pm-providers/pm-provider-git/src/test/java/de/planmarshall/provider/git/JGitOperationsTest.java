@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.treewalk.TreeWalk;
@@ -40,6 +41,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -259,6 +262,121 @@ class JGitOperationsTest {
                     () -> assertEquals(GitOutcome.PATH_REFUSED, magic.outcome(),
                             "a pathspec magic is no commit path"),
                     () -> assertEquals(":(exclude)x", magic.detail(), "the refusal names the magic"));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("commits a name with bracket, star and question mark as that literal file")
+        void commitsGlobCharactersLiterally() throws Exception {
+            var stem = names.next();
+            // the specification's example of a literal path (Stage 4), beside a file its glob reading would match
+            var bracket = "app/[" + stem + "]/page.tsx";
+            var bracketMatch = "app/" + stem.charAt(0) + "/page.tsx";
+            var star = stem + "*.txt";
+            var starMatch = stem + "x.txt";
+            var question = stem + "?.md";
+            var questionMatch = stem + "q.md";
+            for (var path : List.of(bracket, bracketMatch, star, starMatch, question, questionMatch)) {
+                write(path, text());
+            }
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(bracket, star, question)));
+
+            var commit = result.value();
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the literal names are committed"),
+                    () -> assertTrue(inCommit(commit.id(), bracket), "the bracket name is committed literally"),
+                    () -> assertTrue(inCommit(commit.id(), star), "the star name is committed literally"),
+                    () -> assertTrue(inCommit(commit.id(), question), "the question mark name is committed"),
+                    () -> assertFalse(inCommit(commit.id(), bracketMatch), "the bracket glob matches nothing"),
+                    () -> assertFalse(inCommit(commit.id(), starMatch), "the star glob matches nothing"),
+                    () -> assertFalse(inCommit(commit.id(), questionMatch), "the question glob matches nothing"));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("commits a name shaped like an option as that literal file")
+        void commitsAnOptionShapedNameLiterally() throws Exception {
+            // the option form of the specification's example, which JGit reads as a plain name
+            var option = "-rf" + names.next();
+            write(option, text());
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(option)));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the option-shaped name is committed"),
+                    () -> assertTrue(inCommit(result.value().id(), option), "the option-shaped name is in the tree"));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("commits a symbolic link to a directory as the link, not the directory")
+        void commitsALinkToADirectory() throws Exception {
+            var directory = names.next();
+            var below = directory + "/" + file();
+            var link = names.next();
+            write(below, text());
+            Files.createSymbolicLink(repo.resolve(link), Path.of(directory));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(link)));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the link to a directory is committed"),
+                    () -> assertEquals(FileMode.SYMLINK, modeInCommit(result.value().id(), link),
+                            "the link is recorded as a link"),
+                    () -> assertFalse(inCommit(result.value().id(), below), "nothing below the target is committed"));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("commits a dangling symbolic link as the link")
+        void commitsADanglingLink() throws Exception {
+            var link = names.next();
+            Files.createSymbolicLink(repo.resolve(link), Path.of(names.next()));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(link)));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the dangling link is committed"),
+                    () -> assertEquals(FileMode.SYMLINK, modeInCommit(result.value().id(), link),
+                            "the dangling link is recorded as a link"));
+        }
+
+        @Test
+        @DisplayName("refuses an absolute, a parent, an outside and a non-normal path")
+        void refusesPathsOutsideTheRoot() {
+            var name = file();
+            // the contract's examples of paths that name no file of the root
+            var absolute = repo.resolve(name).toAbsolutePath().toString();
+            var parent = "../" + name;
+            var outside = names.next() + "/../../" + name;
+            var nonNormal = names.next() + "/./" + name;
+            var trailing = names.next() + "/";
+
+            assertAll(
+                    () -> assertRefused(absolute, "an absolute path is refused"),
+                    () -> assertRefused(parent, "a parent-relative path is refused"),
+                    () -> assertRefused(outside, "a path leaving the root is refused"),
+                    () -> assertRefused(nonNormal, "a path with a dot segment is refused"),
+                    () -> assertRefused(trailing, "a path with an empty segment is refused"),
+                    () -> assertEquals(1, git.log(repo, HEAD, 5).value().size(),
+                            "no refused path reached a commit"));
+        }
+
+        private void assertRefused(String path, String message) {
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(path)));
+            assertEquals(GitOutcome.PATH_REFUSED, result.outcome(), message);
+            assertEquals(path, result.detail(), "the refusal names the refused path");
+        }
+
+        private FileMode modeInCommit(String commitId, String path) throws Exception {
+            try (var jgit = Git.open(repo.toFile())) {
+                var tree = jgit.getRepository().parseCommit(jgit.getRepository().resolve(commitId)).getTree();
+                try (var walk = TreeWalk.forPath(jgit.getRepository(), path, tree)) {
+                    assertNotNull(walk, "the path is in the committed tree");
+                    return walk.getFileMode(0);
+                }
+            }
         }
 
         @Test

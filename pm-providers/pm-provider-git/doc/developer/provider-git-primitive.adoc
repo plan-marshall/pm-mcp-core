@@ -98,14 +98,20 @@ a control character other than a line break — C0, DEL and C1, ESC and NUL amon
 `CommitMessages.withTrailer(String, CommitTrailer)` is the only writer of the trailer line in the production code of this
 module. It returns `Appended` with the message, one blank line, `Co-Authored-By: {name} <{email}>` and one final line feed,
 or `Refused` naming the line of a trailer the message already holds — in any case, at any position, whatever it names
-(link:{adr}/004-the-trailer-is-appended-by-commit-messages-alone.adoc[ADR 004]).
+(link:{adr}/004-the-trailer-is-appended-by-commit-messages-alone.adoc[ADR 004]). Both methods split each line also at
+U+0085, U+2028 and U+2029 before they look for the trailer, since `String.lines()` does not split there and the
+validator's line match does not run across them; a trailer such a terminator ends or precedes is found and refused.
+The message is delimited by line feeds, never by the platform's line separator.
 
 `CommitTrailer.resolve(local, machine)` resolves the name and the email each on its own: the local value, else the
 machine value, else the compiled default `plan-marshall <noreply@cuioss.de>`. A stored value that breaks the constraints
 of its half (a name of 1 to 128 characters without `<`, `>`, CR or LF; an email of at most 254 characters of the form
 `local@domain` without `<`, `>` or white space) is passed over as absent. Each half reports its `TrailerSource`:
 `configured`, `default`, or `invalid_ignored` when a stored value was refused and none later was used. The source is for
-the commit's audit record and is never rendered in facts.
+the commit's audit record and is never rendered in facts: `git.stage-and-commit` returns it on `committed` as the fact
+`trailer_source`, the map `{name, email}` of the two source wire names (`CommitTrailer.Resolution.sourceFact()`), which
+holds no value of the trailer and which no state names in a `facts` clause
+(link:{adr}/004-the-trailer-is-appended-by-commit-messages-alone.adoc[ADR 004]).
 
 [#_the_staging_set_and_the_footprint_check]
 == The Staging Set and the Footprint Check
@@ -196,7 +202,8 @@ The message reaches the repository in memory through the contract (`PM-EXEC-5`);
 |===
 |Outcome |Class |Meaning
 
-|`committed` |`SUCCESS` |The files are committed; the fact `commit` names the commit.
+|`committed` |`SUCCESS` |The files are committed; the fact `commit` names the commit and `trailer_source` the
+provenance of its trailer for the audit record.
 |`nothing_to_commit` |`SKIP` |Nothing of the staging set is left to commit.
 |`hook_failed` |`FAILURE` |A repository hook of the CLI variant refused the commit; `git.commit-fix` follows. Hooks run
 only in the CLI variant, which this module does not build, so the native variant never returns it.
@@ -254,8 +261,8 @@ module's generator artifact.
 
 [horizontal]
 link:{test}/CommitMessagesTest.java[`CommitMessagesTest`]:: A message without type, a blank one, one of 2001 characters, a
-lone surrogate, a control character and a trailer line in any case and position are refused naming the line; the result
-holds exactly one trailer.
+lone surrogate, a control character and a trailer line in any case and position, also one ended by U+0085, U+2028 or
+U+2029, are refused naming the line; the result holds exactly one trailer.
 link:{test}/CommitTrailerTest.java[`CommitTrailerTest`]:: The three trailer sources per half and `invalid_ignored` for an
 angle bracket, a line break and an empty value.
 link:{test}/StagingSetsTest.java[`StagingSetsTest`]:: The staging set per scope with a path outside, `..`, an absolute
@@ -274,7 +281,9 @@ link:{test}/GitStageAndCommitPrimitiveTest.java[`GitStageAndCommitPrimitiveTest`
 temporary repository: a plan commits exactly the listed files and leaves an unrelated dirty file, a path outside the
 worktree is a footprint violation before any staging, an epic stages `.marshall/archived-epics/**` only while it
 archives, exactly one trailer with author and committer read back through `GitOperations.log`, a trailer line and a
-header without type are `message_refused`, nothing staged is `nothing_to_commit`, and every `GitOutcome` is mapped with
+header without type are `message_refused`, nothing staged is `nothing_to_commit`, `committed` carries `trailer_source`
+for a local, a machine and no stored trailer and for a refused name (`invalid_ignored`), without a value of the trailer,
+and no other outcome carries it, and every `GitOutcome` is mapped with
 its facts by a test derived from `GitOutcome.values()` at run time, `CAPABILITY_MISSING` to `commit_failed`.
 link:{test}/CoAuthoredBySourceScanTest.java[`CoAuthoredBySourceScanTest`]:: The trailer key in no production source but
 `CommitMessages.java`, with the control that the scan sees the one occurrence there.

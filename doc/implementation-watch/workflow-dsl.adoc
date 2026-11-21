@@ -632,9 +632,15 @@ pathspecs (`--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`)
 Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound. The glob half is
 settled: `PathRules` and the provider admit `*`, `?` and `[`, and `JGitOperationsTest` (`TheGlobRefusalPremise`, the commit
 of `pages/[id].tsx`) shows the native variant stages such a name literally (link:../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
-workflow-input/006]). Owed: a fixture whose dirty worktree holds files named `:(glob)**` and `-rf` (beside the
-`pages/[id].tsx` the native variant now commits), which both variants stage as exactly those files (matched control: no
-other file of the worktree is staged); the CLI half belongs to the assembly that ships the CLI variant.
+workflow-input/006]). The native half is built: `JGitOperations.commit` reads no character of a path as a glob and
+refuses a pathspec magic (a path that begins with `:`) and a path that is no literal file path of the root (empty,
+absolute, outside the root, not in normal form, a backslash, a control character, a directory;
+link:../../pm-providers/pm-provider-git/doc/adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR provider-git 004], amendment), and `JGitOperationsTest` commits files named
+`app/[<name>]/page.tsx`, `<name>*.txt` and `<name>?.md` as exactly those files beside the files their glob reading would
+match (the matched control: those stay uncommitted), and a file named `-rf<name>` as that file.
+Owed: the CLI half, the same fixture staged through `--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`,
+belongs to the assembly that ships the CLI variant. A refusal of the glob characters `*`, `?` and `[` in either variant
+or in `PathRules` fails the fixture.
 Source:: design review (PLAN-V2-15).
 
 [#PM-WATCH-DSL-42]

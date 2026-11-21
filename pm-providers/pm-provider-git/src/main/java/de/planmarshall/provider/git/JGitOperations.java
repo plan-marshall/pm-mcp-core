@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -454,30 +455,55 @@ public final class JGitOperations implements GitOperations {
     }
 
     /**
-     * Refuses a path JGit would expand beyond itself before anything is staged: a directory (its pathspec is
-     * prefix-based and would commit every path below it), a git pathspec magic and a path that is no legal path of the
-     * file system. A glob character is admitted: both staging variants stage a path literally, so a file named
-     * {@code pages/[id].tsx} is committed under that name (link:../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
+     * Refuses, before anything is staged, a path that is no literal repository path of one file: an empty path, a git
+     * pathspec magic (a path that begins with {@code :}), an absolute one, one with a backslash, a control character or
+     * an empty, {@code .} or {@code ..} segment, one that normalises to outside the root, one that is no legal path of
+     * the file system, and a directory (JGit's pathspec is prefix-based and would commit every path below it). The
+     * directory check does not follow a final symbolic link: git records a link as a link, so a link to a directory is
+     * committed as that link.
+     * <p>
+     * The glob characters {@code *}, {@code ?} and {@code [} are admitted: JGit's {@code addFilepattern} and
+     * {@code setOnly} stage a path literally, so a file named {@code app/[slug]/page.tsx} is committed under that name
+     * (link:../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
      * workflow-input/006]); the bind admits the same characters.
      *
      * @param root  the worktree root
      * @param paths the repository-relative paths to stage and commit
-     * @return the first refused path, empty when every path is a plain file path
+     * @return the first refused path, empty when every path is a literal file path
      */
     private static Optional<String> refusedCommitPath(Path root, List<String> paths) {
         for (var path : paths) {
-            if (path.isEmpty() || path.startsWith(":") || path.indexOf('\\') >= 0) {
-                return Optional.of(path);
-            }
-            try {
-                if (Files.isDirectory(root.resolve(path))) {
-                    return Optional.of(path);
-                }
-            } catch (InvalidPathException _) {
+            if (isRefusedPathText(path) || isRefusedLocation(root, path)) {
                 return Optional.of(path);
             }
         }
         return Optional.empty();
+    }
+
+    /** The textual refusals: empty, pathspec magic, absolute, a backslash, a control character, a non-normal segment. */
+    private static boolean isRefusedPathText(String path) {
+        if (path.isEmpty() || path.startsWith(":") || path.startsWith("/") || path.indexOf('\\') >= 0
+                || path.chars().anyMatch(Character::isISOControl)) {
+            return true;
+        }
+        return Arrays.stream(path.split("/", -1))
+                .anyMatch(segment -> segment.isEmpty() || ".".equals(segment) || "..".equals(segment));
+    }
+
+    /** The file-system refusals: no legal path, absolute on this platform, outside the root, a directory. */
+    private static boolean isRefusedLocation(Path root, String path) {
+        try {
+            var relative = root.getFileSystem().getPath(path);
+            if (relative.isAbsolute()) {
+                return true;
+            }
+            var normalRoot = root.toAbsolutePath().normalize();
+            var resolved = normalRoot.resolve(relative).normalize();
+            return !resolved.startsWith(normalRoot) || resolved.equals(normalRoot)
+                    || Files.isDirectory(resolved, LinkOption.NOFOLLOW_LINKS);
+        } catch (InvalidPathException _) {
+            return true;
+        }
     }
 
     /**

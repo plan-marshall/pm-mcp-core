@@ -10,6 +10,7 @@
 package de.planmarshall.provider.git.primitive;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -139,7 +140,8 @@ public record CommitTrailer(String name, String email) {
 
     /**
      * The resolved trailer and the provenance of each half, recorded as {@code trailer_source: {name, email}} in the
-     * commit's audit record and never rendered in facts.
+     * commit's audit record and never rendered in facts. {@code git.stage-and-commit} returns it on {@code committed}
+     * as the fact {@code trailer_source} in the shape of {@link #sourceFact()}.
      *
      * @param trailer     the resolved trailer
      * @param nameSource  where the name came from
@@ -147,6 +149,12 @@ public record CommitTrailer(String name, String email) {
      * @since 0.1
      */
     public record Resolution(CommitTrailer trailer, TrailerSource nameSource, TrailerSource emailSource) {
+
+        /** The key of the name half in {@link #sourceFact()}. */
+        public static final String NAME_HALF = "name";
+
+        /** The key of the email half in {@link #sourceFact()}. */
+        public static final String EMAIL_HALF = "email";
 
         /**
          * @param trailer     the resolved trailer
@@ -157,6 +165,14 @@ public record CommitTrailer(String name, String email) {
             Objects.requireNonNull(trailer, "trailer");
             Objects.requireNonNull(nameSource, "nameSource");
             Objects.requireNonNull(emailSource, "emailSource");
+        }
+
+        /**
+         * @return the provenance as the audit record carries it, {@code {name: <source>, email: <source>}} with the
+         *         wire names of the two sources; it holds no value of the trailer itself
+         */
+        public Map<String, String> sourceFact() {
+            return Map.of(NAME_HALF, nameSource.wireName(), EMAIL_HALF, emailSource.wireName());
         }
     }
 

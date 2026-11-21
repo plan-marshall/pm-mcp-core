@@ -10,6 +10,7 @@
 package de.planmarshall.provider.git.primitive;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,7 +60,9 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * outcome of the contract maps to exactly one outcome: {@code OK} to {@code committed}, {@code NOTHING_TO_COMMIT} to
  * {@code nothing_to_commit}, every other, {@code CAPABILITY_MISSING} of the native variant among them, to
  * {@code failed} with the reason {@code commit_failed}. Hooks run only in the CLI variant, so only its hook refusal
- * returns {@code hook_failed}; the native variant never does.
+ * returns {@code hook_failed}; the native variant never does. A {@code committed} result also carries the provenance of
+ * the resolved trailer as the fact {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no other outcome
+ * carries it.
  * <p>
  * The primitive ends a cycle through its state by an attempt cap ({@link CycleMeasure#ATTEMPT_CAP}) whose exhaustion
  * outcome is {@code attempts_exhausted}; the engine is to count the attempts and return that outcome at the cap, the
@@ -79,6 +82,14 @@ public final class GitStageAndCommitPrimitive
 
     /** The fact of {@code committed}: the id of the new commit. */
     public static final String COMMIT_FACT = "commit";
+
+    /**
+     * The fact of {@code committed}: the provenance of the resolved trailer, {@code {name, email}} with a
+     * {@link CommitTrailer.TrailerSource} wire name per half ({@link CommitTrailer.Resolution#sourceFact()}). It is
+     * returned for the commit's audit record and is never rendered in facts: it carries no value of the trailer and
+     * no state names it in a {@code facts} clause.
+     */
+    public static final String TRAILER_SOURCE_FACT = "trailer_source";
 
     /** The fact of {@code footprint_violation}: the offending files, bounded. */
     public static final String OFFENDING_FILES_FACT = "offending_files";
@@ -172,25 +183,26 @@ public final class GitStageAndCommitPrimitive
         if (toCommit.isEmpty()) {
             return result(Outcome.NOTHING_TO_COMMIT, Map.of());
         }
-        var trailer = CommitTrailer.resolve(site.localTrailer(context).orElse(null),
-                site.machineTrailer(context).orElse(null)).trailer();
-        return switch (CommitMessages.withTrailer(parameters.message(), trailer)) {
+        var resolution = CommitTrailer.resolve(site.localTrailer(context).orElse(null),
+                site.machineTrailer(context).orElse(null));
+        return switch (CommitMessages.withTrailer(parameters.message(), resolution.trailer())) {
             case Refused(var violation) -> messageRefused(violation);
             case Appended(var withTrailer) -> validated(context, worktree, parameters.message(), withTrailer,
-                    List.copyOf(toCommit));
+                    List.copyOf(toCommit), resolution);
         };
     }
 
     /**
-     * Validates the message without its trailer, so the rules judge what the caller supplied.
+     * Validates the message without its trailer, so the rules judge what the caller supplied, then commits and adds
+     * the provenance of the trailer to a {@code committed} result.
      */
     private PrimitiveResult<Outcome> validated(WorkflowExecutionContext context, Path worktree, String message,
-            String withTrailer, List<String> paths) {
+            String withTrailer, List<String> paths, CommitTrailer.Resolution resolution) {
         var violations = CommitMessages.validate(message);
         if (!violations.isEmpty()) {
             return messageRefused(violations.getFirst());
         }
-        return commit(context, worktree, withTrailer, paths);
+        return withTrailerSource(commit(context, worktree, withTrailer, paths), resolution);
     }
 
     private PrimitiveResult<Outcome> commit(WorkflowExecutionContext context, Path worktree,
@@ -203,6 +215,19 @@ public final class GitStageAndCommitPrimitive
         var input = CommitInput.builder().root(worktree).message(message).author(author.get()).committer(committer)
                 .paths(paths).build();
         return map(git.commit(input));
+    }
+
+    /**
+     * Adds the provenance of the trailer to a {@code committed} result, the one outcome whose commit carries it.
+     */
+    private static PrimitiveResult<Outcome> withTrailerSource(PrimitiveResult<Outcome> result,
+            CommitTrailer.Resolution resolution) {
+        if (result.outcome() != Outcome.COMMITTED) {
+            return result;
+        }
+        var facts = new LinkedHashMap<>(result.updatedFacts());
+        facts.put(TRAILER_SOURCE_FACT, resolution.sourceFact());
+        return result(Outcome.COMMITTED, facts);
     }
 
     /**
@@ -256,7 +281,10 @@ public final class GitStageAndCommitPrimitive
      * @since 0.1
      */
     public enum Outcome implements PrimitiveOutcome {
-        /** The files are committed; the fact {@value GitStageAndCommitPrimitive#COMMIT_FACT} names the commit. */
+        /**
+         * The files are committed; the fact {@value GitStageAndCommitPrimitive#COMMIT_FACT} names the commit and
+         * {@value GitStageAndCommitPrimitive#TRAILER_SOURCE_FACT} the provenance of its trailer.
+         */
         COMMITTED("committed", OutcomeClass.SUCCESS),
         /** Nothing of the staging set is left to commit. */
         NOTHING_TO_COMMIT("nothing_to_commit", OutcomeClass.SKIP),

@@ -45,8 +45,21 @@ it stood:
 * The three construction sites that build a `CommitInput` without `paths` keep their expectation and no longer can fail
   with a `NullPointerException`.
 
+== Amendment (2026-11-21): A Path Is Literal and a Link Is a Link
+
+The refusal of `:` and of `*`, `?` and `[` is withdrawn. JGit's `addFilepattern` and `CommitCommand.setOnly` read no
+glob and no pathspec magic, so the refusal protected nothing and refused legitimate file names such as
+`app/[slug]/page.tsx`, which Stage 4 requires to be staged as that file. In its place `commit` refuses, besides a
+directory, a path that is absolute, normalises to outside the root, is not in normal form (an empty, `.` or `..` segment)
+or carries a control character; the backslash stays refused. The directory check uses `LinkOption.NOFOLLOW_LINKS`: a
+symbolic link to a directory is committed as the link, as git records it, instead of being refused as the directory it
+points to, so a dirty link `StagingSets` staged by its own name no longer fails the commit with `PATH_REFUSED`. A real
+directory is still refused. The first bullet of the decision and the first consequence above are read with this
+amendment.
+
 == Source
 
 * link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
   DSL § Six-Stage Execution Contract], Stage 4
 * `PLAN-V2-15` Deliverable 4; `PLAN-V2-157` Deliverable 4
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), the CodeRabbit findings `17cc88` and `9cfd5c` (the amendment)
