@@ -48,7 +48,7 @@ class CommitMessageEvaluatePrimitiveTest {
     @RepeatedTest(10)
     @DisplayName("returns the submitted message as the valid fact to commit")
     void returnsTheSubmission() {
-        var context = createMock(WorkflowExecutionContext.class);
+        WorkflowExecutionContext context = createMock(WorkflowExecutionContext.class);
         replay(context);
         var message = messages.next();
 
