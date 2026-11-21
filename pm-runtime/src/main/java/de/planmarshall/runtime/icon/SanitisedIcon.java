@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.icon;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -39,12 +40,12 @@ public record SanitisedIcon(IconMediaType mediaType, byte[] content) {
     @Override
     public boolean equals(Object other) {
         return other instanceof SanitisedIcon icon && mediaType == icon.mediaType
-                && java.util.Arrays.equals(content, icon.content);
+                && Arrays.equals(content, icon.content);
     }
 
     @Override
     public int hashCode() {
-        return 31 * mediaType.hashCode() + java.util.Arrays.hashCode(content);
+        return 31 * mediaType.hashCode() + Arrays.hashCode(content);
     }
 
     @Override
