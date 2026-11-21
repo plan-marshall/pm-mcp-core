@@ -297,7 +297,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
 
     /**
      * The verification-record gate (PM-CLIENT-5, the load-time stage): whether the harness may host a worker of one
-     * role, decided from the harness's harness profile, the runtime platform and the profile verification record before
+     * role, decided from the harness profile, the runtime platform and the profile verification record before
      * every start.
      *
      * @since 0.1

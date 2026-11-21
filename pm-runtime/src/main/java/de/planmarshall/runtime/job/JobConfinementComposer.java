@@ -248,7 +248,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * @param checkoutRoot         the checkout root of a checkout's script; {@code null} for a probe of the machine
      * @param toolchainCaches      the build write set of a checkout's script; empty otherwise
      * @param harnessProbe         whether the probe is a harness probe
-     * @param harnessWritablePaths the sub-paths the harness's harness profile declares writable
+     * @param harnessWritablePaths the sub-paths the harness profile declares writable
      * @return the confinement
      */
     public JobConfinement forProbe(JobId jobId, @Nullable Path checkoutRoot, List<Path> toolchainCaches,

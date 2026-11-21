@@ -317,7 +317,8 @@ change: `harnesses.json` is keyed by the harness id value and no entry member wa
 written before the rename reads as before, and the next enrolment rewrites it in the same shape. The audit detail key is
 `harness_id` for records written now; records already written keep `client_id`, which nothing in this module reads as a
 key. The two carriers with a former member name are the profile document and the verification record: each reader
-accepts `client_id` where `harness_id` is absent, writes only `harness_id`, and refuses a document that carries both.
+accepts `client_id` where `harness_id` is absent and refuses a document that carries both, and the writers, which live in
+`plan-marshall-mcp` and `pm-operator`, write only `harness_id`.
 
 == Specification
 

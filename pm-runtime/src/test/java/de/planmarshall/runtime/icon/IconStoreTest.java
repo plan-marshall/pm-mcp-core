@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.icon;
 
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -183,6 +184,37 @@ class IconStoreTest {
 
         assertTrue(Files.notExists(svg.file()), "the replaced SVG file is removed");
         assertFalse(Files.notExists(png.file()), "the PNG file is written");
+    }
+
+    @Test
+    @DisplayName("does not serve a file larger than the bound or of another size")
+    void doesNotServeAFileOutsideTheBound() throws Exception {
+        var harnessId = harnessId();
+        var stored = store.accept(harnessId, "https://example.invalid/a.svg", fetchedAt, SVG);
+        Files.write(stored.file(), new byte[IconSanitiser.MAX_BYTES + 1]);
+        var tooLarge = store.find(harnessId).isEmpty();
+        Files.write(stored.file(), new byte[3]);
+        var tooShort = store.find(harnessId).isEmpty();
+
+        assertAll(
+                () -> assertTrue(tooLarge, "a file above the bound is not served"),
+                () -> assertTrue(tooShort, "a file of another size is not served"));
+    }
+
+    @Test
+    @DisplayName("refuses a source URL without a host or with whitespace")
+    void refusesAMalformedSource() {
+        var withoutHost = assertThrows(IconRefusal.class,
+                () -> store.accept(harnessId(), "https:///a.svg", fetchedAt, SVG),
+                "a source URL without a host is refused");
+        var withWhitespace = assertThrows(IconRefusal.class,
+                () -> store.accept(harnessId(), "https://example.invalid/a b.svg", fetchedAt, SVG),
+                "a source URL with whitespace is refused");
+
+        assertAll(
+                () -> assertEquals(IconRefusal.SOURCE_URL_INVALID, withoutHost.code(), "the host is required"),
+                () -> assertEquals(IconRefusal.SOURCE_URL_INVALID, withWhitespace.code(),
+                        "whitespace is refused"));
     }
 
     @Test

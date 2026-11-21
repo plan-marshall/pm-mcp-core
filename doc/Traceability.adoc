@@ -2313,7 +2313,9 @@ Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/IconS
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/IconStoreTest.java[IconStoreTest]
 
 Documentation: link:../pm-runtime/doc/developer/runtime-icon.adoc[Icon Store and Sanitiser Developer Guide],
-link:../pm-runtime/doc/adr/runtime-launch/012-the-icon-sanitiser-is-an-allow-list.adoc[ADR runtime-launch/012]
+link:../pm-runtime/doc/adr/runtime-launch/012-the-icon-sanitiser-is-an-allow-list.adoc[ADR runtime-launch/012],
+link:../pm-runtime/doc/adr/runtime-launch/013-the-icon-store-serves-only-a-file-that-matches-its-entry.adoc[ADR
+runtime-launch/013]
 
 The install path's seam from the verification's `UsageResult` to the enrolment's `UsageReport` is
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/VerifiedUsage.java[VerifiedUsage] (`UsageReport.of` is the

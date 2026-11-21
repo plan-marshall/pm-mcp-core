@@ -72,7 +72,7 @@ public final class SupervisorCalls implements WorkerCalls {
      * @param supervisor  the supervisor whose registry every call resolves its generation from
      * @param ending      the one end path of a generation
      * @param recycling   the recycling decisions of a wait and a closed task
-     * @param parameters  the worker values of the harness's harness profile
+     * @param parameters  the worker values of the harness profile
      * @param roleClasses the class of a role, by its name
      * @throws NullPointerException if an argument is {@code null}
      */

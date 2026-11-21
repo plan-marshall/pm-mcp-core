@@ -24,7 +24,7 @@ import de.planmarshall.core.profile.JsonNode;
 
 /**
  * The mapping of a line of a worker's output stream onto the closed activity kinds (Client Profiles § What a Worker
- * Does): the {@code headless.events} block of the harness's harness profile, projected so that the runtime never reads
+ * Does): the {@code headless.events} block of the harness profile, projected so that the runtime never reads
  * the profile document itself. A {@code null} mapping is a harness whose output gives no event stream, whose tasks show
  * only the server's own entries.
  * <p>
