@@ -220,7 +220,7 @@ class DefaultUnitLoaderTest {
                     () -> assertEquals(mutation.lineOf("workflow adjudicate.decisions"), finding.orElseThrow().line(),
                             "the finding names the duplicate header line"),
                     () -> assertTrue(finding.orElseThrow().message()
-                            .contains(TEMP_ROOT + InvariantFixtures.ADJUDICATION_FILE),
+                                    .contains(TEMP_ROOT + InvariantFixtures.ADJUDICATION_FILE),
                             "the finding names the earlier unit's file"),
                     () -> assertEquals(Map.of(), result.units(), "a duplicate identifier loads no unit"),
                     () -> assertRefusalLogged(resource));

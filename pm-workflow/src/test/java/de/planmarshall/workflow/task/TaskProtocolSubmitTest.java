@@ -195,7 +195,7 @@ class TaskProtocolSubmitTest {
                 () -> assertEquals(Outcome.SUBMITTED, records.getFirst().outcome(),
                         "the closed record's outcome is SUBMITTED"),
                 () -> assertEquals(1, records.getFirst().attempts().stream()
-                        .filter(attempt -> attempt.end() == AttemptEnd.CLOSED).count(),
+                                .filter(attempt -> attempt.end() == AttemptEnd.CLOSED).count(),
                         "exactly one attempt ends CLOSED"),
                 () -> assertEquals(lastRefusal == null, lastResult instanceof CallResult.Accepted,
                         "the last call is accepted unless one is refused"));

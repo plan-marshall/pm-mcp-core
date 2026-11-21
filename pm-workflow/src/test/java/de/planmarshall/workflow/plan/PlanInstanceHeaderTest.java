@@ -198,10 +198,10 @@ class PlanInstanceHeaderTest {
             var json = HeaderJson.write(fullHeader("plan-24", 3, "lane"));
 
             assertTrue(json.contains("\"args\":{\"actions\":{\"file\":null,\"source\":\"composition_rule\","
-                    + "\"value\":[\"retry\"],\"waiver_id\":null},\"fix_budget\":{\"file\":null,\"source\":\"waiver\","
-                    + "\"value\":4,\"waiver_id\":\"W-1\"},\"mode\":{\"file\":\"finalize.pmwf\",\"source\":\"template\","
-                    + "\"value\":\"strict\",\"waiver_id\":null},\"retry_budget\":{\"file\":\"finalize.pmwf\","
-                    + "\"source\":\"template\",\"value\":2,\"waiver_id\":null}}"),
+                            + "\"value\":[\"retry\"],\"waiver_id\":null},\"fix_budget\":{\"file\":null,\"source\":\"waiver\","
+                            + "\"value\":4,\"waiver_id\":\"W-1\"},\"mode\":{\"file\":\"finalize.pmwf\",\"source\":\"template\","
+                            + "\"value\":\"strict\",\"waiver_id\":null},\"retry_budget\":{\"file\":\"finalize.pmwf\","
+                            + "\"source\":\"template\",\"value\":2,\"waiver_id\":null}}"),
                     "the arguments and members are sorted by name");
         }
 

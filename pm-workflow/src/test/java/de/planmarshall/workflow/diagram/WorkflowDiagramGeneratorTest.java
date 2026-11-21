@@ -229,7 +229,7 @@ class WorkflowDiagramGeneratorTest {
             assertAll(() -> assertTrue(rendered.contains("build_judge --> build_commit : task reviewer / approved"),
                             "the transition label names the reviewer role"),
                     () -> assertTrue(rendered.contains(
-                            "build_implement : task implementer each diagram.list-changes"),
+                                    "build_implement : task implementer each diagram.list-changes"),
                             "the state label names the implementer role"));
         }
 
@@ -867,7 +867,7 @@ class WorkflowDiagramGeneratorTest {
             var rendered = WorkflowDiagramGenerator.renderAsciiDocTables(unit);
 
             assertTrue(rendered.contains("|`choice: enum[FIX\\|SUPPRESS]`, `body: schema[fix-plan]`, "
-                    + "`count: int[0..5]`, `size: int`, `items: list<text>`, `note: text[1..80]?`\n"),
+                            + "`count: int[0..5]`, `size: int`, `items: list<text>`, `note: text[1..80]?`\n"),
                     "the cell prints every type, the pipe escaped");
         }
     }

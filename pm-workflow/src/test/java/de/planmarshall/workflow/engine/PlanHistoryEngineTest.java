@@ -165,7 +165,7 @@ class PlanHistoryEngineTest {
         var lines = history.read().records();
         assertAll(
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.LEFT
-                        && "execute.run".equals(line.node()) && "succeeded".equals(line.outcome())),
+                                && "execute.run".equals(line.node()) && "succeeded".equals(line.outcome())),
                         "the settled state is left with succeeded"),
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.ENTERED
                         && "completed".equals(line.node())), "the target completed is entered"),
@@ -196,7 +196,7 @@ class PlanHistoryEngineTest {
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.RETURNED
                         && "sub.commit".equals(line.node())), "a returned line names sub.commit"),
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.LEFT
-                        && "sub.done".equals(line.node()) && "done".equals(line.outcome())),
+                                && "sub.done".equals(line.node()) && "done".equals(line.outcome())),
                         "the sub-workflow's sub.done is left with done"),
                 () -> assertEquals(List.of(), lines.stream()
                         .filter(line -> line.event() == PlanHistoryLine.Event.RETURNED).findFirst().orElseThrow()

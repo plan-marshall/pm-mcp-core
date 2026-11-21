@@ -788,7 +788,7 @@ class PlanInstanceStoreTest {
         private static PlanInstance withAdjudication() {
             var result = composer().compose(PlanFixtures.withAdjudication(PlanFixtures.start(facts().build())));
             return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
-                .instance();
+                    .instance();
         }
 
         private static List<SubUnitText> textsWithAdjudication() {
@@ -883,7 +883,7 @@ class PlanInstanceStoreTest {
             var result = PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
                     facts().build(), null, AT_INIT, List.of()));
             return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
-                .instance();
+                    .instance();
         }
 
         private Path instanceFile(ComposedUnit unit) {

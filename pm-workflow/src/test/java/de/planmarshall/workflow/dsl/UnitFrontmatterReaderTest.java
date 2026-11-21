@@ -951,7 +951,7 @@ class UnitFrontmatterReaderTest {
 
             assertAll(
                     () -> assertTrue(farDiagnostic.message().contains(
-                            "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH) + "..."),
+                                    "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH) + "..."),
                             "a far-too-long key is cut at the cap"),
                     () -> assertFalse(farDiagnostic.message().contains(far), "the far-too-long key is not echoed"),
                     () -> assertTrue(codePointDiagnostic.message().contains(

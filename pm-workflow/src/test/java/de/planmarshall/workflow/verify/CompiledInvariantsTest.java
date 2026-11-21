@@ -334,7 +334,7 @@ class CompiledInvariantsTest {
 
             assertAll(
                     () -> InvariantFixtures.LIGHT_ROUTE.forEach(state -> assertFalse(units.values().stream()
-                            .anyMatch(unit -> unit.states().containsKey(state)),
+                                    .anyMatch(unit -> unit.states().containsKey(state)),
                             "no unit declares a light-route state")),
                     () -> assertEquals(List.of(), lightLane(units, lane),
                             "a lane owing no ratchet needs no light route"));
