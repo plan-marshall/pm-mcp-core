@@ -32,9 +32,6 @@ public final class IconRefusal extends RuntimeException {
     /** The SVG does not parse as an XML document. */
     public static final String SVG_MALFORMED = "icon_svg_malformed";
 
-    /** The SVG references an undeclared entity, which is never expanded. */
-    public static final String SVG_ENTITY = "icon_svg_entity";
-
     /** The SVG carries a {@code script} element. */
     public static final String SVG_SCRIPT = "icon_svg_script";
 
@@ -64,6 +61,9 @@ public final class IconRefusal extends RuntimeException {
 
     /** The harness id that would name the file is not a {@link de.planmarshall.core.id.HarnessId}. */
     public static final String HARNESS_ID_INVALID = "icon_harness_id_invalid";
+
+    /** The source URL the caller names is not an https URL within the bound. */
+    public static final String SOURCE_URL_INVALID = "icon_source_url_invalid";
 
     /** The path the icon would be written to is a symbolic link. */
     public static final String TARGET_IS_LINK = "icon_target_is_link";

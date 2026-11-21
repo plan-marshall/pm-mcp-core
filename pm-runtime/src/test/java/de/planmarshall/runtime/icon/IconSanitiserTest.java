@@ -71,6 +71,12 @@ class IconSanitiserTest {
     }
 
     @Test
+    @DisplayName("refuses an empty candidate")
+    void refusesEmptyCandidate() {
+        assertRefused(IconRefusal.NOT_SVG_OR_PNG, new byte[0], "an empty candidate is no icon");
+    }
+
+    @Test
     @DisplayName("refuses bytes that are neither an SVG nor a PNG")
     void refusesForeignBytes() {
         var candidate = Generators.letterStrings(64, 64).next().getBytes(StandardCharsets.UTF_8);
@@ -186,6 +192,56 @@ class IconSanitiserTest {
 
             assertRefused(IconRefusal.SVG_MALFORMED, candidate, "an unbalanced document is refused");
         }
+
+        @Test
+        @DisplayName("refuses a style that reaches an image set")
+        void refusesStyleImageSet() {
+            assertRefused(IconRefusal.SVG_EXTERNAL_REFERENCE,
+                    svg("<rect width=\"4\" height=\"4\" style=\"mask-image:image-set('https://example.invalid/x' 1x)\"/>"),
+                    "a style with image-set( is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a style that escapes its way to a URL")
+        void refusesEscapedStyleUrl() {
+            assertRefused(IconRefusal.SVG_EXTERNAL_REFERENCE,
+                    svg("<rect width=\"4\" height=\"4\" style=\"fill:u\\72l(https://example.invalid/x)\"/>"),
+                    "a CSS-escaped url( is refused");
+        }
+
+        @Test
+        @DisplayName("keeps one href when both namespaces carry one")
+        void keepsOneHref() {
+            var sanitised = IconSanitiser.accept(svg(
+                    "<path xmlns:xlink=\"http://www.w3.org/1999/xlink\" href=\"#a\" xlink:href=\"#b\"/>"));
+
+            var text = new String(sanitised.content(), StandardCharsets.UTF_8);
+            assertEquals(1, count(text, "href="), "exactly one href attribute is emitted");
+        }
+
+        @Test
+        @DisplayName("refuses an element in a namespace other than the SVG one")
+        void refusesForeignNamespace() {
+            assertRefused(IconRefusal.SVG_ELEMENT_NOT_ALLOWED,
+                    svg("<x:rect xmlns:x=\"urn:x\" width=\"1\" height=\"1\"/>"),
+                    "an element in a foreign namespace is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a document nested deeper than the bound")
+        void refusesTooDeep() {
+            var nested = "<g>".repeat(65) + "</g>".repeat(65);
+
+            assertRefused(IconRefusal.SVG_TOO_DEEP, svg(nested), "a document deeper than 64 is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a document with more elements than the bound")
+        void refusesTooComplex() {
+            var many = "<rect width=\"1\" height=\"1\"/>".repeat(5000);
+
+            assertRefused(IconRefusal.SVG_TOO_COMPLEX, svg(many), "a document over 5000 elements is refused");
+        }
     }
 
     @Nested
@@ -231,6 +287,68 @@ class IconSanitiserTest {
 
             assertRefused(IconRefusal.PNG_MALFORMED, candidate, "a PNG not led by IHDR is refused");
         }
+
+        @Test
+        @DisplayName("refuses a PNG whose chunk header is truncated")
+        void refusesTruncatedChunkHeader() {
+            assertRefused(IconRefusal.PNG_MALFORMED, PngFixtures.truncatedChunkHeader(),
+                    "a chunk header shorter than eight bytes is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG with a chunk after its end chunk")
+        void refusesTrailingChunk() {
+            assertRefused(IconRefusal.PNG_MALFORMED, PngFixtures.pngWithTrailingChunk(),
+                    "a chunk after IEND is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG whose header declares no width")
+        void refusesZeroWidth() {
+            assertRefused(IconRefusal.PNG_MALFORMED, PngFixtures.pngWithZeroWidth(),
+                    "an image of zero width is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG whose end chunk carries data")
+        void refusesEndData() {
+            assertRefused(IconRefusal.PNG_MALFORMED, PngFixtures.pngWithEndData(),
+                    "an IEND chunk with data is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG whose chunk type is no name")
+        void refusesBadChunkType() {
+            assertRefused(IconRefusal.PNG_MALFORMED,
+                    PngFixtures.png(PngFixtures.chunk("IH1R", new byte[0])),
+                    "a chunk type with a digit is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG with an unknown critical chunk")
+        void refusesUnknownCriticalChunk() {
+            assertRefused(IconRefusal.PNG_MALFORMED,
+                    PngFixtures.png(PngFixtures.chunk("ZZZZ", new byte[0])),
+                    "an unknown critical chunk is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG that carries no image data")
+        void refusesPngWithoutImageData() {
+            assertRefused(IconRefusal.PNG_MALFORMED, PngFixtures.pngWithoutImageData(),
+                    "a PNG without an IDAT chunk is refused");
+        }
+
+        @Test
+        @DisplayName("strips the exchangeable image chunk as well as the text chunks")
+        void stripsExifChunk() {
+            var candidate = PngFixtures.png(PngFixtures.chunk("eXIf", "note".getBytes(StandardCharsets.UTF_8)));
+
+            var sanitised = IconSanitiser.accept(candidate);
+
+            assertFalse(contains(sanitised.content(), "eXIf".getBytes(StandardCharsets.US_ASCII)),
+                    "the eXIf chunk is stripped from the stored image");
+        }
     }
 
     private static void assertRefused(String code, byte[] candidate, String message) {
@@ -240,6 +358,16 @@ class IconSanitiserTest {
 
     private static byte[] svg(String body) {
         return (SVG_OPEN + body + SVG_CLOSE).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static int count(String haystack, String needle) {
+        var count = 0;
+        var index = haystack.indexOf(needle);
+        while (index >= 0) {
+            count++;
+            index = haystack.indexOf(needle, index + needle.length());
+        }
+        return count;
     }
 
     private static boolean contains(byte[] haystack, byte[] needle) {

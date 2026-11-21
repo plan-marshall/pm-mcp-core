@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.icon;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -34,5 +35,21 @@ public record SanitisedIcon(IconMediaType mediaType, byte[] content) {
         if (content.length == 0) {
             throw new IllegalArgumentException("A sanitised icon carries its content");
         }
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof SanitisedIcon(IconMediaType otherType, byte[] otherContent)
+                && mediaType == otherType && Arrays.equals(content, otherContent);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * mediaType.hashCode() + Arrays.hashCode(content);
+    }
+
+    @Override
+    public String toString() {
+        return "SanitisedIcon[mediaType=%s, content.length=%d]".formatted(mediaType, content.length);
     }
 }

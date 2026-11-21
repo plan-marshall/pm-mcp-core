@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.icon;
 
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -17,13 +18,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -63,7 +64,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("writes an SVG icon and its index entry under the icons directory")
-    void writesSvg() throws IOException {
+    void writesSvg() throws Exception {
         var harnessId = harnessId();
         var sourceUrl = "https://example.invalid/" + Generators.letterStrings(8, 8).next() + ".svg";
 
@@ -81,7 +82,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("writes the icon file with mode 0600")
-    void writesOwnerOnly() throws IOException {
+    void writesOwnerOnly() throws Exception {
         var stored = store.accept(harnessId(), "https://example.invalid/a.svg", fetchedAt, SVG);
 
         assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(stored.file())),
@@ -90,7 +91,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("writes a PNG icon with its extension and media type")
-    void writesPng() throws IOException {
+    void writesPng() {
         var harnessId = harnessId();
 
         var stored = store.accept(harnessId, "https://example.invalid/a.png", fetchedAt, PngFixtures.png());
@@ -102,7 +103,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("replaces an existing icon of the same harness")
-    void replacesExisting() throws IOException {
+    void replacesExisting() throws Exception {
         var harnessId = harnessId();
         store.accept(harnessId, "https://example.invalid/a.svg", fetchedAt, SVG);
         var other = SVG.clone();
@@ -133,7 +134,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("refuses a target that is a symbolic link")
-    void refusesSymlinkTarget() throws IOException {
+    void refusesSymlinkTarget() throws Exception {
         var harnessId = harnessId();
         var outside = base.resolve("outside.svg");
         Files.writeString(outside, "untouched", StandardCharsets.UTF_8);
@@ -159,6 +160,105 @@ class IconStoreTest {
 
         assertEquals(stored.entry(), fresh.find(harnessId).orElseThrow().entry(),
                 "a fresh store reads the entry back unchanged");
+    }
+
+    @Test
+    @DisplayName("does not serve a file that differs from its index entry")
+    void doesNotServeAChangedFile() throws Exception {
+        var harnessId = harnessId();
+        var stored = store.accept(harnessId, "https://example.invalid/a.svg", fetchedAt, SVG);
+        var storedBytes = Files.readAllBytes(stored.file());
+        storedBytes[storedBytes.length - 5] = (byte) (storedBytes[storedBytes.length - 5] ^ 0x01);
+        Files.write(stored.file(), storedBytes);
+
+        assertTrue(store.find(harnessId).isEmpty(), "a file whose digest differs is not served");
+    }
+
+    @Test
+    @DisplayName("replaces an icon of the other media type without leaving the old file")
+    void replacesAcrossMediaTypes() {
+        var harnessId = harnessId();
+        var svg = store.accept(harnessId, "https://example.invalid/a.svg", fetchedAt, SVG);
+
+        var png = store.accept(harnessId, "https://example.invalid/a.png", fetchedAt, PngFixtures.png());
+
+        assertTrue(Files.notExists(svg.file()), "the replaced SVG file is removed");
+        assertFalse(Files.notExists(png.file()), "the PNG file is written");
+    }
+
+    @Test
+    @DisplayName("does not serve a file larger than the bound or of another size")
+    void doesNotServeAFileOutsideTheBound() throws Exception {
+        var harnessId = harnessId();
+        var stored = store.accept(harnessId, "https://example.invalid/a.svg", fetchedAt, SVG);
+        Files.write(stored.file(), new byte[IconSanitiser.MAX_BYTES + 1]);
+        var tooLarge = store.find(harnessId).isEmpty();
+        Files.write(stored.file(), new byte[3]);
+        var tooShort = store.find(harnessId).isEmpty();
+
+        assertAll(
+                () -> assertTrue(tooLarge, "a file above the bound is not served"),
+                () -> assertTrue(tooShort, "a file of another size is not served"));
+    }
+
+    @Test
+    @DisplayName("refuses a source URL without a host or with whitespace")
+    void refusesAMalformedSource() {
+        var harnessId = harnessId();
+        var withoutHost = assertThrows(IconRefusal.class,
+                () -> store.accept(harnessId, "https:///a.svg", fetchedAt, SVG),
+                "a source URL without a host is refused");
+        var withWhitespace = assertThrows(IconRefusal.class,
+                () -> store.accept(harnessId, "https://example.invalid/a b.svg", fetchedAt, SVG),
+                "a source URL with whitespace is refused");
+
+        assertAll(
+                () -> assertEquals(IconRefusal.SOURCE_URL_INVALID, withoutHost.code(), "the host is required"),
+                () -> assertEquals(IconRefusal.SOURCE_URL_INVALID, withWhitespace.code(),
+                        "whitespace is refused"));
+    }
+
+    @Test
+    @DisplayName("refuses a source that is not an https URL")
+    void refusesNonHttpsSource() {
+        var harnessId = harnessId();
+        var refusal = assertThrows(IconRefusal.class,
+                () -> store.accept(harnessId, "http://example.invalid/a.svg", fetchedAt, SVG),
+                "a source that is not https is refused");
+
+        assertEquals(IconRefusal.SOURCE_URL_INVALID, refusal.code(), "the refusal names the source URL");
+    }
+
+    @Test
+    @DisplayName("refuses a source URL above the bound")
+    void refusesASourceUrlAboveTheBound() {
+        var harnessId = harnessId();
+        var sourceUrl = "https://example.invalid/" + "a".repeat(2048) + ".svg";
+
+        var refusal = assertThrows(IconRefusal.class,
+                () -> store.accept(harnessId, sourceUrl, fetchedAt, SVG),
+                "a source URL above 2048 characters is refused");
+
+        assertEquals(IconRefusal.SOURCE_URL_INVALID, refusal.code(), "the refusal names the source URL");
+    }
+
+    @Test
+    @DisplayName("refuses an index with a format version the store does not read")
+    void refusesAForeignIndexVersion() {
+        assertThrows(IllegalArgumentException.class, () -> new IconIndex(2, Map.of()),
+                "an index of another format version is refused");
+    }
+
+    @Test
+    @DisplayName("refuses an index that does not read as the store's index")
+    void refusesUnreadableIndex() throws Exception {
+        Files.createDirectories(base.resolve("icons"));
+        Files.writeString(base.resolve("icons").resolve("index.json"), "{\"format_version\":1}",
+                StandardCharsets.UTF_8);
+
+        var refusal = assertThrows(IconRefusal.class, () -> store.index(), "an unreadable index is refused");
+
+        assertEquals(IconRefusal.INDEX_UNREADABLE, refusal.code(), "the refusal names the index");
     }
 
     private static String harnessId() {

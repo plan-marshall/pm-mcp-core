@@ -2298,6 +2298,25 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessUsageCoverage.
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessListings.java[HarnessListings]
 
+Implementation (the harness icon store and its sanitising accept step: one file per harness under
+`<PM_MCP_BASE>/icons/` with mode `0600` and the index `icons/index.json`, written under `locks/icons.lock`, and the
+accept step that decides the media type from the bytes, keeps an SVG only through an allow-list, refuses a DOCTYPE, an
+event attribute and every reference outside the document, and strips a PNG's text chunks; the outbound fetch itself is
+owed to the profile that declares the `source` form, which no shipped profile does):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconStore.java[IconStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconSanitiser.java[IconSanitiser],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/SvgSanitiser.java[SvgSanitiser],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/PngSanitiser.java[PngSanitiser],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconIndex.java[IconIndex]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/IconSanitiserTest.java[IconSanitiserTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/IconStoreTest.java[IconStoreTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-icon.adoc[Icon Store and Sanitiser Developer Guide],
+link:../pm-runtime/doc/adr/runtime-launch/012-the-icon-sanitiser-is-an-allow-list.adoc[ADR runtime-launch/012],
+link:../pm-runtime/doc/adr/runtime-launch/013-the-icon-store-serves-only-a-file-that-matches-its-entry.adoc[ADR
+runtime-launch/013]
+
 The install path's seam from the verification's `UsageResult` to the enrolment's `UsageReport` is
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/VerifiedUsage.java[VerifiedUsage] (`UsageReport.of` is the
 mapping boundary); the operator verb that writes the enrolment is owed to `plan-marshall-mcp`, and the recorded output of

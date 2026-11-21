@@ -40,8 +40,6 @@ class HarnessListTest {
     private static final String HINT = "install " + Generators.letterStrings(4, 8).next();
     private static final String VERSION = Generators.integers(1, 9).next() + ".0.0";
     private static final String OTHER_VERSION = VERSION + "-other";
-    private static final String MODEL = Generators.letterStrings(5, 12).next();
-    private static final Long START_TOKENS = Generators.longs(1_000, 9_000).next();
 
     @Test
     @DisplayName("the missing figures are report figures named in schema order")
