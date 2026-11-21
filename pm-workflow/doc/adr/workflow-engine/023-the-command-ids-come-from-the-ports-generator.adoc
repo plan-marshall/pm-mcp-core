@@ -1,0 +1,41 @@
+= ADR workflow-engine 023: The Command Ids Come From the Generator of the Ports
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+Every command needs a command id, and every advance already has a correlation id: the `Run` draws one `CorrelationId`
+per advance from `Ports.ids`, the `RandomGenerator` the engine also draws the command id of a pushed call frame from.
+A command id drawn from another source, such as `UUID.randomUUID()`, would make an advance non-reproducible under a
+seeded generator.
+
+== Decision
+
+`Run.runPrimitive` draws each command id with `CommandId.random(ids)` from `Ports.ids`, and every command of an advance
+carries the run's correlation id. No id type, no port and no registry row is added.
+
+== Alternatives Considered
+
+1. **A random UUID per command**: *Rejected*: two runs of the same advance under the same seed would differ.
+2. **A command id derived from the correlation id and a counter**: *Rejected*: rationale not recorded beyond the plan's
+   statement that the existing `CommandId.random` and `Ports.ids` suffice.
+
+== Consequences
+
+* Two engines with equally seeded generators produce equal settlements and statuses
+  (`CommandDispatchTest.shouldBeDeterministicUnderEqualSeeds`).
+* Each primitive run draws one id more from the generator, so the ids of later frames in the same advance move; no test
+  pins such an id.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverable 3
+* link:../../developer/workflow-engine.adoc#_commands_and_settlements[Workflow Engine Developer Guide § Commands and Settlements]
+* PM-IMPL-5

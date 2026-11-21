@@ -724,7 +724,7 @@ class WorkflowValidatorTest {
 
             assertAll(() -> assertEquals(5, found.size(), "each of the five sites is reported"),
                     () -> assertTrue(found.stream().allMatch(v -> v.rule() == VerificationRule.PRIMITIVE_BINDING
-                            && v.message().contains(TestPrimitives.MISSING)),
+                                    && v.message().contains(TestPrimitives.MISSING)),
                             "every report is a binding of the missing"));
         }
     }

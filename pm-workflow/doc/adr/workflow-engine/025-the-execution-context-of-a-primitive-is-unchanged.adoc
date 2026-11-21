@@ -1,0 +1,37 @@
+= ADR workflow-engine 025: The Execution Context of a Primitive Is Unchanged
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+With a `Command` at hand, the engine could pass it, or its ids, into the `WorkflowExecutionContext` a primitive runs
+for. A primitive would then see its own command id, its correlation id and the cause of the advance.
+
+== Decision
+
+The `WorkflowExecutionContext` stays as it is: it gives the primitive the scope id and nothing else. The primitive runs
+with `command.input()`, and the command stays the engine's value. `ParameterBinder`, `Ports`, `Primitive` and
+`PrimitiveResult` are unchanged as well.
+
+== Alternatives Considered
+
+1. **Expose the command or its ids through the context**: *Rejected*: no primitive needs them, and a primitive that
+   read the cause could behave differently per trigger, which no workflow could see or route.
+
+== Consequences
+
+* No primitive changes, and none can depend on how it was dispatched.
+* A later need of a primitive for its command id is a change of this decision and of the context.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverable 3
+* link:../../developer/workflow-engine.adoc#_commands_and_settlements[Workflow Engine Developer Guide § Commands and Settlements]
+* PM-IMPL-5

@@ -284,7 +284,7 @@ class EnrolmentPolicyTest {
             assertAll(
                     () -> assertEquals(verdict.count(), found.size(), "the path gets the case's verdict count"),
                     () -> assertTrue(found.stream().allMatch(
-                            reason -> reason.contains(path) && reason.contains(verdict.fragment)),
+                                    reason -> reason.contains(path) && reason.contains(verdict.fragment)),
                             "each violation names the path and its verdict"));
         }
 

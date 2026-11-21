@@ -1,0 +1,43 @@
+= ADR workflow-engine 027: The Settlement Carries the Raw Facts
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The facts of a condition a reason raises are bounded text
+(link:020-the-facts-of-a-raised-reason-are-bounded-text.adoc[ADR 020]): the status store persists them and both
+clients show them. The settlement carries the facts of a result as well, and the question was whether it takes the same
+bounded text or the facts as the result returned them.
+
+== Decision
+
+Operator decision Q2 A (2026-11-21): a settlement keeps the raw facts of the result, an unmodifiable copy in their
+order, exactly as `PrimitiveResult` keeps them, on the routed and on the raised exit. The value lives in memory only
+(link:026-the-command-and-its-settlement-are-not-persisted.adoc[ADR 026]), its `toString` prints the fact names only,
+and the redaction and the bounds belong to the command log that will persist it. The condition a reason raises keeps
+its bounded text unchanged.
+
+== Alternatives Considered
+
+1. **The bounded text of ADR 020**: *Rejected* by the operator: the settlement is not persisted, and a later reader would
+   lose the typed values the bound throws away.
+
+== Consequences
+
+* A settlement can hold a large or sensitive value; nothing prints it, and whoever writes it must redact and bound it.
+* `CommandDispatchTest` asserts that the facts of each settlement equal the result's, on the routed exit
+  (`shouldSettleChainInRunOrder`) and on the raised exit (`shouldSettleMappedReasonWithCondition`); the bounded text of
+  the condition stays pinned by `ReasonConditionTest`.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverable 3, operator decision Q2 A
+* link:../../developer/workflow-engine.adoc#_commands_and_settlements[Workflow Engine Developer Guide § Commands and Settlements]
+* PM-IMPL-5

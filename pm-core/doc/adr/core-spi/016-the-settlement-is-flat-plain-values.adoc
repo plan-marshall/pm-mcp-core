@@ -1,0 +1,42 @@
+= ADR 016: The Settlement Is Flat Plain Values
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The result of a run is a `PrimitiveResult` whose outcome and reason are enum constants of the primitive's own types.
+A reader of the settlement (a command log, a client, a replay) does not hold those types, and a settlement that kept
+them would tie every reader to every primitive. The specification gave the optional parts as `Optional` components.
+
+== Decision
+
+`CommandSettlement` holds eight flat components: the `command`, the `outcome` wire name, its `OutcomeClass`, the
+`reason` wire name, the `facts`, the `spawnedJobId`, the `raisedCondition` kind and `settledAt`. No component is a
+primitive's own type. The three that may be absent (`reason`, `spawnedJobId`, `raisedCondition`) are `@Nullable`,
+by the repository rule; the record carries a `@Builder` (eight components) beside its validating canonical constructor.
+
+== Alternatives Considered
+
+1. **Keep the `PrimitiveResult` inside the settlement**: *Rejected*: the reader would need the primitive's enums, and
+   the result is not a value a store can hold.
+2. **Nest the result facts in a sub-record**: *Rejected*: rationale not recorded beyond the plan's statement that the
+   settlement is flat.
+
+== Consequences
+
+* A settlement can be compared, printed and later written without the primitive's classes.
+* `CommandSettlementTest` pins the refusals of the required components and the builder's `null` defaults.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverable 1
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#command-and-settlement[Workflow DSL § The Command and its Settlement]
+* link:../../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[Repository ADR 021]
+* PM-IMPL-5

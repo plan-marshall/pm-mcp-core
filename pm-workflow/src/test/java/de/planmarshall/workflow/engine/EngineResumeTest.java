@@ -278,6 +278,6 @@ class EngineResumeTest {
     /** Writes a status in a transaction and returns the step of a resting status, for {@link #committed}. */
     private EngineStep persist(ScopeTransaction transaction, WorkflowStatus status) {
         new WorkflowStatusStore(scope).write(transaction, status);
-        return new EngineStep.Resting(status, status.state(), AwaitedEvent.JOB_SETTLED);
+        return new EngineStep.Resting(status, status.state(), AwaitedEvent.JOB_SETTLED, List.of());
     }
 }

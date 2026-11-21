@@ -96,7 +96,7 @@ class MachineResidentUnitTest {
         var violations = validator.verify(unit).violations();
 
         assertTrue(violations.stream().anyMatch(violation -> violation.rule() == VerificationRule.EXIT_PATH
-                && violation.message().contains("onboard.completed")),
+                        && violation.message().contains("onboard.completed")),
                 "an EXIT_PATH violation names onboard.completed");
     }
 
@@ -120,8 +120,8 @@ class MachineResidentUnitTest {
         var violations = validator.verify(unit).violations();
 
         assertTrue(violations.stream().anyMatch(violation ->
-                violation.rule() == VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS
-                        && "onboard.stopped".equals(violation.stateId())),
+                        violation.rule() == VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS
+                                && "onboard.stopped".equals(violation.stateId())),
                 "the terminal onboard.stopped is refused");
     }
 

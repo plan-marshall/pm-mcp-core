@@ -768,6 +768,13 @@ Verified by (the reason inside a called unit): link:../pm-workflow/src/test/java
 Documentation (the reason inside a called unit): link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
 link:../pm-workflow/doc/adr/workflow-engine/022-a-reason-stays-out-of-the-sub-workflow-result-record.adoc[ADR workflow-engine/022]
 
+Implementation (the command of a primitive run across a call, as far as the library modules carry it and not yet wired into the runtime `pm-mcpd`: every command of one advance carries the advance's correlation id, the one its pushed frames carry, and the step-out of a called unit runs its caller's primitives with the trigger `step_out`, the unwind to the fallback with `fallback`): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/Provenance.java[Provenance]
+
+Verified by (the command across a call): link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/CommandDispatchTest.java[CommandDispatchTest]
+
+Documentation (the command across a call): link:../pm-workflow/doc/developer/workflow-engine.adoc#_commands_and_settlements[Workflow Engine Developer Guide § Commands and Settlements]
+
 Implementation (the call-time channel, as far as the library modules carry it and not yet wired into the runtime `pm-mcpd`: the closed `text`, `commit_message`, `path` and `list<path>` input types and their validation; the caller's slots with the state-level `fills` clause and the `slot.<name>` call value; the `InputBindingContext` port; the call-time bind that resolves every declared input in the order call site, configuration, default, optional absence, validates it against its type and the scope's staging set, records its provenance in `arg_sources` and consumes the slot in the same transaction; the commit and correlation identity of a call frame; and, in the provider, the commit set of the listed paths): link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputValidator.java[InputValidator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputRefusal.java[InputRefusal],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/PathRules.java[PathRules],
@@ -2640,6 +2647,33 @@ link:../pm-workflow/doc/adr/workflow-engine/021-the-reason-table-belongs-to-the-
 link:../pm-workflow/doc/adr/workflow-engine/022-a-reason-stays-out-of-the-sub-workflow-result-record.adoc[ADR workflow-engine/022],
 link:../pm-workflow/doc/adr/workflow-verify/040-a-reason-routed-as-an-outcome-is-named-by-rule-2.adoc[ADR workflow-verify/040],
 link:../pm-core/doc/adr/core-store/080-the-reason-is-an-optional-member-of-the-left-line.adoc[ADR core-store/080]
+
+Implementation (the command and its settlement, as far as the library modules carry them and not yet wired into the runtime `pm-mcpd`: the engine runs every primitive as a `Command` with a fresh command id, the advance's correlation id and the provenance of the advance, and returns one `CommandSettlement` per run on the step of the advance, on the routed and on the raised exit; neither is persisted, the persisted command log is not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/spi/Command.java[Command],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/Provenance.java[Provenance],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/CommandSettlement.java[CommandSettlement],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EngineStep.java[EngineStep]
+
+Verified by (the command and its settlement): link:../pm-core/src/test/java/de/planmarshall/core/spi/CommandTest.java[CommandTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/ProvenanceTest.java[ProvenanceTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/CommandSettlementTest.java[CommandSettlementTest],
+link:../pm-core/src/test/java/de/planmarshall/core/testing/generators/CommandGeneratorTest.java[CommandGeneratorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/CommandDispatchTest.java[CommandDispatchTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEngineTest.java[WorkflowEngineTest] (group `Settlements of a step`)
+
+Documentation (the command and its settlement): link:specification/workflow-dsl/05-primitives.adoc#command-and-settlement[Workflow DSL § The Command and its Settlement],
+link:../pm-core/doc/developer/core-spi.adoc#_the_contract_of_a_primitive[Primitive SPI Developer Guide § The Contract of a Primitive],
+link:../pm-workflow/doc/developer/workflow-engine.adoc#_commands_and_settlements[Workflow Engine Developer Guide § Commands and Settlements],
+link:../pm-core/doc/adr/core-spi/014-a-command-is-a-record-of-values-and-the-primitive-stays-the-handler.adoc[ADR core-spi/014],
+link:../pm-core/doc/adr/core-spi/015-the-provenance-names-the-cause-of-the-advance-not-the-actor.adoc[ADR core-spi/015],
+link:../pm-core/doc/adr/core-spi/016-the-settlement-is-flat-plain-values.adoc[ADR core-spi/016],
+link:../pm-core/doc/adr/core-spi/017-the-settlement-reason-takes-the-reason-grammar.adoc[ADR core-spi/017],
+link:../pm-core/doc/adr/core-spi/018-a-value-that-carries-an-input-does-not-print-it.adoc[ADR core-spi/018],
+link:../pm-workflow/doc/adr/workflow-engine/023-the-command-ids-come-from-the-ports-generator.adoc[ADR workflow-engine/023],
+link:../pm-workflow/doc/adr/workflow-engine/024-the-settlements-travel-on-the-engine-step.adoc[ADR workflow-engine/024],
+link:../pm-workflow/doc/adr/workflow-engine/025-the-execution-context-of-a-primitive-is-unchanged.adoc[ADR workflow-engine/025],
+link:../pm-workflow/doc/adr/workflow-engine/026-the-command-and-its-settlement-are-not-persisted.adoc[ADR workflow-engine/026],
+link:../pm-workflow/doc/adr/workflow-engine/027-the-settlement-carries-the-raw-facts.adoc[ADR workflow-engine/027]
 
 Implementation (the production registries of the configuration keys and the fact kinds, and the one factory that assembles the verifier context from them): link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProductRegistries.java[ProductRegistries],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/ConfigKeyRegistry.java[ConfigKeyRegistry],

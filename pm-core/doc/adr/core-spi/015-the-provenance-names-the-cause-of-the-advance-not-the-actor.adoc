@@ -1,0 +1,50 @@
+= ADR 015: The Provenance Names the Cause of the Advance, Not the Actor
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+A command needs to say why it ran. Two readings were available: who acted (the operator, a session, the server) or
+what made the engine advance (a start, a settled job, an answered question, an operator act). The engine knows the
+second at every entry point; it does not know the first, which lives in the transport above it. The specification
+of the command gave the component as `Optional<String> triggerRef`, which the repository rule forbids for a record
+component. Two engine runs dispatch no primitive at all: `composeOperatorEvent` and `restingWait`.
+
+== Decision
+
+* `Provenance(Trigger trigger, @Nullable String triggerRef)` names the cause of the advance. `Trigger` is the closed
+  enum of nine values: the four entry points that run a primitive on their own (`START`, `RESUME`, `STEP_OUT`,
+  `FALLBACK`) and one per event that resumes a resting status (`JOB_SETTLED`, `TASKS_SETTLED`, `QUESTION_RESOLVED`,
+  `OPERATOR_ACT`, `TIME_ELAPSED`); `wireName()` is the constant in lower case.
+* The reference is `@Nullable`, not `Optional`, by the repository rule
+  (link:../../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]);
+  a present reference is never blank.
+* Operator decision Q1 A (2026-11-21): the two runs that dispatch nothing carry no provenance; their `Run` holds `null`,
+  and `runPrimitive` requires a provenance, so a primitive never runs without a cause. No tenth trigger is added for
+  them, and the nine stay exactly as the specification lists them.
+
+== Alternatives Considered
+
+1. **Name the actor**: *Rejected*: the engine cannot know it, and the cause is what a replay needs.
+2. **A tenth trigger for the runs that dispatch nothing**: *Rejected*: operator decision Q1 A chose no provenance for
+   those runs; a trigger no command ever carries would widen the closed set for no reader.
+3. **`Optional<String>` as in the specification**: *Rejected*: the repository returns `Optional` only.
+
+== Consequences
+
+* `ProvenanceTest` pins the nine wire names, and `CommandDispatchTest.shouldNameEveryTriggerOfEntryPointsAndEvents`
+  fails when a new `EngineEvent` subclass or entry point is added without its trigger.
+* Who acted stays a concern of the caller that writes the advance.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverables 1 and 3, operator decision Q1 A
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#command-and-settlement[Workflow DSL § The Command and its Settlement]
+* PM-IMPL-5

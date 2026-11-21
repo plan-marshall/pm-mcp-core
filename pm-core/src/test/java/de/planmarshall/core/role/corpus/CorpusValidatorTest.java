@@ -665,7 +665,7 @@ class CorpusValidatorTest {
                 var violations = validate();
 
                 assertTrue(violations.stream().anyMatch(violation -> violation.rule() == Rule.UNREADABLE
-                        && CorpusImport.SOURCES.equals(violation.subject())),
+                                && CorpusImport.SOURCES.equals(violation.subject())),
                         "the unlistable sources are reported as unreadable");
             } finally {
                 Files.setPosixFilePermissions(sources, permissions);

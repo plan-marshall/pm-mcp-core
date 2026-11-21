@@ -432,7 +432,7 @@ class EnrolmentCheckTest {
 
             assertAll(
                     () -> assertTrue(events.stream()
-                            .noneMatch(event -> AuditEvent.ENROLMENT_INVALID.equals(event.event())),
+                                    .noneMatch(event -> AuditEvent.ENROLMENT_INVALID.equals(event.event())),
                             "no enrolment_invalid event is audited"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
                             WARN.ENROLMENT_INVALID.resolveIdentifierString()));

@@ -864,7 +864,7 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(refused.violations().stream().anyMatch(violation -> violation.startsWith(
                             "INV-OUTLINE-2 in 'init.light-gate'")), "the violations name INV-OUTLINE-2"),
                     () -> assertFalse(refused.violations().stream()
-                            .anyMatch(violation -> violation.startsWith("INV-INIT-2")),
+                                    .anyMatch(violation -> violation.startsWith("INV-INIT-2")),
                             "no violation names INV-INIT-2"));
         }
     }

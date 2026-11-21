@@ -1175,7 +1175,7 @@ class CredentialStoreMoveTest {
                             "the old key is untouched by the move"),
                     () -> assertSameSidecars(signed, sidecars()),
                     () -> assertTrue(target.entries().stream().allMatch(
-                            account -> EnrolmentKey.ACCOUNT.equals(account.account())),
+                                    account -> EnrolmentKey.ACCOUNT.equals(account.account())),
                             "the target holds no entry but its own key"),
                     () -> assertEquals(List.of(GITHUB, sonar), storeOf(from).entries().stream()
                                     .filter(account -> !EnrolmentKey.ACCOUNT.equals(account.account())).toList(),

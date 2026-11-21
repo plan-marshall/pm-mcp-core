@@ -14,6 +14,7 @@ import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.role.RoleSkill;
+import de.planmarshall.core.spi.Command;
 import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.ProjectEnrolment;
 
@@ -47,5 +48,10 @@ public class CoreGenerators {
     /** @return a generator of valid lease records */
     public static TypedGenerator<LeaseRecord> leaseRecords() {
         return new LeaseRecordGenerator();
+    }
+
+    /** @return a generator of valid commands */
+    public static TypedGenerator<Command> commands() {
+        return new CommandGenerator();
     }
 }

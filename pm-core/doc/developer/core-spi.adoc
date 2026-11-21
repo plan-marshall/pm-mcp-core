@@ -58,7 +58,31 @@ reason of the outcome when the outcome declares reasons.
 
 |link:{src}/FreeParam.java[`@FreeParam`]
 |Marks a component of a parameter record as a value the caller supplies and declares the length bounds of a text value.
+
+|link:{src}/Command.java[`Command`]
+|One run of a primitive as a value: the command id, the correlation id of the advance, the primitive id, the bound
+input record, the provenance and the instant it was issued. Every component is required and the primitive id is never
+blank (link:{test}/CommandTest.java[`CommandTest`]). The engine builds it and runs the primitive with its input; the
+primitive stays the handler.
+
+|link:{src}/Provenance.java[`Provenance`] and its `Trigger`
+|The cause of the advance that runs a primitive, not the actor: one of the nine triggers and, where the cause names
+one, a non-blank reference (the job id, the question id, `<state id>/<link id>`); an absent reference is `null`. The
+wire names of the nine triggers are pinned (link:{test}/ProvenanceTest.java[`ProvenanceTest`]).
+
+|link:{src}/CommandSettlement.java[`CommandSettlement`]
+|What one run settled to, as flat plain values: the command, the outcome and its class, the reason, the facts, the job
+the result reported and the condition the reason raised. The outcome follows the outcome grammar
+`[a-z][a-z0-9_-]{0,31}`, the reason the narrower reason grammar `[a-z][a-z0-9_]{0,31}`; a raised condition is a kind a
+primitive can originate and requires a reason; the facts are an unmodifiable copy in their order
+(link:{test}/CommandSettlementTest.java[`CommandSettlementTest`]).
 |===
+
+The command and the settlement live in memory only: the engine returns them on the step of an advance and persists
+neither. Neither prints what a session may have submitted: `Command.toString` names the class of the input, never its
+values, and `CommandSettlement.toString` the fact names, never their values (`CommandTest.toStringOmitsTheInput`,
+`CommandSettlementTest.toStringOmitsFactValuesAndInput`). The builder of each is tested against its canonical
+constructor in the same classes.
 
 The constants of `OutcomeClass`, `AwaitedEvent` and `CycleMeasure` are stated in their sources and pinned by
 link:{test}/SpiVocabularyTest.java[`SpiVocabularyTest`]; this guide does not repeat them.
@@ -371,6 +395,10 @@ status store persists.
 link:{test}/PrimitiveResultTest.java[`PrimitiveResultTest`]:: the pairing of a result with the reason its outcome
 declares, and the builder's defaults.
 link:{test}/SpiVocabularyTest.java[`SpiVocabularyTest`]:: the constants of the closed enums.
+link:{test}/CommandTest.java[`CommandTest`], link:{test}/ProvenanceTest.java[`ProvenanceTest`],
+link:{test}/CommandSettlementTest.java[`CommandSettlementTest`]:: the refusal of each missing component, the two wire
+name grammars, the rules of a raised condition, the ordered copy of the facts, the nine trigger wire names, and the
+`toString` of each value without an input or a fact value.
 link:{test}/validation/ConventionalCommitValidatorTest.java[`ConventionalCommitValidatorTest`],
 link:{test}/validation/AsciiDocValidatorTest.java[`AsciiDocValidatorTest`],
 link:{test}/validation/OutlineValidatorTest.java[`OutlineValidatorTest`]:: an accepted text and, per rule key, a text
@@ -395,6 +423,9 @@ that breaks exactly that rule, with the key and the line.
 * *Do not put a reason in `updatedFacts`.* A string fact is untyped and unchecked; the reason has its typed home in
   `PrimitiveResult.reason()` and the registry checks its declaration. A reason in the facts is invisible to the SPI and
   to the documentation.
+* *Do not print or log an input record; print its class.* The input of a command and the facts of a settlement may
+  hold text a session submitted. A message, a log record or a `toString` names the class of the input and the names of
+  the facts, never their values, as `Command` and `CommandSettlement` do themselves.
 
 == Model Submission Validators
 
@@ -431,9 +462,15 @@ previous section. They return the accepted value or a refusal that names the ite
   the reason-to-condition table is total and closed, link:../adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR 011]
   reasons are data only and never routable, link:../adr/core-spi/012-a-skip-with-an-optional-input-is-skipped-plus-a-reason.adoc[ADR 012]
   a skip with an optional input is skipped plus a reason, link:../adr/core-spi/013-a-reason-wire-name-is-one-the-history-line-can-store.adoc[ADR 013]
-  a reason wire name is one the history line can store
+  a reason wire name is one the history line can store, link:../adr/core-spi/014-a-command-is-a-record-of-values-and-the-primitive-stays-the-handler.adoc[ADR 014]
+  a command is a record of values and the primitive stays the handler, link:../adr/core-spi/015-the-provenance-names-the-cause-of-the-advance-not-the-actor.adoc[ADR 015]
+  the provenance names the cause of the advance, not the actor, link:../adr/core-spi/016-the-settlement-is-flat-plain-values.adoc[ADR 016]
+  the settlement is flat plain values, link:../adr/core-spi/017-the-settlement-reason-takes-the-reason-grammar.adoc[ADR 017]
+  the settlement's reason takes the reason grammar, link:../adr/core-spi/018-a-value-that-carries-an-input-does-not-print-it.adoc[ADR 018]
+  a value that carries an input does not print it
 * The null contract of the ports: `PrimitiveResult.spawnedJobId` and `PrimitiveResult.reason`, the `scopeId` of
-  `JobStarter.StartRequest`, `QueueTaskCreator.CreateRequest` and `QuestionRecordReader.ReadRequest` are `@Nullable`; a
+  `JobStarter.StartRequest`, `QueueTaskCreator.CreateRequest` and `QuestionRecordReader.ReadRequest`,
+  `Provenance.triggerRef`, and `CommandSettlement.reason`, `spawnedJobId` and `raisedCondition` are `@Nullable`; a
   reason is present exactly when the outcome declares a reason type, and the builder defaults both optional components to
   `null` (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021], link:../adr/core-spi/008-the-result-carries-an-optional-reason-as-its-fourth-component.adoc[ADR 008]).
 * The store that binds the ports: link:core-store.adoc[`core.store`]

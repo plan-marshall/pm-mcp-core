@@ -14,10 +14,11 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.nio.file.Path;
 import java.util.Map;
 
-import de.planmarshall.core.testing.assertions.AssertionMessages;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import de.planmarshall.core.testing.assertions.AssertionMessages;
 
 /**
  * Guards the rule of the {@code junit-core} skill that every assertion carries a message of 20 to 60 characters, for
