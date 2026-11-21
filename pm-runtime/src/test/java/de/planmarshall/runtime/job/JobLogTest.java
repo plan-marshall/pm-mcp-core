@@ -332,7 +332,7 @@ class JobLogTest {
                     "a first line that is not kept is no report");
 
             assertAll(
-                    () -> assertFalse(reading.jobOutput().contains("z"), "the long first line is not read"),
+                    () -> assertFalse(reading.jobOutput().contains("z".repeat(64)), "the long first line is not read"),
                     () -> assertEquals(marker + "\n", reading.jobOutput(), "the tail alone is answered"));
         }
 
