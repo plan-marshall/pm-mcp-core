@@ -73,7 +73,6 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
-import de.planmarshall.workflow.input.InputRefusal;
 import de.planmarshall.workflow.input.InputValidator;
 import de.planmarshall.workflow.plan.CompositionEvent;
 import de.planmarshall.workflow.plan.CompositionResult;
@@ -1184,11 +1183,11 @@ public final class WorkflowEngine {
                             unit.id(), slotName, node.id()));
             var parsed = InputValidator.parse(declaration.type(), value);
             if (parsed.refusal() != null) {
-                throw invalidLinkArgs(unit, declaration, parsed.refusal().ruleId(), value);
+                throw invalidLinkArgs(declaration, parsed.refusal().ruleId());
             }
             var refusal = InputValidator.validate(declaration.type(), parsed.value());
             if (refusal.isPresent()) {
-                throw invalidLinkArgs(unit, declaration, refusal.get().ruleId(), value);
+                throw invalidLinkArgs(declaration, refusal.get().ruleId());
             }
             var slots = new LinkedHashMap<>(status.slots());
             slots.put(unit.id() + ":" + slotName,
@@ -1196,12 +1195,10 @@ public final class WorkflowEngine {
             status = status.toBuilder().slots(slots).build();
         }
 
-        private static IllegalArgumentException invalidLinkArgs(WorkflowDefinition unit, InputDecl declaration,
-                String rule, String value) {
-            var echo = new InputRefusal(rule, value);
+        private static IllegalArgumentException invalidLinkArgs(InputDecl declaration, String rule) {
             return new IllegalArgumentException(
                     "invalid_link_args: the %s of the slot '%s' refuses the submitted value (%s)"
-                            .formatted(declaration.type().sourceText(), declaration.name(), echo.ruleId()));
+                            .formatted(declaration.type().sourceText(), declaration.name(), rule));
         }
 
         /** Records the state as left and returns the target its transition was chosen for. */
