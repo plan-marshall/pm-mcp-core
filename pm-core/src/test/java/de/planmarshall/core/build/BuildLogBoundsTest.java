@@ -12,13 +12,16 @@ package de.planmarshall.core.build;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.management.ThreadMXBean;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.config.LimitProperties;
+import de.planmarshall.core.store.JobId;
 
 /**
  * The bounds of a build log's parse (R07): the three parsers of this plan cut every line at the per-line limit before a
@@ -41,6 +45,9 @@ import de.planmarshall.core.config.LimitProperties;
  * <p>
  * The two reference expressions are the ported forms the rewrite replaced: the differential tests hold the rewrite to
  * their result over generated lines, so a rewrite that changes a verdict fails here before it reaches a fixture.
+ * <p>
+ * The copy cost of {@link UnparsedEvidence} on a log at the read's cap is measured here too, as an allocation bounded by
+ * a multiple of the log's length.
  */
 @EnableGeneratorController
 @DisplayName("Build log bounds")
@@ -48,6 +55,12 @@ class BuildLogBoundsTest {
 
     /** The bound a hostile line answers inside; it names the length of the input beside it. */
     private static final Duration HOSTILE_BOUND = Duration.ofSeconds(1);
+
+    /** The generous bound the evidence of a log at the read's cap answers inside; it is no performance target. */
+    private static final Duration EVIDENCE_BOUND = Duration.ofSeconds(10);
+
+    /** The log copies the evidence may allocate: the measured five, with room for the JVM's growth policy. */
+    private static final int EVIDENCE_COPIES = 8;
 
     /** The per-line limit the parsers apply. */
     private static final int LIMIT = BuildLogText.MAX_LINE_LENGTH;
@@ -324,6 +337,52 @@ class BuildLogBoundsTest {
                 "the pytest parser answers the hostile lines in time");
 
         assertTrue(parsed.diagnostics().isEmpty(), "the hostile lines locate no diagnostic");
+    }
+
+    /**
+     * The copy cost of the unparsed evidence on a log at the read's cap (PLAN-V2-163, item 43(a)). Measured on
+     * 2026-11-21: 83,219,096 bytes allocated (4.96 times the 16 MiB log) in 0.44 s, which is the escape strip and the
+     * frame reduction each copying the log once more and their builders growing; the allocation is asserted against
+     * a multiple of the log's length, so a copy that stops being bounded by the log's size fails here.
+     */
+    @Test
+    @DisplayName("the unparsed evidence of a 16 MiB log allocates about five times the log (79 MiB, 0.44 s measured)")
+    void boundsTheUnparsedEvidenceCopyOfALogAtTheCap() {
+        var log = colouredLogOf(BuildLogText.MAX_BYTES);
+        var allocation = assertInstanceOf(ThreadMXBean.class, ManagementFactory.getThreadMXBean(),
+                "the JVM must account the thread's allocation");
+        assertTrue(allocation.isThreadAllocatedMemoryEnabled(), "thread allocation accounting must be enabled");
+        UnparsedEvidence.of("plan-one", new JobId("b-0123456789abcdef"), log);
+
+        var measured = assertTimeoutPreemptively(EVIDENCE_BOUND, () -> {
+            var before = allocation.getCurrentThreadAllocatedBytes();
+            var started = System.nanoTime();
+            var evidence = UnparsedEvidence.of("plan-one", new JobId("b-0123456789abcdef"), log);
+            var nanos = System.nanoTime() - started;
+            return new long[]{allocation.getCurrentThreadAllocatedBytes() - before, nanos,
+                    evidence.excerpt().lines().count()};
+        }, "the evidence of a log at the cap is taken in time");
+
+        assertAll(
+                () -> assertEquals(UnparsedEvidence.MAX_LINES, measured[2], "the excerpt keeps fifty lines"),
+                () -> assertTrue(measured[0] > 0, "the allocation of the evidence is measured"),
+                () -> assertTrue(measured[0] < (long) EVIDENCE_COPIES * log.length(),
+                        "the evidence allocates at most eight log copies"));
+    }
+
+    /**
+     * A log of exactly {@code length} ASCII characters, every line a generated text in an SGR colour pair and with one
+     * carriage-return frame before it, so both full-length passes of the evidence (the escape strip and the frame
+     * reduction) copy the whole log. Contract literals: the SGR escapes {@code ESC[31m} and {@code ESC[0m}.
+     */
+    private static String colouredLogOf(int length) {
+        var log = new StringBuilder(length + 512);
+        while (log.length() < length) {
+            log.append(Generators.letterStrings(4, 16).next()).append('\r')
+                    .append("\u001B[31m").append(Generators.letterStrings(20, 120).next()).append("\u001B[0m\n");
+        }
+        log.setLength(length);
+        return log.toString();
     }
 
     @Test

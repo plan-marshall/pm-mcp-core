@@ -485,6 +485,14 @@ wall-clock runs.
 Both values are data: editing the properties resource changes the bound, and the class that names it reads the value when
 it initialises. There is no literal in the code and no runtime override.
 
+The unparsed evidence (<<_the_unparsed_evidence>>) copies the whole log twice — the escape strip and the
+carriage-return reduction — before it keeps fifty lines, and that cost was measured rather than assumed: on a 16 MiB
+log at the read's cap, every line coloured and carrying a carriage-return frame, `UnparsedEvidence.of` allocated
+83,219,096 bytes (4.96 times the log) in 0.44 s (2026-11-21). The cost is linear in the log's length and bounded by the
+cap, so the class was not changed (ADR `core-build/007`, "measured, no change").
+`BuildLogBoundsTest.boundsTheUnparsedEvidenceCopyOfALogAtTheCap` repeats the measurement and asserts the allocation
+against eight times the log's length under a preemptive timeout.
+
 == Adding a Parser
 
 1. Add the parser class: a static-only class (`@UtilityClass`) with `parse(String)` and `parse(Path)`, returning
