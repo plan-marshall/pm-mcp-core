@@ -79,7 +79,9 @@ public final class EntityKindRegistry {
     /**
      * Returns the default entity kinds. Every kind names the generic entity unit of its submission shape:
      * {@code screen} has no entity unit, {@code task} runs the task protocol unit {@code worker-task}, the single-submit
-     * kinds run {@code entity}, and the multi-submit lesson review kind {@code lessons-review} (the State Catalogue's
+     * kinds {@code decision}, {@code triage}, {@code simplify} and {@code commit-message} (the State Catalogue's
+     * {@code job llm commit-message role commit-message}, evaluated by {@code commit-message.evaluate}) run
+     * {@code entity}, and the multi-submit lesson review kind {@code lessons-review} (the State Catalogue's
      * {@code job llm lessons-review role lessons}) runs {@code entity-multi}. The registry only names the units;
      * {@link WorkflowValidator} checks that a kind's entity unit is registered in its {@link WorkflowCatalog}. The
      * defaults carry no test identifier: tests register their own kinds.
@@ -93,6 +95,7 @@ public final class EntityKindRegistry {
                 new EntityKind("decision", ENTITY_UNIT, "adjudicate.evaluate"),
                 new EntityKind("triage", ENTITY_UNIT, "triage.evaluate"),
                 new EntityKind("simplify", ENTITY_UNIT, "simplify.evaluate"),
+                new EntityKind("commit-message", ENTITY_UNIT, "commit-message.evaluate"),
                 new EntityKind("lessons-review", "entity-multi", "lessons-review.evaluate")));
     }
 }

@@ -1,0 +1,63 @@
+= ADR provider-git-primitive 005: One `failed` Outcome with a Closed Reason
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The catalogue gives `git.stage-and-commit` four outcomes, each routed differently: `committed`, `nothing_to_commit`,
+`hook_failed` and `attempts_exhausted`. The primitive can also fail in three further ways: a footprint breach, a refused
+message and a failed commit of the git contract (`FAILED`, `NOT_A_REPOSITORY`, `PATH_REFUSED`). The operator decided on
+2026-10-29 that a name is an outcome only where the graph continues differently and every other failure is a reason
+carried as data; `OutcomeReason`, `PrimitiveOutcome.reasonType()` and `PrimitiveResult.reason` give that reason a typed
+home.
+
+== Decision
+
+* `GitStageAndCommitPrimitive.Outcome` declares the catalogue's four and one additive FAILURE outcome `failed`, whose
+  `reasonType()` is the nested enum `Reason` implementing `OutcomeReason`:
+** `footprint_violation`, facts `offending_files` (at most 50 names) and `offending_count`; its `conditionKind()` is the
+   condition of the same name;
+** `message_refused`, facts `rule` and `line`; no condition;
+** `commit_failed`, facts `git_outcome` and `detail`; no condition.
+* The mapping of the git contract is total: `OK` to `committed`, `NOTHING_TO_COMMIT` to `nothing_to_commit`, every
+  other `GitOutcome`, `CAPABILITY_MISSING` of the native variant among them, to `failed` with `commit_failed` and its
+  facts. `hook_failed` belongs to the hook refusal of the CLI variant alone, the only variant that runs hooks; the
+  native variant never returns it (operator decision of 2026-11-21, following Stage 4 and the note of the unit). A
+  completeness test over `GitOutcome.values()`, derived at run time, proves the mapping and the facts of each outcome.
+* The primitive declares `cycleMeasure() = ATTEMPT_CAP` with the exhaustion outcome `attempts_exhausted` (operator
+  decision of 2026-11-21); the engine counts the attempts and returns `attempts_exhausted` at the cap, the primitive
+  never does.
+* The shipped unit routes `failed` once, to `git.stepped-out`, whose cause is the reason the outcome carries (`message_refused` or `commit_failed`), as the
+  cause of every other server step-out is the reason of its entering outcome (operator decision of 2026-11-21);
+  the catalogue gets one exit row, not three.
+
+== Alternatives Considered
+
+* *One outcome per cause.* Not taken: all three lead to the same recovery, and the operator's rule makes a cause a
+  reason unless the graph continues differently.
+* *The engine checks the footprint before the primitive runs.* Not taken: the specification makes the check the
+  primitive's first step for every caller (Stage 4).
+* *`CAPABILITY_MISSING` of the native variant as `hook_failed`.* Not taken: it would send a commit the native variant
+  cannot make into `git.commit-fix`, whose task fixes hook findings that do not exist; the specification reserves that
+  state for the CLI variant.
+
+== Consequences
+
+* The engine raises the condition `footprint_violation` for that reason instead of taking the transition; the mapping is
+  the engine's and is an external hand-off, as are the commit attempt counters.
+* A new cause of a failed commit is a new `Reason` constant, not a new outcome.
+
+== Source
+
+* link:../../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* link:../../../../../doc/specification/state-catalogue/05-git-commit-and-push.adoc#state-git.stage-and-commit[State Catalogue § `git.stage-and-commit`]
+* link:../../../../../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011]
+* link:../../developer/provider-git-primitive.adoc#_git_stage_and_commit[Commit Primitives Developer Guide § `git.stage-and-commit`]
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 5

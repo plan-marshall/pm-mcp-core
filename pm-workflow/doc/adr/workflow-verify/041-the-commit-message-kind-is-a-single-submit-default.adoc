@@ -1,0 +1,50 @@
+= ADR workflow-verify 041: The Kind `commit-message` Is a Single-Submit Default
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The task state `git.compose-message` of `git.commit_and_push` declares `job llm commit-message role commit-message`, and
+Rule 1 refuses a `job llm` state whose entity kind or return-evaluation primitive is not registered. The six default kinds
+of `EntityKindRegistry.defaults()` held no `commit-message`. The task submits one message (`commit`, `message:text[1..2000]`),
+the shape of the single-submit kinds `decision`, `triage` and `simplify`. The spec asked for a product check that verifies
+the fixture unit `git-commit-and-push.pmwf` against the four commit primitives; that check needs `pm-workflow` and
+`pm-provider-git` together, and the provider enforcer bans `pm-workflow` in a provider module, test scope included.
+
+== Decision
+
+* `EntityKindRegistry.defaults()` gains `new EntityKind("commit-message", "entity", "commit-message.evaluate")`: the
+  generic entity unit `entity` and the return evaluation `commit-message.evaluate`, a primitive of `pm-provider-git`
+  (link:../../../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/001-the-commit-primitives-live-in-pm-provider-git.adoc[ADR provider-git-primitive/001])
+  whose one outcome is `valid`. `infeasible` and `lost` stay the reserved engine outcomes the state already routes to
+  `git.template-message`.
+* The product check `GitCommitPrimitivesVerificationTest` moves to the assembly `plan-marshall-mcp`, which sees both
+  modules; this repository keeps the kind, the evaluation primitive and the extended defaults test
+  (`RegistriesAndRecordsTest.entityKindRegistry`).
+
+== Alternatives Considered
+
+* *A multi-submit kind on `entity-multi`.* Not taken: the task submits one message once.
+* *The product check in `pm-provider-git` against the test scope of `pm-workflow`.* Not taken: the enforcer forbids the
+  dependency and no dependency is added.
+
+== Consequences
+
+* `entityUnits()` stays `worker-task`, `entity` and `entity-multi`; no existing assertion of the defaults test changed
+  beyond the new kind.
+* A verification of a unit with `job llm commit-message` needs `commit-message.evaluate` in its `PrimitiveRegistry`; the
+  assembly registers it with the other commit primitives.
+
+== Source
+
+* link:../../../../doc/specification/state-catalogue/05-git-commit-and-push.adoc#state-git.compose-message[State Catalogue § `git.compose-message`]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 1)
+* link:../../developer/workflow-verify.adoc#_architecture_and_core_types[Workflow Verification Developer Guide § Architecture and Core Types]
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 7

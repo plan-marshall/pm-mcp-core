@@ -72,6 +72,8 @@ class RegistriesAndRecordsTest {
                 () -> assertTrue(defaults.find("decision").isPresent(), "the defaults register the decision kind"),
                 () -> assertTrue(defaults.find("triage").isPresent(), "the defaults register the triage kind"),
                 () -> assertTrue(defaults.find("simplify").isPresent(), "the defaults register the simplify kind"),
+                () -> assertTrue(defaults.find("commit-message").isPresent(),
+                        "the defaults register the commit-message kind"),
                 () -> assertTrue(defaults.find("lessons-review").isPresent(),
                         "the defaults register the lessons-review kind"),
                 () -> assertFalse(defaults.find("review").isPresent(),
@@ -90,6 +92,11 @@ class RegistriesAndRecordsTest {
                         "triage runs the entity unit"),
                 () -> assertEquals("entity", defaults.find("simplify").orElseThrow().entityUnit(),
                         "simplify runs the entity unit"),
+                () -> assertEquals("entity", defaults.find("commit-message").orElseThrow().entityUnit(),
+                        "commit-message runs the entity unit"),
+                () -> assertEquals("commit-message.evaluate",
+                        defaults.find("commit-message").orElseThrow().returnEvaluationPrimitiveId(),
+                        "commit-message evaluates through its primitive"),
                 () -> assertEquals("entity-multi", defaults.find("lessons-review").orElseThrow().entityUnit(),
                         "lessons-review runs the multi-submit unit"),
                 () -> assertEquals(Set.of("worker-task", "entity", "entity-multi"), defaults.entityUnits(),
@@ -99,7 +106,8 @@ class RegistriesAndRecordsTest {
                         "lessons-review evaluates through its own primitive")
         );
 
-        var defaultIdentifiers = Set.of("screen", "task", "decision", "triage", "simplify", "lessons-review").stream()
+        var defaultIdentifiers = Set.of("screen", "task", "decision", "triage", "simplify", "commit-message",
+                "lessons-review").stream()
                 .map(name -> defaults.find(name).orElseThrow())
                 .flatMap(kind -> Stream.concat(Stream.of(kind.name(), kind.returnEvaluationPrimitiveId()),
                         Stream.ofNullable(kind.entityUnit())))
