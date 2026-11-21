@@ -312,7 +312,8 @@ class IconSanitiserTest {
         return count;
     }
 
-    private static boolean contains(byte[] haystack, byte[] needle) {        outer:
+    private static boolean contains(byte[] haystack, byte[] needle) {
+        outer:
         for (var start = 0; start <= haystack.length - needle.length; start++) {
             for (var offset = 0; offset < needle.length; offset++) {
                 if (haystack[start + offset] != needle[offset]) {

@@ -129,7 +129,8 @@ class HarnessListingsTest {
                 () -> assertEquals(VERSION, rows.getFirst().version(), "The row keeps the enrolled version"),
                 () -> assertFalse(rows.getFirst().selectable(), "A harness no longer found is not selectable"),
                 () -> assertEquals(HINT, rows.getFirst().installHint(),
-                        "The row keeps the profile's install hint"));    }
+                        "The row keeps the profile's install hint"));
+    }
 
     @Test
     @DisplayName("the unreadable-status wire name is the launch refusal's code")

@@ -11,12 +11,14 @@ package de.planmarshall.runtime.icon;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -321,7 +323,7 @@ public final class IconStore {
      * @throws IOException if the file cannot be forced to its medium
      */
     private static void force(Path path) throws IOException {
-        try (var channel = java.nio.channels.FileChannel.open(path, java.nio.file.StandardOpenOption.WRITE)) {
+        try (var channel = FileChannel.open(path, StandardOpenOption.WRITE)) {
             channel.force(true);
         }
     }

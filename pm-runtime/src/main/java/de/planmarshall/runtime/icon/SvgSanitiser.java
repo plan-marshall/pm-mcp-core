@@ -11,6 +11,7 @@ package de.planmarshall.runtime.icon;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import javax.xml.stream.XMLEventReader;
@@ -209,14 +210,14 @@ public class SvgSanitiser {
     }
 
     private static void appendAttributes(StringBuilder out, StartElement element) {
-        var emitted = new java.util.HashSet<String>();
+        var emitted = new HashSet<String>();
         var attributes = element.getAttributes();
         while (attributes.hasNext()) {
             appendAttribute(out, attributes.next(), emitted);
         }
     }
 
-    private static void appendAttribute(StringBuilder out, Attribute attribute, java.util.Set<String> emitted) {
+    private static void appendAttribute(StringBuilder out, Attribute attribute, Set<String> emitted) {
         var name = attribute.getName();
         var local = name.getLocalPart();
         if (local.toLowerCase(Locale.ROOT).startsWith("on")) {
