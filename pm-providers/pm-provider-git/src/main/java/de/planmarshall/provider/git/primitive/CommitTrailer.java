@@ -56,8 +56,8 @@ public record CommitTrailer(String name, String email) {
      *                                  here
      */
     public CommitTrailer {
-        Objects.requireNonNull(name, "name");
-        Objects.requireNonNull(email, "email");
+        Objects.requireNonNull(name, Resolution.NAME_HALF);
+        Objects.requireNonNull(email, Resolution.EMAIL_HALF);
         if (!isValidName(name)) {
             throw new IllegalArgumentException("the trailer name breaks the constraints of commit_trailer.name");
         }

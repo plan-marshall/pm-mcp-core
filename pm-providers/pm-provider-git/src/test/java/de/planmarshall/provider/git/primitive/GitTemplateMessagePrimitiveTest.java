@@ -130,10 +130,8 @@ class GitTemplateMessagePrimitiveTest {
         @DisplayName("the priority is the order the specification states")
         void priority() {
             // the literal order is the contract: the type priority the specification states (Stage 3)
-            var specified = List.of("fix", "feat", "perf", "refactor", "docs", "style", "test", "chore", "ci");
-
-            assertEquals(specified, GitTemplateMessagePrimitive.TYPE_PRIORITY,
-                    "The type priority is the specified order");
+            assertEquals(List.of("fix", "feat", "perf", "refactor", "docs", "style", "test", "chore", "ci"),
+                    GitTemplateMessagePrimitive.TYPE_PRIORITY, "The type priority is the specified order");
         }
 
         @Test
