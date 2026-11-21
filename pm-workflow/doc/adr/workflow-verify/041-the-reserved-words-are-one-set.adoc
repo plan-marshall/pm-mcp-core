@@ -22,7 +22,8 @@ where the grammar expects them.
 
 == Decision
 
-* One holder, `ast.ReservedKeywords.ALL`, carries the set, and both the parser and the verifier read it.
+* One holder, `ast.ReservedKeywords.ALL`, carries the set, and the parser, the verifier and the frontmatter reader all read
+  it — the last through the parser's `RESERVED_KEYWORDS` alias, so no copy exists.
 * The set is the specification's: `decide`, `phase` and `inherit` are not reserved. A role named `decide` verifies, and a
   state-id segment `phase` stays legal, as the specification's list requires.
 * A word is added to the set only by amending the specification first; the class is the code's copy of that list, not a

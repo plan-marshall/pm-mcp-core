@@ -1978,7 +1978,7 @@ public final class WorkflowValidator {
                                     .formatted(slotRef.name(), state.id()))
                             .build());
                 }
-                var earlier = firstRead.putIfAbsent(slotRef.name(), state.id());
+                var earlier = filling.size() == 1 ? firstRead.putIfAbsent(slotRef.name(), state.id()) : null;
                 if (earlier != null) {
                     violations.add(Violation.builder()
                             .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)

@@ -23,12 +23,19 @@ the engine refused. The analysis of `PLAN-V2-157` found the shape (`a = slot.m, 
   slot is refused with a message naming both states.
 * The count is per slot name, over every call of the unit, in the order the states are walked; two references inside one
   call are counted as two reads, so the two-inputs-of-one-call shape is refused by the same rule.
+* The count applies only to a slot with exactly one filling state. A slot two states fill is read once per fill at run
+  time (the first read consumes the value the first fill wrote, the second fill writes a new one), so a second read there
+  is legal and the run-time `input_unbound` stays the only net for it; the `WorkflowValidatorTest` case
+  `shouldPassARefilledSlot` pins that a refilled slot verifies.
 * The dominance check stays: consumption says a slot is read once, dominance says it is filled before that read.
 
 == Alternatives Considered
 
 * *Leave it to the run time.* Refused: the run-time refusal is a safety net for a unit the verifier never saw, and a
   verified unit that fails its first call is exactly the defect this plan closes.
+* *Count the reads across a refill as well.* Refused: a slot two states fill is read once per fill at run time, so a
+  second read after the second fill is legal and a unit-wide count would refuse a sound unit. The count is therefore
+  scoped to a slot with a single filling state.
 * *Model the consumption as part of the dominance graph (a read removes an edge).* Refused: the graph carries no state
   values, a per-read reachability pass per call would multiply the cost measured in ADR 039, and the count is exact where
   a graph trick is an approximation.
@@ -37,8 +44,9 @@ the engine refused. The analysis of `PLAN-V2-157` found the shape (`a = slot.m, 
 
 == Consequences
 
-* `WorkflowValidatorTest § Slot consumption` pins both shapes; `verify/passing/slots-and-inputs.pmwf` stays the matched
-  control (one fill, one read), and the default plan unit and the compiled invariants are unchanged.
+* `WorkflowValidatorTest § Slot consumption` pins both shapes and the refilled-slot control
+  (`shouldPassARefilledSlot`); `verify/passing/slots-and-inputs.pmwf` stays the matched control (one fill, one read), and
+  the default plan unit and the compiled invariants are unchanged.
 * A unit that wants two calls to use the same text fills two slots, or the callers take the value as an input.
 
 == Source

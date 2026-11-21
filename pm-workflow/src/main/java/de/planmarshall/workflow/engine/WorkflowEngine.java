@@ -1763,10 +1763,11 @@ public final class WorkflowEngine {
                 return new Resolution.Bound(bound, new ArgSource(ArgSource.LITERAL, null));
             }
             if (input.fallback() != null) {
-                if (bindingContext == null) {
+                if (bindingContext == null && !input.optional() && input.defaultValue() == null) {
                     return new Resolution.Refused(noBindingContext(callee, input));
                 }
-                var configured = bindingContext.configValue(input.fallback());
+                var configured = bindingContext == null ? Optional.<String>empty()
+                        : bindingContext.configValue(input.fallback());
                 if (configured.isPresent()) {
                     var parsed = InputValidator.parse(input.type(), configured.get());
                     if (parsed.refusal() != null) {

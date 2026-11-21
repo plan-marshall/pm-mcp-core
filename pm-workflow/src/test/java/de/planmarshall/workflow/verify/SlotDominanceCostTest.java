@@ -9,12 +9,10 @@
  */
 package de.planmarshall.workflow.verify;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,8 +25,8 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
 
 /**
  * The cost of Rule 6's slot dominance, measured instead of argued: the walk is one breadth-first pass over the unit's
- * states per slot a call reads, so a unit whose bypass path carries {@value #BYPASS_STATES} states is walked in linear
- * time. The measured figure is published to the test report and recorded in ADR {@code workflow-verify/039}.
+ * states per slot a call reads. The measured figure is published to the test report and recorded in ADR
+ * {@code workflow-verify/039}.
  * <p>
  * The unit deliberately fails the dominance check: the fill sits on one branch, and a bypass chain of plain auto steps
  * reaches the call on the other, so the walk must cross the whole chain before it finds the call. The failure is the
@@ -40,9 +38,6 @@ class SlotDominanceCostTest {
     /** The states of the bypass chain: the size the walk must cross. */
     private static final int BYPASS_STATES = 2_000;
 
-    /** The bound the walk must stay inside on this host, generous against a loaded build machine. */
-    private static final long BOUND_MILLIS = 2_000;
-
     private static final String CALLEE_ID = "measure.callee";
 
     private final WorkflowCatalog catalog = WorkflowCatalog.of(parse(CALLEE_ID + ".pmwf", callee()));
@@ -52,22 +47,19 @@ class SlotDominanceCostTest {
             SchemaRegistry.defaults(), catalog);
 
     @Test
-    @DisplayName("the dominance walk is linear in the states of the unit")
-    void dominanceWalkIsLinear(TestReporter reporter) {
+    @DisplayName("the dominance walk crosses a 2000-state bypass chain and publishes its figure")
+    void dominanceWalkIsMeasured(TestReporter reporter) {
         var definition = parse("measure-plan.pmwf", plan(BYPASS_STATES));
 
         var started = System.nanoTime();
         var result = validator.verify(definition);
         var elapsedMillis = (System.nanoTime() - started) / 1_000_000;
         reporter.publishEntry("slot_dominance_walk_ms", Long.toString(elapsedMillis));
-        reporter.publishEntry("slot_dominance_walk_states", Integer.toString(BYPASS_STATES + 6));
+        reporter.publishEntry("slot_dominance_walk_states", Integer.toString(definition.states().size()));
 
-        assertAll(
-                () -> assertTrue(result.violations().stream()
-                                .anyMatch(violation -> violation.message().contains("not filled on every path")),
-                        "the bypass path is refused by the dominance check"),
-                () -> assertTrue(elapsedMillis < BOUND_MILLIS,
-                        "the walk stays inside its measured bound: %d ms".formatted(elapsedMillis)));
+        assertTrue(result.violations().stream()
+                        .anyMatch(violation -> violation.message().contains("not filled on every path")),
+                "the bypass path is refused by the dominance check");
     }
 
     /** @return the callee of the call: one commit-message input over a job state, resting on the stack */

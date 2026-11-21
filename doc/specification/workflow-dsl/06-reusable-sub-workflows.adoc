@@ -307,49 +307,49 @@ A call site that replaces its fixed commit message (Stage 3) binds `message = sl
 |`phase-5-execute` -> `execute.chain-tail-commit`
 |`auto_deliverable`
 |`never`
-|none
+|`branch`
 |Per-deliverable checkpoint commit at the tail of each deliverable's verification chain (`Step 10a`); cleans artifacts, commits via `stdin`, stamps `change-ledger.jsonl`, and stays local until Phase 6. `done` -> `execute.deliverable-build` (the per-deliverable module build); `stepped_out` -> the phase's exit `hand_back`.
 
 |`phase-5-execute` -> `execute.remediation-commit`
 |`interactive`
 |`never`
-|none
+|`branch`
 |Commits the changes of every remediation cause: the fixes of the remediation tasks allocated for a `fix_requested` of `remediation.build-failure` in Phase 5 or of a finalize loop-back, and the real changes of a dirty tree at `execute.exit-barrier`; validates the Conventional Commit message and stamps `change-ledger.jsonl`. `done` -> `execute.route-commit-cause`, an `auto` router state that continues by the persisted `remediation_cause` (`deliverable` -> `execute.deliverable-build`; `sweep` for `sweep`, `finalize`, and `exit_barrier` -> `execute.verify-sweep`); `stepped_out` -> the phase's exit `hand_back`.
 
 |`land` -> `land.remediation-commit`
 |`interactive`
 |`never`
-|none
+|`branch`
 |Commits the real changes of a dirty tree at `land.exit-barrier`; its artifact review separates build leftovers from the real changes, which are recorded as unplanned changes. `done` -> `land.verify-sweep`; `stepped_out` -> `land.handed-back` (the lane's exit `hand_back`).
 
 |`phase-6-finalize` -> `finalize.settle-commit`
 |`step_or_fallback`
 |`post_pr_conditional`
-|none
+|`branch`
 |Phase 6 commit instrumentation after every change of a `mutates_source: true` step made in Phase 6 (`simplify`, `architecture-refresh`, `pre-push-quality-gate`, `adr-propose`; a `security-audit` fix runs in the `loop_back` form and is committed by the exit barrier) and after a resolved sync-baseline conflict; re-stamps `head_at_completion`, records `freshness_reconcile` (any commit after the latest successful build), and re-pushes when `settle_trigger.order > 20` and the project has a push remote. `done` with `result.pushed` -> `finalize.review-cap-check`, without -> `finalize.next-step`; `stepped_out` -> `finalize.hand-back`.
 
 |`phase-6-finalize` (landing variant `landing.pull-request`) -> `finalize.push-barrier`
 |`none_assert_clean`
 |`if_push_remote`
-|none
+|`branch`
 |Phase 6 `default:push` barrier (`order == 11`); verifies working-tree cleanliness (or commits residual changes), checks the derived fact `push_remote`, enforces `pre-commit-verify-freshness` and `branch-sync-state`, and pushes to `origin/<branch>`. `done` with `result.landed` -> `finalize.merge-gate` (completes `default:push` `skipped`); otherwise -> `finalize.next-step` (completes `default:push` `done`: the remote branch holds `HEAD`; a local-only plan prunes the step), which selects `create-pr` unless the instance prunes it; `stepped_out` -> `finalize.hand-back`. A plan of source `pr` re-pushes the adopted pull-request head branch through this state and `finalize.settle-commit`; there is no separate pull-request repair workflow.
 
 |`remediation.ci-failure`, `remediation.review-findings`, `remediation.analysis` -> `<unit>.commit-fix`
 |`interactive`
 |`always`
-|none
+|`branch`
 |The in-branch `fix` of a remediation unit inside the finalize wait region or at the pre-merge barrier, always after the pull request exists (the Settle-band call sites `finalize.remediate-security-audit` and `finalize.remediate-self-review` bind `actions=[loop_back]` with `retry_budget=0` and never reach this state); `done` with `result.commit` -> the unit's await state for the new `HEAD`; `done` without a commit and `stepped_out` -> the unit's `budget-check` (the fix was charged when its task submitted it, xref:08-remediation-units.adoc#remediation-units[Remediation Policy Units]).
 
 |`epic.pmwf` -> `epic.commit-ledger`
 |`step_or_fallback`
 |`never`
-|none
+|`branch`
 |Commits epic ledger updates in the shared epic worktree on the fixed epic branch, staging only `.marshall/epics/**` paths; entered from `epic.archive` with the epic's archive flag set, it also stages `.marshall/archived-epics/**`, so the ledger's move into the archive is committed and landed like every ledger write. Never commits on the primary checkout; ledger changes reach the default branch only through the epic landing (link:../model-work/08-epic-coordination.adoc#epic-landing[Model Work Specification]); `done` continues at `epic.next-work`; `stepped_out` returns to the watch `epic.active` (the write stays uncommitted).
 
 |`decomposition.pmwf` -> `decomposition.commit`
 |`step_or_fallback`
 |`never`
-|none
+|`branch`
 |Commits the decomposition the operator agreed to in the review (the workstreams and the staged rows written to the ledger, with the epic's sources on the first run) in the shared epic worktree on the fixed epic branch, staging only `.marshall/epics/**`, and clears the draft (link:../state-catalogue/17-epic-decomposition-and-review.adoc#state-decomposition.commit[State Catalogue Specification, `decomposition.commit`]). `done` -> `decomposition.done`; `stepped_out` returns to `decomposition.review` (the draft kept; agreeing commits again).
 
 |`phase-6-finalize` (landing variant `landing.main`) -> `finalize.land-main`
@@ -361,21 +361,25 @@ A call site that replaces its fixed commit message (Stage 3) binds `message = sl
 |`git.land-removal` -> its commit state
 |`step_or_fallback`
 |`always`
-|by the landing variant
+|`branch` / `base`
 |The removal from git of the documents a start moved into its source directory (<<short-landings>>); `push_target` by the project's landing: `branch` under `landing.pull-request`, `base` under `landing.main`.
 
 |`git.land-unit` -> its commit state
 |`step_or_fallback`
 |`always`
-|by the landing variant
+|`branch` / `base`
 |A workflow unit placed or removed at project level (<<short-landings>>); `push_target` as for `git.land-removal`.
 
 |`git.land-setup` -> its commit state
 |`step_or_fallback`
 |`always`
-|by the landing variant
+|`branch` / `base`
 |The team configuration a project's setup changed, started by `setup.land-changes` (<<short-landings>>); `push_target` as for `git.land-removal`.
 |===
+
+`push_target` names the value the call site binds, one of the input's two admitted values (`branch`, `base`); a site that
+binds none takes the compiled default `branch`. The three short landings bind it by the project's landing variant and
+therefore admit both values.
 
 The epic ledger (`epic.commit-ledger`, `decomposition.commit`) and the short landings, the project setup's changes among them (`git.land-setup`), reach the base branch through the project's landing variant (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]): with `landing.pull-request` through a branch and its pull request, with `landing.main` by a commit pushed onto the base branch (`push_target: base`), and with `landing.files` they stay uncommitted in the working tree.
 

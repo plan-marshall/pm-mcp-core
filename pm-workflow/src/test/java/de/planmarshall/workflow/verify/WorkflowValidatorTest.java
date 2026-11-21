@@ -31,6 +31,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -1260,22 +1261,22 @@ class WorkflowValidatorTest {
 
     /**
      * The reserved words the verifier reads are the parser's set, which is the specification's: a word the grammar leaves
-     * positional (`decide`, `quorum_term`, `phase`, `inherit`, `entry`) is a legal role name and a legal state-id
-     * segment.
+     * positional (`decide`, `quorum`, `phase`, `inherit`, `entry`) is a legal role name and a legal state-id segment.
      */
     @Nested
     @DisplayName("Reserved words")
     class ReservedWords {
 
-        @Test
-        @DisplayName("Should accept a role named decide, which the grammar does not reserve")
-        void shouldAcceptThePositionalKeywordAsARole() {
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"decide", "phase", "inherit", "entry"})
+        @DisplayName("Should accept a role named like a positional keyword")
+        void shouldAcceptAPositionalKeywordAsARole(String role) {
             var result = validator.verify(unit("plan", """
                     state verify.entry
-                        job llm change role decide ask
+                        job llm change role %s ask
                             approved -> verify.done
                             lost -> verify.done
-                    """ + DONE_TERMINAL));
+                    """.formatted(role) + DONE_TERMINAL));
 
             assertEquals(List.of(), result.violations(), "a positional keyword is a legal role name");
         }
@@ -1359,8 +1360,7 @@ class WorkflowValidatorTest {
 
         @Test
         @DisplayName("Should refuse a slot bound to two inputs of one call")
-        void shouldRefuseTwoInputsOfOneCall() {
-            var result = consumption.verify(slotPlan("""
+        void shouldRefuseTwoInputsOfOneCall() {            var result = consumption.verify(slotPlan("""
                     state verify.entry
                         auto test.prepare
                             done -> verify.fill
@@ -1384,12 +1384,47 @@ class WorkflowValidatorTest {
                     "the second input of the call refuses the slot");
         }
 
+        @Test
+        @DisplayName("Should pass a unit that refills the slot after the first read")
+        void shouldPassARefilledSlot() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill-first
+                            skipped -> verify.fill-first
+
+                    state verify.fill-first
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-first
+                            lost -> verify.done
+
+                    state verify.invoke-first
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.fill-second
+                            stepped_out -> plan.return
+
+                    state verify.fill-second
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-second
+                            lost -> verify.done
+
+                    state verify.invoke-second
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of(), result.violations(),
+                    "a slot refilled between two reads verifies");
+        }
+
         /**
          * @param states the states of the plan unit
          * @return the plan unit with one commit-message slot and the two terminals
          */
-        private static WorkflowDefinition slotPlan(String states) {
-            return VerifyFixtures.parseSource("consume-plan.pmwf", """
+        private static WorkflowDefinition slotPlan(String states) {            return VerifyFixtures.parseSource("consume-plan.pmwf", """
                     ---
                     name: consume.plan
                     description: A unit written for the verifier tests.

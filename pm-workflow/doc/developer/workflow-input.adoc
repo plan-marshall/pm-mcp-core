@@ -90,6 +90,10 @@ A refusal names the rule that rejected the value, so a caller can show or group 
 |An explicitly bound `list<path>` with no entry: it binds no path and never means "every change"
 (link:../adr/workflow-input/004-an-empty-files-list-is-refused.adoc[ADR workflow-input/004]).
 
+|`input.no-context`
+|A required input that names an `input_fallback` key where no bind context is wired, so the configuration value cannot be
+read (link:../adr/workflow-engine/028-the-bind-validates-the-arguments.adoc[ADR workflow-engine/028]).
+
 |`path.confinement`, `path.staging`, `path.no-context`
 |A path that leaves the worktree, one that is not in the scope's staging set, and one bound where no bind context is
 wired.

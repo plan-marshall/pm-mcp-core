@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -264,6 +267,50 @@ class InputBindingTest {
             state sub.stepped-out terminal stepped_out stepped_out
             """;
 
+    /** A callee with one path input. */
+    private static final String SUB_PATH = """
+            ---
+            name: sub.path
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: main
+            exit: done
+            input: file
+            input_type: path
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow sub.path version 1 format 1
+            scope subworkflow
+            entry main -> sub.wait
+
+            state sub.wait
+                job test.build
+                    succeeded -> sub.done
+                    failed -> sub.stepped-out
+                    cancelled -> sub.stepped-out
+
+            state sub.done terminal done success
+
+            state sub.stepped-out terminal stepped_out stepped_out
+            """;
+
+    /** A plan that fills the path slot from a task submission and binds it at the next call. */
+    private static final String FILL_PATH_AND_CALL = """
+            state execute.fill
+                fills slot.file from file
+                job llm change role reviewer
+                    approved -> execute.invoke
+                    lost -> handed_back
+
+            state execute.invoke
+                call sub.path(file = slot.file)
+                    done -> completed
+                    stepped_out -> plan.return
+            """;
+
     /** A plan that fills the commit-message slot from a task submission and binds it at the next call. */
     private static final String FILL_AND_CALL = """
             state execute.fill
@@ -473,6 +520,33 @@ class InputBindingTest {
                 slot_type: commit_message[1..2000]
                 slot: files
                 slot_type: list<path>[0..500]
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow plan version 1 format 1
+                scope plan
+                start %s
+
+                %s%s%s""".formatted(firstState(states), states, EngineFixtures.PLAN_RETURN,
+                EngineFixtures.PLAN_TERMINALS));
+    }
+
+    /**
+     * A plan unit that declares one path slot and the states written for the test.
+     *
+     * @param states the states of the plan
+     * @return the tree of the unit
+     */
+    private static WorkflowDefinition pathSlotPlan(String states) {
+        return parse("plan.pmwf", """
+                ---
+                name: plan
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                icon: workflow.default
+                slot: file
+                slot_type: path
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
@@ -764,7 +838,7 @@ class InputBindingTest {
         @Test
         @DisplayName("Should refuse a second call that binds a consumed slot")
         void shouldRefuseAConsumedSlot() {
-            // the version in force carries the two-read unit, which Rule 6 refuses; the bind is the safety net
+            // the version in force carries the two-read unit; Rule 6 refuses that shape, so the bind is the safety net here
             var engine = versioned(slotPlan(FILL_AND_CALL), slotPlan(FILL_AND_CALL_TWICE),
                     parse("sub.commit.pmwf", SUB_COMMIT));
             var message = generatedMessage();
@@ -900,7 +974,7 @@ class InputBindingTest {
         }
 
         @Test
-        @DisplayName("Should refuse a fallback input the configuration does not supply")
+        @DisplayName("Should refuse a fallback whose key supplies nothing and no default can")
         void shouldRefuseAnUnsuppliedFallback() {
             var engine = optionsEngine(Map.of());
 
@@ -1038,6 +1112,102 @@ class InputBindingTest {
                             "the refusal names the refused input"),
                     () -> assertTrue(facts.get("facts").contains("input.no-context"),
                             "the refusal names the missing binding context"));
+        }
+
+        @Test
+        @DisplayName("Should bind the compiled default when no context is mounted")
+        void shouldBindTheDefaultWithoutABindingContext() {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.fallback.pmwf", SUB_FALLBACK_DEFAULT);
+            var engine = new WorkflowEngine(callingPlan("execute.invoke", """
+                    state execute.invoke
+                        call sub.fallback()
+                            done -> completed
+                            stepped_out -> plan.return
+                    """), WorkflowCatalog.of(callee),
+                    fixtures.validator(ConfigKeyRegistry.of(List.of(MODE_KEY)), callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
+
+            var status = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+
+            var bound = assertInstanceOf(BoundArg.StringArg.class,
+                    status.callStack().getFirst().boundArgs().get("mode"), "the default resolves the input");
+            assertEquals("auto_deliverable", bound.value(), "the default needs no binding context");
+        }
+
+        @Test
+        @DisplayName("Should refuse a path input when no binding context is mounted")
+        void shouldRefuseAPathWithoutABindingContext() {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.path.pmwf", SUB_PATH);
+            var engine = new WorkflowEngine(pathSlotPlan(FILL_PATH_AND_CALL), WorkflowCatalog.of(callee),
+                    fixtures.validator(callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
+            var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+
+            var step = engine.advance(atTask, submitted("file", "src/A.java"));
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_refused\""),
+                            "the path is refused without a context"),
+                    () -> assertTrue(facts.get("facts").contains("path.no-context"),
+                            "the refusal names the missing binding context"));
+        }
+    }
+
+    /** The bind's confinement of a path: a symlink that leaves the worktree is refused before the frame is pushed. */
+    @Nested
+    @DisplayName("The confinement of a bound path")
+    class TheConfinement {
+
+        @TempDir
+        Path root;
+
+        @Test
+        @DisplayName("Should refuse a path that leaves the worktree through a directory symlink")
+        void shouldRefuseADirectorySymlink() throws IOException {
+            var worktree = Files.createDirectories(root.resolve("worktree"));
+            var secret = Files.writeString(Files.createDirectories(root.resolve("outside")).resolve("secret.txt"),
+                    "secret");
+            Files.createSymbolicLink(worktree.resolve("link"), secret.getParent());
+
+            var step = bind(worktree, "link/secret.txt");
+
+            assertRefusedWith(step, "path.confinement");
+        }
+
+        @Test
+        @DisplayName("Should refuse a path that leaves the worktree through a file symlink")
+        void shouldRefuseAFileSymlink() throws IOException {
+            var worktree = Files.createDirectories(root.resolve("worktree"));
+            var secret = Files.writeString(Files.createDirectories(root.resolve("outside")).resolve("secret.txt"),
+                    "secret");
+            Files.createSymbolicLink(worktree.resolve("file-out"), secret);
+
+            var step = bind(worktree, "file-out");
+
+            assertRefusedWith(step, "path.confinement");
+        }
+
+        private EngineStep bind(Path worktree, String path) {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.path.pmwf", SUB_PATH);
+            var engine = new WorkflowEngine(pathSlotPlan(FILL_PATH_AND_CALL), WorkflowCatalog.of(callee),
+                    fixtures.validator(callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(),
+                    fixtures.ports(EngineFixtures.bindingContext(worktree, Set.of(path), Map.of())));
+            var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+            return engine.advance(atTask, submitted("file", path));
+        }
+
+        private void assertRefusedWith(EngineStep step, String rule) {
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_refused\""),
+                            "the path is refused at the bind"),
+                    () -> assertTrue(facts.get("facts").contains(rule), "the refusal names the confinement rule"),
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the refused call pushes no frame"));
         }
     }
 }

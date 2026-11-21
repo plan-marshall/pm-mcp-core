@@ -38,14 +38,17 @@ assembly's construction of the parameter record.
   absent or was consumed by an earlier call. The two failures stay distinguishable in the store.
 * A required input that declares an `input_fallback` key while the engine carries no `InputBindingContext` is refused with
   `input_refused` and the rule `input.no-context`: the bind names the port it lacks, rather than reporting a value as
-  absent that nothing could read.
+  absent that nothing could read. The refusal is scoped to an input no other source can supply — not optional and without
+  a compiled default — so an input with a default keeps resolving to it and an optional input keeps reading as absent.
 * *Which side owns what.* The engine owns the validation of the arguments — their names, their requiredness and the
   refusal vocabulary — because that judgement follows from the grammar and the callee's interface, which the engine
   holds. The assembly owns the binding of a link's free parameters into the primitive's parameter record: only it knows
   the content validators (`OutlineValidator`, `AsciiDocValidator`, `ConventionalCommitValidator`) a deployment attaches to
   a parameter. The engine's default `ParameterBinder` keeps refusing any submitted free parameter, fail-closed, when no
   parameter-aware binder is installed of a primitive that declares none: a parameter silently dropped is worse than an
-  act refused, because the primitive would run with a record that never carried the operator's value.
+  act refused, because the primitive would run with a record that never carried the operator's value. This ownership split
+  is the operator's answer of 2026-11-21 to the R07 question of Deliverable 1 ("refuse, fail closed"), recorded here
+  because the plan's spec asks that the ADR say which side owns what.
 * The `ParameterBinder` interface and the `Ports` shapes are unchanged (PLAN-V2-25).
 
 == Alternatives Considered

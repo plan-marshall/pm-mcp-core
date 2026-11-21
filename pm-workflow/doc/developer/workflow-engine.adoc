@@ -446,9 +446,10 @@ between the two.
 ==== Failure Modes
 
 * *An engine without an `InputBindingContext`.* A typed input cannot be bound: a `path` or `list<path>` input is refused
-  with `precondition_unmet` / `input_refused` and the rule `path.no-context`, and a required input that names an
-  `input_fallback` key with `input_refused` and the rule `input.no-context`, instead of binding an unvalidated value or
-  reporting a value as absent that no port could read. A mis-wired assembly fails closed at the call.
+  with `precondition_unmet` / `input_refused` and the rule `path.no-context`, and a required input without a default that
+  names an `input_fallback` key with `input_refused` and the rule `input.no-context`, instead of binding an unvalidated
+  value or reporting a value as absent that no port could read. An input with a compiled default keeps resolving to it and
+  an optional one keeps reading as absent. A mis-wired assembly fails closed at the call.
 * *A slot filled for the wrong unit.* Slots are keyed `<declaring unit id>:<slot name>`; a fill that names another unit's
   slot never reaches this unit's bind and the call reports `input_unbound`.
 * *A value bound twice.* A resume re-reads the frame's `bound_args`, it does not re-resolve the inputs, so a changed
