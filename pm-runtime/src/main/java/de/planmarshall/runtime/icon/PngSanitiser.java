@@ -9,7 +9,10 @@
  */
 package de.planmarshall.runtime.icon;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
+import java.util.zip.CRC32;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -57,7 +60,7 @@ public class PngSanitiser {
      * @throws IconRefusal if the signature, the chunk structure, a checksum or the boundaries are not those of a PNG
      */
     static byte[] sanitise(byte[] candidate) {
-        var stripped = new java.io.ByteArrayOutputStream(candidate.length);
+        var stripped = new ByteArrayOutputStream(candidate.length);
         stripped.writeBytes(SIGNATURE);
         var position = SIGNATURE.length;
         var sawHeader = false;
@@ -73,7 +76,7 @@ public class PngSanitiser {
             if (length < 0 || length > candidate.length - position - CHUNK_OVERHEAD) {
                 throw malformed("a chunk length exceeds the document");
             }
-            var type = new String(candidate, position + 4, 4, java.nio.charset.StandardCharsets.US_ASCII);
+            var type = new String(candidate, position + 4, 4, StandardCharsets.US_ASCII);
             if (!isTypeName(type)) {
                 throw malformed("a chunk type is not four ASCII letters");
             }
@@ -130,7 +133,7 @@ public class PngSanitiser {
     }
 
     private static int crc32(byte[] bytes, int offset, int length) {
-        var crc = new java.util.zip.CRC32();
+        var crc = new CRC32();
         crc.update(bytes, offset, length);
         return (int) crc.getValue();
     }

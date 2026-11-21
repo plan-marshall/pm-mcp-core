@@ -13,9 +13,11 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Set;
+import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import lombok.experimental.UtilityClass;
 
@@ -88,7 +90,7 @@ public class SvgSanitiser {
     /**
      * @param reader the reader to close; a reader whose open failed is not passed here
      */
-    private static void close(javax.xml.stream.XMLEventReader reader) {
+    private static void close(XMLEventReader reader) {
         try {
             reader.close();
         } catch (XMLStreamException alreadyRefused) {
@@ -123,7 +125,7 @@ public class SvgSanitiser {
         return factory;
     }
 
-    private static String render(javax.xml.stream.XMLEventReader reader) throws XMLStreamException {
+    private static String render(XMLEventReader reader) throws XMLStreamException {
         var out = new StringBuilder();
         var depth = 0;
         var elements = 0;
@@ -195,7 +197,7 @@ public class SvgSanitiser {
         };
     }
 
-    private static void appendAttributes(StringBuilder out, javax.xml.stream.events.StartElement element) {
+    private static void appendAttributes(StringBuilder out, StartElement element) {
         var attributes = element.getAttributes();
         while (attributes.hasNext()) {
             appendAttribute(out, attributes.next());

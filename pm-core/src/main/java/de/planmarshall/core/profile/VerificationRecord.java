@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -187,7 +188,8 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                         "the profile schema version is %d".formatted(ProfileValidator.SCHEMA_VERSION));
             }
             var harnessId = identifier(root);
-            var digest = string(root, "/profile_digest", "profile_digest");            if (!digest.matches("sha256:[0-9a-f]{64}")) {
+            var digest = string(root, "/profile_digest", "profile_digest");
+            if (!digest.matches("sha256:[0-9a-f]{64}")) {
                 throw ProfileRefusal.recordInvalid(document, "/profile_digest", "not a sha256: digest");
             }
             var verifiedAt = instant(root, "/verified_at");
@@ -209,7 +211,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
          * @return the members it may carry: those, plus the harness id under either spelling
          */
         private static Set<String> withIdentifier(Set<String> required) {
-            var allowed = new java.util.HashSet<>(required);
+            var allowed = new HashSet<>(required);
             allowed.add(NAME_HARNESS_ID);
             allowed.add(NAME_CLIENT_ID);
             return Set.copyOf(allowed);
@@ -230,7 +232,8 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                     : string(root, "/client_id", NAME_CLIENT_ID);
         }
 
-        private Tool tool(JsonNode tool) {            object(tool, "/tool", "tool", Set.of(NAME_VERSION, "commit"));
+        private Tool tool(JsonNode tool) {
+            object(tool, "/tool", "tool", Set.of(NAME_VERSION, "commit"));
             var version = string(tool, "/tool/version", NAME_VERSION);
             var commit = string(tool, "/tool/commit", "commit");
             return new Tool(version, commit);

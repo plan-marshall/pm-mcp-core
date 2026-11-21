@@ -20,11 +20,13 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.TreeMap;
 
 import de.planmarshall.core.id.HarnessId;
@@ -208,7 +210,7 @@ public final class IconStore {
         for (var member : entriesNode.members().entrySet()) {
             try {
                 entries.put(member.getKey(), entry(member.getKey(), member.getValue()));
-            } catch (IllegalArgumentException | java.time.format.DateTimeParseException malformed) {
+            } catch (IllegalArgumentException | DateTimeParseException malformed) {
                 throw new IconRefusal(IconRefusal.INDEX_UNREADABLE,
                         "the entry '%s' is malformed: %s".formatted(member.getKey(), malformed.getMessage()));
             }
@@ -226,8 +228,8 @@ public final class IconStore {
                 text(node, MEDIA_TYPE), Instant.parse(text(node, FETCHED_AT)));
     }
 
-    private static java.util.OptionalLong integer(JsonNode node, String member) {
-        return node.member(member).map(JsonNode::integerValue).orElseGet(java.util.OptionalLong::empty);
+    private static OptionalLong integer(JsonNode node, String member) {
+        return node.member(member).map(JsonNode::integerValue).orElseGet(OptionalLong::empty);
     }
 
     private static String text(JsonNode node, String member) {

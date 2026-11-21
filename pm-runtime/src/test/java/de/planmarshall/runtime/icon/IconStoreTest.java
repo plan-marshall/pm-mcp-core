@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -63,7 +62,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("writes an SVG icon and its index entry under the icons directory")
-    void writesSvg() throws IOException {
+    void writesSvg() throws Exception {
         var harnessId = harnessId();
         var sourceUrl = "https://example.invalid/" + Generators.letterStrings(8, 8).next() + ".svg";
 
@@ -81,7 +80,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("writes the icon file with mode 0600")
-    void writesOwnerOnly() throws IOException {
+    void writesOwnerOnly() throws Exception {
         var stored = store.accept(harnessId(), "https://example.invalid/a.svg", fetchedAt, SVG);
 
         assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(stored.file())),
@@ -90,7 +89,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("writes a PNG icon with its extension and media type")
-    void writesPng() throws IOException {
+    void writesPng() throws Exception {
         var harnessId = harnessId();
 
         var stored = store.accept(harnessId, "https://example.invalid/a.png", fetchedAt, PngFixtures.png());
@@ -102,7 +101,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("replaces an existing icon of the same harness")
-    void replacesExisting() throws IOException {
+    void replacesExisting() throws Exception {
         var harnessId = harnessId();
         store.accept(harnessId, "https://example.invalid/a.svg", fetchedAt, SVG);
         var other = SVG.clone();
@@ -133,7 +132,7 @@ class IconStoreTest {
 
     @Test
     @DisplayName("refuses a target that is a symbolic link")
-    void refusesSymlinkTarget() throws IOException {
+    void refusesSymlinkTarget() throws Exception {
         var harnessId = harnessId();
         var outside = base.resolve("outside.svg");
         Files.writeString(outside, "untouched", StandardCharsets.UTF_8);

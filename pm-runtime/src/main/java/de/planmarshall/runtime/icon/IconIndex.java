@@ -11,6 +11,7 @@ package de.planmarshall.runtime.icon;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
 
 /**
@@ -48,7 +49,7 @@ public record IconIndex(int formatVersion, Map<String, IconIndexEntry> entries) 
      * @param harnessId the harness id
      * @return the entry of that harness
      */
-    public java.util.Optional<IconIndexEntry> find(String harnessId) {
-        return java.util.Optional.ofNullable(entries.get(harnessId));
+    public Optional<IconIndexEntry> find(String harnessId) {
+        return Optional.ofNullable(entries.get(harnessId));
     }
 }
