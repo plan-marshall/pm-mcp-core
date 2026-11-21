@@ -172,11 +172,13 @@ A detected loss takes the same path but forces at once: `end(generation, LossSig
 drain, a pause at once and an off-track restart also reach the forced end through the drain participant or the
 off-track detector.
 
-link:{src}/EndCause.java[`EndCause`] is the closed set of causes and the fact each writes:
+link:{src}/EndCause.java[`EndCause`] is the closed set of causes and the fact each writes. The column "Fallback end
+reason" is the end reason the worker state carries when the supervisor writes it for a record the settlement has not
+settled; a settled record carries the coarse mapping of the job's fate instead (ADR 021):
 
 [cols="1,1,1,1,1"]
 |===
-|Cause |Wire name |Job record end reason |Spends a re-offer |Terminal state
+|Cause |Wire name |Fallback end reason |Spends a re-offer |Terminal state
 
 |`TASK_DONE` |`task_done` |`TASK_DONE` |no |`ENDED`
 |`RECYCLE` |`recycle` |`IDLE_RECYCLE` |no |`ENDED`
