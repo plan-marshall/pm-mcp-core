@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -209,7 +210,7 @@ class IconStoreTest {
     @Test
     @DisplayName("refuses an index with a format version the store does not read")
     void refusesAForeignIndexVersion() {
-        assertThrows(IllegalArgumentException.class, () -> new IconIndex(2, java.util.Map.of()),
+        assertThrows(IllegalArgumentException.class, () -> new IconIndex(2, Map.of()),
                 "an index of another format version is refused");
     }
 

@@ -11,6 +11,7 @@ package de.planmarshall.runtime.icon;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -215,7 +216,7 @@ public final class IconStore {
             return false;
         }
         try {
-            var uri = java.net.URI.create(sourceUrl);
+            var uri = URI.create(sourceUrl);
             return HTTPS.equals(uri.getScheme()) && uri.getHost() != null && !uri.getHost().isEmpty();
         } catch (IllegalArgumentException notAUri) {
             return false;

@@ -91,7 +91,7 @@ class LockKeyTest {
                 Arguments.of((Function<String, LockKey>) ignored -> LockKey.harnesses(BASE),
                         "locks/harnesses.lock", "harnesses.json"),
                 Arguments.of((Function<String, LockKey>) ignored -> LockKey.icons(BASE),
-                        "locks/icons.lock", "icons/index.json"),                Arguments.of((Function<String, LockKey>) ignored -> LockKey.installRecords(BASE),
+                        "locks/icons.lock", "icons/index.json"), Arguments.of((Function<String, LockKey>) ignored -> LockKey.installRecords(BASE),
                         "locks/install-records.lock", "state/install-records.json"),
                 Arguments.of((Function<String, LockKey>) ignored -> LockKey.machineConfiguration(BASE),
                         "locks/machine-config.lock", "machine-config.json"),
