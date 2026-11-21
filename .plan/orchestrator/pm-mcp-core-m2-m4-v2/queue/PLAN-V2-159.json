@@ -2,10 +2,10 @@
   "id": "PLAN-V2-159",
   "slug": "lesson-store-closeout",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
+  "plan_marshall_plan_id": "rb-v2-159-lesson-store-closeout",
   "pr": "#527",
-  "landing": "",
+  "landing": "landings/PLAN-V2-159.md",
   "seq": 147
 }
