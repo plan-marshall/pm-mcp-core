@@ -596,12 +596,13 @@ The four follow-ups the end path's lane named, each with its outcome; none is bu
 . *Per-line source offsets from `JobLog` for an idempotent tail replay* — owned by PLAN-V2-162 Deliverable 3 (carried
   item 42 (c): a mid-batch failure of the pump can re-append lines; the narrowed catch or the log it names decides
   whether offsets per line are needed).
-. *A pump that outlives its generation for a retryable tail of a settled worker* — not built, one gap remains: the
-  pump of a generation whose end fails before the attempt's end is appended stays, because `finishAttempt` removes it
-  only after that append and the pass keeps the generation's claim while the end stays owed, so the retry resumes from
-  the pump's offset (ADR 018, ADR 022). A tail that `JobLog` reports unreadable at the settling pass is not covered:
-  the attempt's end is appended in that same pass and the pump leaves with it, so that tail is not read again. No plan
-  owns this gap yet.
+. *A pump that outlives its generation for a retryable tail of a settled worker* — dropped: the operator's answer at
+  refine of PLAN-V2-165 was to build none of the four follow-ups. The pump of a generation whose end fails before the
+  attempt's end is appended already stays, because `finishAttempt` removes it only after that append and the pass keeps
+  the generation's claim while the end stays owed, so the retry resumes from the pump's offset (ADR 018, ADR 022). The
+  gap that stays is a tail that `JobLog` reports unreadable at the settling pass: the attempt's end is appended in that
+  same pass and the pump leaves with it, so that tail is not read again. It is reported to the orchestrator in the
+  landing message, which places it in a staged plan.
 . *The recorded budget against the exit loss's attempt end* (`SupervisionPassTest.anExitAfterTheFirstCallIsALoss`) —
   dropped: a worker that still leases its task when it exits is the exit loss, and the loss is the one mapping of the
   attempt's end (`exited_without_submit`, ADR 020); the budget the settlement recorded stays on the record's fate and
