@@ -588,11 +588,13 @@ Gaps of the package itself:
 
 The four follow-ups the end path's lane named, each with its outcome; none is built:
 
-. *The offer-time task boundary in the activity pump* — dropped: the pump already closes the attempt it tracks, its
-  tail and its end, before it reads another task or attempt (`WorkerActivityPump.pump`), and a tail the worker wrote
-  after its task closed goes to that task through the pass's close (`SupervisionPass.closeAttempt`, also when the job
-  settles first), so no line is attributed to the next task; an offer the transport makes is not visible to the pass,
-  and no part of the specification names an offer-time boundary.
+. *The offer-time task boundary in the activity pump* — dropped: the operator's answer at refine of PLAN-V2-165 was to
+  build none of the four follow-ups, and no part of the specification names an offer-time boundary. The pump closes the
+  attempt it tracks, its tail and its end, before it reads another task or attempt (`WorkerActivityPump.pump`), and a
+  tail the worker wrote after its task closed goes to that task through the pass's close (`SupervisionPass.closeAttempt`,
+  also when the job settles first). The window that stays: an offer the transport makes is not visible to the pass, so a
+  line the worker writes for the next task before the pass closes the previous attempt is read as that attempt's tail.
+  It is reported to the orchestrator in the landing message, which places it in a staged plan.
 . *Per-line source offsets from `JobLog` for an idempotent tail replay* — owned by PLAN-V2-162 Deliverable 3 (carried
   item 42 (c): a mid-batch failure of the pump can re-append lines; the narrowed catch or the log it names decides
   whether offsets per line are needed).
