@@ -561,7 +561,8 @@ result.
 **The persisted end reason is the coarse mapping of the fate**
 (link:../adr/runtime-worker/021-the-persisted-end-reason-is-the-coarse-mapping-of-the-fate.adoc[ADR 021]). The
 settlement derives the worker block's `end_reason` from the job's fate and the worker's connection: a worker that never
-called failed to start, a succeeded job served its task, and every other fate names its own end — a recycle and a drain
+called failed to start when its role class is not `zero_tool` (a `zero_tool` worker has no connection, so a succeeded
+one records `task_done`), a succeeded job served its task, and every other fate names its own end — a recycle and a drain
 are both a `cancelled` fate. The end path records a loss only as far as the cause: the attempt's end is `worker_lost` for
 a missed acknowledgement and for silence (`exited_without_submit` for an exit) and `WORKER_GENERATION_ENDED` names the
 end cause (`lost`); the loss reason (`ack_missed` or `silence`) is not recorded in a settled record.

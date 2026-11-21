@@ -13,7 +13,8 @@ Accepted
 
 The settlement writes the terminal worker block with the job's fate (ADR 017), and `WorkerTermination.endReason`
 derives the block's `end_reason` from that fate and the worker's connection: a worker that never called is a
-`start_failure`, `succeeded` is `task_done`, `timed_out` is `budget`, `killed` is `drain`, `cancelled` is `withdrawn`,
+`start_failure` when its role class is not `zero_tool` (a `zero_tool` worker has no connection, so a succeeded one
+records `task_done`), `succeeded` is `task_done`, `timed_out` is `budget`, `killed` is `drain`, `cancelled` is `withdrawn`,
 and every other fate is `exited`. A forced end of the supervisor reaches the runner as `SUPERVISOR_END` and settles as
 `cancelled`, so a worker lost to a missed acknowledgement or to silence, recycled or restarted after an off-track
 action is recorded `withdrawn`.
