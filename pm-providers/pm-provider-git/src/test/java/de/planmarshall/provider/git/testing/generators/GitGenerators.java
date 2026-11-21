@@ -13,6 +13,7 @@ import de.cuioss.test.generator.TypedGenerator;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.provider.git.GitOperations.GitCredential;
+import de.planmarshall.provider.git.primitive.CommitTrailer;
 
 /**
  * Registers the generator artifact of {@code pm-provider-git} in one place: one factory method per
@@ -27,5 +28,15 @@ public class GitGenerators {
     /** @return a generator of transport credentials, each with a fresh secret array */
     public static TypedGenerator<GitCredential> credentials() {
         return new GitCredentialGenerator();
+    }
+
+    /** @return a generator of commit trailers within the constraints of the stored key {@code commit_trailer} */
+    public static TypedGenerator<CommitTrailer> trailers() {
+        return new CommitTrailerGenerator();
+    }
+
+    /** @return a generator of valid Conventional Commit messages without a trailer */
+    public static TypedGenerator<String> commitMessages() {
+        return new CommitMessageGenerator();
     }
 }
