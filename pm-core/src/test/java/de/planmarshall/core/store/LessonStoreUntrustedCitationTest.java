@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static org.easymock.EasyMock.newCapture;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,6 +34,7 @@ import java.util.stream.Stream;
 import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -51,6 +53,10 @@ import de.planmarshall.core.store.LessonResolution.Revised;
  * revision is marked when a cited lesson is marked, or when the cited lesson cannot be read at all — a citation
  * whose trust cannot be established is never trusted. A citation of a lesson that does not exist reads nothing and
  * stays clean.
+ * <p>
+ * The literals the assertions pin are the contract — the lesson ids at the fixed clock's hour, the bytes of a file
+ * without front matter, the whitespace-only body of an empty shell and the malformed reference whose refusal names
+ * itself; the bodies the revisions carry are generated.
  */
 @EnableGeneratorController
 @DisplayName("Untrusted citation")
@@ -180,7 +186,7 @@ class LessonStoreUntrustedCitationTest {
         Files.write(lessons.pathBase().resolve(CITED.fileName()), LessonCodec.encode(shell));
         acceptEdit(CITED);
 
-        var outcome = inTransaction(write -> store.revise(write, lessonId, "# Cites\n",
+        var outcome = inTransaction(write -> store.revise(write, lessonId, LessonFixtures.body(),
                 List.of(cites(CITED)), false, CLOCK.instant()));
 
         var revised = assertInstanceOf(Revised.class, outcome, "the revision of a clean lesson succeeds");
@@ -208,12 +214,13 @@ class LessonStoreUntrustedCitationTest {
         var untrusted = inTransaction(write -> store.create(write, REVISED, LessonFixtures.newLesson()
                 .derivedFromUntrusted(true).build(), CLOCK)).frontMatter().lessonId();
         var merged = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(CITED)
-                        .mergedFrom(List.of(new MergedFrom(untrusted, LessonFixtures.instant(), "a plan"))).build(),
+                        .mergedFrom(List.of(new MergedFrom(untrusted, LessonFixtures.instant(),
+                                LessonFixtures.text()))).build(),
                 LessonFixtures.body());
         Files.write(lessons.pathBase().resolve(CITED.fileName()), LessonCodec.encode(merged));
         acceptEdit(CITED);
 
-        var outcome = inTransaction(write -> store.revise(write, CITED, "# Cites\n",
+        var outcome = inTransaction(write -> store.revise(write, CITED, LessonFixtures.body(),
                 List.of(LessonFixtures.source()), false, CLOCK.instant()));
 
         var revised = assertInstanceOf(Revised.class, outcome, "the revision of the merged lesson succeeds");
@@ -230,7 +237,7 @@ class LessonStoreUntrustedCitationTest {
 
         inTransaction(write -> {
             write.replace(LessonStore.storePath(CITED), NO_FRONT_MATTER.getBytes(StandardCharsets.UTF_8));
-            return store.revise(write, lessonId, "# Cites\n", List.of(cites(CITED)), false, CLOCK.instant());
+            return store.revise(write, lessonId, LessonFixtures.body(), List.of(cites(CITED)), false, CLOCK.instant());
         });
 
         var found = assertInstanceOf(Found.class, store.get(lessonId), "the revised lesson is still found");
@@ -247,7 +254,7 @@ class LessonStoreUntrustedCitationTest {
 
         inTransaction(write -> {
             write.delete(LessonStore.storePath(CITED));
-            return store.revise(write, lessonId, "# Cites\n", List.of(cites(CITED)), false, CLOCK.instant());
+            return store.revise(write, lessonId, LessonFixtures.body(), List.of(cites(CITED)), false, CLOCK.instant());
         });
 
         var found = assertInstanceOf(Found.class, store.get(lessonId), "the revised lesson is still found");
@@ -264,7 +271,7 @@ class LessonStoreUntrustedCitationTest {
         var malformed = new Source(Source.Kind.LESSON, "not-a-lesson-id", null);
 
         var exception = assertThrows(IllegalArgumentException.class,
-                () -> inTransaction(write -> store.revise(write, lessonId, "# Cites\n", List.of(malformed), false,
+                () -> inTransaction(write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(malformed), false,
                         CLOCK.instant())),
                 "a malformed lesson reference is refused");
 
@@ -281,7 +288,7 @@ class LessonStoreUntrustedCitationTest {
         var malformed = new Source(Source.Kind.LESSON, "not-a-lesson-id", null);
 
         assertThrows(IllegalArgumentException.class,
-                () -> inTransaction(write -> store.revise(write, lessonId, "# Cites\n",
+                () -> inTransaction(write -> store.revise(write, lessonId, LessonFixtures.body(),
                         List.of(cites(untrusted), malformed), false, CLOCK.instant())),
                 "a resolved citation does not hide the malformed one");
     }
@@ -294,7 +301,7 @@ class LessonStoreUntrustedCitationTest {
         var malformed = new Source(Source.Kind.LESSON, "not-a-lesson-id", null);
 
         assertThrows(IllegalArgumentException.class,
-                () -> inTransaction(write -> store.revise(write, absent, "# Cites\n", List.of(malformed), false,
+                () -> inTransaction(write -> store.revise(write, absent, LessonFixtures.body(), List.of(malformed), false,
                         CLOCK.instant())),
                 "the refusal does not depend on the target lesson");
     }
@@ -320,6 +327,108 @@ class LessonStoreUntrustedCitationTest {
 
         assertEquals(List.of(cites(CITED)), lesson.frontMatter().sources(),
                 "the create records the citation it was given");
+    }
+
+    /**
+     * The four states of the locked read {@code get(transaction, cited)} that say the trust of a cited lesson cannot
+     * be established, driven end to end through {@code revise}: each is produced from the store's own files and the
+     * mark it produces is asserted on the revision that was written. A test that read the resolution arms of
+     * {@code isUntrusted(LessonResolution)} alone would pass with the wiring to the locked read removed, so these
+     * tests pin the state the transition actually saw.
+     */
+    @Nested
+    @DisplayName("the states of the locked read drive the mark through revise")
+    class CitationStatesThroughRevise {
+
+        private LessonId revisionTarget() {
+            return created(REVISED).frontMatter().lessonId();
+        }
+
+        /** The state of the cited lesson as a transition sees it: the locked read, without committing a write. */
+        private LessonResolution lockedRead(LessonId lessonId) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(lessons.lockKey());
+                return store.get(ScopeTransaction.open(transaction, lessons, audit, CLOCK), lessonId);
+            }
+        }
+
+        private LessonResolution.Outcome reviseCiting(LessonId target) {
+            return inTransaction(write -> store.revise(write, target, LessonFixtures.body(),
+                    List.of(cites(CITED)), false, CLOCK.instant()));
+        }
+
+        @Test
+        @DisplayName("a citation of bytes that do not decode is present_unreadable and marks the revision")
+        void presentUnreadable() throws Exception {
+            created(CITED);
+            var target = revisionTarget();
+            Files.write(lessons.pathBase().resolve(CITED.fileName()),
+                    NO_FRONT_MATTER.getBytes(StandardCharsets.UTF_8));
+            acceptEdit(CITED);
+
+            var revised = assertInstanceOf(Revised.class, reviseCiting(target),
+                    "the revision of a clean lesson succeeds");
+
+            assertAll("An unreadable citation marks the revision",
+                    () -> assertInstanceOf(LessonResolution.PresentUnreadable.class, lockedRead(CITED),
+                            "the cited lesson resolves present_unreadable"),
+                    () -> assertTrue(revised.lesson().frontMatter().derivedFromUntrusted(),
+                            "a citation of unreadable bytes marks the revision"));
+        }
+
+        @Test
+        @DisplayName("a citation of a file that differs from its entry is store_tampered and marks the revision")
+        void storeTampered() throws Exception {
+            created(CITED);
+            var target = revisionTarget();
+            Files.write(lessons.pathBase().resolve(CITED.fileName()),
+                    LessonCodec.encode(new Lesson(LessonFixtures.frontMatterBuilder().lessonId(CITED).build(),
+                            LessonFixtures.body())));
+
+            var revised = assertInstanceOf(Revised.class, reviseCiting(target),
+                    "the revision of a clean lesson succeeds");
+
+            assertAll("A tampered citation marks the revision",
+                    () -> assertInstanceOf(LessonResolution.StoreTampered.class, lockedRead(CITED),
+                            "the cited lesson resolves store_tampered"),
+                    () -> assertTrue(revised.lesson().frontMatter().derivedFromUntrusted(),
+                            "a citation of a tampered file marks the revision"));
+        }
+
+        @Test
+        @DisplayName("a citation of a file whose entry remains is deleted_out_of_band and marks the revision")
+        void deletedOutOfBand() throws Exception {
+            created(CITED);
+            var target = revisionTarget();
+            Files.delete(lessons.pathBase().resolve(CITED.fileName()));
+
+            var revised = assertInstanceOf(Revised.class, reviseCiting(target),
+                    "the revision of a clean lesson succeeds");
+
+            assertAll("A citation of a vanished lesson marks the revision",
+                    () -> assertInstanceOf(LessonResolution.DeletedOutOfBand.class, lockedRead(CITED),
+                            "the cited lesson resolves deleted_out_of_band"),
+                    () -> assertTrue(revised.lesson().frontMatter().derivedFromUntrusted(),
+                            "a citation deleted out of band marks the revision"));
+        }
+
+        @Test
+        @DisplayName("a citation of a file without an entry is untracked and marks the revision")
+        void untracked() throws Exception {
+            var target = revisionTarget();
+            Files.write(lessons.pathBase().resolve(CITED.fileName()),
+                    LessonCodec.encode(new Lesson(LessonFixtures.frontMatterBuilder().lessonId(CITED).build(),
+                            LessonFixtures.body())));
+
+            var revised = assertInstanceOf(Revised.class, reviseCiting(target),
+                    "the revision of a clean lesson succeeds");
+
+            assertAll("An untracked citation marks the revision",
+                    () -> assertInstanceOf(LessonResolution.Untracked.class, lockedRead(CITED),
+                            "the cited lesson resolves untracked"),
+                    () -> assertTrue(revised.lesson().frontMatter().derivedFromUntrusted(),
+                            "a citation of an untracked file marks the revision"));
+        }
     }
 
     /** Records the digest of a file written outside a transaction, as the operator's accept-edit does. */

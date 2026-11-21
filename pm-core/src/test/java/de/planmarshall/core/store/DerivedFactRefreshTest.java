@@ -36,6 +36,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.role.corpus.JsonValue;
 import de.planmarshall.core.store.DerivedFactDerivation.Derivation;
 import de.planmarshall.core.store.DerivedFactDerivation.DerivationOutcome.Derived;
+import de.planmarshall.core.store.DerivedFactDerivation.DerivationOutcome.Failed;
 
 /**
  * The recompute rule of {@link DerivedFactStore#refresh} (Store Schemas § Derived Facts Store; Timeouts &amp; Budgets §
@@ -260,6 +261,57 @@ class DerivedFactRefreshTest {
         void validityPeriodIsTheConstant() {
             assertEquals(DerivedFactStore.NETWORK_VALIDITY, Duration.ofSeconds(86_400),
                     "The period is fixed at 86400 seconds");
+        }
+    }
+
+    @Nested
+    @DisplayName("the write rule across two digests")
+    class TwoDigests {
+
+        @Test
+        @DisplayName("a success of another digest wins over the stored entry, which no rule orders")
+        void successOfAnotherDigestWins() throws Exception {
+            seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.CURRENT,
+                    DIGEST_B, NOW.plusSeconds(10), oldPayload);
+
+            var reading = store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
+
+            var stored = store.fact(LOCAL_KEY).orElseThrow();
+            assertAll("Two successful snapshots are ordered by the write, never by the instant",
+                    () -> assertInstanceOf(DerivedFactReading.Value.class, reading, "the success reads as a value"),
+                    () -> assertEquals(DIGEST_A, stored.inputDigest(), "the attempted digest is stored"),
+                    () -> assertEquals(NOW, stored.derivedAt(), "the attempted instant is stored"),
+                    () -> assertEquals(value, stored.value(), "the attempted value is stored"));
+        }
+
+        @Test
+        @DisplayName("a failure of another digest marks the newer entry stale, and its own digest heals it")
+        void failureOfAnotherDigestMarksTheNewerEntryStale() throws Exception {
+            var kept = seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL,
+                    DerivedFact.State.CURRENT, DIGEST_B, NOW, oldPayload);
+
+            var reading = store.refresh(LOCAL_KEY, DIGEST_A,
+                    () -> new Failed("the provider answered 503"), NOW.plusSeconds(1));
+
+            var stale = store.fact(LOCAL_KEY).orElseThrow();
+            assertAll("A failure of another digest keeps the last good value and marks it stale",
+                    () -> assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
+                            "the reading is indeterminate, never a value"),
+                    () -> assertEquals(DerivedFact.State.STALE, stale.state(),
+                            "the stored entry is marked stale"),
+                    () -> assertEquals(kept.value(), stale.value(), "the value of the newer digest is kept"),
+                    () -> assertEquals(DIGEST_B, stale.inputDigest(), "the digest of the kept value is kept"),
+                    () -> assertEquals(NOW, stale.derivedAt(), "the instant of the kept value is kept"),
+                    () -> assertTrue(stale.failure().reason().contains("503"),
+                            "the reason of the failed attempt is recorded"));
+
+            var healed = store.refresh(LOCAL_KEY, DIGEST_B, succeeds(DerivedFact.DerivationClass.LOCAL),
+                    NOW.plusSeconds(2));
+
+            assertAll("The next refresh of the newer digest heals the entry",
+                    () -> assertInstanceOf(DerivedFactReading.Value.class, healed, "the healed reading is a value"),
+                    () -> assertEquals(DerivedFact.State.CURRENT, store.fact(LOCAL_KEY).orElseThrow().state(),
+                            "the entry is current again"));
         }
     }
 

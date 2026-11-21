@@ -267,6 +267,23 @@ class LessonCodecTest {
     }
 
     @Test
+    @DisplayName("a retirement that violates its verdict rules is unreadable where it decoded as found before")
+    void retirementRuleViolationIsUnreadableAtDecode() {
+        var retirement = LessonFixtures.retirement(Retired.Verdict.COMPLETELY_COVERED).build();
+        var proven = new Lesson(LessonFixtures.frontMatterBuilder().status(Status.RETIRED).retired(retirement)
+                .build(), LessonFixtures.body());
+        var file = new String(LessonCodec.encode(proven), UTF_8)
+                .replace("\"covering_clause\":\"" + retirement.coveringClause() + "\"",
+                        "\"covering_clause\":null");
+        assertTrue(file.contains("\"covering_clause\":null"), "the fixture carries the violated rule");
+
+        var unreadable = unreadable(file, UnreadableReason.RULE_VIOLATION);
+
+        assertTrue(unreadable.detail().contains("covering_clause"),
+                "the detail names the missing covering clause");
+    }
+
+    @Test
     @DisplayName("an anchor, an alias and a tag are unreadable")
     void yamlSpellingsBeyondTheJsonModelAreUnreadable() {
         var anchor = BLOCK_FRONT_MATTER.replace("title: A title", "title: &title A title");

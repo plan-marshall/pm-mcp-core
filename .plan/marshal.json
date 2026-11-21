@@ -124,7 +124,7 @@
         },
         "default:branch-cleanup": {
           "pr_merge_strategy": "squash",
-          "final_merge_without_asking": false,
+          "final_merge_without_asking": true,
           "auto_rebase_threshold": "no_overlap_only",
           "merge_queue_wait_budget_seconds": 1800,
           "merge_hold_window": "full_window_release_at_waits",
