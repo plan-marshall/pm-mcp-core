@@ -71,6 +71,12 @@ class IconSanitiserTest {
     }
 
     @Test
+    @DisplayName("refuses an empty candidate")
+    void refusesEmptyCandidate() {
+        assertRefused(IconRefusal.NOT_SVG_OR_PNG, new byte[0], "an empty candidate is no icon");
+    }
+
+    @Test
     @DisplayName("refuses bytes that are neither an SVG nor a PNG")
     void refusesForeignBytes() {
         var candidate = Generators.letterStrings(64, 64).next().getBytes(StandardCharsets.UTF_8);
@@ -280,6 +286,50 @@ class IconSanitiserTest {
             var candidate = PngFixtures.signed(PngFixtures.chunk("IDAT", new byte[4]));
 
             assertRefused(IconRefusal.PNG_MALFORMED, candidate, "a PNG not led by IHDR is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG whose chunk header is truncated")
+        void refusesTruncatedChunkHeader() {
+            assertRefused(IconRefusal.PNG_MALFORMED, PngFixtures.truncatedChunkHeader(),
+                    "a chunk header shorter than eight bytes is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG with a chunk after its end chunk")
+        void refusesTrailingChunk() {
+            assertRefused(IconRefusal.PNG_MALFORMED, PngFixtures.pngWithTrailingChunk(),
+                    "a chunk after IEND is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG whose header declares no width")
+        void refusesZeroWidth() {
+            assertRefused(IconRefusal.PNG_MALFORMED, PngFixtures.pngWithZeroWidth(),
+                    "an image of zero width is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG whose end chunk carries data")
+        void refusesEndData() {
+            assertRefused(IconRefusal.PNG_MALFORMED, PngFixtures.pngWithEndData(),
+                    "an IEND chunk with data is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG whose chunk type is no name")
+        void refusesBadChunkType() {
+            assertRefused(IconRefusal.PNG_MALFORMED,
+                    PngFixtures.png(PngFixtures.chunk("IH1R", new byte[0])),
+                    "a chunk type with a digit is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG with an unknown critical chunk")
+        void refusesUnknownCriticalChunk() {
+            assertRefused(IconRefusal.PNG_MALFORMED,
+                    PngFixtures.png(PngFixtures.chunk("ZZZZ", new byte[0])),
+                    "an unknown critical chunk is refused");
         }
 
         @Test

@@ -29,8 +29,8 @@ final class PngFixtures {
      */
     static byte[] png(byte[]... extraChunks) {
         var body = new ByteArrayOutputStream();
-        body.writeBytes(header());
-        body.writeBytes(chunk("IDAT", new byte[]{0x78, (byte) 0x9C}));
+        body.writeBytes(header(16, 16));
+        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
         for (var extra : extraChunks) {
             body.writeBytes(extra);
         }
@@ -43,8 +43,8 @@ final class PngFixtures {
      */
     static byte[] pngWithoutEnd() {
         var body = new ByteArrayOutputStream();
-        body.writeBytes(header());
-        body.writeBytes(chunk("IDAT", new byte[]{0x78, (byte) 0x9C}));
+        body.writeBytes(header(16, 16));
+        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
         return signed(body.toByteArray());
     }
 
@@ -53,9 +53,50 @@ final class PngFixtures {
      */
     static byte[] pngWithoutImageData() {
         var body = new ByteArrayOutputStream();
-        body.writeBytes(header());
+        body.writeBytes(header(16, 16));
         body.writeBytes(chunk("IEND", new byte[0]));
         return signed(body.toByteArray());
+    }
+
+    /**
+     * @return a PNG document whose header declares a zero width
+     */
+    static byte[] pngWithZeroWidth() {
+        var body = new ByteArrayOutputStream();
+        body.writeBytes(header(0, 16));
+        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
+        body.writeBytes(chunk("IEND", new byte[0]));
+        return signed(body.toByteArray());
+    }
+
+    /**
+     * @return a PNG document whose end chunk carries a byte
+     */
+    static byte[] pngWithEndData() {
+        var body = new ByteArrayOutputStream();
+        body.writeBytes(header(16, 16));
+        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
+        body.writeBytes(chunk("IEND", new byte[] {1}));
+        return signed(body.toByteArray());
+    }
+
+    /**
+     * @return a PNG document with a chunk after its end chunk
+     */
+    static byte[] pngWithTrailingChunk() {
+        var body = new ByteArrayOutputStream();
+        body.writeBytes(header(16, 16));
+        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
+        body.writeBytes(chunk("IEND", new byte[0]));
+        body.writeBytes(chunk("tEXt", new byte[] {1}));
+        return signed(body.toByteArray());
+    }
+
+    /**
+     * @return the signature followed by fewer bytes than a chunk header
+     */
+    static byte[] truncatedChunkHeader() {
+        return signed(integer(0));
     }
 
     /**
@@ -87,15 +128,15 @@ final class PngFixtures {
         return chunk.toByteArray();
     }
 
-    private static byte[] header() {
+    private static byte[] header(int width, int height) {
         var data = new ByteArrayOutputStream();
-        data.writeBytes(integer(16));
-        data.writeBytes(integer(16));
-        data.writeBytes(new byte[]{8, 6, 0, 0, 0});
+        data.writeBytes(integer(width));
+        data.writeBytes(integer(height));
+        data.writeBytes(new byte[] {8, 6, 0, 0, 0});
         return chunk("IHDR", data.toByteArray());
     }
 
     private static byte[] integer(int value) {
-        return new byte[]{(byte) (value >>> 24), (byte) (value >>> 16), (byte) (value >>> 8), (byte) value};
+        return new byte[] {(byte) (value >>> 24), (byte) (value >>> 16), (byte) (value >>> 8), (byte) value};
     }
 }

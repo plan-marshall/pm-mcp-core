@@ -67,31 +67,6 @@ public class PngSanitiser {
         return stripped.toByteArray();
     }
 
-    private static IconRefusal malformed(String reason) {
-        return new IconRefusal(IconRefusal.PNG_MALFORMED, "Not a PNG image: " + reason);
-    }
-
-    private static boolean isTypeName(String type) {
-        for (var index = 0; index < type.length(); index++) {
-            var character = type.charAt(index);
-            if (!((character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z'))) {
-                return false;
-            }
-        }
-        return type.length() == 4;
-    }
-
-    private static int readInt(byte[] bytes, int position) {
-        return (bytes[position] & 0xFF) << 24 | (bytes[position + 1] & 0xFF) << 16
-                | (bytes[position + 2] & 0xFF) << 8 | bytes[position + 3] & 0xFF;
-    }
-
-    private static int crc32(byte[] bytes, int offset, int length) {
-        var crc = new CRC32();
-        crc.update(bytes, offset, length);
-        return (int) crc.getValue();
-    }
-
     /** One walk over a PNG document: the bytes, the stripped output and the chunks seen so far. */
     private static final class Walk {
 
@@ -189,6 +164,31 @@ public class PngSanitiser {
             if (length != 0) {
                 throw malformed("the end chunk carries data");
             }
+        }
+
+        private static IconRefusal malformed(String reason) {
+            return new IconRefusal(IconRefusal.PNG_MALFORMED, "Not a PNG image: " + reason);
+        }
+
+        private static boolean isTypeName(String type) {
+            for (var index = 0; index < type.length(); index++) {
+                var character = type.charAt(index);
+                if (!((character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z'))) {
+                    return false;
+                }
+            }
+            return type.length() == 4;
+        }
+
+        private static int readInt(byte[] bytes, int offset) {
+            return (bytes[offset] & 0xFF) << 24 | (bytes[offset + 1] & 0xFF) << 16
+                    | (bytes[offset + 2] & 0xFF) << 8 | bytes[offset + 3] & 0xFF;
+        }
+
+        private static int crc32(byte[] bytes, int offset, int length) {
+            var crc = new CRC32();
+            crc.update(bytes, offset, length);
+            return (int) crc.getValue();
         }
     }
 }

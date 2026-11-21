@@ -142,6 +142,11 @@ public class SvgSanitiser {
         return out.toString();
     }
 
+    private static boolean declaresDoctype(byte[] document) {
+        var text = new String(document, StandardCharsets.ISO_8859_1).toLowerCase(Locale.ROOT);
+        return text.contains("<!doctype");
+    }
+
     /** The rendered document's state: its depth, its element count and whether its root was seen. */
     private static final class Rendered {
 
@@ -193,153 +198,143 @@ public class SvgSanitiser {
                 throw new IconRefusal(IconRefusal.NOT_SVG_OR_PNG, "The document carries no SVG root element");
             }
         }
-    }
 
-    private static void requireSvgRoot(String local) {
-        if (!"svg".equals(local)) {
-            throw new IconRefusal(IconRefusal.NOT_SVG_OR_PNG, "The document's root element is not 'svg'");
+        private static void requireSvgRoot(String local) {
+            if (!"svg".equals(local)) {
+                throw new IconRefusal(IconRefusal.NOT_SVG_OR_PNG, "The document's root element is not 'svg'");
+            }
         }
-    }
 
-    /**
-     * @param element a start element
-     * @throws IconRefusal if the element is in a namespace other than the SVG one, so it is not emitted as an SVG
-     *                     element of a meaning it never had
-     */
-    private static void requireSvgNamespace(StartElement element) {
-        var namespace = element.getName().getNamespaceURI();
-        if (namespace != null && !namespace.isEmpty() && !SVG_NAMESPACE.equals(namespace)) {
-            throw new IconRefusal(IconRefusal.SVG_ELEMENT_NOT_ALLOWED,
-                    "An SVG element in a namespace other than the SVG one is refused");
+        private static void requireSvgNamespace(StartElement element) {
+            var namespace = element.getName().getNamespaceURI();
+            if (namespace != null && !namespace.isEmpty() && !SVG_NAMESPACE.equals(namespace)) {
+                throw new IconRefusal(IconRefusal.SVG_ELEMENT_NOT_ALLOWED,
+                        "An SVG element in a namespace other than the SVG one is refused");
+            }
         }
-    }
 
-    private static void requireAllowedElement(String local) {
-        if (REFUSED_ELEMENTS.contains(local)) {
-            throw new IconRefusal(refusalOf(local), "The SVG carries the refused element '%s'".formatted(local));
+        private static void requireAllowedElement(String local) {
+            if (REFUSED_ELEMENTS.contains(local)) {
+                throw new IconRefusal(refusalOf(local), "The SVG carries the refused element '%s'".formatted(local));
+            }
+            if (!ALLOWED_ELEMENTS.contains(local)) {
+                throw new IconRefusal(IconRefusal.SVG_ELEMENT_NOT_ALLOWED,
+                        "The SVG carries an element outside the allow-list");
+            }
         }
-        if (!ALLOWED_ELEMENTS.contains(local)) {
-            throw new IconRefusal(IconRefusal.SVG_ELEMENT_NOT_ALLOWED,
-                    "The SVG carries an element outside the allow-list");
-        }
-    }
 
-    private static String refusalOf(String element) {
-        return switch (element) {
-            case "script" -> IconRefusal.SVG_SCRIPT;
-            case "foreignObject" -> IconRefusal.SVG_FOREIGN_OBJECT;
-            default -> IconRefusal.SVG_USE;
-        };
-    }
-
-    private static void appendAttributes(StringBuilder out, StartElement element) {
-        var emitted = new HashSet<String>();
-        var attributes = element.getAttributes();
-        while (attributes.hasNext()) {
-            appendAttribute(out, attributes.next(), emitted);
+        private static String refusalOf(String element) {
+            return switch (element) {
+                case "script" -> IconRefusal.SVG_SCRIPT;
+                case "foreignObject" -> IconRefusal.SVG_FOREIGN_OBJECT;
+                default -> IconRefusal.SVG_USE;
+            };
         }
-    }
 
-    private static void appendAttribute(StringBuilder out, Attribute attribute, Set<String> emitted) {
-        var name = attribute.getName();
-        var local = name.getLocalPart();
-        if (local.toLowerCase(Locale.ROOT).startsWith("on")) {
-            throw new IconRefusal(IconRefusal.SVG_EVENT_ATTRIBUTE,
-                    "An SVG attribute whose name begins with 'on' is refused");
+        private static void appendAttributes(StringBuilder out, StartElement element) {
+            var emitted = new HashSet<String>();
+            var attributes = element.getAttributes();
+            while (attributes.hasNext()) {
+                appendAttribute(out, attributes.next(), emitted);
+            }
         }
-        var namespace = name.getNamespaceURI();
-        if (namespace != null && !namespace.isEmpty() && !SVG_NAMESPACE.equals(namespace)) {
-            if (!XLINK_NAMESPACE.equals(namespace) || !"href".equals(local)) {
+
+        private static void appendAttribute(StringBuilder out, Attribute attribute, Set<String> emitted) {
+            var name = attribute.getName();
+            var local = name.getLocalPart();
+            if (local.toLowerCase(Locale.ROOT).startsWith("on")) {
+                throw new IconRefusal(IconRefusal.SVG_EVENT_ATTRIBUTE,
+                        "An SVG attribute whose name begins with 'on' is refused");
+            }
+            var namespace = name.getNamespaceURI();
+            if (namespace != null && !namespace.isEmpty() && !SVG_NAMESPACE.equals(namespace)) {
+                if (!XLINK_NAMESPACE.equals(namespace) || !"href".equals(local)) {
+                    return;
+                }
+                local = "href";
+            }
+            var value = attribute.getValue();
+            if ("href".equals(local)) {
+                requireFragment(value);
+            }
+            if ("style".equals(local)) {
+                requireSafeStyle(value);
+            }
+            requireLocalUrls(value);
+            if (!ALLOWED_ATTRIBUTES.contains(local) || !emitted.add(local)) {
                 return;
             }
-            local = "href";
+            out.append(' ').append(local).append("=\"").append(escapeAttribute(value)).append('"');
         }
-        var value = attribute.getValue();
-        if ("href".equals(local)) {
-            requireFragment(value);
-        }
-        if ("style".equals(local)) {
-            requireSafeStyle(value);
-        }
-        requireLocalUrls(value);
-        if (!ALLOWED_ATTRIBUTES.contains(local) || !emitted.add(local)) {
-            return;
-        }
-        out.append(' ').append(local).append("=\"").append(escapeAttribute(value)).append('"');
-    }
 
-    private static void requireFragment(String value) {
-        if (!value.startsWith("#")) {
-            throw new IconRefusal(IconRefusal.SVG_EXTERNAL_REFERENCE,
-                    "An SVG reference that is not a fragment of the same document is refused");
-        }
-    }
-
-    private static void requireSafeStyle(String value) {
-        var lower = value.toLowerCase(Locale.ROOT);
-        if (lower.contains("url(") || lower.contains("@import") || lower.contains("image-set(")
-                || lower.contains("image(") || value.indexOf('\\') >= 0) {
-            throw new IconRefusal(IconRefusal.SVG_EXTERNAL_REFERENCE,
-                    "An SVG style that reaches a URL, imports a sheet or escapes a name is refused");
-        }
-    }
-
-    private static void requireLocalUrls(String value) {
-        var lower = value.toLowerCase(Locale.ROOT);
-        var index = lower.indexOf("url(");
-        while (index >= 0) {
-            var end = value.indexOf(')', index);
-            if (end < 0) {
+        private static void requireFragment(String value) {
+            if (!value.startsWith("#")) {
                 throw new IconRefusal(IconRefusal.SVG_EXTERNAL_REFERENCE,
-                        "An SVG reference that is not closed cannot be placed");
+                        "An SVG reference that is not a fragment of the same document is refused");
             }
-            requireFragment(trimQuotes(value.substring(index + 4, end)));
-            index = lower.indexOf("url(", end);
         }
-    }
 
-    private static String trimQuotes(String target) {
-        var trimmed = target.trim();
-        if (trimmed.length() >= 2 && (trimmed.charAt(0) == '\'' || trimmed.charAt(0) == '"')) {
-            return trimmed.substring(1, trimmed.length() - 1).trim();
+        private static void requireSafeStyle(String value) {
+            var lower = value.toLowerCase(Locale.ROOT);
+            if (lower.contains("url(") || lower.contains("@import") || lower.contains("image-set(")
+                    || lower.contains("image(") || value.indexOf('\\') >= 0) {
+                throw new IconRefusal(IconRefusal.SVG_EXTERNAL_REFERENCE,
+                        "An SVG style that reaches a URL, imports a sheet or escapes a name is refused");
+            }
         }
-        return trimmed;
-    }
 
-    private static void escapeText(StringBuilder out, String text) {
-        for (var index = 0; index < text.length(); index++) {
-            var character = text.charAt(index);
-            switch (character) {
-                case '&' -> out.append("&amp;");
-                case '<' -> out.append("&lt;");
-                case '>' -> out.append("&gt;");
-                default -> {
-                    if (character >= 0x20 || character == '\n' || character == '\t') {
-                        out.append(character);
+        private static void requireLocalUrls(String value) {
+            var lower = value.toLowerCase(Locale.ROOT);
+            var index = lower.indexOf("url(");
+            while (index >= 0) {
+                var end = value.indexOf(')', index);
+                if (end < 0) {
+                    throw new IconRefusal(IconRefusal.SVG_EXTERNAL_REFERENCE,
+                            "An SVG reference that is not closed cannot be placed");
+                }
+                requireFragment(trimQuotes(value.substring(index + 4, end)));
+                index = lower.indexOf("url(", end);
+            }
+        }
+
+        private static String trimQuotes(String target) {
+            var trimmed = target.trim();
+            if (trimmed.length() >= 2 && (trimmed.charAt(0) == '\'' || trimmed.charAt(0) == '"')) {
+                return trimmed.substring(1, trimmed.length() - 1).trim();
+            }
+            return trimmed;
+        }
+
+        private static void escapeText(StringBuilder out, String text) {
+            for (var index = 0; index < text.length(); index++) {
+                var character = text.charAt(index);
+                switch (character) {
+                    case '&' -> out.append("&amp;");
+                    case '<' -> out.append("&lt;");
+                    case '>' -> out.append("&gt;");
+                    default -> {
+                        if (character >= 0x20 || character == '\n' || character == '\t') {
+                            out.append(character);
+                        }
                     }
                 }
             }
         }
-    }
 
-    private static String escapeAttribute(String value) {
-        var escaped = new StringBuilder(value.length());
-        for (var index = 0; index < value.length(); index++) {
-            var character = value.charAt(index);
-            switch (character) {
-                case '&' -> escaped.append("&amp;");
-                case '<' -> escaped.append("&lt;");
-                case '>' -> escaped.append("&gt;");
-                case '"' -> escaped.append("&quot;");
-                case '\'' -> escaped.append("&apos;");
-                default -> escaped.append(character);
+        private static String escapeAttribute(String value) {
+            var escaped = new StringBuilder(value.length());
+            for (var index = 0; index < value.length(); index++) {
+                var character = value.charAt(index);
+                switch (character) {
+                    case '&' -> escaped.append("&amp;");
+                    case '<' -> escaped.append("&lt;");
+                    case '>' -> escaped.append("&gt;");
+                    case '"' -> escaped.append("&quot;");
+                    case '\'' -> escaped.append("&apos;");
+                    default -> escaped.append(character);
+                }
             }
+            return escaped.toString();
         }
-        return escaped.toString();
-    }
-
-    private static boolean declaresDoctype(byte[] document) {
-        var text = new String(document, StandardCharsets.ISO_8859_1).toLowerCase(Locale.ROOT);
-        return text.contains("<!doctype");
     }
 }

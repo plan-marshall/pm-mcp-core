@@ -39,8 +39,8 @@ public record SanitisedIcon(IconMediaType mediaType, byte[] content) {
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof SanitisedIcon icon && mediaType == icon.mediaType
-                && Arrays.equals(content, icon.content);
+        return other instanceof SanitisedIcon(IconMediaType otherType, byte[] otherContent)
+                && mediaType == otherType && Arrays.equals(content, otherContent);
     }
 
     @Override
