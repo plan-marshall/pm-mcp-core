@@ -141,6 +141,10 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 
 - OBSERVED (carried item 63, added 2026-11-20; read by the analysis leaf at `4917a034`): `pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubClient.java` (read), `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreCheck.java` (read), `pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationStoreRootLockTest.java`.
 
+- OBSERVED (carried item 66, added 2026-11-21; read by the analysis leaf at `16728afc`): `pm-runtime/src/test/java/de/planmarshall/runtime/lock/DerivedFactStoreLockTest.java`.
+
+- OBSERVED (carried item 69, added 2026-11-21; read by the analysis leaf at `16728afc`): `pm-runtime/src/test/java/de/planmarshall/runtime/testing/AssertionMessageScanTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/architecture/OutboundCallsArchTest.java`, the six provider guards.
+
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-V2-89, 90, 91, 92, 93 and PLAN-V2-117, 118, 120 (shipped, analysed 2026-11-06 to 2026-11-08; this plan is their residue), and **PLAN-V2-125** (the word generator of `pm-core:tests` that Deliverable 2 consumes).
@@ -238,6 +242,10 @@ Open defects of the ledger that this plan absorbs (register: `owner-register.md`
 
 
 63. **The residue of the landing of PLAN-V2-158, two untested behaviours, a redundant assertion and an assumption about the host** (`landings/PLAN-V2-158.md`, carried 2026-11-20; merged as #525 `c9d9c5a4` and #529 `4917a034`; read by the analysis leaf at `4917a034`, re-read by the plan at its outline; no blocker). The not-JSON branch of `GitHubClient.isPullRequest` (`:345`) is untested; the `RUNS` lock at `CredentialStoreCheck.java:59` is asserted by no test; `MachineConfigurationStoreRootLockTest`: its third assertion (`getClass()` equals `IllegalArgumentException`) is redundant after `assertThrows`, and the test assumes a POSIX root (`@EnabledOnOs`). Also: no failing-first run is recorded for the `OutlineCodec`, `RoleAssignmentValue`, `RunningJob(latest)` and `requireAsked` tests of PLAN-V2-158 (decision-log entry c4dbd5); they pin existing refusals, so a mutation run of each closes the point.
+
+66. **The residue of the landing of PLAN-V2-159, one pin with no failing run** (`landings/PLAN-V2-159.md`, carried 2026-11-21; merged as #527 `16728afc`; read by the analysis leaf at `16728afc`; no blocker). `DerivedFactStoreLockTest.java:209`: the `LOCK_ORDER_VIOLATION` half of `planLockAndConcurrentRefresh` has no failing run without the lock order on record; PLAN-V2-159 D3(a) was met through the winner pin (the newer-wins guard inverted, `DerivedFactStore.java:222-223`). Run it once with the lock order broken and record the result.
+
+69. **The residue of the landing of PLAN-V2-160, the ratchet and the allow-list of the `pm-runtime` remainders** (`landings/PLAN-V2-160.md`, carried 2026-11-21; merged as #532 `ce7900ba`, #533 `f648753a`, #534 `1037e0a8`; read by the analysis leaf at `16728afc`; no blocker). `pm-runtime/src/test/java/de/planmarshall/runtime/testing/AssertionMessageScanTest.java:55` writes the unmeasured list and asserts nothing on it: the 11 remaining messages (`OutboundCallsArchTest` x8 with `withReport(...)`, `SocketOwnerTest:57`, the scan test itself, `HandWrittenDoubleScanTest:123`) carry their reasons only in the pull-request bodies; record each reason in an allow-list in the repository and fail when the list grows (same shape as PLAN-V2-125 item 68 (b)). The six provider guards stay at 6 unmeasured and are in the same position.
 
 ## Sequencing note (cleanup 2026-11-10, PLAN-V2-106 landing)
 
