@@ -261,6 +261,52 @@ class IconStoreTest {
         assertEquals(IconRefusal.INDEX_UNREADABLE, refusal.code(), "the refusal names the index");
     }
 
+    @Test
+    @DisplayName("reports its directory and its index file")
+    void reportsItsPaths() {
+        assertAll(
+                () -> assertEquals(base.resolve("icons"), store.directory(), "the directory is icons/"),
+                () -> assertEquals(base.resolve("icons").resolve("index.json"), store.indexFile(),
+                        "the index is icons/index.json"));
+    }
+
+    @Test
+    @DisplayName("refuses a store directory that is a symbolic link")
+    void refusesASymlinkedDirectory() throws Exception {
+        Files.createDirectories(base.resolve("elsewhere"));
+        Files.createSymbolicLink(base.resolve("icons"), base.resolve("elsewhere"));
+
+        var refusal = assertThrows(IconRefusal.class,
+                () -> store.accept(harnessId(), "https://example.invalid/a.svg", fetchedAt, SVG),
+                "a store directory that is a link is refused");
+
+        assertEquals(IconRefusal.TARGET_IS_LINK, refusal.code(), "the refusal names the link");
+    }
+
+    @Test
+    @DisplayName("refuses an index of a format version the store does not read")
+    void refusesAnIndexOfAnotherVersion() throws Exception {
+        Files.createDirectories(base.resolve("icons"));
+        Files.writeString(base.resolve("icons").resolve("index.json"), "{\"format_version\":2,\"entries\":{}}",
+                StandardCharsets.UTF_8);
+
+        var refusal = assertThrows(IconRefusal.class, () -> store.index(), "an index of version 2 is refused");
+
+        assertEquals(IconRefusal.INDEX_UNREADABLE, refusal.code(), "the refusal names the index");
+    }
+
+    @Test
+    @DisplayName("refuses an index entry of another media type or size")
+    void refusesABadEntry() {
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new IconIndexEntry("https://example.invalid/a", "0".repeat(64), 1, "image/gif",
+                                Instant.EPOCH), "a media type the store does not keep is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new IconIndexEntry("https://example.invalid/a", "0".repeat(64), 0, "image/png",
+                                Instant.EPOCH), "an empty icon is refused"));
+    }
+
     private static String harnessId() {
         return shortWords().next();
     }

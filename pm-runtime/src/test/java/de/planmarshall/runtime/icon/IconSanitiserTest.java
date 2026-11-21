@@ -351,6 +351,26 @@ class IconSanitiserTest {
         }
     }
 
+    @Test
+    @DisplayName("keeps an SVG behind a byte order mark and whitespace")
+    void keepsSvgBehindABom() {
+        var candidate = ("\uFEFF  " + SVG_OPEN + SAFE_PATH + SVG_CLOSE).getBytes(StandardCharsets.UTF_8);
+
+        var sanitised = IconSanitiser.accept(candidate);
+
+        assertEquals(IconMediaType.SVG, sanitised.mediaType(), "the mark and the whitespace are skipped");
+    }
+
+    @Test
+    @DisplayName("drops a comment and a processing instruction")
+    void dropsNonElementEvents() {
+        var sanitised = IconSanitiser.accept(svg("<?xml-stylesheet href=\"x\"?><!-- note -->" + SAFE_PATH));
+
+        var text = new String(sanitised.content(), StandardCharsets.UTF_8);
+        assertFalse(text.contains("xml-stylesheet"), "a processing instruction is dropped");
+        assertFalse(text.contains("note"), "a comment is dropped");
+    }
+
     private static void assertRefused(String code, byte[] candidate, String message) {
         var refusal = assertThrows(IconRefusal.class, () -> IconSanitiser.accept(candidate), message);
         assertEquals(code, refusal.code(), "the refusal names " + code);
