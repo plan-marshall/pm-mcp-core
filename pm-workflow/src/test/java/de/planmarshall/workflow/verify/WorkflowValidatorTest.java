@@ -1459,6 +1459,92 @@ class WorkflowValidatorTest {
                     "two fills do not separate two reads on one path");
         }
 
+        @Test
+        @DisplayName("Should refuse a second read across the declaration order of two states")
+        void shouldRefuseAcrossTheDeclarationOrder() {
+            var result = validator.verify(slotPlan("""
+                    state verify.invoke-late
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill
+                            skipped -> verify.fill
+
+                    state verify.fill
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-early
+                            lost -> verify.done
+
+                    state verify.invoke-early
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.invoke-late
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.invoke-late' after the read at"
+                            + " 'verify.invoke-early'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "the declaration order does not decide the pair");
+        }
+
+        @Test
+        @DisplayName("Should refuse a third read whose fill lies on one branch only")
+        void shouldRefuseAThirdReadWithAFillOnOneBranch() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill-first
+                            skipped -> verify.fill-first
+
+                    state verify.fill-first
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.read-first
+                            lost -> verify.done
+
+                    state verify.read-first
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.fill-second
+                            stepped_out -> plan.return
+
+                    state verify.fill-second
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.read-second
+                            lost -> verify.done
+
+                    state verify.read-second
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.route
+                            stepped_out -> plan.return
+
+                    state verify.route
+                        auto test.prepare
+                            done -> verify.fill-third
+                            skipped -> verify.read-third
+
+                    state verify.fill-third
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.read-third
+                            lost -> verify.done
+
+                    state verify.read-third
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.read-third' after the read at"
+                            + " 'verify.read-second'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "the bypass of the third fill leaves the third read unserved");
+        }
+
         /**
          * @param states the states of the plan unit
          * @return the plan unit with one commit-message slot and the two terminals

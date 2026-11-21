@@ -19,23 +19,23 @@ the engine refused. The analysis of `PLAN-V2-157` found the shape (`a = slot.m, 
 
 == Decision
 
-* Rule 6 counts the reads of a slot per unit: the first read is the one the bind serves, and a later read of the same
-  slot is refused unless a filling state lies on every path between the first read and it — the unit-wide form of the
-  check, since a fill on one branch of a diamond does not serve the read on the other.
-* The count is per slot name, over every call of the unit, in the order the states are walked; two references inside one
-  call are counted as two reads and refused, because no fill can lie between them.
-* `dominatedByAny` is the same walk the fill dominance uses, started from the state of the earlier read, so a slot a unit
-  refills between two reads verifies: the refill is the fill the second read needs
-  (`WorkflowValidatorTest` cases `shouldPassARefilledSlot` and `shouldRefuseTwoReadsWithoutAFillBetween`).
+* Rule 6 records, per slot, every state that reads it. The unit is refused when one state reads the same slot twice, and
+  when for any ordered pair of distinct reading states `R` and `S` a path from `R` to `S` passes no filling state: the
+  read at `S` would find the value `R` consumed.
+* The check is pairwise and order-independent: the declaration order of the states does not matter, and a fill between the
+  first and the last read of a slot does not serve a read in between. `dominatedByAny` started from `R` is the walk; the
+  number of reads of a slot is small, so the pairwise form costs nothing measurable.
 * The dominance check stays: consumption says a slot is read once, dominance says it is filled before that read.
 
 == Alternatives Considered
 
 * *Leave it to the run time.* Refused: the run-time refusal is a safety net for a unit the verifier never saw, and a
   verified unit that fails its first call is exactly the defect this plan closes.
-* *Count every read of a slot, whatever the fills.* Refused: a slot a unit refills between two reads is read once per
-  fill at run time, so a unit-wide count would refuse a sound unit. The walk from the earlier read is exact where a bare
-  count is not.
+* *Count every read and compare the neighbours in declaration order.* Refused: a fill between the first and the last read
+  of a slot does not serve a read in between, and two states declared out of flow order would compare in the harmless
+  direction only. The pairwise, order-independent form refuses exactly a read no fill can serve.
+* *Count every read of a slot, whatever the fills.* Refused: a slot a unit refills between two reads is served by the
+  refill, so a bare count would refuse a sound unit.
 * *Model the consumption as part of the dominance graph (a read removes an edge).* Refused: the graph carries no state
   values, a per-read reachability pass per call would multiply the cost measured in ADR 039, and the count is exact where
   a graph trick is an approximation.
@@ -44,9 +44,10 @@ the engine refused. The analysis of `PLAN-V2-157` found the shape (`a = slot.m, 
 
 == Consequences
 
-* `WorkflowValidatorTest § Slot consumption` pins every shape: the two-calls read, the two inputs of one call, the
-  refilled slot that verifies, and two fills that do not separate two reads on one path; `verify/passing/slots-and-inputs.pmwf`
-  stays the matched control (one fill, one read), and the default plan unit and the compiled invariants are unchanged.
+* `WorkflowValidatorTest § Slot consumption` pins the shapes: the two-calls read, the two inputs of one call, the refilled
+  slot that verifies, two fills that do not separate two reads on one path, a pair whose states are declared out of flow
+  order, and a third read whose fill lies on one branch only; `verify/passing/slots-and-inputs.pmwf` stays the matched
+  control (one fill, one read), and the default plan unit and the compiled invariants are unchanged.
 * A unit that wants two calls to use the same text fills two slots, or the callers take the value as an input.
 
 == Source

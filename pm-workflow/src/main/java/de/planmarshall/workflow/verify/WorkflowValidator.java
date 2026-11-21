@@ -1910,7 +1910,8 @@ public final class WorkflowValidator {
         }
         var graph = UnitGraph.of(definition);
         var fillers = new LinkedHashMap<String, Set<String>>();
-        var firstRead = new LinkedHashMap<String, String>();
+        var readers = new LinkedHashMap<String, Set<String>>();
+        var doubled = new LinkedHashSet<String>();
         for (var state : definition.states().values()) {
             var fills = state.fills();
             if (fills == null) {
@@ -1978,19 +1979,47 @@ public final class WorkflowValidator {
                                     .formatted(slotRef.name(), state.id()))
                             .build());
                 }
-                var earlier = firstRead.putIfAbsent(slotRef.name(), state.id());
-                if (earlier != null && (earlier.equals(state.id())
-                        || !dominatedByAny(graph, Set.of(earlier), filling, state.id()))) {
-                    violations.add(Violation.builder()
-                            .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
-                            .stateId(state.id())
-                            .location(state.location())
-                            .message("the slot '%s' is read at '%s' after the read at '%s'; the first read consumes it"
-                                    .formatted(slotRef.name(), state.id(), earlier))
-                            .build());
+                var readersOfSlot = readers.computeIfAbsent(slotRef.name(), name -> new LinkedHashSet<>());
+                if (!readersOfSlot.add(state.id())) {
+                    doubled.add(state.id());
                 }
             }
         }
+        for (var entry : readers.entrySet()) {
+            var filling = fillers.getOrDefault(entry.getKey(), Set.of());
+            if (filling.isEmpty()) {
+                continue;
+            }
+            for (var reader : entry.getValue()) {
+                if (doubled.contains(reader)) {
+                    reportSecondRead(definition, entry.getKey(), reader, reader, violations);
+                }
+                for (var earlier : entry.getValue()) {
+                    if (!earlier.equals(reader) && !dominatedByAny(graph, Set.of(earlier), filling, reader)) {
+                        reportSecondRead(definition, entry.getKey(), reader, earlier, violations);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Reports a read of a slot at a state after another read of it, with the two states named.
+     *
+     * @param unit    the unit under check, for the location of the later read
+     * @param slot    the slot read twice
+     * @param later   the state that reads it second
+     * @param earlier the state that read it first
+     */
+    private static void reportSecondRead(WorkflowDefinition unit, String slot, String later, String earlier,
+            List<Violation> violations) {
+        violations.add(Violation.builder()
+                .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                .stateId(later)
+                .location(unit.states().get(later).location())
+                .message("the slot '%s' is read at '%s' after the read at '%s'; the first read consumes it"
+                        .formatted(slot, later, earlier))
+                .build());
     }
 
     /**
