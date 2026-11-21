@@ -569,12 +569,75 @@ class SourceOverlayCodecTest {
                         "'source' is longer than 64 characters"),
                 new Bound("file", false, "file", quoted("a".repeat(1024)), quoted("a".repeat(1025)),
                         "'file' is longer than 1024 characters"),
-                new Bound("a row id", true, "id", quoted("a".repeat(256)), quoted("a".repeat(257)),
-                        "'id' is longer than 256 characters"),
-                new Bound("a row topic", true, "topic", quoted("a".repeat(256)), quoted("a".repeat(257)),
-                        "'topic' is longer than 256 characters"),
                 new Bound("a row title", true, "title", quoted("t".repeat(120)), quoted("t".repeat(121)),
                         "'title' is longer than 120 characters"));
+    }
+
+    @Test
+    @DisplayName("a row topic one code point over its bound is refused for its own length")
+    void topicOverBound() {
+        assertUnreadable(refusalOf(withRow("topic", quoted("a".repeat(257)))),
+                "'topic' is longer than 256 characters");
+    }
+
+    @Test
+    @DisplayName("a key of line feeds only is echoed cut to its first 256 characters")
+    void echoedKeyIsCut() {
+        var refusal = refusalOf(withRow("key", quoted("\\n".repeat(300))));
+
+        assertAll(
+                () -> assertUnreadable(refusal, "'key' must hold a character other than a line feed"),
+                () -> assertTrue(refusal.getMessage().contains("\n".repeat(256)),
+                        "the echo keeps the first 256 characters"),
+                () -> assertFalse(refusal.getMessage().contains("\n".repeat(257)),
+                        "the echo holds no more than 256 characters"));
+    }
+
+    /** The item id a row composes of its topic and its slug ({@code id}), bounded as the item's id is. */
+    @Nested
+    @DisplayName("the item id a row composes")
+    class ComposedId {
+
+        /** A row whose slug is at its bound of 250 and whose topic composes an id of the given length. */
+        private byte[] rowComposing(int idLength) {
+            var row = rowMembers("q-1", "b".repeat(250));
+            row.put("topic", quoted("a".repeat(idLength - 251)));
+            return with("rows", "[" + object(row) + "]");
+        }
+
+        @Test
+        @DisplayName("a slug one code point over its bound of 250 is refused for its own length")
+        void slugOverItsBound() {
+            var row = rowMembers("q-1", "b".repeat(251));
+            row.put("topic", quoted("a"));
+
+            assertUnreadable(refusalOf(with("rows", "[" + object(row) + "]")), "'id' is longer than 250 characters");
+        }
+
+        @Test
+        @DisplayName("an id of exactly 256 characters reads and round-trips")
+        void atBound() {
+            var overlay = SourceOverlayCodec.read(FILE, rowComposing(256));
+
+            assertAll(
+                    () -> assertEquals(256, overlay.rows().getFirst().itemId().length(),
+                            "the composed item id has 256 characters"),
+                    () -> assertEquals(overlay, SourceOverlayCodec.read(FILE, SourceOverlayCodec.write(overlay)),
+                            "the row at the bound round-trips unchanged"));
+        }
+
+        @Test
+        @DisplayName("an id of 257 characters is refused by the row, though the schema admits it")
+        void overBound() {
+            var document = rowComposing(257);
+
+            assertAll(
+                    () -> assertUnreadable(refusalOf(document),
+                            "'topic' and 'id' compose an item id of 257 characters, longer than 256"),
+                    () -> assertEquals(List.of(), SchemaSubset.validate(JsonValue.parse(document), JsonValue.parse(
+                            CorpusSchemaResourcesTest.resource("source-overlay.schema.json")
+                                    .getBytes(StandardCharsets.UTF_8))), "the schema compares no two members"));
+        }
     }
 
     @ParameterizedTest(name = "{0}")
