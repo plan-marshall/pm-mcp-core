@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
+import java.util.stream.Stream;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.StoredConfig;
@@ -40,6 +41,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.provider.git.GitOperations.CommitInfo;
 import de.planmarshall.provider.git.GitOperations.CommitInput;
@@ -247,16 +251,14 @@ class JGitOperationsTest {
         }
 
         @Test
-        @DisplayName("refuses a pathspec magic and a glob before anything is staged")
+        @DisplayName("refuses a pathspec magic before anything is staged")
         void refusesAPathspecMagic() {
             var magic = git.commit(new CommitInput(repo, text(), author, agent, List.of(":(exclude)x")));
-            var glob = git.commit(new CommitInput(repo, text(), author, agent, List.of("*.txt")));
 
             assertAll(
                     () -> assertEquals(GitOutcome.PATH_REFUSED, magic.outcome(),
                             "a pathspec magic is no commit path"),
-                    () -> assertEquals(":(exclude)x", magic.detail(), "the refusal names the magic"),
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, glob.outcome(), "a glob is no commit path"));
+                    () -> assertEquals(":(exclude)x", magic.detail(), "the refusal names the magic"));
         }
 
         @Test
@@ -726,5 +728,59 @@ class JGitOperationsTest {
                     () -> assertEquals("process_execution", result.detail(),
                             "the detail names the process execution"));
         }
+    }
+
+    /**
+     * The premise of the path rule that refuses `*`, `?` and `[`: does JGit's staging API read its argument as a
+     * pathspec, which would expand it, or as a literal path?
+     */
+    @Nested
+    @DisplayName("the glob refusal's premise")
+    class TheGlobRefusalPremise {
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.provider.git.JGitOperationsTest#globCandidates")
+        @DisplayName("JGit stages the literal file name of a path carrying a glob character")
+        void addFilepatternStagesTheLiteralName(String literal, String patternMatch) throws Exception {
+            // the two file names are the contract: the literal name and the name a wildcard would match instead
+            write(literal, text());
+            write(patternMatch, text());
+            try (Git jgit = Git.open(repo.toFile())) {
+                jgit.add().addFilepattern(literal).call();
+                var index = jgit.getRepository().readDirCache();
+
+                assertAll(
+                        () -> assertNotNull(index.getEntry(literal), "the literal file name is staged"),
+                        () -> assertNull(index.getEntry(patternMatch), "no wildcard match is staged"));
+            }
+        }
+
+        @Test
+        @DisplayName("the provider commits a path whose name carries a glob character, literally")
+        void providerCommitsTheGlobPath() throws Exception {
+            // the file names are the contract: the literal page path and the name a wildcard would match
+            write("pages/[id].tsx", text());
+            write("pages/i.tsx", text());
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("pages/[id].tsx")));
+
+            try (Git jgit = Git.open(repo.toFile())) {
+                var tree = jgit.getRepository().resolve("HEAD^{tree}");
+                var literal = TreeWalk.forPath(jgit.getRepository(), "pages/[id].tsx", tree);
+                var wildcardMatch = TreeWalk.forPath(jgit.getRepository(), "pages/i.tsx", tree);
+
+                assertAll(
+                        () -> assertEquals(GitOutcome.OK, result.outcome(), "the literal page path is committed"),
+                        () -> assertNotNull(literal, "the committed tree holds the literal name"),
+                        () -> assertNull(wildcardMatch, "the wildcard match stays uncommitted"));
+            }
+        }
+    }
+
+    static Stream<Arguments> globCandidates() {
+        return Stream.of(
+                Arguments.of("pages/[id].tsx", "pages/i.tsx"),
+                Arguments.of("notes*.md", "notes-a.md"),
+                Arguments.of("what?.md", "what1.md"));
     }
 }

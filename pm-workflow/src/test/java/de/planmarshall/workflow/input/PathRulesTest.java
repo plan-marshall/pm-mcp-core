@@ -62,7 +62,12 @@ class PathRulesTest {
                 "docs/adr/001-slots-and-provenance.adoc",
                 ".github/workflows/ci.yml",
                 "target",
-                "docs/my file.md"
+                "docs/my file.md",
+                "docs/a.b/c.md",
+                ".gitignore",
+                "pages/[id].tsx",
+                "notes*.md",
+                "what?.md"
         })
         @DisplayName("a relative path of non-empty segments is accepted")
         void relativePathAccepted(String path) {
@@ -154,8 +159,6 @@ class PathRulesTest {
                 Arguments.of("an isolate initiator", "a\u2066b", "path.bidi"),
                 Arguments.of("a zero-width space", "a\u200Bb", "path.format"),
                 Arguments.of("a git pathspec exclusion", ":(exclude)x", "path.magic"),
-                Arguments.of("a glob star", "notes*.md", "path.glob"),
-                Arguments.of("a glob class", "notes[1].md", "path.glob"),
                 Arguments.of("a leading dash", "-rf", "path.magic"),
                 Arguments.of("a .git segment in upper case", ".GIT/config", "path.git"),
                 Arguments.of("a nested .git segment", "a/.git/b", "path.git"),
@@ -163,6 +166,10 @@ class PathRulesTest {
                 Arguments.of("a control character", "a\u0007b", "path.control"),
                 Arguments.of("a tab inside the path", "a\tb", "path.control"),
                 Arguments.of("a no-break space", "a\u00A0b", "path.whitespace"),
+                Arguments.of("a trailing space", "notes ", "path.edge-space"),
+                Arguments.of("a leading space", " notes", "path.edge-space"),
+                Arguments.of("a .git segment with a trailing space", ".git ", "path.edge-space"),
+                Arguments.of("a trailing dot", "notes.", "path.trailing-dot"),
                 Arguments.of("a lone surrogate", "a\uD800b", "path.surrogate"));
     }
 

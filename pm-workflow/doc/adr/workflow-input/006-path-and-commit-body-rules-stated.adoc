@@ -1,0 +1,73 @@
+= ADR workflow-input 006: The Path Rules Follow the Literal Staging, and a Commit Body Carries No Control Character
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+Three behaviours landed with the call-time bind of `PLAN-V2-157` that the operator put to a decision (R07), one of them a
+contradiction of the specification:
+
+* `PathRules` refused the glob characters `*`, `?` and `[` (the rule `path.glob`), and `JGitOperations.refusedCommitPath`
+  refused them a second time. The specification already said the opposite: Stage 4 of `git.commit_and_push` states that
+  the staging names every path literally and "refuses no path for the characters `*`, `?` or `[`". The plan's hypothesis
+  was that JGit does no glob expansion, so the refusal made a file such as `pages/[id].tsx` unbindable for nothing. The
+  hypothesis was measured (`JGitOperationsTest`, `TheGlobRefusalPremise`): JGit stages the literal name for all three
+  characters. The code was therefore the defect, and the refusal is removed.
+* `InputValidator` refused a tab in a commit message body (`input.commit-control`), because a tab is a control character
+  below U+0020, refused beside ESC and NUL. The specification states the Conventional Commit rule and the trailer refusal,
+  not the control-character rule.
+* A path segment could begin or end with a space; `.git ` passed the `.git` rule. On a filesystem that strips a trailing
+  space (NTFS), `.git ` resolves to `.git`, so the protected-name rule was bypassable.
+
+The operator decided each on 2026-11-21: admit the glob characters, keep the tab refused, and refuse a segment that begins
+or ends with a space or ends with a dot. The trailing dot is the fourth behaviour the operator added to the third answer,
+because a filesystem strips it the same way.
+
+== Decision
+
+* *The glob characters are admitted.* Both staging variants name a path literally: the CLI variant stages with
+  `--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`, and the native variant's `AddCommand` was measured
+  to stage the literal name (`JGitOperationsTest`, `TheGlobRefusalPremise`), for `[`, `*` and `?` alike. `path.glob` and
+  the provider's glob refusal are removed, so `pages/[id].tsx` is bindable and committable under that name.
+* *A tab stays refused in a commit message body.* A commit body carries no control character; the line break is the one
+  control character the type admits. The tab is refused as `input.commit-control`, uniform with ESC and NUL, so the rule
+  has one shape and no character class of its own.
+* *An edge space and a trailing dot are refused.* A segment may not begin or end with a space, and may not end with a dot
+  (`path.edge-space`, `path.trailing-dot`). Both are characters a folding filesystem drops, so a name that carries one can
+  reach a name the rules refuse: `.git ` reaches `.git`, `notes.` reaches `notes`.
+
+== Alternatives Considered
+
+* *Keep the glob refusal as a belt against a future staging API.* Refused: the specification states that the staging is
+  literal, the premise was measured, and the cost is a real file the engine cannot bind. A guard against a hypothetical
+  change is not worth an unusable path.
+* *Admit a tab.* Refused: a commit message is rendered and copied by tools that do not preserve tabs consistently, and the
+  control-character rule is easier to state as one closed class than as one exception.
+* *Refuse every segment that ends in a dot or space only on Windows.* Refused: the bind judges a value, not the platform
+  it runs on (R09); a rule that depends on the filesystem cannot be stated in the type.
+
+== Consequences
+
+* `PathRulesTest` pins the two new refusals and accepts `pages/[id].tsx`, `notes*.md` and `what?.md`;
+  `InputValidatorTest` pins the tab refusal and its matched control; `JGitOperationsTest` pins the premise and the literal
+  commit of a glob-named path.
+* The rule table of the Workflow Input developer guide names `path.edge-space` and `path.trailing-dot` and records the glob
+  admission; the Workflow DSL specification states both in the `files` input of Stage 4 and in the `commit_message`
+  control-character rule of Stage 3.
+* A path that a project tracks but the rules refuse (`notes.`) stays unbindable as a bound input; it is a name a checkout
+  on a folding filesystem could not carry faithfully either.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
+  DSL § Six-Stage Execution Contract] (Stage 3's commit-message rule, Stage 4's staging)
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_call_site_reuse_matrix_across_workflows[Workflow
+  DSL § Call-Site Reuse Matrix]
+* `PLAN-V2-164` Deliverable 5

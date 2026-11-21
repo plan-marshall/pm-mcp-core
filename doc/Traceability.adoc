@@ -775,7 +775,7 @@ Verified by (the command across a call): link:../pm-workflow/src/test/java/de/pl
 
 Documentation (the command across a call): link:../pm-workflow/doc/developer/workflow-engine.adoc#_commands_and_settlements[Workflow Engine Developer Guide § Commands and Settlements]
 
-Implementation (the call-time channel, as far as the library modules carry it and not yet wired into the runtime `pm-mcpd`: the closed `text`, `commit_message`, `path` and `list<path>` input types and their validation; the caller's slots with the state-level `fills` clause and the `slot.<name>` call value; the `InputBindingContext` port; the call-time bind that resolves every declared input in the order call site, configuration, default, optional absence, validates it against its type and the scope's staging set, records its provenance in `arg_sources` and consumes the slot in the same transaction; the commit and correlation identity of a call frame; and, in the provider, the commit set of the listed paths): link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputValidator.java[InputValidator],
+Implementation (the call-time channel, as far as the library modules carry it and not yet wired into the runtime `pm-mcpd`: the closed `text`, `commit_message`, `path` and `list<path>` input types and their validation; the caller's slots with the state-level `fills` clause and the `slot.<name>` call value; the `InputBindingContext` port; the call-time bind that resolves every declared input in the order call site, configuration, default, optional absence, validates it against its type and the scope's staging set, records its provenance in `arg_sources` and consumes the slot in the same transaction, and validates the arguments themselves — an argument the callee does not declare (`undeclared_param`), a required input no source supplied (`missing_param`), a fallback the engine cannot read (`input.no-context`); Rule 6's model of the consumed slot, which a unit reads at most once; the commit and correlation identity of a call frame; and, in the provider, the commit set of the listed paths): link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputValidator.java[InputValidator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/InputRefusal.java[InputRefusal],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/input/PathRules.java[PathRules],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/InputType.java[InputType],
@@ -801,6 +801,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExe
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/UnitFrontmatterReaderTest.java[UnitFrontmatterReaderTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTest.java[WorkflowPrinterTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/SlotDominanceCostTest.java[SlotDominanceCostTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTest.java[JGitOperationsTest]
 
@@ -818,6 +819,10 @@ link:../pm-workflow/doc/adr/workflow-dsl/016-literal-text-stays-out-of-the-gramm
 link:../pm-workflow/doc/adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR workflow-engine/017],
 link:../pm-workflow/doc/adr/workflow-engine/018-the-bind-lives-in-the-call.adoc[ADR workflow-engine/018],
 link:../pm-workflow/doc/adr/workflow-verify/038-the-commit-modes-stay-required-inputs.adoc[ADR workflow-verify/038],
+link:../pm-workflow/doc/adr/workflow-verify/042-rule-6-models-the-consumption-of-a-slot.adoc[ADR workflow-verify/042],
+link:../pm-workflow/doc/adr/workflow-engine/028-the-bind-validates-the-arguments.adoc[ADR workflow-engine/028],
+link:../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006],
+link:../pm-workflow/doc/adr/workflow-dsl/017-a-slot-reference-is-typed-in-the-header.adoc[ADR workflow-dsl/017],
 link:../pm-core/doc/adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR core-store/077],
 link:../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/078],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git/003]

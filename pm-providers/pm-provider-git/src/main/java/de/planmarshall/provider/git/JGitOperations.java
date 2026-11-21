@@ -455,10 +455,10 @@ public final class JGitOperations implements GitOperations {
 
     /**
      * Refuses a path JGit would expand beyond itself before anything is staged: a directory (its pathspec is
-     * prefix-based and would commit every path below it), a glob character ({@code *}, {@code ?}, {@code [}, which JGit
-     * reads as a pattern), a git pathspec magic and a path that is no legal path of the file system. A bound
-     * {@code list<path>} cannot carry a glob or a magic ({@link #refusedCommitPath(Path, List)} mirrors the bind's own
-     * rules); this is the provider's guard for a direct caller.
+     * prefix-based and would commit every path below it), a git pathspec magic and a path that is no legal path of the
+     * file system. A glob character is admitted: both staging variants stage a path literally, so a file named
+     * {@code pages/[id].tsx} is committed under that name (link:../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
+     * workflow-input/006]); the bind admits the same characters.
      *
      * @param root  the worktree root
      * @param paths the repository-relative paths to stage and commit
@@ -466,8 +466,7 @@ public final class JGitOperations implements GitOperations {
      */
     private static Optional<String> refusedCommitPath(Path root, List<String> paths) {
         for (var path : paths) {
-            if (path.isEmpty() || path.startsWith(":") || path.indexOf('*') >= 0 || path.indexOf('?') >= 0
-                    || path.indexOf('[') >= 0 || path.indexOf('\\') >= 0) {
+            if (path.isEmpty() || path.startsWith(":") || path.indexOf('\\') >= 0) {
                 return Optional.of(path);
             }
             try {

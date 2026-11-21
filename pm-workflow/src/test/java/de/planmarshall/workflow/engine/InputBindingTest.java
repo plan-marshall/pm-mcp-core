@@ -12,6 +12,11 @@ package de.planmarshall.workflow.engine;
 import static de.planmarshall.workflow.engine.EngineFixtures.PLAN_ID;
 import static de.planmarshall.workflow.engine.EngineFixtures.callingPlan;
 import static de.planmarshall.workflow.engine.EngineFixtures.parse;
+import static org.easymock.EasyMock.anyInt;
+import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,15 +24,20 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -36,6 +46,7 @@ import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
 import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.plan.InstanceUnits;
 import de.planmarshall.workflow.verify.ConfigKeyRegistry;
 import de.planmarshall.workflow.verify.ConfigKeyRegistry.ConfigKey;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
@@ -188,9 +199,118 @@ class InputBindingTest {
             state sub.stepped-out terminal stepped_out stepped_out
             """;
 
+    /** A callee whose one input carries both a fallback key and a compiled default. */
+    private static final String SUB_FALLBACK_DEFAULT = """
+            ---
+            name: sub.fallback
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: main
+            exit: done
+            reads_config: test.commit.mode
+            input: mode
+            input_type: enum[step_or_fallback|auto_deliverable|interactive]
+            input_default: auto_deliverable
+            input_fallback: test.commit.mode
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow sub.fallback version 1 format 1
+            scope subworkflow
+            entry main -> sub.wait
+
+            state sub.wait
+                job test.build
+                    succeeded -> sub.done
+                    failed -> sub.stepped-out
+                    cancelled -> sub.stepped-out
+
+            state sub.done terminal done success
+
+            state sub.stepped-out terminal stepped_out stepped_out
+            """;
+
     /** The configuration key the {@link #SUB_OPTIONS} input falls back to. */
     private static final ConfigKey MODE_KEY = new ConfigKey("test.commit.mode",
             new InputType.Enumeration(List.of("step_or_fallback", "auto_deliverable", "interactive")), true);
+
+    /** A callee with a commit-message input and a path-list input. */
+    private static final String SUB_TWO = """
+            ---
+            name: sub.two
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: main
+            exit: done
+            input: first
+            input_type: commit_message[1..2000]
+            input: second
+            input_type: list<path>[0..500]
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow sub.two version 1 format 1
+            scope subworkflow
+            entry main -> sub.wait
+
+            state sub.wait
+                job test.build
+                    succeeded -> sub.done
+                    failed -> sub.stepped-out
+                    cancelled -> sub.stepped-out
+
+            state sub.done terminal done success
+
+            state sub.stepped-out terminal stepped_out stepped_out
+            """;
+
+    /** A callee with one path input. */
+    private static final String SUB_PATH = """
+            ---
+            name: sub.path
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: main
+            exit: done
+            input: file
+            input_type: path
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow sub.path version 1 format 1
+            scope subworkflow
+            entry main -> sub.wait
+
+            state sub.wait
+                job test.build
+                    succeeded -> sub.done
+                    failed -> sub.stepped-out
+                    cancelled -> sub.stepped-out
+
+            state sub.done terminal done success
+
+            state sub.stepped-out terminal stepped_out stepped_out
+            """;
+
+    /** A plan that fills the path slot from a task submission and binds it at the next call. */
+    private static final String FILL_PATH_AND_CALL = """
+            state execute.fill
+                fills slot.file from file
+                job llm change role reviewer
+                    approved -> execute.invoke
+                    lost -> handed_back
+
+            state execute.invoke
+                call sub.path(file = slot.file)
+                    done -> completed
+                    stepped_out -> plan.return
+            """;
 
     /** A plan that fills the commit-message slot from a task submission and binds it at the next call. */
     private static final String FILL_AND_CALL = """
@@ -384,6 +504,62 @@ class InputBindingTest {
                 EngineFixtures.PLAN_TERMINALS));
     }
 
+    /**
+     * A plan unit that declares the commit-message and the path-list slot and the states written for the test.
+     *
+     * @param states the states of the plan
+     * @return the tree of the unit
+     */
+    private static WorkflowDefinition twoSlotPlan(String states) {
+        return parse("plan.pmwf", """
+                ---
+                name: plan
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                icon: workflow.default
+                slot: message
+                slot_type: commit_message[1..2000]
+                slot: files
+                slot_type: list<path>[0..500]
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow plan version 1 format 1
+                scope plan
+                start %s
+
+                %s%s%s""".formatted(firstState(states), states, EngineFixtures.PLAN_RETURN,
+                EngineFixtures.PLAN_TERMINALS));
+    }
+
+    /**
+     * A plan unit that declares one path slot and the states written for the test.
+     *
+     * @param states the states of the plan
+     * @return the tree of the unit
+     */
+    private static WorkflowDefinition pathSlotPlan(String states) {
+        return parse("plan.pmwf", """
+                ---
+                name: plan
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                icon: workflow.default
+                slot: file
+                slot_type: path
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow plan version 1 format 1
+                scope plan
+                start %s
+
+                %s%s%s""".formatted(firstState(states), states, EngineFixtures.PLAN_RETURN,
+                EngineFixtures.PLAN_TERMINALS));
+    }
+
     private static String generatedMessage() {
         return COMMIT_TYPE + Generators.letterStrings(1, 40).next();
     }
@@ -396,6 +572,27 @@ class InputBindingTest {
     private static Map<String, String> refusalFacts(EngineStep step) {
         var raised = assertInstanceOf(EngineStep.ConditionRaised.class, step, "the bind refuses the call");
         return Map.of("kind", raised.kind(), "facts", raised.facts());
+    }
+
+    /**
+     * An engine over a clean unit whose version in force carries another unit, unverified: the shape a composed version
+     * reaches the bind through.
+     *
+     * @param clean   the unit the engine is built and verified with
+     * @param inForce the plan unit the version in force carries
+     * @param callee  the called unit
+     * @return the engine
+     */
+    private static WorkflowEngine versioned(WorkflowDefinition clean, WorkflowDefinition inForce,
+            WorkflowDefinition callee) {
+        var fixtures = new EngineFixtures();
+        InstanceUnits units = createMock(InstanceUnits.class);
+        expect(units.planUnit(1)).andReturn(Optional.of(inForce)).anyTimes();
+        expect(units.composedUnit(1, callee.id())).andReturn(Optional.of(callee)).anyTimes();
+        expect(units.subUnit(anyInt(), anyString())).andReturn(Optional.empty()).anyTimes();
+        replay(units);
+        return new WorkflowEngine(clean, WorkflowCatalog.of(callee), fixtures.validator(callee), fixtures.registry(),
+                (primitive, status) -> new EngineFixtures.NoParams(), fixtures.instancePorts(null, units));
     }
 
     @Nested
@@ -642,12 +839,12 @@ class InputBindingTest {
         @Test
         @DisplayName("Should refuse a second call that binds a consumed slot")
         void shouldRefuseAConsumedSlot() {
-            var fixtures = new EngineFixtures();
-            var message = generatedMessage();
-            var engine = fixtures.engine(slotPlan(FILL_AND_CALL_TWICE),
+            // the version in force carries the two-read unit; Rule 6 refuses that shape, so the bind is the safety net here
+            var engine = versioned(slotPlan(FILL_AND_CALL), slotPlan(FILL_AND_CALL_TWICE),
                     parse("sub.commit.pmwf", SUB_COMMIT));
-            var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
-            var first = engine.advance(atTask, submitted("message", message)).status();
+            var message = generatedMessage();
+            var atTask = engine.advance(EngineFixtures.planStatus("phase-1-init", "execute.fill", 1));
+            var first = engine.advance(atTask.status(), submitted("message", message)).status();
             var job = first.activeJobBinding().orElseThrow().jobId();
 
             var step = engine.advance(first, new EngineEvent.JobSettled(job, "succeeded"));
@@ -657,6 +854,49 @@ class InputBindingTest {
                     () -> assertEquals("precondition_unmet", facts.get("kind"), "the second bind refuses"),
                     () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_unbound\""),
                             "the consumed slot is no value"));
+        }
+
+        @Test
+        @DisplayName("Should leave a filled slot unread when a later input of the call is refused")
+        void shouldLeaveTheSlotFilledOnALaterRefusal() {
+            var fixtures = new EngineFixtures();
+            var message = generatedMessage();
+            var callee = parse("sub.two.pmwf", SUB_TWO);
+            var engine = new WorkflowEngine(twoSlotPlan("""
+                    state execute.fill-message
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> execute.fill-files
+                            lost -> handed_back
+
+                    state execute.fill-files
+                        fills slot.files from files
+                        job llm change role reviewer
+                            approved -> execute.invoke
+                            lost -> handed_back
+
+                    state execute.invoke
+                        call sub.two(first = slot.message, second = slot.files)
+                            done -> completed
+                            stepped_out -> plan.return
+                    """), WorkflowCatalog.of(callee), fixtures.validator(callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(),
+                    fixtures.ports(EngineFixtures.bindingContext(Path.of("").toAbsolutePath(),
+                            Set.of("src/B.java"), Map.of())));
+            var atFirstTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+            var atSecondTask = engine.advance(atFirstTask, submitted("message", message)).status();
+
+            var step = engine.advance(atSecondTask, submitted("files", "[\"src/A.java\"]"));
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_refused\""),
+                            "the second input is refused at the bind"),
+                    () -> assertTrue(facts.get("facts").contains("path.staging"),
+                            "the refusal names the staging rule"),
+                    () -> assertTrue(step.status().slots().containsKey("plan:message"),
+                            "the first input's slot stays filled"),
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the refused call pushes no frame"));
         }
 
         private WorkflowEngine bindEngine(EngineFixtures fixtures, String planStates, String callee,
@@ -710,7 +950,32 @@ class InputBindingTest {
         }
 
         @Test
-        @DisplayName("Should refuse a fallback input the configuration does not supply")
+        @DisplayName("Should take the compiled default when the fallback key has no value")
+        void shouldTakeTheDefaultWhenTheFallbackIsAbsent() {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.fallback.pmwf", SUB_FALLBACK_DEFAULT);
+            var context = EngineFixtures.bindingContext(Path.of("").toAbsolutePath(), Set.of(), Map.of());
+            var engine = new WorkflowEngine(callingPlan("execute.invoke", """
+                    state execute.invoke
+                        call sub.fallback()
+                            done -> completed
+                            stepped_out -> plan.return
+                    """), WorkflowCatalog.of(callee),
+                    fixtures.validator(ConfigKeyRegistry.of(List.of(MODE_KEY)), callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports(context));
+
+            var status = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+
+            var bound = assertInstanceOf(BoundArg.StringArg.class,
+                    status.callStack().getFirst().boundArgs().get("mode"), "the default resolves the input");
+            assertAll(
+                    () -> assertEquals("auto_deliverable", bound.value(), "the compiled default is bound"),
+                    () -> assertEquals("default", status.callStack().getFirst().argSources().get("mode").source(),
+                            "the frame names the default as source"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a fallback no configuration value and no default supplies")
         void shouldRefuseAnUnsuppliedFallback() {
             var engine = optionsEngine(Map.of());
 
@@ -719,10 +984,235 @@ class InputBindingTest {
             var facts = refusalFacts(step);
             assertAll(
                     () -> assertEquals("precondition_unmet", facts.get("kind"), "the missing fallback refuses"),
-                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_unbound\""),
-                            "the refusal names the unbound input"),
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"missing_param\""),
+                            "the absent input names the missing parameter"),
                     () -> assertTrue(facts.get("facts").contains("sub.opts.input.from_config"),
                             "the refusal names the fallback input"));
+        }
+    }
+
+    /**
+     * The bind's runtime validation of the arguments themselves: a call may carry a name the callee does not declare,
+     * or omit a required one, when the version in force carries a plan unit the verifier never saw. The bind refuses
+     * both before it pushes a frame; Rule 6 refuses the same two shapes of a unit the verifier does see.
+     */
+    @Nested
+    @DisplayName("The argument validation at the bind")
+    class TheArgumentValidation {
+
+        private static final String PHASE = "phase-1-init";
+
+        /** The clean plan of the versioned fixture: every argument declared, every required one bound. */
+        private static final String CLEAN_INVOKE = """
+                state execute.invoke
+                    call sub.args(mode = strict, rounds = 2, targets = [origin, mirror])
+                        done -> completed
+                        stepped_out -> plan.return
+                """;
+
+        @Test
+        @DisplayName("Should refuse an undeclared argument of a unit the verifier never saw")
+        void shouldRefuseAnUndeclaredArgument() {
+            var engine = versionedEngine("""
+                    state execute.invoke
+                        call sub.args(mode = strict, rounds = 2, targets = [origin, mirror], extra = 3)
+                            done -> completed
+                            stepped_out -> plan.return
+                    """);
+
+            var step = engine.advance(EngineFixtures.planStatus(PHASE, "execute.invoke", 1));
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertEquals("precondition_unmet", facts.get("kind"),
+                            "the undeclared argument refuses the call"),
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"undeclared_param\""),
+                            "the refusal names the undeclared argument"),
+                    () -> assertTrue(facts.get("facts").contains("sub.args.input.extra"),
+                            "the refusal names the argument and its callee"),
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the refused call pushes no frame"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a call of that unit that omits a required input")
+        void shouldRefuseAMissingRequiredInput() {
+            var engine = versionedEngine("""
+                    state execute.invoke
+                        call sub.args(mode = strict)
+                            done -> completed
+                            stepped_out -> plan.return
+                    """);
+
+            var step = engine.advance(EngineFixtures.planStatus(PHASE, "execute.invoke", 1));
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertEquals("precondition_unmet", facts.get("kind"),
+                            "the missing required input refuses the call"),
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"missing_param\""),
+                            "the refusal names the missing parameter"),
+                    () -> assertTrue(facts.get("facts").contains("sub.args.input.rounds"),
+                            "the refusal names the first missing input"),
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the refused call pushes no frame"));
+        }
+
+        @Test
+        @DisplayName("matched control: the clean unit of the same version rests in the callee")
+        void shouldBindTheCleanUnit() {
+            var engine = versionedEngine(CLEAN_INVOKE);
+
+            var step = engine.advance(EngineFixtures.planStatus(PHASE, "execute.invoke", 1));
+
+            var status = assertInstanceOf(EngineStep.Resting.class, step, "the clean call rests in the callee")
+                    .status();
+            assertAll(
+                    () -> assertEquals(1, status.callStack().size(), "the clean call pushes its frame"),
+                    () -> assertEquals("sub.args", status.callStack().getFirst().subworkflowId(),
+                            "the frame names the callee"));
+        }
+
+        /**
+         * @param invokeStates the states of the plan unit the version in force carries
+         * @return an engine over a clean unit whose version in force carries the given unit, unverified
+         */
+        private WorkflowEngine versionedEngine(String invokeStates) {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.args.pmwf", SUB_ARGS);
+            InstanceUnits units = createMock(InstanceUnits.class);
+            expect(units.planUnit(1)).andReturn(Optional.of(callingPlan("execute.invoke", invokeStates))).anyTimes();
+            expect(units.composedUnit(1, callee.id())).andReturn(Optional.of(callee)).anyTimes();
+            expect(units.subUnit(anyInt(), anyString())).andReturn(Optional.empty()).anyTimes();
+            replay(units);
+            return new WorkflowEngine(callingPlan("execute.invoke", CLEAN_INVOKE), WorkflowCatalog.of(callee),
+                    fixtures.validator(callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.instancePorts(null, units));
+        }
+    }
+
+    /** The bind of a scope whose engine carries no binding context: a fallback key cannot be read. */
+    @Nested
+    @DisplayName("The absent binding context")
+    class TheAbsentBindingContext {
+
+        @Test
+        @DisplayName("Should refuse a fallback input when no binding context is mounted")
+        void shouldRefuseAFallbackWithoutABindingContext() {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.opts.pmwf", SUB_OPTIONS);
+            var engine = new WorkflowEngine(callingPlan("execute.invoke", CALL_OPTIONS), WorkflowCatalog.of(callee),
+                    fixtures.validator(ConfigKeyRegistry.of(List.of(MODE_KEY)), callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
+
+            var step = engine.start(JournalScopeType.PLAN, PLAN_ID);
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertEquals("precondition_unmet", facts.get("kind"),
+                            "the absent context refuses the call"),
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_refused\""),
+                            "the refusal names the refused input"),
+                    () -> assertTrue(facts.get("facts").contains("input.no-context"),
+                            "the refusal names the missing binding context"));
+        }
+
+        @Test
+        @DisplayName("Should bind the compiled default when no context is mounted")
+        void shouldBindTheDefaultWithoutABindingContext() {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.fallback.pmwf", SUB_FALLBACK_DEFAULT);
+            var engine = new WorkflowEngine(callingPlan("execute.invoke", """
+                    state execute.invoke
+                        call sub.fallback()
+                            done -> completed
+                            stepped_out -> plan.return
+                    """), WorkflowCatalog.of(callee),
+                    fixtures.validator(ConfigKeyRegistry.of(List.of(MODE_KEY)), callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
+
+            var status = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+
+            var bound = assertInstanceOf(BoundArg.StringArg.class,
+                    status.callStack().getFirst().boundArgs().get("mode"), "the default resolves the input");
+            assertAll(
+                    () -> assertEquals("auto_deliverable", bound.value(), "the default needs no binding context"),
+                    () -> assertEquals("default", status.callStack().getFirst().argSources().get("mode").source(),
+                            "the frame names the default as source"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a path input when no binding context is mounted")
+        void shouldRefuseAPathWithoutABindingContext() {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.path.pmwf", SUB_PATH);
+            var engine = new WorkflowEngine(pathSlotPlan(FILL_PATH_AND_CALL), WorkflowCatalog.of(callee),
+                    fixtures.validator(callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
+            var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+
+            var step = engine.advance(atTask, submitted("file", "src/A.java"));
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_refused\""),
+                            "the path is refused without a context"),
+                    () -> assertTrue(facts.get("facts").contains("path.no-context"),
+                            "the refusal names the missing binding context"));
+        }
+    }
+
+    /** The bind's confinement of a path: a symlink that leaves the worktree is refused before the frame is pushed. */
+    @Nested
+    @DisplayName("The confinement of a bound path")
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    class TheConfinement {
+
+        @TempDir
+        Path root;
+
+        @Test
+        @DisplayName("Should refuse a path that leaves the worktree through a directory symlink")
+        void shouldRefuseADirectorySymlink() throws Exception {
+            var worktree = Files.createDirectories(root.resolve("worktree"));
+            var secret = Files.writeString(Files.createDirectories(root.resolve("outside")).resolve("secret.txt"),
+                    "secret");
+            Files.createSymbolicLink(worktree.resolve("link"), secret.getParent());
+
+            var step = bind(worktree, "link/secret.txt");
+
+            assertRefusedWith(step, "path.confinement");
+        }
+
+        @Test
+        @DisplayName("Should refuse a path that leaves the worktree through a file symlink")
+        void shouldRefuseAFileSymlink() throws Exception {
+            var worktree = Files.createDirectories(root.resolve("worktree"));
+            var secret = Files.writeString(Files.createDirectories(root.resolve("outside")).resolve("secret.txt"),
+                    "secret");
+            Files.createSymbolicLink(worktree.resolve("file-out"), secret);
+
+            var step = bind(worktree, "file-out");
+
+            assertRefusedWith(step, "path.confinement");
+        }
+
+        private EngineStep bind(Path worktree, String path) {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.path.pmwf", SUB_PATH);
+            var engine = new WorkflowEngine(pathSlotPlan(FILL_PATH_AND_CALL), WorkflowCatalog.of(callee),
+                    fixtures.validator(callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(),
+                    fixtures.ports(EngineFixtures.bindingContext(worktree, Set.of(path), Map.of())));
+            var atTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+            return engine.advance(atTask, submitted("file", path));
+        }
+
+        private void assertRefusedWith(EngineStep step, String rule) {
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_refused\""),
+                            "the path is refused at the bind"),
+                    () -> assertTrue(facts.get("facts").contains(rule), "the refusal names the confinement rule"),
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the refused call pushes no frame"));
         }
     }
 }

@@ -73,7 +73,6 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
-import de.planmarshall.workflow.input.InputRefusal;
 import de.planmarshall.workflow.input.InputValidator;
 import de.planmarshall.workflow.plan.CompositionEvent;
 import de.planmarshall.workflow.plan.CompositionResult;
@@ -1184,11 +1183,11 @@ public final class WorkflowEngine {
                             unit.id(), slotName, node.id()));
             var parsed = InputValidator.parse(declaration.type(), value);
             if (parsed.refusal() != null) {
-                throw invalidLinkArgs(unit, declaration, parsed.refusal().ruleId(), value);
+                throw invalidLinkArgs(declaration, parsed.refusal().ruleId());
             }
             var refusal = InputValidator.validate(declaration.type(), parsed.value());
             if (refusal.isPresent()) {
-                throw invalidLinkArgs(unit, declaration, refusal.get().ruleId(), value);
+                throw invalidLinkArgs(declaration, refusal.get().ruleId());
             }
             var slots = new LinkedHashMap<>(status.slots());
             slots.put(unit.id() + ":" + slotName,
@@ -1196,12 +1195,10 @@ public final class WorkflowEngine {
             status = status.toBuilder().slots(slots).build();
         }
 
-        private static IllegalArgumentException invalidLinkArgs(WorkflowDefinition unit, InputDecl declaration,
-                String rule, String value) {
-            var echo = new InputRefusal(rule, value);
+        private static IllegalArgumentException invalidLinkArgs(InputDecl declaration, String rule) {
             return new IllegalArgumentException(
                     "invalid_link_args: the %s of the slot '%s' refuses the submitted value (%s)"
-                            .formatted(declaration.type().sourceText(), declaration.name(), echo.ruleId()));
+                            .formatted(declaration.type().sourceText(), declaration.name(), rule));
         }
 
         /** Records the state as left and returns the target its transition was chosen for. */
@@ -1677,6 +1674,12 @@ public final class WorkflowEngine {
             var callee = unitById(call.subWorkflowId());
             var entry = entryOf(callee, call);
             var declaringUnit = unitOf(stack);
+            var declared = callee.frontmatter().inputs().stream().map(InputDecl::name).toList();
+            for (var name : call.paramBindings().keySet()) {
+                if (!declared.contains(name)) {
+                    return CallOutcome.refused(undeclared(callee, name));
+                }
+            }
             var slots = new LinkedHashMap<>(status.slots());
             var bound = new LinkedHashMap<String, CallValue>();
             var sources = new LinkedHashMap<String, ArgSource>();
@@ -1759,8 +1762,12 @@ public final class WorkflowEngine {
                 }
                 return new Resolution.Bound(bound, new ArgSource(ArgSource.LITERAL, null));
             }
-            if (input.fallback() != null && bindingContext != null) {
-                var configured = bindingContext.configValue(input.fallback());
+            if (input.fallback() != null) {
+                if (bindingContext == null && !input.optional() && input.defaultValue() == null) {
+                    return new Resolution.Refused(noBindingContext(callee, input));
+                }
+                var configured = bindingContext == null ? Optional.<String>empty()
+                        : bindingContext.configValue(input.fallback());
                 if (configured.isPresent()) {
                     var parsed = InputValidator.parse(input.type(), configured.get());
                     if (parsed.refusal() != null) {
@@ -1775,7 +1782,7 @@ public final class WorkflowEngine {
             if (input.optional()) {
                 return new Resolution.Absent();
             }
-            return new Resolution.Refused(unbound(callee, input));
+            return new Resolution.Refused(missing(callee, input));
         }
 
         /**
@@ -1837,6 +1844,40 @@ public final class WorkflowEngine {
             var facts = new LinkedHashMap<String, String>();
             facts.put("reason", "input_unbound");
             facts.put("input", callee.id() + ".input." + input.name());
+            return facts;
+        }
+
+        /**
+         * The facts of a required input no source supplied: no value at the call site, no configuration value, no
+         * compiled default and no optional form.
+         */
+        private static Map<String, String> missing(WorkflowDefinition callee, InputDecl input) {
+            var facts = new LinkedHashMap<String, String>();
+            facts.put("reason", "missing_param");
+            facts.put("input", callee.id() + ".input." + input.name());
+            return facts;
+        }
+
+        /**
+         * The facts of an argument the callee does not declare: a call may not pass a name that is no input, and the
+         * bind refuses it before it resolves any declared input.
+         */
+        private static Map<String, String> undeclared(WorkflowDefinition callee, String name) {
+            var facts = new LinkedHashMap<String, String>();
+            facts.put("reason", "undeclared_param");
+            facts.put("input", callee.id() + ".input." + name);
+            return facts;
+        }
+
+        /**
+         * The facts of a fallback input the bind cannot resolve: the engine carries no binding context, so the
+         * configuration value the input names cannot be read.
+         */
+        private static Map<String, String> noBindingContext(WorkflowDefinition callee, InputDecl input) {
+            var facts = new LinkedHashMap<String, String>();
+            facts.put("reason", "input_refused");
+            facts.put("input", callee.id() + ".input." + input.name());
+            facts.put("rule", InputValidator.RULE_NO_CONTEXT);
             return facts;
         }
 

@@ -42,6 +42,7 @@ import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
+import de.planmarshall.workflow.ast.ReservedKeywords;
 import de.planmarshall.workflow.ast.ResultGuard;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -140,12 +141,7 @@ public final class WorkflowValidator {
     private static final List<String> RESERVED_TARGET_SUFFIXES = List.of(
             ".blocked", ".footprint-violation", ".config-drift");
 
-    private static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
-            "scope", "param", "result", "declare", "decide", "start", "migrate", "state", "terminal", "phase",
-            "inherit", "skill", "facts", "auto", "job", "composite_job", "call", "question", "link", "guard",
-            "depends_on_config", "do", "llm", "role", "each", "consult", "completes", "as", "and", "or", "not",
-            "in_worktree", "has_open_findings", "all_tasks_completed", "predicate", "text", "int", "enum", "schema",
-            "list", "slot", "fills", "from");
+    private static final Set<String> RESERVED_KEYWORDS = ReservedKeywords.ALL;
 
     private final PrimitiveRegistry registry;
 
@@ -1914,6 +1910,8 @@ public final class WorkflowValidator {
         }
         var graph = UnitGraph.of(definition);
         var fillers = new LinkedHashMap<String, Set<String>>();
+        var readers = new LinkedHashMap<String, Set<String>>();
+        var doubled = new LinkedHashMap<String, Set<String>>();
         for (var state : definition.states().values()) {
             var fills = state.fills();
             if (fills == null) {
@@ -1981,8 +1979,79 @@ public final class WorkflowValidator {
                                     .formatted(slotRef.name(), state.id()))
                             .build());
                 }
+                var readersOfSlot = readers.computeIfAbsent(slotRef.name(), name -> new LinkedHashSet<>());
+                if (!readersOfSlot.add(state.id())) {
+                    doubled.computeIfAbsent(slotRef.name(), name -> new LinkedHashSet<>()).add(state.id());
+                }
             }
         }
+        for (var entry : readers.entrySet()) {
+            var filling = fillers.getOrDefault(entry.getKey(), Set.of());
+            if (filling.isEmpty()) {
+                continue;
+            }
+            for (var reader : entry.getValue()) {
+                if (doubled.getOrDefault(entry.getKey(), Set.of()).contains(reader)
+                        || onFillFreeCycle(graph, filling, reader)) {
+                    reportSecondRead(definition, entry.getKey(), reader, reader, violations);
+                }
+                for (var earlier : entry.getValue()) {
+                    if (!earlier.equals(reader) && !dominatedByAny(graph, Set.of(earlier), filling, reader)) {
+                        reportSecondRead(definition, entry.getKey(), reader, earlier, violations);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether a state reaches itself again without passing one of the given filling states: the read on the way back
+     * would find the value the read at that state consumed.
+     *
+     * @param graph      the unit graph
+     * @param dominators the states that fill the slot
+     * @param state      the state that reads it
+     * @return whether a fill-free path of at least one transition leads from the state back to it
+     */
+    private static boolean onFillFreeCycle(UnitGraph graph, Set<String> dominators, String state) {
+        var seen = new LinkedHashSet<String>();
+        var queue = new ArrayDeque<String>();
+        for (var next : graph.successors(state)) {
+            if (!dominators.contains(next) && seen.add(next)) {
+                queue.add(next);
+            }
+        }
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            if (current.equals(state)) {
+                return true;
+            }
+            for (var next : graph.successors(current)) {
+                if (!dominators.contains(next) && seen.add(next)) {
+                    queue.add(next);
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Reports a read of a slot at a state after another read of it, with the two states named.
+     *
+     * @param unit    the unit under check, for the location of the later read
+     * @param slot    the slot read twice
+     * @param later   the state that reads it second
+     * @param earlier the state that read it first
+     */
+    private static void reportSecondRead(WorkflowDefinition unit, String slot, String later, String earlier,
+            List<Violation> violations) {
+        violations.add(Violation.builder()
+                .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                .stateId(later)
+                .location(unit.states().get(later).location())
+                .message("the slot '%s' is read at '%s' after the read at '%s'; the first read consumes it"
+                        .formatted(slot, later, earlier))
+                .build());
     }
 
     /**

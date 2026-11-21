@@ -420,11 +420,13 @@ provenance is recorded, and the value is validated. It happens in `WorkflowEngin
   (link:../adr/workflow-input/003-the-slot-key-names-the-declaring-unit.adoc[ADR workflow-input/003]). The call that binds
   it clears it in the same transaction, so a later call never reuses a stale message or path.
 * *The refusal*: a value that does not fit raises the condition `precondition_unmet` with the reason `input_refused`,
-  naming the input and the rule; an input no state filled raises it with the reason `input_unbound`. An explicitly empty
-  `list<path>` is refused with the rule `input.empty`: a bound list of no path never means "every change"
-  (link:../adr/workflow-input/004-an-empty-files-list-is-refused.adoc[ADR workflow-input/004]). Both are bounded by
-  the condition budget and carry the self-remedy of a re-check after the backoff, because their cause can clear — the
-  dirty set changes, the slot is filled.
+  naming the input and the rule; an input no state filled raises it with the reason `input_unbound`; a required input no
+  source supplied raises it with the reason `missing_param`, and a binding whose name the callee does not declare with the
+  reason `undeclared_param`, both naming the input (link:../adr/workflow-engine/028-the-bind-validates-the-arguments.adoc[ADR
+  workflow-engine/028]). An explicitly empty `list<path>` is refused with the rule `input.empty`: a bound list of no path
+  never means "every change" (link:../adr/workflow-input/004-an-empty-files-list-is-refused.adoc[ADR workflow-input/004]).
+  All are bounded by the condition budget and carry the self-remedy of a re-check after the backoff, because their cause
+  can clear — the dirty set changes, the slot is filled.
 
 The slot is filled by the state that completed before the call, from the accepted submission
 (`EngineEvent.TasksSettled.submissions`) or from the free parameter of the operator's act
@@ -443,8 +445,11 @@ between the two.
 
 ==== Failure Modes
 
-* *An engine without an `InputBindingContext`.* A typed input cannot be bound: the engine refuses it with
-  `precondition_unmet` instead of binding an unvalidated value, so a mis-wired assembly fails closed at the call.
+* *An engine without an `InputBindingContext`.* A typed input cannot be bound: a `path` or `list<path>` input is refused
+  with `precondition_unmet` / `input_refused` and the rule `path.no-context`, and a required input without a default that
+  names an `input_fallback` key with `input_refused` and the rule `input.no-context`, instead of binding an unvalidated
+  value or reporting a value as absent that no port could read. An input with a compiled default keeps resolving to it and
+  an optional one keeps reading as absent. A mis-wired assembly fails closed at the call.
 * *A slot filled for the wrong unit.* Slots are keyed `<declaring unit id>:<slot name>`; a fill that names another unit's
   slot never reaches this unit's bind and the call reports `input_unbound`.
 * *A value bound twice.* A resume re-reads the frame's `bound_args`, it does not re-resolve the inputs, so a changed

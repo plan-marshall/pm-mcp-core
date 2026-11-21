@@ -85,6 +85,9 @@ public final class InputValidator {
     /** The rule of a slot or link text that the type cannot parse. */
     public static final String RULE_MALFORMED = "input.malformed";
 
+    /** The rule of an input whose {@code input_fallback} the bind cannot read: the engine carries no bind context. */
+    public static final String RULE_NO_CONTEXT = "input.no-context";
+
     /** The rule of a path that is not confined to the worktree. */
     public static final String RULE_PATH_CONFINEMENT = "path.confinement";
 
@@ -112,9 +115,6 @@ public final class InputValidator {
     /** The rule of a path carrying a git pathspec magic or a leading dash. */
     public static final String RULE_PATH_MAGIC = "path.magic";
 
-    /** The rule of a path carrying a glob character JGit would read as a pattern. */
-    public static final String RULE_PATH_GLOB = "path.glob";
-
     /** The rule of a path carrying a control character. */
     public static final String RULE_PATH_CONTROL = "path.control";
 
@@ -138,6 +138,12 @@ public final class InputValidator {
 
     /** The rule of a path with a {@code .git} segment. */
     public static final String RULE_PATH_GIT = "path.git";
+
+    /** The rule of a path segment that begins or ends with a space. */
+    public static final String RULE_PATH_EDGE_SPACE = "path.edge-space";
+
+    /** The rule of a path segment that ends with a dot. */
+    public static final String RULE_PATH_TRAILING_DOT = "path.trailing-dot";
 
     private static final String NULL_ECHO = "<null>";
 
