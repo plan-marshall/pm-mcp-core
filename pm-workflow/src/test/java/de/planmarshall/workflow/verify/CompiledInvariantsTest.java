@@ -413,6 +413,59 @@ class CompiledInvariantsTest {
         }
     }
 
+    /** The sub-workflow shape carries the {@code fills} clause of a state: a copy that drops it differs. */
+    @Nested
+    @DisplayName("The fills clause in the compared shape")
+    class FillsShape {
+
+        /** A minimal {@code replan} unit with one task state that fills a slot. */
+        private static final String REPLAN = """
+                ---
+                name: replan
+                description: A unit written for the verifier tests.
+                type: subworkflow
+                icon: workflow.default
+                entry: main
+                exit: done
+                slot: message
+                slot_type: commit_message[1..2000]
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow replan version 1 format 1
+                scope subworkflow
+                entry main -> replan.fill
+
+                state replan.fill
+                    fills slot.message from message
+                    job llm change role reviewer
+                        approved -> replan.done
+                        lost -> replan.stepped-out
+
+                state replan.done terminal done success
+
+                state replan.stepped-out terminal stepped_out stepped_out
+                """;
+
+        @Test
+        @DisplayName("a copy that drops the fills clause of a state fails INV-REPLAN-1")
+        void differsInFills() {
+            var reference = InvariantFixtures.parse("replan.pmwf", REPLAN, UnitOrigin.DEFAULT);
+            var without = InvariantFixtures.parse("replan.pmwf",
+                    REPLAN.replace("    fills slot.message from message\n", ""), UnitOrigin.PROJECT);
+            var invariants = new CompiledInvariants(TestPrimitives.registry(), List.of(reference), List.of(),
+                    CompiledInvariants.Subject.PROJECT_REPLACEMENT);
+
+            var found = invariants.check(without, List.of(), new VerificationResult(List.of()), List.of(), null)
+                    .stream().filter(violation -> violation.id() == InvariantId.INV_REPLAN_1).toList();
+
+            assertTrue(found.stream().map(InvariantViolation::message).anyMatch(message ->
+                            message.equals("the state 'replan.fill' differs from the state of the default unit")),
+                    "the dropped fills clause changes the compared shape");
+        }
+    }
+
     @Nested
     @DisplayName("Interface comparison of INV-GEN-1")
     class InterfaceComparison {
@@ -435,6 +488,10 @@ class CompiledInvariantsTest {
                             "the input 'push_mode' differs from the input of the default unit"),
                     Arguments.of(InvariantFixtures.INTERFACE_INPUT_RANGE,
                             "the input 'retry_budget' differs from the input of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_COMMIT_MESSAGE_WEAKENED,
+                            "the input 'message' differs from the input of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_PATH_LIST_WEAKENED,
+                            "the input 'files' differs from the input of the default unit"),
                     Arguments.of(InvariantFixtures.INTERFACE_INPUT_MISSING,
                             "the input 'push_mode' of the default unit is missing"));
         }

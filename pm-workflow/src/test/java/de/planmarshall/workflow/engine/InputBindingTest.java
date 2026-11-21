@@ -195,9 +195,74 @@ class InputBindingTest {
             state sub.stepped-out terminal stepped_out stepped_out
             """;
 
+    /** A callee whose one input carries both a fallback key and a compiled default. */
+    private static final String SUB_FALLBACK_DEFAULT = """
+            ---
+            name: sub.fallback
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: main
+            exit: done
+            reads_config: test.commit.mode
+            input: mode
+            input_type: enum[step_or_fallback|auto_deliverable|interactive]
+            input_default: auto_deliverable
+            input_fallback: test.commit.mode
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow sub.fallback version 1 format 1
+            scope subworkflow
+            entry main -> sub.wait
+
+            state sub.wait
+                job test.build
+                    succeeded -> sub.done
+                    failed -> sub.stepped-out
+                    cancelled -> sub.stepped-out
+
+            state sub.done terminal done success
+
+            state sub.stepped-out terminal stepped_out stepped_out
+            """;
+
     /** The configuration key the {@link #SUB_OPTIONS} input falls back to. */
     private static final ConfigKey MODE_KEY = new ConfigKey("test.commit.mode",
             new InputType.Enumeration(List.of("step_or_fallback", "auto_deliverable", "interactive")), true);
+
+    /** A callee with a commit-message input and a path-list input. */
+    private static final String SUB_TWO = """
+            ---
+            name: sub.two
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: main
+            exit: done
+            input: first
+            input_type: commit_message[1..2000]
+            input: second
+            input_type: list<path>[0..500]
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow sub.two version 1 format 1
+            scope subworkflow
+            entry main -> sub.wait
+
+            state sub.wait
+                job test.build
+                    succeeded -> sub.done
+                    failed -> sub.stepped-out
+                    cancelled -> sub.stepped-out
+
+            state sub.done terminal done success
+
+            state sub.stepped-out terminal stepped_out stepped_out
+            """;
 
     /** A plan that fills the commit-message slot from a task submission and binds it at the next call. */
     private static final String FILL_AND_CALL = """
@@ -379,6 +444,35 @@ class InputBindingTest {
                 icon: workflow.default
                 slot: message
                 slot_type: commit_message[1..2000]
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow plan version 1 format 1
+                scope plan
+                start %s
+
+                %s%s%s""".formatted(firstState(states), states, EngineFixtures.PLAN_RETURN,
+                EngineFixtures.PLAN_TERMINALS));
+    }
+
+    /**
+     * A plan unit that declares the commit-message and the path-list slot and the states written for the test.
+     *
+     * @param states the states of the plan
+     * @return the tree of the unit
+     */
+    private static WorkflowDefinition twoSlotPlan(String states) {
+        return parse("plan.pmwf", """
+                ---
+                name: plan
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                icon: workflow.default
+                slot: message
+                slot_type: commit_message[1..2000]
+                slot: files
+                slot_type: list<path>[0..500]
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
@@ -687,6 +781,49 @@ class InputBindingTest {
                             "the consumed slot is no value"));
         }
 
+        @Test
+        @DisplayName("Should leave a filled slot unread when a later input of the call is refused")
+        void shouldLeaveTheSlotFilledOnALaterRefusal() {
+            var fixtures = new EngineFixtures();
+            var message = generatedMessage();
+            var callee = parse("sub.two.pmwf", SUB_TWO);
+            var engine = new WorkflowEngine(twoSlotPlan("""
+                    state execute.fill-message
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> execute.fill-files
+                            lost -> handed_back
+
+                    state execute.fill-files
+                        fills slot.files from files
+                        job llm change role reviewer
+                            approved -> execute.invoke
+                            lost -> handed_back
+
+                    state execute.invoke
+                        call sub.two(first = slot.message, second = slot.files)
+                            done -> completed
+                            stepped_out -> plan.return
+                    """), WorkflowCatalog.of(callee), fixtures.validator(callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(),
+                    fixtures.ports(EngineFixtures.bindingContext(Path.of("").toAbsolutePath(),
+                            Set.of("src/B.java"), Map.of())));
+            var atFirstTask = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+            var atSecondTask = engine.advance(atFirstTask, submitted("message", message)).status();
+
+            var step = engine.advance(atSecondTask, submitted("files", "[\"src/A.java\"]"));
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_refused\""),
+                            "the second input is refused at the bind"),
+                    () -> assertTrue(facts.get("facts").contains("path.staging"),
+                            "the refusal names the staging rule"),
+                    () -> assertTrue(step.status().slots().containsKey("plan:message"),
+                            "the first input's slot stays filled"),
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the refused call pushes no frame"));
+        }
+
         private WorkflowEngine bindEngine(EngineFixtures fixtures, String planStates, String callee,
                 Set<String> staging, Map<String, String> config) {
             var context = EngineFixtures.bindingContext(Path.of("").toAbsolutePath(), staging, config);
@@ -735,6 +872,31 @@ class InputBindingTest {
                             "a call-site value is a literal"),
                     () -> assertFalse(frame.boundArgs().containsKey("optional_absent"),
                             "an absent optional input is not bound"));
+        }
+
+        @Test
+        @DisplayName("Should take the compiled default when the fallback key has no value")
+        void shouldTakeTheDefaultWhenTheFallbackIsAbsent() {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.fallback.pmwf", SUB_FALLBACK_DEFAULT);
+            var context = EngineFixtures.bindingContext(Path.of("").toAbsolutePath(), Set.of(), Map.of());
+            var engine = new WorkflowEngine(callingPlan("execute.invoke", """
+                    state execute.invoke
+                        call sub.fallback()
+                            done -> completed
+                            stepped_out -> plan.return
+                    """), WorkflowCatalog.of(callee),
+                    fixtures.validator(ConfigKeyRegistry.of(List.of(MODE_KEY)), callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports(context));
+
+            var status = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+
+            var bound = assertInstanceOf(BoundArg.StringArg.class,
+                    status.callStack().getFirst().boundArgs().get("mode"), "the default resolves the input");
+            assertAll(
+                    () -> assertEquals("auto_deliverable", bound.value(), "the compiled default is bound"),
+                    () -> assertEquals("default", status.callStack().getFirst().argSources().get("mode").source(),
+                            "the frame names the default as source"));
         }
 
         @Test

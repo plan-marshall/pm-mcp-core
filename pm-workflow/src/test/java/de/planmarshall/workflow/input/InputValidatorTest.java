@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.input;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -197,6 +198,20 @@ class InputValidatorTest {
         }
 
         @Test
+        @DisplayName("a plain text admits what the commit-message type refuses")
+        void weakenedTextAdmitsWhatCommitMessageRefuses() {
+            // the value is the contract: a text that is no Conventional Commit and carries no trailer
+            var value = "not a conventional commit";
+
+            assertAll(
+                    () -> assertTrue(InputValidator.validateText(new InputType.Text(null, null), value).isEmpty(),
+                            "the weakened text type admits the value"),
+                    () -> assertEquals("input.commit-message",
+                            refusal(InputValidator.validateText(COMMIT_MESSAGE, value)).ruleId(),
+                            "the commit-message type refuses the value"));
+        }
+
+        @Test
         @DisplayName("a message of 2001 code points is refused as too long")
         void oneCodePointTooLong() {
             var value = "feat: " + "x".repeat(2001 - "feat: ".length());
@@ -232,6 +247,21 @@ class InputValidatorTest {
         void relativePathAccepted() {
             assertTrue(InputValidator.validatePath("src/main/java/A.java").isEmpty(),
                     "a relative path is accepted by the path type");
+        }
+
+        @Test
+        @DisplayName("a single path admits what the path-list type refuses")
+        void weakenedPathAdmitsWhatTheListRefuses() {
+            // the value is the contract: one path where a list expects the JSON array text of its entries
+            var value = "src/A.java";
+
+            var parsed = InputValidator.parse(new InputType.PathList(null, null), value);
+
+            assertAll(
+                    () -> assertTrue(InputValidator.validatePath(value).isEmpty(),
+                            "the weakened path type admits the value"),
+                    () -> assertEquals("input.malformed", parsed.refusal().ruleId(),
+                            "the path-list type refuses the value"));
         }
 
         @ParameterizedTest(name = "{0}")
