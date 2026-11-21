@@ -55,6 +55,6 @@ class ReservedKeywordsSpecificationParityTest {
                 .collect(Collectors.toCollection(TreeSet::new));
 
         assertEquals(new TreeSet<>(ReservedKeywords.ALL), declared,
-                "the code and the specification name one set of reserved words");
+                "the code and the specification name one set");
     }
 }
