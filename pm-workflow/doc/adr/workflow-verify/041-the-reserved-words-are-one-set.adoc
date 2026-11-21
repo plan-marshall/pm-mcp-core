@@ -38,8 +38,10 @@ where the grammar expects them.
 
 == Consequences
 
-* `WorkflowValidatorTest § Reserved words` pins that a role named `decide` verifies; the parser's own refusal fixtures
-  (`WorkflowParserRefusalTest`) keep pinning the words that are reserved.
+* `WorkflowValidatorTest § Reserved words` pins that a role named `decide`, `phase`, `inherit` or `entry` verifies; the
+  parser's own refusal fixtures (`WorkflowParserRefusalTest`) keep pinning the words that are reserved; and
+  `ReservedKeywordsSpecificationParityTest` compares `ALL` with the specification's reserved-keyword bullet, so a word the
+  specification adds or drops without the code fails the build.
 * A plan-marshall unit that names a role `phase` or `inherit` no longer fails verification; no compiled unit does.
 
 == Source

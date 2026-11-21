@@ -198,8 +198,12 @@ class WorkflowStatusCodecTest {
                     "\"arg_sources\":{\"message_mode\":{\"source\":\"literal\",\"source_ref\":null}}",
                     "\"arg_sources\":" + sources);
 
-            assertArrayEquals(bytes(document), WorkflowStatusCodec.write(read(document)),
-                    "every provenance should round-trip byte for byte");
+            assertAll(
+                    () -> assertEquals(WorkflowStatus.CallFrame.ArgSource.SOURCES,
+                            Set.of("literal", "config", "default", "task_submit", "operator_answer"),
+                            "every provenance of the closed set is covered"),
+                    () -> assertArrayEquals(bytes(document), WorkflowStatusCodec.write(read(document)),
+                            "every provenance should round-trip byte for byte"));
         }
 
         @Test
