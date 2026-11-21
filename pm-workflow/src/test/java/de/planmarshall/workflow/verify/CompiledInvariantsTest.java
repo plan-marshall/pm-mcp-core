@@ -460,8 +460,8 @@ class CompiledInvariantsTest {
             var found = invariants.check(without, List.of(), new VerificationResult(List.of()), List.of(), null)
                     .stream().filter(violation -> violation.id() == InvariantId.INV_REPLAN_1).toList();
 
-            assertTrue(found.stream().map(InvariantViolation::message).anyMatch(message ->
-                            "the state 'replan.fill' differs from the state of the default unit".equals(message)),
+            assertTrue(found.stream().map(InvariantViolation::message)
+                            .anyMatch("the state 'replan.fill' differs from the state of the default unit"::equals),
                     "the dropped fills clause changes the compared shape");
         }
     }
