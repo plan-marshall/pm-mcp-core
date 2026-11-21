@@ -107,7 +107,8 @@ lifecycle and terminal state; `generation(id)` and `generations()` read the regi
 
 Starts of one supervisor are serialized on the supervisor's own monitor, so two concurrent callers never start the
 role's workers beyond its count. A successful start is the only path that keeps the claimed slot; every refusal path
-releases it. The terminal worker state is written at the end path, not here (<<_ending_fencing_and_drain>>).
+releases it. The terminal worker state is written by the settlement with the job's fate and read at the end path, not
+here (<<_ending_fencing_and_drain>>).
 
 The start path is ADR 001's (one supervisor per project and role) and ADR 002's (the landed launch contracts and the
 two seams). The job record's worker block is ADR 003's.
@@ -162,8 +163,10 @@ link:{src}/WorkerEnding.java[`WorkerEnding`] is the one end path of every genera
   force reaches the process only through `WorkerStarter.cancel`, which is the job runtime's termination protocol. The
   supervisor starts no process and sends no signal itself.
 . After the exit the generation is fenced through `WorkerProtocol.fence`, its job token revoked through
-  `JobTokenStore.revoke`, its model slot released, and its terminal `WorkerState` written through the state writer.
-  The end is logged once as `WORKER_GENERATION_ENDED`, and a successor is started when work remains.
+  `JobTokenStore.revoke` and its model slot released, and its terminal `WorkerState` is read from the settled record,
+  which the settlement wrote with the job's fate (ADR 017); the state writer writes it only for a record the settlement
+  has not settled yet. The end is logged once per generation as `WORKER_GENERATION_ENDED`, also across a retry of a
+  failed end, and a successor is started at most once when work remains.
 
 A detected loss takes the same path but forces at once: `end(generation, LossSignal)` does not wait for the grace. A
 drain, a pause at once and an off-track restart also reach the forced end through the drain participant or the
@@ -193,7 +196,8 @@ most the drain deadline), then forces the remaining workers. Their tasks stay qu
 next start, without counting a re-offer. The participant closes the supervisor's timers after the drain.
 
 The end path is ADR 003's (the terminal worker state in the job record) and ADR 004's (the grace is a timer on the
-injected clock).
+injected clock); the settlement's terminal block is ADR 017's, the persisted end reason ADR 021's and the registration
+of the end ADR 022's (<<_ports_and_the_assembly_adapter>>).
 
 == Recycling
 
@@ -201,7 +205,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/0
 
 link:{src}/WorkerRecycling.java[`WorkerRecycling`] decides the four recycle triggers and the idle yield. A recycle never
 interrupts a task: every decision hands the generation to `WorkerEnding` through `EndCause.RECYCLE`, so the one end path
-fences, revokes, releases the slot, writes the terminal state and starts a successor when work remains. Every recycle
+fences, revokes, releases the slot, reads the terminal state and starts a successor when work remains. Every recycle
 logs `WORKER_GENERATION_RECYCLED` exactly once with its link:{src}/RecycleCause.java[`RecycleCause`].
 
 * *Idle* (`IDLE`) — a warm generation that ended its bounded waits without a task `min(host.worker.idle_wakeups,
@@ -463,8 +467,9 @@ the `SubprocessJobRunner` adapter, the `JobTokenStore`, the `SkillSource`, the e
 * `SupervisorEnvironment.WorkerStarter` — the start-path adapter over `SubprocessJobRunner`. `startWorker` forwards the
   landed start, `refuseWorker` the landed refusal, and `cancel` the landed termination call, so the supervisor calls
   exactly the landed paths and a test can record the composed `WorkerStart` and `WorkerStart.Refusal` without a spawn.
-* `SupervisorEnvironment.WorkerStateWriter` — the terminal-state writer over `JobRecordStore`. It parses the generation
-  id as a job id, requires the job to be of kind `LLM`, takes the queue lock, reads the current worker block through
+* `SupervisorEnvironment.WorkerStateWriter` — the fallback writer of the terminal worker state over `JobRecordStore`,
+  used only for a record the settlement has not settled yet: the settlement writes the terminal block with the fate,
+  and the store refuses a worker write into a settled record (ADR 017). It parses the generation id as a job id, requires the job to be of kind `LLM`, takes the queue lock, reads the current worker block through
   `WorkerStateCodec`, and writes the terminal state back through the one `writeWorker` point in the same lock
   transaction. The state, its instant, the end reason, the start-failure flag and the cleared task are built in one
   construction, because the block refuses a terminal state whose end reason is still absent and a leased task in a state
@@ -512,7 +517,7 @@ requires, which the `StartGuard` seam names as `firstCall` — whether the call 
 call of a generation that already ended is ignored like a call of an unknown one.
 
 link:{src}/SupervisionPass.java[`SupervisionPass`] is the periodic step the assembly schedules. `run()` takes one reading
-of the clock, reads each non-terminal generation's job record from the store the terminal-state writer reads, completes
+of the clock, reads each non-terminal generation's job record from the job store the settlement writes, completes
 the end of a worker whose job ended — a loss through `WorkerEnding.end`, then `WorkerEnding.exited` — pumps the job log of
 a running generation that holds a task whose facts can still be read, through one `WorkerActivityPump` per generation,
 runs `AgentStartedDetector.detect` over the record's PID, and yields an idle slot once per pass. It pumps once more before
@@ -531,7 +536,32 @@ read is reported as `PM_RUNTIME-151` and does not stop the end. The end's side e
 the generation's own request, so a retry keeps its cause and repeats nothing (ADR 018); a generation whose end fails is
 reported as `PM_RUNTIME-149` and the pass goes on, and a failing idle yield is reported as `PM_RUNTIME-150`.
 `SupervisionPass` creates a running generation's loss detection at its first advance, settles it with every end it claims
-and completes an end outside the calls' monitor (ADR 019).
+and completes an end outside the calls' monitor (ADR 019): the monitor is taken only to claim the end and to record its
+result.
+
+**The delivered end path** (link:../adr/runtime-worker/022-the-end-is-recorded-onto-the-registered-generation.adoc[ADR
+022]):
+
+* *The request outlives the replacement* — `WorkerEnding.exited` keeps the generation's request; the pass removes it
+  through `WorkerEnding.completed` only after it registered the terminal generation, so a pause or a forced end that
+  arrives in between finds the end still requested, sends no cancel and installs nothing.
+* *The registration onto the current generation* — the pass carries the terminal lifecycle onto the generation the
+  registry holds when it records the result, not onto the snapshot it read before the end work, so a task closed or a
+  turn completed meanwhile stays on the registered generation.
+* *The log and the successor under the guard* — `WORKER_GENERATION_ENDED` and the successor start are effects of the same
+  per-effect guard as the fence, the revoke and the release: a retry logs nothing a second time, and the successor start
+  is recorded before it runs.
+* *The unclassified role* — a generation of a role with no class is reported as `PM_RUNTIME-149` for that generation
+  alone, and a later generation still advances.
+* *The idle yield skips an ended generation* — a generation whose end is requested, or that the recycling already
+  recycled, is no candidate of the idle yield; the next idle generation is chosen instead.
+
+**The persisted end reason is the coarse mapping of the fate**
+(link:../adr/runtime-worker/021-the-persisted-end-reason-is-the-coarse-mapping-of-the-fate.adoc[ADR 021]). The
+settlement derives the worker block's `end_reason` from the job's fate and the worker's connection: a worker that never
+called failed to start, a succeeded job served its task, and every other fate names its own end — a recycle and a drain
+are both a `cancelled` fate. The fine-grained cause stays the supervisor's and is recorded in the attempt's end and in
+`WORKER_GENERATION_ENDED`.
 
 What the package does not do itself: the transport that implements `WorkerProtocol` and forwards `SupervisorCalls`,
 the scheduling of `SupervisionPass.run()` and the construction of the pump, the recorder and the mapper per role are the
@@ -547,10 +577,30 @@ Gaps of the package itself:
 
 * `StartFailureGuard.startFailed` has no production caller, so a live guard does not count the start failure of an exit
   the pass observes, while a guard rebuilt over the registry does, because the pass enters the `START_FAILED` state on
-  that path. The pass is the only reader of the settled record, so only the pass can count it.
+  that path. The pass is the only reader of the settled record, so only the pass can count it. The count stays owed to
+  PLAN-V2-162 Deliverable 1.
 * `AgentStartedDetector` has no `forget` for a terminal generation, which the pass makes long-lived.
 * The pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed only by
   the pass's completion, so a generation retired from the registry another way leaves its entries behind.
+
+The four follow-ups the end path's lane named, each with its outcome; none is built:
+
+. *The offer-time task boundary in the activity pump* — dropped: the pump already closes the attempt it tracks, its
+  tail and its end, before it reads another task or attempt (`WorkerActivityPump.pump`), and a tail the worker wrote
+  after its task closed goes to that task through the pass's close (`SupervisionPass.closeAttempt`, also when the job
+  settles first), so no line is attributed to the next task; an offer the transport makes is not visible to the pass,
+  and no part of the specification names an offer-time boundary.
+. *Per-line source offsets from `JobLog` for an idempotent tail replay* — owned by PLAN-V2-162 Deliverable 3 (carried
+  item 42 (c): a mid-batch failure of the pump can re-append lines; the narrowed catch or the log it names decides
+  whether offsets per line are needed).
+. *A pump that outlives its generation for a retryable tail of a settled worker* — dropped: the pump of a generation
+  whose end failed already stays — `finishAttempt` removes it only after the attempt's end is appended, and the pass
+  keeps the generation's claim and its pump while the end stays owed — so the retry resumes from the pump's offset
+  (ADR 018, ADR 022).
+. *The recorded budget against the exit loss's attempt end* (`SupervisionPassTest.anExitAfterTheFirstCallIsALoss`) —
+  dropped: a worker that still leases its task when it exits is the exit loss, and the loss is the one mapping of the
+  attempt's end (`exited_without_submit`, ADR 020); the budget the settlement recorded stays on the record's fate and
+  end reason (ADR 021), so the attempt's end is not refined from it.
 
 The landed-contract decision and its two seams are ADR 002's; the protocol adapter is ADR 009's; the one writer block is
 ADR 003's.
@@ -781,7 +831,9 @@ link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]
   link:../adr/runtime-worker/006-verification-record-gate-at-the-start-path.adoc[ADR 006],
   link:../adr/runtime-worker/007-verification-controls-built-in-runtime-worker.adoc[ADR 007],
   link:../adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR 008],
-  link:../adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR 009]
+  link:../adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR 009],
+  link:../adr/runtime-worker/021-the-persisted-end-reason-is-the-coarse-mapping-of-the-fate.adoc[ADR 021],
+  link:../adr/runtime-worker/022-the-end-is-recorded-onto-the-registered-generation.adoc[ADR 022]
 
 == The Turn's Usage Figures
 _Requirements: link:../../../doc/Traceability.adoc#PM-WORK-3[§ PM-WORK-3], link:../../../doc/Traceability.adoc#PM-CLIENT-5[§ PM-CLIENT-5]_
