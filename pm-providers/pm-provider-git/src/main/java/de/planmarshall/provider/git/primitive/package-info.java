@@ -11,7 +11,8 @@
  * The commit primitives of the sub-workflow {@code git.commit_and_push} (PM-WF-16) over the port
  * {@link de.planmarshall.provider.git.primitive.CommitSite}, which the assembly implements per scope:
  * {@link de.planmarshall.provider.git.primitive.GitResolveMessagePrimitive},
- * {@link de.planmarshall.provider.git.primitive.GitTemplateMessagePrimitive} and the return evaluation of the entity
+ * {@link de.planmarshall.provider.git.primitive.GitTemplateMessagePrimitive},
+ * {@link de.planmarshall.provider.git.primitive.GitStageAndCommitPrimitive} and the return evaluation of the entity
  * kind {@code commit-message}, {@link de.planmarshall.provider.git.primitive.CommitMessageEvaluatePrimitive}.
  * <p>
  * The package holds the rules the primitives apply, each a pure function whose refusals are returned values:

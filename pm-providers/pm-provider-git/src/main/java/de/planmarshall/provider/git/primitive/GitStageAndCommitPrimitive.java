@@ -47,9 +47,9 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * before anything is staged;</li>
  * <li>the staging set narrowed by the bound {@code files}; an empty set is {@code nothing_to_commit} without a git
  * call;</li>
- * <li>the message checked by {@link CommitMessages#validate(String)} and given the resolved trailer by
- * {@link CommitMessages#withTrailer(String, CommitTrailer)}; a refusal is {@code failed} with the reason
- * {@code message_refused};</li>
+ * <li>the message given the resolved trailer by {@link CommitMessages#withTrailer(String, CommitTrailer)}, which
+ * refuses a message that already holds a trailer line, and checked by {@link CommitMessages#validate(String)}; a
+ * refusal is {@code failed} with the reason {@code message_refused};</li>
  * <li>one call of {@link GitOperations#commit(CommitInput)} with exactly the files to commit, the operator's
  * {@code commit_identity} as the author and the agent identity, else the compiled
  * {@code plan-marshall-mcp <noreply@cuioss.de>}, as the committer; the operator's git {@code user.*} settings are never
@@ -57,8 +57,9 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * </ol>
  * The message reaches the repository in memory through the contract; no command line is built from a value. The
  * outcome of the contract maps to exactly one outcome: {@code OK} to {@code committed}, {@code NOTHING_TO_COMMIT} to
- * {@code nothing_to_commit}, {@code CAPABILITY_MISSING} (a hook the native variant does not run) to
- * {@code hook_failed}, every other to {@code failed} with the reason {@code commit_failed}.
+ * {@code nothing_to_commit}, every other, {@code CAPABILITY_MISSING} of the native variant among them, to
+ * {@code failed} with the reason {@code commit_failed}. Hooks run only in the CLI variant, so only its hook refusal
+ * returns {@code hook_failed}; the native variant never does.
  * <p>
  * The primitive ends a cycle through its state by an attempt cap ({@link CycleMeasure#ATTEMPT_CAP}) whose exhaustion
  * outcome is {@code attempts_exhausted}; the engine counts the attempts and returns that outcome at the cap, the
@@ -89,9 +90,6 @@ public final class GitStageAndCommitPrimitive
 
     /** The fact of {@code message_refused}: the line the rule refused, 0 for the whole message. */
     public static final String LINE_FACT = "line";
-
-    /** The fact of {@code hook_failed}: what the contract reported. */
-    public static final String HOOK_FAILURE_FACT = "hook_failure";
 
     /** The fact of {@code commit_failed}: the outcome of the contract. */
     public static final String GIT_OUTCOME_FACT = "git_outcome";
@@ -173,16 +171,25 @@ public final class GitStageAndCommitPrimitive
         if (toCommit.isEmpty()) {
             return result(Outcome.NOTHING_TO_COMMIT, Map.of());
         }
-        var violations = CommitMessages.validate(parameters.message());
-        if (!violations.isEmpty()) {
-            return messageRefused(violations.getFirst());
-        }
         var trailer = CommitTrailer.resolve(site.localTrailer(context).orElse(null),
                 site.machineTrailer(context).orElse(null)).trailer();
         return switch (CommitMessages.withTrailer(parameters.message(), trailer)) {
             case Refused refused -> messageRefused(refused.violation());
-            case Appended appended -> commit(context, worktree, appended.message(), List.copyOf(toCommit));
+            case Appended appended -> validated(context, worktree, parameters.message(), appended.message(),
+                    List.copyOf(toCommit));
         };
+    }
+
+    /**
+     * Validates the message without its trailer, so the rules judge what the caller supplied.
+     */
+    private PrimitiveResult<Outcome> validated(WorkflowExecutionContext context, Path worktree, String message,
+            String withTrailer, List<String> paths) {
+        var violations = CommitMessages.validate(message);
+        if (!violations.isEmpty()) {
+            return messageRefused(violations.getFirst());
+        }
+        return commit(context, worktree, withTrailer, paths);
     }
 
     private PrimitiveResult<Outcome> commit(WorkflowExecutionContext context, Path worktree,
@@ -205,7 +212,6 @@ public final class GitStageAndCommitPrimitive
             case OK -> result(Outcome.COMMITTED,
                     Map.of(COMMIT_FACT, Objects.requireNonNull(result.value(), "the commit of OK").id()));
             case NOTHING_TO_COMMIT -> result(Outcome.NOTHING_TO_COMMIT, Map.of());
-            case CAPABILITY_MISSING -> result(Outcome.HOOK_FAILED, Map.of(HOOK_FAILURE_FACT, result.detail()));
             default -> failed(Reason.COMMIT_FAILED,
                     Map.of(GIT_OUTCOME_FACT, result.outcome().name(), DETAIL_FACT, result.detail()));
         };
@@ -253,7 +259,10 @@ public final class GitStageAndCommitPrimitive
         COMMITTED("committed", OutcomeClass.SUCCESS),
         /** Nothing of the staging set is left to commit. */
         NOTHING_TO_COMMIT("nothing_to_commit", OutcomeClass.SKIP),
-        /** A repository hook refused the commit, or the variant cannot run it; {@code git.commit-fix} follows. */
+        /**
+         * A repository hook of the CLI variant refused the commit; {@code git.commit-fix} follows. The native variant
+         * runs no hook and never returns it.
+         */
         HOOK_FAILED("hook_failed", OutcomeClass.FAILURE),
         /** The attempt cap of the commit is spent; returned by the engine, never by the primitive. */
         ATTEMPTS_EXHAUSTED("attempts_exhausted", OutcomeClass.FAILURE),

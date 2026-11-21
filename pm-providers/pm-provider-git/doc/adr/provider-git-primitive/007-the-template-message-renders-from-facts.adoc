@@ -30,7 +30,9 @@ alternatives not recorded
 
 == Consequences
 
-* The fallback of a closed `commit-message` task never needs a model and never steps out.
+* The fallback of a closed `commit-message` task never needs a model, and `git.template-message` itself always
+  returns `ready`; its message still passes `git.stage-and-commit`, which refuses a message the rules reject (for
+  example a subject that breaks the header form) as `failed` with `message_refused`, so the call can step out there.
 * A change of the type priority changes `TYPE_PRIORITY` and its generator-driven test.
 
 == Source

@@ -24,9 +24,11 @@ type `ScopeKind`, which does not exist; `core.store.ScopeType` holds `PLAN`, `EP
   `StagingSet(staged, outside)`; every dirty path lands in exactly one of the two.
 * It takes the existing `ScopeType`; no `ScopeKind` is added. `PROJECT` has no staging set: every dirty path is
   `outside`, a value, never an exception.
-* Each path is confined with `PathConfinement.confine(new WorkspaceRoots(worktree, Set.of()), path)`, so "inside the
-  worktree" is exactly the confinement root; a refused path, an absolute name and a name that is not in normal form
-  (a `.` or `..` segment) are `outside`.
+* The directory that holds each path is confined with `PathConfinement.confine(new WorkspaceRoots(worktree, Set.of()),
+  directory)`, so "inside the worktree" is exactly the confinement root; a path whose directory is refused, an absolute
+  name and a name that is not in normal form (a `.` or `..` segment) are `outside`. The last name is not followed,
+  because git records a symbolic link as a link: a dirty link to outside or a dangling link is staged like any other
+  file, while a path through a link to outside stays outside (operator decision of 2026-11-21 on the code review).
 * The function is what the assembly's `InputBindingContext` calls for the staging-set bound of a `files` input.
 
 == Alternatives Considered
@@ -35,6 +37,9 @@ type `ScopeKind`, which does not exist; `core.store.ScopeType` holds `PLAN`, `EP
   fourth member `PROJECT` is answered by an empty staging set.
 * *Staging every dirty path of the checkout.* Not taken: the specification forbids it, and a path outside the scope
   would reach a commit.
+* *Confining the whole path, its last name followed.* Not taken: a tracked link to outside or a dangling link would be
+  refused as outside and block the commit of the whole scope with `footprint_violation`, though git commits only the
+  link.
 
 == Consequences
 

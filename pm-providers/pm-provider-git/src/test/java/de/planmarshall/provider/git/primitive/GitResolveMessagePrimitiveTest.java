@@ -36,13 +36,15 @@ import org.junit.jupiter.params.provider.MethodSource;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
+import de.planmarshall.provider.git.primitive.GitResolveMessagePrimitive.CallSite;
 import de.planmarshall.provider.git.primitive.GitResolveMessagePrimitive.MessageMode;
 import de.planmarshall.provider.git.primitive.GitResolveMessagePrimitive.Outcome;
 import de.planmarshall.provider.git.primitive.GitResolveMessagePrimitive.Params;
 import de.planmarshall.provider.git.testing.generators.GitGenerators;
 
 /**
- * {@code git.resolve-message}: one case per message mode and per presence of a bound message, the refusal of a message
+ * {@code git.resolve-message}: one case per message mode and per presence of a bound message, the fixed message of
+ * every call site and of a call site without its input, the refusal of a message
  * {@link CommitMessages#validate(String)} rejects, and the registration of the primitive.
  */
 @EnableGeneratorController
@@ -58,6 +60,8 @@ class GitResolveMessagePrimitiveTest {
     private final TypedGenerator<String> stepIds = Generators.strings("abcdefghijklmnopqrstuvwxyz-", 1, 30);
 
     private final TypedGenerator<Integer> deliverables = Generators.integers(1, 99);
+
+    private final TypedGenerator<String> ids = Generators.strings("abcdefghijklmnopqrstuvwxyz0123456789-", 1, 24);
 
     private CommitSite site;
 
@@ -157,6 +161,113 @@ class GitResolveMessagePrimitiveTest {
             // The fixed message of the specification (Bound Parameter Contract, Stage 3).
             assertEquals("chore(finalize): settle changes", readyMessage(run(parameters)),
                     "The settle message is resolved without a step");
+        }
+    }
+
+    @Nested
+    @DisplayName("call sites of step_or_fallback")
+    class CallSites {
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(CallSite.class)
+        @DisplayName("each call site resolves its fixed message from the bound inputs")
+        void fixedMessage(CallSite callSite) {
+            var stepId = stepIds.next();
+            var epicId = ids.next();
+            var unitId = ids.next();
+            var prTitle = messages.next().lines().findFirst().orElseThrow();
+            var body = titles.next();
+            var baseBranch = ids.next();
+            var parameters = Params.builder().messageMode(MessageMode.STEP_OR_FALLBACK).callSite(callSite)
+                    .stepId(stepId).epicId(epicId).unitId(unitId).prTitle(prTitle).body(body).baseBranch(baseBranch)
+                    .build();
+
+            // The fixed messages are the literals of the specification (Stage 3).
+            var expected = switch (callSite) {
+                case FINALIZE_SETTLE_COMMIT -> "chore(finalize): apply %s changes".formatted(stepId);
+                case FINALIZE_LAND_MAIN -> "%s\n\n%s".formatted(prTitle, body);
+                case EPIC_COMMIT_LEDGER -> "chore(orchestrator): update %s ledger".formatted(epicId);
+                case DECOMPOSITION_COMMIT -> "chore(orchestrator): record %s decomposition".formatted(epicId);
+                case LAND_REMOVAL -> "chore(land): remove documents moved into a source directory";
+                case LAND_UNIT -> "chore(land): place %s".formatted(unitId);
+                case LAND_SETUP -> "chore(land): apply project setup changes";
+                case FINALIZE_HAND_BACK -> "chore(finalize): settle changes at hand-back";
+                case ADR_RENUMBERING -> "chore(finalize): renumber ADRs against %s".formatted(baseBranch);
+            };
+
+            assertEquals(expected, readyMessage(run(parameters)), "The call site's fixed message is resolved");
+        }
+
+        @Test
+        @DisplayName("the variants of a call site follow its bound flags and inputs")
+        void variants() {
+            var epicId = ids.next();
+            var unitId = ids.next();
+            var prTitle = messages.next().lines().findFirst().orElseThrow();
+            var builder = Params.builder().messageMode(MessageMode.STEP_OR_FALLBACK);
+            replay(site, context);
+
+            var archive = readyMessage(primitive.execute(context,
+                    builder.callSite(CallSite.EPIC_COMMIT_LEDGER).epicId(epicId).archiving(true).build()));
+            var remove = readyMessage(primitive.execute(context,
+                    builder.callSite(CallSite.LAND_UNIT).unitId(unitId).removing(true).build()));
+            var subjectOnly = readyMessage(primitive.execute(context,
+                    builder.callSite(CallSite.FINALIZE_LAND_MAIN).prTitle(prTitle).build()));
+            var settle = readyMessage(primitive.execute(context,
+                    builder.callSite(CallSite.FINALIZE_SETTLE_COMMIT).build()));
+            verify(site, context);
+
+            // The variant messages are the literals of the specification (Stage 3).
+            assertAll("call-site variants",
+                    () -> assertEquals("chore(orchestrator): archive %s ledger".formatted(epicId), archive,
+                            "An archiving epic archives its ledger"),
+                    () -> assertEquals("chore(land): remove %s".formatted(unitId), remove,
+                            "A removed unit is landed as a removal"),
+                    () -> assertEquals(prTitle, subjectOnly, "Without a body the title is the whole message"),
+                    () -> assertEquals("chore(finalize): settle changes", settle,
+                            "A trigger without a step settles changes"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = CallSite.class,
+                names = {"FINALIZE_LAND_MAIN", "EPIC_COMMIT_LEDGER", "DECOMPOSITION_COMMIT", "LAND_UNIT",
+                    "ADR_RENUMBERING"})
+        @DisplayName("a call site without the input its message names goes to the task")
+        void missingInput(CallSite callSite) {
+            var parameters = Params.builder().messageMode(MessageMode.STEP_OR_FALLBACK).callSite(callSite)
+                    .stepId(stepIds.next()).build();
+
+            assertNeedsInteractive(run(parameters));
+        }
+
+        @Test
+        @DisplayName("a bound message replaces the fixed message of the call site")
+        void boundMessageWins() {
+            var bound = messages.next();
+            var parameters = Params.builder().messageMode(MessageMode.STEP_OR_FALLBACK).message(bound)
+                    .callSite(CallSite.LAND_SETUP).build();
+
+            assertEquals(bound, readyMessage(run(parameters)), "The bound message replaces the fixed one");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(CallSite.class)
+        @DisplayName("each call site carries the name of its state")
+        void callSiteWireNames(CallSite callSite) {
+            // The call-site names are the states of the matrix of the specification.
+            var expected = switch (callSite) {
+                case FINALIZE_SETTLE_COMMIT -> "finalize.settle-commit";
+                case FINALIZE_LAND_MAIN -> "finalize.land-main";
+                case EPIC_COMMIT_LEDGER -> "epic.commit-ledger";
+                case DECOMPOSITION_COMMIT -> "decomposition.commit";
+                case LAND_REMOVAL -> "git.land-removal";
+                case LAND_UNIT -> "git.land-unit";
+                case LAND_SETUP -> "git.land-setup";
+                case FINALIZE_HAND_BACK -> "finalize.hand-back";
+                case ADR_RENUMBERING -> "adr-renumbering";
+            };
+
+            assertEquals(expected, callSite.wireName(), "The call site carries the name of its state");
         }
     }
 

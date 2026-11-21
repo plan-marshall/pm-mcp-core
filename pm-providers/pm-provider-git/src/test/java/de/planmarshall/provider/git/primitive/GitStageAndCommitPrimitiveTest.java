@@ -69,7 +69,7 @@ import de.planmarshall.provider.git.testing.generators.GitGenerators;
 /**
  * {@code git.stage-and-commit} over an EasyMock {@link CommitSite} and the real {@link JGitOperations} on a temporary
  * repository: the staging set per scope, the footprint check before any git call, the trailer, author and committer
- * read back from the history, the message refusal, and the mapping of every {@link GitOutcome}.
+ * read back from the history, the message refusal, and the mapping of every {@link GitOutcome} with its facts.
  */
 @EnableGeneratorController
 @DisplayName("GitStageAndCommitPrimitive")
@@ -271,6 +271,22 @@ class GitStageAndCommitPrimitiveTest {
         }
 
         @Test
+        @DisplayName("a message without a type is refused naming the header rule before any git call")
+        void messageWithoutType() throws Exception {
+            var dirty = file();
+            write(dirty);
+            stub(ScopeType.PLAN, false, List.of(dirty), Optional.of(agent));
+
+            var result = run(new GitStageAndCommitPrimitive(untouchedGit(), site),
+                    new Params(": " + names.next(), null));
+
+            assertAll("header refused",
+                    () -> assertEquals(Reason.MESSAGE_REFUSED, result.reason(), "the reason is message_refused"),
+                    () -> assertEquals(1, result.updatedFacts().get(GitStageAndCommitPrimitive.LINE_FACT),
+                            "the facts name the header line"));
+        }
+
+        @Test
         @DisplayName("without a commit identity the commit fails without a git call")
         void noCommitIdentity() throws Exception {
             var dirty = file();
@@ -293,22 +309,47 @@ class GitStageAndCommitPrimitiveTest {
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(GitOutcome.class)
-        @DisplayName("every git outcome maps to exactly one outcome, never attempts_exhausted")
+        @DisplayName("every git outcome maps to one outcome and its facts, never hook_failed")
         void everyGitOutcomeMaps(GitOutcome gitOutcome) {
             var detail = Generators.letterStrings(1, 30).next();
-            var result = GitStageAndCommitPrimitive.map(gitOutcome == GitOutcome.OK ? GitResult.ok(commitInfo())
+            var info = commitInfo();
+            var result = GitStageAndCommitPrimitive.map(gitOutcome == GitOutcome.OK ? GitResult.ok(info)
                     : GitResult.of(gitOutcome, detail));
 
+            // the native variant runs no hook: CAPABILITY_MISSING is commit_failed like every other refusal
             var expected = switch (gitOutcome) {
                 case OK -> Outcome.COMMITTED;
                 case NOTHING_TO_COMMIT -> Outcome.NOTHING_TO_COMMIT;
-                case CAPABILITY_MISSING -> Outcome.HOOK_FAILED;
                 default -> Outcome.FAILED;
+            };
+            Map<String, Object> expectedFacts = switch (gitOutcome) {
+                case OK -> Map.of(GitStageAndCommitPrimitive.COMMIT_FACT, info.id());
+                case NOTHING_TO_COMMIT -> Map.of();
+                default -> Map.of(GitStageAndCommitPrimitive.GIT_OUTCOME_FACT, gitOutcome.name(),
+                        GitStageAndCommitPrimitive.DETAIL_FACT, detail);
             };
             assertAll("mapping of " + gitOutcome,
                     () -> assertEquals(expected, result.outcome(), "the git outcome maps to its outcome"),
+                    () -> assertEquals(expectedFacts, result.updatedFacts(),
+                            "the outcome carries its documented facts"),
                     () -> assertEquals(expected == Outcome.FAILED ? Reason.COMMIT_FAILED : null, result.reason(),
                             "only failed carries the reason commit_failed"));
+        }
+
+        @Test
+        @DisplayName("CAPABILITY_MISSING of the native variant is failed with commit_failed")
+        void capabilityMissingIsCommitFailed() {
+            var detail = Generators.letterStrings(1, 30).next();
+
+            var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.CAPABILITY_MISSING, detail));
+
+            assertAll("capability missing",
+                    () -> assertEquals(Outcome.FAILED, result.outcome(), "the missing capability fails the commit"),
+                    () -> assertEquals(Reason.COMMIT_FAILED, result.reason(), "the reason is commit_failed"),
+                    // the wire name of the git outcome is the fact the specification names
+                    () -> assertEquals("CAPABILITY_MISSING",
+                            result.updatedFacts().get(GitStageAndCommitPrimitive.GIT_OUTCOME_FACT),
+                            "the facts name the git outcome"));
         }
 
         @Test
