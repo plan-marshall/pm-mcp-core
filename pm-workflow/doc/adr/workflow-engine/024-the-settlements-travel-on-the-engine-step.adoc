@@ -1,0 +1,41 @@
+= ADR workflow-engine 024: The Settlements Travel on the Engine Step
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The settlements of an advance have to reach the caller that writes the advance, so it can write them in the same
+transaction. The engine keeps nothing between advances (PM-ARCH-4), so the settlements cannot wait in the engine for a
+later read, and a callback port would add a side channel the caller has to wire.
+
+== Decision
+
+`EngineStep.Resting`, `Ended` and `ConditionRaised` carry the component `List<CommandSettlement> settlements`, the
+settlements of the advance in run order, kept as an unmodifiable copy that is never `null`. The `Run` owns the list and
+hands it to every step it builds; `ConditionRaised.of` and the four-argument `raise` produce an empty list, so the
+public `WorkflowEngine.raise` and `GuardEvaluator` keep their shape.
+
+== Alternatives Considered
+
+1. **A listener port that the engine calls per settlement**: *Rejected*: a second output channel beside the step, and a
+   port every assembly must wire.
+2. **An accessor on the engine for the last advance's settlements**: *Rejected*: state between advances.
+
+== Consequences
+
+* The caller reads `EngineStep.settlements()`; the assembly `plan-marshall-mcp` takes it over in its engine wiring.
+* `WorkflowEngineTest` (group *Settlements of a step*) pins the copy, the unmodifiable list, the refusal of `null` and
+  the empty list of an out-of-chain raise.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverables 2 and 3
+* link:../../developer/workflow-engine.adoc#_commands_and_settlements[Workflow Engine Developer Guide § Commands and Settlements]
+* PM-IMPL-5, PM-ARCH-4

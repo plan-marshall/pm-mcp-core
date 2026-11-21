@@ -1,0 +1,41 @@
+= ADR 017: The Settlement's Reason Takes the Reason Grammar
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The settlement carries the wire names of an outcome and of a reason. The two follow different grammars: an outcome's
+wire name is `[a-z][a-z0-9_-]{0,31}`, while a reason's is the narrower `[a-z][a-z0-9_]{0,31}`, the form the history
+line can store (link:013-a-reason-wire-name-is-one-the-history-line-can-store.adoc[ADR 013]). A settlement that checked
+both with the outcome grammar would admit a reason no registry admits and no history line stores.
+
+== Decision
+
+`CommandSettlement` checks the outcome with the outcome grammar and a present reason with the reason grammar. A
+present `raisedCondition` must be one of `OutcomeReason.MAPPABLE_CONDITION_KINDS` and requires a reason, because only
+a reason raises a condition from a primitive.
+
+== Alternatives Considered
+
+1. **One grammar for both**: *Rejected*: it would accept a hyphenated reason, which ADR 013 refuses everywhere else.
+2. **No check, since the engine only copies checked names**: *Rejected*: the record is public, and a value built
+   elsewhere would escape the rule the engine relies on.
+
+== Consequences
+
+* `CommandSettlementTest` (group *Wire names of the outcome and the reason*) pins that a hyphen is admitted in an
+  outcome and refused in a reason, and the group *Raised condition* the two condition rules.
+* A change of either grammar changes this record together with the registry and the history line.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverable 1
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* PM-IMPL-5

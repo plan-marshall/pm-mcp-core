@@ -43,7 +43,8 @@ configuration of its own; the assembly supplies the port, and an engine without 
 `EngineStep`:: The sealed result of one operation: `Resting` (the resting state and the `AwaitedEvent` it waits for),
 `Ended` (the outcome and outcome class of the top-level unit's terminal; the call stack is empty), and
 `ConditionRaised` (the condition kind and its facts; state, phase and call stack unchanged). Every variant carries the
-new `WorkflowStatus`.
+new `WorkflowStatus` and the `CommandSettlement` of every primitive the advance ran, in run order
+(<<_commands_and_settlements>>).
 `CallStack`:: The immutable call stack, bottom to top, of at most `MAX_DEPTH` (5, `WorkflowStatus.MAX_CALL_DEPTH`) frames, the depth the store admits.
 `push` adds the frame of a call, `pop` removes exactly one frame, `unwound` lists every frame top to bottom for an
 unwind; `fromStore` and `toStore` convert between the AST frame `ast.CallFrame` and the store frame
@@ -216,9 +217,50 @@ says so and names the code that establishes it.
   link:../adr/workflow-engine/022-a-reason-stays-out-of-the-sub-workflow-result-record.adoc[ADR 022]).
 * *Not observable by a test*: a raise merges no fact of the result into the frame's result record. This is established
   by reading the code, not by a test: in `Run.runPrimitive` of `WorkflowEngine` the raise returns
-  `PrimitiveRun.raised` before the merge `results.peek().putAll(result.updatedFacts())`, and the raise ends the advance,
+  `PrimitiveRun.Raised` before the merge `results.peek().putAll(result.updatedFacts())`, and the raise ends the advance,
   so the result records of the run, which live only for one advance, are never read again; no outcome of the engine can
   tell a merged record from an unmerged one.
+
+[#_commands_and_settlements]
+=== Commands and Settlements
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+Implements link:{dsl}/05-primitives.adoc#command-and-settlement[Workflow DSL § The Command and its Settlement]. Each
+statement names the test that proves it.
+
+* *The dispatch through the value*: `Run.runPrimitive` keeps the `ParameterBinder` as it is, wraps the record it returns
+  into a `Command` with a fresh `CommandId` drawn from `Ports.ids`, the run's `CorrelationId`, the primitive id, the
+  provenance and the clock's instant, and runs the primitive with `command.input()`, the same instance the binder
+  returned. `WorkflowExecutionContext`, the registry, the transition selection and the merge of the facts are
+  unchanged (`CommandDispatchTest`, `shouldSettleChainInRunOrder`, which asserts the input with `assertSame`).
+* *One settlement per run, on both exits*: after the outcome check and the reason check, one `CommandSettlement` is
+  appended to the run: on the routed exit before the transition is returned, and on the raised exit with
+  `raisedCondition` set and no transition taken. The step of the advance carries the list in run order
+  (`shouldSettleChainInRunOrder`; group *Settlements of a reason*, `shouldSettleMappedReasonWithCondition` and
+  `shouldSettleUnmappedReasonWithoutCondition`). A fault of the outcome or reason check ends the advance before a
+  settlement exists.
+* *The trigger per entry point*: `start` runs with `START`, `advance(status)` and its transaction forms with `RESUME`,
+  `advance(status, event)` with the trigger of the event (`JobSettled` with the job id, `TasksSettled`,
+  `QuestionResolved` with the question id, `OperatorAct` with `<state id>/<link id>`, `TimeElapsed`), `stepOut` with
+  `STEP_OUT` and `unwindToFallback` with `FALLBACK` (`shouldCarryTheCauseOfTheAdvance`, one case per trigger). The nine
+  triggers are exactly the four entry points and one per permitted subclass of `EngineEvent`
+  (`shouldNameEveryTriggerOfEntryPointsAndEvents`, which derives the expectation from
+  `EngineEvent.class.getPermittedSubclasses()`). `composeOperatorEvent` and `restingWait` run no primitive and carry no
+  provenance; `runPrimitive` refuses a run without one, so a primitive never runs without a cause. This last statement
+  is established by the code, `Objects.requireNonNull(provenance, "provenance")` in `Run.runPrimitive`, because no
+  public operation reaches a primitive from those two runs.
+* *One correlation per advance*: every command of one advance carries the run's correlation id, the one its pushed
+  frames carry, and every command its own command id (`shouldSettleChainInRunOrder`).
+* *The settlements on the step*: `Resting`, `Ended` and `ConditionRaised` keep an unmodifiable copy and refuse `null`;
+  an out-of-chain raise and the step of a status that already carries a condition carry none (group *Settlements of a
+  step* of `WorkflowEngineTest`).
+* *Determinism*: two engines whose `Ports.ids` are seeded alike return equal settlements and equal statuses for the same
+  advance (`shouldBeDeterministicUnderEqualSeeds`).
+* *Not persisted, not logged*: the engine writes neither the command nor the settlement and logs nothing about them;
+  the caller may write them in the transaction of the advance
+  (link:../adr/workflow-engine/026-the-command-and-its-settlement-are-not-persisted.adoc[ADR 026]). The facts of a
+  settlement are the raw facts of the result, not the bounded text of a raised condition
+  (link:../adr/workflow-engine/027-the-settlement-carries-the-raw-facts.adoc[ADR 027]).
 
 === Invariants
 
@@ -788,6 +830,10 @@ composition raises `precondition_unmet` and takes no version; an operator event 
 never mid-state, and a refused one is returned and logged; the version in force runs the stored sub-unit text although
 the project's copy changed; a composition resets no counter and rewrites no history line
 |`PlanHistoryEngineTest` |The history of an advance: entered, left, called, returned and the `instance` line, read whole
+|`CommandDispatchTest` |One settlement per primitive run in run order with its own command id, one correlation id and
+the binder's own input record; the provenance of every trigger; the triggers derived from the entry points and the
+permitted events; the settlement of a mapped and of an unmapped reason; equal settlements under equal seeds. Its units
+are written in `CommandDispatchFixtures`, which composes `EngineFixtures` and records the binder's records
 |`EntityAddressingTest` |Every entity kind of the workspace scope resolved in the workspace fixture unit
 (`bootstrap-plan`, `bootstrap-epic`, `enrich-<module_id>`, the lesson review of kind `lessons-review`), the grammar at
 its bounds, every address of another scope refused `scope_not_found` without a read of the port for a plan or epic
@@ -850,3 +896,13 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
   scope's staging set, not its declared footprint.
 * link:../adr/workflow-engine/018-the-bind-lives-in-the-call.adoc[ADR 018]: `call` resolves, validates, records and
   consumes every input over the `InputBindingContext` port, and a refusal is the condition `precondition_unmet`.
+* link:../adr/workflow-engine/023-the-command-ids-come-from-the-ports-generator.adoc[ADR 023]: the command ids come
+  from the generator of the ports.
+* link:../adr/workflow-engine/024-the-settlements-travel-on-the-engine-step.adoc[ADR 024]: the settlements travel on
+  the `EngineStep`.
+* link:../adr/workflow-engine/025-the-execution-context-of-a-primitive-is-unchanged.adoc[ADR 025]: the execution
+  context of a primitive is unchanged.
+* link:../adr/workflow-engine/026-the-command-and-its-settlement-are-not-persisted.adoc[ADR 026]: the command and its
+  settlement are not persisted.
+* link:../adr/workflow-engine/027-the-settlement-carries-the-raw-facts.adoc[ADR 027]: the settlement carries the raw
+  facts.

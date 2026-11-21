@@ -1,0 +1,39 @@
+= ADR workflow-engine 026: The Command and Its Settlement Are Not Persisted
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+A command log that persists every command and settlement is planned, with redaction and bounds of its own. The engine
+writes the status through the caller's transaction and appends the history lines; it could write the settlements the
+same way now.
+
+== Decision
+
+The engine persists neither the command nor its settlement and logs nothing about either. It returns the settlements on
+the step; the caller may write them in the transaction of the advance once a store for them exists.
+
+== Alternatives Considered
+
+1. **Append the settlements to the plan's history now**: *Rejected*: the history line has no member for them, and the
+   redaction and bounds belong to the command log that is still to come.
+2. **Log a record per settlement**: *Rejected*: a log line is no store, and it would print values the command log has
+   to redact first.
+
+== Consequences
+
+* No store schema, no log message and no file changes with this plan.
+* The command log, when it comes, reads `EngineStep.settlements()` and owns the redaction and the bounds.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverable 3
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#command-and-settlement[Workflow DSL § The Command and its Settlement]
+* PM-IMPL-5

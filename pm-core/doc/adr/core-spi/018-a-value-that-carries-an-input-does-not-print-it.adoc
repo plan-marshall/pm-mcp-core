@@ -1,0 +1,41 @@
+= ADR 018: A Value That Carries an Input Does Not Print It
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The input of a command is the parameter record of a primitive, and an operator link's record holds the text the
+operator submitted. The facts of a settlement may hold submitted text as well. A record's generated `toString` prints
+every component, so a log line, an exception message or a debugger view of a command would copy that text wherever the
+value travels.
+
+== Decision
+
+`Command.toString` prints the two ids, the primitive id, the provenance, the name of the input's class and the instant,
+never a value of the input. `CommandSettlement.toString` prints the fact names, never their values. No exception
+message of either constructor quotes the input or a fact value.
+
+== Alternatives Considered
+
+1. **The generated `toString` of the record**: *Rejected*: it prints the input and the facts.
+2. **Redact by a pattern of secret-looking values**: *Rejected*: a pattern misses what it does not know; naming the
+   class and the fact names prints nothing that was submitted.
+
+== Consequences
+
+* `CommandTest.toStringOmitsTheInput` and `CommandSettlementTest.toStringOmitsFactValuesAndInput` feed generated text
+  into an input record and a fact and assert its absence.
+* A caller that logs a command logs nothing submitted; the core-spi guide carries the matching pitfall.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverable 1
+* link:../../developer/core-spi.adoc#_pitfalls[Primitive SPI Developer Guide § Pitfalls]
+* PM-IMPL-5

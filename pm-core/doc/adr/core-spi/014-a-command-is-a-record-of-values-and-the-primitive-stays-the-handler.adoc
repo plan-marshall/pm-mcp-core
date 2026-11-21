@@ -1,0 +1,47 @@
+= ADR 014: A Command Is a Record of Values and the Primitive Stays the Handler
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The engine ran a primitive by handing it the record its `ParameterBinder` returned, and nothing described that run as
+a value: which primitive ran, with which input, for which cause and when. A later command log, a replay and the
+caller that writes the advance need such a value, and PM-IMPL-5 asks for one. The question was whether the run becomes
+an object that executes itself, or a value the engine builds and the primitive still handles.
+
+== Decision
+
+`de.planmarshall.core.spi.Command` is a record of six values: `commandId`, `correlationId`, `primitiveId`, the bound
+`input` record, the `provenance` and `issuedAt`. It carries a `@Builder` (six components) beside its validating
+canonical constructor, which refuses every `null` component and a blank primitive id. It has no behaviour: the engine
+builds it from the binder's record and runs the primitive with `command.input()`. `Primitive`, `PrimitiveResult` and
+`WorkflowExecutionContext` are unchanged.
+
+== Alternatives Considered
+
+1. **A command object with an `execute` method that wraps the primitive**: *Rejected*: it moves the dispatch out of the
+   engine and makes the value carry behaviour, so two commands with equal values could run differently.
+2. **Change the `Primitive` signature to take the `Command`**: *Rejected*: every primitive would change for a value it
+   does not need; the input record is what a primitive reads.
+
+== Consequences
+
+* A run is a plain value that compares by its components, so two seeded engines produce equal commands
+  (`CommandDispatchTest.shouldBeDeterministicUnderEqualSeeds`).
+* A primitive cannot tell whether it runs through a command; a later change of the command adds no obligation to the
+  primitives.
+* `CommandTest` pins the refusals, the builder and the `toString`.
+
+== Source
+
+* Pull request of `PLAN-V2-25` (`command-record-and-dispatch`), deliverable 1
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#command-and-settlement[Workflow DSL § The Command and its Settlement]
+* link:../../developer/core-spi.adoc#_the_contract_of_a_primitive[Primitive SPI Developer Guide § The Contract of a Primitive]
+* PM-IMPL-5
