@@ -33,6 +33,7 @@ import de.planmarshall.core.id.CorrelationId;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.CommandSettlement;
 import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveRegistry;
@@ -458,10 +459,12 @@ public final class WorkflowEngine {
         var node = stateOf(run.unitOf(stack), status.state());
         return switch (node.behavior()) {
             case StateBehavior.AutoStep _, StateBehavior.SubWorkflowCall _ -> run.chain(node.id());
-            case StateBehavior.TerminalState _ -> stack.isEmpty() ? ended(status, node) : run.chain(node.id());
+            case StateBehavior.TerminalState _ ->
+                stack.isEmpty() ? ended(status, node, run.settlements()) : run.chain(node.id());
             case StateBehavior.JobStep _, StateBehavior.ModelJob _ ->
-                parked(status) ? resting(status, node) : run.chain(node.id());
-            case StateBehavior.InteractiveLinks _, StateBehavior.QuestionWait _ -> resting(status, node);
+                parked(status) ? resting(status, node, run.settlements()) : run.chain(node.id());
+            case StateBehavior.InteractiveLinks _, StateBehavior.QuestionWait _ ->
+                resting(status, node, run.settlements());
         };
     }
 
@@ -526,7 +529,7 @@ public final class WorkflowEngine {
     private EngineStep chainOrRaise(WorkflowStatus status, Run run, Run.PrimitiveRun primitiveRun) {
         if (primitiveRun.conditionKind() != null) {
             return EngineStep.ConditionRaised.raise(status, primitiveRun.conditionKind(),
-                    Objects.requireNonNull(primitiveRun.facts(), "facts"), clock.now());
+                    Objects.requireNonNull(primitiveRun.facts(), "facts"), clock.now(), run.settlements());
         }
         return run.chain(primitiveRun.targetStateId());
     }
@@ -759,11 +762,11 @@ public final class WorkflowEngine {
         return run.chain(fallbackStateId);
     }
 
-    private EngineStep ended(WorkflowStatus status, StateNode terminal) {
+    private EngineStep ended(WorkflowStatus status, StateNode terminal, List<CommandSettlement> settlements) {
         var outcome = terminalOutcomeOf(terminal);
         var phase = ABORTED_OUTCOME.equals(outcome.id()) ? ABORTED_PHASE : COMPLETED_PHASE;
         var endedStatus = phase.equals(status.phase()) ? status : status.toBuilder().phase(phase).build();
-        return new EngineStep.Ended(endedStatus, outcome.id(), outcome.outcomeClass());
+        return new EngineStep.Ended(endedStatus, outcome.id(), outcome.outcomeClass(), settlements);
     }
 
     /** The outcome a terminal state reports; a terminal state without one is a fault of the unit. */
@@ -775,8 +778,8 @@ public final class WorkflowEngine {
         return outcome;
     }
 
-    private EngineStep resting(WorkflowStatus status, StateNode node) {
-        return new EngineStep.Resting(status, node.id(), awaitedEventOf(node.behavior()));
+    private EngineStep resting(WorkflowStatus status, StateNode node, List<CommandSettlement> settlements) {
+        return new EngineStep.Resting(status, node.id(), awaitedEventOf(node.behavior()), settlements);
     }
 
     private AwaitedEvent awaitedEventOf(StateBehavior behavior) {
@@ -979,6 +982,9 @@ public final class WorkflowEngine {
         /** The job a job-starting outcome reported, which the job state the transition enters binds. */
         private @Nullable String spawnedJobId;
 
+        /** The settlements of the primitives this advance ran, in run order; the step of the advance copies them. */
+        private final List<CommandSettlement> settlements = new ArrayList<>();
+
         Run(WorkflowStatus status) {
             this(status, null, null);
         }
@@ -996,6 +1002,11 @@ public final class WorkflowEngine {
             for (var index = 0; index < stack.depth(); index++) {
                 results.push(new LinkedHashMap<>());
             }
+        }
+
+        /** @return the settlements of the primitives this advance ran so far, in run order */
+        List<CommandSettlement> settlements() {
+            return settlements;
         }
 
         /**
@@ -1212,7 +1223,7 @@ public final class WorkflowEngine {
                 var refusedComposition = enter(node);
                 if (refusedComposition != null) {
                     return EngineStep.ConditionRaised.raise(finish(), PRECONDITION_UNMET, refusedComposition,
-                            clock.now());
+                            clock.now(), settlements);
                 }
                 node = stateOf(unitOf(stack), stateId);
                 var spawned = spawnedJobId;
@@ -1222,7 +1233,7 @@ public final class WorkflowEngine {
                         var run = runPrimitive(node, auto.primitiveId(), auto.transitions());
                         if (run.conditionKind() != null) {
                             return EngineStep.ConditionRaised.raise(finish(), run.conditionKind(),
-                                    Objects.requireNonNull(run.facts(), "facts"), clock.now());
+                                    Objects.requireNonNull(run.facts(), "facts"), clock.now(), settlements);
                         }
                         stateId = run.targetStateId();
                     }
@@ -1230,29 +1241,29 @@ public final class WorkflowEngine {
                         var outcome = call(node, call);
                         if (outcome.refusal() != null) {
                             return EngineStep.ConditionRaised.raise(finish(), PRECONDITION_UNMET,
-                                    outcome.refusal(), clock.now());
+                                    outcome.refusal(), clock.now(), settlements);
                         }
                         stateId = outcome.targetStateId();
                     }
                     case StateBehavior.TerminalState _ -> {
                         if (stack.isEmpty()) {
-                            return ended(finish(), node);
+                            return ended(finish(), node, settlements);
                         }
                         stateId = returnFromFrame(terminalOutcomeOf(node).id());
                     }
                     case StateBehavior.JobStep job -> {
                         var refused = parkJob(node, job, spawned);
                         if (refused.isEmpty()) {
-                            return resting(finish(), node);
+                            return resting(finish(), node, settlements);
                         }
                         stateId = refused.get();
                     }
                     case StateBehavior.ModelJob modelJob -> {
                         parkTasks(node, modelJob);
-                        return resting(finish(), node);
+                        return resting(finish(), node, settlements);
                     }
                     case StateBehavior.InteractiveLinks _, StateBehavior.QuestionWait _ -> {
-                        return resting(finish(), node);
+                        return resting(finish(), node, settlements);
                     }
                 }
             }

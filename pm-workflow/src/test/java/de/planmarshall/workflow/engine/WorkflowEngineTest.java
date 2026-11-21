@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,6 +39,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -47,11 +49,13 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.CommandSettlement;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 import de.planmarshall.core.store.WorkflowStatus;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.engine.EngineFixtures.CapOutcome;
@@ -729,16 +733,99 @@ class WorkflowEngineTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineStep.Resting(resting, "execute.other", AwaitedEvent.JOB_SETTLED),
+                            () -> new EngineStep.Resting(resting, "execute.other", AwaitedEvent.JOB_SETTLED,
+                                    List.of()),
                             "a resting step with another state is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineStep.Ended(framed, "done", OutcomeClass.SUCCESS),
+                            () -> new EngineStep.Ended(framed, "done", OutcomeClass.SUCCESS, List.of()),
                             "an ended step with a call stack is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineStep.ConditionRaised(resting, "job_incomplete", "{}"),
+                            () -> new EngineStep.ConditionRaised(resting, "job_incomplete", "{}", List.of()),
                             "a contradicting condition step is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> EngineStep.ConditionRaised.of(resting),
                             "a condition step without facts is refused"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Settlements of a step")
+    class Settlements {
+
+        @Test
+        @DisplayName("Should carry the settlements on all three variants, as a copy the argument does not reach")
+        void shouldCarryACopyOnAllThreeVariants() {
+            var settlement = settlement();
+            var argument = new ArrayList<>(List.of(settlement));
+            var steps = steps(argument);
+
+            argument.clear();
+
+            assertAll(steps.stream().<Executable>map(step -> () -> assertEquals(List.of(settlement),
+                    step.settlements(), "the step keeps a copy of its settlements")));
+        }
+
+        @Test
+        @DisplayName("Should keep the settlements of every variant unmodifiable")
+        void shouldKeepTheSettlementsUnmodifiable() {
+            var steps = steps(List.of(settlement()));
+
+            assertAll(steps.stream().<Executable>map(step -> () -> assertThrows(UnsupportedOperationException.class,
+                    () -> step.settlements().clear(), "the settlements of a step are unmodifiable")));
+        }
+
+        @Test
+        @DisplayName("Should refuse a null list of settlements on every variant")
+        void shouldRefuseANullList() {
+            var resting = planStatus(EXECUTE, "execute.build");
+            var raised = fixtures.engine(plan("execute.first", CHAIN_TO_JOB))
+                    .raise(resting, "job_incomplete", Map.of()).status();
+
+            assertAll(
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new EngineStep.Resting(resting, "execute.build", AwaitedEvent.JOB_SETTLED, null),
+                            "a resting step refuses null settlements"),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new EngineStep.Ended(resting, "done", OutcomeClass.SUCCESS, null),
+                            "an ended step refuses null settlements"),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new EngineStep.ConditionRaised(raised, "job_incomplete", "{}", null),
+                            "a condition step refuses null settlements"));
+        }
+
+        @Test
+        @DisplayName("Should give the out-of-chain raise and the step of a status's condition no settlements")
+        void shouldGiveOutOfChainStepsNoSettlements() {
+            var resting = planStatus(EXECUTE, "execute.build");
+            var raised = fixtures.engine(plan("execute.first", CHAIN_TO_JOB))
+                    .raise(resting, "job_incomplete", Map.of());
+
+            assertAll(
+                    () -> assertEquals(List.of(), raised.settlements(), "the public raise carries no settlement"),
+                    () -> assertEquals(List.of(), EngineStep.ConditionRaised.of(raised.status()).settlements(),
+                            "the condition's own step carries none"));
+        }
+
+        private List<EngineStep> steps(List<CommandSettlement> settlements) {
+            var resting = planStatus(EXECUTE, "execute.build");
+            var raised = fixtures.engine(plan("execute.first", CHAIN_TO_JOB))
+                    .raise(resting, "job_incomplete", Map.of()).status();
+            return List.of(
+                    EngineStep.Resting.builder().status(resting).stateId("execute.build")
+                            .awaitedEvent(AwaitedEvent.JOB_SETTLED).settlements(settlements).build(),
+                    EngineStep.Ended.builder().status(resting).outcomeId("done").outcomeClass(OutcomeClass.SUCCESS)
+                            .settlements(settlements).build(),
+                    EngineStep.ConditionRaised.builder().status(raised).kind("job_incomplete").facts("{}")
+                            .settlements(settlements).build());
+        }
+
+        private static CommandSettlement settlement() {
+            return CommandSettlement.builder()
+                    .command(CoreGenerators.commands().next())
+                    .outcome(Generators.letterStrings(1, 20).next().toLowerCase(Locale.ROOT))
+                    .outcomeClass(Generators.enumValues(OutcomeClass.class).next())
+                    .facts(Map.of())
+                    .settledAt(T0)
+                    .build();
         }
     }
 
