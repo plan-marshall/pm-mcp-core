@@ -457,7 +457,7 @@ public final class JGitOperations implements GitOperations {
      * Refuses a path JGit would expand beyond itself before anything is staged: a directory (its pathspec is
      * prefix-based and would commit every path below it), a git pathspec magic and a path that is no legal path of the
      * file system. A glob character is admitted: both staging variants stage a path literally, so a file named
-     * {@code pages/[id].tsx} is committed under that name (link:../../../pm-workflow/doc/adr/workflow-input/006-paths-are-admitted-at-the-edges-and-globs.adoc[ADR
+     * {@code pages/[id].tsx} is committed under that name (link:../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
      * workflow-input/006]); the bind admits the same characters.
      *
      * @param root  the worktree root

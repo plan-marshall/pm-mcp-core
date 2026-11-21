@@ -33,7 +33,10 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 `HeaderSchemaCheck`:: Checks a header, as a `PlanInstanceHeader` or as the JSON of an `instance` line, against every constraint of the header schema; returns every `HeaderViolation`, never throws for a bad header. Each closed enumeration is read from its type, so the check and the type cannot part.
 `HeaderViolation`:: One violation: the JSON pointer of the member and what is wrong.
 
-The canonical JSON form of the header is written and read by the package-private `HeaderJson`.
+The canonical JSON form of the header is written and read by the package-private `HeaderJson`. A policy argument is a JSON
+string for an enum value, a number for an integer, an array for an enum list and a typed object `{"slot":"<name>"}` for a
+slot reference, so an enum value whose text begins with `slot.` is never read back as a reference
+(link:../adr/workflow-dsl/017-a-slot-reference-is-typed-in-the-header.adoc[ADR workflow-dsl/017]).
 The JSON schemas of the two records of this package are files of this module, beside the types that write them, in
 `pm-workflow/src/main/resources/de/planmarshall/workflow/plan/`: `plan-instance-header.schema.json` (the header) and
 `composition-record.schema.json` (one line of the composition log). Document 14 of the store schemas includes both files

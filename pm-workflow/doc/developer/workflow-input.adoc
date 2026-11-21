@@ -125,7 +125,7 @@ another name (`.git ` reads as `.git` on NTFS).
 |===
 
 The glob characters `*`, `?` and `[` are **not** refused: a file named `pages/[id].tsx` is bindable, because both staging
-variants stage a path literally (link:../adr/workflow-input/006-paths-are-admitted-at-the-edges-and-globs.adoc[ADR
+variants stage a path literally (link:../adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
 workflow-input/006]).
 
 == How the Two Layers Work Together

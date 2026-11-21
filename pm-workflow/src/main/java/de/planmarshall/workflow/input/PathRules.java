@@ -20,7 +20,7 @@ import java.util.Optional;
  * A space is a legal member of a path ({@code docs/my file.md} is bindable); every other whitespace code point is
  * refused, as are control, format and bidi characters. The glob characters {@code *}, {@code ?} and {@code [} are
  * admitted: both staging variants stage a path literally, so a file named {@code pages/[id].tsx} is bindable
- * (link:../adr/workflow-input/006-paths-are-admitted-at-the-edges-and-globs.adoc[ADR workflow-input/006]).
+ * (link:../adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006]).
  * <p>
  * Environmental rules (confinement, staging set membership) are checked by the engine at the bind.
  *

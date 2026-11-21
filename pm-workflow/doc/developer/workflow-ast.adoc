@@ -12,7 +12,8 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 Package `de.planmarshall.workflow.ast` is the immutable tree of the Workflow DSL. The parser of `workflow.dsl` builds it,
 the verifier of `workflow.verify` checks it, the engine of `workflow.engine` runs it, and the printer writes it back to
 text. The tree holds no behaviour beyond copying its collections and two derived views; every check of a unit lives in
-the verifier.
+the verifier. `ReservedKeywords.ALL` is the one set of reserved words that the parser and the verifier read
+(link:../adr/workflow-verify/041-the-reserved-words-are-one-set.adoc[ADR workflow-verify/041]).
 
 This guide covers the parts of the tree that describe a unit to its callers: the frontmatter with the unit type, the
 entry bindings and the optional start state of the definition node, the entry of a call, and the entry of a call
