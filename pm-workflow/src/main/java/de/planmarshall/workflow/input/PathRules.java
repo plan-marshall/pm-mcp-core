@@ -13,11 +13,14 @@ import java.util.Optional;
 
 /**
  * The pure, syntactic path rules of Decision 3: relative, {@code /} only, no empty segment, no {@code .} or {@code ..}
- * segment, no NUL, control or format character, no leading {@code :} (git pathspec magic) or {@code -}, no {@code .git}
- * segment in any case, at most {@value #MAX_PATH_LENGTH} characters, no duplicate in a list.
+ * segment, no segment that begins or ends with a space or ends with a dot (a filesystem that folds them would reach
+ * another name), no NUL, control or format character, no leading {@code :} (git pathspec magic) or {@code -}, no
+ * {@code .git} segment in any case, at most {@value #MAX_PATH_LENGTH} characters, no duplicate in a list.
  * <p>
  * A space is a legal member of a path ({@code docs/my file.md} is bindable); every other whitespace code point is
- * refused, as are control, format and bidi characters.
+ * refused, as are control, format and bidi characters. The glob characters {@code *}, {@code ?} and {@code [} are
+ * admitted: both staging variants stage a path literally, so a file named {@code pages/[id].tsx} is bindable
+ * (link:../adr/workflow-input/006-paths-are-admitted-at-the-edges-and-globs.adoc[ADR workflow-input/006]).
  * <p>
  * Environmental rules (confinement, staging set membership) are checked by the engine at the bind.
  *
@@ -82,9 +85,6 @@ public final class PathRules {
         if (value.startsWith(":") || value.startsWith("-")) {
             return refusal(InputValidator.RULE_PATH_MAGIC, value);
         }
-        if (value.indexOf('*') >= 0 || value.indexOf('?') >= 0 || value.indexOf('[') >= 0) {
-            return refusal(InputValidator.RULE_PATH_GLOB, value);
-        }
         return Optional.empty();
     }
 
@@ -95,6 +95,12 @@ public final class PathRules {
             }
             if (".".equals(segment) || "..".equals(segment)) {
                 return refusal(InputValidator.RULE_PATH_DOT_SEGMENT, value);
+            }
+            if (segment.startsWith(" ") || segment.endsWith(" ")) {
+                return refusal(InputValidator.RULE_PATH_EDGE_SPACE, value);
+            }
+            if (segment.endsWith(".")) {
+                return refusal(InputValidator.RULE_PATH_TRAILING_DOT, value);
             }
             if (".git".equalsIgnoreCase(segment)) {
                 return refusal(InputValidator.RULE_PATH_GIT, value);

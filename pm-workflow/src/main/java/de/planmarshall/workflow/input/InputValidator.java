@@ -115,9 +115,6 @@ public final class InputValidator {
     /** The rule of a path carrying a git pathspec magic or a leading dash. */
     public static final String RULE_PATH_MAGIC = "path.magic";
 
-    /** The rule of a path carrying a glob character JGit would read as a pattern. */
-    public static final String RULE_PATH_GLOB = "path.glob";
-
     /** The rule of a path carrying a control character. */
     public static final String RULE_PATH_CONTROL = "path.control";
 
@@ -141,6 +138,12 @@ public final class InputValidator {
 
     /** The rule of a path with a {@code .git} segment. */
     public static final String RULE_PATH_GIT = "path.git";
+
+    /** The rule of a path segment that begins or ends with a space. */
+    public static final String RULE_PATH_EDGE_SPACE = "path.edge-space";
+
+    /** The rule of a path segment that ends with a dot. */
+    public static final String RULE_PATH_TRAILING_DOT = "path.trailing-dot";
 
     private static final String NULL_ECHO = "<null>";
 

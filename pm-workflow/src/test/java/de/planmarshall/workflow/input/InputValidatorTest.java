@@ -179,6 +179,24 @@ class InputValidatorTest {
         }
 
         @Test
+        @DisplayName("a tab in the body is refused as input.commit-control")
+        void tabInBodyRefused() {
+            var refusal = refusal(InputValidator.validateText(COMMIT_MESSAGE,
+                    "feat: a subject\n\nA body with\ta tab."));
+
+            assertEquals("input.commit-control", refusal.ruleId(),
+                    "a tab in the body is a control character");
+        }
+
+        @Test
+        @DisplayName("the same body without the tab is accepted")
+        void bodyWithoutTabAccepted() {
+            assertTrue(InputValidator.validateText(COMMIT_MESSAGE,
+                            "feat: a subject\n\nA body with a space.").isEmpty(),
+                    "a body of plain spaces is accepted");
+        }
+
+        @Test
         @DisplayName("a message of 2001 code points is refused as too long")
         void oneCodePointTooLong() {
             var value = "feat: " + "x".repeat(2001 - "feat: ".length());

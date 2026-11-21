@@ -604,11 +604,12 @@ commit message through the JGit API or `git commit -F -` over stdin, the paths i
 pathspecs (`--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`), in the native variant as exact paths.
 `PathRules` refuses a leading `:` and `-` and every control character before the value is bound
 (link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]).
-Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound. Owed: a fixture
-whose dirty worktree holds files named `:(glob)**`, `-rf` and `app/[slug]/page.tsx`, which both variants stage as
-exactly those files (matched control: no other file of the worktree is staged); the CLI half belongs to the assembly that
-ships the CLI variant. A refusal of the glob characters `*`, `?` and `[` in the native variant or in `PathRules` fails
-the fixture.
+Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound. The glob half is
+settled: `PathRules` and the provider admit `*`, `?` and `[`, and `JGitOperationsTest` (`TheGlobRefusalPremise`, the commit
+of `pages/[id].tsx`) shows the native variant stages such a name literally (link:../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
+workflow-input/006]). Owed: a fixture whose dirty worktree holds files named `:(glob)**` and `-rf` (beside the
+`app/[slug]/page.tsx` the native variant now commits), which both variants stage as exactly those files (matched control: no
+other file of the worktree is staged); the CLI half belongs to the assembly that ships the CLI variant.
 Source:: design review (PLAN-V2-15).
 
 [#PM-WATCH-DSL-42]
