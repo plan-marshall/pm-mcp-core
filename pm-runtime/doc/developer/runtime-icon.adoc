@@ -1,0 +1,89 @@
+= Icon Store and Sanitiser (`runtime.icon`)
+
+The harness icon store at `<PM_MCP_BASE>/icons/` and the sanitising accept step a candidate icon passes before it is
+stored (Harness Profiles § Harness Icons; Store Schemas § Harness Icon Store).
+
+== What the package is for
+
+A harness is shown by its icon where the harness itself is shown, never by the product's own mark. The profile's `icon`
+names either a `bundled` icon shipped in the binary or a `source` URL the runtime fetches once, on the operator's consent
+`fetch_icons`. This package owns the store the fetched icon lands in and the accept step that makes the fetched bytes
+safe to store and to serve from the runtime's own origin. A browser never loads an icon from its maker.
+
+The outbound fetch itself is **not** here: no shipped profile declares the `source` form, so the store stays empty and
+every harness keeps its monogram. The package opens no connection, and `OutboundCallsArchTest` of `runtime.guard` is
+unchanged.
+
+== Main types
+
+`IconSanitiser`::
+The accept step. `accept(byte[])` refuses a candidate above `256` KiB, decides the media type from the bytes (never from
+a file name) and delegates to one of the two sanitisers. It is the only entry a caller needs.
+
+`SvgSanitiser`::
+The allow-list filter of one SVG document. It parses with the JDK's StAX reader without a DTD and without external
+entities, refuses a DOCTYPE before the reader sees it, refuses `script`, `foreignObject`, `use`, every `on*` attribute
+and every reference outside the document, drops an attribute outside the allow-list, and renders the result in the SVG
+namespace. Its element, attribute and bound lists are closed; a new entry is a decision recorded in
+link:../adr/runtime-launch/012-the-icon-sanitiser-is-an-allow-list.adoc[ADR 012].
+
+`PngSanitiser`::
+The signature and chunk-structure check of one PNG. It requires the signature, an `IHDR` first, an `IEND` last, a
+matching checksum per chunk and no trailing byte, refuses an unknown critical chunk, and strips the text chunks
+(`tEXt`, `zTXt`, `iTXt`).
+
+`IconStore`::
+The store `<PM_MCP_BASE>/icons/`. `accept(harnessId, sourceUrl, fetchedAt, bytes)` sanitises the candidate, writes
+`icons/<harness_id>.<ext>` (mode `0600`) and updates `icons/index.json` under `locks/icons.lock`, each with an atomic
+write. It checks the harness id with `HarnessId` before it reaches a path and refuses a target that is a symbolic link.
+
+`IconIndex` and `IconIndexEntry`::
+The index document, its `format_version` and one entry per harness: the source URL, the SHA-256 and size of the file, the
+media type and the fetch time.
+
+== How the parts work together
+
+[source,text]
+----
+candidate bytes ──> IconSanitiser.accept ──> SvgSanitiser | PngSanitiser ──> SanitisedIcon
+                                                                                   │
+IconStore.accept(harnessId, sourceUrl, fetchedAt, bytes) ──────────────────────────┘
+      │  locks/icons.lock
+      ├── icons/<harness_id>.<ext>   (atomic write, mode 0600)
+      └── icons/index.json           (atomic write, format_version + entries)
+----
+
+A caller hands the bytes over; the store never fetches them, so the fetch that produces them is the deferred profile
+`source` form's. A stored icon is served to both clients from the runtime's own origin: a file that differs from its
+index entry, or one above the bound, is not served and is fetched again only on a new consent.
+
+== Invariants
+
+* A stored SVG contains only the elements and attributes of the allow-list, and none of them carries an event handler or
+  a reference outside the document.
+* A stored PNG carries no text chunk.
+* A `harness_id` that is not a `HarnessId` never reaches a path, so no separator or dot segment can leave the directory.
+* A target that is a symbolic link is refused rather than written through.
+* Both the icon file and the index are staged in the same directory and moved onto their name under `locks/icons.lock`,
+  so a reader sees the old file or the new one and never a partial one.
+
+== Failure modes
+
+An `IconRefusal` carries a code that names the fault: `icon_too_large`, `icon_not_svg_or_png`, the SVG refusals
+(`icon_svg_doctype`, `icon_svg_malformed`, `icon_svg_entity`, `icon_svg_script`, `icon_svg_foreign_object`,
+`icon_svg_use`, `icon_svg_element_not_allowed`, `icon_svg_event_attribute`, `icon_svg_external_reference`,
+`icon_svg_too_deep`, `icon_svg_too_complex`), the PNG refusal `icon_png_malformed`, and the store refusals
+`icon_harness_id_invalid`, `icon_target_is_link` and `icon_index_unreadable`. No refusal and no log line repeats any of
+the candidate's bytes.
+
+== Extending it
+
+To keep another SVG element or attribute, add it to the closed list of `SvgSanitiser` and record the decision in ADR 012.
+To store a third media type, extend `IconMediaType`, the accept step's detection and the index's media type together. Do
+not add a fetch here: the outbound call belongs behind the `source` form and the `fetch_icons` consent, and the guard's
+exemption map stays as it is.
+
+== Specification
+
+* `doc/specification/harness-profiles/01-profile-schema.adoc` (Harness Icons)
+* `doc/specification/store-schemas/12-machine-stores.adoc` (Harness Icon Store)
