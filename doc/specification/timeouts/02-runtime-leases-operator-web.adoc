@@ -198,7 +198,7 @@ since the last transition or task progress of a non-terminal scope that is neith
 |fixed
 |—
 |the job token of a worker (`PM-MCP-Job-Token`) and every `generation_id`
-|The token is revoked right after the fate is recorded and the worker's generation fenced by the supervision pass once it reads the settled fate; every later request with the token is refused `job_ended`, and every call of a fenced generation `generation_fenced`.
+|The token is revoked once the settlement has recorded the fate and the worker's generation fenced by the supervision pass once it reads the settled fate; every later request with the token is refused `job_ended`, and every call of a fenced generation `generation_fenced`.
 |link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas, Job Record]; link:../identifiers/02-registry-stores-to-web.adoc#id-job-token[Identifier Registry, Job Token]
 
 |[[review-bot-window-claim]]Review-bot window claim

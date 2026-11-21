@@ -565,7 +565,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /**
      * Starts a worker whose launch the supervisor composed (PM-WORK-3, Job Record). The generation id of the launch is
      * the job id; the record carries the {@code worker} block, the argument vector is digested like every job's, and the
-     * job token is registered with its digest and revoked in the settlement.
+     * job token is registered with its digest and revoked once the settlement has recorded the job's fate.
      * <p>
      * A worker whose id is already taken, or is no worker id, is refused before anything is written.
      *

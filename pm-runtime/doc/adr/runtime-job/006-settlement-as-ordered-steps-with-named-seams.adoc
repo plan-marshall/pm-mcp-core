@@ -31,7 +31,7 @@ missing steps named seams (ADR 006 of `runtime-start`).
 * Every other step is `SettlementStep.notImplemented(name)`: it does nothing and reports `not implemented in this
   runtime`, as the seams of the per-project recovery do. The fence of a worker's
   generation is no step of the settlement: the supervision pass performs it after it reads the settled record (ADR
-  `runtime-worker/017`); the runner revokes the worker's token right after the fate step.
+  `runtime-worker/017`); the runner revokes the worker's token once the settlement has recorded the fate.
 * `JobSettlement.of(store, lockManager)` is the settlement of this runtime. What is settled is a `Settled` record: the
   settled job and the slot it held, which the caller names; the runner settles its own jobs without a slot, and the
   recovery names the slot through `JobRecoveryStep.Slots`, whose `Slots.NONE` names none.
