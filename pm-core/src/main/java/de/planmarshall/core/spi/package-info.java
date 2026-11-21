@@ -24,6 +24,12 @@
  * ({@link de.planmarshall.core.spi.AwaitedEvent}) and the measure that ends a cycle through its state
  * ({@link de.planmarshall.core.spi.CycleMeasure}).
  * <p>
+ * The command: one primitive run is the value of a {@link de.planmarshall.core.spi.Command}, which names the
+ * primitive, its bound input record and the {@link de.planmarshall.core.spi.Provenance cause} of the advance, and of
+ * the {@link de.planmarshall.core.spi.CommandSettlement} it settles to, which carries the result as flat plain values.
+ * The engine returns both on the step of the advance and never persists them; neither prints an input or a fact
+ * value.
+ * <p>
  * The registry: {@link de.planmarshall.core.spi.PrimitiveRegistry} holds the primitives the assembly passes to its
  * constructor and refuses a primitive whose declarations are malformed or contradict each other.
  * <p>
