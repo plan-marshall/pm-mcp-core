@@ -211,7 +211,10 @@ public record EndpointOutcome(Fate fate, Reason reason, String detail, String co
     }
 
     private static HarnessUsage usage(JsonNode answer) {
-        return HarnessUsage.fromEndpoint(figure(answer, "prompt_tokens"), figure(answer, "completion_tokens"));
+        var prompt = figure(answer, "prompt_tokens");
+        var completion = figure(answer, "completion_tokens");
+        return HarnessUsage.fromEndpoint(prompt.isPresent() ? prompt.getAsLong() : null,
+                completion.isPresent() ? completion.getAsLong() : null);
     }
 
     private static OptionalLong figure(JsonNode answer, String member) {

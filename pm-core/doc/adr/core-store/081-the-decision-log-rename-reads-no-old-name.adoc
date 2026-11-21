@@ -1,0 +1,52 @@
+= ADR 081: The Decision-Log Rename Reads No Old Name
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+Pull request #427 (`f3c0dd2d`) carried out the renames of the work package `decision-log-renames`: the member
+`decisions` of the intent record became `choices`, the decider value `model` became `role`, and the heading
+"Model's Calls" of the clarified request (`ClarifiedRequestRenderer`) became "Role's Calls". The work package said the
+old names stay readable (an `intent.json` with `decisions` is read, a stored `model` reads as `role`), but the pull
+request wrote no reader of an old name, and no ADR recorded that it did not. The same pull request left the member
+`repairs` of the intent record without a length bound, so it accepts any string, the empty one included.
+
+== Decision
+
+* `IntentCodec` reads `choices` and the decider values of `IntentRecord.Decider` only. A record that still carries
+  `decisions`, or a choice whose decider is `model`, is refused whole, the refusal naming the member or the value, as
+  every undeclared member of the strict reader is (standing rule R13; no backward-compatibility shims before 1.0). The
+  format version stays 1.
+* `ClarifiedRequestRenderer` writes the heading "Role's Calls" for the choices of decider `role`; the rendered
+  `request.md` is a view, never read back, so the old heading needs no reader.
+* `repairs` keeps no bound: the schema `intent-record-v1.schema.json` gives it none, it is the `plan_id` of a landed
+  plan the plan repairs, and a bound would narrow the format without the schema stating it.
+
+== Alternatives Considered
+
+* *Read the old names and map them* (`decisions` to `choices`, `model` to `role`), as the work package said. Not taken:
+  it is a compatibility shim, which the repository keeps none of before 1.0, and the product holds no deployed store
+  that needs it.
+* *Keep "Model's Calls" as the heading.* Not taken: the heading names the decider of the calls below it, and that
+  decider is now `role`.
+* *Bound `repairs` by the `plan_id` grammar.* Not taken here: the schema states no pattern, and a bound belongs in the
+  schema first; a plan that adds one changes both.
+
+== Consequences
+
+* An `intent.json` written before #427 is refused, not read; the refusal names `decisions` or the value `model`.
+* `doc/plans/decision-log-renames.adoc` is corrected to say the old names are refused, not read.
+* An empty or arbitrary `repairs` string is stored as given; nothing checks that it names a landed plan.
+
+== Source
+
+* Pull request #427 (`f3c0dd2d`), the landing of PLAN-V2-123 (carried item 21 of PLAN-V2-163)
+* link:../../../../doc/plans/decision-log-renames.adoc[Work package `decision-log-renames`]
+* link:049-intent-and-outline-records-are-revision-stores.adoc[ADR 049]

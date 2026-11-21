@@ -195,6 +195,8 @@ class EndpointVerificationTest {
                         "the identity stage status is passed"),
                 () -> assertEquals("passed", result.stageStatuses().get("launch"),
                         "the launch stage status is passed"),
+                () -> assertEquals(ProfileStages.ENDPOINT_STAGES, List.copyOf(result.stageStatuses().keySet()),
+                        "the four endpoint stages report in order"),
                 () -> assertEquals(8, result.values().size(), "the verification reports eight values"));
     }
 
@@ -256,6 +258,12 @@ class EndpointVerificationTest {
                 () -> assertFalse(result.identity().passed(), "the identity stage fails"),
                 () -> assertEquals("failed", result.stageStatuses().get("identity"),
                         "the identity stage status is failed"),
+                () -> assertEquals(new ProfileStages.EndpointClasses(false, false), result.classes(),
+                        "no probe ran, so no class is recorded"),
+                () -> assertEquals(new ProfileStages.EndpointLimits(false, 0), result.limits(),
+                        "no bisection ran, so no limit is settled"),
+                () -> assertEquals(ProfileStages.ENDPOINT_STAGES, List.copyOf(result.stageStatuses().keySet()),
+                        "the four endpoint stages report in order"),
                 () -> assertEquals(ProfileStages.EndpointValueStatus.NOT_MEASURED,
                         result.values().getFirst().status(), "no value is measured"),
                 () -> assertEquals(0, server.getRequestCount(), "no request reached the mock web server"));

@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +33,7 @@ class HarnessUsageEndpointTest {
     void measuredCounts() {
         var prompt = Generators.longs(1, 1_000).next();
         var completion = Generators.longs(1, 1_000).next();
-        var usage = HarnessUsage.fromEndpoint(OptionalLong.of(prompt), OptionalLong.of(completion));
+        var usage = HarnessUsage.fromEndpoint(prompt, completion);
 
         assertAll("The answer's usage is measured and summed",
                 () -> assertEquals(Measurement.measured(prompt), usage.inputTokens(),
@@ -53,7 +52,7 @@ class HarnessUsageEndpointTest {
     @DisplayName("a count the answer lacks is unmeasured and leaves the total unmeasured")
     void missingCountIsUnmeasured() {
         var prompt = Generators.longs(1, 1_000).next();
-        var usage = HarnessUsage.fromEndpoint(OptionalLong.of(prompt), OptionalLong.empty());
+        var usage = HarnessUsage.fromEndpoint(prompt, null);
 
         assertAll("A missing count is unmeasured, never zero",
                 () -> assertEquals(Measurement.measured(prompt), usage.inputTokens(),
@@ -69,13 +68,14 @@ class HarnessUsageEndpointTest {
     @Test
     @DisplayName("an answer without a usage object is unmeasured at both counts")
     void noUsageObject() {
-        var usage = HarnessUsage.fromEndpoint(OptionalLong.empty(), OptionalLong.empty());
+        var usage = HarnessUsage.fromEndpoint(null, null);
 
         assertAll("An answer without usage is unmeasured",
                 () -> assertEquals(Measurement.unmeasured(), usage.inputTokens(),
                         "Without a usage object no prompt count is known"),
                 () -> assertEquals(Measurement.unmeasured(), usage.outputTokens(),
                         "Without a usage object no completion count is known"),
+                () -> assertTrue(usage.totalTokens().isEmpty(), "Without counts the total is unmeasured"),
                 () -> assertNotNull(usage.unmeasuredReason(), "The absence carries an unmeasured reason"));
     }
 }

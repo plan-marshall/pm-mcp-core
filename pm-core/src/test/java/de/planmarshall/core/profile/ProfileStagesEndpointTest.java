@@ -55,6 +55,8 @@ class ProfileStagesEndpointTest {
                 () -> assertEquals("none", result.classes().results().get("tool_call"),
                         "tool_call class has no result"),
                 () -> assertEquals("passed", result.stageStatuses().get("limits"), "limits stage reports passed"),
+                () -> assertEquals(ProfileStages.ENDPOINT_STAGES, List.copyOf(result.stageStatuses().keySet()),
+                        "the four endpoint stages report in order"),
                 () -> assertEquals(8, result.values().size(), "eight values are settled"),
                 () -> assertTrue(result.values().stream()
                                 .allMatch(value -> value.status() == ProfileStages.EndpointValueStatus.MEASURED),
