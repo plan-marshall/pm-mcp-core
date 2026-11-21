@@ -64,6 +64,7 @@ import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeType;
+import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.WorkerState;
 import de.planmarshall.core.store.WorkerStateCodec;
 import de.planmarshall.core.testing.generators.CoreGenerators;
@@ -243,6 +244,33 @@ class JobSettlementTest {
                         "the stored end reason survives the fate"),
                 () -> assertEquals(terminalStateAt, written.stateAt(),
                         "the stored terminal instant survives the fate write"));
+    }
+
+    @Test
+    @DisplayName("the fate step keeps a stored worker block the codec refuses and still records the fate")
+    void theFateStepKeepsARefusedWorkerBlock() {
+        var workerJob = new JobId(RuntimeGenerators.jobIds(JobId.Kind.LLM).next());
+        var digest = RuntimeGenerators.sha256Digests().next();
+        var running = workerRunning(workerJob, workerState(workerJob, digest, createdAt.plusSeconds(1)));
+        // A fixture block the codec refuses: a JSON object that names no member of a worker state.
+        var refused = "{\"not\":\"a worker state\"}";
+        try (var transaction = lockManager.openTransaction()) {
+            records.writeAhead(transaction, running.withWorker(refused));
+        }
+
+        // The runner decided the fate on its own readable snapshot; the stored block is the one the codec refuses.
+        var outcome = SettlementStep.fate(records, lockManager).run(new Settled(workerSettled(running), null));
+
+        var stored = records.read(workerJob).orElseThrow();
+        var recordPath = records.recordPath(workerJob);
+        assertAll(
+                () -> assertEquals(new Outcome.Done("fate succeeded recorded; worker block terminal, token and fence "
+                        + SettlementStep.NOT_IMPLEMENTED), outcome, "the fate step reports the recorded fate"),
+                () -> assertEquals(refused, stored.worker(), "the refused worker block is kept as stored"),
+                () -> assertThrows(StoreRefusal.class, () -> WorkerStateCodec.read(recordPath, stored.worker()),
+                        "the kept block is still one the codec refuses"),
+                () -> assertEquals(Status.ENDED, stored.status(), "the record is settled despite its block"),
+                () -> assertEquals(Fate.SUCCEEDED, stored.fate(), "the record carries the job's fate"));
     }
 
     /** @return the running record of a worker job, carrying the given worker state */

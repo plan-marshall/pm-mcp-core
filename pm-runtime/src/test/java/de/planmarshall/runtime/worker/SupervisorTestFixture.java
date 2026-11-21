@@ -169,7 +169,8 @@ final class SupervisorTestFixture {
 
     final SupervisorEnvironment.WorkerStarter starter = starter();
 
-    final ModelSlots slots = slots();
+    /** The admission the fixture's environment hands to the supervisor; a test that drives a failing slot replaces it. */
+    ModelSlots slots = slots();
 
     /** The protocol the fixture's environment hands to the end path; a test that drives a lock replaces it. */
     WorkerProtocol protocol = protocol();

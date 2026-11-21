@@ -9,6 +9,13 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -277,6 +284,36 @@ class WorkerEndingTest {
                 INFO.WORKER_GENERATION_ENDED.resolveIdentifierString());
     }
 
+    @Test
+    @DisplayName("a retry after a failed effect repeats no effect that completed and completes the rest")
+    void aRetryResumesAtTheFailedEffect() {
+        var released = new ArrayList<ModelSlots.Lease>();
+        fixture.slots = releaseFailingOnce(released);
+        environment = fixture.environment(OPEN_GUARD, OPEN_GATE);
+        var generation = startedFresh();
+        var ending = ending(false, () -> {
+        });
+        ending.end(generation, EndCause.TASK_DONE);
+        assertThrows(IllegalStateException.class, () -> ending.exited(generation),
+                "the failed slot release fails the end");
+        var writesAfterTheFailure = fixture.writes.size();
+
+        var terminal = ending.exited(generation);
+
+        assertAll(
+                () -> assertTrue(terminal.terminal(), "the retry completes the end"),
+                () -> assertEquals(List.of(generation.generationId()), fixture.fences,
+                        "the retry fences the generation no second time"),
+                () -> assertTrue(fixture.jobTokens.revoked(generation.generationId()),
+                        "the token revoked before the failure stays so"),
+                () -> assertEquals(List.of(new ModelSlots.Lease(generation.generationId(), generation.role())),
+                        released, "the retry completes the failed slot release"),
+                () -> assertEquals(0, writesAfterTheFailure, "the failed end writes no terminal state"),
+                () -> assertEquals(1, fixture.writes.size(), "the retry writes the terminal state once"));
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                INFO.WORKER_GENERATION_ENDED.resolveIdentifierString());
+    }
+
     private WorkerGeneration startedFresh() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var supervisor = new WorkerSupervisor(environment);
@@ -287,6 +324,21 @@ class WorkerEndingTest {
 
     private WorkerEnding ending(boolean workQueued, Runnable successor) {
         return new WorkerEnding(environment, () -> workQueued, successor);
+    }
+
+    /** @return the admission double whose claims are granted and whose first release fails, every later one recorded */
+    private static ModelSlots releaseFailingOnce(List<ModelSlots.Lease> released) {
+        ModelSlots mock = createMock(ModelSlots.class);
+        expect(mock.claim(anyString(), anyString())).andAnswer(() -> Optional.of(new ModelSlots.Lease(
+                (String) getCurrentArguments()[0], (String) getCurrentArguments()[1]))).anyTimes();
+        mock.release(anyObject(ModelSlots.Lease.class));
+        expectLastCall().andThrow(new IllegalStateException(Generators.letterStrings(8, 24).next())).once()
+                .andAnswer(() -> {
+                    released.add((ModelSlots.Lease) getCurrentArguments()[0]);
+                    return null;
+                }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
     /** The timers of the test: nothing runs until {@link #fireDue(Instant)} is called. */
