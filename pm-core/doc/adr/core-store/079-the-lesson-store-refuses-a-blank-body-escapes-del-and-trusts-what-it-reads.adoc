@@ -87,10 +87,10 @@ Four contracts of the lesson store, each in one place:
   `revise`, so the store never records a citation it cannot read.
 * The `merged_from[]` half of the specification sentence is implemented on the read side: `revise` marks the
   revision when a lesson named in the `merged_from[]` of the front matter it replaces is untrusted in the state the
-  transaction sees, beside the `sources[]` of the new revision. No transition of this store appends to the list yet —
-  `create` writes an empty one, and the `submit merge` that fills it is one of the lesson store's remaining
-  transitions, owned by the open `lesson-lifecycle` work package — so a file this store wrote carries none, and a file
-  written outside it and accepted by the operator's `accept-edit` carries the entries the mark is read from.
+  transaction sees, beside the `sources[]` of the new revision. `create` initializes the list empty, and no transition
+  of this store appends to it yet — the `submit merge` that would is one of the lesson store's remaining transitions,
+  owned by the open `lesson-lifecycle` work package — while a revision preserves the entries it reads, so a file the
+  operator accepted with `accept-edit` keeps them and the mark applies to them.
 
 == Source
 

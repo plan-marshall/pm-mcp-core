@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -156,8 +157,14 @@ class LessonCodecControlCharacterTest {
         var title = text();
         var escaped = new String(LessonCodec.encode(live(builder -> builder.title(title))), UTF_8);
 
-        var reading = LessonCodec.decode(escaped.replace(title, title + DEL).getBytes(UTF_8));
+        var reading = LessonCodec.decode(escaped
+                .replace("\"title\":\"" + title + "\"", "\"title\":\"" + title + DEL + "\"")
+                .getBytes(UTF_8));
 
-        assertInstanceOf(LessonCodec.Unreadable.class, reading, "the reader refuses a literal DEL in a scalar");
+        assertAll("A literal DEL in the title value leaves the file unreadable",
+                () -> assertInstanceOf(LessonCodec.Readable.class, LessonCodec.decode(escaped.getBytes(UTF_8)),
+                        "the same file without the literal DEL is readable"),
+                () -> assertInstanceOf(LessonCodec.Unreadable.class, reading,
+                        "the reader refuses a literal DEL in a scalar"));
     }
 }
