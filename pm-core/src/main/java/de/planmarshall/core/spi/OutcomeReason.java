@@ -17,7 +17,8 @@ import java.util.Set;
  * (PM-IMPL-5). A primitive author declares the reasons of one outcome through
  * {@link PrimitiveOutcome#reasonType()}, and the reason travels in {@link PrimitiveResult#reason()} as data.
  * <p>
- * A reason is data only: no grammar production, guard or verifier reads it. An operation whose callers continue
+ * A reason is data only: no grammar production or guard reads it, and the verifier reads the wire name of a reason
+ * only to name a reason routed as an outcome. An operation whose callers continue
  * differently per cause gets a named outcome instead; every other failure, skip or indeterminacy is one outcome of
  * its class plus a reason. The rule, the classes that admit a reason and the closed table to conditions are stated in
  * {@code doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons}.
@@ -38,7 +39,9 @@ public interface OutcomeReason {
 
     /**
      * @return the name a log, a diagnostic or a diagram prints the reason by; unique within the reason enum of its
-     *         outcome, and a lower-case identifier of the form of an outcome's wire name. The rule is stated in
+     *         outcome, and of at most 32 characters: a lower-case letter, then lower-case letters, digits and
+     *         underscores. Unlike an outcome's wire name it carries no hyphen, because the history line stores the
+     *         reason in that form and the registry refuses any other. The rule is stated in
      *         {@code doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons}.
      */
     String wireName();

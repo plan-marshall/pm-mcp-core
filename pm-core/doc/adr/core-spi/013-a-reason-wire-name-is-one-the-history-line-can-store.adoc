@@ -1,0 +1,50 @@
+= ADR 013: A Reason Wire Name Is One the History Line Can Store
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+`PrimitiveRegistry` checked the wire name of a reason with the grammar of an outcome's wire name,
+`[a-z][a-z0-9_-]{0,31}`, which admits a hyphen. The `left` line of the plan history stores the wire name of the reason
+in its member `reason`, and `PlanHistoryLine` and `history-line.schema.json` admit only `^[a-z][a-z0-9_]*$` there. A
+primitive whose reason is named, say, `outside-footprint` therefore registered and ran, and then `WorkflowEngine` failed
+with an `IllegalArgumentException` when it wrote the history line: the advance aborted after the primitive's work was
+done, and a retry ran the primitive again.
+
+== Decision
+
+The stored format is the fixed side. The registry checks a reason's wire name with a grammar of its own: a lower-case
+letter, then at most 31 lower-case letters, digits and underscores. It refuses any other name with
+`MALFORMED_REASON_WIRE_NAME`, so every reason a registry admits is one the history line can store. The check of an
+outcome's wire name, `PlanHistoryLine` and the schema are unchanged.
+
+== Alternatives Considered
+
+1. **Widen the history line and its schema to admit a hyphen in `reason`**: *Rejected*: the stored format is the
+   contract readers already depend on, and widening it for a name no primitive yet uses moves a store contract to fit
+   a registry check.
+2. **Map a hyphen to an underscore when the history line is written**: *Rejected*: the stored name would no longer be
+   the reason's wire name, so a log, a diagnostic and the history would print the same reason differently.
+
+== Consequences
+
+* A reason enum with a hyphenated wire name is refused at registration, before any workflow runs, and the refusal
+  names the grammar.
+* `OutcomeReason.wireName()` and the specification state the reason grammar instead of referring to an outcome's.
+* *Known open point*: the wire name of an outcome has the same mismatch. The registry admits a hyphen in it, while
+  `PlanHistoryLine.OUTCOME_PATTERN` refuses one in the `outcome` member. It predates `PLAN-V2-19` and is not changed
+  here; a later plan decides whether the outcome grammar or the stored format moves.
+
+== Source
+
+* Pull request of `PLAN-V2-19` (`engine-carries-reasons`), finding of the review on `WorkflowEngine.java`
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]
+* PM-IMPL-5

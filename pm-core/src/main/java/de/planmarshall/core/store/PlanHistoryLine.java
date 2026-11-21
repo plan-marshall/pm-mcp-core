@@ -25,6 +25,10 @@ import org.jspecify.annotations.Nullable;
  * The history is append-only and never rewritten, and it is the record from which the runtime derives the state of
  * every node of the plan's process: {@code mcp/status.json} records where the plan is, the history records where it
  * has been, which branch it took and with which outcome.
+ * <p>
+ * A {@code left} line names the reason of its outcome when the primitive's result carried one: the reason is data
+ * that explains the outcome and never chose the transition. It is an optional member, written only when present, so a
+ * line without a reason is the line of format version {@value #FORMAT_VERSION} it always was.
  *
  * @param formatVersion   the format version, always {@value #FORMAT_VERSION}
  * @param seq             the position of the line in the plan's history, one above the last
@@ -33,13 +37,15 @@ import org.jspecify.annotations.Nullable;
  * @param callPath        the sub-workflow id of every frame of the call stack, bottom to top
  * @param phase           the plan's phase value at the line; {@code null} before the first phase is called
  * @param outcome         the outcome the state settled or the sub-workflow returned; {@code null} otherwise
+ * @param reason          the wire name of the reason of the outcome of a {@code left} line whose result carried one;
+ *                        {@code null} otherwise
  * @param instanceVersion the instance version in force at the line
  * @param at              when the line was written
  * @since 0.1
  */
 @Builder
 public record PlanHistoryLine(int formatVersion, long seq, Event event, String node, List<String> callPath,
-@Nullable String phase, @Nullable String outcome, int instanceVersion, Instant at) {
+@Nullable String phase, @Nullable String outcome, @Nullable String reason, int instanceVersion, Instant at) {
 
     /** The format version of the history line. */
     public static final int FORMAT_VERSION = 1;
@@ -59,10 +65,12 @@ public record PlanHistoryLine(int formatVersion, long seq, Event event, String n
      * @param callPath        the call stack of the line
      * @param phase           the phase at the line, or {@code null}
      * @param outcome         the outcome of the line, or {@code null}
+     * @param reason          the reason of the outcome of a {@code left} line, or {@code null}
      * @param instanceVersion the instance version in force
      * @param at              when the line was written
-     * @throws IllegalArgumentException if the format version, the sequence, the node, the call path, the outcome or the
-     *                                  instance version does not fit
+     * @throws IllegalArgumentException if the format version, the sequence, the node, the call path, the outcome, the
+     *                                  reason or the instance version does not fit, or a reason is on a line that is no
+     *                                  {@code left} line or carries no outcome
      * @throws NullPointerException     if a required component is {@code null}
      */
     public PlanHistoryLine {
@@ -89,6 +97,9 @@ public record PlanHistoryLine(int formatVersion, long seq, Event event, String n
             throw new IllegalArgumentException("the history line outcome '%s' is not a lowercase identifier"
                     .formatted(outcome));
         }
+        if (reason != null) {
+            requireReason(event, outcome, reason);
+        }
         if (instanceVersion < 1) {
             throw new IllegalArgumentException("the history line names the instance version %d, not from 1"
                     .formatted(instanceVersion));
@@ -108,7 +119,22 @@ public record PlanHistoryLine(int formatVersion, long seq, Event event, String n
      */
     public static PlanHistoryLine of(long seq, Event event, String node, List<String> callPath, String phase,
             String outcome, int instanceVersion, Instant at) {
-        return new PlanHistoryLine(FORMAT_VERSION, seq, event, node, callPath, phase, outcome, instanceVersion, at);
+        return new PlanHistoryLine(FORMAT_VERSION, seq, event, node, callPath, phase, outcome, null,
+                instanceVersion, at);
+    }
+
+    private static void requireReason(Event event, @Nullable String outcome, String reason) {
+        if (!OUTCOME_PATTERN.matcher(reason).matches()) {
+            throw new IllegalArgumentException("the history line reason '%s' is not a lowercase identifier"
+                    .formatted(reason));
+        }
+        if (event != Event.LEFT) {
+            throw new IllegalArgumentException("the history line reason '%s' is on a '%s' line, not a 'left' line"
+                    .formatted(reason, event.wireName()));
+        }
+        if (outcome == null) {
+            throw new IllegalArgumentException("the history line reason '%s' explains no outcome".formatted(reason));
+        }
     }
 
     /**
@@ -116,6 +142,13 @@ public record PlanHistoryLine(int formatVersion, long seq, Event event, String n
      */
     public Optional<String> outcomeValue() {
         return Optional.ofNullable(outcome);
+    }
+
+    /**
+     * @return the reason of the outcome as an optional value; empty for a line without one
+     */
+    public Optional<String> reasonValue() {
+        return Optional.ofNullable(reason);
     }
 
     /**

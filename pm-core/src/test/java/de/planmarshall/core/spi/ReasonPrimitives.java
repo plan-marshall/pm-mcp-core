@@ -110,6 +110,9 @@ class ReasonPrimitives {
                         fixed("test.reason-upper-case", UpperCaseWireReasonOutcome.class,
                                 UpperCaseWireReasonOutcome.FAILED)),
                 new TestPrimitives.Refusal(Reason.MALFORMED_REASON_WIRE_NAME,
+                        "a reason wire name with a hyphen, which the history line cannot store",
+                        hyphenatedReason()),
+                new TestPrimitives.Refusal(Reason.MALFORMED_REASON_WIRE_NAME,
                         "a reason without a wire name",
                         fixed("test.reason-unnamed", UnnamedWireReasonOutcome.class,
                                 UnnamedWireReasonOutcome.FAILED)),
@@ -132,6 +135,16 @@ class ReasonPrimitives {
      */
     static Primitive<?, ?> oldDefectBeforeReasonDefect() {
         return fixed("test.reason-mixed", MixedOutcome.class, MixedOutcome.FIRST);
+    }
+
+    /**
+     * @return a primitive whose {@code FAILURE} outcome declares a reason with the wire name
+     *         {@code outside-footprint}: a lower-case identifier an outcome may carry, but one the history line's
+     *         member {@code reason} cannot store
+     */
+    static Primitive<?, ?> hyphenatedReason() {
+        return fixed("test.reason-hyphenated", HyphenatedWireReasonOutcome.class,
+                HyphenatedWireReasonOutcome.FAILED);
     }
 
     private static <R extends Enum<R> & PrimitiveOutcome> Primitive<?, ?> fixed(String id, Class<R> outcomeType,
@@ -191,6 +204,21 @@ class ReasonPrimitives {
         private final String wireName;
 
         UpperCaseWireReason(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+    }
+
+    enum HyphenatedWireReason implements OutcomeReason {
+        OUTSIDE_FOOTPRINT("outside-footprint");
+
+        private final String wireName;
+
+        HyphenatedWireReason(String wireName) {
             this.wireName = wireName;
         }
 
@@ -505,6 +533,25 @@ class ReasonPrimitives {
         @Override
         public Optional<Class<? extends OutcomeReason>> reasonType() {
             return Optional.of(UpperCaseWireReason.class);
+        }
+    }
+
+    enum HyphenatedWireReasonOutcome implements PrimitiveOutcome {
+        FAILED;
+
+        @Override
+        public String wireName() {
+            return "failed";
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.FAILURE;
+        }
+
+        @Override
+        public Optional<Class<? extends OutcomeReason>> reasonType() {
+            return Optional.of(HyphenatedWireReason.class);
         }
     }
 

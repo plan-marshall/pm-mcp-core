@@ -1,0 +1,52 @@
+= ADR workflow-engine 022: A Reason Stays Out of the Sub-Workflow Result Record
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+Inside a sub-workflow frame, the engine merges the `updatedFacts` of every primitive result into the frame's result
+record, which the callee returns to its caller and which a result guard `guard result.<f>` of the caller reads
+(Rule 6, link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]).
+A reason could travel the same way, as a member of the result record. A reason is data only and never routable
+(link:../../../../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011]).
+
+== Decision
+
+* The engine puts no reason into the results map of a frame: a routed result merges its `updatedFacts` as before, and its
+  reason goes only onto the `left` history line of the state
+  (link:../../../../pm-core/doc/adr/core-store/080-the-reason-is-an-optional-member-of-the-left-line.adoc[ADR core-store/080]).
+* A reason that raises a condition merges nothing: neither the reason nor the result facts enter the frame, no job is
+  bound, and no `left` line is written; the condition's facts carry them instead
+  (link:020-the-facts-of-a-raised-reason-are-bounded-text.adoc[ADR 020]).
+
+== Alternatives Considered
+
+* *A reason member of the result record.* Not taken: a result guard of the caller could then read it, which makes the
+  reason a route through the back door and contradicts ADR core-spi/011.
+* *Merge the result facts on a raise.* Not taken: the raise leaves the state un-left, so facts of an operation whose
+  transition was never taken would reach the caller as if it had been.
+
+== Consequences
+
+* A caller's result guard sees the same record whether or not a callee's primitive carried a reason.
+* `ReasonConditionTest` shows the raise inside a sub-workflow frame with the frame still pushed, and the raise from an
+  operator link without the `fills` slot written.
+* `ReasonMappedToCondition.bindsNoSpawnedJob` shows that a raise binds no job, and the group
+  `RoutedReasonInSubWorkflow` (`staysOutOfTheResultRecord` and its control `keepsTheResultFacts`) shows that a reason
+  never reaches the result guard of the caller.
+* That a raise merges no result fact into the frame is established by reading `Run.runPrimitive` of `WorkflowEngine`, not
+  by a test: the result record lives for one advance only and the raise ends that advance, so no test can tell a merged
+  record from an unmerged one.
+
+== Source
+
+* Pull request of `PLAN-V2-19` (`engine-carries-reasons`), deliverables 1 and 2
+* link:../../../../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011]
+* link:../../developer/workflow-engine.adoc#_reasons_and_conditions[Workflow Engine Developer Guide § Reasons and Conditions]

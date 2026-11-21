@@ -21,6 +21,10 @@ de/planmarshall/workflow/engine/EngineFixtures.java#StepOutcome#1
 de/planmarshall/workflow/engine/EngineResumeTest.java#HoldingEverything#1
 de/planmarshall/workflow/engine/GuardEvaluatorTest.java#Facts#1
 de/planmarshall/workflow/engine/OperatorWaitTest.java#anonymous:ParameterBinder#1
+de/planmarshall/workflow/engine/ReasonFixtures.java#CheckOutcome#1
+de/planmarshall/workflow/engine/ReasonFixtures.java#CheckReason#1
+de/planmarshall/workflow/engine/ReasonFixtures.java#ForeignReason#1
+de/planmarshall/workflow/engine/ReasonFixtures.java#SwitchOutcome#1
 de/planmarshall/workflow/model/GraderFixtures.java#Harness#1
 de/planmarshall/workflow/model/GraderFixtures.java#Judge#1
 de/planmarshall/workflow/model/GraderFixtures.java#JudgeCheckMemory#1
@@ -64,6 +68,10 @@ de/planmarshall/workflow/verify/InvariantFixtures.java#PushOutcome#1
 de/planmarshall/workflow/verify/InvariantFixtures.java#QgateOutcome#1
 de/planmarshall/workflow/verify/InvariantFixtures.java#RouteOutcome#1
 de/planmarshall/workflow/verify/InvariantFixtures.java#WaiverWaitOutcome#1
+de/planmarshall/workflow/verify/ReasonVerifyPrimitives.java#CheckOutcome#1
+de/planmarshall/workflow/verify/ReasonVerifyPrimitives.java#FailedReason#1
+de/planmarshall/workflow/verify/ReasonVerifyPrimitives.java#PlainOutcome#1
+de/planmarshall/workflow/verify/ReasonVerifyPrimitives.java#SkippedReason#1
 de/planmarshall/workflow/verify/TestPrimitives.java#ArchiveOutcome#1
 de/planmarshall/workflow/verify/TestPrimitives.java#ArtifactConsumer#1
 de/planmarshall/workflow/verify/TestPrimitives.java#ArtifactProducer#1

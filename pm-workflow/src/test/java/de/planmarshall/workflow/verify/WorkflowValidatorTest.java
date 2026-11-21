@@ -1133,4 +1133,128 @@ class WorkflowValidatorTest {
                             "a null prune map at a unit is refused"));
         }
     }
+
+    /**
+     * Reasons: a reason is carried as data and never routed, so a reason routed as an outcome is named as such by Rule
+     * 2, a result guard on a primitive state stays Rule 6's refusal, a reason-bearing outcome routed by one transition
+     * passes, and Rule 9 judges an outcome with reasons as its reasonless twin.
+     */
+    @Nested
+    @DisplayName("Reasons")
+    class Reasons {
+
+        private static final String REFUSED = "verify/reasons/refused";
+
+        private static final String PASSING = "verify/reasons/passing";
+
+        private final WorkflowValidator reasonValidator =
+                new WorkflowValidator(ReasonVerifyPrimitives.registry(), List.of());
+
+        static List<String> refusedFixtures() {
+            return VerifyFixtures.list(REFUSED);
+        }
+
+        static List<String> passingFixtures() {
+            return VerifyFixtures.list(PASSING);
+        }
+
+        private List<Violation> verify(WorkflowDefinition definition) {
+            return reasonValidator.verify(definition).violations();
+        }
+
+        private List<Violation> refused(String fileName) {
+            return verify(VerifyFixtures.parse(REFUSED + "/" + fileName));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("refusedFixtures")
+        @DisplayName("Should refuse each reason fixture with exactly the violations it expects")
+        void shouldRefuseWithExactlyTheExpectedViolations(String resource) {
+            var found = verify(VerifyFixtures.parse(resource));
+
+            VerifyFixtures.assertRefusedExactly(resource, found);
+        }
+
+        // The message is the contract of the refusal (Rule 2, a reason routed as an outcome).
+        @Test
+        @DisplayName("Should name a routed reason as a reason of its outcome, in one violation")
+        void shouldNameRoutedReason() {
+            var found = refused("reason-routed-as-outcome.pmwf");
+
+            assertAll(() -> assertEquals(1, found.size(), "the routed reason is one violation"),
+                    () -> assertEquals("the state 'verify.entry' routes 'tests_red', which is a reason of the outcome"
+                            + " 'failed' of the primitive 'reason.check': a reason is carried as data and never"
+                            + " routed", found.getFirst().message(),
+                            "the violation names the reason and its outcome"));
+        }
+
+        // The message is the contract of the refusal (Rule 6, a result guard outside a call), unchanged by reasons.
+        @Test
+        @DisplayName("Should refuse a result.reason guard on a primitive state with the existing Rule 6 message")
+        void shouldRefuseReasonGuardOutsideCall() {
+            var found = refused("reason-guard-on-primitive-state.pmwf");
+
+            assertAll(() -> assertEquals(1, found.size(), "the guard outside a call is one violation"),
+                    () -> assertEquals("a result guard is admitted only on the outcome 'done' of a call, but found on"
+                            + " the outcome 'failed' of the state 'verify.entry', which is no call",
+                            found.getFirst().message(), "the violation keeps the Rule 6 message"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("passingFixtures")
+        @DisplayName("Should pass a reason-bearing outcome routed by one transition, no reason edge declared")
+        void shouldPassReasonBearingOutcome(String resource) {
+            var result = reasonValidator.verify(VerifyFixtures.parse(resource));
+
+            assertEquals(List.of(), result.violations(), "the reason-bearing unit passes every check");
+        }
+
+        @Test
+        @DisplayName("Should name in the reason fixtures only rules of VerificationRule that the verifier reports")
+        void shouldNameOnlyReportedRules() {
+            var named = refusedFixtures().stream().flatMap(resource -> VerifyFixtures.expectations(resource).stream())
+                    .map(VerifyFixtures.Expectation::rule).collect(Collectors.toCollection(TreeSet::new));
+            var reported = refusedFixtures().stream()
+                    .flatMap(resource -> verify(VerifyFixtures.parse(resource)).stream()).map(Violation::rule)
+                    .collect(Collectors.toCollection(TreeSet::new));
+
+            assertAll(() -> assertTrue(Set.of(VerificationRule.values()).containsAll(named),
+                            "the fixtures name rules of the verifier"),
+                    () -> assertEquals(named, reported, "the named rules are the reported rules"));
+        }
+
+        // The completions and the violation counts are the contract of Rule 9 over the outcome classes.
+        @ParameterizedTest(name = "failed as {0}, skipped as {1}")
+        @CsvSource({
+                "done, skipped, 1",
+                "failed, skipped, 0",
+                "failed, failed, 0"
+        })
+        @DisplayName("Should judge the completions of an outcome with reasons as those of its reasonless twin")
+        void shouldJudgeCompletionsAsReasonlessTwin(String onFailed, String onSkipped, int expected) {
+            var states = """
+                    state verify.entry
+                        auto %s
+                            passed -> verify.done
+                                completes step:a as done
+                            failed -> verify.done
+                                completes step:a as %s
+                            skipped -> verify.done
+                                completes step:a as %s
+                    """ + DONE_TERMINAL;
+
+            var withReasons = verify(unit("plan", states.formatted(ReasonVerifyPrimitives.CHECK, onFailed,
+                    onSkipped)));
+            var reasonless = verify(unit("plan", states.formatted(ReasonVerifyPrimitives.PLAIN, onFailed,
+                    onSkipped)));
+
+            var located = withReasons.stream().map(VerifyFixtures.Expectation::of).toList();
+            assertAll(() -> assertEquals(expected, withReasons.size(), "the outcome with reasons is judged"),
+                    () -> assertEquals(reasonless.stream().map(VerifyFixtures.Expectation::of).toList(), located,
+                            "the twin is judged at the same places"),
+                    () -> assertTrue(withReasons.stream()
+                                    .allMatch(violation -> violation.rule() == VerificationRule.STEP_COMPLETION),
+                            "every refusal is one of Rule 9"));
+        }
+    }
 }

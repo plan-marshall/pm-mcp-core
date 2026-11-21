@@ -1,0 +1,23 @@
+---
+name: verify.reason-routed-as-outcome
+description: A unit written for the verifier tests.
+type: workflow
+icon: workflow.default
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: OUTCOME_COVERAGE state verify.entry line 21
+# A plan unit whose auto state routes the wire name of a reason of its primitive as an outcome.
+workflow verify.reason-routed-as-outcome version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    auto reason.check
+        passed -> verify.done
+        failed -> verify.done
+        skipped -> verify.done
+        tests_red -> verify.done
+
+state verify.done terminal done success

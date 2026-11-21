@@ -157,6 +157,30 @@ transaction history, and the queue-task port's id and its record are one state. 
 amendment — "a new double adds a line and fails the build" — is read that way: the new declaration is visible as a scan
 failure until its baseline line and its reason here exist; a baseline line without a reason is not a keep.
 
+=== The 2026-11-20 amendment
+
+A pull request of PLAN-V2-19 (`engine-carries-reasons`) adds the outcome and reason enums of its reason fixtures to
+the scan's population of `pm-workflow` and `pm-core`. They are not doubles by this ADR's definition: an enum constant keeps no state
+and records no call. The scan lists them because it matches every type that implements a production interface, as it
+lists the outcome enums of `EngineFixtures`, `TestPrimitives` and `InvariantFixtures` already.
+
+* `pm-workflow` `engine.ReasonFixtures.CheckOutcome`, `SwitchOutcome`, `CheckReason` and `ForeignReason` — the closed
+  outcome and reason sets of the EasyMock primitives the reason tests run. `PrimitiveResult` bounds its outcome by
+  `Enum<R> & PrimitiveOutcome` and `PrimitiveOutcome#reasonType()` answers an enum class of `OutcomeReason`, so the
+  type system requires an enum, which EasyMock cannot create; no conversion is possible. `SwitchOutcome` answers the
+  reason type its test switched it to, a static switch that the fixture resets after each test, because a result whose
+  outcome answers another reason type after the result was built is the case the engine's check exists for.
+* `pm-workflow` `verify.ReasonVerifyPrimitives.CheckOutcome`, `PlainOutcome`, `FailedReason` and `SkippedReason` —
+  the closed outcome and reason sets of the two EasyMock primitives the verifier's reason fixtures name:
+  `reason.check`, whose failure outcome carries three reasons and whose skip outcome carries one, and its reasonless
+  twin `reason.plain`, the matched control of the Rule 9 cases. The registry reads the outcome set from an enum class
+  and `PrimitiveOutcome#reasonType()` answers an enum class of `OutcomeReason`, so the same type-system constraint
+  holds; no conversion is possible.
+* `pm-core` `spi.ReasonPrimitives.HyphenatedWireReason` and `HyphenatedWireReasonOutcome` — the refusal case of a
+  reason wire name with a hyphen (`MALFORMED_REASON_WIRE_NAME`, ADR core-spi/013), beside the other malformed reason
+  fixtures of `ReasonPrimitives` the baseline already lists. The registry reads the outcome set and the reason set from
+  enum classes, so the same type-system constraint holds; no conversion is possible.
+
 == Alternatives Considered
 
 * *Keep the open vocabulary with a stated reason per class.* Not taken: that is PLAN-V2-106's rule, and the analysis

@@ -1,0 +1,58 @@
+= ADR workflow-engine 019: A Reason with a Condition Raises It Instead of the Transition
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-20
+
+== Context
+
+A primitive's outcome may carry a reason, and a reason answers at most one condition kind from the closed table of
+link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+(`footprint_violation`, `precondition_unmet`). Until `PLAN-V2-19` the engine ignored the reason: a result whose reason
+named a boundary breach took the transition of its outcome like any other, so the condition the table promised was never
+raised, and the cause was lost once the scope moved on. The question was where the condition takes effect: beside the
+transition, after it, or in its place.
+
+== Decision
+
+* `Run.runPrimitive` checks the reason after the outcome and returns a `PrimitiveRun`: the target of the transition of the
+  outcome, or the condition kind with its facts. A reason whose `conditionKind()` is present raises that condition
+  instead of the transition: the scope stays at its state, phase and call stack, and the condition overlay records it
+  (`EngineStep.ConditionRaised`).
+* The outcome itself is unchanged: the unit still routes it once, whatever its reason (Rule 2), and a reason that maps to
+  no condition takes that transition as an outcome without a reason does.
+* A reason the outcome does not declare is the internal fault `UNDECLARED_OUTCOME`, naming the primitive, the state and
+  the reason.
+* An `auto` state raises from the chain; a resumed composite job state and an operator link raise over the status the
+  event's advance started from, so the job stays bound and a `fills` slot is not written.
+
+== Alternatives Considered
+
+* *Take the transition and raise the condition at its target.* Not taken: the target is a state the unit chose for the
+  outcome, not for the breach, and the condition would rest at a position the unit never meant to rest at.
+* *Take the transition and only record the reason.* Not taken: the table of the specification maps a reason to a
+  condition, and a condition that is never raised makes the table dead text.
+* *Route the reason as an outcome of its own.* Not taken: a reason is data only
+  (link:../../../../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011]).
+
+== Consequences
+
+* The condition's self-remedy re-runs the primitive once the condition clears; a second advance of the raised status
+  returns it unchanged, so the primitive runs again only after the clear.
+* A raise writes no `left` history line and merges no fact of the result
+  (link:022-a-reason-stays-out-of-the-sub-workflow-result-record.adoc[ADR 022]); its facts are bounded text
+  (link:020-the-facts-of-a-raised-reason-are-bounded-text.adoc[ADR 020]).
+* `ReasonConditionTest` pins every case, from an `auto` state, a sub-workflow frame, a resumed composite job and an
+  operator link.
+
+== Source
+
+* Pull request of `PLAN-V2-19` (`engine-carries-reasons`), deliverable 1
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#condition-overlays[Workflow DSL § Condition Overlays]
+* link:../../developer/workflow-engine.adoc#_reasons_and_conditions[Workflow Engine Developer Guide § Reasons and Conditions]

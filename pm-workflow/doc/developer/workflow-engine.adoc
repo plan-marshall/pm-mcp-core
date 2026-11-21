@@ -173,6 +173,53 @@ whose result guard holds. Exactly one must match; none or two is the internal fa
 fallback. A verified unit routes every outcome of every primitive it names (Rule 2) and partitions the routes of one
 outcome by result guards (Rule 6), so the fault is reachable only through a defect.
 
+=== Reasons and Conditions
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-6[PM-WF-6]_
+
+The result of a primitive may carry a reason beside its outcome (link:{spec}/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]).
+`Run.runPrimitive` reads it at one point, after the outcome check, and returns a `PrimitiveRun`: the target of the
+transition, or the condition to raise instead of it. Each statement below names the group or the method of
+`ReasonConditionTest` that proves it, or the other test class where one does; the one statement no test can observe
+says so and names the code that establishes it.
+
+* *The check*: the reason pairs with its outcome — none on an outcome that declares no reason type, a constant of the
+  declared type on one that does. Any other result is the internal fault `UNDECLARED_OUTCOME`, naming the primitive, the
+  state and the reason. `PrimitiveResult` already refuses an unpaired reason when it is built; the engine checks again
+  for an outcome that answers another reason type, or a reason type where it answered none or none where it answered
+  one, after the result was built (group *A reason that does not pair with its outcome*: a foreign type, a reason on an
+  outcome without a reason type, no reason on an outcome with one).
+* *A reason without a condition*: the result takes the transition of its outcome and leaves the same status an outcome
+  without a reason leaves (group *A reason without a condition*). Its `left` history line carries the wire name of the
+  reason (`PlanHistoryEngineTest.leftLineCarriesTheReason`;
+  link:../../../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide], the plan's history).
+* *The raise*: a reason whose `conditionKind()` is present raises that condition instead of the transition, with the
+  clock's instant as `raised_at`; state, phase and call stack stay as they were, and a second advance of the raised
+  status returns it unchanged without running the primitive again, while an advance after the condition is cleared runs
+  it again (group *A reason mapped to a condition*). The engine holds no table of reasons: it reads the kind the
+  primitive's reason answers (link:../adr/workflow-engine/019-a-reason-with-a-condition-raises-it-instead-of-the-transition.adoc[ADR 019],
+  link:../adr/workflow-engine/021-the-reason-table-belongs-to-the-primitive.adoc[ADR 021]).
+* *Where the raise lands*: an `auto` state raises from the chain over the status the chain reached, so inside a
+  sub-workflow frame the scope rests at the callee's state with its frame pushed; a resumed composite job state and an
+  operator link raise from the event's advance over the status the advance started from, so the composite job stays
+  bound and the `fills` slot of the operator link is not written (group *Where the raise lands*).
+* *The facts*: `primitive`, `outcome` and `reason` (the wire names) come first, then the facts of the result in their
+  order; a result fact named like one of the three is dropped. Every value is text: a collection is joined with `,` from
+  at most 50 elements and then `,…`, every other value is `String.valueOf`, and the text is cut to 256 characters, the
+  last of them `…`, never inside a surrogate pair (group *The bounds of the facts*, the pair in
+  `cutsBeforeASurrogatePair`,
+  link:../adr/workflow-engine/020-the-facts-of-a-raised-reason-are-bounded-text.adoc[ADR 020]).
+* *What is not persisted*: a raise binds no job, not even one the result reports as spawned (`bindsNoSpawnedJob`), and
+  writes no `left` history line — only the `entered` line of the state the scope rests in (`writesNoLeftLine`). A
+  routed reason is not put into the frame's result record, so a caller's result guard on a field named `reason` does
+  not hold, while a result fact of that name does reach it (group *A routed reason inside a sub-workflow*,
+  `staysOutOfTheResultRecord` and `keepsTheResultFacts`;
+  link:../adr/workflow-engine/022-a-reason-stays-out-of-the-sub-workflow-result-record.adoc[ADR 022]).
+* *Not observable by a test*: a raise merges no fact of the result into the frame's result record. This is established
+  by reading the code, not by a test: in `Run.runPrimitive` of `WorkflowEngine` the raise returns
+  `PrimitiveRun.raised` before the merge `results.peek().putAll(result.updatedFacts())`, and the raise ends the advance,
+  so the result records of the run, which live only for one advance, are never read again; no outcome of the engine can
+  tell a merged record from an unmerged one.
+
 === Invariants
 
 * *Only verified units*: every unit the engine can enter passed the verifier when the engine was built.

@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.random.RandomGenerator;
 
 import de.planmarshall.core.id.CommandId;
@@ -93,7 +95,9 @@ import org.jspecify.annotations.Nullable;
  * One advance runs from the current state and chains in one transaction:
  * <ul>
  * <li>an {@code auto} state runs its primitive through the {@link PrimitiveRegistry} and takes the transition of the
- * returned outcome;</li>
+ * returned outcome; a reason of the outcome that maps to a condition kind raises that condition instead, with the
+ * primitive, the outcome, the reason and the bounded facts of the result as its facts, and a reason the outcome does
+ * not declare is an {@link InternalFaultException};</li>
  * <li>a {@code call} state pushes a frame (the calling unit and state, the sub-workflow, the entry
  * the call goes through, the bound arguments, {@code pushed_at} from the {@link WorkflowClock}) and enters the
  * sub-workflow at the state that entry binds, the entry the call names or the callee's sole entry when the call names
@@ -139,6 +143,24 @@ public final class WorkflowEngine {
 
     /** The transitions one advance may chain at most; a verified unit never comes near it. */
     static final int MAX_CHAIN = 1_000;
+
+    /** The characters a fact of a condition a reason raises carries at most, the cut marker included. */
+    private static final int MAX_FACT_LENGTH = 256;
+
+    /** The elements of a collection fact of a condition a reason raises that are rendered at most. */
+    private static final int MAX_FACT_ELEMENTS = 50;
+
+    /** The marker that ends a cut fact or a collection fact with elements left out. */
+    private static final String ELLIPSIS = "…";
+
+    /** The fact naming the primitive whose reason raised a condition. */
+    private static final String FACT_PRIMITIVE = "primitive";
+
+    /** The fact naming the outcome whose reason raised a condition. */
+    private static final String FACT_OUTCOME = "outcome";
+
+    /** The fact naming the reason that raised a condition. */
+    private static final String FACT_REASON = "reason";
 
     /** The phase of a scope whose unit carries no phase sub-workflow. */
     private static final String WORKSPACE_PHASE = "workspace";
@@ -475,7 +497,7 @@ public final class WorkflowEngine {
         }
         return switch (node.behavior()) {
             case StateBehavior.JobStep job when job.composite() ->
-                run.chain(run.runPrimitive(node, job.primitiveId(), job.transitions()));
+                chainOrRaise(status, run, run.runPrimitive(node, job.primitiveId(), job.transitions()));
             case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(_, var fate) ->
                 run.chain(run.leftTo(node, transitionOf(node, job.transitions(), fate, Map.of()).targetStateId(),
                         fate));
@@ -488,12 +510,67 @@ public final class WorkflowEngine {
                 resolve(run, status, node, question, resolved);
             case StateBehavior.InteractiveLinks links when event instanceof EngineEvent.OperatorAct act -> {
                 run.fillSlotFromOperator(node, act);
-                yield run.chain(run.runPrimitive(node, primitiveOf(linkOf(links, act)),
+                yield chainOrRaise(status, run, run.runPrimitive(node, primitiveOf(linkOf(links, act)),
                         linkOf(links, act).transitions(), act.parameters()));
             }
             default -> throw new IllegalStateException("the state '%s' accepted %s, which it cannot route"
                     .formatted(node.id(), event));
         };
+    }
+
+    /**
+     * Chains on the target of a primitive an event resumed, or raises the condition its reason maps to over the status
+     * the advance started from: nothing but an operator act's slot fill changed the run before the primitive, and a
+     * raised condition keeps neither.
+     */
+    private EngineStep chainOrRaise(WorkflowStatus status, Run run, Run.PrimitiveRun primitiveRun) {
+        if (primitiveRun.conditionKind() != null) {
+            return EngineStep.ConditionRaised.raise(status, primitiveRun.conditionKind(),
+                    Objects.requireNonNull(primitiveRun.facts(), "facts"), clock.now());
+        }
+        return run.chain(primitiveRun.targetStateId());
+    }
+
+    /**
+     * The facts of a condition a reason raises: the wire names of the primitive, the outcome and the reason, then the
+     * facts of the result in their order, a result fact named like one of those three dropped. A value is rendered as
+     * text and bounded (ADR {@code workflow-engine/020}).
+     */
+    private static Map<String, String> conditionFacts(String primitiveId, String outcome, String reason,
+            Map<String, Object> resultFacts) {
+        var facts = new LinkedHashMap<String, String>();
+        facts.put(FACT_PRIMITIVE, primitiveId);
+        facts.put(FACT_OUTCOME, outcome);
+        facts.put(FACT_REASON, reason);
+        resultFacts.forEach((name, value) -> facts.putIfAbsent(name, factText(value)));
+        return facts;
+    }
+
+    /**
+     * Renders one result fact as bounded text: a collection by its elements joined with {@code ,}, at most
+     * {@code MAX_FACT_ELEMENTS} of them and then {@code ,…}; every other value by {@link String#valueOf(Object)};
+     * the text cut to {@code MAX_FACT_LENGTH} characters, the last of them {@code …}, never inside a surrogate pair.
+     */
+    private static String factText(Object value) {
+        String text;
+        if (value instanceof Collection<?> elements) {
+            var joined = new StringJoiner(",");
+            elements.stream().limit(MAX_FACT_ELEMENTS).forEach(element -> joined.add(String.valueOf(element)));
+            if (elements.size() > MAX_FACT_ELEMENTS) {
+                joined.add(ELLIPSIS);
+            }
+            text = joined.toString();
+        } else {
+            text = String.valueOf(value);
+        }
+        if (text.length() <= MAX_FACT_LENGTH) {
+            return text;
+        }
+        var cut = MAX_FACT_LENGTH - ELLIPSIS.length();
+        if (Character.isHighSurrogate(text.charAt(cut - 1))) {
+            cut--;
+        }
+        return text.substring(0, cut) + ELLIPSIS;
     }
 
     /**
@@ -980,6 +1057,11 @@ public final class WorkflowEngine {
 
         /** Records a history line of the advance; a run without a history records nothing. */
         private void record(PlanHistoryLine.Event event, String node, @Nullable String outcome) {
+            record(event, node, outcome, null);
+        }
+
+        private void record(PlanHistoryLine.Event event, String node, @Nullable String outcome,
+                @Nullable String reason) {
             if (history != null) {
                 lines.add(Pending.builder()
                         .event(event)
@@ -988,14 +1070,18 @@ public final class WorkflowEngine {
                                 .map(WorkflowStatus.CallFrame::subworkflowId).toList())
                         .phase(status.phase())
                         .outcome(outcome)
+                        .reason(reason)
                         .instanceVersion(instanceVersion)
                         .build());
             }
         }
 
-        /** Records that the state was left, with the outcome its transition was chosen by. */
-        void leave(StateNode node, String outcome) {
-            record(PlanHistoryLine.Event.LEFT, node.id(), outcome);
+        /**
+         * Records that the state was left, with the outcome its transition was chosen by and the wire name of the
+         * reason the primitive's result carried, if any.
+         */
+        void leave(StateNode node, String outcome, @Nullable String reason) {
+            record(PlanHistoryLine.Event.LEFT, node.id(), outcome, reason);
         }
 
         /**
@@ -1074,7 +1160,7 @@ public final class WorkflowEngine {
 
         /** Records the state as left and returns the target its transition was chosen for. */
         String leftTo(StateNode node, String target, String outcome) {
-            leave(node, outcome);
+            leave(node, outcome, null);
             return target;
         }
 
@@ -1097,10 +1183,21 @@ public final class WorkflowEngine {
          */
         @Builder
         private record Pending(PlanHistoryLine.Event event, String node, List<String> callPath, String phase,
-        @Nullable String outcome, int instanceVersion) {
+        @Nullable String outcome, @Nullable String reason, int instanceVersion) {
 
             PlanHistoryLine line(long seq, Instant at) {
-                return PlanHistoryLine.of(seq, event, node, callPath, phase, outcome, instanceVersion, at);
+                return PlanHistoryLine.builder()
+                        .formatVersion(PlanHistoryLine.FORMAT_VERSION)
+                        .seq(seq)
+                        .event(event)
+                        .node(node)
+                        .callPath(callPath)
+                        .phase(phase)
+                        .outcome(outcome)
+                        .reason(reason)
+                        .instanceVersion(instanceVersion)
+                        .at(at)
+                        .build();
             }
         }
 
@@ -1121,8 +1218,14 @@ public final class WorkflowEngine {
                 var spawned = spawnedJobId;
                 spawnedJobId = null;
                 switch (node.behavior()) {
-                    case StateBehavior.AutoStep auto -> stateId = runPrimitive(node, auto.primitiveId(),
-                            auto.transitions());
+                    case StateBehavior.AutoStep auto -> {
+                        var run = runPrimitive(node, auto.primitiveId(), auto.transitions());
+                        if (run.conditionKind() != null) {
+                            return EngineStep.ConditionRaised.raise(finish(), run.conditionKind(),
+                                    Objects.requireNonNull(run.facts(), "facts"), clock.now());
+                        }
+                        stateId = run.targetStateId();
+                    }
                     case StateBehavior.SubWorkflowCall call -> {
                         var outcome = call(node, call);
                         if (outcome.refusal() != null) {
@@ -1171,7 +1274,7 @@ public final class WorkflowEngine {
             if (jobId == null) {
                 var started = jobs.start(new JobStarter.StartRequest(status.scopeId(), node.id(), job.primitiveId()));
                 if (!(started instanceof JobStarter.StartResult.Started(var startedId))) {
-                    leave(node, "refused");
+                    leave(node, "refused", null);
                     return Optional.of(transitionOf(node, job.transitions(), "refused", Map.of()).targetStateId());
                 }
                 jobId = startedId;
@@ -1373,22 +1476,24 @@ public final class WorkflowEngine {
 
         /**
          * Runs the primitive of an {@code auto} state, or of a composite job state its event resumes, and selects the
-         * transition of the returned outcome.
+         * transition of the returned outcome, or the condition its reason maps to.
          *
-         * @return the target of that transition
+         * @return the target of that transition, or the condition to raise instead of it
          */
-        String runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions) {
+        PrimitiveRun runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions) {
             return runPrimitive(node, primitiveId, transitions, Map.of());
         }
 
         /**
          * Runs the primitive of an {@code auto} state, or of a composite job state its event resumes, and selects the
-         * transition of the returned outcome.
+         * transition of the returned outcome. A reason the outcome does not declare is a fault; a reason that maps to a
+         * condition kind raises that condition instead of the transition: the result's facts are not merged, no job is
+         * bound, no {@code left} line is recorded and no transition is taken.
          *
          * @param operatorParameters the operator's submission for an operator link's free parameters; empty otherwise
-         * @return the target of that transition
+         * @return the target of that transition, or the condition to raise instead of it
          */
-        String runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions,
+        PrimitiveRun runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions,
                 Map<String, String> operatorParameters) {
             var primitive = primitiveOf(primitiveId);
             var parameters = Objects.requireNonNull(binder.bind(primitive, status, operatorParameters), "parameters");
@@ -1399,13 +1504,61 @@ public final class WorkflowEngine {
                 throw fault(Reason.UNDECLARED_OUTCOME, "the primitive '%s' of the state '%s' returned %s",
                         primitive.id(), node.id(), result.outcome());
             }
+            requireDeclaredReason(primitive, node, result);
+            var outcome = result.outcome().wireName();
+            var reason = result.reason();
+            var conditionKind = reason == null ? Optional.<String>empty() : reason.conditionKind();
+            if (reason != null && conditionKind.isPresent()) {
+                return PrimitiveRun.raised(conditionKind.get(),
+                        conditionFacts(primitive.id(), outcome, reason.wireName(), result.updatedFacts()));
+            }
             if (!results.isEmpty()) {
                 results.peek().putAll(result.updatedFacts());
             }
             spawnedJobId = result.spawnedJobId();
-            var outcome = result.outcome().wireName();
-            leave(node, outcome);
-            return transitionOf(node, transitions, outcome, Map.of()).targetStateId();
+            leave(node, outcome, reason == null ? null : reason.wireName());
+            return PrimitiveRun.routed(transitionOf(node, transitions, outcome, Map.of()).targetStateId());
+        }
+
+        /**
+         * Requires the reason of a result to pair with its outcome: none when the outcome declares no reason type, a
+         * constant of the declared type when it declares one. The result refuses a foreign reason when it is built; this
+         * check holds for a result whose outcome answers another reason type after that.
+         *
+         * @throws InternalFaultException {@code UNDECLARED_OUTCOME} naming the primitive, the state and the reason
+         */
+        private static void requireDeclaredReason(Primitive<?, ?> primitive, StateNode node,
+                PrimitiveResult<?> result) {
+            var reason = result.reason();
+            var declaredType = result.outcome().reasonType().orElse(null);
+            var declared = reason == null ? declaredType == null : declaredType != null && declaredType.isInstance(reason);
+            if (!declared) {
+                throw fault(Reason.UNDECLARED_OUTCOME,
+                        "the primitive '%s' of the state '%s' returned the outcome '%s' with the reason '%s', which the "
+                                + "outcome does not declare",
+                        primitive.id(), node.id(), result.outcome().wireName(),
+                        reason == null ? "none" : reason.wireName());
+            }
+        }
+
+        /**
+         * What running a primitive ends in: the target of the transition of its outcome, or the condition its reason
+         * maps to, raised instead of the transition.
+         *
+         * @param targetStateId the target of the transition; {@code null} when a condition is raised
+         * @param conditionKind the condition kind the reason maps to; {@code null} when the transition is taken
+         * @param facts         the facts of the condition; {@code null} when the transition is taken
+         */
+        private record PrimitiveRun(@Nullable String targetStateId, @Nullable String conditionKind,
+        @Nullable Map<String, String> facts) {
+
+            static PrimitiveRun routed(String targetStateId) {
+                return new PrimitiveRun(targetStateId, null, null);
+            }
+
+            static PrimitiveRun raised(String conditionKind, Map<String, String> facts) {
+                return new PrimitiveRun(null, conditionKind, facts);
+            }
         }
 
         /**
@@ -1638,7 +1791,7 @@ public final class WorkflowEngine {
          */
         String returnFromFrame(String outcome) {
             var callee = unitOf(stack);
-            leave(stateOf(callee, status.state()), outcome);
+            leave(stateOf(callee, status.state()), outcome, null);
             var popped = stack.pop();
             var result = results.pop();
             stack = popped.remaining();
@@ -1654,7 +1807,7 @@ public final class WorkflowEngine {
                 throw fault(Reason.UNRESOLVED_NAME, "the calling state '%s' of the frame is no call state",
                         caller.id());
             }
-            leave(caller, outcome);
+            leave(caller, outcome, null);
             return transitionOf(caller, call.transitions(), outcome, result).targetStateId();
         }
 
