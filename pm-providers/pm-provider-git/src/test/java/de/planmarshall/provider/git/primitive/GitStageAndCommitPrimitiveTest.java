@@ -141,27 +141,27 @@ class GitStageAndCommitPrimitiveTest {
         @Test
         @DisplayName("an epic stages the archived epics while it archives")
         void epicArchiving() throws Exception {
-            var record = EPICS + file();
+            var epicRecord = EPICS + file();
             var archived = ARCHIVED_EPICS + file();
-            write(record);
+            write(epicRecord);
             write(archived);
-            stub(ScopeType.EPIC, true, List.of(record, archived), Optional.of(agent));
+            stub(ScopeType.EPIC, true, List.of(epicRecord, archived), Optional.of(agent));
 
             var commit = committed(run(new GitStageAndCommitPrimitive(git, site), new Params(messages.next(), null)));
 
             assertAll("archiving epic commit",
-                    () -> assertTrue(inCommit(commit, record), "the epic record is committed"),
+                    () -> assertTrue(inCommit(commit, epicRecord), "the epic record is committed"),
                     () -> assertTrue(inCommit(commit, archived), "the archived record is committed"));
         }
 
         @Test
         @DisplayName("an epic that does not archive refuses an archived epic before any git call")
         void epicNotArchiving() throws Exception {
-            var record = EPICS + file();
+            var epicRecord = EPICS + file();
             var archived = ARCHIVED_EPICS + file();
-            write(record);
+            write(epicRecord);
             write(archived);
-            stub(ScopeType.EPIC, false, List.of(record, archived), Optional.of(agent));
+            stub(ScopeType.EPIC, false, List.of(epicRecord, archived), Optional.of(agent));
 
             var result = run(new GitStageAndCommitPrimitive(untouchedGit(), site), new Params(messages.next(), null));
 
@@ -247,8 +247,8 @@ class GitStageAndCommitPrimitiveTest {
                     // the compiled committer of the specification
                     () -> assertEquals(new Identity("plan-marshall-mcp", "noreply@cuioss.de"), info.committer(),
                             "the committer is the compiled identity"),
-                    () -> assertTrue(info.message().endsWith("Co-Authored-By: %s <%s>\n"
-                            .formatted(compiled.name(), compiled.email())), "the trailer is the compiled one"));
+                    () -> assertTrue(info.message().endsWith("Co-Authored-By: " + compiled.name() + " <"
+                            + compiled.email() + ">\n"), "the trailer is the compiled one"));
         }
 
         @Test
@@ -258,7 +258,7 @@ class GitStageAndCommitPrimitiveTest {
             write(dirty);
             stub(ScopeType.PLAN, false, List.of(dirty), Optional.of(agent));
             var trailer = GitGenerators.trailers().next();
-            var message = "%s\n\nCo-Authored-By: %s <%s>".formatted(messages.next(), trailer.name(), trailer.email());
+            var message = messages.next() + "\n\nCo-Authored-By: " + trailer.name() + " <" + trailer.email() + ">";
 
             var result = run(new GitStageAndCommitPrimitive(untouchedGit(), site), new Params(message, null));
 
@@ -363,7 +363,7 @@ class GitStageAndCommitPrimitiveTest {
             var exhaustion = Arrays.stream(Outcome.values())
                     .filter(outcome -> outcome.wireName().equals("attempts_exhausted")).findFirst();
             assertAll("registration",
-                    () -> assertTrue(registry.find(GitStageAndCommitPrimitive.ID).isPresent(),
+                    () -> assertTrue(registry.find(GitStageAndCommitPrimitive.PRIMITIVE_ID).isPresent(),
                             "the registry holds git.stage-and-commit"),
                     () -> assertEquals(CycleMeasure.ATTEMPT_CAP, primitive.cycleMeasure(),
                             "the cycle measure is the attempt cap"),

@@ -192,6 +192,59 @@ class CommitMessagesTest {
         }
     }
 
+    @Nested
+    @DisplayName("a trailer line ended by a Unicode line terminator")
+    class UnicodeTerminator {
+
+        // the Unicode line terminators String.lines() does not split at and a regex dot does not match
+        @ParameterizedTest(name = "U+{0}")
+        @ValueSource(ints = {0x85, 0x2028, 0x2029})
+        @DisplayName("validate refuses the trailer line naming its line")
+        void validateRefuses(int terminator) {
+            var message = withLineAt(messages.next(), trailerLineEndedBy(terminator), 3);
+
+            var violations = CommitMessages.validate(message.text());
+
+            assertTrue(violations.stream().anyMatch(violation -> isTrailerViolation(violation, message.line())),
+                    "The terminated trailer line is refused");
+        }
+
+        // the Unicode line terminators String.lines() does not split at and a regex dot does not match
+        @ParameterizedTest(name = "U+{0}")
+        @ValueSource(ints = {0x85, 0x2028, 0x2029})
+        @DisplayName("withTrailer refuses the message instead of a second trailer")
+        void withTrailerRefuses(int terminator) {
+            var message = withLineAt(messages.next(), trailerLineEndedBy(terminator), 7);
+
+            var outcome = CommitMessages.withTrailer(message.text(), trailers.next());
+
+            var refused = assertInstanceOf(Refused.class, outcome, "A terminated trailer line is refused");
+            assertTrue(isTrailerViolation(refused.violation(), message.line()),
+                    "The refusal names the trailer rule and line");
+        }
+
+        // the Unicode line terminators String.lines() does not split at and a regex dot does not match
+        @ParameterizedTest(name = "U+{0}")
+        @ValueSource(ints = {0x85, 0x2028, 0x2029})
+        @DisplayName("a trailer after the terminator inside a body line is refused")
+        void trailerAfterTheTerminator(int terminator) {
+            var header = messages.next().lines().findFirst().orElseThrow();
+            var trailer = trailers.next();
+            var body = subjectOf(messages.next()) + Character.toString(terminator) + TRAILER_KEY + ": "
+                    + trailer.name() + " <" + trailer.email() + ">";
+
+            var outcome = CommitMessages.withTrailer(header + "\n\n" + body, trailers.next());
+
+            var refused = assertInstanceOf(Refused.class, outcome, "A trailer after a terminator is refused");
+            assertTrue(isTrailerViolation(refused.violation(), 3), "The refusal names the body line");
+        }
+
+        private String trailerLineEndedBy(int terminator) {
+            var trailer = trailers.next();
+            return TRAILER_KEY + ": " + trailer.name() + " <" + trailer.email() + ">" + Character.toString(terminator);
+        }
+    }
+
     /**
      * A trailer line, in different cases and with leading white space, and the position it is put at: after the
      * header's blank line (3) or as the last line of a long body (7).

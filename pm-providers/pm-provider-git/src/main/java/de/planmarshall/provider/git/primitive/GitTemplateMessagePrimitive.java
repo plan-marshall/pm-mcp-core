@@ -38,16 +38,17 @@ public final class GitTemplateMessagePrimitive
         implements Primitive<GitTemplateMessagePrimitive.Params, GitTemplateMessagePrimitive.Outcome> {
 
     /** The id of the primitive. */
-    public static final String ID = "git.template-message";
+    public static final String PRIMITIVE_ID = "git.template-message";
 
     /** The fact that carries the rendered message. */
     public static final String MESSAGE_FACT = "message";
 
+    /** The type taken when no type of {@link #TYPE_PRIORITY} is suggested; declared first, the list names it. */
+    private static final String FALLBACK_TYPE = "chore";
+
     /** The priority of the Conventional Commit types, highest first. */
     public static final List<String> TYPE_PRIORITY =
-            List.of("fix", "feat", "perf", "refactor", "docs", "style", "test", "chore", "ci");
-
-    private static final String FALLBACK_TYPE = "chore";
+            List.of("fix", "feat", "perf", "refactor", "docs", "style", "test", FALLBACK_TYPE, "ci");
 
     private final CommitSite site;
 
@@ -60,7 +61,7 @@ public final class GitTemplateMessagePrimitive
 
     @Override
     public String id() {
-        return ID;
+        return PRIMITIVE_ID;
     }
 
     @Override

@@ -185,7 +185,7 @@ class GitResolveMessagePrimitiveTest {
             // The fixed messages are the literals of the specification (Stage 3).
             var expected = switch (callSite) {
                 case FINALIZE_SETTLE_COMMIT -> "chore(finalize): apply %s changes".formatted(stepId);
-                case FINALIZE_LAND_MAIN -> "%s\n\n%s".formatted(prTitle, body);
+                case FINALIZE_LAND_MAIN -> prTitle + "\n\n" + body;
                 case EPIC_COMMIT_LEDGER -> "chore(orchestrator): update %s ledger".formatted(epicId);
                 case DECOMPOSITION_COMMIT -> "chore(orchestrator): record %s decomposition".formatted(epicId);
                 case LAND_REMOVAL -> "chore(land): remove documents moved into a source directory";
@@ -322,7 +322,7 @@ class GitResolveMessagePrimitiveTest {
         void registers() {
             var registry = new PrimitiveRegistry(List.of(primitive));
 
-            assertTrue(registry.find(GitResolveMessagePrimitive.ID).isPresent(),
+            assertTrue(registry.find(GitResolveMessagePrimitive.PRIMITIVE_ID).isPresent(),
                     "The registry holds git.resolve-message");
         }
 

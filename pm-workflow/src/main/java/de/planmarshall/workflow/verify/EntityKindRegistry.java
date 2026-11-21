@@ -69,6 +69,13 @@ public final class EntityKindRegistry {
     }
 
     /**
+     * @return the registered kinds in registration order, unmodifiable
+     */
+    List<EntityKind> kinds() {
+        return List.copyOf(kinds.values());
+    }
+
+    /**
      * @return the identifiers of the entity units the registered kinds run; the zero-tool kinds have none
      */
     public Set<String> entityUnits() {

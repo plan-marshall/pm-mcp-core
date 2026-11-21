@@ -37,14 +37,14 @@ public final class CommitMessageEvaluatePrimitive
         implements Primitive<CommitMessageEvaluatePrimitive.Params, CommitMessageEvaluatePrimitive.Outcome> {
 
     /** The id of the primitive. */
-    public static final String ID = "commit-message.evaluate";
+    public static final String PRIMITIVE_ID = "commit-message.evaluate";
 
     /** The fact that carries the submitted message. */
     public static final String MESSAGE_FACT = "message";
 
     @Override
     public String id() {
-        return ID;
+        return PRIMITIVE_ID;
     }
 
     @Override
@@ -81,7 +81,7 @@ public final class CommitMessageEvaluatePrimitive
          * @param message the submitted message
          */
         public Params {
-            Objects.requireNonNull(message, "message");
+            Objects.requireNonNull(message, MESSAGE_FACT);
         }
     }
 

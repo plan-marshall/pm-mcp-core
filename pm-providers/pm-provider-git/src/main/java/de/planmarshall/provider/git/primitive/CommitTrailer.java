@@ -40,9 +40,9 @@ public record CommitTrailer(String name, String email) {
     /** The largest email, in characters. */
     public static final int EMAIL_MAX_LENGTH = 254;
 
-    private static final Pattern NAME = Pattern.compile("[^<>\\r\\n]+");
+    private static final Pattern NAME_PATTERN = Pattern.compile("[^<>\\r\\n]+");
 
-    private static final Pattern EMAIL = Pattern.compile("[^<>\\s@]+@[^<>\\s@]+", Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("[^<>\\s@]+@[^<>\\s@]+", Pattern.UNICODE_CHARACTER_CLASS);
 
     /** Declared after the patterns, which its construction checks against. */
     private static final CommitTrailer COMPILED = new CommitTrailer("plan-marshall", "noreply@cuioss.de");
@@ -79,7 +79,7 @@ public record CommitTrailer(String name, String email) {
      */
     public static boolean isValidName(String name) {
         var length = name.codePointCount(0, name.length());
-        return length >= 1 && length <= NAME_MAX_LENGTH && NAME.matcher(name).matches();
+        return length >= 1 && length <= NAME_MAX_LENGTH && NAME_PATTERN.matcher(name).matches();
     }
 
     /**
@@ -88,7 +88,7 @@ public record CommitTrailer(String name, String email) {
      *         {@code local@domain} without an angle bracket or white space
      */
     public static boolean isValidEmail(String email) {
-        return email.codePointCount(0, email.length()) <= EMAIL_MAX_LENGTH && EMAIL.matcher(email).matches();
+        return email.codePointCount(0, email.length()) <= EMAIL_MAX_LENGTH && EMAIL_PATTERN.matcher(email).matches();
     }
 
     /**

@@ -75,7 +75,7 @@ public final class GitStageAndCommitPrimitive
         implements Primitive<GitStageAndCommitPrimitive.Params, GitStageAndCommitPrimitive.Outcome> {
 
     /** The id of the primitive. */
-    public static final String ID = "git.stage-and-commit";
+    public static final String PRIMITIVE_ID = "git.stage-and-commit";
 
     /** The fact of {@code committed}: the id of the new commit. */
     public static final String COMMIT_FACT = "commit";
@@ -116,7 +116,7 @@ public final class GitStageAndCommitPrimitive
 
     @Override
     public String id() {
-        return ID;
+        return PRIMITIVE_ID;
     }
 
     @Override
@@ -153,8 +153,8 @@ public final class GitStageAndCommitPrimitive
                 site.archiving(context));
         return switch (FootprintBoundary.check(stagingSet, site.pinnedFilesChanged(context),
                 site.mainCheckoutBreaches(context))) {
-            case Violated violated -> failed(Reason.FOOTPRINT_VIOLATION, Map.of(OFFENDING_FILES_FACT,
-                    violated.offendingFiles(), OFFENDING_COUNT_FACT, violated.offendingCount()));
+            case Violated(var offendingFiles, var offendingCount) -> failed(Reason.FOOTPRINT_VIOLATION,
+                    Map.of(OFFENDING_FILES_FACT, offendingFiles, OFFENDING_COUNT_FACT, offendingCount));
             case Within _ -> stageAndCommit(context, parameters, worktree, stagingSet);
         };
     }
@@ -175,8 +175,8 @@ public final class GitStageAndCommitPrimitive
         var trailer = CommitTrailer.resolve(site.localTrailer(context).orElse(null),
                 site.machineTrailer(context).orElse(null)).trailer();
         return switch (CommitMessages.withTrailer(parameters.message(), trailer)) {
-            case Refused refused -> messageRefused(refused.violation());
-            case Appended appended -> validated(context, worktree, parameters.message(), appended.message(),
+            case Refused(var violation) -> messageRefused(violation);
+            case Appended(var withTrailer) -> validated(context, worktree, parameters.message(), withTrailer,
                     List.copyOf(toCommit));
         };
     }

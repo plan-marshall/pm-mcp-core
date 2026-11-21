@@ -266,8 +266,9 @@ class StagingSetsTest {
         void unmodifiable() {
             var set = StagingSets.derive(ScopeType.PLAN, worktree, List.of(names.next()), false);
             var staged = set.staged();
+            var another = names.next();
 
-            assertThrows(UnsupportedOperationException.class, () -> staged.add(names.next()),
+            assertThrows(UnsupportedOperationException.class, () -> staged.add(another),
                     "The staged paths are unmodifiable");
         }
     }

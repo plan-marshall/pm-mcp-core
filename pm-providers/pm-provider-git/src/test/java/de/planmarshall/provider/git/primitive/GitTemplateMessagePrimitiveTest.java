@@ -45,11 +45,10 @@ import de.planmarshall.provider.git.primitive.GitTemplateMessagePrimitive.Params
 @DisplayName("GitTemplateMessagePrimitive")
 class GitTemplateMessagePrimitiveTest {
 
-    /** The priority of the types as the specification states it (Stage 3), highest first. */
-    private static final List<String> SPECIFIED_PRIORITY =
-            List.of("fix", "feat", "perf", "refactor", "docs", "style", "test", "chore", "ci");
+    /** The type population the generated suggestions draw from: the primitive's own priority list. */
+    private static final List<String> PRIORITY = GitTemplateMessagePrimitive.TYPE_PRIORITY;
 
-    private final TypedGenerator<Integer> typeMasks = Generators.integers(0, (1 << SPECIFIED_PRIORITY.size()) - 1);
+    private final TypedGenerator<Integer> typeMasks = Generators.integers(0, (1 << PRIORITY.size()) - 1);
 
     private final TypedGenerator<String> foreignTypes = Generators.strings("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 1, 10);
 
@@ -130,7 +129,10 @@ class GitTemplateMessagePrimitiveTest {
         @Test
         @DisplayName("the priority is the order the specification states")
         void priority() {
-            assertEquals(SPECIFIED_PRIORITY, GitTemplateMessagePrimitive.TYPE_PRIORITY,
+            // the literal order is the contract: the type priority the specification states (Stage 3)
+            var specified = List.of("fix", "feat", "perf", "refactor", "docs", "style", "test", "chore", "ci");
+
+            assertEquals(specified, GitTemplateMessagePrimitive.TYPE_PRIORITY,
                     "The type priority is the specified order");
         }
 
@@ -139,7 +141,7 @@ class GitTemplateMessagePrimitiveTest {
         void registers() {
             var registry = new PrimitiveRegistry(List.of(primitive));
 
-            assertTrue(registry.find(GitTemplateMessagePrimitive.ID).isPresent(),
+            assertTrue(registry.find(GitTemplateMessagePrimitive.PRIMITIVE_ID).isPresent(),
                     "The registry holds git.template-message");
         }
 
@@ -170,9 +172,9 @@ class GitTemplateMessagePrimitiveTest {
     private Set<String> suggestedTypes() {
         var mask = typeMasks.next();
         var suggested = new HashSet<String>();
-        for (var index = 0; index < SPECIFIED_PRIORITY.size(); index++) {
+        for (var index = 0; index < PRIORITY.size(); index++) {
             if ((mask & (1 << index)) != 0) {
-                suggested.add(SPECIFIED_PRIORITY.get(index));
+                suggested.add(PRIORITY.get(index));
             }
         }
         if (Generators.booleans().next()) {
@@ -182,7 +184,7 @@ class GitTemplateMessagePrimitiveTest {
     }
 
     private static String expectedType(Set<String> suggested) {
-        return SPECIFIED_PRIORITY.stream().filter(suggested::contains).findFirst().orElse("chore");
+        return PRIORITY.stream().filter(suggested::contains).findFirst().orElse("chore");
     }
 
     /** Executes the primitive over the summary and checks the one outcome and the validity of the message. */

@@ -50,7 +50,7 @@ public final class GitResolveMessagePrimitive
         implements Primitive<GitResolveMessagePrimitive.Params, GitResolveMessagePrimitive.Outcome> {
 
     /** The id of the primitive. */
-    public static final String ID = "git.resolve-message";
+    public static final String PRIMITIVE_ID = "git.resolve-message";
 
     /** The fact that carries the resolved message. */
     public static final String MESSAGE_FACT = "message";
@@ -66,7 +66,7 @@ public final class GitResolveMessagePrimitive
 
     @Override
     public String id() {
-        return ID;
+        return PRIMITIVE_ID;
     }
 
     @Override
@@ -191,14 +191,17 @@ public final class GitResolveMessagePrimitive
                 return Optional.of(settleMessage(parameters.stepId()));
             }
         },
-        /** The pull-request title as the subject and the bound server sections, if any, as the body. */
+        /**
+         * The pull-request title as the subject and the bound server sections, if any, as the body, separated by one
+         * blank line of line feeds.
+         */
         FINALIZE_LAND_MAIN("finalize.land-main") {
 
             @Override
             Optional<String> message(Params parameters) {
                 var body = parameters.body();
                 return Optional.ofNullable(parameters.prTitle())
-                        .map(subject -> body == null ? subject : "%s\n\n%s".formatted(subject, body));
+                        .map(subject -> body == null ? subject : subject + "\n\n" + body);
             }
         },
         /**

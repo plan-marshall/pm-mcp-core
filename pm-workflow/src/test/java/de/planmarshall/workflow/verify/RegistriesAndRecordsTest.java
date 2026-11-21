@@ -61,8 +61,8 @@ class RegistriesAndRecordsTest {
     }
 
     @Test
-    @DisplayName("EntityKindRegistry should provide defaults, lookup, with and null validation")
-    void entityKindRegistry() {
+    @DisplayName("EntityKindRegistry defaults should register the default kinds and no other")
+    void entityKindRegistryDefaultsLookup() {
         var defaults = EntityKindRegistry.defaults();
         assertAll(
                 () -> assertTrue(defaults.find("screen").isPresent(), "the defaults register the screen kind"),
@@ -81,7 +81,12 @@ class RegistriesAndRecordsTest {
                 () -> assertFalse(defaults.find("nonexistent").isPresent(),
                         "an unknown identifier resolves to no kind")
         );
+    }
 
+    @Test
+    @DisplayName("EntityKindRegistry defaults should name the entity unit and evaluation of each kind")
+    void entityKindRegistryDefaultsUnitsAndEvaluations() {
+        var defaults = EntityKindRegistry.defaults();
         assertAll(
                 () -> assertNull(defaults.find("screen").orElseThrow().entityUnit(), "screen runs no entity unit"),
                 () -> assertEquals("worker-task", defaults.find("task").orElseThrow().entityUnit(),
@@ -105,16 +110,29 @@ class RegistriesAndRecordsTest {
                         defaults.find("lessons-review").orElseThrow().returnEvaluationPrimitiveId(),
                         "lessons-review evaluates through its own primitive")
         );
+    }
 
-        var defaultIdentifiers = Set.of("screen", "task", "decision", "triage", "simplify", "commit-message",
-                "lessons-review").stream()
-                .map(name -> defaults.find(name).orElseThrow())
+    @Test
+    @DisplayName("EntityKindRegistry defaults should name no test identifier in any registered kind")
+    void entityKindRegistryDefaultsNameNoTestIdentifier() {
+        var registered = EntityKindRegistry.defaults().kinds();
+
+        var defaultIdentifiers = registered.stream()
                 .flatMap(kind -> Stream.concat(Stream.of(kind.name(), kind.returnEvaluationPrimitiveId()),
                         Stream.ofNullable(kind.entityUnit())))
                 .toList();
-        assertTrue(defaultIdentifiers.stream().noneMatch(identifier -> identifier.startsWith("test.")),
-                "the defaults name no test identifier");
 
+        assertAll(
+                () -> assertFalse(registered.isEmpty(), "the defaults register at least one kind"),
+                () -> assertTrue(defaultIdentifiers.stream().noneMatch(identifier -> identifier.startsWith("test.")),
+                        "the defaults name no test identifier")
+        );
+    }
+
+    @Test
+    @DisplayName("EntityKindRegistry should add a custom kind to a new registry only")
+    void entityKindRegistryWith() {
+        var defaults = EntityKindRegistry.defaults();
         var customName = "custom-" + Generators.letterStrings(1, 8).next();
         var customEvaluation = "eval-" + Generators.letterStrings(1, 8).next();
         var custom = new EntityKind(customName, null, customEvaluation);
@@ -122,7 +140,12 @@ class RegistriesAndRecordsTest {
         assertTrue(updated.find(customName).isPresent(), "the registry with the custom kind finds it");
         assertFalse(defaults.find(customName).isPresent(),
                 "the untouched defaults do not know the custom kind");
+    }
 
+    @Test
+    @DisplayName("EntityKindRegistry should refuse a null kind and a null kind list")
+    void entityKindRegistryNullValidation() {
+        var defaults = EntityKindRegistry.defaults();
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> defaults.with(null),
                         "the registry refuses a null entity kind"),

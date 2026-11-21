@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.spi.validation.ContentViolation;
@@ -48,18 +49,29 @@ public final class CommitMessages {
 
     private static final String TRAILER_KEY = "Co-Authored-By";
 
+    private static final String MESSAGE_PARAMETER = "message";
+
+    /**
+     * The Unicode line terminators that {@link String#lines()} does not split at and the dot of a regular expression
+     * does not match: a {@code Co-Authored-By:} line ended by one of them escapes the validator's line match.
+     */
+    private static final Pattern UNSPLIT_TERMINATORS = Pattern.compile("[\\u0085\\u2028\\u2029]");
+
     private static final ConventionalCommitValidator VALIDATOR = new ConventionalCommitValidator();
 
     /**
      * Validates a commit message. A blank message is refused by the rule {@link ConventionalCommitValidator#RULE_BLANK},
-     * which covers the lower bound of one character.
+     * which covers the lower bound of one character. A {@code Co-Authored-By:} line is found also where it is ended by
+     * U+0085, U+2028 or U+2029.
      *
      * @param message the message, without the trailer
      * @return the violations ordered by line, empty when the message is valid
      */
     public static List<ContentViolation> validate(String message) {
-        Objects.requireNonNull(message, "message");
-        var violations = new ArrayList<>(VALIDATOR.validate(message));
+        Objects.requireNonNull(message, MESSAGE_PARAMETER);
+        var violations = new ArrayList<ContentViolation>();
+        VALIDATOR.validate(message).stream().filter(violation -> !isCoAuthor(violation)).forEach(violations::add);
+        violations.addAll(coAuthorViolations(message));
         var length = message.codePointCount(0, message.length());
         if (length > MAX_LENGTH) {
             violations.add(new ContentViolation(RULE_LENGTH, 0,
@@ -82,24 +94,44 @@ public final class CommitMessages {
 
     /**
      * Appends the trailer to a message: one blank line, the trailer line, and one final line feed. A message that
-     * already holds a {@code Co-Authored-By:} line, in any case and position and whatever it names, is refused naming
-     * that line.
+     * already holds a {@code Co-Authored-By:} line, in any case and position and whatever it names, ended by a line
+     * break or by U+0085, U+2028 or U+2029, is refused naming that line. A commit message is delimited by line feeds,
+     * never by the platform's line separator.
      *
      * @param message the message, validated with {@link #validate(String)}
      * @param trailer the resolved trailer
      * @return {@link Appended} with the message to commit, or {@link Refused} with the violation
      */
     public static TrailerOutcome withTrailer(String message, CommitTrailer trailer) {
-        Objects.requireNonNull(message, "message");
+        Objects.requireNonNull(message, MESSAGE_PARAMETER);
         Objects.requireNonNull(trailer, "trailer");
-        var existing = VALIDATOR.validate(message).stream()
-                .filter(violation -> ConventionalCommitValidator.RULE_CO_AUTHORED_BY.equals(violation.ruleKey()))
-                .findFirst();
-        if (existing.isPresent()) {
-            return new Refused(existing.get());
+        var existing = coAuthorViolations(message);
+        if (!existing.isEmpty()) {
+            return new Refused(existing.getFirst());
         }
-        return new Appended("%s\n\n%s: %s <%s>\n".formatted(message.stripTrailing(), TRAILER_KEY, trailer.name(),
-                trailer.email()));
+        return new Appended(message.stripTrailing() + "\n\n" + TRAILER_KEY + ": " + trailer.name() + " <"
+                + trailer.email() + ">\n");
+    }
+
+    /**
+     * The {@code Co-Authored-By:} lines of a message, one violation per line of {@link String#lines()}: each line is
+     * split at {@link #UNSPLIT_TERMINATORS} first, so a trailer the validator's line match would miss is found too.
+     */
+    private static List<ContentViolation> coAuthorViolations(String message) {
+        var violations = new ArrayList<ContentViolation>();
+        var lines = message.lines().toList();
+        for (var index = 0; index < lines.size(); index++) {
+            var line = index + 1;
+            UNSPLIT_TERMINATORS.splitAsStream(lines.get(index))
+                    .flatMap(segment -> VALIDATOR.validate(segment).stream().filter(CommitMessages::isCoAuthor))
+                    .findFirst()
+                    .ifPresent(found -> violations.add(new ContentViolation(found.ruleKey(), line, found.message())));
+        }
+        return violations;
+    }
+
+    private static boolean isCoAuthor(ContentViolation violation) {
+        return ConventionalCommitValidator.RULE_CO_AUTHORED_BY.equals(violation.ruleKey());
     }
 
     /**
@@ -138,7 +170,7 @@ public final class CommitMessages {
          * @param message the message to commit
          */
         public Appended {
-            Objects.requireNonNull(message, "message");
+            Objects.requireNonNull(message, MESSAGE_PARAMETER);
         }
     }
 

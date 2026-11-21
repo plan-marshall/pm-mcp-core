@@ -65,6 +65,35 @@ class FootprintBoundaryTest {
     }
 
     @Test
+    @DisplayName("a pinned-file breach alone breaks the boundary with nothing outside")
+    void pinnedFileAloneBreaksTheBoundary() {
+        var pinned = names.next();
+        var set = new StagingSet(new TreeSet<>(Set.of(names.next())), new TreeSet<>());
+
+        var verdict = FootprintBoundary.check(set, List.of(pinned), List.of());
+
+        var violated = assertInstanceOf(Violated.class, verdict, "A pinned-file breach violates the boundary");
+        assertAll("pinned-file offender",
+                () -> assertEquals(List.of(pinned), violated.offendingFiles(), "The pinned file is the offender"),
+                () -> assertEquals(1, violated.offendingCount(), "The count names the one pinned file"));
+    }
+
+    @Test
+    @DisplayName("a main-checkout breach alone breaks the boundary with nothing outside")
+    void mainCheckoutAloneBreaksTheBoundary() {
+        var mainCheckout = names.next();
+        var set = new StagingSet(new TreeSet<>(Set.of(names.next())), new TreeSet<>());
+
+        var verdict = FootprintBoundary.check(set, List.of(), List.of(mainCheckout));
+
+        var violated = assertInstanceOf(Violated.class, verdict, "A main-checkout breach violates the boundary");
+        assertAll("main-checkout offender",
+                () -> assertEquals(List.of(mainCheckout), violated.offendingFiles(),
+                        "The main-checkout path is the offender"),
+                () -> assertEquals(1, violated.offendingCount(), "The count names the one main-checkout path"));
+    }
+
+    @Test
     @DisplayName("more than fifty offenders are bounded to fifty names with the total count")
     void offendersAreBounded() {
         var outside = new TreeSet<String>();
@@ -83,12 +112,13 @@ class FootprintBoundaryTest {
     @Test
     @DisplayName("a violation names at least one file and no more than its count")
     void violationInvariants() {
-        var name = names.next();
+        var none = List.<String>of();
+        var one = List.of(names.next());
 
         assertAll("violation invariants",
-                () -> assertThrows(IllegalArgumentException.class, () -> new Violated(List.of(), 0),
+                () -> assertThrows(IllegalArgumentException.class, () -> new Violated(none, 0),
                         "A violation without offenders is refused"),
-                () -> assertThrows(IllegalArgumentException.class, () -> new Violated(List.of(name), 0),
+                () -> assertThrows(IllegalArgumentException.class, () -> new Violated(one, 0),
                         "A count below the named files is refused"));
     }
 }

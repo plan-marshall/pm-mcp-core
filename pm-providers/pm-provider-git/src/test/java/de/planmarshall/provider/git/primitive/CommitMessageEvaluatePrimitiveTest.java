@@ -80,7 +80,7 @@ class CommitMessageEvaluatePrimitiveTest {
     void registers() {
         var registry = new PrimitiveRegistry(List.of(primitive));
 
-        assertTrue(registry.find(CommitMessageEvaluatePrimitive.ID).isPresent(),
+        assertTrue(registry.find(CommitMessageEvaluatePrimitive.PRIMITIVE_ID).isPresent(),
                 "The registry holds commit-message.evaluate");
     }
 
