@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -1117,7 +1116,7 @@ class ScenarioReplayRunnerTest {
 
         @Test
         @DisplayName("Should re-offer the task at the asker's next wait and accept the submit that names the reference")
-        void shouldAcceptTheSubmitThatNamesTheReference() throws IOException {
+        void shouldAcceptTheSubmitThatNamesTheReference() throws Exception {
             var runner = replayedIn(directory.resolve("accepted"));
 
             var asker = runner.fixtures().queue.records().stream()
@@ -1136,7 +1135,7 @@ class ScenarioReplayRunnerTest {
 
         @Test
         @DisplayName("Should replay the accepted consultation twice to byte-identical stores")
-        void shouldReplayTheAcceptedConsultationByteIdentically() throws IOException {
+        void shouldReplayTheAcceptedConsultationByteIdentically() throws Exception {
             var first = replayedIn(directory.resolve("first"));
             var second = replayedIn(directory.resolve("second"));
 
