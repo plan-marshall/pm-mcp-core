@@ -270,15 +270,19 @@ public final class SupervisorCalls implements WorkerCalls {
      *
      * @param generation the generation
      * @return its detection, the same one for every later call
-     * @throws NullPointerException if the generation is {@code null}
+     * @throws NullPointerException  if the generation is {@code null}
+     * @throws IllegalStateException if the generation's role has no class, so no detection can be built for it; the
+     *                               supervision pass reports it as that generation's failure
      */
     public synchronized LossDetection detection(WorkerGeneration generation) {
         Objects.requireNonNull(generation, "generation");
         var generationId = generation.generationId();
         return detections.computeIfAbsent(generationId, ignored -> {
             var environment = supervisor.environment();
-            var roleClass = Objects.requireNonNull(roleClasses.apply(generation.role()),
-                    () -> "The role '%s' has no class".formatted(generation.role()));
+            var roleClass = roleClasses.apply(generation.role());
+            if (roleClass == null) {
+                throw new IllegalStateException("The role '%s' has no class".formatted(generation.role()));
+            }
             var detection = new LossDetection(generationId, roleClass, parameters, environment.clock(),
                     environment.timers(), signal -> lost(generationId, signal));
             detection.started(generation.startedAt());

@@ -246,9 +246,19 @@ final class SupervisorTestFixture {
     /** @return a role of the fixture harness with the given class, form, count and off-track settings */
     EffectiveRole role(RoleClass roleClass, RoleForm form, int count,
             Map<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting> offTrack) {
+        return role("implementer", roleClass, form, count, offTrack);
+    }
+
+    /** @return a role of the given name on the fixture harness with the given class, form and count */
+    EffectiveRole role(String name, RoleClass roleClass, RoleForm form, int count) {
+        return role(name, roleClass, form, count, Map.of());
+    }
+
+    private EffectiveRole role(String name, RoleClass roleClass, RoleForm form, int count,
+            Map<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting> offTrack) {
         var recycling = form == RoleForm.WARM ? new RoleArtifact.Recycling(null, 20000, null) : null;
         var tools = roleClass == RoleClass.ZERO_TOOL ? List.<String>of() : List.of("read_file", "pm_state", "pm_do");
-        var artifact = new RoleArtifact(1, "implementer", "the implementer", roleClass, tools, CLIENT,
+        var artifact = new RoleArtifact(1, name, "the " + name, roleClass, tools, CLIENT,
                 "claude-sonnet-4", new EffortValue("high"), form, count, List.of(ROLE_SKILL), recycling, 60, null,
                 new RoleArtifact.Questions(0, 0), offTrack);
         var resolved = List.of(new RoleSkill(ROLE_SKILL, skills().resolve(ROLE_SKILL).orElseThrow().digest()));

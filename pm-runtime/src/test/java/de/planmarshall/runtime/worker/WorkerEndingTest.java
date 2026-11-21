@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -25,6 +26,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -213,6 +215,66 @@ class WorkerEndingTest {
         ending.exited(generation);
 
         assertEquals(0, successors.get(), "no successor starts without queued work");
+    }
+
+    @Test
+    @DisplayName("the request survives the exit until the terminal generation is registered")
+    void theRequestSurvivesTheExitUntilCompleted() {
+        var generation = startedFresh();
+        var ending = ending(false, () -> {
+        });
+
+        ending.end(generation, EndCause.TASK_DONE);
+        ending.exited(generation);
+        var requestedAfterExit = ending.endRequested(generation.generationId());
+        ending.completed(generation.generationId());
+
+        assertTrue(requestedAfterExit, "the end stays requested after the exit");
+        assertFalse(ending.endRequested(generation.generationId()), "the completion removes the request");
+    }
+
+    @Test
+    @DisplayName("a forced end between the exit and the registration sends no cancel and installs nothing")
+    void aForcedEndAfterTheExitSendsNoCancel() {
+        var timers = new ManualTimers();
+        fixture.timers = timers;
+        environment = fixture.environment(OPEN_GUARD, OPEN_GATE);
+        var generation = startedFresh();
+        var ending = ending(false, () -> {
+        });
+        ending.end(generation, EndCause.TASK_DONE);
+        ending.exited(generation);
+
+        ending.forceEnd(generation, EndCause.PAUSE_AT_ONCE);
+        ending.end(generation, EndCause.DRAIN);
+        timers.fireDue(SupervisorTestFixture.NOW.plus(TerminationProtocol.GRACE_PERIOD));
+        var cause = ending.requestedCause(generation.generationId());
+        ending.completed(generation.generationId());
+
+        assertTrue(fixture.cancels.isEmpty(), "no cancel reaches a worker that exited");
+        assertEquals(Optional.of(EndCause.TASK_DONE), cause, "the claimed end keeps its own cause");
+        assertFalse(ending.endRequested(generation.generationId()), "no second request is left behind");
+    }
+
+    @Test
+    @DisplayName("a retry after a failed successor start logs the end once and starts no second successor")
+    void aRetryAfterAFailedSuccessorLogsOnce() {
+        var generation = startedFresh();
+        var successors = new AtomicInteger();
+        var ending = ending(true, () -> {
+            successors.incrementAndGet();
+            throw new IllegalStateException(Generators.nonBlankStrings().next());
+        });
+        ending.end(generation, EndCause.TASK_DONE);
+        assertThrows(IllegalStateException.class, () -> ending.exited(generation),
+                "the failed successor start fails the end");
+
+        var terminal = ending.exited(generation);
+
+        assertTrue(terminal.terminal(), "the retry completes the end");
+        assertEquals(1, successors.get(), "the successor start runs once across both");
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                INFO.WORKER_GENERATION_ENDED.resolveIdentifierString());
     }
 
     private WorkerGeneration startedFresh() {

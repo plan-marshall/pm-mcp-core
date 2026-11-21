@@ -213,6 +213,7 @@ class WorkerRecyclingTest {
         var cause = recycling.afterTurnCompleted(holding);
         var beforeTheExit = List.copyOf(fixture.order);
         ending.exited(holding);
+        ending.completed(holding.generationId());
         var afterTheExit = List.copyOf(fixture.order);
         var report = fixture.holdEnds.getFirst();
 
@@ -351,6 +352,7 @@ class WorkerRecyclingTest {
         var cause = recycling.yieldIdleSlot();
         var requested = ending.requestedCause(generation.generationId());
         ending.exited(generation);
+        ending.completed(generation.generationId());
 
         assertAll(
                 () -> assertEquals(Optional.of(RecycleCause.IDLE_YIELD), cause,
@@ -382,6 +384,46 @@ class WorkerRecyclingTest {
                 () -> assertTrue(nobodyWaits.isEmpty(), "no yield without a waiting role"),
                 () -> assertFalse(ending.endRequested(generation.generationId()),
                         "no idle yield requests an end here"));
+    }
+
+    @Test
+    @DisplayName("the idle yield skips a generation whose end is requested and recycles the next idle one")
+    void idleYieldSkipsAGenerationWhoseEndIsRequested() throws Exception {
+        var ended = registered(warm().withLifecycle(WorkerLifecycle.WAITING).withIdleWakeups(5L));
+        var next = registered(warm(Files.createDirectories(base.resolve(otherWorktree)))
+                .withLifecycle(WorkerLifecycle.WAITING).withIdleWakeups(3L));
+        ending.end(ended, EndCause.DRAIN);
+        fixture.waitingRole = waitingRole;
+
+        var cause = recycling.yieldIdleSlot();
+
+        assertAll(
+                () -> assertEquals(Optional.of(RecycleCause.IDLE_YIELD), cause, "the yield still frees a slot"),
+                () -> assertEquals(Optional.of(EndCause.DRAIN), ending.requestedCause(ended.generationId()),
+                        "the requested end keeps its own cause"),
+                () -> assertEquals(Optional.of(EndCause.RECYCLE), ending.requestedCause(next.generationId()),
+                        "the next idle generation is recycled"));
+    }
+
+    @Test
+    @DisplayName("the idle yield skips a generation it already recycled and recycles the next idle one")
+    void idleYieldSkipsAGenerationAlreadyRecycled() throws Exception {
+        var recycled = registered(warm().withLifecycle(WorkerLifecycle.WAITING).withIdleWakeups(IDLE_WAKEUPS - 1L));
+        var next = registered(warm(Files.createDirectories(base.resolve(otherWorktree)))
+                .withLifecycle(WorkerLifecycle.WAITING).withIdleWakeups(1L));
+        recycling.waitAgain(recycled);
+        ending.exited(recycled);
+        ending.completed(recycled.generationId());
+        fixture.waitingRole = waitingRole;
+
+        var cause = recycling.yieldIdleSlot();
+
+        assertAll(
+                () -> assertEquals(Optional.of(RecycleCause.IDLE_YIELD), cause, "the yield still frees a slot"),
+                () -> assertFalse(ending.endRequested(recycled.generationId()),
+                        "the recycled generation gets no second end"),
+                () -> assertEquals(Optional.of(EndCause.RECYCLE), ending.requestedCause(next.generationId()),
+                        "the next idle generation is recycled"));
     }
 
     @Test

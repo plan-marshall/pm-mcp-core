@@ -1,0 +1,70 @@
+= ADR 022: The end is recorded onto the registered generation, and the request outlives the registration
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The end path of a generation runs in three steps (ADR 019): the supervision pass claims the end under the monitor of
+`SupervisorCalls`, `WorkerEnding.exited` does the end work outside it, and the pass records the result under the
+monitor again. Four windows of that path kept or removed generation state outside the guard that protects it:
+
+* `WorkerEnding.exited` removed the generation's request before `SupervisionPass.recordEnd` registered the terminal
+  generation, so a pause at once or a forced end that arrived in between installed a request, and sent a cancel, for a
+  generation whose process had already exited.
+* `recordEnd` registered the terminal value `exited` derived from the snapshot the pass read before the end work, so a
+  `taskClosed` or `turnCompleted` that replaced the registered generation in between was overwritten.
+* The log line `WORKER_GENERATION_ENDED` and the successor start ran after the per-effect guard of ADR 018, so a retry
+  after a failure logged the end again and started a second successor.
+* `WorkerRecycling.yieldIdleSlot` did not consult the end path, so it could choose a generation whose end was requested
+  or that it had already recycled; the recycle then answered empty and no other candidate was tried.
+
+A fifth defect sat beside them: `SupervisorCalls.detection` raised `NullPointerException` for a role with no class,
+which is not one of the failures `SupervisionPass.advanceReported` reports per generation, so it aborted the pass and
+the later generations.
+
+== Decision
+
+* `recordEnd` reads the registered generation again under the calls' monitor and carries the terminal lifecycle onto
+  it (`WorkerGeneration.withLifecycle`), keeping the facts a concurrent call wrote; a registered generation that is
+  terminal already stays as it is.
+* `WorkerEnding.exited` keeps the request; the pass removes it through `WorkerEnding.completed` after
+  `WorkerSupervisor.replaced`, under the calls' monitor. Until then `endRequested` answers `true`, and `end` and
+  `forceEnd` install nothing and send no cancel for a generation whose exit claimed the end. The monitor order stays
+  calls before ending everywhere.
+* The log line and the successor start are two further effects of the per-effect guard, after the release. The log is
+  recorded once it is written; the successor start is recorded before it runs, so a start that fails is not repeated by
+  the end path — the next start of the role is the supervisor's start decision.
+* `yieldIdleSlot` skips a generation whose end is requested and one it already recycled, and chooses the next idle
+  candidate.
+* `SupervisorCalls.detection` raises `IllegalStateException` naming the role for a role with no class, which the pass
+  reports as `WORKER_ADVANCE_FAILED` of that generation and goes on with the next.
+
+== Alternatives considered
+
+* **Refusing a stale replacement** instead of carrying the lifecycle onto the registered generation: the end would then
+  fail on every interleaved call and be retried, although nothing about it is wrong. Rejected.
+* **Removing the request in `exited` after the registration**: `exited` does not own the registry and runs outside the
+  calls' monitor, so the window between removal and registration would remain. Rejected in favour of the pass removing
+  it in the same critical section as the registration.
+* **Retrying a failed successor start in the end path**: the end path would start workers on behalf of the supervisor
+  and could start one twice. Rejected.
+
+== Consequences
+
+* The registry never loses a served task or a turn's context to a concurrent end, and a generation is never ended
+  twice.
+* A caller of `WorkerEnding.exited` other than the pass must call `completed` once it registered the terminal
+  generation, or the request stays.
+* A role the assembly cannot classify fails its own generations each pass and nothing else.
+
+== Source
+
+PLAN-V2-165, Deliverable 2 (request D3); carried item 42(b) of PLAN-V2-162 is closed by the registration onto the
+current generation. ADR 018 and ADR 019 are the decisions this one extends.

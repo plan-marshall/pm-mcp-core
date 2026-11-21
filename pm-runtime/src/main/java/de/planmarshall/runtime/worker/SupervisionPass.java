@@ -289,8 +289,14 @@ public final class SupervisionPass {
     }
 
     /**
-     * Records the result of an end under the monitor of the calls: the terminal generation replaces the registered one
-     * and the per-generation values are forgotten. A failed end keeps them, and the generation, for the next pass.
+     * Records the result of an end under the monitor of the calls: the terminal lifecycle is carried onto the generation
+     * the registry holds now, the end path forgets its request, and the per-generation values are forgotten. A failed
+     * end keeps them, and the generation, for the next pass.
+     * <p>
+     * The registered generation is read again here, because a call that ran while the end work was outside the monitor
+     * — a closed task, a completed turn — replaced it after the pass read it; registering the pass's own snapshot would
+     * drop those facts. The end path's request is removed only after the registration, so a pause or a forced end that
+     * arrives in between finds the end still requested and installs nothing.
      */
     private void recordEnd(WorkerGeneration generation, @Nullable WorkerGeneration terminal) {
         var generationId = generation.generationId();
@@ -301,13 +307,25 @@ public final class SupervisionPass {
                 return;
             }
             try {
-                supervisor.replaced(terminal);
+                supervisor.replaced(onRegistered(terminal));
+                ending.completed(generationId);
                 calls.forget(generationId);
             } finally {
                 finished.remove(generationId);
                 active.remove(generationId);
             }
         }
+    }
+
+    /**
+     * @param terminal the generation in its terminal state, as the end path derived it from the pass's snapshot
+     * @return the generation the registry holds now in that terminal state; the registered value itself when it is
+     *         terminal already, and the end path's value when the registry holds none
+     */
+    private WorkerGeneration onRegistered(WorkerGeneration terminal) {
+        return supervisor.generation(terminal.generationId())
+                .map(registered -> registered.terminal() ? registered : registered.withLifecycle(terminal.lifecycle()))
+                .orElse(terminal);
     }
 
     /**

@@ -904,6 +904,76 @@ class SupervisionPassTest {
                         "every entry of the second task names its attempt"));
     }
 
+    @Test
+    @DisplayName("a task closed while the end work runs stays served in the registered terminal generation")
+    void aTaskClosedDuringTheEndStaysServed() throws Exception {
+        var inside = new CountDownLatch(1);
+        var gate = new CountDownLatch(1);
+        fixture.protocol = blockingProtocol(inside, gate);
+        var blockedEnvironment = fixture.environment(SupervisorEnvironment.StartGuard.open(),
+                SupervisorEnvironment.EligibilityGate.open());
+        var blockedSupervisor = new WorkerSupervisor(blockedEnvironment);
+        var blockedEnding = new WorkerEnding(blockedEnvironment, () -> false, () -> {
+        });
+        var blockedRecycling = new WorkerRecycling(blockedEnvironment, blockedEnding, blockedSupervisor::generations,
+                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
+                parameters);
+        var blockedCalls = new SupervisorCalls(blockedSupervisor, blockedEnding, blockedRecycling, parameters,
+                _ -> RoleClass.WRITER);
+        var ended = ((WorkerSupervisor.StartOutcome.Started) blockedSupervisor
+                .start(List.of(fixture.warmRequest(role, fixture.workdir))).getFirst()).generation();
+        writeRunning(ended);
+        blockedCalls.waitOpened(ended.generationId(), task, ended.configurationDigest());
+        settle(ended);
+        var blockedPass = new SupervisionPass(blockedSupervisor, blockedCalls, blockedEnding, blockedRecycling, tasks,
+                new AgentStartedDetector(blockedEnvironment, _ -> new ProcessExecutables.Absent(), List::of,
+                        blockedEnding),
+                pumps(journal("closed-during-end")));
+        var runner = new Thread(blockedPass::run);
+
+        runner.start();
+        assertTrue(inside.await(5, TimeUnit.SECONDS), "the end path reached the fence");
+        blockedCalls.taskClosed(ended.generationId(), task);
+        gate.countDown();
+        runner.join(TimeUnit.SECONDS.toMillis(5));
+
+        var registered = blockedSupervisor.generation(ended.generationId()).orElseThrow();
+        assertAll(
+                () -> assertFalse(runner.isAlive(), "the end path ended after the fence returned"),
+                () -> assertTrue(registered.terminal(), "the registered generation is terminal"),
+                () -> assertEquals(List.of(task), registered.servedTasks(),
+                        "the task closed meanwhile stays served"),
+                () -> assertFalse(blockedEnding.endRequested(ended.generationId()),
+                        "the request is gone once the end is recorded"));
+    }
+
+    @Test
+    @DisplayName("a generation of a role with no class is reported, and a later generation still advances")
+    void aRoleWithNoClassFailsOnlyItsGeneration() throws Exception {
+        var otherRole = fixture.role("reviewer", RoleClass.WRITER, RoleForm.WARM, 1);
+        var later = ((WorkerSupervisor.StartOutcome.Started) supervisor
+                .start(List.of(fixture.warmRequest(otherRole, fixture.workdir))).getFirst()).generation();
+        var ownCalls = new SupervisorCalls(supervisor, ending, recycling, parameters,
+                name -> name.equals(otherRole.artifact().name()) ? RoleClass.WRITER : null);
+        writeRunning(generation);
+        writeRunning(later);
+        settle(later);
+        var ownPass = new SupervisionPass(supervisor, ownCalls, ending, recycling, tasks, silentDetector(),
+                pumps(journal("no-class")));
+
+        assertDoesNotThrow(ownPass::run, "a role with no class does not abort the pass");
+
+        assertAll(
+                () -> assertTrue(supervisor.generation(later.generationId()).orElseThrow().terminal(),
+                        "the later generation still completes its end"),
+                () -> assertFalse(supervisor.generation(generation.generationId()).orElseThrow().terminal(),
+                        "the unclassified generation stays as it was"));
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.WORKER_ADVANCE_FAILED.resolveIdentifierString());
+        LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                "The role '" + generation.role() + "' has no class");
+    }
+
     private int released(WorkerGeneration gen) {
         return (int) fixture.released.stream()
                 .filter(lease -> lease.generationId().equals(gen.generationId())).count();
