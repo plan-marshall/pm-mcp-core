@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -1172,7 +1171,7 @@ class InputBindingTest {
 
         @Test
         @DisplayName("Should refuse a path that leaves the worktree through a directory symlink")
-        void shouldRefuseADirectorySymlink() throws IOException {
+        void shouldRefuseADirectorySymlink() throws Exception {
             var worktree = Files.createDirectories(root.resolve("worktree"));
             var secret = Files.writeString(Files.createDirectories(root.resolve("outside")).resolve("secret.txt"),
                     "secret");
@@ -1185,7 +1184,7 @@ class InputBindingTest {
 
         @Test
         @DisplayName("Should refuse a path that leaves the worktree through a file symlink")
-        void shouldRefuseAFileSymlink() throws IOException {
+        void shouldRefuseAFileSymlink() throws Exception {
             var worktree = Files.createDirectories(root.resolve("worktree"));
             var secret = Files.writeString(Files.createDirectories(root.resolve("outside")).resolve("secret.txt"),
                     "secret");
