@@ -23,8 +23,9 @@ import de.planmarshall.core.spi.validation.ConventionalCommitValidator;
  * the trailer line.
  * <p>
  * {@link #validate(String)} applies {@link ConventionalCommitValidator}, which also refuses a {@code Co-Authored-By:}
- * line in any case and position, together with the bound of the message type {@code commit_message[1..2000]} and the
- * refusal of a lone surrogate, which no UTF-8 commit can carry. {@link #withTrailer(String, CommitTrailer)} is the only
+ * line in any case and position, together with the bound of the message type {@code commit_message[1..2000]}, the
+ * refusal of a lone surrogate, which no UTF-8 commit can carry, and the refusal of the control characters that type
+ * refuses (every one but a line break). {@link #withTrailer(String, CommitTrailer)} is the only
  * writer of a {@code Co-Authored-By:} line in the production code of this module; it refuses a message that already
  * holds one, so a commit carries exactly the trailer the server resolved. Every refusal is a returned value.
  *
@@ -41,6 +42,9 @@ public final class CommitMessages {
 
     /** The message holds a high or low surrogate without its partner. */
     public static final String RULE_LONE_SURROGATE = "commit.lone-surrogate";
+
+    /** The message holds a control character other than a line break, ESC and NUL among them. */
+    public static final String RULE_CONTROL = "commit.control";
 
     private static final String TRAILER_KEY = "Co-Authored-By";
 
@@ -67,6 +71,10 @@ public final class CommitMessages {
                 violations.add(new ContentViolation(RULE_LONE_SURROGATE, index + 1,
                         "the line holds a surrogate without its partner"));
             }
+            if (holdsControl(lines.get(index))) {
+                violations.add(new ContentViolation(RULE_CONTROL, index + 1,
+                        "the line holds a control character"));
+            }
         }
         violations.sort(Comparator.comparingInt(ContentViolation::line));
         return List.copyOf(violations);
@@ -92,6 +100,14 @@ public final class CommitMessages {
         }
         return new Appended("%s\n\n%s: %s <%s>\n".formatted(message.stripTrailing(), TRAILER_KEY, trailer.name(),
                 trailer.email()));
+    }
+
+    /**
+     * The control characters the input type {@code commit_message} refuses: C0 except the line breaks, which
+     * {@link String#lines()} has already removed, DEL and C1.
+     */
+    private static boolean holdsControl(String line) {
+        return line.codePoints().anyMatch(codePoint -> codePoint < 0x20 || (codePoint >= 0x7f && codePoint <= 0x9f));
     }
 
     /**

@@ -39,8 +39,9 @@ import de.planmarshall.core.store.ScopeType;
 import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
 
 /**
- * The staging set derived from the scope: each dirty path is confined to the checkout and staged only when it belongs
- * to its scope's set. The scope sets ({@code .marshall/epics/}, {@code .gitignore}, ...) are the specified literals.
+ * The staging set derived from the scope: the directory of each dirty path is confined to the checkout, a symbolic
+ * link is staged as a link, and a path is staged only when it belongs to its scope's set. The scope sets
+ * ({@code .marshall/epics/}, {@code .gitignore}, ...) are the specified literals.
  */
 @EnableGeneratorController
 @DisplayName("StagingSets")
@@ -49,7 +50,7 @@ class StagingSetsTest {
     @TempDir
     Path worktree;
 
-    private final TypedGenerator<String> names = Generators.letterStrings(1, 12);
+    private final TypedGenerator<String> names = Generators.uniqueValues(Generators.letterStrings(1, 12));
 
     @Nested
     @DisplayName("plan scope")
@@ -93,14 +94,53 @@ class StagingSetsTest {
 
         @Test
         @EnabledOnOs({OS.LINUX, OS.MAC})
-        @DisplayName("a symbolic link that leads out of the worktree is outside")
-        void linkOutOfTheWorktreeIsOutside(@TempDir Path elsewhere) throws IOException {
+        @DisplayName("a path through a symbolic link that leads out of the worktree is outside")
+        void pathThroughOutsideLinkIsOutside(@TempDir Path elsewhere) throws IOException {
             var link = names.next();
             Files.createSymbolicLink(worktree.resolve(link), elsewhere);
+            var through = link + "/" + names.next();
+            var inside = names.next() + ".txt";
 
-            var set = StagingSets.derive(ScopeType.PLAN, worktree, List.of(link + "/" + names.next()), false);
+            var set = StagingSets.derive(ScopeType.PLAN, worktree, List.of(through, inside), false);
 
-            assertTrue(set.staged().isEmpty(), "A path through the outside link is not staged");
+            assertAll("path through an outside link",
+                    () -> assertEquals(Set.of(through), set.outside(), "A path through the outside link is outside"),
+                    () -> assertEquals(Set.of(inside), set.staged(), "The inside path is still staged"));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("a dirty symbolic link to outside the worktree is staged as a link")
+        void linkToOutsideIsStaged(@TempDir Path elsewhere) throws IOException {
+            var nested = names.next();
+            Files.createDirectories(worktree.resolve(nested));
+            var topLink = names.next();
+            var nestedLink = nested + "/" + names.next();
+            Files.createSymbolicLink(worktree.resolve(topLink), elsewhere);
+            Files.createSymbolicLink(worktree.resolve(nestedLink), elsewhere.resolve(names.next()));
+            var inside = names.next() + ".txt";
+
+            var set = StagingSets.derive(ScopeType.PLAN, worktree, List.of(topLink, nestedLink, inside), false);
+
+            assertAll("links to outside",
+                    () -> assertEquals(Set.of(topLink, nestedLink, inside), set.staged(),
+                            "The links are staged with the rest of the scope"),
+                    () -> assertTrue(set.outside().isEmpty(), "No link to outside blocks the commit"));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("a dangling symbolic link is staged as a link")
+        void danglingLinkIsStaged() throws IOException {
+            var link = names.next();
+            Files.createSymbolicLink(worktree.resolve(link), worktree.resolve(names.next() + ".missing"));
+            var inside = names.next() + ".txt";
+
+            var set = StagingSets.derive(ScopeType.PLAN, worktree, List.of(link, inside), false);
+
+            assertAll("dangling link",
+                    () -> assertEquals(Set.of(link, inside), set.staged(), "The dangling link is staged"),
+                    () -> assertTrue(set.outside().isEmpty(), "A dangling link blocks no commit"));
         }
 
         @Test

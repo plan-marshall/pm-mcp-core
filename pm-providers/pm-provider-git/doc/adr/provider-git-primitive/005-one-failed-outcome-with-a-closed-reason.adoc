@@ -26,10 +26,11 @@ home.
    condition of the same name;
 ** `message_refused`, facts `rule` and `line`; no condition;
 ** `commit_failed`, facts `git_outcome` and `detail`; no condition.
-* The mapping of the git contract is total: `OK` to `committed`, `NOTHING_TO_COMMIT` to `nothing_to_commit`,
-  `CAPABILITY_MISSING` (a hook the native variant does not run) to `hook_failed` with the fact `hook_failure`, every
-  other `GitOutcome` to `failed` with `commit_failed`. A completeness test over `GitOutcome.values()`, derived at run
-  time, proves it.
+* The mapping of the git contract is total: `OK` to `committed`, `NOTHING_TO_COMMIT` to `nothing_to_commit`, every
+  other `GitOutcome`, `CAPABILITY_MISSING` of the native variant among them, to `failed` with `commit_failed` and its
+  facts. `hook_failed` belongs to the hook refusal of the CLI variant alone, the only variant that runs hooks; the
+  native variant never returns it (operator decision of 2026-11-21, following Stage 4 and the note of the unit). A
+  completeness test over `GitOutcome.values()`, derived at run time, proves the mapping and the facts of each outcome.
 * The primitive declares `cycleMeasure() = ATTEMPT_CAP` with the exhaustion outcome `attempts_exhausted` (operator
   decision of 2026-11-21); the engine counts the attempts and returns `attempts_exhausted` at the cap, the primitive
   never does.
@@ -43,6 +44,9 @@ home.
   reason unless the graph continues differently.
 * *The engine checks the footprint before the primitive runs.* Not taken: the specification makes the check the
   primitive's first step for every caller (Stage 4).
+* *`CAPABILITY_MISSING` of the native variant as `hook_failed`.* Not taken: it would send a commit the native variant
+  cannot make into `git.commit-fix`, whose task fixes hook findings that do not exist; the specification reserves that
+  state for the CLI variant.
 
 == Consequences
 

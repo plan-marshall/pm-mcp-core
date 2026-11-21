@@ -9,6 +9,7 @@
  */
 package de.planmarshall.provider.git.primitive;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,9 +29,11 @@ import de.planmarshall.core.store.WorkspaceRoots;
 /**
  * Derives the staging set of a commit from its scope, never from whatever the checkout holds (PM-WF-16, Stage 4).
  * <p>
- * Each dirty path is a repository-relative name of the target checkout. It is staged only when it lies inside the
- * checkout ({@link PathConfinement} with the checkout as the one root), is a relative name in normal form (no
- * {@code .} or {@code ..} segment) and belongs to the set of its scope:
+ * Each dirty path is a repository-relative name of the target checkout. It is staged only when it is a relative name
+ * in normal form (no {@code .} or {@code ..} segment), the directory that holds it lies inside the checkout
+ * ({@link PathConfinement} with the checkout as the one root) and it belongs to the set of its scope. Its last name is
+ * not followed: a symbolic link is committed as a link, so a link to outside or a dangling link is staged, while a
+ * path through a link to outside is not. The sets of the scopes:
  * <ul>
  * <li>{@link ScopeType#PLAN}: every such path of the plan's worktree;</li>
  * <li>{@link ScopeType#EPIC}: {@code .marshall/epics/**}, and {@code .marshall/archived-epics/**} only while the epic
@@ -54,6 +57,8 @@ public final class StagingSets {
             List.of(".marshall/config/", ".marshall/project-architecture/");
 
     private static final String GITIGNORE = ".gitignore";
+
+    private static final String PARENT = "..";
 
     /**
      * Derives the staging set.
@@ -93,14 +98,31 @@ public final class StagingSets {
     }
 
     /**
-     * The path is confined first, so a text that is no path of the platform is refused before it is parsed here.
+     * The last name of a dirty path is the entry git records, and a symbolic link is recorded as a link, never
+     * followed: only the directory that holds it is confined. A link to outside or a dangling link is therefore a
+     * name of the checkout like any other, while a path that runs through a link to outside stays outside.
      */
     private static boolean isConfinedName(WorkspaceRoots roots, String path) {
-        if (path.isEmpty() || !(PathConfinement.confine(roots, path) instanceof ConfinementOutcome.Confined)) {
+        if (path.isEmpty() || path.indexOf('\0') >= 0) {
             return false;
         }
-        var name = Path.of(path);
-        return !name.isAbsolute() && name.normalize().equals(name);
+        Path name;
+        try {
+            name = Path.of(path);
+        } catch (InvalidPathException _) {
+            return false;
+        }
+        if (name.isAbsolute() || !name.normalize().equals(name)) {
+            return false;
+        }
+        for (var segment : name) {
+            if (PARENT.equals(segment.toString())) {
+                return false;
+            }
+        }
+        var directory = name.getParent();
+        return directory == null
+                || PathConfinement.confine(roots, directory.toString()) instanceof ConfinementOutcome.Confined;
     }
 
     /**

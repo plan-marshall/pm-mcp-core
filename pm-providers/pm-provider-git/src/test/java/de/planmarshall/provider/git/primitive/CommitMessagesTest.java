@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.spi.validation.ContentViolation;
 import de.planmarshall.core.spi.validation.ConventionalCommitValidator;
@@ -34,7 +35,8 @@ import de.planmarshall.provider.git.primitive.CommitMessages.Refused;
 import de.planmarshall.provider.git.testing.generators.GitGenerators;
 
 /**
- * The rules of a commit message: validation with the bound and the lone-surrogate refusal, and the one writer of the
+ * The rules of a commit message: validation with the bound and the lone-surrogate and control-character refusals,
+ * and the one writer of the
  * trailer line, which refuses a message that already holds one.
  */
 @EnableGeneratorController
@@ -110,6 +112,22 @@ class CommitMessagesTest {
                     () -> assertEquals(List.of(CommitMessages.RULE_LONE_SURROGATE),
                             rules(CommitMessages.validate(header + " \uDE00")),
                             "A lone low surrogate is refused too"));
+        }
+
+        // the control characters the input type commit_message refuses: C0 but the line breaks, DEL and C1
+        @ParameterizedTest(name = "U+{0}")
+        @ValueSource(ints = {0x00, 0x09, 0x1b, 0x1f, 0x7f, 0x85, 0x9f})
+        @DisplayName("a control character is refused naming its line")
+        void controlCharacter(int codePoint) {
+            var header = messages.next().lines().findFirst().orElseThrow();
+
+            var violations = CommitMessages.validate(header + "\n\nbody " + Character.toString(codePoint) + " tail");
+
+            assertAll("control character",
+                    () -> assertTrue(rules(violations).contains(CommitMessages.RULE_CONTROL),
+                            "The control character is refused"),
+                    () -> assertTrue(violations.stream().anyMatch(violation -> violation.line() == 3),
+                            "The violation names the body line"));
         }
 
         @ParameterizedTest(name = "{0}")

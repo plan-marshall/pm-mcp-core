@@ -24,9 +24,10 @@ import de.planmarshall.core.spi.WorkflowExecutionContext;
  * {@code commit-message.evaluate}: the return evaluation of the entity kind {@code commit-message} (PM-WF-16), run
  * when the task of {@code git.compose-message} submits its message.
  * <p>
- * The submitted message is already validated where the link bound it: a text that is no Conventional Commit or that
- * carries a trailer line is refused there and never reaches this primitive. Its one outcome is {@code valid}, with the
- * message as the fact {@value #MESSAGE_FACT}, which {@code git.stage-and-commit} commits.
+ * The parameter declares only the length bound of the type {@code commit_message[1..2000]} ({@link FreeParam}); this
+ * primitive applies no rule of the message. Its one outcome is {@code valid}, with the message as the fact
+ * {@value #MESSAGE_FACT}; {@code git.stage-and-commit} then checks it with {@link CommitMessages#validate(String)} and
+ * the trailer refusal, and a message they reject is {@code failed} with the reason {@code message_refused}.
  * <p>
  * Specification: {@code doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc} (Stage 3).
  *
