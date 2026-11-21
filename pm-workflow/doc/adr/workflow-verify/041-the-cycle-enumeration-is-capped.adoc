@@ -1,0 +1,62 @@
+= ADR workflow-verify 041: The Cycle Enumeration Is Capped and a Unit Above the Cap Is Refused by Rule 11
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+`UnitGraph.findSimpleCycles` materialises every elementary simple cycle of a unit, and both its callers,
+`WorkflowValidator.checkCycleAwaitedEvent` (Rule 11) and `SubWorkflowInvariants.cappedModelLoops` (the capped model
+loops of `INV-GIT-1`), iterate the whole list.
+link:034-simple-cycle-enumeration-scale.adoc[ADR 034] restricted the search to the strongly connected component of its
+start state, which removed the cost of simple paths that close no cycle, and left the number of cycles itself
+unbounded: a chain of `n` diamonds closed by one loop-back edge carries `2^n` cycles, so a unit of 30 diamonds (91
+states) carries `2^30` and its verification stalls or exhausts the heap. The bounds that existed, 65536 cycles and
+15 seconds, lived in the scale test only. ADR 034 left the cap to the operator; the operator took it (PLAN-V2-163,
+item 13(c), 2026-11-21): a cap held as a data value, a unit above it refused as a Rule 11 finding, the pattern of
+PLAN-V2-120.
+
+== Decision
+
+* `UnitGraph.CYCLE_CAP` is `2^16` (65536), the largest family-(a) unit the scale test already enumerates inside its
+  bound. `findSimpleCycles(definition)` searches with that cap; a package-private overload takes the cap as an argument.
+* The search stops as soon as it finds one cycle more than the cap and returns an empty `Optional`; below or at the cap
+  it returns the cycles in the order ADR 034 states, unchanged.
+* `WorkflowValidator.checkCycleAwaitedEvent` refuses a unit above the cap with one `CYCLE_AWAITED_EVENT` violation at
+  the unit's first starting state: the unit carries more than 65536 simple cycles, the most Rule 11 enumerates. No cycle
+  of such a unit is judged.
+* `SubWorkflowInvariants.cappedModelLoops` reports the same unit as a violation of its invariant with the same
+  sentence, so the invariant does not pass a unit it never searched.
+
+== Alternatives Considered
+
+1. *Leave the enumeration uncapped and state the residual risk* (ADR 034's position). Rejected by the operator: the
+   stall is reachable with fewer than a hundred states.
+2. *A cap on the states or the edges of a unit.* Not taken: the cost follows the cycles, and a unit of a few hundred
+   states with few cycles (family (c) and (d) of the scale test) is cheap.
+3. *Count the cycles without materialising them.* Not taken: the count is itself exponential to compute by
+   enumeration, and Rule 11 needs every cycle, not their number.
+4. *A configurable cap.* Not taken: the cap is a property of the verifier, the same for every project; a data value in
+   the code is the pattern PLAN-V2-120 set.
+
+== Consequences
+
+* A unit above the cap is refused with one Rule 11 violation instead of stalling the verification; the diamond chain
+  with 30 diamonds is refused inside the scale test's bound.
+* Every unit at or below the cap verifies as before: the 16-diamond chain with its 65536 cycles still passes the
+  oracle comparison of `UnitGraphCycleScaleTest`.
+* The refusal is a new verification result for a unit above the cap; no default fixture unit and no generated unit of
+  the scale test other than the one built to exceed the cap comes near it.
+
+== Source
+
+* Work package `PLAN-V2-163` of the epic `pm-mcp-core-m2-m4-v2`, carried item 13(c), and the pull request carrying it.
+* link:034-simple-cycle-enumeration-scale.adoc[ADR 034]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 11)
+* link:../../developer/workflow-verify.adoc#_rule_11_cycles[Workflow Verification Developer Guide § Rule 11: Cycles]

@@ -2197,7 +2197,7 @@ public final class WorkflowValidator {
                                         .formatted(completion.stepId()))
                                 .build());
                     }
-                    checkCompletionAdmission(state, transition, completion, outcomeClass, violations);
+                    checkCompletionAdmission(state, transition, completion, outcomeClass.orElse(null), violations);
                 }
             }
         }
@@ -2212,9 +2212,9 @@ public final class WorkflowValidator {
      * admits the completion"). An outcome whose class cannot be established admits no completion.
      */
     private static void checkCompletionAdmission(StateNode state, OutcomeTransition transition,
-            StepCompletion completion, Optional<OutcomeClass> outcomeClassOpt, List<Violation> violations) {
+            StepCompletion completion, @Nullable OutcomeClass outcomeClass, List<Violation> violations) {
         var stepId = completion.stepId();
-        if (outcomeClassOpt.isEmpty()) {
+        if (outcomeClass == null) {
             violations.add(Violation.builder()
                     .rule(VerificationRule.STEP_COMPLETION)
                     .stateId(state.id())
@@ -2224,7 +2224,6 @@ public final class WorkflowValidator {
                     .build());
             return;
         }
-        var outcomeClass = outcomeClassOpt.get();
         var detail = switch (completion.status()) {
             case DONE -> outcomeClass == OutcomeClass.SUCCESS ? null
                     : "is completed as done on an outcome of class %s, which is not SUCCESS".formatted(outcomeClass);
@@ -2882,8 +2881,25 @@ public final class WorkflowValidator {
         return Optional.empty();
     }
 
+    /**
+     * Rule 11: every engine-chained cycle carries a cycle measure and every other cycle awaits an event. A unit with
+     * more simple cycles than {@link UnitGraph#CYCLE_CAP} is refused as a whole instead of being searched to the end
+     * (ADR 041).
+     */
     private void checkCycleAwaitedEvent(WorkflowDefinition definition, List<Violation> violations) {
-        var cycles = UnitGraph.findSimpleCycles(definition);
+        var found = UnitGraph.findSimpleCycles(definition);
+        if (found.isEmpty()) {
+            var firstState = definition.states().get(unitStateId(definition));
+            violations.add(Violation.builder()
+                    .rule(VerificationRule.CYCLE_AWAITED_EVENT)
+                    .stateId(unitStateId(definition))
+                    .location(firstState != null ? firstState.location() : definition.location())
+                    .message("the unit '%s' carries more than %d simple cycles, the most Rule 11 enumerates"
+                            .formatted(definition.id(), UnitGraph.CYCLE_CAP))
+                    .build());
+            return;
+        }
+        var cycles = found.get();
         var reportedCycles = new HashSet<String>();
         for (var cycle : cycles) {
             var cycleKey = String.join(" -> ", cycle);

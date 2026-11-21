@@ -41,6 +41,7 @@ import de.planmarshall.workflow.engine.WorkflowEngine;
 import de.planmarshall.workflow.task.CallResult;
 import de.planmarshall.workflow.task.TaskCall;
 import de.planmarshall.workflow.task.WaitAnswer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The runner of the replay harness {@code pm-scenario} (PM-TEST-4): it replays a {@link ScenarioScript} in process
@@ -87,14 +88,14 @@ final class ScenarioReplayRunner {
     private final Map<String, ScriptedFixtureWorker> workers = new LinkedHashMap<>();
     private final Map<String, ScriptedProtocolWorker> protocolWorkers = new LinkedHashMap<>();
     private WorkflowEngine engine;
-    private JournalScope scope;
-    private JournalScopeType scopeType;
-    private String scopeId;
-    private WorkflowStatusStore store;
-    private WorkflowStatus status;
-    private EngineStep.Ended ended;
-    private ScriptedProtocolWorker currentWorker;
-    private CallResult lastWorkerCall;
+    private @Nullable JournalScope scope;
+    private @Nullable JournalScopeType scopeType;
+    private @Nullable String scopeId;
+    private @Nullable WorkflowStatusStore store;
+    private @Nullable WorkflowStatus status;
+    private EngineStep.@Nullable Ended ended;
+    private @Nullable ScriptedProtocolWorker currentWorker;
+    private @Nullable CallResult lastWorkerCall;
     private boolean replayed;
 
     /**

@@ -19,6 +19,7 @@ import de.planmarshall.workflow.task.TaskCall;
 import de.planmarshall.workflow.task.TaskProtocol;
 import de.planmarshall.workflow.task.WaitAnswer;
 import de.planmarshall.workflow.task.WaitRequest;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The scripted protocol worker of one role in the replay harness {@code pm-scenario} (PM-TEST-4): the generation the
@@ -42,10 +43,10 @@ final class ScriptedProtocolWorker {
     private final String role;
     private final String generation;
     private final TaskProtocol protocol;
-    private String queueTaskId;
+    private @Nullable String queueTaskId;
     private boolean replaced;
-    private Instant offeredAt;
-    private Instant lastCallAt;
+    private @Nullable Instant offeredAt;
+    private @Nullable Instant lastCallAt;
 
     /**
      * @param role       the role the worker serves

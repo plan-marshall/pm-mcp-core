@@ -11,6 +11,7 @@ package de.planmarshall.workflow.verify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 
@@ -27,8 +29,8 @@ import org.junit.jupiter.api.Test;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
-// Every datum in this class is a contract: the generated DSL shapes, the state and edge counts, the cycle counts and
-// the time limit. The generated units are their own test input; no generator draws them.
+// Every datum in this class is a contract: the generated DSL shapes, the state and edge counts, the cycle counts, the
+// cap, the refusal message and the time limit. The generated units are their own test input; no generator draws them.
 @DisplayName("UnitGraph Cycle Enumeration Scale")
 class UnitGraphCycleScaleTest {
 
@@ -41,8 +43,11 @@ class UnitGraphCycleScaleTest {
     /** The number of diamonds and of remediation sites of the small families, which are compared with the oracle. */
     private static final int SMALL_DIAMONDS = 5;
 
-    /** The number of diamonds of the large family-(a) chain: 2^16 simple cycles. */
+    /** The number of diamonds of the large family-(a) chain: 2^16 simple cycles, exactly the cap. */
     private static final int LARGE_DIAMONDS = 16;
+
+    /** The number of diamonds of the chain above the cap: 2^30 simple cycles, refused by Rule 11. */
+    private static final int CAPPED_DIAMONDS = 30;
 
     /** The number of remediation call sites of the large family-(b) unit. */
     private static final int LARGE_SITES = 200;
@@ -59,6 +64,10 @@ class UnitGraphCycleScaleTest {
     /** The classpath directory of the twelve default fixture units. */
     private static final String FIXTURES = "unit-fixtures/defaults";
 
+    private final WorkflowValidator validator = new WorkflowValidator(TestPrimitives.registry(), List.of(),
+            TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
+            TestPrimitives.catalog());
+
     @Test
     @DisplayName("Every default fixture enumerates exactly as the legacy implementation does")
     void fixturesMatchLegacy() {
@@ -70,7 +79,7 @@ class UnitGraphCycleScaleTest {
 
             var expected = legacyFindSimpleCycles(unit);
 
-            assertEquals(expected, UnitGraph.findSimpleCycles(unit), "the fixture's cycles match the legacy order");
+            assertEquals(expected, cyclesOf(unit), "the fixture's cycles match the legacy order");
         }
     }
 
@@ -81,7 +90,7 @@ class UnitGraphCycleScaleTest {
             var unit = diamonds(diamonds);
 
             var expected = legacyFindSimpleCycles(unit);
-            var found = UnitGraph.findSimpleCycles(unit);
+            var found = cyclesOf(unit);
 
             assertEquals(expected, found, "the diamond chain agrees with the legacy order");
             assertEquals(1 << diamonds, found.size(), "each diamond doubles the cycle count");
@@ -97,7 +106,7 @@ class UnitGraphCycleScaleTest {
             var unit = phase(sites);
 
             var expected = legacyFindSimpleCycles(unit);
-            var found = UnitGraph.findSimpleCycles(unit);
+            var found = cyclesOf(unit);
 
             assertEquals(expected, found, "the phase shape agrees with the legacy order");
             assertEquals(sites, found.size(), "every remediation site closes one cycle");
@@ -112,7 +121,7 @@ class UnitGraphCycleScaleTest {
         var unit = sprawling(SMALL_SECTIONS);
 
         var expected = legacyFindSimpleCycles(unit);
-        var found = UnitGraph.findSimpleCycles(unit);
+        var found = cyclesOf(unit);
 
         assertEquals(expected, found, "the sprawling unit agrees with the legacy order");
         assertEquals(2, found.size(), "the sprawling unit carries exactly two cycles");
@@ -133,7 +142,7 @@ class UnitGraphCycleScaleTest {
                 """);
 
         var expected = legacyFindSimpleCycles(unit);
-        var found = UnitGraph.findSimpleCycles(unit);
+        var found = cyclesOf(unit);
 
         assertEquals(expected, found, "the self loop agrees with the legacy result");
         assertEquals(List.of(List.of("scale.entry", "scale.entry")), found, "the self loop is one cycle");
@@ -142,11 +151,65 @@ class UnitGraphCycleScaleTest {
     }
 
     @Test
+    @DisplayName("A cyclic component no starting state reaches is enumerated as the legacy implementation does")
+    void unreachableCyclicComponentMatchesLegacy() {
+        var unit = parse("unreachable-cycle", """
+                state scale.entry
+                    auto test.proceed
+                        done -> scale.done
+
+                state scale.orphan-a
+                    auto test.proceed
+                        next -> scale.orphan-b
+
+                state scale.orphan-b
+                    auto test.proceed
+                        back -> scale.orphan-a
+                        done -> scale.done
+
+                state scale.done terminal done success
+                """);
+
+        var expected = legacyFindSimpleCycles(unit);
+        var found = cyclesOf(unit);
+
+        assertEquals(expected, found, "the unreachable cycle agrees with the legacy result");
+        assertEquals(List.of(List.of("scale.orphan-a", "scale.orphan-b", "scale.orphan-a")), found,
+                "the unreachable component carries its one cycle");
+    }
+
+    @Test
+    @DisplayName("A transition into no state of the unit closes no cycle and ends no enumeration early")
+    void unknownTransitionTargetMatchesLegacy() {
+        var unit = parse("unknown-target", """
+                state scale.entry
+                    auto test.proceed
+                        lost -> scale.nowhere
+                        next -> scale.loop
+
+                state scale.loop
+                    auto test.proceed
+                        back -> scale.entry
+                        astray -> scale.elsewhere
+                        done -> scale.done
+
+                state scale.done terminal done success
+                """);
+
+        var expected = legacyFindSimpleCycles(unit);
+        var found = cyclesOf(unit);
+
+        assertEquals(expected, found, "the unknown targets agree with the legacy result");
+        assertEquals(List.of(List.of("scale.entry", "scale.loop", "scale.entry")), found,
+                "the one cycle is found past the unknown targets");
+    }
+
+    @Test
     @DisplayName("A chain of 200 cyclic sections enumerates its cycles inside the limit")
     void largeChainedSectionsStayInsideTheLimit() {
         var unit = chainedSections(LARGE_CHAINED_SECTIONS);
 
-        var found = assertTimeoutPreemptively(LIMIT, () -> UnitGraph.findSimpleCycles(unit),
+        var found = assertTimeoutPreemptively(LIMIT, () -> cyclesOf(unit),
                 "the chained sections stay inside the limit");
 
         assertEquals(2 * LARGE_CHAINED_SECTIONS, found.size(), "each section enumerates its two cycles");
@@ -159,25 +222,76 @@ class UnitGraphCycleScaleTest {
         var unit = chainedSections(SMALL_SECTIONS);
 
         var expected = legacyFindSimpleCycles(unit);
-        var found = UnitGraph.findSimpleCycles(unit);
+        var found = cyclesOf(unit);
 
         assertEquals(expected, found, "the chained sections agree with the legacy order");
         assertEquals(2 * SMALL_SECTIONS, found.size(), "each section enumerates its two cycles");
     }
 
     @Test
-    @DisplayName("A 16-diamond chain enumerates its 65536 cycles in the legacy order, inside the limit")
+    @DisplayName("A 16-diamond chain enumerates its 65536 cycles, exactly the cap, in the legacy order")
     void largeDiamondChainStaysInsideTheLimit() {
         var unit = diamonds(LARGE_DIAMONDS);
         var expected = legacyFindSimpleCycles(unit);
 
-        var found = assertTimeoutPreemptively(LIMIT, () -> UnitGraph.findSimpleCycles(unit),
+        var found = assertTimeoutPreemptively(LIMIT, () -> cyclesOf(unit),
                 "the 65536-cycle enumeration stays inside the limit");
 
         assertEquals(expected, found, "the large chain agrees with the legacy order");
+        assertEquals(UnitGraph.CYCLE_CAP, found.size(), "the large chain enumerates exactly the cap");
         assertEquals(1 << LARGE_DIAMONDS, found.size(), "the large chain enumerates 2^16 cycles");
         assertEquals(3 * LARGE_DIAMONDS + 1, unit.states().size(), "three states per diamond, one entry");
         assertEquals(4 * LARGE_DIAMONDS + 1, edgeCount(unit), "four edges per diamond, one entry");
+    }
+
+    @Test
+    @DisplayName("A diamond chain of 30 is above the cap: the enumeration stops inside the limit with no result")
+    void diamondChainAboveTheCapStopsInsideTheLimit() {
+        var unit = diamonds(CAPPED_DIAMONDS);
+
+        var found = assertTimeoutPreemptively(LIMIT, () -> UnitGraph.findSimpleCycles(unit),
+                "the capped enumeration stops inside the limit");
+
+        assertEquals(Optional.empty(), found, "a unit above the cap yields no cycle list");
+    }
+
+    @Test
+    @DisplayName("The cap is the largest number of cycles returned: one cycle more yields no result")
+    void capAdmitsItsCountAndRefusesOneMore() {
+        var unit = diamonds(3);
+
+        assertEquals(8, UnitGraph.findSimpleCycles(unit, 8).orElseThrow().size(), "eight cycles fit a cap of eight");
+        assertEquals(Optional.empty(), UnitGraph.findSimpleCycles(unit, 7), "eight cycles exceed a cap of seven");
+    }
+
+    @Test
+    @DisplayName("Rule 11 refuses a 30-diamond unit above the cap with one violation, inside the limit")
+    void ruleElevenRefusesAUnitAboveTheCap() {
+        var unit = diamonds(CAPPED_DIAMONDS);
+
+        var result = assertTimeoutPreemptively(LIMIT, () -> validator.verify(unit),
+                "the verification stops inside the limit");
+
+        // The message is the contract of the refusal (ADR workflow-verify 041).
+        var refusals = result.violations().stream()
+                .filter(violation -> violation.rule() == VerificationRule.CYCLE_AWAITED_EVENT).toList();
+        assertEquals(1, refusals.size(), "Rule 11 reports the unit once");
+        assertEquals("scale.entry", refusals.getFirst().stateId(), "the refusal names the start state");
+        assertEquals("the unit 'scale.diamonds-30' carries more than 65536 simple cycles, the most Rule 11"
+                + " enumerates", refusals.getFirst().message(), "the refusal states the cap");
+    }
+
+    @Test
+    @DisplayName("Rule 11 does not refuse a unit at the cap for its cycle count")
+    void ruleElevenAdmitsAUnitAtTheCap() {
+        var unit = diamonds(LARGE_DIAMONDS);
+
+        var result = assertTimeoutPreemptively(LIMIT, () -> validator.verify(unit),
+                "the verification stays inside the limit");
+
+        assertTrue(result.violations().stream()
+                        .noneMatch(violation -> violation.message().contains("simple cycles, the most Rule 11")),
+                "a unit at the cap is not refused for its count");
     }
 
     @Test
@@ -186,7 +300,7 @@ class UnitGraphCycleScaleTest {
         var unit = phase(LARGE_SITES);
         var expected = legacyFindSimpleCycles(unit);
 
-        var found = assertTimeoutPreemptively(LIMIT, () -> UnitGraph.findSimpleCycles(unit),
+        var found = assertTimeoutPreemptively(LIMIT, () -> cyclesOf(unit),
                 "the 200-site enumeration stays inside the limit");
 
         assertEquals(expected, found, "the large phase agrees with the legacy order");
@@ -200,12 +314,20 @@ class UnitGraphCycleScaleTest {
     void largeSprawlingUnitStaysInsideTheLimit() {
         var unit = sprawling(LARGE_SECTIONS);
 
-        var found = assertTimeoutPreemptively(LIMIT, () -> UnitGraph.findSimpleCycles(unit),
+        var found = assertTimeoutPreemptively(LIMIT, () -> cyclesOf(unit),
                 "the 305-state enumeration stays inside the limit");
 
         assertEquals(2, found.size(), "the large sprawling unit carries two cycles");
         assertEquals(3 * LARGE_SECTIONS + 5, unit.states().size(), "three states per section, five around");
         assertEquals(4 * LARGE_SECTIONS + 6, edgeCount(unit), "four edges per section, six around");
+    }
+
+    /**
+     * @param definition a unit at or below the cap
+     * @return its simple cycles
+     */
+    private static List<List<String>> cyclesOf(WorkflowDefinition definition) {
+        return UnitGraph.findSimpleCycles(definition).orElseThrow();
     }
 
     /**

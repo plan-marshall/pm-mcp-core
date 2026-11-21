@@ -28,6 +28,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The invariants of the finalize phase (Phase 6) of the plan unit, {@code INV-FIN-1} to {@code INV-FIN-6}
@@ -203,12 +204,12 @@ final class FinalizeInvariants {
             var defaultMode = pushMode(counterpart.get());
             if (!defaultMode.equals(mode)) {
                 context.reportState(id, state, "the call of '%s' in '%s' binds %s %s, the default unit %s"
-                        .formatted(CompiledInvariants.GIT_UNIT, state.id(), PUSH_MODE, describe(mode),
-                                describe(defaultMode)));
+                        .formatted(CompiledInvariants.GIT_UNIT, state.id(), PUSH_MODE, describe(mode.orElse(null)),
+                                describe(defaultMode.orElse(null))));
             }
         } else if (!afterPullRequest(context, state) && !prePullRequestModes.contains(mode)) {
             context.reportState(id, state, "the new call of '%s' in '%s' may push before the pull request (%s %s)"
-                    .formatted(CompiledInvariants.GIT_UNIT, state.id(), PUSH_MODE, describe(mode)));
+                    .formatted(CompiledInvariants.GIT_UNIT, state.id(), PUSH_MODE, describe(mode.orElse(null))));
         }
     }
 
@@ -225,13 +226,14 @@ final class FinalizeInvariants {
                 ? Optional.ofNullable(call.paramBindings().get(PUSH_MODE)) : Optional.empty();
     }
 
-    private static String describe(Optional<CallValue> value) {
-        return value.map(bound -> switch (bound) {
+    private static String describe(@Nullable CallValue value) {
+        return switch (value) {
+            case null -> "unbound";
             case CallValue.EnumValue(var text) -> text;
             case CallValue.IntValue(var number) -> Integer.toString(number);
             case CallValue.EnumList(var values) -> values.toString();
             case CallValue.SlotRef(var name) -> "slot." + name;
-        }).orElse("unbound");
+        };
     }
 
     private static void preMergeBarrier(Context context) {

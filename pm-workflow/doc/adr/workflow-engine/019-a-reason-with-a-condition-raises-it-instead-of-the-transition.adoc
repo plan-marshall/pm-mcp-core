@@ -42,8 +42,11 @@ transition, after it, or in its place.
 
 == Consequences
 
-* The condition's self-remedy re-runs the primitive once the condition clears; a second advance of the raised status
-  returns it unchanged, so the primitive runs again only after the clear.
+* What the clear of a raised condition does depends on the state it rests at. In an `auto` state the engine re-executes
+  the whole primitive after the clear; a second advance of the raised status returns it unchanged, so the primitive runs
+  again only after the clear. In a composite job state or at an operator link, which are event-driven, the scope merely
+  rests at its state after the clear: the primitive runs again only when the next event of that state arrives, and the
+  specification states no remedy of its own for this second origin of the condition.
 * A raise writes no `left` history line and merges no fact of the result
   (link:022-a-reason-stays-out-of-the-sub-workflow-result-record.adoc[ADR 022]); its facts are bounded text
   (link:020-the-facts-of-a-raised-reason-are-bounded-text.adoc[ADR 020]).

@@ -290,10 +290,20 @@ final class SubWorkflowInvariants {
         }
     }
 
+    /**
+     * Every cycle through a task state passes a state whose primitive declares an attempt cap. A unit with more simple
+     * cycles than {@link UnitGraph#CYCLE_CAP} is refused as a whole, as Rule 11 refuses it (ADR 041).
+     */
     private static void cappedModelLoops(Context context, InvariantId id) {
         var unit = context.unit();
+        var found = UnitGraph.findSimpleCycles(unit);
+        if (found.isEmpty()) {
+            context.reportUnit(id, "the unit carries more than %d simple cycles, the most Rule 11 enumerates"
+                    .formatted(UnitGraph.CYCLE_CAP));
+            return;
+        }
         var reported = new HashSet<String>();
-        for (var cycle : UnitGraph.findSimpleCycles(unit)) {
+        for (var cycle : found.get()) {
             var states = cycle.stream().map(unit.states()::get).filter(Objects::nonNull).toList();
             var taskState = states.stream().filter(state -> state.behavior() instanceof StateBehavior.ModelJob)
                     .findFirst();

@@ -890,12 +890,22 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
   wait and awaits `OPERATOR_ACT`; no engine event and no time ends it.
 * link:../adr/workflow-engine/014-five-call-frames-and-the-derived-phase.adoc[ADR 014]: five call frames, and the phase
   of a scope is derived from the phase unit on its stack.
+* link:../adr/workflow-engine/015-end-phase-keyed-by-the-outcome-id.adoc[ADR 015]: the end phase of a scope is
+  `aborted` exactly for the outcome id `aborted`, `completed` for every other end.
 * link:../adr/workflow-engine/016-the-composition-runs-in-the-entering-transactions.adoc[ADR 016]: the composition of a
   server event runs in the transaction that enters its target state, and the engine reads a version through two ports.
 * link:../adr/workflow-engine/017-the-bound-of-a-path-is-the-staging-set.adoc[ADR 017]: the bound of a path is the
   scope's staging set, not its declared footprint.
 * link:../adr/workflow-engine/018-the-bind-lives-in-the-call.adoc[ADR 018]: `call` resolves, validates, records and
   consumes every input over the `InputBindingContext` port, and a refusal is the condition `precondition_unmet`.
+* link:../adr/workflow-engine/019-a-reason-with-a-condition-raises-it-instead-of-the-transition.adoc[ADR 019]: a reason
+  that maps to a condition raises it instead of the transition of its outcome.
+* link:../adr/workflow-engine/020-the-facts-of-a-raised-reason-are-bounded-text.adoc[ADR 020]: the facts of a raised
+  reason are bounded text.
+* link:../adr/workflow-engine/021-the-reason-table-belongs-to-the-primitive.adoc[ADR 021]: the reason-to-condition table
+  belongs to the primitive's reason enum; the engine holds none and is the only one that raises.
+* link:../adr/workflow-engine/022-a-reason-stays-out-of-the-sub-workflow-result-record.adoc[ADR 022]: a reason stays out
+  of the sub-workflow result record.
 * link:../adr/workflow-engine/023-the-command-ids-come-from-the-ports-generator.adoc[ADR 023]: the command ids come
   from the generator of the ports.
 * link:../adr/workflow-engine/024-the-settlements-travel-on-the-engine-step.adoc[ADR 024]: the settlements travel on

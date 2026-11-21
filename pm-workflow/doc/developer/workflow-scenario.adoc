@@ -327,7 +327,10 @@ package-private `EngineFixtures` of the engine tests
 * The replay's queue is `QueueStore.ofProject(directory, "scenario-project", locks)` below the directory the test
   gives; `Locks` is the queue's lock manager (no lock of the operating system), `TaskProtocol` is built over the queue
   with the queue's own fence store and the pause, job-state and skill-delivery fixtures, and `ConsultationService`
-  runs over the same queue (link:../adr/workflow-scenario/009-task-protocol-under-the-replay.adoc[ADR 009]).
+  runs over the same queue (link:../adr/workflow-scenario/009-task-protocol-under-the-replay.adoc[ADR 009]) with the
+  fixtures' consultation id counter as its id seam: the consultations get `qt-c000000000000001`,
+  `qt-c000000000000002`, … in order, a range apart from the ids of `QueueTasks`
+  (link:../adr/workflow-consult/005-the-consultation-id-comes-from-a-seam.adoc[ADR workflow-consult 005]).
 
 `ScriptedFixtureWorker` settles the queue task of its role directly with the next declared task outcome and the
 fixture return evaluation (`ScenarioFixtures.evaluate`): `submitted` evaluates to `approved`, `infeasible` to
@@ -362,10 +365,10 @@ it:
   transition, writes different bytes at that step, and fails at the script's next `assert_state`, which names its line.
 
 A changed transition shows in the bytes at the step that takes it; the replay fails at the first assertion that
-observes it, so a script asserts the state after every step whose route it pins. A consultation is the one exception:
-`ConsultationService.freeId()` draws the consultation's queue task id from `QueueTaskId.random()`, so the consultation
-scenario asserts its behaviour and not byte identity (the defect is reported, not fixed here — the harness takes no
-production change).
+observes it, so a script asserts the state after every step whose route it pins. A consultation is no exception: the
+replay's `ConsultationService` draws its consultation ids from the fixtures' counter, so a consultation scenario
+names the id its submit lists and replays to byte-identical stores; `ScenarioReplayRunnerTest` replays the accepted
+submit of regression scenario 14 twice and compares the bytes.
 
 == Writing a Scenario
 _Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
@@ -376,8 +379,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
 . Assert the state after every action; assert a task state before the next step settles it, and the task's outcome
   with `assert_task_outcome`.
 . Use the job ids the job port hands out in order (`b-0000000000000001` for the first job state entered without a
-  job-starting outcome), the queue task ids the fixture creator hands out (`qt-0000000000000001`, …) and any question
-  id of the form `Q-NNN`.
+  job-starting outcome), the queue task ids the fixture creator hands out (`qt-0000000000000001`, …), the consultation
+  ids the fixtures' counter hands out (`qt-c000000000000001`, …) and any question id of the form `Q-NNN`.
 . A fault follows the call whose attempt it ends: `kill_worker` after the offer or after the acknowledgement,
   `end_turn`, `kill_relay` and `stall_worker` after the acknowledgement. Assert the state before the fault (the worker
   still holds its task) and after it (`fenced`), assert the replaced generation's late call with `worker_do` +
@@ -424,9 +427,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
 
 * *Nothing in the stored bytes may come from the machine.* A wall-clock instant or a random id in the status or the
   queue breaks the byte comparison. Take every instant from the manual clock, every id from a counter of the fixtures,
-  and every primitive outcome from the fixture; a new port double follows the same rule. `ConsultationService` is the
-  one id source the harness cannot control (`freeId()` draws a random queue task id), which is why the consultation
-  scenario asserts behaviour only.
+  and every primitive outcome from the fixture; a new port double follows the same rule. `ConsultationService` takes
+  its ids through its id seam, and the harness passes the fixtures' consultation id counter.
 * *A deviation fails, it is never skipped.* An event the resting state does not wait for, a task without a declared
   outcome, an outcome no task took, and a protocol call the script expected accepted are failures with the line. A
   runner that skipped them would let a script pass that no longer describes the run.

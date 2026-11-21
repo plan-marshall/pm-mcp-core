@@ -1,0 +1,50 @@
+= ADR 005: The Consultation Id Comes From a Seam
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+`ConsultationService.open` names the consultation task by an id it draws itself, and that id is the
+`consultation_id` the asking task's submit must list. The service drew it from `QueueTaskId.random()`, so a
+consultation of the scenario replay harness got a different id on every replay: no two replays of one scenario wrote
+byte-identical stores, and a scenario script could not name the id in `worker_do submit:change {consultation_ids: …}`.
+The accepted-submit half of regression scenario 14 therefore ran as a direct `validateSubmit` call in
+`ScenarioReplayRunnerTest`, outside every script (PLAN-V2-163, carried item 33(a)).
+
+== Decision
+
+* `ConsultationService` takes the source of its consultation ids as a `Supplier<QueueTaskId>` in a second constructor.
+  The one-argument constructor keeps `QueueTaskId::random`, so production draws its ids as before.
+* A drawn id the queue already holds is skipped and the next one is drawn, as for the random source; a supplier
+  therefore has to yield a free id after finitely many taken ones.
+* The scenario replay harness passes a counter of its fixtures that hands out `qt-c000000000000001`,
+  `qt-c000000000000002`, … in order, a range apart from the counter of the other queue tasks, so a script names the id
+  its submit lists and the replay writes the same stores every time.
+
+== Alternatives Considered
+
+1. *A counter inside the service.* Not taken: production ids stay random, so the counter would be a test switch in
+   production code; the supplier keeps one code path and lets the harness choose.
+2. *Seed the random source.* Not taken: `QueueTaskId.random()` is shared by every queue task, and a seed would make the
+   ids of other tasks depend on the order of the replay as well.
+3. *Keep the direct `validateSubmit` call.* Not taken: no passing script would hold scenario 14, and a replay of a
+   consultation scenario would stay non-reproducible.
+
+== Consequences
+
+* A consultation scenario replays to byte-identical stores, and its accepted submit passes through the replay.
+* The id rule of the record is unchanged: a consultation's `queue_task_id` is its `consultation_id`.
+* `ScenarioReplayRunnerTest` replays scenario 14 twice and compares the stores.
+
+== Source
+
+Work package `PLAN-V2-163` of the epic `pm-mcp-core-m2-m4-v2`, carried item 33(a);
+link:../../../../doc/specification/model-work/05-consultation.adoc#consult-serving[Model Work § Serving the
+Consultation].

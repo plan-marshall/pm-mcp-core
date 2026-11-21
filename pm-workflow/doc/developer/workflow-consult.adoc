@@ -23,7 +23,13 @@ The service of one queue. It derives the links from the asking task's own record
 answer or the loss, repairs a consultation that closed outside it, and validates the `consultation_ids` of a submit.
 The consultation entry and the asking task change in one `QueueStore.updateAll` transaction on the queue lock; the
 consultation task of the consulted role is created in its own write after that entry (ADR 003). The service is
-constructed over the project's `QueueStore` and holds no state of its own.
+constructed over the project's `QueueStore` and holds no state of its own beyond the source of its consultation ids.
+
+The consultation id is the consultation task's `queue_task_id`, and the service draws it from an id seam, a
+`Supplier<QueueTaskId>` (link:../adr/workflow-consult/005-the-consultation-id-comes-from-a-seam.adoc[ADR 005]). The
+one-argument constructor draws from `QueueTaskId.random()`; a caller that must know the ids in advance, as the scenario
+replay harness does, passes its own supplier to the two-argument constructor. A drawn id the queue already holds is
+skipped and the next one drawn, so a supplier yields a free id after finitely many taken ones.
 
 `ConsultationRequest`::
 The ask: the asking task and generation, the consulted role and its class, the roles the state declares, the question,
@@ -101,7 +107,8 @@ repository nor in `plan-marshall-mcp`, so the refusal is not built (Model Work Â
 
 == How to use and extend it
 
-Build the service over the project's queue: `new ConsultationService(queue)`. A caller resolves the consulted role (the
+Build the service over the project's queue: `new ConsultationService(queue)`, or
+`new ConsultationService(queue, consultationIds)` where the ids must be fixed in advance. A caller resolves the consulted role (the
 state's declaration, the role's class, and its own effective harness and model), then calls `open`; the consulted
 role's supervisor serves the consultation task with its own wait. The server calls `answer` when a consultation entity
 follows `submit:answer`, `lost` when the model caller cannot serve the role, `facts` for the asking entity's
