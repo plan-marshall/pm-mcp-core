@@ -1545,6 +1545,38 @@ class WorkflowValidatorTest {
                     "the bypass of the third fill leaves the third read unserved");
         }
 
+        @Test
+        @DisplayName("Should refuse a reading state a fill-free cycle re-enters")
+        void shouldRefuseAReadingStateOnAFillFreeCycle() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill
+                            skipped -> verify.fill
+
+                    state verify.fill
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke
+                            lost -> verify.done
+
+                    state verify.invoke
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.await
+                            stepped_out -> plan.return
+
+                    state verify.await
+                        link next proceed ()
+                            do test.proceed
+                                done -> verify.invoke
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.invoke' after the read at"
+                            + " 'verify.invoke'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "the cycle re-enters the read without a fill");
+        }
+
         /**
          * @param states the states of the plan unit
          * @return the plan unit with one commit-message slot and the two terminals

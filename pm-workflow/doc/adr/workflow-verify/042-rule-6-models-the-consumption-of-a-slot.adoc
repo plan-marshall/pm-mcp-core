@@ -19,12 +19,13 @@ the engine refused. The analysis of `PLAN-V2-157` found the shape (`a = slot.m, 
 
 == Decision
 
-* Rule 6 records, per slot, every state that reads it. The unit is refused when one state reads the same slot twice, and
-  when for any ordered pair of distinct reading states `R` and `S` a path from `R` to `S` passes no filling state: the
-  read at `S` would find the value `R` consumed.
+* Rule 6 records, per slot, every state that reads it. The unit is refused when one state reads the same slot twice, when
+  for any ordered pair of distinct reading states `R` and `S` a path from `R` to `S` passes no filling state, and when a
+  fill-free cycle leads from a reading state back to itself: the read would find the value the earlier read consumed.
 * The check is pairwise and order-independent: the declaration order of the states does not matter, and a fill between the
-  first and the last read of a slot does not serve a read in between. `dominatedByAny` started from `R` is the walk; the
-  number of reads of a slot is small, so the pairwise form costs nothing measurable.
+  first and the last read of a slot does not serve a read in between. `dominatedByAny` started from `R` is the walk for the
+  pairs, and a small breadth-first search for the cycle; the number of reads of a slot is small, so the pairwise form costs
+  nothing measurable.
 * The dominance check stays: consumption says a slot is read once, dominance says it is filled before that read.
 
 == Alternatives Considered
@@ -33,7 +34,8 @@ the engine refused. The analysis of `PLAN-V2-157` found the shape (`a = slot.m, 
   verified unit that fails its first call is exactly the defect this plan closes.
 * *Count every read and compare the neighbours in declaration order.* Refused: a fill between the first and the last read
   of a slot does not serve a read in between, and two states declared out of flow order would compare in the harmless
-  direction only. The pairwise, order-independent form refuses exactly a read no fill can serve.
+  direction only. The pairwise, order-independent form refuses exactly a read no fill can serve — a distinct earlier read
+  with no fill on any path between them, or the state itself reached through a fill-free cycle.
 * *Count every read of a slot, whatever the fills.* Refused: a slot a unit refills between two reads is served by the
   refill, so a bare count would refuse a sound unit.
 * *Model the consumption as part of the dominance graph (a read removes an edge).* Refused: the graph carries no state
@@ -46,8 +48,9 @@ the engine refused. The analysis of `PLAN-V2-157` found the shape (`a = slot.m, 
 
 * `WorkflowValidatorTest § Slot consumption` pins the shapes: the two-calls read, the two inputs of one call, the refilled
   slot that verifies, two fills that do not separate two reads on one path, a pair whose states are declared out of flow
-  order, and a third read whose fill lies on one branch only; `verify/passing/slots-and-inputs.pmwf` stays the matched
-  control (one fill, one read), and the default plan unit and the compiled invariants are unchanged.
+  order, a third read whose fill lies on one branch only, and a reading state a fill-free cycle re-enters;
+  `verify/passing/slots-and-inputs.pmwf` stays the matched control (one fill, one read), and the default plan unit and the
+  compiled invariants are unchanged.
 * A unit that wants two calls to use the same text fills two slots, or the callers take the value as an input.
 
 == Source

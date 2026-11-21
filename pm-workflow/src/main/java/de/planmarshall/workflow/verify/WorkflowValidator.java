@@ -1911,7 +1911,7 @@ public final class WorkflowValidator {
         var graph = UnitGraph.of(definition);
         var fillers = new LinkedHashMap<String, Set<String>>();
         var readers = new LinkedHashMap<String, Set<String>>();
-        var doubled = new LinkedHashSet<String>();
+        var doubled = new LinkedHashMap<String, Set<String>>();
         for (var state : definition.states().values()) {
             var fills = state.fills();
             if (fills == null) {
@@ -1981,7 +1981,7 @@ public final class WorkflowValidator {
                 }
                 var readersOfSlot = readers.computeIfAbsent(slotRef.name(), name -> new LinkedHashSet<>());
                 if (!readersOfSlot.add(state.id())) {
-                    doubled.add(state.id());
+                    doubled.computeIfAbsent(slotRef.name(), name -> new LinkedHashSet<>()).add(state.id());
                 }
             }
         }
@@ -1991,7 +1991,8 @@ public final class WorkflowValidator {
                 continue;
             }
             for (var reader : entry.getValue()) {
-                if (doubled.contains(reader)) {
+                if (doubled.getOrDefault(entry.getKey(), Set.of()).contains(reader)
+                        || onFillFreeCycle(graph, filling, reader)) {
                     reportSecondRead(definition, entry.getKey(), reader, reader, violations);
                 }
                 for (var earlier : entry.getValue()) {
@@ -2001,6 +2002,37 @@ public final class WorkflowValidator {
                 }
             }
         }
+    }
+
+    /**
+     * Whether a state reaches itself again without passing one of the given filling states: the read on the way back
+     * would find the value the read at that state consumed.
+     *
+     * @param graph      the unit graph
+     * @param dominators the states that fill the slot
+     * @param state      the state that reads it
+     * @return whether a fill-free path of at least one transition leads from the state back to it
+     */
+    private static boolean onFillFreeCycle(UnitGraph graph, Set<String> dominators, String state) {
+        var seen = new LinkedHashSet<String>();
+        var queue = new ArrayDeque<String>();
+        for (var next : graph.successors(state)) {
+            if (!dominators.contains(next) && seen.add(next)) {
+                queue.add(next);
+            }
+        }
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            if (current.equals(state)) {
+                return true;
+            }
+            for (var next : graph.successors(current)) {
+                if (!dominators.contains(next) && seen.add(next)) {
+                    queue.add(next);
+                }
+            }
+        }
+        return false;
     }
 
     /**
