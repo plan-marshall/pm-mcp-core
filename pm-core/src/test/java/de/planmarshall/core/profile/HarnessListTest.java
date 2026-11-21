@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,8 +24,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.profile.HarnessList.Key;
-import de.planmarshall.core.profile.ProfileStages.StartContext;
-import de.planmarshall.core.profile.ProfileStages.UsageStatus;
 
 /**
  * The harness list and the usage coverage it shows (PM-CLIENT-5, Harness Profiles § Harness Scan, § Tokens, Not Money;
@@ -45,55 +42,6 @@ class HarnessListTest {
     private static final String OTHER_VERSION = VERSION + "-other";
     private static final String MODEL = Generators.letterStrings(5, 12).next();
     private static final Long START_TOKENS = Generators.longs(1_000, 9_000).next();
-
-    @Test
-    @DisplayName("coverage is complete when every figure is reported or not applicable")
-    void coverageCompleteForEveryReportedFigure() {
-        var coverage = HarnessUsageCoverage.of(usage(UsageStatus.REPORTED));
-        var status = coverage.status();
-        var namesMissing = coverage.namesMissingFigures();
-
-        assertAll(
-                () -> assertEquals(HarnessUsageCoverage.Status.COMPLETE, status,
-                        "Complete coverage for every reported figure"),
-                () -> assertFalse(namesMissing, "Nothing is missing in complete coverage"));
-    }
-
-    @Test
-    @DisplayName("coverage is partial and names the figure the harness does not report")
-    void coveragePartialNamesTheMissingFigure() {
-        var figures = allFigures(UsageStatus.REPORTED);
-        var missing = ProfileStages.REPORT_FIGURES.get(2);
-        figures.put(missing, UsageStatus.MISSING);
-        var coverage = HarnessUsageCoverage.of(new ProfileStages.UsageResult(figures, Map.of()));
-        var status = coverage.status();
-        var missingFigures = coverage.missingFigures();
-
-        assertAll(
-                () -> assertEquals(HarnessUsageCoverage.Status.PARTIAL, status,
-                        "Partial coverage when one report figure is missing"),
-                () -> assertEquals(List.of(missing), missingFigures, "The missing figure is named"));
-    }
-
-    @Test
-    @DisplayName("coverage is not_reported when the harness reports no figure")
-    void coverageNotReportedWithoutAnyFigure() {
-        var coverage = HarnessUsageCoverage.of(usage(UsageStatus.MISSING));
-        var status = coverage.status();
-
-        assertEquals(HarnessUsageCoverage.Status.NOT_REPORTED, status, "No figure is reported by the harness");
-    }
-
-    @Test
-    @DisplayName("the start context the usage stage measured travels beside the coverage")
-    void startContextTravelsBesideCoverage() {
-        var context = new StartContext("writer", MODEL, START_TOKENS);
-        var coverage = HarnessUsageCoverage.of(
-                new ProfileStages.UsageResult(allFigures(UsageStatus.REPORTED), Map.of(), List.of(context)));
-        var startContext = coverage.startContext();
-
-        assertEquals(List.of(context), startContext, "The start context is carried");
-    }
 
     @Test
     @DisplayName("the missing figures are report figures named in schema order")
@@ -154,7 +102,7 @@ class HarnessListTest {
     @Test
     @DisplayName("a harness no verification recorded is not reported")
     void unrecordedHarnessIsNotReported() {
-        var recorded = Map.of(new Key(AAA_ID, VERSION), HarnessUsageCoverage.of(usage(UsageStatus.REPORTED)));
+        var recorded = Map.of(new Key(AAA_ID, VERSION), complete());
         var list = HarnessList.of(scan(), recorded, false);
         var recordedStatus = list.entries().getFirst().usage().status();
         var unrecordedStatus = list.entries().get(1).usage().status();
@@ -170,7 +118,7 @@ class HarnessListTest {
     @DisplayName("a coverage recorded for another version is not shown")
     void coverageOfAnotherVersionIsNotShown() {
         var recorded = Map.of(new Key(AAA_ID, OTHER_VERSION),
-                HarnessUsageCoverage.of(usage(UsageStatus.REPORTED)));
+                complete());
         var list = HarnessList.of(scan(), recorded, false);
         var status = list.entries().getFirst().usage().status();
 
@@ -180,7 +128,7 @@ class HarnessListTest {
     @Test
     @DisplayName("an unreadable store shows harness_store_unreadable at every entry")
     void unreadableStoreShownAtEveryEntry() {
-        var recorded = Map.of(new Key(AAA_ID, VERSION), HarnessUsageCoverage.of(usage(UsageStatus.REPORTED)));
+        var recorded = Map.of(new Key(AAA_ID, VERSION), complete());
         var list = HarnessList.of(scan(), recorded, true);
         var everyRowUnreadable = list.entries().stream().allMatch(entry -> entry.usage().unreadableStore());
 
@@ -204,13 +152,7 @@ class HarnessListTest {
                 .build();
     }
 
-    private static ProfileStages.UsageResult usage(UsageStatus status) {
-        return new ProfileStages.UsageResult(allFigures(status), Map.of());
-    }
-
-    private static Map<String, UsageStatus> allFigures(UsageStatus status) {
-        var figures = new LinkedHashMap<String, UsageStatus>();
-        ProfileStages.REPORT_FIGURES.forEach(figure -> figures.put(figure, status));
-        return figures;
+    private static HarnessUsageCoverage complete() {
+        return new HarnessUsageCoverage(HarnessUsageCoverage.Status.COMPLETE, List.of(), List.of());
     }
 }

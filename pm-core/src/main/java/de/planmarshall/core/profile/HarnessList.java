@@ -24,7 +24,7 @@ import java.util.Objects;
  * <p>
  * The list keeps the scan's order — the order of the harness ids — so a client shows one order whichever set it reads.
  * Every row the scan produced is here; a caller may add a row the scan has no candidate for, which is how an enrolled
- * harness the scan no longer finds stays visible (see `HarnessListings` in `pm-runtime`).
+ * harness the scan no longer finds stays visible.
  * The usage coverage is keyed by the harness <em>and</em> the version it was recorded for: a coverage recorded for one
  * version is never shown beside another, because the figures a harness reports change with its output format. A harness
  * no verification recorded at that version is {@code not_reported}, never {@code complete}. Where the enrolment store

@@ -37,6 +37,15 @@ public final class HarnessVerificationRefusal extends RuntimeException {
     /** The consent did not show the expected tokens of the stages it authorises. */
     public static final String TOKENS_MISSING = "harness_verify_stage_tokens_missing";
 
+    /** The run declares no stage at all. */
+    public static final String STAGES_EMPTY = "harness_verify_stages_empty";
+
+    /** One stage is named twice in the run. */
+    public static final String STAGES_DUPLICATE = "harness_verify_stages_duplicate";
+
+    /** A declared stage is not a stage of the profile verification. */
+    public static final String STAGE_UNKNOWN = "harness_verify_stage_unknown";
+
     private final String code;
 
     /**
