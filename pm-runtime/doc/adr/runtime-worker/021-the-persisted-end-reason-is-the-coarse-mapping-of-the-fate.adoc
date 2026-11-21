@@ -26,9 +26,10 @@ and the silence limit. Code and specification disagreed; the question was which 
 The record keeps the coarse mapping of the fate: `WorkerTermination.endReason` stays as it is, and the specification
 says what the code records (link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#ack-deadline[Timeouts,
 Acknowledgement deadline] and link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#silence-limit[Silence
-limit]). The end path names a loss only as far as the cause: the attempt's end of the task is `worker_lost` for every
-loss (ADR 020), and the log record `WORKER_GENERATION_ENDED` names the end cause (`lost`), not the loss reason. The
-loss reason itself, `ack_missed` or `silence`, reaches only the worker state the supervisor writes for a record the
+limit]). The end path names a loss only as far as the cause: the attempt's end of the task is `worker_lost` for a missed
+acknowledgement and for silence (a process that exited after its first call ends `exited_without_submit`, ADR 020), and
+the log record `WORKER_GENERATION_ENDED` names the end cause (`lost`), not the loss reason. The loss reason itself,
+`ack_missed` or `silence`, reaches only the worker state the supervisor writes for a record the
 settlement has not settled; a settled record carries the coarse mapping of the fate and no loss reason.
 
 == Alternatives considered
