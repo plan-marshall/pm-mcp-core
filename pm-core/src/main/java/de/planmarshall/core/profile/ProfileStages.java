@@ -425,7 +425,7 @@ public final class ProfileStages {
             List<StartContextInput> startContexts) {
         Objects.requireNonNull(startContexts, "startContexts");
         var usage = profile.headless("/usage").orElseThrow(
-                () -> ProfileRefusal.invalid(profile.clientId() + PROFILE_SUFFIX, "/headless/usage",
+                () -> ProfileRefusal.invalid(profile.harnessId() + PROFILE_SUFFIX, "/headless/usage",
                         "a profile that is verified for usage names its usage block"));
         var figures = new LinkedHashMap<String, UsageStatus>();
         var parsed = new LinkedHashMap<String, BigDecimal>();
@@ -437,7 +437,7 @@ public final class ProfileStages {
                 var pointer = declaration.text().orElseThrow();
                 if (Wire.NOT_APPLICABLE.equals(pointer)) {
                     if (NEVER_NOT_APPLICABLE.contains(figure)) {
-                        throw ProfileRefusal.invalid(profile.clientId() + PROFILE_SUFFIX,
+                        throw ProfileRefusal.invalid(profile.harnessId() + PROFILE_SUFFIX,
                                 "/headless/usage/" + figure,
                                 "'%s' is never not_applicable".formatted(figure));
                     }
@@ -486,7 +486,7 @@ public final class ProfileStages {
     private static OptionalLong integerAt(LoadedProfile profile, JsonNode turn, String pointer) {
         final JsonNode value;
         try {
-            value = JsonPointer.resolve(turn, pointer, profile.clientId() + PROFILE_SUFFIX);
+            value = JsonPointer.resolve(turn, pointer, profile.harnessId() + PROFILE_SUFFIX);
         } catch (ProfileRefusal _) {
             return OptionalLong.empty();
         }
@@ -498,15 +498,15 @@ public final class ProfileStages {
 
     private static BigDecimal parseFigure(JsonNode turn, String pointer, String figure, LoadedProfile profile,
             Map<String, BigDecimal> harnessRecord) {
-        var value = JsonPointer.resolve(turn, pointer, profile.clientId() + PROFILE_SUFFIX);
+        var value = JsonPointer.resolve(turn, pointer, profile.harnessId() + PROFILE_SUFFIX);
         var number = value.decimalValue().orElse(null);
         if (number == null) {
-            throw ProfileRefusal.invalid(profile.clientId() + PROFILE_SUFFIX, pointer,
+            throw ProfileRefusal.invalid(profile.harnessId() + PROFILE_SUFFIX, pointer,
                     "the usage pointer of '%s' does not resolve to a figure".formatted(figure));
         }
         var recorded = harnessRecord.get(figure);
         if (recorded != null && recorded.compareTo(number) != 0) {
-            throw ProfileRefusal.invalid(profile.clientId() + PROFILE_SUFFIX, pointer,
+            throw ProfileRefusal.invalid(profile.harnessId() + PROFILE_SUFFIX, pointer,
                     "the parsed figure of '%s' is %s, the harness records %s".formatted(figure, number, recorded));
         }
         return number;

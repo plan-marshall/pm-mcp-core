@@ -29,7 +29,7 @@ import lombok.experimental.UtilityClass;
  * {@code classpath:/profiles/<client_id>.json}, in a directory of the build or in the JAR of the dependency.
  * <p>
  * The reader is a build test's entry: the release compiles the documents into the binary, and the build validates every
- * one of them. The directory holds the profiles and nothing else; a file whose name is not a client id refuses the
+ * one of them. The directory holds the profiles and nothing else; a file whose name is not a harness id refuses the
  * read, so no shipped document escapes the build test.
  *
  * @since 0.1
@@ -40,11 +40,11 @@ public final class ShippedProfiles {
     private static final String DIRECTORY = "profiles";
     /** The suffix of a shipped profile document. */
     private static final String PROFILE_SUFFIX = ".json";
-    private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
+    private static final Pattern HARNESS_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
 
     /**
      * @param loader the loader of the resources
-     * @return the shipped profiles by client id
+     * @return the shipped profiles by harness id
      * @throws UncheckedIOException if a resource cannot be listed or read
      */
     public static ProfileSets read(ClassLoader loader) {
@@ -88,7 +88,7 @@ public final class ShippedProfiles {
             for (var entry : entries.sorted().toList()) {
                 var name = entry.getFileName().toString();
                 if (Files.isRegularFile(entry) && name.endsWith(PROFILE_SUFFIX)) {
-                    add(clientId(name), Files.readAllBytes(entry), documents);
+                    add(harnessId(name), Files.readAllBytes(entry), documents);
                 }
             }
         }
@@ -109,7 +109,7 @@ public final class ShippedProfiles {
             }
             var relative = name.substring(prefix.length());
             if (!relative.contains("/")) {
-                add(clientId(relative), read(jar, name), documents);
+                add(harnessId(relative), read(jar, name), documents);
             }
         }
     }
@@ -120,15 +120,15 @@ public final class ShippedProfiles {
         }
     }
 
-    private static void add(String clientId, byte[] document, Map<String, byte[]> documents) {
-        documents.put(clientId, document);
+    private static void add(String harnessId, byte[] document, Map<String, byte[]> documents) {
+        documents.put(harnessId, document);
     }
 
-    private static String clientId(String fileName) {
+    private static String harnessId(String fileName) {
         var name = fileName.substring(0, fileName.length() - PROFILE_SUFFIX.length());
-        if (!CLIENT_ID.matcher(name).matches()) {
+        if (!HARNESS_ID.matcher(name).matches()) {
             throw new IllegalStateException(
-                    "The shipped profile file '%s' is not named by a client id".formatted(fileName));
+                    "The shipped profile file '%s' is not named by a harness id".formatted(fileName));
         }
         return name;
     }

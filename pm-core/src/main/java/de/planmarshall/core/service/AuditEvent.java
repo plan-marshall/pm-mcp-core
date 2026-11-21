@@ -150,8 +150,8 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The name of the event that records an accepted self-update of an enrolled harness (PM-EXEC-1). */
     public static final String HARNESS_UPDATED = "harness_updated";
 
-    /** The detail of a harness record that names the client id of the harness. */
-    public static final String DETAIL_CLIENT_ID = "client_id";
+    /** The detail of a harness record that names the harness id of the harness. */
+    public static final String DETAIL_HARNESS_ID = "harness_id";
 
     /** The detail of a harness self-update that holds the version the enrolment recorded before it. */
     public static final String DETAIL_OLD_VERSION = "old_version";
@@ -452,7 +452,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     }
 
     /**
-     * @param clientId   the enrolled harness whose executable changed
+     * @param harnessId   the enrolled harness whose executable changed
      * @param oldVersion the version the enrolment recorded before the change
      * @param oldSha256  the digest the enrolment recorded before the change
      * @param newVersion the version the accepted probe reported
@@ -460,10 +460,10 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      * @return the record of an accepted self-update, naming both builds
      * @throws NullPointerException if a value is {@code null}
      */
-    public static AuditEvent harnessUpdated(String clientId, String oldVersion, String oldSha256, String newVersion,
+    public static AuditEvent harnessUpdated(String harnessId, String oldVersion, String oldSha256, String newVersion,
             String newSha256) {
         return new AuditEvent(HARNESS_UPDATED, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_CLIENT_ID, Objects.requireNonNull(clientId, "clientId"), DETAIL_OLD_VERSION,
+                Map.of(DETAIL_HARNESS_ID, Objects.requireNonNull(harnessId, "harnessId"), DETAIL_OLD_VERSION,
                         Objects.requireNonNull(oldVersion, "oldVersion"), DETAIL_OLD_SHA256,
                         Objects.requireNonNull(oldSha256, "oldSha256"), DETAIL_NEW_VERSION,
                         Objects.requireNonNull(newVersion, "newVersion"), DETAIL_NEW_SHA256,
@@ -471,17 +471,17 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     }
 
     /**
-     * @param clientId  the enrolled harness whose model's weights changed
+     * @param harnessId  the enrolled harness whose model's weights changed
      * @param model     the model whose weights identity changed
      * @param oldWeightsId the identity the enrolment recorded before the change
      * @param newWeightsId the identity read now
      * @return the record of a changed weights identity, naming the model and both identities
      * @throws NullPointerException if a value is {@code null}
      */
-    public static AuditEvent harnessWeightsUpdated(String clientId, String model, String oldWeightsId,
+    public static AuditEvent harnessWeightsUpdated(String harnessId, String model, String oldWeightsId,
             String newWeightsId) {
         return new AuditEvent(HARNESS_UPDATED, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_CLIENT_ID, Objects.requireNonNull(clientId, "clientId"), DETAIL_MODEL,
+                Map.of(DETAIL_HARNESS_ID, Objects.requireNonNull(harnessId, "harnessId"), DETAIL_MODEL,
                         Objects.requireNonNull(model, "the model of the weights change"), DETAIL_OLD_WEIGHTS_ID,
                         Objects.requireNonNull(oldWeightsId, "oldWeightsId"), DETAIL_NEW_WEIGHTS_ID,
                         Objects.requireNonNull(newWeightsId, "newWeightsId")));

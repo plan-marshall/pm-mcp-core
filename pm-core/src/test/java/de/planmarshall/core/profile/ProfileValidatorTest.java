@@ -45,7 +45,7 @@ class ProfileValidatorTest {
         var profile = ProfileValidator.validate(ProfileFixtures.validBytes(), DOCUMENT, ProfileRules.none());
 
         assertAll(
-                () -> assertEquals("acme-cli", ProfileValidator.clientId(profile),
+                () -> assertEquals("acme-cli", ProfileValidator.harnessId(profile),
                         "client id comes from the file name"),
                 () -> assertEquals("Acme CLI", profile.member("display_name").flatMap(JsonNode::text).orElseThrow(),
                         "display name is read as text"));
@@ -193,8 +193,8 @@ class ProfileValidatorTest {
                             "/headless/supported_versions", "an empty supported_versions range"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/supported_versions", ">=99999999999.0.0"),
                             "/headless/supported_versions", "a version component beyond an integer"),
-                    Arguments.of(ProfileFixtures.valid().set("/client_id", "Acme"),
-                            "/client_id", "client_id"),
+                    Arguments.of(ProfileFixtures.valid().set("/harness_id", "Acme"),
+                            "/harness_id", "harness_id"),
                     Arguments.of(ProfileFixtures.valid().set("/display_name", "Acme; drop table"),
                             "/display_name", "a sentence in a text a model reads"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/argv", List.of("https://example.test/acme")),
@@ -408,8 +408,8 @@ class ProfileValidatorTest {
                             "/identity/version_pattern", "a version pattern with a backreference"),
                     Arguments.of(ProfileFixtures.valid().set("/identity/version_pattern", "acme"),
                             "/identity/version_pattern", "a version pattern without a capture group"),
-                    Arguments.of(ProfileFixtures.valid().set("/client_id", 1),
-                            "/client_id", "a client id that is no string"),
+                    Arguments.of(ProfileFixtures.valid().set("/harness_id", 1),
+                            "/harness_id", "a harness id that is no string"),
                     Arguments.of(ProfileFixtures.valid().set("/schema_version", "1"),
                             "/schema_version", "a schema version that is no integer"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/tool_result_limit_chars", 1),
@@ -652,6 +652,30 @@ class ProfileValidatorTest {
                 () -> ProfileValidator.validate(bytes, DOCUMENT, rules), "harness home path is refused");
 
         assertEquals("/headless/writable_paths/0", refusal.pointer(), "refusal points at harness home");
+    }
+
+    @Test
+    @DisplayName("a document written with the old client_id member is read as the harness id")
+    void legacyClientIdIsRead() {
+        var document = new String(ProfileFixtures.validBytes(), StandardCharsets.UTF_8)
+                .replace("\"harness_id\"", "\"client_id\"").getBytes(StandardCharsets.UTF_8);
+
+        var profile = ProfileValidator.validate(document, DOCUMENT, ProfileRules.none());
+
+        assertEquals("acme-cli", ProfileValidator.harnessId(profile),
+                "the old member is read as the harness id");
+    }
+
+    @Test
+    @DisplayName("a document that carries both id members is refused at the canonical member")
+    void bothIdMembersRefused() {
+        var document = ProfileFixtures.valid().set("/client_id", "acme-cli").bytes();
+
+        var refusal = assertThrows(ProfileRefusal.class,
+                () -> ProfileValidator.validate(document, DOCUMENT, ProfileRules.none()),
+                "both id members are refused");
+
+        assertEquals("/harness_id", refusal.pointer(), "the refusal names the canonical member");
     }
 
     @Test

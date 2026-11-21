@@ -239,7 +239,7 @@ class ProfileWorkerEligibilityTest {
                 () -> assertEquals(EligibilityRefusal.Reason.STAGE_FAILED, refusal.reason(),
                         "the failed stage is the reason"),
                 () -> assertEquals("faults", refusal.stage(), "the refusal names the stage that failed"),
-                () -> assertEquals(CLIENT, refusal.clientId(), "the refusal names the profile"));
+                () -> assertEquals(CLIENT, refusal.harnessId(), "the refusal names the profile"));
     }
 
     @Test
@@ -366,7 +366,7 @@ class ProfileWorkerEligibilityTest {
         assertAll(
                 () -> assertTrue(eligible.admits("implementer", CLIENT), "an eligible verdict admits the start"),
                 () -> assertFalse(refused.admits("implementer", CLIENT), "a refused verdict blocks the start"),
-                () -> assertEquals(CLIENT, eligible.profile().clientId(), "the gate keeps the profile it guards"));
+                () -> assertEquals(CLIENT, eligible.profile().harnessId(), "the gate keeps the profile it guards"));
     }
 
     private static EligibilityRefusal refusalOf(LoadedProfile profile) {

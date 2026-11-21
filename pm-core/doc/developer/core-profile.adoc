@@ -39,24 +39,26 @@ link:{spec}/harness-profiles/01-profile-schema.adoc#profile-hardening[§ A Profi
 |Set |Where |What binds it
 
 |Shipped
-|`classpath:/profiles/<client_id>.json`, a resource of `pm-api`
+|`classpath:/profiles/<harness_id>.json`, a resource of `pm-api`
 |The release. The build test validates every shipped document.
 
 |Machine
-|`<PM_MCP_BASE>/profiles/<client_id>.json`
-|Its verification record and its `<client_id>.json.hmac` sidecar.
+|`<PM_MCP_BASE>/profiles/<harness_id>.json`
+|Its verification record and its `<harness_id>.json.hmac` sidecar.
 
 |Project
-|`<PM_MCP_BASE>/projects/<project_id>/profiles/<client_id>.json`
+|`<PM_MCP_BASE>/projects/<project_id>/profiles/<harness_id>.json`
 |The same, plus equality of `detection`, `identity` and `headless.executable` with the machine or shipped document.
 |===
 
-The validator reads the id member of a profile as `client_id`, and the file names above use that value. The schema file
+The validator reads the id member of a profile as `harness_id`, which the file names above use. A document written
+before the rename carries the same value under `client_id`; the validator reads it where `harness_id` is absent, refuses
+a document that carries both, and the schema file
 `harness-profile-v1.schema.json` and the specification name the member `harness_id`; `HarnessProfileSchemaParityTest`
 pins that difference (`ID_MEMBER` against `READER_ID_MEMBER`).
 
-The nearest set wins *as a whole document*, never merged. A project profile only exists for a client id the machine or
-shipped set defines; a machine profile of a client id the release does not ship adds a harness.
+The nearest set wins *as a whole document*, never merged. A project profile only exists for a harness id the machine or
+shipped set defines; a machine profile of a harness id the release does not ship adds a harness.
 
 == Main Types
 
@@ -160,7 +162,7 @@ profile only if no effective profile already uses its `detection.precedence`. A 
 when all of the following hold:
 
 . its `profile_digest` equals `CanonicalJson.digest` of the document;
-. its `<client_id>.json.hmac` sidecar is an `EnrolmentSidecar` over the exact bytes and its HMAC verifies with the key of
+. its `<harness_id>.json.hmac` sidecar is an `EnrolmentSidecar` over the exact bytes and its HMAC verifies with the key of
   the enrolment store;
 . the record names the enrolled harness executable;
 . the enrolled version and executable digest are those of the record, or the enrolled version lies in
@@ -336,7 +338,7 @@ enrolled-harness binding, told apart by `profile_kind: "endpoint"` (Harness Prof
 § Endpoint Profile Schema).
 
 `ProfileValidator` reads `profile_kind` before anything else. `endpoint` selects a closed document of its own members —
-`profile_kind`, `schema_version`, `client_id`, `display_name`, `min_daemon_version`, `icon`, `executable`, `identity`,
+`profile_kind`, `schema_version`, `harness_id`, `display_name`, `min_daemon_version`, `icon`, `executable`, `identity`,
 `update_evidence`, `endpoint`, `model_tiers` and `weights_probe` — and none of the harness profile's blocks: no `tools`,
 `skill_loading`, `headless`, `connection`, `detection` or `worker` (link:../adr/core-profile/010-endpoint-profile-is-a-kind-of-the-profile-sets.adoc[ADR
 010]). Any other `profile_kind` value is an undeclared member of the harness profile. The hardening rules that a client

@@ -32,7 +32,7 @@ import org.jspecify.annotations.Nullable;
  * as they are recorded; the stage {@code usage} compares them with the parsed figures.
  *
  * @param formatVersion   the format version of the record
- * @param clientId        the client id of the verified profile
+ * @param harnessId        the harness id of the verified profile
  * @param profileDigest   the canonical-JSON digest the profile had when it was verified
  * @param verifiedAt      when the verification ran
  * @param tool            the build of the tool whose stages measured the profile
@@ -42,7 +42,7 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 @Builder
-public record VerificationRecord(int formatVersion, String clientId, String profileDigest, Instant verifiedAt,
+public record VerificationRecord(int formatVersion, String harnessId, String profileDigest, Instant verifiedAt,
 Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
 
     /** The one format version of a verification record. */
@@ -54,7 +54,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
 
     /**
      * @param formatVersion the format version
-     * @param clientId      the client id
+     * @param harnessId      the harness id
      * @param profileDigest the canonical digest
      * @param verifiedAt    the verification instant
      * @param harness       the harness build
@@ -173,8 +173,9 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
         }
 
         private VerificationRecord read(JsonNode root) {
-            object(root, "", "record", Set.of("format_version", "client_id", "profile_schema_version", "profile_digest",
-                    "verified_at", "tool", "harness", "platform", "stages", "values"));
+            var members = Set.of("format_version", "profile_schema_version", "profile_digest", "verified_at", "tool",
+                    "harness", "platform", "stages", "values");
+            object(root, "", "record", members, withIdentifier(members));
             var format = integer(root, "/format_version", "format_version");
             if (format != FORMAT_VERSION) {
                 throw ProfileRefusal.recordInvalid(document, "/format_version",
@@ -185,9 +186,8 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                 throw ProfileRefusal.recordInvalid(document, "/profile_schema_version",
                         "the profile schema version is %d".formatted(ProfileValidator.SCHEMA_VERSION));
             }
-            var clientId = string(root, "/client_id", "client_id");
-            var digest = string(root, "/profile_digest", "profile_digest");
-            if (!digest.matches("sha256:[0-9a-f]{64}")) {
+            var harnessId = identifier(root);
+            var digest = string(root, "/profile_digest", "profile_digest");            if (!digest.matches("sha256:[0-9a-f]{64}")) {
                 throw ProfileRefusal.recordInvalid(document, "/profile_digest", "not a sha256: digest");
             }
             var verifiedAt = instant(root, "/verified_at");
@@ -196,11 +196,41 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             var platform = platform(required(root, "/platform"));
             var stages = stages(required(root, "/stages"), harness.models());
             values(required(root, "/values"));
-            return new VerificationRecord((int) format, clientId, digest, verifiedAt, tool, harness, platform, stages);
+            return new VerificationRecord((int) format, harnessId, digest, verifiedAt, tool, harness, platform, stages);
         }
 
-        private Tool tool(JsonNode tool) {
-            object(tool, "/tool", "tool", Set.of(NAME_VERSION, "commit"));
+        /** The member the harness id carried before the rename; read where {@code harness_id} is absent, never written. */
+        private static final String NAME_CLIENT_ID = "client_id";
+
+        private static final String NAME_HARNESS_ID = "harness_id";
+
+        /**
+         * @param required the members a record must carry
+         * @return the members it may carry: those, plus the harness id under either spelling
+         */
+        private static Set<String> withIdentifier(Set<String> required) {
+            var allowed = new java.util.HashSet<>(required);
+            allowed.add(NAME_HARNESS_ID);
+            allowed.add(NAME_CLIENT_ID);
+            return Set.copyOf(allowed);
+        }
+
+        /**
+         * @param root the record's root
+         * @return the harness id under the new spelling, or the {@code client_id} of a record written before the rename
+         */
+        private String identifier(JsonNode root) {
+            var declared = root.member(NAME_HARNESS_ID).isPresent();
+            var former = root.member(NAME_CLIENT_ID).isPresent();
+            if (declared && former) {
+                throw ProfileRefusal.recordInvalid(document, "/harness_id",
+                        "'harness_id' and its former name 'client_id' are never both declared");
+            }
+            return declared ? string(root, "/harness_id", NAME_HARNESS_ID)
+                    : string(root, "/client_id", NAME_CLIENT_ID);
+        }
+
+        private Tool tool(JsonNode tool) {            object(tool, "/tool", "tool", Set.of(NAME_VERSION, "commit"));
             var version = string(tool, "/tool/version", NAME_VERSION);
             var commit = string(tool, "/tool/commit", "commit");
             return new Tool(version, commit);

@@ -76,17 +76,17 @@ public final class EndpointHarness {
                     ? "the program on the port is '%s', the enrolled executable is '%s'"
                     .formatted(lookup.executablePath(), enrolled.executablePath())
                     : lookup.detail();
-            LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, profile.clientId(),
+            LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, profile.harnessId(),
                     LaunchRefusal.HARNESS_NOT_ENROLLED.code(), detail,
-                    LaunchRefusal.HARNESS_NOT_ENROLLED.resolvingAct(profile.clientId()));
+                    LaunchRefusal.HARNESS_NOT_ENROLLED.resolvingAct(profile.harnessId()));
             return EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, detail);
         }
         var digest = executableDigest(lookup.executablePath());
         if (digest.isEmpty() || !digest.get().equals(enrolled.sha256())) {
             var detail = "the program on the port is not the build the enrolment recorded";
-            LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, profile.clientId(),
+            LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, profile.harnessId(),
                     LaunchRefusal.HARNESS_NOT_ENROLLED.code(), detail,
-                    LaunchRefusal.HARNESS_NOT_ENROLLED.resolvingAct(profile.clientId()));
+                    LaunchRefusal.HARNESS_NOT_ENROLLED.resolvingAct(profile.harnessId()));
             return EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, detail);
         }
         var answer = EndpointOutcome.accept(client.post(profile, EndpointClient.CHAT_PATH, request.body()), schema);
@@ -113,7 +113,7 @@ public final class EndpointHarness {
     public boolean ready(EndpointProfile profile) {
         var response = client.get(profile, profile.endpoint().readinessOrModelsPath());
         if (!response.successful()) {
-            LOGGER.warn(RuntimeLogMessages.WARN.ENDPOINT_NOT_READY, profile.clientId(),
+            LOGGER.warn(RuntimeLogMessages.WARN.ENDPOINT_NOT_READY, profile.harnessId(),
                     profile.endpoint().readinessOrModelsPath());
             return false;
         }

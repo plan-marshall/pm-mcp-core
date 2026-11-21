@@ -147,7 +147,7 @@ class EndpointEnrolmentTest {
     @DisplayName("a profile without a weights probe is left as it is")
     void withoutProbe() {
         var base = EndpointFixtures.profile();
-        var withoutProbe = new EndpointProfile(base.clientId(), base.executable(), base.identity(),
+        var withoutProbe = new EndpointProfile(base.harnessId(), base.executable(), base.identity(),
                 base.updateEvidence(), base.endpoint(), base.modelTiers(), null);
 
         var refreshed = enrolment().refresh(withoutProbe, recorded(Map.of("mid", oldWeights)), listing());

@@ -31,14 +31,14 @@ import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.StoreRefusal;
 
 /**
- * Loads the effective client profile set of a machine and a project (PM-CLIENT-5, Profile Sets).
+ * Loads the effective harness profile set of a machine and a project (PM-CLIENT-5, Profile Sets).
  * <p>
  * The loader reads the whole documents of the three sets and validates each against the schema of its kind — the client
  * profile schema, or the endpoint profile schema of a document whose {@code profile_kind} is {@code endpoint} — and the
  * hardening rules. The nearest set wins as a whole document and is never merged with another: a project profile of a
- * client id the machine or the shipped set defines replaces that document, a machine profile replaces the shipped one,
- * and a machine profile of a client id the release does not ship adds a harness. The loader names no harness; the
- * client ids and every value of a profile are data.
+ * harness id the machine or the shipped set defines replaces that document, a machine profile replaces the shipped one,
+ * and a machine profile of a harness id the release does not ship adds a harness. The loader names no harness; the
+ * harness ids and every value of a profile are data.
  * <p>
  * A machine or project profile counts only with its verification record: the {@code profile_digest} must be the
  * SHA-256 of the canonical JSON of the document, and the {@code <client_id>.json.hmac} sidecar must verify with the key
@@ -61,7 +61,7 @@ public final class ProfileLoader {
     private static final String SUFFIX = ".json";
     private static final String HMAC = ".hmac";
     private static final String HMAC_ALGORITHM = "HmacSHA256";
-    /** How a profile document is named in a refusal: its directory, its client id and its suffix. */
+    /** How a profile document is named in a refusal: its directory, its harness id and its suffix. */
     private static final String PROFILE_NAME = "%s/%s%s";
 
     private final SecretKey key;
@@ -71,7 +71,7 @@ public final class ProfileLoader {
     /**
      * @param key      the key of the enrolment store, which the HMAC sidecar of a machine or project profile is
      *                 verified with
-     * @param enrolled the enrolled harness build by client id
+     * @param enrolled the enrolled harness build by harness id
      * @param rules    the bundle-managed paths and harness homes of this installation
      */
     public ProfileLoader(SecretKey key, Map<String, EnrolledHarness> enrolled, ProfileRules rules) {
@@ -108,68 +108,68 @@ public final class ProfileLoader {
     private void readShipped(ProfileSets sets, Map<String, LoadedProfile> effective,
             List<ProfileSet.RefusedProfile> refused) {
         for (var entry : sets.shipped().entrySet()) {
-            var clientId = entry.getKey();
+            var harnessId = entry.getKey();
             try {
-                var name = PROFILE_NAME.formatted(PROFILES, clientId, SUFFIX);
+                var name = PROFILE_NAME.formatted(PROFILES, harnessId, SUFFIX);
                 var profile = ProfileValidator.validate(entry.getValue().document(), name, rules);
-                requireClientId(profile, clientId, name);
-                place(LoadedProfile.builder().clientId(clientId).kind(ProfileSetKind.SHIPPED).document(profile)
+                requireHarnessId(profile, harnessId, name);
+                place(LoadedProfile.builder().harnessId(harnessId).kind(ProfileSetKind.SHIPPED).document(profile)
                                 .bytes(entry.getValue().document()).state(LoadedProfile.State.VERIFIED).build(), effective,
                         refused);
             } catch (ProfileRefusal refusal) {
-                refused.add(new ProfileSet.RefusedProfile(clientId, ProfileSetKind.SHIPPED, refusal));
+                refused.add(new ProfileSet.RefusedProfile(harnessId, ProfileSetKind.SHIPPED, refusal));
             }
         }
     }
 
     private void readDirectory(Path directory, ProfileSetKind kind, Map<String, LoadedProfile> effective,
             List<ProfileSet.RefusedProfile> refused) {
-        for (var clientId : clientIds(directory)) {
+        for (var harnessId : harnessIds(directory)) {
             try {
-                var profile = readVerified(directory, clientId, kind);
+                var profile = readVerified(directory, harnessId, kind);
                 place(profile, effective, refused);
             } catch (ProfileRefusal refusal) {
-                refused.add(new ProfileSet.RefusedProfile(clientId, kind, refusal));
+                refused.add(new ProfileSet.RefusedProfile(harnessId, kind, refusal));
             }
         }
     }
 
     private void readProject(Path directory, Map<String, LoadedProfile> effective,
             List<ProfileSet.RefusedProfile> refused) {
-        for (var clientId : clientIds(directory)) {
+        for (var harnessId : harnessIds(directory)) {
             try {
-                var base = effective.get(clientId);
+                var base = effective.get(harnessId);
                 if (base == null) {
-                    throw ProfileRefusal.invalid(PROFILE_NAME.formatted(PROFILES, clientId, SUFFIX), "/client_id",
-                            "a project profile exists only for a client id the machine or shipped set defines");
+                    throw ProfileRefusal.invalid(PROFILE_NAME.formatted(PROFILES, harnessId, SUFFIX), "/harness_id",
+                            "a project profile exists only for a harness id the machine or shipped set defines");
                 }
-                var profile = readVerified(directory, clientId, ProfileSetKind.PROJECT);
+                var profile = readVerified(directory, harnessId, ProfileSetKind.PROJECT);
                 sameAsBase(profile, base);
                 place(profile, effective, refused);
             } catch (ProfileRefusal refusal) {
-                refused.add(new ProfileSet.RefusedProfile(clientId, ProfileSetKind.PROJECT, refusal));
+                refused.add(new ProfileSet.RefusedProfile(harnessId, ProfileSetKind.PROJECT, refusal));
             }
         }
     }
 
     /** Reads one profile of a machine or project set and binds it to its record, its sidecar and the enrolled build. */
-    private LoadedProfile readVerified(Path directory, String clientId, ProfileSetKind kind) {
-        var document = read(directory.resolve(clientId + SUFFIX));
-        var name = PROFILE_NAME.formatted(kind.wireName(), clientId, SUFFIX);
+    private LoadedProfile readVerified(Path directory, String harnessId, ProfileSetKind kind) {
+        var document = read(directory.resolve(harnessId + SUFFIX));
+        var name = PROFILE_NAME.formatted(kind.wireName(), harnessId, SUFFIX);
         var profile = ProfileValidator.validate(document, name, rules);
-        requireClientId(profile, clientId, name);
-        var verification = verificationRecord(directory, clientId, name);
-        if (!clientId.equals(verification.clientId())) {
-            throw ProfileRefusal.unverified(name, "the record names the client '%s'".formatted(verification.clientId()));
+        requireHarnessId(profile, harnessId, name);
+        var verification = verificationRecord(directory, harnessId, name);
+        if (!harnessId.equals(verification.harnessId())) {
+            throw ProfileRefusal.unverified(name, "the record names the client '%s'".formatted(verification.harnessId()));
         }
         if (!CanonicalJson.digest(profile).equals(verification.profileDigest())) {
             throw ProfileRefusal.unverified(name,
                     "the record's profile_digest is not the digest of the document");
         }
-        verifySidecar(directory.resolve(clientId + SUFFIX + HMAC), name, document);
-        var build = enrolled.get(clientId);
+        verifySidecar(directory.resolve(harnessId + SUFFIX + HMAC), name, document);
+        var build = enrolled.get(harnessId);
         if (build == null) {
-            throw ProfileRefusal.unverified(name, "the harness '%s' is not enrolled".formatted(clientId));
+            throw ProfileRefusal.unverified(name, "the harness '%s' is not enrolled".formatted(harnessId));
         }
         if (!verification.harness().executable().equals(build.executable())) {
             throw ProfileRefusal.unverified(name,
@@ -182,7 +182,7 @@ public final class ProfileLoader {
             if (ProfileValidator.isEndpoint(profile)) {
                 // An endpoint profile declares no supported_versions range: another build of the serving program cannot
                 // be judged against one, so the record keeps its state and launches go on.
-                return LoadedProfile.builder().clientId(clientId).kind(kind).document(profile).bytes(document)
+                return LoadedProfile.builder().harnessId(harnessId).kind(kind).document(profile).bytes(document)
                         .state(LoadedProfile.State.VERIFIED_ON_OTHER_BUILD).verificationRecord(verification).build();
             }
             var supported = profile.member("headless")
@@ -198,12 +198,12 @@ public final class ProfileLoader {
             }
             state = LoadedProfile.State.VERIFIED_ON_OTHER_BUILD;
         }
-        return LoadedProfile.builder().clientId(clientId).kind(kind).document(profile).bytes(document).state(state)
+        return LoadedProfile.builder().harnessId(harnessId).kind(kind).document(profile).bytes(document).state(state)
                 .verificationRecord(verification).build();
     }
 
-    private VerificationRecord verificationRecord(Path directory, String clientId, String name) {
-        var file = directory.resolve(VERIFICATION).resolve(clientId + SUFFIX);
+    private VerificationRecord verificationRecord(Path directory, String harnessId, String name) {
+        var file = directory.resolve(VERIFICATION).resolve(harnessId + SUFFIX);
         if (!Files.isRegularFile(file)) {
             throw ProfileRefusal.unverified(name, "no verification record at '%s'".formatted(file));
         }
@@ -245,11 +245,11 @@ public final class ProfileLoader {
         }
     }
 
-    private void requireClientId(JsonNode profile, String clientId, String name) {
-        var declared = ProfileValidator.clientId(profile);
-        if (!declared.equals(clientId)) {
-            throw ProfileRefusal.invalid(name, "/client_id",
-                    "the document declares '%s', its file name is '%s'".formatted(declared, clientId));
+    private void requireHarnessId(JsonNode profile, String harnessId, String name) {
+        var declared = ProfileValidator.harnessId(profile);
+        if (!declared.equals(harnessId)) {
+            throw ProfileRefusal.invalid(name, "/harness_id",
+                    "the document declares '%s', its file name is '%s'".formatted(declared, harnessId));
         }
     }
 
@@ -262,7 +262,7 @@ public final class ProfileLoader {
             var projectValue = value(project.document(), pointer);
             var baseValue = value(base.document(), pointer);
             if (!CanonicalJson.write(projectValue).equals(CanonicalJson.write(baseValue))) {
-                throw ProfileRefusal.invalid(project.clientId() + SUFFIX, pointer,
+                throw ProfileRefusal.invalid(project.harnessId() + SUFFIX, pointer,
                         "a project profile has the %s of the machine or shipped profile".formatted(pointer));
             }
         }
@@ -296,17 +296,17 @@ public final class ProfileLoader {
             List<ProfileSet.RefusedProfile> refused) {
         var precedence = precedence(profile);
         for (var current : effective.values()) {
-            if (current.clientId().equals(profile.clientId())) {
+            if (current.harnessId().equals(profile.harnessId())) {
                 continue;
             }
             if (precedence.isPresent() && precedence(current).filter(precedence.get()::equals).isPresent()) {
-                refused.add(new ProfileSet.RefusedProfile(profile.clientId(), profile.kind(),
-                        ProfileRefusal.invalid(profile.clientId() + SUFFIX, "/detection/precedence",
-                                "the precedence %d is used by '%s'".formatted(precedence.get(), current.clientId()))));
+                refused.add(new ProfileSet.RefusedProfile(profile.harnessId(), profile.kind(),
+                        ProfileRefusal.invalid(profile.harnessId() + SUFFIX, "/detection/precedence",
+                                "the precedence %d is used by '%s'".formatted(precedence.get(), current.harnessId()))));
                 return;
             }
         }
-        effective.put(profile.clientId(), profile);
+        effective.put(profile.harnessId(), profile);
     }
 
     private static Optional<Long> precedence(LoadedProfile profile) {
@@ -320,7 +320,7 @@ public final class ProfileLoader {
         return value.isPresent() ? Optional.of(value.getAsLong()) : Optional.empty();
     }
 
-    private static List<String> clientIds(@Nullable Path directory) {
+    private static List<String> harnessIds(@Nullable Path directory) {
         if (directory == null || !Files.isDirectory(directory)) {
             return List.of();
         }

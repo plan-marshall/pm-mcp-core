@@ -52,7 +52,7 @@ class HarnessProfileTest {
                 """));
 
         assertAll(
-                () -> assertEquals("acme-cli", profile.clientId(), "client id is projected"),
+                () -> assertEquals("acme-cli", profile.harnessId(), "client id is projected"),
                 () -> assertTrue(profile.eligible(), "worker is marked eligible"),
                 () -> assertTrue(profile.restrictedModelsDeclared(), "restricted models are declared"),
                 () -> assertTrue(profile.allowsRestrictedModel("other-model"),

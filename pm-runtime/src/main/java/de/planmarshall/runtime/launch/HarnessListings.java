@@ -53,16 +53,16 @@ public class HarnessListings {
     public static HarnessList of(HarnessScan scan, Map<String, HarnessEnrolment> enrolments, boolean storeUnreadable) {
         var recorded = new LinkedHashMap<HarnessList.Key, HarnessUsageCoverage>();
         enrolments.values().forEach(enrolment -> recorded.put(
-                new HarnessList.Key(enrolment.clientId(), enrolment.version()),
+                new HarnessList.Key(enrolment.harnessId(), enrolment.version()),
                 coverage(enrolment.usageReport())));
         var list = HarnessList.of(scan, recorded, storeUnreadable);
         var missing = enrolments.values().stream()
-                .filter(enrolment -> !foundInScan(scan, enrolment.clientId()))
+                .filter(enrolment -> !foundInScan(scan, enrolment.harnessId()))
                 .toList();
         if (missing.isEmpty()) {
             return list;
         }
-        var replaced = missing.stream().map(HarnessEnrolment::clientId).collect(Collectors.toSet());
+        var replaced = missing.stream().map(HarnessEnrolment::harnessId).collect(Collectors.toSet());
         var entries = list.entries().stream().filter(entry -> !replaced.contains(entry.harnessId()))
                 .collect(Collectors.toCollection(ArrayList::new));
         missing.forEach(enrolment -> entries.add(missingRow(scan, enrolment, storeUnreadable)));
@@ -90,7 +90,7 @@ public class HarnessListings {
      */
     private static HarnessListEntry missingRow(HarnessScan scan, HarnessEnrolment enrolment, boolean storeUnreadable) {
         return HarnessListEntry.builder()
-                .harnessId(enrolment.clientId())
+                .harnessId(enrolment.harnessId())
                 .displayName(displayNameOf(scan, enrolment))
                 .version(enrolment.version())
                 .executablePath(enrolment.executablePath().toString())
@@ -104,10 +104,10 @@ public class HarnessListings {
 
     private static String displayNameOf(HarnessScan scan, HarnessEnrolment enrolment) {
         return scan.candidates().stream()
-                .filter(candidate -> candidate.harnessId().equals(enrolment.clientId()))
+                .filter(candidate -> candidate.harnessId().equals(enrolment.harnessId()))
                 .map(HarnessCandidate::displayName)
                 .findFirst()
-                .orElse(enrolment.clientId());
+                .orElse(enrolment.harnessId());
     }
 
     /**

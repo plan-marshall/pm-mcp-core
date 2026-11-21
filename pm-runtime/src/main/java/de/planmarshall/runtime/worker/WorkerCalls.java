@@ -107,9 +107,9 @@ public interface WorkerCalls {
     /**
      * A harness was enrolled anew, which clears its start-failure guard.
      *
-     * @param clientId the client id of the harness
+     * @param harnessId the harness id of the harness
      */
-    void harnessEnrolled(String clientId);
+    void harnessEnrolled(String harnessId);
 
     /**
      * The answer to an opened wait.

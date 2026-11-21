@@ -256,11 +256,11 @@ public final class SupervisorCalls implements WorkerCalls {
     }
 
     @Override
-    public synchronized void harnessEnrolled(String clientId) {
-        Objects.requireNonNull(clientId, "clientId");
+    public synchronized void harnessEnrolled(String harnessId) {
+        Objects.requireNonNull(harnessId, "harnessId");
         var guard = supervisor.environment().startGuard();
-        for (var role : rolesOf(clientId)) {
-            guard.clear(role, clientId);
+        for (var role : rolesOf(harnessId)) {
+            guard.clear(role, harnessId);
         }
     }
 
@@ -370,10 +370,10 @@ public final class SupervisorCalls implements WorkerCalls {
         return supervisor.generation(generationId).filter(generation -> !generation.terminal());
     }
 
-    private List<String> rolesOf(String clientId) {
+    private List<String> rolesOf(String harnessId) {
         var roles = new LinkedHashSet<String>();
         for (var generation : supervisor.generations()) {
-            if (generation.harness().equals(clientId)) {
+            if (generation.harness().equals(harnessId)) {
                 roles.add(generation.role());
             }
         }

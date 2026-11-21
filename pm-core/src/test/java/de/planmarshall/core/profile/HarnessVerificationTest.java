@@ -48,9 +48,9 @@ class HarnessVerificationTest {
     void yesWithTokensAdmitsTheValidatedDraft() {
         var request = request(ConsentGate.Answer.YES, STAGES, tokens());
         var profile = HarnessVerification.admit(request);
-        var clientId = ProfileValidator.clientId(profile);
+        var harnessId = ProfileValidator.harnessId(profile);
 
-        assertEquals("acme-cli", clientId, "The admitted draft is the validated one");
+        assertEquals("acme-cli", harnessId, "The admitted draft is the validated one");
     }
 
     @Test

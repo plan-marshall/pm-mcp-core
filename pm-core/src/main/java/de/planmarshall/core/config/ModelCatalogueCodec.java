@@ -125,7 +125,7 @@ public class ModelCatalogueCodec {
             generator.writeNumberField(FIELD_REVISION, revision);
             generator.writeObjectFieldStart(FIELD_HARNESSES);
             for (var entry : harnesses.entrySet()) {
-                requireClientId(entry.getKey());
+                requireHarnessId(entry.getKey());
                 generator.writeObjectFieldStart(entry.getKey());
                 generator.writeArrayFieldStart(FIELD_MODELS);
                 for (var model : entry.getValue()) {
@@ -179,7 +179,7 @@ public class ModelCatalogueCodec {
 
     private static List<CatalogueModel> models(JsonParser parser, String harness) throws IOException {
         try {
-            requireClientId(harness);
+            requireHarnessId(harness);
         } catch (IllegalArgumentException e) {
             throw unreadable("not a client id of an enrolled harness: " + harness, e);
         }
@@ -226,7 +226,7 @@ public class ModelCatalogueCodec {
         return ModelSource.of(wireName).orElseThrow(() -> unreadable("not a model source: " + wireName));
     }
 
-    static void requireClientId(String harness) {
+    static void requireHarnessId(String harness) {
         if (!HarnessId.matches(harness)) {
             throw new IllegalArgumentException("Not a client id of an enrolled harness: " + harness);
         }

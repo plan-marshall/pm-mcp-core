@@ -27,10 +27,10 @@ import org.jspecify.annotations.Nullable;
  *
  * @param reason   why the claim was refused
  * @param stage    the stage that decided the refusal; {@code null} when no single stage is to blame
- * @param clientId the client id of the profile the record belongs to
+ * @param harnessId the harness id of the profile the record belongs to
  * @since 0.1
  */
-public record EligibilityRefusal(Reason reason, @Nullable String stage, String clientId) {
+public record EligibilityRefusal(Reason reason, @Nullable String stage, String harnessId) {
 
     /** The closed reasons a claim is refused. */
     public enum Reason {
@@ -75,10 +75,10 @@ public record EligibilityRefusal(Reason reason, @Nullable String stage, String c
     }
 
     /**
-     * @throws NullPointerException if the reason or the client id is {@code null}
+     * @throws NullPointerException if the reason or the harness id is {@code null}
      */
     public EligibilityRefusal {
         Objects.requireNonNull(reason, "reason");
-        Objects.requireNonNull(clientId, "clientId");
+        Objects.requireNonNull(harnessId, "harnessId");
     }
 }

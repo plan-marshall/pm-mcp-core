@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
  * {@link ProfileValidator} has accepted, so it never re-states a rule; a document that is not an endpoint profile is
  * refused with {@link IllegalArgumentException}, because the caller selected the wrong kind.
  *
- * @param clientId       the client id, in the namespace of the client profiles
+ * @param harnessId       the client id, in the namespace of the client profiles
  * @param executable     the bare name of the serving program
  * @param identity       the version probe of the serving program
  * @param updateEvidence the evidence a changed program must pass; {@code null} when the profile declares none
@@ -37,7 +37,7 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 @Builder
-public record EndpointProfile(String clientId, String executable, Identity identity,
+public record EndpointProfile(String harnessId, String executable, Identity identity,
 @Nullable UpdateEvidence updateEvidence, Endpoint endpoint, Map<String, String> modelTiers,
 @Nullable WeightsProbe weightsProbe) {
 
@@ -46,7 +46,7 @@ public record EndpointProfile(String clientId, String executable, Identity ident
 
     /** Copies the tiers. */
     public EndpointProfile {
-        Objects.requireNonNull(clientId, "clientId");
+        Objects.requireNonNull(harnessId, "harnessId");
         Objects.requireNonNull(executable, "executable");
         Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(endpoint, "endpoint");
@@ -162,7 +162,7 @@ public record EndpointProfile(String clientId, String executable, Identity ident
             throw new IllegalArgumentException("Not an endpoint profile");
         }
         var block = profile.member("endpoint").orElseThrow();
-        return new EndpointProfile(ProfileValidator.clientId(profile),
+        return new EndpointProfile(ProfileValidator.harnessId(profile),
                 member(profile, "executable").orElseThrow(),
                 identity(profile).orElseThrow(),
                 updateEvidence(profile).orElse(null),

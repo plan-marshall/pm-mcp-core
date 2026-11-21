@@ -158,7 +158,7 @@ public final class ModelCatalogueStore {
         Objects.requireNonNull(enrolledHarnesses, "enrolledHarnesses");
         var kept = new LinkedHashMap<String, List<CatalogueModel>>();
         harnesses.forEach((harness, models) -> {
-            ModelCatalogueCodec.requireClientId(harness);
+            ModelCatalogueCodec.requireHarnessId(harness);
             if (enrolledHarnesses.contains(harness)) {
                 kept.put(harness, List.copyOf(models));
             }

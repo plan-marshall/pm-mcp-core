@@ -82,7 +82,7 @@ see the same free slot.
 The outcome of the launch-time verification, `Accepted` or `Refused`. It shares its simple name with
 `de.planmarshall.core.profile.HarnessVerification`, the admission precondition of a verification of an unknown harness;
 `WorkerSupervisor` imports this package's type. The collision is recorded and deliberately not renamed: the rename
-package renames `clientId` and `client_id` only and names neither class.
+package renamed the harness identifier and the fields that carry it, and named neither class.
 
 == How the parts work together
 

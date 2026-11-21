@@ -104,13 +104,32 @@ class VerificationRecordTest {
     }
 
     @Test
-    @DisplayName("a start context entry whose tokens are neither an integer nor unmeasured is refused")
-    void unknownTokensRefused() {
-        var bytes = RECORD.replace("\"tokens\": " + TOKENS, "\"tokens\": \"measured\"").getBytes(UTF_8);
+    @DisplayName("a record with the old client_id member is read as before")
+    void legacyClientIdIsRead() {
+        var parsed = VerificationRecord.read(RECORD.getBytes(UTF_8), "record");
+
+        assertEquals("acme-cli", parsed.harnessId(), "The old member is read as the harness id");
+    }
+
+    @Test
+    @DisplayName("a record with the new harness_id member is read")
+    void harnessIdIsRead() {
+        var bytes = RECORD.replace("\"client_id\"", "\"harness_id\"").getBytes(UTF_8);
+
+        var parsed = VerificationRecord.read(bytes, "record");
+
+        assertEquals("acme-cli", parsed.harnessId(), "The new member is read as the harness id");
+    }
+
+    @Test
+    @DisplayName("a record that carries both id members is refused")
+    void bothIdMembersRefused() {
+        var bytes = RECORD.replace("\"client_id\": \"acme-cli\",",
+                "\"harness_id\": \"acme-cli\", \"client_id\": \"acme-cli\",").getBytes(UTF_8);
 
         var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"),
-                "unknown token value is refused");
+                "both id members are refused");
 
-        assertEquals("/stages/usage/start_context/0/tokens", refusal.pointer(), "refusal points at tokens");
+        assertEquals("/harness_id", refusal.pointer(), "the refusal names the canonical member");
     }
 }

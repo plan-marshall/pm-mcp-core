@@ -113,7 +113,7 @@ public final class EndpointEnrolment {
         var updated = enrolled.withWeights(weights, clock.instant());
         var written = writer.enrol(updated);
         changed.forEach((model, oldIdentity) -> audit.append(
-                AuditEvent.harnessWeightsUpdated(enrolled.clientId(), model, oldIdentity, weights.get(model).weightsId())));
+                AuditEvent.harnessWeightsUpdated(enrolled.harnessId(), model, oldIdentity, weights.get(model).weightsId())));
         return Refreshed.builder()
                 .enrolment(written)
                 .changedModels(List.copyOf(changed.keySet()))

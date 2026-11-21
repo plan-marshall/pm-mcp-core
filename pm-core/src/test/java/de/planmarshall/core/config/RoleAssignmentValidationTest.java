@@ -74,8 +74,8 @@ class RoleAssignmentValidationTest {
         return profile(HARNESS);
     }
 
-    private static HarnessProfile profile(String clientId) {
-        return new HarnessProfile(clientId, true, false, Set.of(), Map.of(RoleClass.WRITER,
+    private static HarnessProfile profile(String harnessId) {
+        return new HarnessProfile(harnessId, true, false, Set.of(), Map.of(RoleClass.WRITER,
                         HarnessProfile.ToolSet.ENFORCED, RoleClass.READ_ONLY, HarnessProfile.ToolSet.ADVISORY),
                 Map.of(MODEL, List.of("low", "medium", "high")), Map.of("standard", MODEL), BUDGET_FLOOR, null,
                 new HarnessProfile.Resumability(false, null, false, null), "ask_user");
@@ -92,14 +92,14 @@ class RoleAssignmentValidationTest {
     private static Function<String, Optional<HarnessProfile>> profiles(HarnessProfile... profiles) {
         var byId = new LinkedHashMap<String, HarnessProfile>();
         for (var profile : profiles) {
-            byId.put(profile.clientId(), profile);
+            byId.put(profile.harnessId(), profile);
         }
-        return clientId -> Optional.ofNullable(byId.get(clientId));
+        return harnessId -> Optional.ofNullable(byId.get(harnessId));
     }
 
-    private static Function<String, Optional<EnrolledHarness>> enrolments(String... clientIds) {
-        var ids = Set.of(clientIds);
-        return clientId -> ids.contains(clientId) ? Optional.of(enrolled()) : Optional.empty();
+    private static Function<String, Optional<EnrolledHarness>> enrolments(String... harnessIds) {
+        var ids = Set.of(harnessIds);
+        return harnessId -> ids.contains(harnessId) ? Optional.of(enrolled()) : Optional.empty();
     }
 
     private static void require(RoleAssignmentValue value, RoleArtifact artifact, HarnessProfile[] profileList,

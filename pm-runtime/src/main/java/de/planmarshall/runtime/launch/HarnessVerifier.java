@@ -81,86 +81,86 @@ public final class HarnessVerifier {
     }
 
     /**
-     * @param clientId the client id of the harness the role's effective configuration names
+     * @param harnessId the harness id of the harness the role's effective configuration names
      * @param block    the launch contract of the harness's profile
      * @return the enrolment of the verified build, or the refusal of the launch
      */
-    public HarnessVerification verify(String clientId, HeadlessBlock block) {
-        Objects.requireNonNull(clientId, "clientId");
+    public HarnessVerification verify(String harnessId, HeadlessBlock block) {
+        Objects.requireNonNull(harnessId, "harnessId");
         Objects.requireNonNull(block, "block");
         Optional<HarnessEnrolment> found;
         try {
-            found = store.find(clientId);
+            found = store.find(harnessId);
         } catch (HarnessEnrolmentStore.StoreException refusal) {
-            return storeRefused(clientId, refusal);
+            return storeRefused(harnessId, refusal);
         }
         if (found.isEmpty()) {
-            return refused(clientId, LaunchRefusal.HARNESS_NOT_ENROLLED,
-                    "the harness '%s' is not enrolled".formatted(clientId));
+            return refused(harnessId, LaunchRefusal.HARNESS_NOT_ENROLLED,
+                    "the harness '%s' is not enrolled".formatted(harnessId));
         }
         var enrolment = found.get();
         var current = digest.sha256(enrolment.executablePath());
         if (current.isEmpty()) {
-            return refused(clientId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
+            return refused(harnessId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
                     "the enrolled executable '%s' is absent or not a regular file"
                             .formatted(enrolment.executablePath()));
         }
         if (current.get().equals(enrolment.sha256())) {
             return new HarnessVerification.Accepted(enrolment);
         }
-        return selfUpdate(clientId, block, enrolment, current.get());
+        return selfUpdate(harnessId, block, enrolment, current.get());
     }
 
     /** The self-update path of a changed executable: the evidence, the version probe and the accepted rewrite. */
-    private HarnessVerification selfUpdate(String clientId, HeadlessBlock block, HarnessEnrolment enrolment,
+    private HarnessVerification selfUpdate(String harnessId, HeadlessBlock block, HarnessEnrolment enrolment,
             String current) {
         if (block.updateEvidence().method() == HeadlessBlock.EvidenceMethod.NONE
                 || !evidenceCheck.passes(block.updateEvidence(), enrolment.executablePath())) {
-            return refused(clientId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
-                    "the executable changed without the update evidence of the profile '%s'".formatted(clientId));
+            return refused(harnessId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
+                    "the executable changed without the update evidence of the profile '%s'".formatted(harnessId));
         }
         var probed = versionProbe.version(enrolment.executablePath(), block.versionProbeArgv(),
                 block.versionPattern());
         if (probed.isEmpty()) {
-            return refused(clientId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
+            return refused(harnessId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
                     "the changed executable reported no version inside its probe");
         }
         if (!block.supports(probed.get())) {
-            return refused(clientId, LaunchRefusal.HARNESS_VERSION_UNSUPPORTED,
-                    "the version '%s' lies outside the supported range of '%s'".formatted(probed.get(), clientId));
+            return refused(harnessId, LaunchRefusal.HARNESS_VERSION_UNSUPPORTED,
+                    "the version '%s' lies outside the supported range of '%s'".formatted(probed.get(), harnessId));
         }
         var recheck = digest.sha256(enrolment.executablePath());
         if (recheck.isEmpty() || !recheck.get().equals(current)) {
-            return refused(clientId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
+            return refused(harnessId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
                     "the executable changed again while its update was verified");
         }
         Optional<HarnessEnrolment> accepted;
         try {
-            accepted = store.acceptSelfUpdate(clientId, probed.get(), current, clock.instant());
+            accepted = store.acceptSelfUpdate(harnessId, probed.get(), current, clock.instant());
         } catch (HarnessEnrolmentStore.StoreException failure) {
-            return storeRefused(clientId, failure);
+            return storeRefused(harnessId, failure);
         }
         if (accepted.isEmpty()) {
-            return refused(clientId, LaunchRefusal.HARNESS_NOT_ENROLLED,
-                    "the harness '%s' was removed while its self-update was accepted".formatted(clientId));
+            return refused(harnessId, LaunchRefusal.HARNESS_NOT_ENROLLED,
+                    "the harness '%s' was removed while its self-update was accepted".formatted(harnessId));
         }
-        audit.append(AuditEvent.harnessUpdated(clientId, enrolment.version(), enrolment.sha256(), probed.get(), current));
-        LOGGER.info(RuntimeLogMessages.INFO.HARNESS_SELF_UPDATE_ACCEPTED, clientId, enrolment.version(), probed.get(),
+        audit.append(AuditEvent.harnessUpdated(harnessId, enrolment.version(), enrolment.sha256(), probed.get(), current));
+        LOGGER.info(RuntimeLogMessages.INFO.HARNESS_SELF_UPDATE_ACCEPTED, harnessId, enrolment.version(), probed.get(),
                 current);
         return new HarnessVerification.Accepted(accepted.get());
     }
 
-    private HarnessVerification storeRefused(String clientId, HarnessEnrolmentStore.StoreException refusal) {
+    private HarnessVerification storeRefused(String harnessId, HarnessEnrolmentStore.StoreException refusal) {
         if (refusal.refusal() == Refusal.TAMPERED || refusal.refusal() == Refusal.INSECURE) {
-            audit.append(AuditEvent.enrolmentTampered(clientId, refusal.getMessage()));
+            audit.append(AuditEvent.enrolmentTampered(harnessId, refusal.getMessage()));
         }
-        return refused(clientId, refusal.refusal() == Refusal.UNREADABLE ? LaunchRefusal.HARNESS_STORE_UNREADABLE
+        return refused(harnessId, refusal.refusal() == Refusal.UNREADABLE ? LaunchRefusal.HARNESS_STORE_UNREADABLE
                 : LaunchRefusal.HARNESS_TAMPERED, refusal.getMessage());
     }
 
-    private HarnessVerification refused(String clientId, LaunchRefusal reason, String detail) {
-        LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, clientId, reason.code(),
-                detail, reason.resolvingAct(clientId));
+    private HarnessVerification refused(String harnessId, LaunchRefusal reason, String detail) {
+        LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, harnessId, reason.code(),
+                detail, reason.resolvingAct(harnessId));
         return new HarnessVerification.Refused(reason, detail);
     }
 

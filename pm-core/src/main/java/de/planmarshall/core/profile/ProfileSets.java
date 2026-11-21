@@ -25,7 +25,7 @@ import org.jspecify.annotations.Nullable;
  * {@code <client_id>.json.hmac} sidecars hold the integrity records. A directory that does not exist holds no profile,
  * which is the state of a machine before the first install.
  *
- * @param shipped          the shipped profile by client id
+ * @param shipped          the shipped profile by harness id
  * @param machineDirectory the machine profile set, {@code <PM_MCP_BASE>/profiles/}; may be {@code null}
  * @param projectDirectory the project profile set, {@code <PM_MCP_BASE>/projects/<project_id>/profiles/}; may be
  *                         {@code null}
@@ -76,7 +76,7 @@ public record ProfileSets(Map<String, ShippedProfile> shipped, @Nullable Path ma
     }
 
     /**
-     * @param shipped the shipped profile by client id
+     * @param shipped the shipped profile by harness id
      * @return the sets of a machine without a project set
      */
     public static ProfileSets of(Map<String, ShippedProfile> shipped) {

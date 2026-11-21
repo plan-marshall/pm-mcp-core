@@ -23,7 +23,7 @@ public enum RoleValidationReason {
 
     /** The artifact fails its schema, its name differs from its file name, or a member is invalid on the role's class. */
     SCHEMA_INVALID("schema_invalid"),
-    /** No client profile has the {@code client_id} of the harness, or the harness is not enrolled on the machine. */
+    /** No harness profile has the {@code harness_id} of the harness, or the harness is not enrolled on the machine. */
     HARNESS_UNKNOWN("harness_unknown"),
     /** The profile's {@code worker.eligible} is {@code false}. */
     HARNESS_NOT_ELIGIBLE("harness_not_eligible"),

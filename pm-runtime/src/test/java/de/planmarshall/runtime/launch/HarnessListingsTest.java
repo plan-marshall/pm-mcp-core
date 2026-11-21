@@ -212,7 +212,7 @@ class HarnessListingsTest {
     private static HarnessEnrolment enrolment(String harnessId, String version, UsageReport report) {
         var now = Instant.parse("2026-11-13T10:00:00Z");
         return HarnessEnrolment.builder()
-                .clientId(harnessId)
+                .harnessId(harnessId)
                 .executablePath(Path.of("/opt/" + harnessId + "/bin/run"))
                 .sha256("0".repeat(64))
                 .version(version)

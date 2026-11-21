@@ -65,10 +65,10 @@ boolean probeInFlight, @Nullable String lastFailure) {
     }
 
     /**
-     * The identity of the pair this state belongs to: the role and the client id of its harness.
+     * The identity of the pair this state belongs to: the role and the harness id of its harness.
      *
      * @param role    the role
-     * @param harness the client id of the harness
+     * @param harness the harness id of the harness
      * @since 0.1
      */
     public record Key(String role, String harness) {

@@ -33,7 +33,7 @@ import de.planmarshall.core.role.RoleClass;
  * self-update, the usage report of the harness and, where its profile declares a weights probe, the weights identity of
  * the models it serves. The store records nothing else: never an environment value, a variable name or a credential.
  *
- * @param clientId       the client id of the enrolled harness
+ * @param harnessId      the harness id of the enrolled harness
  * @param executablePath the resolved absolute path of the executable
  * @param sha256         the lowercase-hex SHA-256 of the executable at the last accepted probe
  * @param version        the version the profile's version probe reported
@@ -45,7 +45,7 @@ import de.planmarshall.core.role.RoleClass;
  * @since 0.1
  */
 @Builder
-public record HarnessEnrolment(String clientId, Path executablePath, String sha256, String version, Instant enrolledAt,
+public record HarnessEnrolment(String harnessId, Path executablePath, String sha256, String version, Instant enrolledAt,
 Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<String, Weights> weights) {
 
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
@@ -53,9 +53,9 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
 
     /** Copies the collections and refuses a malformed entry. */
     public HarnessEnrolment {
-        Objects.requireNonNull(clientId, "clientId");
-        if (!HarnessId.matches(clientId)) {
-            throw new IllegalArgumentException("Not a client id: " + clientId);
+        Objects.requireNonNull(harnessId, "harnessId");
+        if (!HarnessId.matches(harnessId)) {
+            throw new IllegalArgumentException("Not a client id: " + harnessId);
         }
         Objects.requireNonNull(executablePath, "executablePath");
         if (!executablePath.isAbsolute()) {
@@ -89,7 +89,7 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
      * @return the entry with the new weights
      */
     public HarnessEnrolment withWeights(Map<String, Weights> weights, Instant updatedAt) {
-        return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updatedAt, usageReport,
+        return new HarnessEnrolment(harnessId, executablePath, sha256, version, enrolledAt, updatedAt, usageReport,
                 events, weights);
     }
 
@@ -112,7 +112,7 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
         var sameBuild = version.equals(this.version) && sha256.equals(this.sha256);
         var verifiedOnAnotherBuild = !sameBuild && usageReport.source() == UsageSource.VERIFIED;
         var report = verifiedOnAnotherBuild ? NO_REPORT_FOR_A_NEW_BUILD : usageReport;
-        return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updateTo, report,
+        return new HarnessEnrolment(harnessId, executablePath, sha256, version, enrolledAt, updateTo, report,
                 events, weights);
     }
 

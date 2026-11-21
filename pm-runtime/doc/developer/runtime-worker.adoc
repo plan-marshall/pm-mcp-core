@@ -309,7 +309,7 @@ started workers resumes the count of the generations that exited before their fi
 `WorkerSupervisor.forgetStartFailures` is the retirement a `clear` performs through the guard's constructor.
 
 link:{src}/HarnessStartSpacing.java[`HarnessStartSpacing`] is the machine-wide spacing of one harness. It is shared by
-every supervisor of the runtime and keys on the harness's client id alone, so it spans all projects. The next start waits
+every supervisor of the runtime and keys on the harness's harness id alone, so it spans all projects. The next start waits
 until the previous worker of the harness made its first call or ended, at most `SPACING_BOUND` (30 seconds). Past the
 bound the next start proceeds, so the spacing only ever delays a start and never refuses one. A collision that still
 makes a worker exit before its first call is a start failure and counts for the guard. The production instance is the
@@ -386,7 +386,7 @@ No value of a profile is believed because the profile says so:
   the claim rests on are examined first, so the refusal names the stage that decided the claim where one exists, and the
   reason identifies the deciding fact (the platform, the record's digest) where no single stage decided it.
   link:{src}/EligibilityRefusal.java[`EligibilityRefusal`] carries the closed reason, the stage (when a stage decided it)
-  and the profile's client id; link:{src}/EligibilityVerdict.java[`EligibilityVerdict`] has exactly two members,
+  and the profile's harness id; link:{src}/EligibilityVerdict.java[`EligibilityVerdict`] has exactly two members,
   `Eligible` and `Refused`, so a caller cannot read a third state into it.
 * The refusal never depends on the order in which the record lists its stages, and none reads the host's clock: the
   claimed stages are examined in the order the claim names them, and every other recorded stage in its name's order. The
@@ -746,7 +746,7 @@ queued.
 
 |The harness is ineligible
 |`EligibilityGate.admits`
-|Declines with `HARNESS_INELIGIBLE`; the task stays queued. The predicate's refusal (reason, stage and client id) is
+|Declines with `HARNESS_INELIGIBLE`; the task stays queued. The predicate's refusal (reason, stage and harness id) is
 available from `ProfileWorkerEligibility.verdict()` for a report; the start path's declining outcome carries the reason
 code alone.
 

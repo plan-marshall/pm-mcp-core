@@ -91,11 +91,11 @@ final class RoleFixtures {
     }
 
     /**
-     * @param clientId a client id
+     * @param harnessId a client id
      * @return a profile of that harness that runs every class and allows every model
      */
-    static HarnessProfile harness(String clientId) {
-        return new HarnessProfile(clientId, true, true, Set.of("*"),
+    static HarnessProfile harness(String harnessId) {
+        return new HarnessProfile(harnessId, true, true, Set.of("*"),
                 Map.of(RoleClass.WRITER, HarnessProfile.ToolSet.ENFORCED,
                         RoleClass.READ_ONLY, HarnessProfile.ToolSet.ADVISORY,
                         RoleClass.ZERO_TOOL, HarnessProfile.ToolSet.ENFORCED),
@@ -107,12 +107,12 @@ final class RoleFixtures {
     }
 
     /**
-     * @param clientId a client id
+     * @param harnessId a client id
      * @param version  the exact version the harness reported
      * @return the enrolled build of that harness
      */
-    static EnrolledHarness enrolled(String clientId, String version) {
-        return new EnrolledHarness(clientId, version,
+    static EnrolledHarness enrolled(String harnessId, String version) {
+        return new EnrolledHarness(harnessId, version,
                 "sha256:" + "%064x".formatted(Generators.longs().next()));
     }
 
@@ -322,13 +322,13 @@ final class RoleFixtures {
             defaultEfforts.put("steward", new EffortValue("medium"));
         }
 
-        TestEnvironment profile(String clientId, HarnessProfile profile) {
-            profiles.put(clientId, profile);
+        TestEnvironment profile(String harnessId, HarnessProfile profile) {
+            profiles.put(harnessId, profile);
             return this;
         }
 
-        TestEnvironment enrolled(String clientId, EnrolledHarness harness) {
-            enrolled.put(clientId, harness);
+        TestEnvironment enrolled(String harnessId, EnrolledHarness harness) {
+            enrolled.put(harnessId, harness);
             return this;
         }
 
@@ -342,8 +342,8 @@ final class RoleFixtures {
             return this;
         }
 
-        TestEnvironment weightsIdentity(String clientId, String model, String identity) {
-            weights.put(clientId + "/" + model, identity);
+        TestEnvironment weightsIdentity(String harnessId, String model, String identity) {
+            weights.put(harnessId + "/" + model, identity);
             return this;
         }
 
@@ -378,13 +378,13 @@ final class RoleFixtures {
         }
 
         @Override
-        public Optional<HarnessProfile> profile(String clientId) {
-            return Optional.ofNullable(profiles.get(clientId));
+        public Optional<HarnessProfile> profile(String harnessId) {
+            return Optional.ofNullable(profiles.get(harnessId));
         }
 
         @Override
-        public Optional<EnrolledHarness> enrolledHarness(String clientId) {
-            return Optional.ofNullable(enrolled.get(clientId));
+        public Optional<EnrolledHarness> enrolledHarness(String harnessId) {
+            return Optional.ofNullable(enrolled.get(harnessId));
         }
 
         @Override
@@ -432,8 +432,8 @@ final class RoleFixtures {
         }
 
         @Override
-        public Optional<String> weightsIdentity(String clientId, String model) {
-            return Optional.ofNullable(weights.get(clientId + "/" + model));
+        public Optional<String> weightsIdentity(String harnessId, String model) {
+            return Optional.ofNullable(weights.get(harnessId + "/" + model));
         }
     }
 }
