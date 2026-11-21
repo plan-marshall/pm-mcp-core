@@ -426,10 +426,16 @@ Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_
 Hazard:: A commit trailer from a non-authoritative channel could override the configured resolver.
 Guard:: The trailer is the server's alone. The input side is guarded: `commit_message` refuses any `Co-Authored-By:` line
 in any case and at any position, through `ConventionalCommitValidator` (`InputValidatorTest`,
-link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]). Open: the matched test per
-trailer source that the submit refuses the line with `invalid_link_args` naming it, and the fixture that commits through
-the native and the CLI variant and asserts identical metadata — author the operator's `commit_identity`, committer the
-resolved agent identity (or the compiled fallback identity), never the operator's git `user.*` configuration.
+link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]). The native half of the commit
+side is guarded in `pm-provider-git`: `CommitMessagesTest` refuses a trailer line in any case and position, naming the
+line, whichever channel supplied the message, and leaves exactly one trailer in the result; `CommitTrailerTest` covers the three trailer sources per half and `invalid_ignored`;
+`GitStageAndCommitPrimitiveTest` commits on the native variant with exactly one trailer, the operator's
+`commit_identity` as author and the resolved agent identity (or the compiled fallback identity) as committer, read back
+from the history, and refuses a message with a trailer line as `failed` with the reason `message_refused`
+(link:../../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc[Commit Primitives Developer Guide]).
+Kept, because the CLI-variant half is unbuilt: the CLI variant of the git contract is not in this repository, so the
+fixture that commits through the native and the CLI variant and asserts identical metadata, never the operator's git
+`user.*` configuration, is still owed.
 Source:: plan-marshall truthful-signals PLAN-TRUTH-154 D9.
 
 [#PM-WATCH-DSL-10]
@@ -658,6 +664,21 @@ transition and passes (`WorkflowValidatorTest`, group `Reasons`, of `pm-workflow
 `pm-workflow` proves that a reason mapped to a condition raises it instead of the transition and that a reason mapped to
 none takes the transition of its outcome. Open: a fact a unit branches on that copies a reason is not detected.
 Source:: design review (PLAN-V2-19).
+
+[#PM-WATCH-DSL-45]
+=== PM-WATCH-DSL-45: A trailer written by another class
+
+Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16]
+Hazard:: A second class of the commit primitives writes a `Co-Authored-By:` line — a helper that renders a message, a
+primitive that formats its own fallback — so a commit carries a trailer the resolver never resolved, or two of them,
+and the refusal of `CommitMessages.withTrailer` no longer bounds what reaches the commit.
+Guard:: `CoAuthoredBySourceScanTest` of `pm-provider-git` scans `src/main/java` of the module and finds the trailer key,
+in any case, only in `CommitMessages.java`; its matched control asserts that the scan sees the one string literal of the
+key there, so an empty scan cannot pass
+(link:../../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc#_the_commit_message_and_the_trailer[Commit
+Primitives Developer Guide § The Commit Message and the Trailer]).
+Source:: design review (PLAN-V2-20).
 
 == Positioned Layout
 

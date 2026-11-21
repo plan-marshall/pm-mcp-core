@@ -485,8 +485,8 @@ Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Develo
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-11[PM-WF-11]
 
 Implementation (the protected-path matcher of the tracked hook definitions, as far as `pm-core` carries it; the boundary
-check that refuses the change before the next commit job is a stage of `git.stage-and-commit` and has no class
-yet, and the other protected-path families are those of `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`):
+check that refuses the change before the next commit job is the footprint check of `git.stage-and-commit`
+(`FootprintBoundary`), to which nothing supplies a changed protected path yet; the other protected-path families are those of `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`):
 link:../pm-core/src/main/java/de/planmarshall/core/store/ProtectedPaths.java[ProtectedPaths]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/ProtectedPathsTest.java[ProtectedPathsTest]
@@ -814,6 +814,42 @@ link:../pm-workflow/doc/adr/workflow-verify/038-the-commit-modes-stay-required-i
 link:../pm-core/doc/adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR core-store/077],
 link:../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/078],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git/003]
+
+Implementation (the commit stages 3 and 4 of `git.commit_and_push`, as far as the provider module carries them and not yet wired into the runtime `pm-mcpd`: the primitives `git.resolve-message`, `git.template-message` and `git.stage-and-commit` and the return evaluation `commit-message.evaluate` over the port `CommitSite`; the Conventional Commit validation with the bound of 2000 characters and the refusal of a lone surrogate; the trailer resolved per half from the local, the machine and the compiled value with its `trailer_source`, appended exactly once by the one writer, a supplied trailer line refused; the staging set derived from the scope with every path confined; check 1 of the footprint check before anything is staged, with checks 2 and 3 as the site's answers; the commit through `GitOperations.commit` with the listed paths, the operator's identity as author and the agent or compiled identity as committer; the outcome `failed` with its closed reason; and the default entity kind `commit-message`. Not implemented yet: the implementation of `CommitSite` and the `PrimitiveRegistry` of the assembly, the shipped unit and its product verification, the engine's mapping of `footprint_violation` to the condition, the commit attempt counters, the `change-ledger.jsonl` row, `head_at_completion`, `freshness_reconcile` and the CLI variant):
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitSite.java[CommitSite],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitTrailer.java[CommitTrailer],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessages.java[CommitMessages],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/StagingSets.java[StagingSets],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/FootprintBoundary.java[FootprintBoundary],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitResolveMessagePrimitive.java[GitResolveMessagePrimitive],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitTemplateMessagePrimitive.java[GitTemplateMessagePrimitive],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitive.java[GitStageAndCommitPrimitive],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessageEvaluatePrimitive.java[CommitMessageEvaluatePrimitive],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/EntityKindRegistry.java[EntityKindRegistry]
+
+Verified by (the commit stages 3 and 4):
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CommitMessagesTest.java[CommitMessagesTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CommitTrailerTest.java[CommitTrailerTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/StagingSetsTest.java[StagingSetsTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/FootprintBoundaryTest.java[FootprintBoundaryTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CoAuthoredBySourceScanTest.java[CoAuthoredBySourceScanTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitResolveMessagePrimitiveTest.java[GitResolveMessagePrimitiveTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitTemplateMessagePrimitiveTest.java[GitTemplateMessagePrimitiveTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CommitMessageEvaluatePrimitiveTest.java[CommitMessageEvaluatePrimitiveTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveTest.java[GitStageAndCommitPrimitiveTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/RegistriesAndRecordsTest.java[RegistriesAndRecordsTest]
+
+Documentation (the commit stages 3 and 4):
+link:../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc[Commit Primitives Developer Guide],
+link:../pm-workflow/doc/developer/workflow-verify.adoc#_architecture_and_core_types[Workflow Verification Developer Guide § Architecture and Core Types],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/001-the-commit-primitives-live-in-pm-provider-git.adoc[ADR provider-git-primitive/001],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/002-one-port-commit-site-resolved-per-call.adoc[ADR provider-git-primitive/002],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/003-the-staging-set-is-derived-from-the-scope.adoc[ADR provider-git-primitive/003],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/004-the-trailer-is-appended-by-commit-messages-alone.adoc[ADR provider-git-primitive/004],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/005-one-failed-outcome-with-a-closed-reason.adoc[ADR provider-git-primitive/005],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/006-the-primitive-checks-the-boundary-half.adoc[ADR provider-git-primitive/006],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/007-the-template-message-renders-from-facts.adoc[ADR provider-git-primitive/007],
+link:../pm-workflow/doc/adr/workflow-verify/041-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify/041]
 
 [#PM-WF-17]
 === PM-WF-17: Dynamic Re-Planning of a Running Plan
@@ -1364,6 +1400,18 @@ link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-requ
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009],
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[ADR provider-ci/010],
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/011-the-github-comment-guard-reads-only-the-pull-request-flag.adoc[ADR provider-ci/011]
+
+Implementation (the commit message over no file and no command line, on the native variant: `git.stage-and-commit` passes the validated message with its trailer and the confined paths to `GitOperations.commit` in memory, so no value of a call reaches a process argument and no `.plan/temp/` file is written; the CLI variant, `git commit -F -` over stdin, is not in this repository):
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitive.java[GitStageAndCommitPrimitive],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessages.java[CommitMessages]
+
+Verified by (the commit message in memory):
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveTest.java[GitStageAndCommitPrimitiveTest]
+(the commit through the real `JGitOperations`, its message, trailer, author and committer read back from the history)
+
+Documentation (the commit message in memory):
+link:../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc#_git_stage_and_commit[Commit Primitives Developer Guide § `git.stage-and-commit`],
+link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc#_the_consumer_of_the_commit_set[Cache Repository Operations Developer Guide § The Consumer of the Commit Set]
 
 [#PM-EXEC-6]
 === PM-EXEC-6: Adaptive Build Timeouts, Coverage Parsing & Gate Honesty
