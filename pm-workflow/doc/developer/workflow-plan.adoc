@@ -248,12 +248,16 @@ the failed lookup is refused with a reason naming it, so a failed provider looku
 (link:../adr/workflow-plan/022-an-unknown-project-answer-is-a-refusal.adoc[ADR 022]). `Project.known` carries the two
 answers, `Project.unknown` the failed ones, and `answered()` tells them apart.
 
-The check runs at the composition where a project is known: `PlanInstanceComposer.compose(request, project)` validates the
-*bound* landing variant before anything is composed and refuses the version with that reason. It is skipped for the
-post-run-only events (`fallback`, `empty_harvest`), whose composition prunes the landing work: a plan that is being handed
-back or returned does not land in that version, so its landing variant decides nothing there. The bound variant is the
-nearest level that set it, so a machine default that does not fit the project is refused for that project exactly like a
-project's own choice — the caller resolves the level, and the reason names the variant, not the level. The one-argument
+The check runs at the start of a plan, where a project is known: `PlanInstanceComposer.compose(request, project)` validates
+the *bound* landing variant of the `start` composition before anything is composed and refuses the version with that
+reason. Every later composition of a running plan (`outline`, `plan`, `config_adopted`, `waiver`, `override`, `fallback`,
+`empty_harvest`, `replan`) skips it and keeps the variant the start admitted, so a base branch that became protected after
+the plan began does not refuse a waiver or a replan (link:../adr/workflow-plan/021-the-landing-variant-is-checked-where-the-composition-binds-it.adoc[ADR 021]).
+An `override` that binds a new landing variant to a running plan is therefore not landing-checked by the composer: a
+caller that changes the landing of a running plan validates the new variant with `LandingVariantValidation` itself. The
+bound variant is the nearest level that set it, so a machine default that does not fit the project is refused for that
+project at its start exactly like a project's own choice — the caller resolves the level, and the reason names the
+variant, not the level. The one-argument
 overload `compose(request)` composes without the check, for a caller with no project known (a preview, or a unit test of
 the composition itself); no production caller of this repository composes a plan through it.
 
