@@ -1,0 +1,54 @@
+= ADR provider-git-primitive 004: The Trailer Is Appended by `CommitMessages` Alone
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+Every server commit carries the trailer `Co-Authored-By: {name} <{email}>`, resolved from the operator's stored
+`commit_trailer`, then the machine default, then the compiled default `plan-marshall <noreply@cuioss.de>`. A trailer
+from any other channel (a model-supplied message, a step-supplied message, an answer payload) must not reach the commit.
+The existing `ConventionalCommitValidator` of `pm-core` already refuses a `Co-Authored-By:` line in any case and position
+(the rule `commit.co-authored-by`). The commit's audit record carries the provenance `trailer_source: {name, email}`.
+
+== Decision
+
+* `CommitMessages.withTrailer(String, CommitTrailer)` is the only code of `src/main` of this module that writes a
+  `Co-Authored-By:` line. It refuses, as the value `Refused` naming the line, a message that already holds one in any
+  case and position, whatever it names, so the commit carries exactly the resolved trailer. The rendering is one blank
+  line, the trailer line and one final line feed.
+* `CommitMessages.validate(String)` applies `ConventionalCommitValidator`, not a second validator, plus the bound of
+  `commit_message[1..2000]` and the refusal of a lone surrogate.
+* `CommitTrailer.resolve(local, machine)` resolves each half on its own and reports its `TrailerSource`: `configured`
+  when a stored value, local then machine, is used; `default` when the compiled default is used and no stored value was
+  refused; `invalid_ignored` when a stored value broke the constraints of the key and was treated as absent. The source
+  is returned for the audit record and is never rendered in facts.
+* `CoAuthoredBySourceScanTest` guards the rule: it finds the key in no production source of the module but
+  `CommitMessages.java`, with a matched control that the scan sees the one occurrence there.
+
+== Alternatives Considered
+
+* *Strip a model-supplied trailer and append the resolved one.* Not taken: the specification refuses the line, and a
+  silent strip would hide a message that tried to name another co-author.
+* *Resolve the trailer as a whole, not per half.* Not taken: a valid stored name beside a refused stored email would lose
+  the valid half.
+
+== Consequences
+
+* A second writer of the trailer fails `CoAuthoredBySourceScanTest`; the new watch item that names it is guarded by that
+  test.
+* The native half of `PM-WATCH-DSL-7` is covered by `CommitMessagesTest`, `CommitTrailerTest` and
+  `GitStageAndCommitPrimitiveTest`; the CLI half stays open with the CLI variant.
+
+== Source
+
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3)
+* link:../../../../../doc/specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator Local Configuration] (`commit_trailer`)
+* link:../../developer/provider-git-primitive.adoc#_the_commit_message_and_the_trailer[Commit Primitives Developer Guide § The Commit Message and the Trailer]
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 4

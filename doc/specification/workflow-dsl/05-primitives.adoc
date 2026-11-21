@@ -65,45 +65,7 @@ The engine runs every primitive as a `Command`: the parameter record the binder 
 
 === Concrete Primitive Example (`GitStageAndCommitPrimitive`)
 
-The example is the primitive behind the `git.stage-and-commit` state of the `git.commit_and_push` sub-workflow (xref:06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Six-Stage Execution Contract of `git.commit_and_push`], Stage 4); its outcome wire names are the ones that state routes on.
-
-[source,java]
-----
-public final class GitStageAndCommitPrimitive
-        implements Primitive<GitStageAndCommitPrimitive.Params, GitStageAndCommitPrimitive.Outcome> {
-
-    public record Params(@FreeParam(minLength = 1, maxLength = 2000) String message) {}
-
-    public enum Outcome implements PrimitiveOutcome {
-        COMMITTED("committed", OutcomeClass.SUCCESS),
-        NOTHING_TO_COMMIT("nothing_to_commit", OutcomeClass.SKIP),
-        HOOK_FAILED("hook_failed", OutcomeClass.FAILURE),
-        ATTEMPTS_EXHAUSTED("attempts_exhausted", OutcomeClass.FAILURE);  // commit attempt cap spent
-
-        private final String wireName;
-        private final OutcomeClass outcomeClass;
-        Outcome(String wireName, OutcomeClass outcomeClass) {
-            this.wireName = wireName;
-            this.outcomeClass = outcomeClass;
-        }
-        @Override public String wireName() { return wireName; }
-        @Override public OutcomeClass outcomeClass() { return outcomeClass; }
-    }
-
-    @Override public String id() { return "git.stage-and-commit"; }
-    @Override public Class<Params> parameterType() { return Params.class; }
-    @Override public Class<Outcome> outcomeType() { return Outcome.class; }
-    @Override public AwaitedEvent awaitedEvent() { return AwaitedEvent.NONE; }
-
-    @Override
-    public PrimitiveResult<Outcome> execute(WorkflowExecutionContext ctx, Params params) {
-        // Runs the footprint check, stages the derived staging set, appends the resolved
-        // Co-Authored-By trailer (refusing one in the model-supplied message),
-        // and streams the UTF-8 message via stdin to `git -C <worktree> commit -F -`
-        ...
-    }
-}
-----
+The primitive behind the `git.stage-and-commit` state of the `git.commit_and_push` sub-workflow (xref:06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Six-Stage Execution Contract of `git.commit_and_push`], Stage 4) declares the outcome wire names that state routes on: `committed` (`SUCCESS`), `nothing_to_commit` (`SKIP`), `hook_failed` and `attempts_exhausted` (`FAILURE`, the exhaustion outcome of its attempt cap), and one `failed` (`FAILURE`) whose closed reason is `footprint_violation`, `message_refused` or `commit_failed` (xref:#outcomes-and-reasons[Outcomes and Reasons]); it awaits no event (link:../../../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc#_git_stage_and_commit[Commit Primitives Developer Guide § `git.stage-and-commit`]).
 
 [#independent-transition-validation]
 === Independent Server-Side Transition & Parameter Validation (`PM-WF-6`)

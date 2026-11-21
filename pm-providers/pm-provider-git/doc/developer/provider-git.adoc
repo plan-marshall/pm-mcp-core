@@ -90,6 +90,15 @@ Tested by `JGitOperationsTest`: a subset with an unrelated pre-staged file and a
 deletion, a commit with an empty `paths` that still takes every change, a refused directory and a refused pathspec magic, a
 commit of a glob-named path under its literal name, and a builder that omits `paths` and commits every change.
 
+[#_the_consumer_of_the_commit_set]
+==== The Consumer of the Commit Set
+
+`GitStageAndCommitPrimitive` of package `provider.git.primitive` is the caller that sets `paths`: it passes exactly the
+files of its scope's staging set, narrowed by the call's `files`, after the footprint check, and never an empty list,
+because an empty set ends the call as `nothing_to_commit` without a git call. It maps every `GitOutcome` of `commit` to one
+of its outcomes (link:provider-git-primitive.adoc#_git_stage_and_commit[Commit Primitives Developer Guide §
+`git.stage-and-commit`]).
+
 [#cache-repository-operations]
 == Cache Repository Operations
 
