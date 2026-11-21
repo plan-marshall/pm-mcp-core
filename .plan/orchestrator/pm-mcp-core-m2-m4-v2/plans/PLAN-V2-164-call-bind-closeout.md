@@ -74,11 +74,17 @@ Source, tests, specification and documentation (specific files, R19):
 - OBSERVED (Rule 6, the reserved words, Deliverable 3): `pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/verify/CompiledInvariants.java`; the ADR directory `pm-workflow/doc/adr/workflow-verify/` (039 and the next free number, R11).
 - OBSERVED (small fixes, Deliverable 4): `pm-core/src/main/java/de/planmarshall/core/store/LessonStore.java`, `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/input/InputValidator.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/input/PathRules.java`, `doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc`.
 
+- OBSERVED (carried item 74, added 2026-11-21; read by the analysis leaf at `aab5ccdb`): `doc/specification/state-catalogue/01-conventions-generic-conditions.adoc`, `pm-core/doc/developer/core-store.adoc`, `doc/implementation-watch/workflow-dsl.adoc`.
+
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-V2-157 (shipped, #522, `landings/PLAN-V2-157.md`: the plan this one closes), PLAN-V2-15 (shipped, #513), PLAN-V2-156 (shipped, #516), PLAN-V2-83.
 - Overlaps with (class level): PLAN-V2-19, 20 and 25 (the engine track: `WorkflowEngine`, `CallStack`, the call frame), PLAN-V2-161 (the engine's composition entry points) and the running PLAN-V2-158 and 159 on `LessonStore` (one line): the gate decides at emit.
 - Not here: the assembly's `InputBindingContext` implementation, the `TasksSettled` producer, the production `git-commit-and-push.pmwf` and `StateCatalogueDriftTest` (`plan-marshall-mcp`), the primitives of PLAN-V2-20.
+
+## Carried Open Items
+
+74. **What the merge of PLAN-V2-19 (#531 `1ada535b`) made true or stale in this spec** (`landings/PLAN-V2-19.md`, carried 2026-11-21; merged as #531 `1ada535b` (the plan's own #530 was closed); read by the analysis leaf at `aab5ccdb`; no blocker). Binding over any contradicting older text: (a) PLAN-V2-19 is merged: the engine track is now 164, then 25 (19 leaves the overlap list and the sequencing note). (b) The engine hunks of PLAN-V2-19 do not touch `call`, `CallStack`, `invalidLinkArgs` or `storeSlot` (hunks at `advance`, chain AutoStep, `runPrimitive`, `Pending`, `leave`, `returnFromFrame`): the textual conflict with Deliverable 1 is low; `core-store.adoc` (inserted at `:233`), watch DSL-44 (`:609`) and Traceability were edited by 19, so expect hunk conflicts in Deliverable 2. (c) Deliverable 1: the `precondition_unmet` row of `state-catalogue/01-conventions-generic-conditions.adoc` (one long line, `:160-161`) now carries a "Second origin" sentence mid-row and `facts.reason` has two vocabularies (cause names such as `input_unbound`, and a primitive's reason wire name): adding `undeclared_param` and `missing_param` must edit the same line and keep that sentence. (d) Deliverable 4: `LessonStore.java:815` (`default -> false`) is still there at `aab5ccdb`; PLAN-V2-159's landing found ADR 079 `:79-81` false about it (PLAN-V2-163 item 64 carries the ADR side): the plan that removes the arm and the plan that corrects the ADR are the same change, decide it once. (e) Next free ADR numbers: workflow-verify 041, workflow-engine 023, core-store 081, core-spi 014 (R11).
 
 ## Hand-Off Command
 

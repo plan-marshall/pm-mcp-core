@@ -2,10 +2,10 @@
   "id": "PLAN-V2-19",
   "slug": "engine-carries-reasons",
   "workstream": "WS-01",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-19-engine-carries-reasons",
+  "pr": "#531",
+  "landing": "landings/PLAN-V2-19.md",
   "seq": 19
 }
