@@ -51,8 +51,13 @@ public interface CommitSite {
     boolean archiving(WorkflowExecutionContext context);
 
     /**
+     * The status is read with untracked files listed one by one ({@code git status --porcelain --untracked-files=all}),
+     * so every untracked file is listed by its own path and no entry is a directory: an untracked directory is expanded
+     * to the files below it here, by the site, and never collapsed to {@code newdir/}. A directory entry is no legal
+     * entry; the commit refuses it.
+     *
      * @param context the call
-     * @return the dirty paths of the target checkout, repository-relative, as the porcelain status lists them, with
+     * @return the dirty files of the target checkout, each a repository-relative file path, no entry a directory, with
      *         {@code .marshall/local/**} left out
      */
     List<String> dirtyPaths(WorkflowExecutionContext context);

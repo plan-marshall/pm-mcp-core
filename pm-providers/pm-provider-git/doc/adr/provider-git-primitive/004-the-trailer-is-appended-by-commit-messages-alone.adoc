@@ -29,6 +29,12 @@ The existing `ConventionalCommitValidator` of `pm-core` already refuses a `Co-Au
   when a stored value, local then machine, is used; `default` when the compiled default is used and no stored value was
   refused; `invalid_ignored` when a stored value broke the constraints of the key and was treated as absent. The source
   is returned for the audit record and is never rendered in facts.
+* `CommitTrailer.isValidName` and `isValidEmail` refuse a value that holds an unpaired high or low surrogate, as
+  `CommitMessages.validate` refuses one in the message: such a value has no UTF-8 encoding and cannot reach the
+  trailer. A surrogate pair, one supplementary character, stays valid, and the length bounds stay counted in code
+  points. A stored half with an unpaired surrogate is passed over like any other invalid stored value and reports
+  `invalid_ignored` unless a later stored value of the half is used. The specification states the constraint with the
+  key (Store Schemas § Operator Local Configuration), so the code is not stricter than the text.
 * The carrier of the source is the fact `trailer_source` of the outcome `committed` of `git.stage-and-commit`
   (`GitStageAndCommitPrimitive.TRAILER_SOURCE_FACT`), the map `{name, email}` of the two `TrailerSource` wire names
   (`CommitTrailer.Resolution.sourceFact()`). It is the smallest carrier that reaches the audit record: the decision of
@@ -60,4 +66,5 @@ The existing `ConventionalCommitValidator` of `pm-core` already refuses a `Co-Au
 * link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3)
 * link:../../../../../doc/specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator Local Configuration] (`commit_trailer`)
 * link:../../developer/provider-git-primitive.adoc#_the_commit_message_and_the_trailer[Commit Primitives Developer Guide § The Commit Message and the Trailer]
-* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 4
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 4; the CodeRabbit finding `0f8846` (the unpaired
+  surrogate of a stored trailer value)

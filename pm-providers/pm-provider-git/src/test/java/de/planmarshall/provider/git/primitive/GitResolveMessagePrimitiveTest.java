@@ -23,6 +23,7 @@ import de.cuioss.test.generator.TypedGenerator;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -229,15 +230,34 @@ class GitResolveMessagePrimitiveTest {
         }
 
         @ParameterizedTest(name = "{0}")
-        @EnumSource(value = CallSite.class,
-                names = {"FINALIZE_LAND_MAIN", "EPIC_COMMIT_LEDGER", "DECOMPOSITION_COMMIT", "LAND_UNIT",
-                    "ADR_RENUMBERING"})
-        @DisplayName("a call site without the input its message names goes to the task")
+        @EnumSource(CallSite.class)
+        @DisplayName("without inputs a call site whose message names one goes to the task, any other is ready")
         void missingInput(CallSite callSite) {
-            var parameters = Params.builder().messageMode(MessageMode.STEP_OR_FALLBACK).callSite(callSite)
-                    .stepId(stepIds.next()).build();
+            var parameters = Params.builder().messageMode(MessageMode.STEP_OR_FALLBACK).callSite(callSite).build();
 
-            assertNeedsInteractive(run(parameters));
+            var result = run(parameters);
+
+            messageWithoutInputs(callSite).ifPresentOrElse(
+                    expected -> assertEquals(expected, readyMessage(result),
+                            "A call site without inputs keeps its message"),
+                    () -> assertNeedsInteractive(result));
+        }
+
+        /**
+         * Whether the fixed message of a call site names an input: empty when it does, else the message it resolves
+         * to with no input bound. The switch has no default branch, so a new call site breaks the build until its
+         * answer is given here.
+         */
+        private static Optional<String> messageWithoutInputs(CallSite callSite) {
+            // The fixed messages are the literals of the specification (Stage 3).
+            return switch (callSite) {
+                case FINALIZE_LAND_MAIN, EPIC_COMMIT_LEDGER, DECOMPOSITION_COMMIT, LAND_UNIT, ADR_RENUMBERING ->
+                    Optional.empty();
+                case FINALIZE_SETTLE_COMMIT -> Optional.of("chore(finalize): settle changes");
+                case LAND_REMOVAL -> Optional.of("chore(land): remove documents moved into a source directory");
+                case LAND_SETUP -> Optional.of("chore(land): apply project setup changes");
+                case FINALIZE_HAND_BACK -> Optional.of("chore(finalize): settle changes at hand-back");
+            };
         }
 
         @Test

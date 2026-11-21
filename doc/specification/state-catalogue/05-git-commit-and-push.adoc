@@ -25,7 +25,7 @@ The unit has no operator wait: every state is server logic or a task of a role, 
 |the caller's phase value
 |`auto`
 |`call` (start state).
-|Resolves the checkout (plan worktree, a short landing's short-lived worktree of the base branch, or the shared epic worktree); `git status --porcelain` ignoring `.marshall/local/**`.
+|Resolves the checkout (plan worktree, a short landing's short-lived worktree of the base branch, or the shared epic worktree); `git status --porcelain --untracked-files=all` ignoring `.marshall/local/**`, so every untracked file is listed by its own path and no entry is a directory.
 |`dirty` -> `git.detect-artifacts`; `clean_skip_push` -> `git.done`; `clean_needs_push_check` -> `git.evaluate-push-policy`.
 |link:../workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL Specification, Stage 1]
 

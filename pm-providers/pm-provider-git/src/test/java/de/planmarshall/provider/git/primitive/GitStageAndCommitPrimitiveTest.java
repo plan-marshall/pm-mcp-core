@@ -490,17 +490,15 @@ class GitStageAndCommitPrimitiveTest {
                             "the exhaustion outcome is a declared failure"));
         }
 
-        @Test
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(Reason.class)
         @DisplayName("only footprint_violation maps to a condition")
-        void reasonConditions() {
+        void reasonConditions(Reason reason) {
             // the condition kind is the closed table of the specification
-            assertAll("reason conditions",
-                    () -> assertEquals(Optional.of("footprint_violation"), Reason.FOOTPRINT_VIOLATION.conditionKind(),
-                            "footprint_violation maps to its condition"),
-                    () -> assertEquals(Optional.empty(), Reason.MESSAGE_REFUSED.conditionKind(),
-                            "message_refused maps to no condition"),
-                    () -> assertEquals(Optional.empty(), Reason.COMMIT_FAILED.conditionKind(),
-                            "commit_failed maps to no condition"));
+            var expected = reason == Reason.FOOTPRINT_VIOLATION ? Optional.of("footprint_violation")
+                    : Optional.<String>empty();
+
+            assertEquals(expected, reason.conditionKind(), "only footprint_violation raises a condition");
         }
     }
 

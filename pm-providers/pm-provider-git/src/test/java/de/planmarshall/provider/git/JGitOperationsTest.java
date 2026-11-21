@@ -343,6 +343,90 @@ class JGitOperationsTest {
         }
 
         @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("refuses a path below a link that leaves the root, before a valid path is staged")
+        void refusesAPathBelowAnOutwardLink() throws Exception {
+            // fixture path: a directory beside the repository, outside its root
+            Path outside = Files.createDirectories(temp.resolve(names.next()));
+            var secret = names.next() + "*.txt";
+            Files.writeString(outside.resolve(secret), text(), StandardCharsets.UTF_8);
+            var alias = names.next();
+            Files.createSymbolicLink(repo.resolve(alias), outside);
+            var safe = file();
+            write(safe, text());
+            var below = alias + "/" + secret;
+            var missingBelow = alias + "/" + names.next() + "/" + file();
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(safe, below)));
+            var missing = git.commit(new CommitInput(repo, text(), author, agent, List.of(missingBelow)));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(), "a path below the link is refused"),
+                    () -> assertEquals(below, result.detail(), "the refusal names the path below the link"),
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, missing.outcome(),
+                            "a missing path below the link is refused"),
+                    () -> assertFalse(isStaged(safe), "the valid listed path was not staged"),
+                    () -> assertEquals(1, git.log(repo, HEAD, 5).value().size(),
+                            "no refused commit reached the history"));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("commits a link that replaces a tracked directory as that link")
+        void commitsALinkThatReplacesATrackedDirectory() throws Exception {
+            var node = names.next();
+            var below = node + "/" + file();
+            write(below, text());
+            git.commit(new CommitInput(repo, text(), author, agent, List.of(below)));
+            var target = names.next();
+            write(target + "/" + file(), text());
+            Files.delete(repo.resolve(below));
+            Files.delete(repo.resolve(node));
+            Files.createSymbolicLink(repo.resolve(node), Path.of(target));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(node)));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the replacing link is committed"),
+                    () -> assertEquals(FileMode.SYMLINK, modeInCommit(result.value().id(), node),
+                            "the replacing link is recorded as a link"),
+                    () -> assertFalse(inCommit(result.value().id(), below),
+                            "the replaced directory entry is gone"));
+        }
+
+        @Test
+        @DisplayName("refuses a directory staged in a repository without commits once it is removed")
+        void refusesAStagedDirectoryWithoutHead() throws Exception {
+            // fixture path of a second repository that never gets a commit
+            Path fresh = temp.resolve(names.next());
+            assertTrue(git.init(fresh, branch).isOk(), "the repository without commits is initialised");
+            var directory = names.next();
+            Path staged = fresh.resolve(directory).resolve(file());
+            Files.createDirectories(staged.getParent());
+            Files.writeString(staged, text(), StandardCharsets.UTF_8);
+            try (var jgit = Git.open(fresh.toFile())) {
+                jgit.add().addFilepattern(directory).call();
+            }
+            Files.delete(staged);
+            Files.delete(staged.getParent());
+
+            var result = git.commit(new CommitInput(fresh, text(), author, agent, List.of(directory)));
+
+            assertAll(
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
+                            "a staged directory is refused without HEAD"),
+                    () -> assertEquals(directory, result.detail(), "the refusal names the staged directory"),
+                    () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.log(fresh, HEAD, 1).outcome(),
+                            "the repository still has no commit"));
+        }
+
+        private boolean isStaged(String path) throws Exception {
+            try (var jgit = Git.open(repo.toFile())) {
+                return jgit.getRepository().readDirCache().findEntry(path) >= 0;
+            }
+        }
+
+        @Test
         @DisplayName("refuses an absolute, a parent, an outside and a non-normal path")
         void refusesPathsOutsideTheRoot() {
             var name = file();

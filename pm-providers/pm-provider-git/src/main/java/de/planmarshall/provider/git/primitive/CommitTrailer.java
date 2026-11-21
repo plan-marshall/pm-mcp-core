@@ -22,7 +22,7 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * The values follow the constraints of the stored key {@code commit_trailer}: a name of 1 to 128 characters without
  * an angle bracket or a line break, an email of at most 254 characters of the form {@code local@domain} without an
- * angle bracket or white space. The trailer is resolved per half from the operator's local value, then the machine's
+ * angle bracket or white space, and neither with an unpaired surrogate, which has no UTF-8 encoding. The trailer is resolved per half from the operator's local value, then the machine's
  * value, then the compiled default {@code plan-marshall <noreply@cuioss.de>}; a stored value that breaks a constraint
  * is ignored, never an exception.
  * <p>
@@ -75,21 +75,32 @@ public record CommitTrailer(String name, String email) {
 
     /**
      * @param name a candidate name
-     * @return whether it is a name of 1 to {@value #NAME_MAX_LENGTH} characters without an angle bracket or a line
-     *         break
+     * @return whether it is a name of 1 to {@value #NAME_MAX_LENGTH} characters without an angle bracket, a line
+     *         break or an unpaired surrogate
      */
     public static boolean isValidName(String name) {
         var length = name.codePointCount(0, name.length());
-        return length >= 1 && length <= NAME_MAX_LENGTH && NAME_PATTERN.matcher(name).matches();
+        return length >= 1 && length <= NAME_MAX_LENGTH && !hasUnpairedSurrogate(name)
+                && NAME_PATTERN.matcher(name).matches();
     }
 
     /**
      * @param email a candidate email
      * @return whether it is an email of at most {@value #EMAIL_MAX_LENGTH} characters of the form
-     *         {@code local@domain} without an angle bracket or white space
+     *         {@code local@domain} without an angle bracket, white space or an unpaired surrogate
      */
     public static boolean isValidEmail(String email) {
-        return email.codePointCount(0, email.length()) <= EMAIL_MAX_LENGTH && EMAIL_PATTERN.matcher(email).matches();
+        return email.codePointCount(0, email.length()) <= EMAIL_MAX_LENGTH && !hasUnpairedSurrogate(email)
+                && EMAIL_PATTERN.matcher(email).matches();
+    }
+
+    /**
+     * An unpaired high or low surrogate has no UTF-8 encoding, so it cannot reach the trailer of a commit. A surrogate
+     * pair is one supplementary code point and is no unpaired surrogate; {@link String#codePoints()} yields an
+     * unpaired surrogate as a code point in the surrogate range.
+     */
+    private static boolean hasUnpairedSurrogate(String value) {
+        return value.codePoints().anyMatch(cp -> cp >= Character.MIN_SURROGATE && cp <= Character.MAX_SURROGATE);
     }
 
     /**

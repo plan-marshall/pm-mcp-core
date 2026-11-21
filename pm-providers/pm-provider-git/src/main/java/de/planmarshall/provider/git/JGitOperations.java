@@ -42,6 +42,7 @@ import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.transport.FetchResult;
@@ -457,10 +458,11 @@ public final class JGitOperations implements GitOperations {
     /**
      * Refuses, before anything is staged, a path that is no literal repository path of one file: an empty path, a git
      * pathspec magic (a path that begins with {@code :}), an absolute one, one with a backslash, a control character or
-     * an empty, {@code .} or {@code ..} segment, one that normalises to outside the root, one that is no legal path of
-     * the file system, and a directory (JGit's pathspec is prefix-based and would commit every path below it). The
-     * directory check does not follow a final symbolic link: git records a link as a link, so a link to a directory is
-     * committed as that link.
+     * an empty, {@code .} or {@code ..} segment, one that normalises to outside the root, one whose parent directory a
+     * symbolic link carries outside the real root (the parent, or its nearest existing ancestor, is resolved with
+     * {@link Path#toRealPath}), one that is no legal path of the file system, and a directory (JGit's pathspec is prefix-based and would commit every path below it). Neither
+     * check follows a final symbolic link: git records a link as a link, so a link to a directory, a link to a target
+     * outside the root and a dangling link are each committed as that link.
      * <p>
      * The glob characters {@code *}, {@code ?} and {@code [} are admitted: JGit's {@code addFilepattern} and
      * {@code setOnly} stage a path literally, so a file named {@code app/[slug]/page.tsx} is committed under that name
@@ -490,7 +492,11 @@ public final class JGitOperations implements GitOperations {
                 .anyMatch(segment -> segment.isEmpty() || ".".equals(segment) || "..".equals(segment));
     }
 
-    /** The file-system refusals: no legal path, absolute on this platform, outside the root, a directory. */
+    /**
+     * The file-system refusals: no legal path, absolute on this platform, outside the root lexically, a directory, or a
+     * parent directory that a symbolic link carries outside the real root. The final entry is not followed, so a final
+     * link, dangling or pointing anywhere, stays a legal commit path.
+     */
     private static boolean isRefusedLocation(Path root, String path) {
         try {
             var relative = root.getFileSystem().getPath(path);
@@ -499,43 +505,86 @@ public final class JGitOperations implements GitOperations {
             }
             var normalRoot = root.toAbsolutePath().normalize();
             var resolved = normalRoot.resolve(relative).normalize();
-            return !resolved.startsWith(normalRoot) || resolved.equals(normalRoot)
-                    || Files.isDirectory(resolved, LinkOption.NOFOLLOW_LINKS);
+            if (!resolved.startsWith(normalRoot) || resolved.equals(normalRoot)
+                    || Files.isDirectory(resolved, LinkOption.NOFOLLOW_LINKS)) {
+                return true;
+            }
+            return !isParentConfined(normalRoot, Objects.requireNonNull(resolved.getParent(), "parent"));
         } catch (InvalidPathException _) {
             return true;
         }
     }
 
     /**
-     * Refuses a path that is a directory of the head tree or of the index even when the worktree no longer holds it: a
+     * Whether the parent directory of a commit path lies inside the real repository root once every symbolic link on
+     * the way is followed. A parent that does not exist is judged by its nearest existing ancestor; an ancestor that is
+     * a dangling link resolves to nothing and is not confined. A root that cannot be resolved is left to the opening
+     * of the repository, which reports it.
+     *
+     * @param normalRoot the absolute, normalised worktree root
+     * @param parent     the lexically confined parent of the path
+     * @return {@code true} if the parent stays inside the real root
+     */
+    private static boolean isParentConfined(Path normalRoot, Path parent) {
+        Path realRoot;
+        try {
+            realRoot = normalRoot.toRealPath();
+        } catch (IOException _) {
+            return true;
+        }
+        Path existing = parent;
+        while (!existing.equals(normalRoot) && !Files.exists(existing, LinkOption.NOFOLLOW_LINKS)) {
+            existing = Objects.requireNonNull(existing.getParent(), "ancestor");
+        }
+        try {
+            return existing.toRealPath().startsWith(realRoot);
+        } catch (IOException _) {
+            return false;
+        }
+    }
+
+    /**
+     * Refuses a path that is a directory of the index or of the head tree even when the worktree no longer holds it: a
      * deleted {@code src} handed as {@code paths = ["src"]} would otherwise pass the worktree check and stage every
-     * deletion below it, because a JGit pathspec is prefix-based.
+     * deletion below it, because a JGit pathspec is prefix-based. The index is checked whether or not {@code HEAD}
+     * resolves, so a directory staged in a repository without commits is refused as well; only the head-tree check
+     * needs {@code HEAD}. A path that is a symbolic link in the worktree (read without following it) is the link that
+     * replaces a tracked directory and is not refused: git records it as that link.
      *
      * @param repository the repository
      * @param paths      the repository-relative paths to stage and commit
-     * @return the first path that names a tracked directory, empty when every path is a tracked or new file
+     * @return the first path that names a tracked directory, empty when every path is a tracked or new file or a link
      * @throws IOException when the head tree or the index cannot be read
      */
     private static Optional<String> refusedTrackedTree(Repository repository, List<String> paths) throws IOException {
-        var headId = repository.resolve(Constants.HEAD + "^{commit}");
-        if (headId == null || paths.isEmpty()) {
+        if (paths.isEmpty()) {
             return Optional.empty();
         }
+        var workTree = repository.getWorkTree().toPath();
         var index = repository.readDirCache();
+        var headId = repository.resolve(Constants.HEAD + "^{commit}");
         try (RevWalk walk = new RevWalk(repository)) {
-            var headTree = walk.parseCommit(headId).getTree();
+            var headTree = headId == null ? null : walk.parseCommit(headId).getTree();
             for (var path : paths) {
-                if (index.getEntriesWithin(path + "/").length > 0) {
-                    return Optional.of(path);
+                if (Files.isSymbolicLink(workTree.resolve(path))) {
+                    continue;
                 }
-                try (TreeWalk treeWalk = TreeWalk.forPath(repository, path, headTree)) {
-                    if (treeWalk != null && treeWalk.isSubtree()) {
-                        return Optional.of(path);
-                    }
+                if (index.getEntriesWithin(path + "/").length > 0 || isHeadSubtree(repository, headTree, path)) {
+                    return Optional.of(path);
                 }
             }
         }
         return Optional.empty();
+    }
+
+    private static boolean isHeadSubtree(Repository repository, @Nullable RevTree headTree, String path)
+            throws IOException {
+        if (headTree == null) {
+            return false;
+        }
+        try (TreeWalk treeWalk = TreeWalk.forPath(repository, path, headTree)) {
+            return treeWalk != null && treeWalk.isSubtree();
+        }
     }
 
     @Override

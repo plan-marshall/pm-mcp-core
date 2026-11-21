@@ -11,7 +11,9 @@ package de.planmarshall.provider.git.primitive;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.TypedGenerator;
@@ -115,6 +117,80 @@ class CommitTrailerTest {
 
             assertThrows(IllegalArgumentException.class, () -> new CommitTrailer(name, email),
                     "An email breaking the constraints is refused");
+        }
+    }
+
+    @Nested
+    @DisplayName("surrogates")
+    class Surrogates {
+
+        private final TypedGenerator<String> letters = Generators.letterStrings(1, 20);
+
+        // a surrogate cannot be written as a literal in generated data, so the strings are built from char values
+        private static final char HIGH = '\uD800';
+        private static final char LOW = '\uDC00';
+        private static final String PAIR = new String(Character.toChars(0x1F600));
+
+        @ParameterizedTest
+        @ValueSource(chars = {HIGH, LOW})
+        @DisplayName("a name or an email with an unpaired surrogate is invalid")
+        void unpairedSurrogateIsInvalid(char surrogate) {
+            var name = letters.next() + surrogate + letters.next();
+            var email = letters.next() + surrogate + "@" + letters.next();
+
+            assertAll("unpaired surrogate",
+                    () -> assertFalse(CommitTrailer.isValidName(name), "A name with a lone surrogate is invalid"),
+                    () -> assertFalse(CommitTrailer.isValidEmail(email),
+                            "An email with a lone surrogate is invalid"));
+        }
+
+        @Test
+        @DisplayName("a surrogate pair, one supplementary character, stays valid")
+        void surrogatePairIsValid() {
+            var name = letters.next() + PAIR;
+            var email = letters.next() + PAIR + "@" + letters.next();
+
+            assertAll("surrogate pair",
+                    () -> assertTrue(CommitTrailer.isValidName(name), "A name with a surrogate pair is valid"),
+                    () -> assertTrue(CommitTrailer.isValidEmail(email), "An email with a surrogate pair is valid"));
+        }
+
+        @Test
+        @DisplayName("a reversed pair is two unpaired surrogates and invalid")
+        void reversedPairIsInvalid() {
+            var name = letters.next() + LOW + HIGH;
+
+            assertFalse(CommitTrailer.isValidName(name), "A low before a high surrogate is invalid");
+        }
+
+        @Test
+        @DisplayName("a stored local value with an unpaired surrogate falls through to the machine value")
+        void storedSurrogateFallsToMachine() {
+            var machine = trailers.next();
+            var local = new Stored(letters.next() + HIGH, letters.next() + LOW + "@" + letters.next());
+
+            var resolution = CommitTrailer.resolve(local, new Stored(machine.name(), machine.email()));
+
+            assertAll("fall-through to the machine",
+                    () -> assertEquals(machine, resolution.trailer(), "The machine trailer replaces the local one"),
+                    () -> assertEquals(TrailerSource.CONFIGURED, resolution.nameSource(),
+                            "The used machine name reports configured"));
+        }
+
+        @Test
+        @DisplayName("a stored value with an unpaired surrogate alone resolves the default as invalid_ignored")
+        void storedSurrogateFallsToDefault() {
+            var local = new Stored(letters.next() + LOW, letters.next() + HIGH + "@" + letters.next());
+
+            var resolution = CommitTrailer.resolve(local, null);
+
+            assertAll("fall-through to the default",
+                    () -> assertEquals(CommitTrailer.compiled(), resolution.trailer(),
+                            "The compiled trailer replaces the bad one"),
+                    () -> assertEquals(TrailerSource.INVALID_IGNORED, resolution.nameSource(),
+                            "The name half reports invalid_ignored"),
+                    () -> assertEquals(TrailerSource.INVALID_IGNORED, resolution.emailSource(),
+                            "The email half reports invalid_ignored"));
         }
     }
 
