@@ -603,9 +603,11 @@ The four follow-ups the end path's lane named, each with its outcome; none is bu
   refine of PLAN-V2-165 was to build none of the four follow-ups. The pump of a generation whose end fails before the
   attempt's end is appended already stays, because `finishAttempt` removes it only after that append and the pass keeps
   the generation's claim while the end stays owed, so the retry resumes from the pump's offset (ADR 018, ADR 022). The
-  gap that stays is a tail that `JobLog` reports unreadable at the settling pass: the attempt's end is appended in that
-  same pass and the pump leaves with it, so that tail is not read again. It is reported to the orchestrator in the
-  landing message, which places it in a staged plan.
+  gap that stays is a tail that `JobLog` reports unreadable at the settling pass. While the generation still leases its
+  task, the attempt's end is appended in that same pass and the pump leaves with it, so that tail is not read again.
+  When the task closed before the job settled, `closeAttempt` appends no end on an unreadable tail and `finishAttempt`
+  still removes the pump, so the attempt is left without an end. It is reported to the orchestrator in the landing
+  message, which places it in a staged plan.
 . *The recorded budget against the exit loss's attempt end* (`SupervisionPassTest.anExitAfterTheFirstCallIsALoss`) —
   dropped: a worker that still leases its task when it exits is the exit loss, and the loss is the one mapping of the
   attempt's end (`exited_without_submit`, ADR 020); the budget the settlement recorded stays on the record's fate and
