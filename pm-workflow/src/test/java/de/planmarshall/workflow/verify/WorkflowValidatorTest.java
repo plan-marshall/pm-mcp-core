@@ -1360,7 +1360,8 @@ class WorkflowValidatorTest {
 
         @Test
         @DisplayName("Should refuse a slot bound to two inputs of one call")
-        void shouldRefuseTwoInputsOfOneCall() {            var result = consumption.verify(slotPlan("""
+        void shouldRefuseTwoInputsOfOneCall() {
+            var result = consumption.verify(slotPlan("""
                     state verify.entry
                         auto test.prepare
                             done -> verify.fill
@@ -1424,7 +1425,8 @@ class WorkflowValidatorTest {
          * @param states the states of the plan unit
          * @return the plan unit with one commit-message slot and the two terminals
          */
-        private static WorkflowDefinition slotPlan(String states) {            return VerifyFixtures.parseSource("consume-plan.pmwf", """
+        private static WorkflowDefinition slotPlan(String states) {
+            return VerifyFixtures.parseSource("consume-plan.pmwf", """
                     ---
                     name: consume.plan
                     description: A unit written for the verifier tests.
