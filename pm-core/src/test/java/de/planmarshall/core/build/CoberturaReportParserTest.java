@@ -156,7 +156,26 @@ class CoberturaReportParserTest {
 
         assertAll(
                 () -> assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura"),
-                () -> assertEquals("cobertura: no lines measured", refused.reason(), "The reason says no line measured"));
+                () -> assertEquals("cobertura: no lines measured", refused.reason(),
+                        "The reason says no line measured"));
+    }
+
+    // The root attributes are the contract: a nonzero branch-rate is a measurement with or without branches-valid.
+    @ParameterizedTest
+    @ValueSource(strings = {"", "branches-valid=\"4\""})
+    @DisplayName("keeps a nonzero root branch rate with or without branches-valid")
+    void keepsANonzeroBranchRate(String branchesValid) {
+        CoverageReport report = CoverageReportFixtures.reportOf(CoberturaReportParser.parse("""
+                <coverage line-rate="0.9" %s branch-rate="0.5">
+                  <packages><package name="p"><classes>
+                    <class name="a" filename="a" line-rate="0.9" branch-rate="0.25"/>
+                  </classes></package></packages>
+                </coverage>
+                """.formatted(branchesValid)));
+
+        assertAll(
+                () -> assertEquals(50.0, report.overall().branch(), "The root branch rate 0.5 is kept"),
+                () -> assertEquals(25.0, report.items().getFirst().branch(), "The class branch rate is kept"));
     }
 
     // The root attribute is the contract: branches-valid="0" and no branches-valid both measured no branch.

@@ -204,19 +204,91 @@ class BuildLogBoundsTest {
     @Test
     @DisplayName("hostile rewrite finding lines at the limit return inside the bound")
     void boundsRepeatedRewriteFindingLines() {
-        var hostile = fit("CUI_REWRITE-100: Finding detected at x", LIMIT);
-        var log = "--- rewrite:run (\n" + hostile + "\n";
+        var log = "--- rewrite:run (\n" + hostileFindingLine() + "\n";
         OpenRewriteLogParser.parse(log, true);
 
-        var result = assertTimeoutPreemptively(HOSTILE_BOUND, () -> {
-            var answered = OpenRewriteLogParser.parse(log, true);
+        var verdicts = assertTimeoutPreemptively(HOSTILE_BOUND, () -> {
+            var answered = new ArrayList<RewriteVerdict>();
             for (var index = 0; index < LINES_AT_THE_LIMIT; index++) {
-                answered = OpenRewriteLogParser.parse(log, true);
+                answered.add(OpenRewriteLogParser.parse(log, true).verdict());
             }
             return answered;
         }, "the rewrite parser answers the hostile lines in time");
 
-        assertSame(RewriteVerdict.PARSE_ERROR, result.verdict(), "the hostile line is a parse error");
+        assertAll(
+                () -> assertEquals(LINES_AT_THE_LIMIT, verdicts.size(), "every hostile line is parsed once"),
+                () -> assertTrue(verdicts.stream().allMatch(RewriteVerdict.PARSE_ERROR::equals),
+                        "every hostile line is a parse error"));
+    }
+
+    /**
+     * A finding line at the limit that carries the head, the identifier and many locations but no {@code ": "} after
+     * the first location: the ported template tries every location as the path's end and scans the rest for the
+     * recipe's {@code ": "} from each, which costs the square of the line's length.
+     */
+    private static String hostileFindingLine() {
+        var head = "CUI_REWRITE-100: Finding detected at ";
+        return head + fit("x:1:2 by y", LIMIT - head.length());
+    }
+
+    @Test
+    @DisplayName("hostile Maven header lines carrying the token return inside the bound")
+    void boundsRepeatedMavenHeaderLinesCarryingTheToken() {
+        var hostile = fit("--- a:b:c ", LIMIT - 1) + "@";
+        MavenOutputParser.parse("BUILD SUCCESS\n");
+
+        var parsed = assertTimeoutPreemptively(HOSTILE_BOUND,
+                () -> MavenOutputParser.parse("BUILD SUCCESS\n" + (hostile + "\n").repeat(LINES_AT_THE_LIMIT)),
+                "the header lines carrying an @ answer in time");
+
+        assertAll(
+                () -> assertTrue(parsed.successMarker(), "the status marker is still read"),
+                () -> assertTrue(MavenOutputParser.executionHeaderRunner(hostile).isEmpty(),
+                        "a header without a closing --- names no runner"));
+    }
+
+    @Test
+    @DisplayName("hostile pytest lines carrying a line terminator return inside the bound")
+    void boundsRepeatedPytestSummaryLinesCarryingATerminator() {
+        var hostile = fit("passed ", LIMIT - 2) + "\rx";
+        PyprojectOutputParser.parse("=== FAILURES ===\n");
+
+        var parsed = assertTimeoutPreemptively(HOSTILE_BOUND,
+                () -> PyprojectOutputParser.parse("=== FAILURES ===\n" + (hostile + "\n").repeat(LINES_AT_THE_LIMIT)),
+                "the terminator-carrying pytest lines answer in time");
+
+        assertAll(
+                () -> assertTrue(parsed.diagnostics().isEmpty(), "the hostile lines locate no diagnostic"),
+                () -> assertFalse(PyprojectOutputParser.isSummaryLine(hostile),
+                        "a line without seconds is no summary line"));
+    }
+
+    @Test
+    @DisplayName("the finding match answers the ported expression")
+    void findingMatchKeepsThePortedResult() {
+        var lines = new ArrayList<String>();
+        lines.add(VALID_FINDING);
+        lines.add("CUI_REWRITE-100: Finding detected at :1:2 by x :3:4 by r: m");
+        lines.add("CUI_REWRITE-101: Finding pre-existing at a:1:2:3 by r: m");
+        lines.add("CUI_REWRITE-100: Finding detected at a\r CUI_REWRITE-100: Finding detected at b:1:2 by r: m");
+        for (var index = 0; index < GENERATED_LINES; index++) {
+            lines.add(generatedLine());
+        }
+
+        for (var line : lines) {
+            var ported = PORTED_FINDING.matcher(line);
+            var found = ported.find();
+            var rewritten = OpenRewriteLogParser.findingMatch(line);
+            assertEquals(found, rewritten.isPresent(), () -> "the finding match differs from the ported: " + line);
+            if (found) {
+                var match = rewritten.orElseThrow();
+                for (var group = 1; group <= 6; group++) {
+                    var index = group;
+                    assertEquals(ported.group(index), match.group(index),
+                            () -> "a finding group differs from the ported: " + line);
+                }
+            }
+        }
     }
 
     @Test

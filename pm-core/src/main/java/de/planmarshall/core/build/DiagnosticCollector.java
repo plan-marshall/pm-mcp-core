@@ -24,12 +24,13 @@ import de.planmarshall.core.queue.SecretRedactor;
  * <p>
  * The ported parsers deduplicate by category, file, line and the first 100 characters of the message, so the reactor
  * summary and the per-module output of one error produce one diagnostic. Every message passes through
- * {@link #stored(String)}, which redacts the credential shapes and then stores at most 500 characters of the message: the
- * redaction runs first, so a cut value cannot keep a prefix the redactor would have matched whole. Both parsers use this
- * one implementation, so the two identities cannot drift apart, and every parser that files a {@link Diagnostic} passes
- * its message through {@code stored} (the OpenRewrite log parser files its own {@code RewriteFinding} records, which redact
- * their path and message in their constructor); the collected stack trace reaches the same redaction and the same bound in
- * the {@link Diagnostic} constructor, which redacts the file too.
+ * {@link #stored(String)}, which redacts the credential shapes and then stores at most 500 characters of the message:
+ * the redaction runs first, so a cut value cannot keep a prefix the redactor would have matched whole. The
+ * deduplication key is computed from that redacted message, so two lines that differ only in a redacted value are one
+ * diagnostic. Both parsers use this one implementation, so the two identities cannot drift apart, and every parser that
+ * files a {@link Diagnostic} passes its message through {@code stored} (the OpenRewrite log parser files its own
+ * {@code RewriteFinding} records, which redact their path and message in their constructor); the collected stack trace
+ * reaches the same redaction and the same bound in the {@link Diagnostic} constructor, which redacts the file too.
  *
  * @since 0.1
  */

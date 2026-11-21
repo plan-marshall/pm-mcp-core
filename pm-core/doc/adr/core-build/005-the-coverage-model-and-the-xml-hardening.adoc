@@ -42,12 +42,13 @@ Two further decisions are forced by the specification and the formats:
    branch percentages (the branch `null` where the format gives none) and the `missedMethods` detail.
 3. **The verdict is decided once, on the line.** `CoverageReport.evaluate(int threshold)` compares the overall line
    percentage (`>=` passes) and chooses the low-coverage items by their line percentage. No other metric is consulted.
-4. **The XML readers share one hardened factory.** `CoverageXmlReader` keeps DTD support on (so the declaration parses),
-   turns external entities off, keeps entity references from being replaced, and resolves every external reference to an
-   empty stream, so a DTD or entity that tries to reach a file or a URL reads nothing. A document whose DTD carries an
-   internal subset is refused before it is read, because that is where a general or parameter entity is declared, and the
-   parsers refuse an `ENTITY_REFERENCE` event as a backstop. A document that declares and uses an external entity is
-   refused, never expanded; a `DOCTYPE` declaration alone is tolerated without resolution.
+4. **The XML readers share one hardened factory.** _Superseded by ADR `core-build/008` Decision 1; the reader no longer
+   does what this decision first said._ `CoverageXmlReader` turns DTD support off, turns external entities off, keeps
+   entity references from being replaced, and resolves every external reference to an empty stream, so a DTD or entity
+   that tries to reach a file or a URL reads nothing. A `DOCTYPE` declaration, an internal subset included, is tolerated
+   and never resolved; an entity reference in element content is refused through the `ENTITY_REFERENCE` event, and one
+   in an attribute value is dropped from the value, never expanded or resolved. (As first decided, the factory kept DTD
+   support on and a text scan refused a document whose DTD carries an internal subset before it was read.)
 5. **A file that cannot be read is a refusal.** Every parser offers `parse(String)` and `parse(Path)`; the path overload
    turns an unreadable file into a `Refused` naming the format. A truncated XML document, a malformed or incomplete
    Istanbul document, and an LCOV record that is not terminated, carries an incomplete counter pair or covers more than
@@ -85,10 +86,11 @@ percentages must decide what a refusal means for its job — the gate renders it
 The model carries every metric a format gives, so a later consumer of a metric other than the line reads it without a
 parser change, and changing the threshold rule means changing one method and its two boundary fixtures.
 
-The hardening makes two document classes unreadable that a non-validating parser would accept: a report whose content
-depends on an external entity, and a report whose DTD carries an internal subset — even one that declares no entity,
-because the subset is where a general or parameter entity is declared. No build tool in scope writes either, and both
-refusals are the intended fail-closed direction.
+The hardening, as ADR `core-build/008` leaves it, makes one document class unreadable that a non-validating parser
+would accept: a report with an entity reference in its element content, which is refused, never expanded. A report
+whose DTD carries an internal subset is read with the subset skipped, and an entity reference in an attribute value is
+dropped from the value; neither is resolved. No build tool in scope writes such a report, and the refusal is the
+intended fail-closed direction. (As first decided, a report whose DTD carries an internal subset was refused too.)
 
 == Source
 

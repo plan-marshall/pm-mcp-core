@@ -33,12 +33,14 @@ import org.jspecify.annotations.Nullable;
  * that is not a {@code coverage} report are refusals; a missing {@code branch-rate} leaves the branch metric absent.
  * <p>
  * The zero rule is decided at the root. A root {@code lines-valid="0"} measured no line, so the report is refused
- * ({@code no lines measured}). A root {@code branches-valid} of {@code 0}, or none, measured no branch, so the overall
- * branch metric and the branch rate of every class are absent; under a root that measured branches, a
- * {@code branch-rate="0"} is a measured {@code 0.0}.
+ * ({@code no lines measured}). A root {@code branch-rate="0"} (or none) with a {@code branches-valid} of {@code 0} (or
+ * none) measured no branch, so the overall branch metric and the branch rate of every class are absent. A root whose
+ * {@code branches-valid} is above {@code 0}, or whose {@code branch-rate} is above {@code 0} with or without a
+ * {@code branches-valid}, measured branches: its rate is kept, and a {@code branch-rate="0"} under it is a measured
+ * {@code 0.0}.
  * <p>
- * The XML hardening is the same as JaCoCo's: a {@code DOCTYPE} is tolerated and never resolved or fetched, and a document
- * that references an entity is refused, never expanded.
+ * The XML hardening is the same as JaCoCo's: a {@code DOCTYPE} is tolerated and never resolved or fetched, and a
+ * document that references an entity is refused, never expanded.
  *
  * @since 0.1
  */
@@ -87,8 +89,20 @@ public class CoberturaReportParser {
      *         naming its file name only
      */
     public static CoverageParseResult parse(Path reportFile) {
+        return parse(reportFile, CoverageReportStream.MAX_BYTES);
+    }
+
+    /**
+     * Parses a Cobertura XML report from a file, streaming it within the given bound; the seam through which a test
+     * proves that the file is read through {@link CoverageReportStream}.
+     *
+     * @param reportFile the report file
+     * @param limit      the most bytes of the report that are read
+     * @return the parsed report, or a refusal naming the format and the reason
+     */
+    static CoverageParseResult parse(Path reportFile, long limit) {
         Objects.requireNonNull(reportFile, "reportFile");
-        try (InputStream source = new CoverageReportStream(Files.newInputStream(reportFile))) {
+        try (InputStream source = new CoverageReportStream(Files.newInputStream(reportFile), limit)) {
             return CoverageXmlReader.parse(source, FORMAT, new Walk());
         } catch (IOException e) {
             return CoverageRefusals.of(FORMAT, reportFile, e);
@@ -151,8 +165,10 @@ public class CoberturaReportParser {
         }
 
         /**
-         * Reads the root, where the zero rule is decided: {@code lines-valid="0"} refuses the report, and a
-         * {@code branches-valid} of {@code 0} or none makes every branch metric of the report absent.
+         * Reads the root, where the zero rule is decided: {@code lines-valid="0"} refuses the report, and a root
+         * {@code branch-rate} of {@code 0} or none with a {@code branches-valid} of {@code 0} or none makes every branch
+         * metric of the report absent. A nonzero root {@code branch-rate} is a measurement without
+         * {@code branches-valid}.
          *
          * @param reader the reader positioned on the root
          */
@@ -163,8 +179,10 @@ public class CoberturaReportParser {
                     throw new IllegalArgumentException(NO_LINES_MEASURED);
                 }
                 lineRate = CoveragePercentages.percentageOfRate(requireRate(reader, LINE_RATE));
-                branchesMeasured = count(reader, BRANCHES_VALID).orElse(0L) > 0;
-                branchRate = branchPercentage(reader);
+                Optional<Double> rootBranch = rate(reader, BRANCH_RATE).map(CoveragePercentages::percentageOfRate);
+                branchesMeasured = count(reader, BRANCHES_VALID).orElse(0L) > 0
+                        || rootBranch.filter(percentage -> percentage > 0.0).isPresent();
+                branchRate = branchesMeasured ? rootBranch.orElse(null) : null;
             }
         }
 

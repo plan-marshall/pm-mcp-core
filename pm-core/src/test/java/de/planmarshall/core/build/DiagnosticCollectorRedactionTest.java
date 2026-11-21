@@ -35,6 +35,8 @@ import de.planmarshall.core.queue.SecretRedactor;
 @DisplayName("Diagnostic message redaction")
 class DiagnosticCollectorRedactionTest {
 
+    // The literal is the contract: what matters is the label "password=", which makes any value of four or more
+    // characters a secret the redactor masks; the value only has to be findable in the stored message.
     private static final String SECRET = "abcd1234";
 
     private static final String CREDENTIAL = "password=" + SECRET;

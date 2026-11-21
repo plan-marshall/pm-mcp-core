@@ -51,8 +51,8 @@ import org.jspecify.annotations.Nullable;
  * A summary count too large for a {@code long}, or summary counts whose sum overflows a {@code long}, leave the
  * population {@link TestCounts.Unmeasured} as well, beside the plan-count rule above: a wrapped sum never reads as a
  * measured population, and a {@code # fail} count too large for a {@code long} is still a printed failing count, so the
- * status is red. A measured zero is a measurement: {@code # fail 0} never produces a {@code no_tests_ran} verdict, because TAP prints no
- * positive "no tests" marker: a measured zero stays a measurement.
+ * status is red. A measured zero is a measurement: {@code # fail 0} never produces a {@code no_tests_ran} verdict,
+ * because TAP prints no positive "no tests" marker: a measured zero stays a measurement.
  * <p>
  * Every line is cut at {@link BuildLogText#MAX_LINE_LENGTH} characters by {@link BuildLogText#boundLines(String)} before
  * any pattern sees it, at the one entry both {@code parse} overloads share (ADR {@code core-build/007}).
@@ -104,8 +104,10 @@ public class TapOutputParser {
     /**
      * A top-level test point, {@code ok} or {@code not ok} followed by a tab, a space or the end of the line: the TAP
      * point shape allows a bare point, a number, a {@code - description} and a {@code # directive}, and all of them
-     * follow that separator. A prose line that merely starts with the word {@code ok} (such as {@code ok, the copy is
-     * done}) is no point. The negative lookahead states the separator without an alternation.
+     * follow that separator. A line whose {@code ok} runs into another character (such as {@code ok, the copy is done}
+     * or {@code okay}) is no point; a prose line whose {@code ok} is followed by a blank (such as {@code ok then
+     * proceed}) is one, because the shape cannot tell it from a point with a description. The negative lookahead states
+     * the separator without an alternation.
      */
     private static final Pattern TOP_LEVEL_POINT = Pattern.compile("^(?:not )?ok(?![^ \t])");
 
@@ -165,11 +167,13 @@ public class TapOutputParser {
      * {@code TAP version}; the lines before the first such line, or the whole log when it carries none, are one run, so
      * concatenated runs ({@code npm test --workspaces}) are checked one by one and a later run cannot supply the test point
      * an earlier run is missing. A run finished its plan when it announced no top-level plan line, or when the summed
-     * count of its own top-level plan lines equals its own number of top-level test points ({@code ok <number>} or
-     * {@code not ok <number>} at the start of a line). A top-level plan line whose count is too large for a {@code long}, or whose count makes
-     * the run's sum overflow one, leaves that run unfinished. An indented (subtest) plan line and an indented test point belong to a subtest and are not
-     * read. The plan counts test points, not the {@code # tests} total: {@code node --test} prints one top-level point
-     * per suite and counts the tests inside them in {@code # tests}.
+     * count of its own top-level plan lines equals its own number of top-level test points ({@code ok} or
+     * {@code not ok} at the start of a line, followed by a space, a tab or the line's end: no number is required, so a
+     * prose line such as {@code ok then proceed} counts as a point too, see {@link #TOP_LEVEL_POINT}). A top-level plan
+     * line whose count is too large for a {@code long}, or whose count makes the run's sum overflow one, leaves that run
+     * unfinished. An indented (subtest) plan line and an indented test point belong to a subtest and are not read. The
+     * plan counts test points, not the {@code # tests} total: {@code node --test} prints one top-level point per suite
+     * and counts the tests inside them in {@code # tests}.
      *
      * @param lines the log lines
      * @return whether no run's top-level plan lines contradict that run's top-level test points
