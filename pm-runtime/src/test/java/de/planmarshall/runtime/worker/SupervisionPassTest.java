@@ -56,6 +56,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.WorkerParameters;
@@ -565,6 +567,29 @@ class SupervisionPassTest {
                 () -> assertEquals(QueueTaskRecord.AttemptEnd.WORKER_LOST,
                         SupervisionPass.attemptEnd(null, null, WorkerState.EndReason.SILENCE),
                         "a silent worker's attempt is lost"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(LossReason.class)
+    @DisplayName("an unrequested end a loss records takes the attempt end of that loss")
+    void anUnrequestedLossEndTakesTheAttemptEndOfItsLoss(LossReason loss) {
+        var attemptEnd = SupervisionPass.attemptEnd(null, null, loss.endReason());
+
+        assertAll(
+                () -> assertEquals(Optional.of(loss), LossReason.recording(loss.endReason()),
+                        "the recorded end reason names its loss"),
+                () -> assertEquals(loss.attemptEnd(), attemptEnd, "the loss decides the attempt's end"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(WorkerState.EndReason.class)
+    @DisplayName("every recorded end reason of an unrequested end maps onto an attempt end")
+    void everyRecordedEndReasonMapsOntoAnAttemptEnd(WorkerState.EndReason recorded) {
+        var attemptEnd = assertDoesNotThrow(() -> SupervisionPass.attemptEnd(null, null, recorded),
+                "the recorded end reason has an attempt end");
+
+        assertEquals(LossReason.recording(recorded).map(LossReason::attemptEnd).orElse(attemptEnd), attemptEnd,
+                "a loss end reason maps as its loss does");
     }
 
     @Test

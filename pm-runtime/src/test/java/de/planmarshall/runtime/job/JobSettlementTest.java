@@ -94,6 +94,9 @@ class JobSettlementTest {
     /** The key of the build slot: the fixture's one slot. */
     private static final String SLOT_KEY = "build-slot-1";
 
+    /** The report contract of the fate step of a succeeded worker job. */
+    private static final String WORKER_FATE_REPORT = "fate succeeded recorded; worker block terminal";
+
     @TempDir
     Path base;
 
@@ -182,8 +185,8 @@ class JobSettlementTest {
                 () -> assertEquals(createdAt.plusSeconds(60), written.stateAt(),
                         "the terminal instant is the job's ended-at"),
                 () -> assertNull(written.task(), "the terminal block clears the leased task"),
-                () -> assertInstanceOf(Outcome.Done.class, report.steps().getFirst().outcome(),
-                        "the fate step reports its write"));
+                () -> assertEquals(new Outcome.Done(WORKER_FATE_REPORT), report.steps().getFirst().outcome(),
+                        "the fate step reports the worker's fate"));
     }
 
     @Test
@@ -264,8 +267,8 @@ class JobSettlementTest {
         var stored = records.read(workerJob).orElseThrow();
         var recordPath = records.recordPath(workerJob);
         assertAll(
-                () -> assertEquals(new Outcome.Done("fate succeeded recorded; worker block terminal, token and fence "
-                        + SettlementStep.NOT_IMPLEMENTED), outcome, "the fate step reports the recorded fate"),
+                () -> assertEquals(new Outcome.Done(WORKER_FATE_REPORT), outcome,
+                        "the fate step reports the recorded fate"),
                 () -> assertEquals(refused, stored.worker(), "the refused worker block is kept as stored"),
                 () -> assertThrows(StoreRefusal.class, () -> WorkerStateCodec.read(recordPath, stored.worker()),
                         "the kept block is still one the codec refuses"),

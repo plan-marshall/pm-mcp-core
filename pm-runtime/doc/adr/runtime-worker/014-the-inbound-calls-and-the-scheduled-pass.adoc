@@ -55,13 +55,21 @@ a deadline later.
 The pass completes an end while holding the calls object's monitor, which every inbound call also holds, so a transport
 call that read the generation before the terminal write cannot land after it and resurrect a terminal generation.
 
+NOTE: Corrected by ADR `runtime-worker/019`: the end is no longer completed under the calls' monitor. The pass takes the
+monitor only to claim a generation's end and to record its result; the fence, the token revoke, the slot release and
+the read of the terminal state run outside it, so a call or a deadline is dispatched while an end is written. ADR
+`runtime-worker/022` registers the terminal lifecycle onto the generation the registry holds when the result is
+recorded, so a call that ran meanwhile keeps the facts it wrote.
+
 A wait's `queueTaskId` is the candidate task the transport would offer, and a blank one is the answered absence: the
 `pm_wait` tool takes no argument and the server decides the offer, so the transport names what it holds and the
 supervisor answers what the protocol allows. A real queue-task id is never blank.
 
 `SupervisionPass` is the periodic step, as a function the assembly schedules: no thread and no timer of its own. `run()`
 takes one reading of the clock and, for every non-terminal generation, reads its job record from
-`JobRecordStore.ofProject` — the store the terminal-state writer reads — and, when the record is settled, settles the
+`JobRecordStore.ofProject` — the store the terminal-state writer reads (corrected by ADR `runtime-worker/017`: the job
+store the settlement writes with the terminal worker block; `WorkerStateWriter` is only the fallback writer of a record
+not settled yet) — and, when the record is settled, settles the
 detection with `LossDetection.exit(now)`, runs a loss through `WorkerEnding.end(generation, signal)` first, and
 completes the end through `WorkerEnding.exited(generation)`, writing the terminal generation through `replaced`. A
 generation that holds a task pumps its job log through one `WorkerActivityPump` per generation (the pump keeps the

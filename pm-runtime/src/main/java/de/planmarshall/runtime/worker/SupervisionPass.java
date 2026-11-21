@@ -38,8 +38,8 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * {@link WorkerTimers}, which already owns the supervisor's one scheduler thread, so {@link #run()} is a step a caller
  * drives from wherever its scheduling belongs. It takes one reading of the clock and, for every generation that is not
  * terminal, creates the generation's loss detection — so a worker that never calls is lost at the deadline of "silent
- * from spawn", not at the runner's budget — and reads the generation's job record from the store the terminal-state
- * writer writes. A job the record reports as ended settles its detection with {@link LossDetection#exit(Instant)} and
+ * from spawn", not at the runner's budget — and reads the generation's job record from the job store the settlement
+ * writes, whose settled record carries the terminal worker block with the fate. A job the record reports as ended settles its detection with {@link LossDetection#exit(Instant)} and
  * completes the end through {@link WorkerEnding#exited(WorkerGeneration)}, a loss going through
  * {@link WorkerEnding#end(WorkerGeneration, LossSignal)} first. A generation that holds a task reads its job log from
  * the offset its pump last read, hands the complete lines to that generation's {@link WorkerActivityPump} and runs
@@ -371,23 +371,23 @@ public final class SupervisionPass {
 
     /**
      * The end of an attempt whose worker ended without an end the supervisor requested, as the settlement recorded it:
-     * a task the worker finished closes its attempt, a loss ends it without its submit, and a budget, a drain, a start
-     * failure and a withdrawal carry their own end.
+     * an end reason a loss records takes the attempt's end of that loss ({@link LossReason#attemptEnd()}, the one
+     * mapping of ADR {@code runtime-worker/020}); a task the worker finished closes its attempt, and a budget, a drain,
+     * a start failure and a withdrawal carry their own end.
      *
      * @param recorded the end reason the settled record carries
      * @return how the attempt ended
      */
     private static QueueTaskRecord.AttemptEnd attemptEndOf(EndReason recorded) {
-        return switch (recorded) {
+        return LossReason.recording(recorded).map(LossReason::attemptEnd).orElseGet(() -> switch (recorded) {
             case TASK_DONE, IDLE_RECYCLE, IDLE_YIELD, TOKEN_BUDGET, TASKS_PER_GENERATION, ARTIFACT_CHANGED ->
                 QueueTaskRecord.AttemptEnd.CLOSED;
-            case EXITED -> QueueTaskRecord.AttemptEnd.EXITED_WITHOUT_SUBMIT;
-            case ACK_MISSED, SILENCE -> QueueTaskRecord.AttemptEnd.WORKER_LOST;
             case BUDGET -> QueueTaskRecord.AttemptEnd.BUDGET;
             case DRAIN -> QueueTaskRecord.AttemptEnd.DRAIN;
             case START_FAILURE -> QueueTaskRecord.AttemptEnd.START_FAILURE;
             case WITHDRAWN -> QueueTaskRecord.AttemptEnd.PAUSED;
-        };
+            default -> throw new IllegalStateException("An end reason no loss records and no arm maps: " + recorded);
+        });
     }
 
     /**

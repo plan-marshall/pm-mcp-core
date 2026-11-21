@@ -9,6 +9,10 @@
  */
 package de.planmarshall.runtime.worker;
 
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Optional;
+
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
 import de.planmarshall.core.store.WorkerState;
 
@@ -57,5 +61,18 @@ public enum LossReason {
     /** @return how the attempt of the worker's task ended */
     public AttemptEnd attemptEnd() {
         return attemptEnd;
+    }
+
+    /**
+     * The loss a recorded end reason names, so the attempt's end of a lost worker is read from the loss alone (ADR
+     * {@code runtime-worker/020}) and no second table maps a loss onto an attempt's end.
+     *
+     * @param endReason the end reason a worker state carries
+     * @return the loss that records this end reason; empty for an end reason no loss records
+     * @throws NullPointerException if the end reason is {@code null}
+     */
+    public static Optional<LossReason> recording(WorkerState.EndReason endReason) {
+        Objects.requireNonNull(endReason, "endReason");
+        return Arrays.stream(values()).filter(reason -> reason.endReason == endReason).findFirst();
     }
 }

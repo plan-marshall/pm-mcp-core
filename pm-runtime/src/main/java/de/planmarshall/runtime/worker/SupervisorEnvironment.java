@@ -58,7 +58,7 @@ import de.planmarshall.runtime.launch.SkillSource;
  * @param harnessVerifier the launch-time verification of an enrolled harness
  * @param composer        the composition of one worker launch
  * @param starter         the job runtime that starts and settles a worker
- * @param stateWriter     where the terminal worker state of a generation is written
+ * @param stateWriter     the fallback writer of a generation's terminal worker state, for a record not settled yet
  * @param locks           the lock manager of the project stores
  * @param jobTokens       the registry of the job tokens minted at the spawns
  * @param slots           the admission of the machine model slots
@@ -161,12 +161,13 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
         }
     }
 
-
     /**
-     * Where the terminal state of a worker generation is written (PM-WORK-3, Job Record): the worker block is read from
-     * the record the generation's job id names, its state, state instant, end reason and start-failure flag are replaced
-     * in one construction and its leased task cleared, and the record is written back through the one worker write
-     * point under the queue lock. The production adapter is {@link #over(Path, String, LockManager)}; a test supplies a
+     * The fallback writer of the terminal worker state (PM-WORK-3, Job Record), used only for a record the settlement
+     * has not settled yet: the settlement writes the terminal worker block with the fate, and the store refuses a worker
+     * write into a settled record, so the end path calls this writer only when its read finds the record unsettled. The
+     * worker block is read from the record the generation's job id names, its state, state instant, end reason and
+     * start-failure flag are replaced in one construction and its leased task cleared, and the record is written back
+     * through the one worker write point under the queue lock. The production adapter is {@link #over(Path, String, LockManager)}; a test supplies a
      * writer that records the write without a store.
      *
      * @since 0.1

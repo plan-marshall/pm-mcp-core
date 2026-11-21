@@ -40,9 +40,12 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  *   <li>when the worker does not exit within the termination grace, the force reaches the process only through
  *       {@link SupervisorEnvironment.WorkerStarter#cancel}, which is the job runtime's termination protocol;</li>
  *   <li>after the exit, the generation is fenced through {@link WorkerProtocol}, its job token revoked through
- *       {@link de.planmarshall.runtime.launch.JobTokenStore} and its model slot released, and the terminal
- *       {@link WorkerState} the settlement wrote with the job's fate is read from the record;</li>
- *   <li>the end is logged once, and a successor is started when work remains.</li>
+ *       {@link de.planmarshall.runtime.launch.JobTokenStore} and its model slot released, each once per generation,
+ *       and the terminal {@link WorkerState} the settlement wrote with the job's fate is read from the record;</li>
+ *   <li>the end is logged once per generation, also across a retry of a failed end, and a successor is started at most
+ *       once when work remains — both under the same per-effect guard as the fence, the revoke and the release;</li>
+ *   <li>the request is removed only once the caller registered the terminal generation ({@link #completed(String)}),
+ *       so an end or a forced end that arrives between the exit and the registration installs nothing.</li>
  * </ol>
  * The runner derives the job's fate and records the ended worker's usage as unmeasured; the supervisor starts no
  * process and sends no signal itself.
