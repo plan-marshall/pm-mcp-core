@@ -461,7 +461,7 @@ class CompiledInvariantsTest {
                     .stream().filter(violation -> violation.id() == InvariantId.INV_REPLAN_1).toList();
 
             assertTrue(found.stream().map(InvariantViolation::message).anyMatch(message ->
-                            message.equals("the state 'replan.fill' differs from the state of the default unit")),
+                            "the state 'replan.fill' differs from the state of the default unit".equals(message)),
                     "the dropped fills clause changes the compared shape");
         }
     }
