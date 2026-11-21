@@ -8,8 +8,11 @@
  * the root of this repository.
  */
 /**
- * The commit primitives of the sub-workflow {@code git.commit_and_push} (PM-WF-16) over the port {@code CommitSite},
- * which the assembly implements per scope.
+ * The commit primitives of the sub-workflow {@code git.commit_and_push} (PM-WF-16) over the port
+ * {@link de.planmarshall.provider.git.primitive.CommitSite}, which the assembly implements per scope:
+ * {@link de.planmarshall.provider.git.primitive.GitResolveMessagePrimitive},
+ * {@link de.planmarshall.provider.git.primitive.GitTemplateMessagePrimitive} and the return evaluation of the entity
+ * kind {@code commit-message}, {@link de.planmarshall.provider.git.primitive.CommitMessageEvaluatePrimitive}.
  * <p>
  * The package holds the rules the primitives apply, each a pure function whose refusals are returned values:
  * {@link de.planmarshall.provider.git.primitive.CommitTrailer} resolves the trailer of a server commit from the
