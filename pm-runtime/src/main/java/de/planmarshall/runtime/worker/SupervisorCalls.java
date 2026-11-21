@@ -39,9 +39,11 @@ import de.planmarshall.core.store.WorkerState;
  * table does not have from the generation's current state leaves that state as it is, so a call that arrives while the
  * generation is already ending never throws at the transport.
  * <p>
- * Every method holds this instance's monitor, and {@link SupervisionPass} takes the same monitor while it completes an
- * end, so a transport call and the terminal write never interleave: a call that read the generation before the end
- * cannot write it afterwards.
+ * Every method holds this instance's monitor. {@link SupervisionPass} takes the same monitor only to claim a
+ * generation's end and to record its result; the end work itself — the fence, the token revoke, the slot release and
+ * the read of the terminal state — runs outside it, so a call or a deadline is dispatched while an end is written. The
+ * terminal lifecycle is registered onto the generation the registry holds when the result is recorded, so a call that
+ * ran meanwhile — a closed task, a completed turn — keeps the facts it wrote.
  * <p>
  * The worker parameters and the role's class come from the caller, because the profile of a harness and the role set
  * belong to the assembly that builds this class: the parameters are the harness profile's {@code worker} and
@@ -270,15 +272,19 @@ public final class SupervisorCalls implements WorkerCalls {
      *
      * @param generation the generation
      * @return its detection, the same one for every later call
-     * @throws NullPointerException if the generation is {@code null}
+     * @throws NullPointerException  if the generation is {@code null}
+     * @throws IllegalStateException if the generation's role has no class, so no detection can be built for it; the
+     *                               supervision pass reports it as that generation's failure
      */
     public synchronized LossDetection detection(WorkerGeneration generation) {
         Objects.requireNonNull(generation, "generation");
         var generationId = generation.generationId();
         return detections.computeIfAbsent(generationId, ignored -> {
             var environment = supervisor.environment();
-            var roleClass = Objects.requireNonNull(roleClasses.apply(generation.role()),
-                    () -> "The role '%s' has no class".formatted(generation.role()));
+            var roleClass = roleClasses.apply(generation.role());
+            if (roleClass == null) {
+                throw new IllegalStateException("The role '%s' has no class".formatted(generation.role()));
+            }
             var detection = new LossDetection(generationId, roleClass, parameters, environment.clock(),
                     environment.timers(), signal -> lost(generationId, signal));
             detection.started(generation.startedAt());

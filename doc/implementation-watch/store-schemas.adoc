@@ -34,7 +34,7 @@ plan, and no pending entry, and each reconciliation it applied has one audit rec
 leaves only the pending entry. The same for an epic bootstrap: a crash after the new epic's scope and before the
 pending-entry deletion leaves exactly one epic and no pending entry after recovery. The same for a job state: a crash after `active_job` and before
 the job record leaves the job settled `killed` by recovery (it never started), and the state routes that outcome once; a crash after the job record leaves the job
-bound and running. The same for a worker's end: a crash after its job record (fate, fence, revoked token) and
+bound and running. The same for a worker's end: a crash after its job record (fate and terminal worker block) and
 before the queue task record releases the held task's lease at recovery and queues the task again once. Matched control: a recovery run on a consistent store changes nothing and writes no audit record.
 Source:: design review.
 

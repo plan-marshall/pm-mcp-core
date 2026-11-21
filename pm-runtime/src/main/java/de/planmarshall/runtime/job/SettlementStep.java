@@ -33,8 +33,10 @@ import de.planmarshall.core.store.WorkerStateCodec;
  * and is released through {@code ModelSlotScheduler.release}. The steps whose stores do not
  * exist in this runtime yet are named seams ({@link #notImplemented}) that do nothing and report
  * {@value #NOT_IMPLEMENTED}, like the seams of the per-project recovery: the worker queue task record, the metrics row,
- * the change-ledger row, the timing observation and the removal of a worker's job-private directory. The fate step
- * reports the revocation of a worker's token and the fence of its generation as such a seam as well.
+ * the change-ledger row, the timing observation and the removal of a worker's job-private directory. The fence of a
+ * worker's generation is no step of the settlement: the supervisor's end path performs it after the settlement, once it
+ * reads the settled record ({@code WorkerEnding}). The runner revokes the worker's token once the settlement has
+ * recorded the fate, and the end path revokes it once more.
  * <p>
  * A step reports what it did as an {@link Outcome}; a failure of its store it can name is a {@link Outcome.Failed},
  * and the settlement stops there.
@@ -52,7 +54,11 @@ public interface SettlementStep {
      * @since 0.1
      */
     enum Name {
-        /** The fate of the job record; for a worker it revokes the job token and fences the generation. */
+        /**
+         * The fate of the job record; for a worker with its terminal worker block. The generation's fence follows in
+         * the supervisor's end path, not in this step; the runner revokes the job token once the settlement has
+         * recorded the fate.
+         */
         FATE,
         /** For a worker, the queue task record: the attempt end and the task lease release. */
         WORKER_QUEUE_TASK,
@@ -187,8 +193,9 @@ public interface SettlementStep {
      * The first step: the settled record replaces the job's record, in one transaction under the lock of the scope
      * that owns the job. For a worker, the terminal worker block is written with the fate in that same transaction, so
      * a settled record carries its terminal state and no later write has to change it ({@link JobRecordStore} refuses
-     * a worker write into a settled record, and that refusal stays). The revocation of the job token and the fence of
-     * the generation stay a seam of the supervisor, reported with the step.
+     * a worker write into a settled record, and that refusal stays). The fence of the generation is performed by
+     * the supervisor's end path after the settlement, and the job token is revoked by the runner once the settlement
+     * has recorded the fate, not by this step.
      *
      * @param store       the job records of the job's store
      * @param lockManager the lock manager of the runtime
@@ -214,8 +221,8 @@ public interface SettlementStep {
                             e.getMessage()));
                 }
                 var report = "fate %s recorded".formatted(job.fate().wireName());
-                return new Outcome.Done(job.jobId().kind() == JobId.Kind.LLM
-                        ? report + "; worker block terminal, token and fence " + NOT_IMPLEMENTED : report);
+                return new Outcome.Done(job.jobId().kind() == JobId.Kind.LLM ? report + "; worker block terminal"
+                        : report);
             }
         };
     }

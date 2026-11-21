@@ -32,8 +32,8 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * <p>
  * A recycle ends the generation by the answer {@code end} to its next wait, never in the middle of a task: every
  * decision here hands the generation to {@link WorkerEnding} through {@link EndCause#RECYCLE}, so the one end path
- * fences, revokes, releases the slot, writes the terminal state and starts a successor when work remains. Each recycle
- * logs {@code WORKER_GENERATION_RECYCLED} once with its {@link RecycleCause}.
+ * fences, revokes, releases the slot, records the ended generation and starts a successor when work remains. Each
+ * recycle logs {@code WORKER_GENERATION_RECYCLED} once with its {@link RecycleCause}.
  * <p>
  * A generation that reached the budget while it holds its task for an answer ends its hold before the recycle, through
  * {@link WorkerProtocol#holdEnded}: the task protocol decides there whether the task is suspended or falls back, and it
@@ -212,7 +212,9 @@ public final class WorkerRecycling {
 
     /**
      * Yields a model slot to a waiting role: when a task of another role waits for a slot, the longest-idle warm
-     * generation that holds no lease is recycled, so idle warm workers never starve queued work.
+     * generation that holds no lease is recycled, so idle warm workers never starve queued work. A generation whose end
+     * is requested — running, or failed and owed — or that this recycling already recycled is no candidate: its slot is
+     * being freed already, and the next idle generation is chosen instead.
      *
      * @return why the yield recycled a generation; empty when no other role waits or no idle warm generation holds no
      *         lease
@@ -228,6 +230,8 @@ public final class WorkerRecycling {
                 .filter(generation -> generation.lifecycle() == WorkerLifecycle.WAITING)
                 .filter(generation -> generation.leasedTask() == null)
                 .filter(generation -> !generation.role().equals(waiting.get()))
+                .filter(generation -> !recycled.contains(generation.generationId()))
+                .filter(generation -> !ending.endRequested(generation.generationId()))
                 .min(Comparator.comparingLong(WorkerGeneration::idleWakeups).reversed()
                         .thenComparing(WorkerGeneration::startedAt));
         return candidate.flatMap(generation -> recycle(generation, RecycleCause.IDLE_YIELD));

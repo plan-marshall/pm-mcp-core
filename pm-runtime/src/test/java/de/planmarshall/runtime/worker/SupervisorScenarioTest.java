@@ -305,6 +305,8 @@ class SupervisorScenarioTest {
 
         ending.forceEnd(leased, EndCause.PAUSE_AT_ONCE);
         var terminal = ending.exited(leased);
+        supervisor.replaced(terminal);
+        ending.completed(leased.generationId());
 
         assertAll(
                 () -> assertEquals(task, leased.leasedTask(), "the paused generation holds the task's lease"),

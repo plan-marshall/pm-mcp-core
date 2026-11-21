@@ -23,8 +23,9 @@ import de.planmarshall.core.store.WorkerState;
  * settled record, and that refusal stays).
  * <p>
  * The end reason is derived from the fate the runner observed and from the worker's own connection: a worker that
- * never called has failed to start, a succeeded job served its task, and every other fate is the end the evidence
- * names. The mapping is deliberately coarse where the fate is coarse — a recycle and a drain of a worker are both a
+ * never called has failed to start unless its role class is {@code zero_tool}, which gets no connection and so is
+ * judged by its fate alone; a succeeded job served its task, and every other fate is the end the evidence names. The
+ * mapping is deliberately coarse where the fate is coarse — a recycle and a drain of a worker are both a
  * {@code cancelled} fate — and the fine-grained cause stays the supervisor's, recorded in the attempt's end and in
  * {@code WORKER_GENERATION_ENDED}.
  *

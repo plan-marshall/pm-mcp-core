@@ -9,10 +9,18 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -25,6 +33,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -215,6 +224,123 @@ class WorkerEndingTest {
         assertEquals(0, successors.get(), "no successor starts without queued work");
     }
 
+    @Test
+    @DisplayName("the request survives the exit until the terminal generation is registered")
+    void theRequestSurvivesTheExitUntilCompleted() {
+        var generation = startedFresh();
+        var ending = ending(false, () -> {
+        });
+
+        ending.end(generation, EndCause.TASK_DONE);
+        ending.exited(generation);
+        var requestedAfterExit = ending.endRequested(generation.generationId());
+        ending.completed(generation.generationId());
+
+        assertTrue(requestedAfterExit, "the end stays requested after the exit");
+        assertFalse(ending.endRequested(generation.generationId()), "the completion removes the request");
+    }
+
+    @Test
+    @DisplayName("a forced end between the exit and the registration sends no cancel and installs nothing")
+    void aForcedEndAfterTheExitSendsNoCancel() {
+        var timers = new ManualTimers();
+        fixture.timers = timers;
+        environment = fixture.environment(OPEN_GUARD, OPEN_GATE);
+        var generation = startedFresh();
+        var ending = ending(false, () -> {
+        });
+        ending.end(generation, EndCause.TASK_DONE);
+        ending.exited(generation);
+
+        ending.forceEnd(generation, EndCause.PAUSE_AT_ONCE);
+        ending.end(generation, EndCause.DRAIN);
+        timers.fireDue(SupervisorTestFixture.NOW.plus(TerminationProtocol.GRACE_PERIOD));
+        var cause = ending.requestedCause(generation.generationId());
+        ending.completed(generation.generationId());
+
+        assertTrue(fixture.cancels.isEmpty(), "no cancel reaches a worker that exited");
+        assertEquals(Optional.of(EndCause.TASK_DONE), cause, "the claimed end keeps its own cause");
+        assertFalse(ending.endRequested(generation.generationId()), "no second request is left behind");
+    }
+
+    @Test
+    @DisplayName("a retry after a failed successor start logs the end once and starts no second successor")
+    void aRetryAfterAFailedSuccessorLogsOnce() {
+        var generation = startedFresh();
+        var successors = new AtomicInteger();
+        var ending = ending(true, () -> {
+            successors.incrementAndGet();
+            throw new IllegalStateException(Generators.nonBlankStrings().next());
+        });
+        ending.end(generation, EndCause.TASK_DONE);
+        assertThrows(IllegalStateException.class, () -> ending.exited(generation),
+                "the failed successor start fails the end");
+
+        var terminal = ending.exited(generation);
+
+        assertTrue(terminal.terminal(), "the retry completes the end");
+        assertEquals(1, successors.get(), "the successor start runs once across both");
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                INFO.WORKER_GENERATION_ENDED.resolveIdentifierString());
+    }
+
+    @Test
+    @DisplayName("a retry after a throwing queue lookup asks again and starts the successor once")
+    void aRetryAfterAThrowingQueueLookupStartsTheSuccessor() {
+        var generation = startedFresh();
+        var lookups = new AtomicInteger();
+        var successors = new AtomicInteger();
+        var failure = Generators.nonBlankStrings().next();
+        var ending = new WorkerEnding(environment, () -> {
+            if (lookups.incrementAndGet() == 1) {
+                throw new IllegalStateException(failure);
+            }
+            return true;
+        }, successors::incrementAndGet);
+        ending.end(generation, EndCause.TASK_DONE);
+        assertThrows(IllegalStateException.class, () -> ending.exited(generation),
+                "the throwing queue lookup fails the end");
+
+        var terminal = ending.exited(generation);
+
+        assertAll(
+                () -> assertTrue(terminal.terminal(), "the retry completes the end"),
+                () -> assertEquals(2, lookups.get(), "the retry runs the queue lookup again"),
+                () -> assertEquals(1, successors.get(), "the retry starts the successor exactly once"));
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                INFO.WORKER_GENERATION_ENDED.resolveIdentifierString());
+    }
+
+    @Test
+    @DisplayName("a retry after a failed effect repeats no effect that completed and completes the rest")
+    void aRetryResumesAtTheFailedEffect() {
+        var released = new ArrayList<ModelSlots.Lease>();
+        fixture.slots = releaseFailingOnce(released);
+        environment = fixture.environment(OPEN_GUARD, OPEN_GATE);
+        var generation = startedFresh();
+        var ending = ending(false, () -> {
+        });
+        ending.end(generation, EndCause.TASK_DONE);
+        assertThrows(IllegalStateException.class, () -> ending.exited(generation),
+                "the failed slot release fails the end");
+        var writesAfterTheFailure = fixture.writes.size();
+
+        var terminal = ending.exited(generation);
+
+        assertAll(
+                () -> assertTrue(terminal.terminal(), "the retry completes the end"),
+                () -> assertEquals(List.of(generation.generationId()), fixture.fences,
+                        "the retry fences the generation no second time"),
+                () -> assertTrue(fixture.jobTokens.revoked(generation.generationId()),
+                        "the token revoked before the failure stays so"),
+                () -> assertEquals(List.of(new ModelSlots.Lease(generation.generationId(), generation.role())),
+                        released, "the retry completes the failed slot release"),
+                () -> assertEquals(0, writesAfterTheFailure, "the failed end writes no terminal state"),
+                () -> assertEquals(1, fixture.writes.size(), "the retry writes the terminal state once"));
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                INFO.WORKER_GENERATION_ENDED.resolveIdentifierString());
+    }
+
     private WorkerGeneration startedFresh() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var supervisor = new WorkerSupervisor(environment);
@@ -225,6 +351,21 @@ class WorkerEndingTest {
 
     private WorkerEnding ending(boolean workQueued, Runnable successor) {
         return new WorkerEnding(environment, () -> workQueued, successor);
+    }
+
+    /** @return the admission double whose claims are granted and whose first release fails, every later one recorded */
+    private static ModelSlots releaseFailingOnce(List<ModelSlots.Lease> released) {
+        ModelSlots mock = createMock(ModelSlots.class);
+        expect(mock.claim(anyString(), anyString())).andAnswer(() -> Optional.of(new ModelSlots.Lease(
+                (String) getCurrentArguments()[0], (String) getCurrentArguments()[1]))).anyTimes();
+        mock.release(anyObject(ModelSlots.Lease.class));
+        expectLastCall().andThrow(new IllegalStateException(Generators.letterStrings(8, 24).next())).once()
+                .andAnswer(() -> {
+                    released.add((ModelSlots.Lease) getCurrentArguments()[0]);
+                    return null;
+                }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
     /** The timers of the test: nothing runs until {@link #fireDue(Instant)} is called. */

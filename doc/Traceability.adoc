@@ -3326,7 +3326,9 @@ link:../pm-runtime/doc/adr/runtime-worker/016-the-hold-ends-before-the-recycle.a
 link:../pm-runtime/doc/adr/runtime-worker/017-the-settlement-writes-the-terminal-worker-block.adoc[ADR runtime-worker/017],
 link:../pm-runtime/doc/adr/runtime-worker/018-the-end-effects-run-once-and-one-generation-does-not-abort-the-pass.adoc[ADR runtime-worker/018],
 link:../pm-runtime/doc/adr/runtime-worker/019-the-detection-at-the-first-advance-and-the-end-work-outside-the-monitor.adoc[ADR runtime-worker/019],
-link:../pm-runtime/doc/adr/runtime-worker/020-the-loss-reason-maps-the-attempt-end.adoc[ADR runtime-worker/020]
+link:../pm-runtime/doc/adr/runtime-worker/020-the-loss-reason-maps-the-attempt-end.adoc[ADR runtime-worker/020],
+link:../pm-runtime/doc/adr/runtime-worker/021-the-persisted-end-reason-is-the-coarse-mapping-of-the-fate.adoc[ADR runtime-worker/021],
+link:../pm-runtime/doc/adr/runtime-worker/022-the-end-is-recorded-onto-the-registered-generation.adoc[ADR runtime-worker/022]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server

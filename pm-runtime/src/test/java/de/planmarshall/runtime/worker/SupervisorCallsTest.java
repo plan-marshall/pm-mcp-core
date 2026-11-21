@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -334,6 +335,7 @@ class SupervisorCallsTest {
         var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
         ending.forceEnd(generation, EndCause.DRAIN);
         supervisor.replaced(ending.exited(generation));
+        ending.completed(generation.generationId());
 
         calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
         var answer = calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
@@ -347,6 +349,19 @@ class SupervisorCallsTest {
                         "an ended generation is not ended a second time"),
                 () -> assertTrue(calls.loss(generation.generationId()).isEmpty(),
                         "no detection is created for the ended generation"));
+    }
+
+    @Test
+    @DisplayName("a generation of a role with no class has no detection, and the failure names the role")
+    void aRoleWithNoClassIsAnIllegalState() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        var unclassified = new SupervisorCalls(supervisor, ending, recycling(ending, null), parameters, _ -> null);
+
+        var failure = assertThrows(IllegalStateException.class, () -> unclassified.detection(generation),
+                "a role with no class is an illegal state");
+
+        assertEquals("The role '" + generation.role() + "' has no class", failure.getMessage(),
+                "the failure names the role without a class");
     }
 
     @Test

@@ -9,6 +9,10 @@
  */
 package de.planmarshall.runtime.worker;
 
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Optional;
+
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
 import de.planmarshall.core.store.WorkerState;
 
@@ -17,8 +21,10 @@ import de.planmarshall.core.store.WorkerState;
  * offer was not acknowledged within the host's acknowledgement deadline, or the worker was silent past the bounded wait
  * plus its silence grace.
  * <p>
- * The reason is one value for the whole report: the job record's worker state carries {@link #endReason()}, and the
- * attempt of the queue task carries {@link #attemptEnd()}. A {@code zero_tool} worker produces none of the deadline
+ * The reason is one value for the whole report: the worker state the supervisor writes for a record the settlement has
+ * not settled carries {@link #endReason()}, and the attempt of the queue task carries {@link #attemptEnd()}. A record the
+ * settlement settled carries the coarse mapping of the job's fate instead (ADR runtime-worker/021), so a forced end
+ * records neither loss reason distinctly. A {@code zero_tool} worker produces none of the deadline
  * signals, so its exit alone decides ({@link LossDetection}).
  *
  * @since 0.1
@@ -57,5 +63,18 @@ public enum LossReason {
     /** @return how the attempt of the worker's task ended */
     public AttemptEnd attemptEnd() {
         return attemptEnd;
+    }
+
+    /**
+     * The loss a recorded end reason names, so the attempt's end of a lost worker is read from the loss alone (ADR
+     * {@code runtime-worker/020}) and no second table maps a loss onto an attempt's end.
+     *
+     * @param endReason the end reason a worker state carries
+     * @return the loss that records this end reason; empty for an end reason no loss records
+     * @throws NullPointerException if the end reason is {@code null}
+     */
+    public static Optional<LossReason> recording(WorkerState.EndReason endReason) {
+        Objects.requireNonNull(endReason, "endReason");
+        return Arrays.stream(values()).filter(reason -> reason.endReason == endReason).findFirst();
     }
 }

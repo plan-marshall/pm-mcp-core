@@ -21,10 +21,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
@@ -54,6 +56,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.WorkerParameters;
@@ -69,6 +73,7 @@ import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.WorkerState;
 import de.planmarshall.core.store.WorkerStateCodec;
+import de.planmarshall.runtime.job.SettlementStep;
 import de.planmarshall.runtime.job.WorkerTermination;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
 import de.planmarshall.runtime.launch.HarnessVerifier;
@@ -239,9 +244,13 @@ class SupervisionPassTest {
     }
 
     private JobRecord running(WorkerGeneration gen) {
+        return running(gen, workerState(gen));
+    }
+
+    private JobRecord running(WorkerGeneration gen, WorkerState worker) {
         return JobRecord.builder().jobId(gen.jobId()).execution(JobRecord.Execution.PROCESS)
                 .scope(new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null))
-                .worker(WorkerStateCodec.write(workerState(gen)))
+                .worker(WorkerStateCodec.write(worker))
                 .egress(JobRecord.Egress.UNENFORCED)
                 .gitMetadata(JobRecord.GitMetadata.UNENFORCED)
                 .budgetKey("worker:implementer").budgetSeconds(60)
@@ -265,13 +274,23 @@ class SupervisionPassTest {
     /** Settles the job with the given fate, as the runner does, with the terminal worker block in the same record. */
     private void settle(WorkerGeneration gen, JobRecord.Fate fate, Instant endedAt) {
         try (var transaction = locks.openTransaction()) {
-            var settled = running(gen).toBuilder().status(JobRecord.Status.ENDED).fate(fate).outcomeRow(2)
-                    .spawnedAt(SupervisorTestFixture.NOW).endedAt(endedAt).childWallMs(30_000L).exitCode(0L)
-                    .build();
+            var settled = settledRecord(gen, fate, endedAt);
             var current = WorkerStateCodec.read(jobs.recordPath(gen.jobId()), settled.worker());
             jobs.writeFate(transaction,
                     settled.withWorker(WorkerStateCodec.write(WorkerTermination.terminal(current, settled))));
         }
+    }
+
+    /** @return the settled record the runner hands to its settlement, with the worker block of the running record */
+    private JobRecord settledRecord(WorkerGeneration gen, JobRecord.Fate fate, Instant endedAt) {
+        return running(gen).toBuilder().status(JobRecord.Status.ENDED).fate(fate).outcomeRow(2)
+                .spawnedAt(SupervisorTestFixture.NOW).endedAt(endedAt).childWallMs(30_000L).exitCode(0L).build();
+    }
+
+    /** Settles the job through the runner's own fate step, which derives the terminal block from the stored one. */
+    private SettlementStep.Outcome settleThroughTheFateStep(WorkerGeneration gen, JobRecord.Fate fate) {
+        return SettlementStep.fate(jobs, locks).run(new SettlementStep.Settled(
+                settledRecord(gen, fate, SupervisorTestFixture.NOW.plusSeconds(30)), null));
     }
 
     /** Settles the job with a worker block the codec rejects: the settlement leaves such a block as it is. */
@@ -548,6 +567,29 @@ class SupervisionPassTest {
                 () -> assertEquals(QueueTaskRecord.AttemptEnd.WORKER_LOST,
                         SupervisionPass.attemptEnd(null, null, WorkerState.EndReason.SILENCE),
                         "a silent worker's attempt is lost"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(LossReason.class)
+    @DisplayName("an unrequested end a loss records takes the attempt end of that loss")
+    void anUnrequestedLossEndTakesTheAttemptEndOfItsLoss(LossReason loss) {
+        var attemptEnd = SupervisionPass.attemptEnd(null, null, loss.endReason());
+
+        assertAll(
+                () -> assertEquals(Optional.of(loss), LossReason.recording(loss.endReason()),
+                        "the recorded end reason names its loss"),
+                () -> assertEquals(loss.attemptEnd(), attemptEnd, "the loss decides the attempt's end"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(WorkerState.EndReason.class)
+    @DisplayName("every recorded end reason of an unrequested end maps onto an attempt end")
+    void everyRecordedEndReasonMapsOntoAnAttemptEnd(WorkerState.EndReason recorded) {
+        var attemptEnd = assertDoesNotThrow(() -> SupervisionPass.attemptEnd(null, null, recorded),
+                "the recorded end reason has an attempt end");
+
+        assertEquals(LossReason.recording(recorded).map(LossReason::attemptEnd).orElse(attemptEnd), attemptEnd,
+                "a loss end reason maps as its loss does");
     }
 
     @Test
@@ -902,6 +944,209 @@ class SupervisionPassTest {
                         "the second task's line belongs to the second task"),
                 () -> assertEquals(Set.of(2), second.stream().map(ActivityEntry::attempt).collect(Collectors.toSet()),
                         "every entry of the second task names its attempt"));
+    }
+
+    @Test
+    @DisplayName("a task closed while the end work runs stays served in the registered terminal generation")
+    void aTaskClosedDuringTheEndStaysServed() throws Exception {
+        var inside = new CountDownLatch(1);
+        var gate = new CountDownLatch(1);
+        fixture.protocol = blockingProtocol(inside, gate);
+        var blockedEnvironment = fixture.environment(SupervisorEnvironment.StartGuard.open(),
+                SupervisorEnvironment.EligibilityGate.open());
+        var blockedSupervisor = new WorkerSupervisor(blockedEnvironment);
+        var blockedEnding = new WorkerEnding(blockedEnvironment, () -> false, () -> {
+        });
+        var blockedRecycling = new WorkerRecycling(blockedEnvironment, blockedEnding, blockedSupervisor::generations,
+                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
+                parameters);
+        var blockedCalls = new SupervisorCalls(blockedSupervisor, blockedEnding, blockedRecycling, parameters,
+                _ -> RoleClass.WRITER);
+        var ended = ((WorkerSupervisor.StartOutcome.Started) blockedSupervisor
+                .start(List.of(fixture.warmRequest(role, fixture.workdir))).getFirst()).generation();
+        writeRunning(ended);
+        blockedCalls.waitOpened(ended.generationId(), task, ended.configurationDigest());
+        settle(ended);
+        var blockedPass = new SupervisionPass(blockedSupervisor, blockedCalls, blockedEnding, blockedRecycling, tasks,
+                new AgentStartedDetector(blockedEnvironment, _ -> new ProcessExecutables.Absent(), List::of,
+                        blockedEnding),
+                pumps(journal("closed-during-end")));
+        var runner = new Thread(blockedPass::run);
+
+        runner.start();
+        assertTrue(inside.await(5, TimeUnit.SECONDS), "the end path reached the fence");
+        blockedCalls.taskClosed(ended.generationId(), task);
+        gate.countDown();
+        runner.join(TimeUnit.SECONDS.toMillis(5));
+
+        var registered = blockedSupervisor.generation(ended.generationId()).orElseThrow();
+        assertAll(
+                () -> assertFalse(runner.isAlive(), "the end path ended after the fence returned"),
+                () -> assertTrue(registered.terminal(), "the registered generation is terminal"),
+                () -> assertEquals(List.of(task), registered.servedTasks(),
+                        "the task closed meanwhile stays served"),
+                () -> assertFalse(blockedEnding.endRequested(ended.generationId()),
+                        "the request is gone once the end is recorded"));
+    }
+
+    @Test
+    @DisplayName("a generation of a role with no class is reported, and a later generation still advances")
+    void aRoleWithNoClassFailsOnlyItsGeneration() throws Exception {
+        var otherRole = fixture.role("reviewer", RoleClass.WRITER, RoleForm.WARM, 1);
+        var later = ((WorkerSupervisor.StartOutcome.Started) supervisor
+                .start(List.of(fixture.warmRequest(otherRole, fixture.workdir))).getFirst()).generation();
+        var ownCalls = new SupervisorCalls(supervisor, ending, recycling, parameters,
+                name -> name.equals(otherRole.artifact().name()) ? RoleClass.WRITER : null);
+        writeRunning(generation);
+        writeRunning(later);
+        settle(later);
+        var ownPass = new SupervisionPass(supervisor, ownCalls, ending, recycling, tasks, silentDetector(),
+                pumps(journal("no-class")));
+
+        assertDoesNotThrow(ownPass::run, "a role with no class does not abort the pass");
+
+        assertAll(
+                () -> assertTrue(supervisor.generation(later.generationId()).orElseThrow().terminal(),
+                        "the later generation still completes its end"),
+                () -> assertFalse(supervisor.generation(generation.generationId()).orElseThrow().terminal(),
+                        "the unclassified generation stays as it was"));
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.WORKER_ADVANCE_FAILED.resolveIdentifierString());
+        LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                "The role '" + generation.role() + "' has no class");
+    }
+
+    @Test
+    @DisplayName("a failing idle yield is reported beside a failing generation, and neither replaces the other")
+    void aFailingYieldIsReportedBesideAFailingGeneration() throws Exception {
+        var yieldFailure = Generators.letterStrings(8, 24).next();
+        fixture.slots = failingYield(yieldFailure);
+        var ownEnvironment = fixture.environment(SupervisorEnvironment.StartGuard.open(),
+                SupervisorEnvironment.EligibilityGate.open());
+        var ownSupervisor = new WorkerSupervisor(ownEnvironment);
+        var ownEnding = new WorkerEnding(ownEnvironment, () -> false, () -> {
+        });
+        var ownRecycling = new WorkerRecycling(ownEnvironment, ownEnding, ownSupervisor::generations,
+                _ -> Optional.of(new RoleArtifact.Recycling(null, 20_000, null)), taskId -> tasks.facts(taskId),
+                parameters);
+        var unclassifiedCalls = new SupervisorCalls(ownSupervisor, ownEnding, ownRecycling, parameters, _ -> null);
+        var unclassified = started(ownSupervisor);
+        writeRunning(unclassified);
+        var ownPass = new SupervisionPass(ownSupervisor, unclassifiedCalls, ownEnding, ownRecycling, tasks,
+                new AgentStartedDetector(ownEnvironment, _ -> new ProcessExecutables.Absent(), List::of, ownEnding),
+                pumps(journal("failing-yield")));
+
+        assertDoesNotThrow(ownPass::run, "the failing yield does not abort the pass");
+
+        assertFalse(ownSupervisor.generation(unclassified.generationId()).orElseThrow().terminal(),
+                "the failed generation stays as it was");
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.WORKER_ADVANCE_FAILED.resolveIdentifierString());
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.WORKER_IDLE_YIELD_FAILED.resolveIdentifierString());
+        LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, yieldFailure);
+    }
+
+    @Test
+    @DisplayName("a job settled after its task closed gives the held tail and the attempt's end to that task")
+    void aJobSettledAfterItsTaskClosedEndsTheClosedAttempt() throws Exception {
+        writeRunning(generation);
+        lease();
+        var journal = journal("closed-then-settled");
+        var pass = pass(journal);
+        append(text("first"));
+        pass.run();
+        append(text("tail"));
+        calls.taskClosed(generation.generationId(), task);
+        settle(generation);
+
+        pass.run();
+
+        var entries = journal.entries(task);
+        assertAll(
+                () -> assertEquals(List.of("first", "tail"),
+                        entries.stream().filter(entry -> entry.kind() == ActivityEntry.Kind.TEXT)
+                                .map(ActivityEntry::text).toList(),
+                        "the held tail belongs to the closed task"),
+                () -> assertEquals(ActivityEntry.Kind.ATTEMPT_END, entries.getLast().kind(),
+                        "the closed task's journal ends the attempt"),
+                () -> assertEquals("closed", entries.getLast().end(), "the closed attempt ends as closed"),
+                () -> assertTrue(supervisor.generation(generation.generationId()).orElseThrow().terminal(),
+                        "the settled generation reaches its end"));
+    }
+
+    @Test
+    @DisplayName("a record the runner's fate step settled completes the end the record names")
+    void aRecordSettledByTheFateStepCompletesItsEnd() throws Exception {
+        writeRunning(generation);
+        lease();
+        var journal = journal("fate-step");
+        var pass = pass(journal);
+        append(text("done"));
+        pass.run();
+        calls.taskClosed(generation.generationId(), task);
+        pass.run();
+        var fate = settleThroughTheFateStep(generation, JobRecord.Fate.SUCCEEDED);
+
+        pass.run();
+
+        var entries = journal.entries(task);
+        assertAll(
+                () -> assertInstanceOf(SettlementStep.Outcome.Done.class, fate,
+                        "the runner's fate step records the fate"),
+                () -> assertEquals(WorkerState.EndReason.TASK_DONE, recorded(generation).endReason(),
+                        "the fate step writes the task-done end"),
+                () -> assertEquals(WorkerLifecycle.ENDED,
+                        supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                        "the pass ends the worker the record names"),
+                () -> assertEquals("closed", entries.getLast().end(), "the served task closes its attempt"),
+                () -> assertTrue(fixture.writes.isEmpty(), "the pass writes no worker state of the record"));
+    }
+
+    @Test
+    @DisplayName("a zero_tool worker without a connection is ended by its exit and its budget alone")
+    void aZeroToolWorkerIsEndedByItsExitAndItsBudget() throws Exception {
+        // The pass learns a role's class only through the calls' classifier and the record's worker block, so the
+        // generation the fixture can launch is classified zero_tool there; no MCP connection is ever made.
+        role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
+        var zeroTool = ((WorkerSupervisor.StartOutcome.Started) supervisor
+                .start(List.of(fixture.freshRequest(role))).getFirst()).generation();
+        var zeroToolCalls = new SupervisorCalls(supervisor, ending, recycling, parameters, _ -> RoleClass.ZERO_TOOL);
+        var unconnected = workerState(zeroTool).toBuilder().roleClass(WorkerState.RoleClass.ZERO_TOOL)
+                .form(WorkerState.Form.FRESH).connectedAt(null).jobTokenSha256(null).build();
+        try (var transaction = locks.openTransaction()) {
+            jobs.writeAhead(transaction, running(zeroTool, unconnected));
+        }
+        var pass = new SupervisionPass(supervisor, zeroToolCalls, ending, recycling, tasks, silentDetector(),
+                pumps(journal("zero-tool")));
+        pass.run();
+        fixture.advance(Duration.ofSeconds(901));
+        pass.run();
+        var requestedBeforeTheExit = ending.requestedCause(zeroTool.generationId());
+        settleThroughTheFateStep(zeroTool, JobRecord.Fate.TIMED_OUT);
+
+        pass.run();
+
+        assertAll(
+                () -> assertEquals(Optional.empty(), requestedBeforeTheExit,
+                        "no silence deadline ends a zero_tool worker"),
+                () -> assertTrue(fixture.cancels.isEmpty(), "no cancellation reaches the zero_tool worker"),
+                () -> assertEquals(WorkerLifecycle.ENDED,
+                        supervisor.generation(zeroTool.generationId()).orElseThrow().lifecycle(),
+                        "the exit ends the zero_tool worker"),
+                () -> assertEquals(WorkerState.EndReason.BUDGET, recorded(zeroTool).endReason(),
+                        "the budget names the zero_tool worker's end"),
+                () -> assertFalse(recorded(zeroTool).startFailure(), "an exit without a call is no start failure"));
+    }
+
+    /** @return the admission double whose claims are granted and whose read of a waiting role fails */
+    private static ModelSlots failingYield(String message) {
+        ModelSlots mock = createMock(ModelSlots.class);
+        expect(mock.claim(anyString(), anyString())).andAnswer(() -> Optional.of(new ModelSlots.Lease(
+                (String) getCurrentArguments()[0], (String) getCurrentArguments()[1]))).anyTimes();
+        expect(mock.nextWaitingRole()).andThrow(new IllegalStateException(message)).anyTimes();
+        replay(mock);
+        return mock;
     }
 
     private int released(WorkerGeneration gen) {

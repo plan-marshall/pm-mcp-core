@@ -300,7 +300,7 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |harness profile (compiled)
 |`1`..`600`
 |every offer to a worker (a `zero_tool` worker receives no offer)
-|The worker is ended (`end_reason: ack_missed`) and the task is offered to its successor.
+|The worker is ended as lost and the task is offered to its successor. The job record's `end_reason` is the coarse mapping of the job's fate, the fate of a forced end; the attempt's end is `worker_lost` and the end log names the cause `lost`; the loss reason `ack_missed` is not recorded in a settled record (link:../../../pm-runtime/doc/adr/runtime-worker/021-the-persisted-end-reason-is-the-coarse-mapping-of-the-fate.adoc[ADR runtime-worker/021]).
 |link:../model-work/02-task-protocol.adoc[Model Work, Task Protocol]
 
 |[[silence-limit]]Silence limit
@@ -308,7 +308,7 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |harness profile (compiled)
 |grace `5`..`600`
 |every running worker except a `zero_tool` worker, which has no connection and whose exit and budget alone decide
-|The worker is ended (`end_reason: silence`, then the fence), its lease released at once, and a successor started while work remains.
+|The worker is ended as lost (then the fence), its lease released at once, and a successor started while work remains. The job record's `end_reason` is the coarse mapping of the job's fate, the fate of a forced end, except for a worker that reaches the limit before its first call: a worker that never called records `start_failure` whatever the fate, because the limit applies to no `zero_tool` worker; the attempt's end is `worker_lost` and the end log names the cause `lost`; the loss reason `silence` is not recorded in a settled record (link:../../../pm-runtime/doc/adr/runtime-worker/021-the-persisted-end-reason-is-the-coarse-mapping-of-the-fate.adoc[ADR runtime-worker/021]).
 |link:../model-work/03-supervision-and-recycling.adoc[Model Work, Supervision & Recycling]
 
 |[[exit-detection-bound]]Exit detection bound
