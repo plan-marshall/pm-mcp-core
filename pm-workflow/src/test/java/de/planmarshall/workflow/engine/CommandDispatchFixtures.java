@@ -312,7 +312,7 @@ final class CommandDispatchFixtures {
     Map<Class<?>, EngineEvent> sampleEvents() {
         var events = new LinkedHashMap<Class<?>, EngineEvent>();
         List.of(new EngineEvent.JobSettled("b-%016x".formatted(Generators.integers(0, Integer.MAX_VALUE).next()),
-                "succeeded"), tasksSettled(), questionResolved(), operatorAct(),
+                        "succeeded"), tasksSettled(), questionResolved(), operatorAct(),
                 new EngineEvent.TimeElapsed(fixtures.clock.now()))
                 .forEach(event -> events.put(event.getClass(), event));
         return events;

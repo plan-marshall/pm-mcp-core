@@ -16,13 +16,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import lombok.Builder;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CommandSettlement;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.WorkflowStatus;
+import lombok.Builder;
 
 /**
  * What one advance of the {@link WorkflowEngine} ends in (PM-IMPL-5, PM-WF-16): the scope rests in a state that waits
@@ -61,7 +61,7 @@ public sealed interface EngineStep permits EngineStep.Resting, EngineStep.Ended,
      */
     @Builder
     record Resting(WorkflowStatus status, String stateId, AwaitedEvent awaitedEvent,
-            List<CommandSettlement> settlements) implements EngineStep {
+    List<CommandSettlement> settlements) implements EngineStep {
 
         /**
          * @throws NullPointerException     if a component or a settlement is {@code null}
@@ -94,7 +94,7 @@ public sealed interface EngineStep permits EngineStep.Resting, EngineStep.Ended,
      */
     @Builder
     record Ended(WorkflowStatus status, String outcomeId, OutcomeClass outcomeClass,
-            List<CommandSettlement> settlements) implements EngineStep {
+    List<CommandSettlement> settlements) implements EngineStep {
 
         /**
          * @throws NullPointerException     if a component or a settlement is {@code null}
@@ -123,7 +123,7 @@ public sealed interface EngineStep permits EngineStep.Resting, EngineStep.Ended,
      */
     @Builder
     record ConditionRaised(WorkflowStatus status, String kind, String facts,
-            List<CommandSettlement> settlements) implements EngineStep {
+    List<CommandSettlement> settlements) implements EngineStep {
 
         /**
          * @throws NullPointerException     if a component or a settlement is {@code null}

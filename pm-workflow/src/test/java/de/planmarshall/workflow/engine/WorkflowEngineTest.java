@@ -575,7 +575,7 @@ class WorkflowEngineTest {
                         assertEquals(target.id(), step.status().state(), "the outcome rests in its job target");
                     } else {
                         assertFalse(step.status().state().startsWith("execute.hold-"
-                                + state.id().substring("execute.s".length())),
+                                        + state.id().substring("execute.s".length())),
                                 "the outcome does not rest in the state's hold");
                     }
                 }

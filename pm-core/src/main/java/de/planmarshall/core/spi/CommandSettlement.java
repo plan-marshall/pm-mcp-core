@@ -104,6 +104,6 @@ Instant settledAt) {
     public String toString() {
         return ("CommandSettlement[command=%s, outcome=%s, outcomeClass=%s, reason=%s, facts=%s, spawnedJobId=%s,"
                 + " raisedCondition=%s, settledAt=%s]").formatted(command, outcome, outcomeClass, reason,
-                        facts.keySet(), spawnedJobId, raisedCondition, settledAt);
+                facts.keySet(), spawnedJobId, raisedCondition, settledAt);
     }
 }
