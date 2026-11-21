@@ -381,7 +381,7 @@ None of these identifiers is model-facing; they appear only on the Local API, in
 |`^pmj_[A-Za-z0-9_-]{43}$`, 47: the prefix `pmj_` plus 256 bits from `SecureRandom`, base64url without padding. A secret, not an identifier; the prefix distinguishes it by shape from the runtime token and a device secret and lets the redactor recognize it.
 |server (runtime, at a worker's spawn)
 |One worker
-|Valid only while its job is `running`; revoked by the supervision pass after the job's fate (a later call is refused `job_ended`); stored only as SHA-256 (`worker.job_token_sha256`); its generation (xref:01-general-rules-and-registry.adoc#id-generation-id[`generation_id`]) is fenced by the same pass; passed only in the job relay's environment `PM_MCP_JOB_TOKEN` and sent as `PM-MCP-Job-Token`; never logged
+|Valid only while its job is `running`; revoked right after the job's fate is recorded (a later call is refused `job_ended`); stored only as SHA-256 (`worker.job_token_sha256`); its generation (xref:01-general-rules-and-registry.adoc#id-generation-id[`generation_id`]) is fenced by the supervision pass once it reads the settled record; passed only in the job relay's environment `PM_MCP_JOB_TOKEN` and sent as `PM-MCP-Job-Token`; never logged
 |link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas, Job Record]; link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/runtime-model/03-relay.adoc#_connection_metadata[Runtime Model, Connection Metadata]
 
 |[[id-device-id]]`device_id`

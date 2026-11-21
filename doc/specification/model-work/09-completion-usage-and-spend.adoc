@@ -22,7 +22,7 @@ A worker has a `job_id` of the kind `llm` (link:../identifiers/01-general-rules-
 * *Connection*: `connected_at` is the instant of the first request the daemon accepted with the worker's token. It is a fact, never a state: a worker that never connected ends like any other job; one that exits before its first call is a start failure (xref:03-supervision-and-recycling.adoc[Supervision & Recycling]).
 * *Fate*: `succeeded`, `failed`, `timed_out`, `killed`, `cancelled`, `indeterminate`, or `refused`, derived by the job runtime from the evidence it observed (link:../job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[Job Runtime Specification, Outcome Derivation]); the fate is never taken from the worker's own report. A worker the supervisor ends is `killed`. A record left `running` by a previous runtime instance is settled `killed` in the per-project recovery.
 * *Budget*: A `timed_out` worker is `no_verdict` in every roll-up (link:../timeouts/01-job-budgets-and-waits.adoc#no-verdict-rule[Timeouts & Budgets Specification, Timed-Out Outcomes Are No-Verdict]).
-* *Token revocation*: The supervision pass revokes the job token once it reads the settled fate; every later request with it is refused `job_ended`.
+* *Token revocation*: The runner revokes the job token right after the fate is recorded; every later request with it is refused `job_ended`.
 
 [#job-completion]
 === Task Completion & the `job_incomplete` Condition

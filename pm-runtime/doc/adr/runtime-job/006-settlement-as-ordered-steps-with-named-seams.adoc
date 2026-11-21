@@ -12,8 +12,8 @@ Accepted
 == Context
 
 The specification fixes the write order at the end of a job: the fate of the job record first (for a worker with its
-terminal worker block; the specification of this ADR's date also placed the revocation of its token and the fence of
-its generation in that write, which it no longer does, see the Decision), then the worker queue task, the metrics row, the
+terminal worker block; the specification of this ADR's date also placed the fence of its generation in that write,
+which it no longer does, see the Decision), then the worker queue task, the metrics row, the
 change-ledger row and the timing observation, then the release of the build or model slot, and last the removal of a
 worker's job-private directory. A crash between two writes may lose only what the order allows; a released slot must
 never precede the recorded fate. Of these stores, this repository has the job record store and the machine lease
@@ -29,9 +29,9 @@ missing steps named seams (ADR 006 of `runtime-start`).
   and `SettlementStep.slotRelease` releases the slot through `LeaseStore.release(key, expectedOwner)`, only while the
   lease still has the owner the job claimed it with; a job without a slot releases nothing.
 * Every other step is `SettlementStep.notImplemented(name)`: it does nothing and reports `not implemented in this
-  runtime`, as the seams of the per-project recovery do. The revocation of a worker's token and the fence of its
-  generation are no step of the settlement: the supervision pass performs them after it reads the settled record (ADR
-  `runtime-worker/017`).
+  runtime`, as the seams of the per-project recovery do. The fence of a worker's
+  generation is no step of the settlement: the supervision pass performs it after it reads the settled record (ADR
+  `runtime-worker/017`); the runner revokes the worker's token right after the fate step.
 * `JobSettlement.of(store, lockManager)` is the settlement of this runtime. What is settled is a `Settled` record: the
   settled job and the slot it held, which the caller names; the runner settles its own jobs without a slot, and the
   recovery names the slot through `JobRecoveryStep.Slots`, whose `Slots.NONE` names none.
