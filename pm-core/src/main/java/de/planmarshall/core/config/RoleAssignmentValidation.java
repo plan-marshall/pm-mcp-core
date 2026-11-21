@@ -80,7 +80,7 @@ public final class RoleAssignmentValidation {
         var enrolments = facts.enrolments();
         var catalogue = facts.catalogue();
         var harnessFacts = profile.apply(harness).orElseThrow(() -> invalid(RoleValidationReason.HARNESS_UNKNOWN,
-                role, artifact, "no client profile has the client id '%s'".formatted(harness)));
+                role, artifact, "no harness profile has the harness id '%s'".formatted(harness)));
         if (enrolments.apply(harness).isEmpty()) {
             throw invalid(RoleValidationReason.HARNESS_UNKNOWN, role, artifact,
                     "the harness '%s' is not enrolled".formatted(harness));

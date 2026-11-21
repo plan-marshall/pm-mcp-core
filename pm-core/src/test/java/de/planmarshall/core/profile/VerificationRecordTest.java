@@ -104,6 +104,17 @@ class VerificationRecordTest {
     }
 
     @Test
+    @DisplayName("a start context entry whose tokens are neither an integer nor unmeasured is refused")
+    void unknownTokensRefused() {
+        var bytes = RECORD.replace("\"tokens\": " + TOKENS, "\"tokens\": \"measured\"").getBytes(UTF_8);
+
+        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"),
+                "unknown token value is refused");
+
+        assertEquals("/stages/usage/start_context/0/tokens", refusal.pointer(), "refusal points at tokens");
+    }
+
+    @Test
     @DisplayName("a record with the old client_id member is read as before")
     void legacyClientIdIsRead() {
         var parsed = VerificationRecord.read(RECORD.getBytes(UTF_8), "record");

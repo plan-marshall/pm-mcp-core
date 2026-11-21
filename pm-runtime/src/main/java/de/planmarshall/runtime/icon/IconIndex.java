@@ -16,7 +16,8 @@ import java.util.TreeMap;
 
 /**
  * The index of the harness icon store {@code icons/index.json} (Store Schemas § Harness Icon Store): its
- * {@code format_version} and one entry per stored harness, sorted by harness id.
+ * {@code format_version} and one entry per stored harness. The serialised document sorts the entries by harness id; the
+ * map's own iteration order is unspecified.
  *
  * @param formatVersion the one format version of the index
  * @param entries       the stored icons by harness id
@@ -25,10 +26,14 @@ import java.util.TreeMap;
 public record IconIndex(int formatVersion, Map<String, IconIndexEntry> entries) {
 
     /**
-     * @throws NullPointerException if a component is {@code null}
+     * @throws NullPointerException     if a component is {@code null}
+     * @throws IllegalArgumentException if the format version is not the store's
      */
     public IconIndex {
         Objects.requireNonNull(entries, "entries");
+        if (formatVersion != IconStore.FORMAT_VERSION) {
+            throw new IllegalArgumentException("Not the icon index's format version: " + formatVersion);
+        }
         entries = Map.copyOf(new TreeMap<>(entries));
     }
 

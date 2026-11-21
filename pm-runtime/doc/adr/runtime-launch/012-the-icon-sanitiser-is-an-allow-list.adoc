@@ -25,21 +25,33 @@ from a file name, and hands the bytes to one of two sanitisers.
 
 The SVG sanitiser (`SvgSanitiser`) is an **allow-list**. A closed list of elements is kept (`svg`, `g`, `title`, `desc`,
 `defs`, `clipPath`, `mask`, the shape elements, the two gradients, `stop`, `pattern`, `image`, `text`, `tspan`); an
-element outside it is refused. A closed list of attributes is kept; an attribute outside it is dropped. `script`,
-`foreignObject` and `use` are refused by name before the allow-list is consulted. Every attribute whose name begins with
-`on` is refused. Every `href` — either namespace — must be a fragment of the same document, so an external URL and a
-`data:` URL are both refused. A `style` that contains `url(` or `@import` is refused, and every `url(...)` of any other
-attribute must name a fragment. The document is parsed with the JDK's StAX reader configured without a DTD and without
-external entities, and a document that declares a DOCTYPE is refused before the reader sees it, so no entity is ever
-expanded. The rendered result is written in the SVG namespace, so it is the allow-list of the input and nothing else.
+element outside it, or one in a namespace other than the SVG one, is refused. A closed list of attributes is kept:
+`id`, `class`, `style`, `fill`, `fill-opacity`, `fill-rule`, `stroke`, `stroke-width`, `stroke-linecap`,
+`stroke-linejoin`, `stroke-dasharray`, `stroke-dashoffset`, `stroke-opacity`, `stroke-miterlimit`, `opacity`, `color`,
+`display`, `visibility`, `d`, `points`, `x`, `y`, `x1`, `y1`, `x2`, `y2`, `cx`, `cy`, `r`, `rx`, `ry`, `width`,
+`height`, `viewBox`, `preserveAspectRatio`, `transform`, `offset`, `stop-color`, `stop-opacity`, `gradientUnits`,
+`gradientTransform`, `spreadMethod`, `clipPathUnits`, `maskUnits`, `maskContentUnits`, `patternUnits`,
+`patternContentUnits`, `patternTransform`, `href`, `role`, `aria-label`, `aria-hidden`, `focusable`, `pathLength`,
+`font-family`, `font-size`, `font-weight`, `text-anchor`, `dominant-baseline`, `letter-spacing`, `word-spacing`; an
+attribute outside it is dropped, and a name emitted twice for one element (a plain and an `xlink` `href`) is emitted
+once. `script`, `foreignObject` and `use` are refused by name before the allow-list is consulted. Every attribute whose
+name begins with `on` is refused. Every `href` — either namespace — must be a fragment of the same document, so an
+external URL and a `data:` URL are both refused. A `style` that contains `url(`, `@import` or a backslash (a CSS
+escape, which is how the same reference dodges a literal test) is refused, and every `url(...)` of any other attribute
+must name a fragment. The document is parsed with the JDK's StAX reader configured without a DTD and without external
+entities, and a document that declares a DOCTYPE is refused before the reader sees it, so no entity is ever expanded.
+The rendered result is written in the SVG namespace, so it is the allow-list of the input and nothing else.
 
 The PNG sanitiser (`PngSanitiser`) walks the chunks as the format defines them: the signature, an `IHDR` with a positive
-size first, an `IEND` last, a checksum per chunk and no byte after the end. An unknown critical chunk is refused. The
-text chunks (`tEXt`, `zTXt`, `iTXt`) are stripped; every other chunk is copied with its own checksum, so the image is
-unchanged.
+size first, at least one `IDAT`, an `IEND` last, a checksum per chunk and no byte after the end. An unknown critical
+chunk is refused. The chunks that carry free text (`tEXt`, `zTXt`, `iTXt`) and `eXIf`, whose description and comment
+fields carry free text, are stripped; every other chunk is copied with its own checksum, so the image is unchanged.
 
 The accept step is bounded as a whole: `256` KiB per candidate, `64` elements of nesting and `5000` elements per
-document, so a document cannot exhaust the runtime while it is rendered.
+document, so a document cannot exhaust the runtime while it is rendered. The store stages a file in the same directory
+and forces it to its medium before the move; the directory itself is not forced, which the JDK cannot do portably, so a
+crash between the icon's move and the index's leaves two files the reader reconciles rather than a served mismatch: the
+store serves a file only when its size, bound and SHA-256 match its index entry.
 
 == Alternatives Considered
 

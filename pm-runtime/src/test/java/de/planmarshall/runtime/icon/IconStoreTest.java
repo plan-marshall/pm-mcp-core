@@ -160,6 +160,50 @@ class IconStoreTest {
                 "a fresh store reads the entry back unchanged");
     }
 
+    @Test
+    @DisplayName("does not serve a file that differs from its index entry")
+    void doesNotServeAChangedFile() throws Exception {
+        var harnessId = harnessId();
+        var stored = store.accept(harnessId, "https://example.invalid/a.svg", fetchedAt, SVG);
+        Files.writeString(stored.file(), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>", StandardCharsets.UTF_8);
+
+        assertTrue(store.find(harnessId).isEmpty(), "a file whose digest differs is not served");
+    }
+
+    @Test
+    @DisplayName("replaces an icon of the other media type without leaving the old file")
+    void replacesAcrossMediaTypes() {
+        var harnessId = harnessId();
+        var svg = store.accept(harnessId, "https://example.invalid/a.svg", fetchedAt, SVG);
+
+        var png = store.accept(harnessId, "https://example.invalid/a.png", fetchedAt, PngFixtures.png());
+
+        assertTrue(Files.notExists(svg.file()), "the replaced SVG file is removed");
+        assertFalse(Files.notExists(png.file()), "the PNG file is written");
+    }
+
+    @Test
+    @DisplayName("refuses a source that is not an https URL")
+    void refusesNonHttpsSource() {
+        var refusal = assertThrows(IconRefusal.class,
+                () -> store.accept(harnessId(), "http://example.invalid/a.svg", fetchedAt, SVG),
+                "a source that is not https is refused");
+
+        assertEquals(IconRefusal.SOURCE_URL_INVALID, refusal.code(), "the refusal names the source URL");
+    }
+
+    @Test
+    @DisplayName("refuses an index that does not read as the store's index")
+    void refusesUnreadableIndex() throws Exception {
+        Files.createDirectories(base.resolve("icons"));
+        Files.writeString(base.resolve("icons").resolve("index.json"), "{\"format_version\":1}",
+                StandardCharsets.UTF_8);
+
+        var refusal = assertThrows(IconRefusal.class, () -> store.index(), "an unreadable index is refused");
+
+        assertEquals(IconRefusal.INDEX_UNREADABLE, refusal.code(), "the refusal names the index");
+    }
+
     private static String harnessId() {
         return shortWords().next();
     }

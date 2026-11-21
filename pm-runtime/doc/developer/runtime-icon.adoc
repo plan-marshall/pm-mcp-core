@@ -28,14 +28,15 @@ namespace. Its element, attribute and bound lists are closed; a new entry is a d
 link:../adr/runtime-launch/012-the-icon-sanitiser-is-an-allow-list.adoc[ADR 012].
 
 `PngSanitiser`::
-The signature and chunk-structure check of one PNG. It requires the signature, an `IHDR` first, an `IEND` last, a
-matching checksum per chunk and no trailing byte, refuses an unknown critical chunk, and strips the text chunks
-(`tEXt`, `zTXt`, `iTXt`).
+The signature and chunk-structure check of one PNG. It requires the signature, an `IHDR` first, at least one `IDAT`, an
+`IEND` last, a matching checksum per chunk and no trailing byte, refuses an unknown critical chunk, and strips the chunks
+that carry free text (`tEXt`, `zTXt`, `iTXt`) and `eXIf`.
 
 `IconStore`::
-The store `<PM_MCP_BASE>/icons/`. `accept(harnessId, sourceUrl, fetchedAt, bytes)` sanitises the candidate, writes
-`icons/<harness_id>.<ext>` (mode `0600`) and updates `icons/index.json` under `locks/icons.lock`, each with an atomic
-write. It checks the harness id with `HarnessId` before it reaches a path and refuses a target that is a symbolic link.
+The store `<PM_MCP_BASE>/icons/`. `accept(harnessId, sourceUrl, fetchedAt, bytes)` checks the harness id with
+`HarnessId` and the source with its https rule, sanitises the candidate, writes `icons/<harness_id>.<ext>` (mode `0600`)
+and updates `icons/index.json` under `locks/icons.lock`, each with an atomic write; an icon of the same harness in the
+other media type is removed. `find` serves a file only when its size, bound and SHA-256 match its index entry.
 
 `IconIndex` and `IconIndexEntry`::
 The index document, its `format_version` and one entry per harness: the source URL, the SHA-256 and size of the file, the
@@ -64,17 +65,20 @@ index entry, or one above the bound, is not served and is fetched again only on 
 * A stored PNG carries no text chunk.
 * A `harness_id` that is not a `HarnessId` never reaches a path, so no separator or dot segment can leave the directory.
 * A target that is a symbolic link is refused rather than written through.
+* A source URL is an `https` URL of at most `2048` characters.
+* A file is served only when its size, bound and SHA-256 match its index entry, so a crash between the two writes or a
+  tampered file yields no icon rather than a mismatched one.
 * Both the icon file and the index are staged in the same directory and moved onto their name under `locks/icons.lock`,
   so a reader sees the old file or the new one and never a partial one.
 
 == Failure modes
 
 An `IconRefusal` carries a code that names the fault: `icon_too_large`, `icon_not_svg_or_png`, the SVG refusals
-(`icon_svg_doctype`, `icon_svg_malformed`, `icon_svg_entity`, `icon_svg_script`, `icon_svg_foreign_object`,
+(`icon_svg_doctype`, `icon_svg_malformed`, `icon_svg_script`, `icon_svg_foreign_object`,
 `icon_svg_use`, `icon_svg_element_not_allowed`, `icon_svg_event_attribute`, `icon_svg_external_reference`,
 `icon_svg_too_deep`, `icon_svg_too_complex`), the PNG refusal `icon_png_malformed`, and the store refusals
-`icon_harness_id_invalid`, `icon_target_is_link` and `icon_index_unreadable`. No refusal and no log line repeats any of
-the candidate's bytes.
+`icon_harness_id_invalid`, `icon_source_url_invalid`, `icon_target_is_link` and `icon_index_unreadable`. No refusal and
+no log line repeats any of the candidate's bytes.
 
 == Extending it
 

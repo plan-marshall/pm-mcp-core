@@ -135,9 +135,6 @@ public class SvgSanitiser {
             if (event.getEventType() == XMLEvent.DTD) {
                 throw new IconRefusal(IconRefusal.SVG_DOCTYPE, "An SVG that declares a DOCTYPE is refused");
             }
-            if (event.isEntityReference()) {
-                throw new IconRefusal(IconRefusal.SVG_ENTITY, "An SVG that references an entity is refused");
-            }
             if (event.isStartElement()) {
                 var element = event.asStartElement();
                 var local = element.getName().getLocalPart();
@@ -145,6 +142,7 @@ public class SvgSanitiser {
                     requireSvgRoot(local);
                     rootSeen = true;
                 }
+                requireSvgNamespace(element);
                 requireAllowedElement(local);
                 depth++;
                 elements++;
@@ -179,6 +177,19 @@ public class SvgSanitiser {
         }
     }
 
+    /**
+     * @param element a start element
+     * @throws IconRefusal if the element is in a namespace other than the SVG one, so it is not emitted as an SVG
+     *                     element of a meaning it never had
+     */
+    private static void requireSvgNamespace(StartElement element) {
+        var namespace = element.getName().getNamespaceURI();
+        if (namespace != null && !namespace.isEmpty() && !SVG_NAMESPACE.equals(namespace)) {
+            throw new IconRefusal(IconRefusal.SVG_ELEMENT_NOT_ALLOWED,
+                    "An SVG element in a namespace other than the SVG one is refused");
+        }
+    }
+
     private static void requireAllowedElement(String local) {
         if (REFUSED_ELEMENTS.contains(local)) {
             throw new IconRefusal(refusalOf(local), "The SVG carries the refused element '%s'".formatted(local));
@@ -198,13 +209,14 @@ public class SvgSanitiser {
     }
 
     private static void appendAttributes(StringBuilder out, StartElement element) {
+        var emitted = new java.util.HashSet<String>();
         var attributes = element.getAttributes();
         while (attributes.hasNext()) {
-            appendAttribute(out, attributes.next());
+            appendAttribute(out, attributes.next(), emitted);
         }
     }
 
-    private static void appendAttribute(StringBuilder out, Attribute attribute) {
+    private static void appendAttribute(StringBuilder out, Attribute attribute, java.util.Set<String> emitted) {
         var name = attribute.getName();
         var local = name.getLocalPart();
         if (local.toLowerCase(Locale.ROOT).startsWith("on")) {
@@ -226,7 +238,7 @@ public class SvgSanitiser {
             requireSafeStyle(value);
         }
         requireLocalUrls(value);
-        if (!ALLOWED_ATTRIBUTES.contains(local)) {
+        if (!ALLOWED_ATTRIBUTES.contains(local) || !emitted.add(local)) {
             return;
         }
         out.append(' ').append(local).append("=\"").append(escapeAttribute(value)).append('"');
@@ -241,9 +253,9 @@ public class SvgSanitiser {
 
     private static void requireSafeStyle(String value) {
         var lower = value.toLowerCase(Locale.ROOT);
-        if (lower.contains("url(") || lower.contains("@import")) {
+        if (lower.contains("url(") || lower.contains("@import") || value.indexOf('\\') >= 0) {
             throw new IconRefusal(IconRefusal.SVG_EXTERNAL_REFERENCE,
-                    "An SVG style that reaches a URL or imports a sheet is refused");
+                    "An SVG style that reaches a URL, imports a sheet or escapes a name is refused");
         }
     }
 

@@ -25,14 +25,14 @@ import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileValidator;
 
 /**
- * The facts of a validated client profile that role validation reads (PM-CLIENT-2, Client Profile Schema): the worker
+ * The facts of a validated harness profile that role validation reads (PM-CLIENT-2, Client Profile Schema): the worker
  * eligibility, the models that accept a restricted tool set, the classes the harness runs, the effort values per model,
  * the model tiers, the context-budget fallback, the idle wakeups, the resumability and the tool that asks the user.
  * <p>
  * The projection keeps {@code core.role} independent of the shape of the profile document: the port of the effective
  * configuration supplies it, and the production wiring projects a {@link LoadedProfile} through {@link #of(LoadedProfile)}.
  *
- * @param harnessId                the client id of the harness
+ * @param harnessId                the harness id of the harness
  * @param eligible                whether the harness may host workers
  * @param restrictedModelsDeclared whether {@code worker.restricted_models} is non-null
  * @param restrictedModels        the models that accept an enforced tool set; empty when not declared

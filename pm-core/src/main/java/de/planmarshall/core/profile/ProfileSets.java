@@ -22,7 +22,7 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * The shipped set is given as its documents, read from the resources of {@code pm-api}; the machine and project sets are
  * the directories below {@code <PM_MCP_BASE>}, whose {@code verification/} subdirectories hold the records and whose
- * {@code <client_id>.json.hmac} sidecars hold the integrity records. A directory that does not exist holds no profile,
+ * {@code <harness_id>.json.hmac} sidecars hold the integrity records. A directory that does not exist holds no profile,
  * which is the state of a machine before the first install.
  *
  * @param shipped          the shipped profile by harness id

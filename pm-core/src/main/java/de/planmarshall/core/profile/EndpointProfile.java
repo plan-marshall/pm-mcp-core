@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
  * {@link ProfileValidator} has accepted, so it never re-states a rule; a document that is not an endpoint profile is
  * refused with {@link IllegalArgumentException}, because the caller selected the wrong kind.
  *
- * @param harnessId       the client id, in the namespace of the client profiles
+ * @param harnessId       the harness id, in the namespace of the harness profiles
  * @param executable     the bare name of the serving program
  * @param identity       the version probe of the serving program
  * @param updateEvidence the evidence a changed program must pass; {@code null} when the profile declares none
@@ -174,7 +174,7 @@ public record EndpointProfile(String harnessId, String executable, Identity iden
     /**
      * @param document a validated profile document
      * @return the weights probe of the profile, empty when it declares none: the endpoint profile's own
-     *         {@code weights_probe}, or {@code headless.weights_probe} of a client profile
+     *         {@code weights_probe}, or {@code headless.weights_probe} of a harness profile
      */
     public static Optional<WeightsProbe> weightsProbeOf(JsonNode document) {
         var declared = ProfileValidator.isEndpoint(document)

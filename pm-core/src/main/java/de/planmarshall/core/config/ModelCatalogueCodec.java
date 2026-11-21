@@ -50,7 +50,7 @@ import de.planmarshall.core.store.StrictJson;
  * per enrolled harness the models the plans may use, each with its source and when it was recorded.
  * <p>
  * The document is closed, so a write replaces it from its model: the allowed models per harness and the document's
- * {@code revision}. A harness key must be a client id, and an entry of a harness that is no longer enrolled is dropped by
+ * {@code revision}. A harness key must be a harness id, and an entry of a harness that is no longer enrolled is dropped by
  * the next write.
  *
  * @since 0.1
@@ -71,7 +71,7 @@ public class ModelCatalogueCodec {
     /**
      * What a read of the document found.
      *
-     * @param harnesses the allowed models per client id of an enrolled harness, in the order of the document
+     * @param harnesses the allowed models per harness id of an enrolled harness, in the order of the document
      * @param revision  the {@code revision} of the document
      * @since 0.1
      */
@@ -181,7 +181,7 @@ public class ModelCatalogueCodec {
         try {
             requireHarnessId(harness);
         } catch (IllegalArgumentException e) {
-            throw unreadable("not a client id of an enrolled harness: " + harness, e);
+            throw unreadable("not a harness id of an enrolled harness: " + harness, e);
         }
         requireObject(parser, harness);
         var seen = new HashSet<String>();
@@ -228,7 +228,7 @@ public class ModelCatalogueCodec {
 
     static void requireHarnessId(String harness) {
         if (!HarnessId.matches(harness)) {
-            throw new IllegalArgumentException("Not a client id of an enrolled harness: " + harness);
+            throw new IllegalArgumentException("Not a harness id of an enrolled harness: " + harness);
         }
     }
 }

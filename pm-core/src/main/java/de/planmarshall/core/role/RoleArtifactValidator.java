@@ -130,7 +130,7 @@ public final class RoleArtifactValidator {
             var tools = tools(required(artifact, "tools"));
             var harness = string(required(artifact, "harness"), "/harness", "harness", 32);
             if (!HARNESS_ID.matcher(harness).matches()) {
-                throw invalid("/harness", "not a client id: '%s'".formatted(harness));
+                throw invalid("/harness", "not a harness id: '%s'".formatted(harness));
             }
             var model = text(required(artifact, "model"), "/model", "model", 128);
             if (model.isEmpty()) {

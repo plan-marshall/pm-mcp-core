@@ -184,8 +184,8 @@ class EndpointProfileSchemaParityTest {
     @Test
     @DisplayName("an undeclared member is refused by the file and the reader")
     void unknownMember() {
-        var harnessDocument = legacy(EndpointProfileFixtures.VALID);
-        var fileRefusesHarness = !schemaValid(undeclared(harnessDocument));
+        var harnessDocument = undeclared(EndpointProfileFixtures.VALID);
+        var fileRefusesHarness = !schemaValid(harnessDocument);
         var readerDocument = undeclared(EndpointProfileFixtures.VALID);
 
         assertAll(

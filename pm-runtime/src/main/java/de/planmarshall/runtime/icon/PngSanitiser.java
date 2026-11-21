@@ -21,9 +21,10 @@ import lombok.experimental.UtilityClass;
  * <p>
  * The bytes are walked as the format defines them: eight signature bytes, then chunks of a length, a four-letter type,
  * the data and a CRC-32 over the type and the data. The first chunk must be {@code IHDR} with a positive width and
- * height, the last must be {@code IEND}, and no byte may follow it. A critical chunk the format does not define, a
- * broken checksum or a truncated chunk is refused. The chunks that carry text ({@code tEXt}, {@code zTXt}, {@code
- * iTXt}) are dropped; every other chunk is copied with its own checksum, so the image is unchanged.
+ * height, at least one {@code IDAT} must carry the image, the last chunk must be {@code IEND}, and no byte may follow
+ * it. A critical chunk the format does not define, a broken checksum or a truncated chunk is refused. The chunks that
+ * carry free text ({@code tEXt}, {@code zTXt}, {@code iTXt}) and the {@code eXIf} chunk, whose description and comment
+ * fields carry free text, are dropped; every other chunk is copied with its own checksum, so the image is unchanged.
  *
  * @since 0.1
  */
@@ -36,7 +37,7 @@ public class PngSanitiser {
     private static final int CHUNK_OVERHEAD = 12;
     private static final int HEADER_LENGTH = 13;
     private static final Set<String> CRITICAL = Set.of("IHDR", "PLTE", "IDAT", "IEND");
-    private static final Set<String> TEXT = Set.of("tEXt", "zTXt", "iTXt");
+    private static final Set<String> STRIPPED = Set.of("tEXt", "zTXt", "iTXt", "eXIf");
 
     /**
      * @param candidate arbitrary bytes
@@ -64,6 +65,7 @@ public class PngSanitiser {
         stripped.writeBytes(SIGNATURE);
         var position = SIGNATURE.length;
         var sawHeader = false;
+        var sawData = false;
         var sawEnd = false;
         while (position < candidate.length) {
             if (sawEnd) {
@@ -100,13 +102,16 @@ public class PngSanitiser {
                 }
                 sawEnd = true;
             }
-            if (!TEXT.contains(type)) {
+            if (!STRIPPED.contains(type)) {
                 stripped.write(candidate, position, CHUNK_OVERHEAD + length);
+            }
+            if ("IDAT".equals(type)) {
+                sawData = true;
             }
             position += CHUNK_OVERHEAD + length;
         }
-        if (!sawHeader || !sawEnd) {
-            throw malformed("the header or the end chunk is missing");
+        if (!sawHeader || !sawData || !sawEnd) {
+            throw malformed("the header, the image data or the end chunk is missing");
         }
         return stripped.toByteArray();
     }

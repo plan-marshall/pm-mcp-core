@@ -94,7 +94,7 @@ public class HarnessListings {
                 .displayName(displayNameOf(scan, enrolment))
                 .version(enrolment.version())
                 .executablePath(enrolment.executablePath().toString())
-                .installHint("install the harness again, or remove its enrolment")
+                .installHint(installHintOf(scan, enrolment))
                 .supported(false)
                 .workerEligible(false)
                 .defaultHarness(false)
@@ -108,6 +108,14 @@ public class HarnessListings {
                 .map(HarnessCandidate::displayName)
                 .findFirst()
                 .orElse(enrolment.harnessId());
+    }
+
+    private static String installHintOf(HarnessScan scan, HarnessEnrolment enrolment) {
+        return scan.candidates().stream()
+                .filter(candidate -> candidate.harnessId().equals(enrolment.harnessId()))
+                .map(HarnessCandidate::installHint)
+                .findFirst()
+                .orElse("install the harness again, or remove its enrolment");
     }
 
     /**

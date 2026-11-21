@@ -55,7 +55,7 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
     public HarnessEnrolment {
         Objects.requireNonNull(harnessId, "harnessId");
         if (!HarnessId.matches(harnessId)) {
-            throw new IllegalArgumentException("Not a client id: " + harnessId);
+            throw new IllegalArgumentException("Not a harness id: " + harnessId);
         }
         Objects.requireNonNull(executablePath, "executablePath");
         if (!executablePath.isAbsolute()) {

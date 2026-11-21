@@ -49,7 +49,7 @@ import de.planmarshall.core.id.RoleName;
  * @param configurationDigest the digest over the role's effective values the worker was launched with
  * @param roleClass          the role's class, the member {@code class} of the schema
  * @param form               whether the worker serves one task or many
- * @param harness            the client id of the harness of the role's effective configuration
+ * @param harness            the harness id of the harness of the role's effective configuration
  * @param harnessVersion     the harness version probed at spawn
  * @param model              the model passed to the harness
  * @param effort             the effort passed after narrowing; {@code null} when none was passed

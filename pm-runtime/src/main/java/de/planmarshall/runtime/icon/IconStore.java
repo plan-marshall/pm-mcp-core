@@ -69,6 +69,8 @@ public final class IconStore {
     private static final String MEDIA_TYPE = "media_type";
     private static final String FETCHED_AT = "fetched_at";
     private static final String STAGED = ".staged";
+    private static final String HTTPS = "https://";
+    private static final int MAX_SOURCE_URL = 2048;
 
     private final Path base;
     private final Path directory;
@@ -109,18 +111,32 @@ public final class IconStore {
 
     /**
      * @param harnessId the harness the icon belongs to
-     * @return the stored icon of that harness, where one is recorded and its file is a regular file
+     * @return the stored icon of that harness, where one is recorded and its file is a regular file that still matches
+     *         the entry: its size is the recorded one, it is within the bound, and its SHA-256 is the recorded digest. A
+     *         file that differs from its entry is not served, so a crash between the icon's write and the index's, or a
+     *         tampered file, yields nothing here rather than a mismatched icon.
      */
     public Optional<StoredIcon> find(String harnessId) {
         var entry = index().find(harnessId);
         if (entry.isEmpty()) {
             return Optional.empty();
         }
-        var file = fileFor(harnessId, entry.get().media());
+        var recorded = entry.get();
+        var file = fileFor(harnessId, recorded.media());
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             return Optional.empty();
         }
-        return Optional.of(new StoredIcon(file, entry.get()));
+        final byte[] content;
+        try {
+            content = Files.readAllBytes(file);
+        } catch (IOException unreadable) {
+            return Optional.empty();
+        }
+        if (content.length > IconSanitiser.MAX_BYTES || content.length != recorded.size()
+                || !sha256(content).equals(recorded.sha256())) {
+            return Optional.empty();
+        }
+        return Optional.of(new StoredIcon(file, recorded));
     }
 
     /**
@@ -143,6 +159,10 @@ public final class IconStore {
         if (!HarnessId.matches(harnessId)) {
             throw new IconRefusal(IconRefusal.HARNESS_ID_INVALID, "Not a harness id: " + harnessId);
         }
+        if (sourceUrl.length() > MAX_SOURCE_URL || !sourceUrl.startsWith(HTTPS)) {
+            throw new IconRefusal(IconRefusal.SOURCE_URL_INVALID,
+                    "A source URL is an https URL of at most %d characters".formatted(MAX_SOURCE_URL));
+        }
         var sanitised = IconSanitiser.accept(candidate);
         var file = fileFor(harnessId, sanitised.mediaType());
         var content = sanitised.content();
@@ -160,9 +180,19 @@ public final class IconStore {
             var entries = new TreeMap<>(index().entries());
             entries.put(harnessId, entry);
             writeAtomically(file, content);
+            deleteOtherMedia(harnessId, sanitised.mediaType());
             writeAtomically(indexFile, CanonicalJson.write(document(entries)).getBytes(StandardCharsets.UTF_8));
         }
         return new StoredIcon(file, entry);
+    }
+
+    private void deleteOtherMedia(String harnessId, IconMediaType kept) {
+        var other = fileFor(harnessId, kept == IconMediaType.SVG ? IconMediaType.PNG : IconMediaType.SVG);
+        try {
+            Files.deleteIfExists(other);
+        } catch (IOException e) {
+            throw new UncheckedIOException("The icon store cannot remove the replaced icon: " + other, e);
+        }
     }
 
     private Path fileFor(String harnessId, IconMediaType mediaType) {
@@ -276,12 +306,23 @@ public final class IconStore {
                     PosixModes.fileAttribute());
             try {
                 Files.write(staged, content);
+                force(staged);
                 move(staged, target);
             } finally {
                 Files.deleteIfExists(staged);
             }
         } catch (IOException e) {
             throw new UncheckedIOException("The icon store cannot be written: " + target, e);
+        }
+    }
+
+    /**
+     * @param path the staged file, before it is moved onto its name
+     * @throws IOException if the file cannot be forced to its medium
+     */
+    private static void force(Path path) throws IOException {
+        try (var channel = java.nio.channels.FileChannel.open(path, java.nio.file.StandardOpenOption.WRITE)) {
+            channel.force(true);
         }
     }
 

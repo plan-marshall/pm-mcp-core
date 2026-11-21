@@ -41,7 +41,7 @@ import de.planmarshall.core.store.StoreRefusal;
  * harness ids and every value of a profile are data.
  * <p>
  * A machine or project profile counts only with its verification record: the {@code profile_digest} must be the
- * SHA-256 of the canonical JSON of the document, and the {@code <client_id>.json.hmac} sidecar must verify with the key
+ * SHA-256 of the canonical JSON of the document, and the {@code <harness_id>.json.hmac} sidecar must verify with the key
  * of the enrolment store. Otherwise the profile is refused {@code profile_unverified} and the profile of the next set
  * stays in force. A record of another build of the enrolled harness, inside the {@code supported_versions} range, marks
  * the profile {@code verified_on_other_build} and launches go on; outside the range the profile is refused

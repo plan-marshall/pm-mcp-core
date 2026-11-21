@@ -26,7 +26,7 @@ import lombok.experimental.UtilityClass;
 
 /**
  * Reads the shipped profile set from the resources of {@code pm-api} (PM-CLIENT-5, Profile Sets): the documents
- * {@code classpath:/profiles/<client_id>.json}, in a directory of the build or in the JAR of the dependency.
+ * {@code classpath:/profiles/<harness_id>.json}, in a directory of the build or in the JAR of the dependency.
  * <p>
  * The reader is a build test's entry: the release compiles the documents into the binary, and the build validates every
  * one of them. The directory holds the profiles and nothing else; a file whose name is not a harness id refuses the

@@ -31,13 +31,13 @@ import de.planmarshall.core.profile.EnrolledHarness;
 public interface RoleEnvironment {
 
     /**
-     * @param harnessId the client id of a harness
-     * @return the facts of the effective client profile of the harness
+     * @param harnessId the harness id of a harness
+     * @return the facts of the effective harness profile of the harness
      */
     Optional<HarnessProfile> profile(String harnessId);
 
     /**
-     * @param harnessId the client id of a harness
+     * @param harnessId the harness id of a harness
      * @return the enrolled build of the harness
      */
     Optional<EnrolledHarness> enrolledHarness(String harnessId);
@@ -61,7 +61,7 @@ public interface RoleEnvironment {
     Optional<RoleSkill> resolveSkill(String uri);
 
     /**
-     * @param harnessId the client id of a harness
+     * @param harnessId the harness id of a harness
      * @param model    a model identifier
      * @return the weights identity of the model as the enrolment records it; empty when the harness reports none
      */

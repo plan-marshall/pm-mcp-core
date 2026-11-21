@@ -49,6 +49,16 @@ final class PngFixtures {
     }
 
     /**
+     * @return a PNG document with a header and an end chunk but no image data
+     */
+    static byte[] pngWithoutImageData() {
+        var body = new ByteArrayOutputStream();
+        body.writeBytes(header());
+        body.writeBytes(chunk("IEND", new byte[0]));
+        return signed(body.toByteArray());
+    }
+
+    /**
      * @param body the bytes after the signature
      * @return the PNG signature followed by those bytes
      */

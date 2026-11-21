@@ -92,7 +92,7 @@ public final class RoleValidation {
         var effort = values.effort();
         if (profile == null) {
             throw invalid(RoleValidationReason.HARNESS_UNKNOWN, artifact,
-                    "no client profile has the client id '%s'".formatted(harness));
+                    "no harness profile has the harness id '%s'".formatted(harness));
         }
         var facts = profile;
         if (enrolled == null) {
