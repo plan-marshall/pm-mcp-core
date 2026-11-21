@@ -188,6 +188,14 @@ class IconSanitiserTest {
         }
 
         @Test
+        @DisplayName("refuses a style that reaches an image set")
+        void refusesStyleImageSet() {
+            assertRefused(IconRefusal.SVG_EXTERNAL_REFERENCE,
+                    svg("<rect width=\"4\" height=\"4\" style=\"mask-image:image-set('https://example.invalid/x' 1x)\"/>"),
+                    "a style with image-set( is refused");
+        }
+
+        @Test
         @DisplayName("refuses a style that escapes its way to a URL")
         void refusesEscapedStyleUrl() {
             assertRefused(IconRefusal.SVG_EXTERNAL_REFERENCE,
@@ -216,7 +224,7 @@ class IconSanitiserTest {
         @Test
         @DisplayName("refuses a document nested deeper than the bound")
         void refusesTooDeep() {
-            var nested = "<g>".repeat(SvgSanitiser.MAX_DEPTH + 1) + "</g>".repeat(SvgSanitiser.MAX_DEPTH + 1);
+            var nested = "<g>".repeat(65) + "</g>".repeat(65);
 
             assertRefused(IconRefusal.SVG_TOO_DEEP, svg(nested), "a document deeper than 64 is refused");
         }
@@ -224,7 +232,7 @@ class IconSanitiserTest {
         @Test
         @DisplayName("refuses a document with more elements than the bound")
         void refusesTooComplex() {
-            var many = "<rect width=\"1\" height=\"1\"/>".repeat(SvgSanitiser.MAX_ELEMENTS);
+            var many = "<rect width=\"1\" height=\"1\"/>".repeat(5000);
 
             assertRefused(IconRefusal.SVG_TOO_COMPLEX, svg(many), "a document over 5000 elements is refused");
         }

@@ -20,7 +20,7 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.profile.EnrolledHarness;
 
 /**
- * Validates a role against its effective values, its harness's client profile and the effective model catalogue
+ * Validates a role against its effective values, its harness's harness profile and the effective model catalogue
  * (PM-WORK-1, Validation against Schema and Client Profile; PM-CLIENT-2).
  * <p>
  * The checks run in the order of the specification's table: the harness is known and enrolled, the profile is eligible

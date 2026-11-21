@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
  * name in a lower set as a whole, members are never merged ({@link RoleSetLoader}).
  * <p>
  * An artifact is data. The members the specification lets a role lower are checked here, against the compiled values of
- * the harness and of the off-track signals; everything that depends on the client profile of the harness, the
+ * the harness and of the off-track signals; everything that depends on the harness profile of the harness, the
  * enrolment, the model catalogue or the project's skills is checked by {@link RoleValidation}.
  *
  * @param formatVersion       the format version, {@value RoleArtifactValidator#FORMAT_VERSION}
@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
  * @param description         what the role works on
  * @param roleClass           what the role may do
  * @param tools               the exact tool set of the role
- * @param harness             the client id of the role's own harness, before the assignment
+ * @param harness             the harness id of the role's own harness, before the assignment
  * @param model               the role's own model, before the assignment
  * @param effort              the role's own effort, before the assignment; its value is {@code null} for no effort flag
  * @param form                the worker form of the role

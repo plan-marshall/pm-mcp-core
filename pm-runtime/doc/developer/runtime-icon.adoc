@@ -36,7 +36,8 @@ that carry free text (`tEXt`, `zTXt`, `iTXt`) and `eXIf`.
 The store `<PM_MCP_BASE>/icons/`. `accept(harnessId, sourceUrl, fetchedAt, bytes)` checks the harness id with
 `HarnessId` and the source with its https rule, sanitises the candidate, writes `icons/<harness_id>.<ext>` (mode `0600`)
 and updates `icons/index.json` under `locks/icons.lock`, each with an atomic write; an icon of the same harness in the
-other media type is removed. `find` serves a file only when its size, bound and SHA-256 match its index entry.
+other media type is removed. `find` serves a file only when its size, bound and SHA-256 match its index entry
+(link:../adr/runtime-launch/013-the-icon-store-serves-only-a-file-that-matches-its-entry.adoc[ADR 013]).
 
 `IconIndex` and `IconIndexEntry`::
 The index document, its `format_version` and one entry per harness: the source URL, the SHA-256 and size of the file, the

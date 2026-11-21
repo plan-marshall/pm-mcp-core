@@ -18,7 +18,7 @@ import de.planmarshall.core.role.EffortValue;
  * The optional stronger configuration the last round of a fix budget runs on (Store Schemas § Role Assignments, Model Work
  * § Escalation Assignment): its harness, its model and the effort it runs with ({@code null}: the profile's default).
  *
- * @param harness the client id of an enrolled, worker-eligible harness
+ * @param harness the harness id of an enrolled, worker-eligible harness
  * @param model   the model, allowed on that harness by the effective catalogue
  * @param effort  the effort, or {@code null} when the schema's {@code null} applies
  * @since 0.1

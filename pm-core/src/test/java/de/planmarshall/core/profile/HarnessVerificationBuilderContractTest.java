@@ -10,6 +10,7 @@
 package de.planmarshall.core.profile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
@@ -45,5 +46,9 @@ class HarnessVerificationBuilderContractTest {
                 .build();
 
         assertEquals(canonical, built, "the builder builds the constructor's value");
+        var refusal = assertThrows(NullPointerException.class,
+                () -> HarnessVerification.Request.builder().draft("{}").build(),
+                "the builder refuses what the constructor refuses");
+        assertEquals("state", refusal.getMessage(), "the refusal names the first missing component");
     }
 }

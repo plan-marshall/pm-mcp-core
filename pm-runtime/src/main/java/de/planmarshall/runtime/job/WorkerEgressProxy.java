@@ -32,7 +32,7 @@ import de.planmarshall.core.service.AuditSink;
 
 /**
  * The worker egress proxy (PM-SEC-5): the runtime's HTTP {@code CONNECT} proxy on a loopback port, one per worker
- * generation, that admits a tunnel only to a host and port of the client profile's {@code headless.endpoints} and
+ * generation, that admits a tunnel only to a host and port of the harness profile's {@code headless.endpoints} and
  * refuses every other destination.
  * <p>
  * The proxy reads no content of a tunnel. Every refused destination is an activity entry of the worker and counts

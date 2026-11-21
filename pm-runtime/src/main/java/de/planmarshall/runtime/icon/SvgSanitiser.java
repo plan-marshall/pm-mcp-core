@@ -68,8 +68,8 @@ public class SvgSanitiser {
     /**
      * @param document an SVG document
      * @return the allow-listed rendering of the document, in the SVG namespace
-     * @throws IconRefusal if the document declares a DOCTYPE, does not parse, references an entity, carries a refused
-     *                     element or attribute, or is deeper or larger than the bound
+     * @throws IconRefusal if the document declares a DOCTYPE, does not parse, carries a refused element or attribute,
+     *                     or is deeper or larger than the bound
      */
     static byte[] sanitise(byte[] document) {
         if (declaresDoctype(document)) {
@@ -254,7 +254,8 @@ public class SvgSanitiser {
 
     private static void requireSafeStyle(String value) {
         var lower = value.toLowerCase(Locale.ROOT);
-        if (lower.contains("url(") || lower.contains("@import") || value.indexOf('\\') >= 0) {
+        if (lower.contains("url(") || lower.contains("@import") || lower.contains("image-set(")
+                || lower.contains("image(") || value.indexOf('\\') >= 0) {
             throw new IconRefusal(IconRefusal.SVG_EXTERNAL_REFERENCE,
                     "An SVG style that reaches a URL, imports a sheet or escapes a name is refused");
         }

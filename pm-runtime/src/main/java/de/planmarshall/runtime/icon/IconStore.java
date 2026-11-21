@@ -71,7 +71,8 @@ public final class IconStore {
     private static final String MEDIA_TYPE = "media_type";
     private static final String FETCHED_AT = "fetched_at";
     private static final String STAGED = ".staged";
-    private static final String HTTPS = "https://";
+    /** The scheme every source URL carries. */
+    private static final String HTTPS = "https";
     private static final int MAX_SOURCE_URL = 2048;
 
     private final Path base;
@@ -128,14 +129,22 @@ public final class IconStore {
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             return Optional.empty();
         }
-        final byte[] content;
+        final long size;
         try {
-            content = Files.readAllBytes(file);
+            size = Files.size(file);
         } catch (IOException unreadable) {
             return Optional.empty();
         }
-        if (content.length > IconSanitiser.MAX_BYTES || content.length != recorded.size()
-                || !sha256(content).equals(recorded.sha256())) {
+        if (size > IconSanitiser.MAX_BYTES || size != recorded.size()) {
+            return Optional.empty();
+        }
+        final byte[] content;
+        try (var stream = Files.newInputStream(file)) {
+            content = stream.readNBytes((int) size + 1);
+        } catch (IOException unreadable) {
+            return Optional.empty();
+        }
+        if (content.length != size || !sha256(content).equals(recorded.sha256())) {
             return Optional.empty();
         }
         return Optional.of(new StoredIcon(file, recorded));
@@ -161,9 +170,9 @@ public final class IconStore {
         if (!HarnessId.matches(harnessId)) {
             throw new IconRefusal(IconRefusal.HARNESS_ID_INVALID, "Not a harness id: " + harnessId);
         }
-        if (sourceUrl.length() > MAX_SOURCE_URL || !sourceUrl.startsWith(HTTPS)) {
+        if (!isHttpsUrl(sourceUrl)) {
             throw new IconRefusal(IconRefusal.SOURCE_URL_INVALID,
-                    "A source URL is an https URL of at most %d characters".formatted(MAX_SOURCE_URL));
+                    "A source URL is an https URL with a host and at most %d characters".formatted(MAX_SOURCE_URL));
         }
         var sanitised = IconSanitiser.accept(candidate);
         var file = fileFor(harnessId, sanitised.mediaType());
@@ -194,6 +203,22 @@ public final class IconStore {
             Files.deleteIfExists(other);
         } catch (IOException e) {
             throw new UncheckedIOException("The icon store cannot remove the replaced icon: " + other, e);
+        }
+    }
+
+    /**
+     * @param sourceUrl the URL the icon was fetched from
+     * @return whether the value is an absolute https URL with a host and no whitespace
+     */
+    private static boolean isHttpsUrl(String sourceUrl) {
+        if (sourceUrl.length() > MAX_SOURCE_URL || sourceUrl.chars().anyMatch(Character::isWhitespace)) {
+            return false;
+        }
+        try {
+            var uri = java.net.URI.create(sourceUrl);
+            return HTTPS.equals(uri.getScheme()) && uri.getHost() != null && !uri.getHost().isEmpty();
+        } catch (IllegalArgumentException notAUri) {
+            return false;
         }
     }
 

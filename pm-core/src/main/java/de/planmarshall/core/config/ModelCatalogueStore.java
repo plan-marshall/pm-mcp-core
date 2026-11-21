@@ -56,7 +56,7 @@ public final class ModelCatalogueStore {
     /**
      * What a read of a catalogue found.
      *
-     * @param harnesses the allowed models per client id of an enrolled harness
+     * @param harnesses the allowed models per harness id of an enrolled harness
      * @param revision  the {@code revision} of the document; {@value #NO_DOCUMENT} when it does not exist
      * @since 0.1
      */
@@ -80,7 +80,7 @@ public final class ModelCatalogueStore {
         }
 
         /**
-         * @param harness the client id of a harness
+         * @param harness the harness id of a harness
          * @param model   a model identifier
          * @return whether the catalogue allows the model on the harness
          */
@@ -144,10 +144,10 @@ public final class ModelCatalogueStore {
      * Replaces the allowed models and increments the revision. An entry of a harness that is no longer enrolled is
      * dropped.
      *
-     * @param harnesses          the allowed models per client id of an enrolled harness
-     * @param enrolledHarnesses  the client ids of the harnesses enrolled now
+     * @param harnesses          the allowed models per harness id of an enrolled harness
+     * @param enrolledHarnesses  the harness ids of the harnesses enrolled now
      * @param revision           the revision the caller read
-     * @throws IllegalArgumentException if a harness key is not a client id
+     * @throws IllegalArgumentException if a harness key is not a harness id
      * @throws SettingsConflict         if the document holds another revision than {@code revision}
      * @throws StoreRefusal             if the document is unreadable or in another format version
      * @throws UncheckedIOException     if the document cannot be read or written

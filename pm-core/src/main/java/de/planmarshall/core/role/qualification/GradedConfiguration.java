@@ -30,7 +30,7 @@ import de.planmarshall.core.role.RoleSkill;
  * Members outside it — {@code count}, {@code form}, {@code recycling}, the off-track settings,
  * {@code budget_floor_seconds}, {@code context_budget_tokens} and {@code description} — never invalidate a record.
  *
- * @param harness        the client id of the graded harness
+ * @param harness        the harness id of the graded harness
  * @param harnessVersion the major.minor of the enrolled harness version
  * @param model          the effective model
  * @param effort         the effective effort; {@code null} when the configuration names none

@@ -58,7 +58,7 @@ public final class LossDetection {
     /**
      * @param generationId the worker's generation
      * @param roleClass    the class of the role, which exempts a {@code zero_tool} worker
-     * @param parameters   the worker values of the harness's client profile
+     * @param parameters   the worker values of the harness's harness profile
      * @param clock        the clock every deadline is measured against
      * @param timers       the timers the next deadline is scheduled through
      * @param onLost       where a fired signal is handed over

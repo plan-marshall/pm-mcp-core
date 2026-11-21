@@ -48,10 +48,12 @@ chunk is refused. The chunks that carry free text (`tEXt`, `zTXt`, `iTXt`) and `
 fields carry free text, are stripped; every other chunk is copied with its own checksum, so the image is unchanged.
 
 The accept step is bounded as a whole: `256` KiB per candidate, `64` elements of nesting and `5000` elements per
-document, so a document cannot exhaust the runtime while it is rendered. The store stages a file in the same directory
-and forces it to its medium before the move; the directory itself is not forced, which the JDK cannot do portably, so a
-crash between the icon's move and the index's leaves two files the reader reconciles rather than a served mismatch: the
-store serves a file only when its size, bound and SHA-256 match its index entry.
+document, so a document cannot exhaust the runtime while it is rendered.
+
+The store is a separate decision, recorded in
+link:013-the-icon-store-serves-only-a-file-that-matches-its-entry.adoc[ADR 013]: it stages a file in the same directory,
+forces it to its medium and moves it onto its name, serves a file only when its size, bound and SHA-256 match its index
+entry, replaces an icon of the other media type, and accepts only an `https` source URL.
 
 == Alternatives Considered
 
@@ -71,6 +73,11 @@ could weaken.
 
 Keeping the PNG's text chunks and refusing the image was rejected: the text is metadata the icon never needs, and
 stripping it keeps a legitimate icon usable while guaranteeing that no free text reaches a client.
+
+Refusing only the literal `url(` and `@import` was rejected after review: a CSS escape (`u\72l(`) spells the same
+reference without the literal, so a backslash is refused too. The cost is that a legitimate escape in a `style` value
+(a non-Latin `font-family` name, for instance) refuses the whole icon; the monogram is the fallback, which is the
+benign outcome every refusal here has.
 
 == Consequences
 

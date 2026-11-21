@@ -31,7 +31,7 @@ import de.planmarshall.core.role.RoleSet;
  * release's default assignment applied to the enrolled harnesses and the effective catalogue.
  * <p>
  * Per assignable role — every role of the effective set except the steward — the harness is the role's preferred harness
- * where it is enrolled, else the first enrolled harness, in the order of the client id, whose profile runs the role's
+ * where it is enrolled, else the first enrolled harness, in the order of the harness id, whose profile runs the role's
  * class; the model is the one that harness maps the role's tier to, where the catalogue allows it; and the effort is the
  * default's, narrowed to what the harness accepts for the model. A role whose default cannot be met is reported without a
  * value, with the reason and the advisory beside it, and the operator chooses its model in {@code roles.write}.
@@ -48,7 +48,7 @@ public final class RoleAssignmentProposal {
      * One enrolled harness with the facts of its profile.
      *
      * @param harnessId the harness id of the harness
-     * @param profile  the facts of its client profile
+     * @param profile  the facts of its harness profile
      * @since 0.1
      */
     public record Harness(String harnessId, HarnessProfile profile) {
@@ -88,7 +88,7 @@ public final class RoleAssignmentProposal {
     /**
      * @param roles      the effective role set of the project or the machine
      * @param defaults   the release's default assignment
-     * @param harnesses  the enrolled harnesses, in the order of the client id
+     * @param harnesses  the enrolled harnesses, in the order of the harness id
      * @param catalogue  the effective model catalogue; {@code null} when the machine has none yet
      * @return one proposal per assignable role, in role-name order
      */

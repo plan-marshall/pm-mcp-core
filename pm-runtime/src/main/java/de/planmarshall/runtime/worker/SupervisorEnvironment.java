@@ -54,7 +54,7 @@ import de.planmarshall.runtime.launch.SkillSource;
  * @param relaySocket     the daemon's socket the worker's relay connects to
  * @param shimParagraph   the paragraph of the shim skill of the client bundle
  * @param skills          where the launch prompt's skills are read
- * @param profile         the effective client profile of the worker's harness
+ * @param profile         the effective harness profile of the worker's harness
  * @param harnessVerifier the launch-time verification of an enrolled harness
  * @param composer        the composition of one worker launch
  * @param starter         the job runtime that starts and settles a worker
@@ -297,7 +297,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
 
     /**
      * The verification-record gate (PM-CLIENT-5, the load-time stage): whether the harness may host a worker of one
-     * role, decided from the harness's client profile, the runtime platform and the profile verification record before
+     * role, decided from the harness's harness profile, the runtime platform and the profile verification record before
      * every start.
      *
      * @since 0.1

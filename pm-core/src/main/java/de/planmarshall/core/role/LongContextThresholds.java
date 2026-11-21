@@ -18,7 +18,7 @@ import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.LoadedProfile;
 
 /**
- * The long-context price thresholds of a client profile (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models of
+ * The long-context price thresholds of a harness profile (PM-CLIENT-5, Harness Profiles § Model Tiers &amp; Models of
  * a Harness): per model id of the harness, the input tokens above which its provider bills a request at the
  * long-context price. A fallback of the context budget is capped at the entry, never a value the role artifact or the
  * operator sets.

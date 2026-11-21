@@ -165,7 +165,9 @@ class IconStoreTest {
     void doesNotServeAChangedFile() throws Exception {
         var harnessId = harnessId();
         var stored = store.accept(harnessId, "https://example.invalid/a.svg", fetchedAt, SVG);
-        Files.writeString(stored.file(), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>", StandardCharsets.UTF_8);
+        var storedBytes = Files.readAllBytes(stored.file());
+        storedBytes[storedBytes.length - 5] = (byte) (storedBytes[storedBytes.length - 5] ^ 0x01);
+        Files.write(stored.file(), storedBytes);
 
         assertTrue(store.find(harnessId).isEmpty(), "a file whose digest differs is not served");
     }
@@ -190,6 +192,25 @@ class IconStoreTest {
                 "a source that is not https is refused");
 
         assertEquals(IconRefusal.SOURCE_URL_INVALID, refusal.code(), "the refusal names the source URL");
+    }
+
+    @Test
+    @DisplayName("refuses a source URL above the bound")
+    void refusesASourceUrlAboveTheBound() {
+        var sourceUrl = "https://example.invalid/" + "a".repeat(2048) + ".svg";
+
+        var refusal = assertThrows(IconRefusal.class,
+                () -> store.accept(harnessId(), sourceUrl, fetchedAt, SVG),
+                "a source URL above 2048 characters is refused");
+
+        assertEquals(IconRefusal.SOURCE_URL_INVALID, refusal.code(), "the refusal names the source URL");
+    }
+
+    @Test
+    @DisplayName("refuses an index with a format version the store does not read")
+    void refusesAForeignIndexVersion() {
+        assertThrows(IllegalArgumentException.class, () -> new IconIndex(2, java.util.Map.of()),
+                "an index of another format version is refused");
     }
 
     @Test

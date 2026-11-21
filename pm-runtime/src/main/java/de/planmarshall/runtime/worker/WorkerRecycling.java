@@ -70,7 +70,7 @@ public final class WorkerRecycling {
      * @param generations the registered generations of the supervisor, read by the idle yield
      * @param roleBounds  the recycling bounds of one role; empty for a fresh role
      * @param tasks       the facts of a served task, which name the attempt an ended hold reports
-     * @param parameters  the worker values of the harness's client profile, which bound the idle trigger
+     * @param parameters  the worker values of the harness's harness profile, which bound the idle trigger
      * @throws NullPointerException if a collaborator is {@code null}
      */
     public WorkerRecycling(SupervisorEnvironment environment, WorkerEnding ending,

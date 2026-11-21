@@ -139,7 +139,7 @@ public interface WorkerProtocol {
      * conservative fallback, when the start-failure guard holds.
      *
      * @param role    the role
-     * @param harness the client id of the harness
+     * @param harness the harness id of the harness
      */
     void closeUnavailable(String role, String harness);
 }
