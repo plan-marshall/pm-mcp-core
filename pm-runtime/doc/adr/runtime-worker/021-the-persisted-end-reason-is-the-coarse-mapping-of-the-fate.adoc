@@ -1,0 +1,49 @@
+= ADR 021: The persisted end reason is the coarse mapping of the job's fate
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The settlement writes the terminal worker block with the job's fate (ADR 017), and `WorkerTermination.endReason`
+derives the block's `end_reason` from that fate and the worker's connection: a worker that never called is a
+`start_failure`, `succeeded` is `task_done`, `timed_out` is `budget`, `killed` is `drain`, `cancelled` is `withdrawn`,
+and every other fate is `exited`. A forced end of the supervisor reaches the runner as `SUPERVISOR_END` and settles as
+`cancelled`, so a worker lost to a missed acknowledgement or to silence, recycled or restarted after an off-track
+action is recorded `withdrawn`.
+
+The timeouts specification promised `end_reason: ack_missed` and `end_reason: silence` for the acknowledgement deadline
+and the silence limit. Code and specification disagreed; the question was which of the two to change.
+
+== Decision
+
+The record keeps the coarse mapping of the fate: `WorkerTermination.endReason` stays as it is, and the specification
+says what the code records (link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#ack-deadline[Timeouts,
+Acknowledgement deadline] and link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#silence-limit[Silence
+limit]). The fine-grained cause of an end stays the supervisor's: the attempt's end of the task (`worker_lost` for a
+loss, ADR 020) and the log record `WORKER_GENERATION_ENDED`, which names the cause and the loss reason.
+
+== Alternatives considered
+
+* **Carrying the request's reason into the terminal block**: the supervisor's requested cause and loss reason would
+  travel to the settlement and replace the fate's mapping. Rejected: the settlement would depend on a value the job
+  runtime does not observe, and the record would no longer be derived from the fate alone.
+
+== Consequences
+
+* The record's `end_reason` of a forced end names the fate, not the cause; a reader who needs the cause reads the
+  attempt's end or the supervisor's log.
+* `WorkerTerminationTest` pins the mapping per reason, so a change of one arm of `WorkerTermination.endReason` turns a
+  test red.
+* A later change that wants the fine-grained reason in the record supersedes this ADR and changes the specification
+  with it.
+
+== Source
+
+The operator's answer at refine of PLAN-V2-165 (2026-11-20): keep the code and amend the specification.
