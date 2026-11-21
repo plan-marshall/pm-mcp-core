@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -198,11 +199,14 @@ class WorkflowStatusCodecTest {
                     "\"arg_sources\":{\"message_mode\":{\"source\":\"literal\",\"source_ref\":null}}",
                     "\"arg_sources\":" + sources);
 
+            var status = read(document);
+            var covered = status.callStack().getFirst().argSources().values().stream()
+                    .map(WorkflowStatus.CallFrame.ArgSource::source)
+                    .collect(Collectors.toSet());
             assertAll(
-                    () -> assertEquals(WorkflowStatus.CallFrame.ArgSource.SOURCES,
-                            Set.of("literal", "config", "default", "task_submit", "operator_answer"),
-                            "every provenance of the closed set is covered"),
-                    () -> assertArrayEquals(bytes(document), WorkflowStatusCodec.write(read(document)),
+                    () -> assertEquals(WorkflowStatus.CallFrame.ArgSource.SOURCES, covered,
+                            "the parsed fixture covers every provenance"),
+                    () -> assertArrayEquals(bytes(document), WorkflowStatusCodec.write(status),
                             "every provenance should round-trip byte for byte"));
         }
 
