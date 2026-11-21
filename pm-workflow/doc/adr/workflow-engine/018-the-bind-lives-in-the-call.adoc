@@ -32,7 +32,9 @@ at which the engine still knows which call is entering which callee.
   `correlation_id` of the current `Run` (link:../../../../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/078]),
   and clears the consumed slots in the same transaction.
 * A refusal raises the condition `precondition_unmet`: reason `input_refused` (naming the input and the rule) for a value
-  that does not fit, reason `input_unbound` for an input no state filled. Both carry the bounded self-remedy, because
+  that does not fit, reason `input_unbound` for a slot reference no state filled, reason `missing_param` for a required
+  input no source supplied and reason `undeclared_param` for an argument the callee does not declare
+  (link:028-the-bind-validates-the-arguments.adoc[ADR workflow-engine/028]). All carry the bounded self-remedy, because
   their cause can clear.
 
 **Status of this decision: the contract above is built.** `WorkflowEngine.call` resolves every input, validates it,

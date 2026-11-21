@@ -12,6 +12,11 @@ package de.planmarshall.workflow.engine;
 import static de.planmarshall.workflow.engine.EngineFixtures.PLAN_ID;
 import static de.planmarshall.workflow.engine.EngineFixtures.callingPlan;
 import static de.planmarshall.workflow.engine.EngineFixtures.parse;
+import static org.easymock.EasyMock.anyInt;
+import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 
@@ -36,6 +42,7 @@ import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
 import de.planmarshall.workflow.ast.InputType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.plan.InstanceUnits;
 import de.planmarshall.workflow.verify.ConfigKeyRegistry;
 import de.planmarshall.workflow.verify.ConfigKeyRegistry.ConfigKey;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
@@ -719,10 +726,135 @@ class InputBindingTest {
             var facts = refusalFacts(step);
             assertAll(
                     () -> assertEquals("precondition_unmet", facts.get("kind"), "the missing fallback refuses"),
-                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_unbound\""),
-                            "the refusal names the unbound input"),
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"missing_param\""),
+                            "the absent input names the missing parameter"),
                     () -> assertTrue(facts.get("facts").contains("sub.opts.input.from_config"),
                             "the refusal names the fallback input"));
+        }
+    }
+
+    /**
+     * The bind's runtime validation of the arguments themselves: a call may carry a name the callee does not declare,
+     * or omit a required one, when the version in force carries a plan unit the verifier never saw. The bind refuses
+     * both before it pushes a frame; Rule 6 refuses the same two shapes of a unit the verifier does see.
+     */
+    @Nested
+    @DisplayName("The argument validation at the bind")
+    class TheArgumentValidation {
+
+        private static final String PHASE = "phase-1-init";
+
+        /** The clean plan of the versioned fixture: every argument declared, every required one bound. */
+        private static final String CLEAN_INVOKE = """
+                state execute.invoke
+                    call sub.args(mode = strict, rounds = 2, targets = [origin, mirror])
+                        done -> completed
+                        stepped_out -> plan.return
+                """;
+
+        @Test
+        @DisplayName("Should refuse an undeclared argument of a unit the verifier never saw")
+        void shouldRefuseAnUndeclaredArgument() {
+            var engine = versionedEngine("""
+                    state execute.invoke
+                        call sub.args(mode = strict, rounds = 2, targets = [origin, mirror], extra = 3)
+                            done -> completed
+                            stepped_out -> plan.return
+                    """);
+
+            var step = engine.advance(EngineFixtures.planStatus(PHASE, "execute.invoke", 1));
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertEquals("precondition_unmet", facts.get("kind"),
+                            "the undeclared argument refuses the call"),
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"undeclared_param\""),
+                            "the refusal names the undeclared argument"),
+                    () -> assertTrue(facts.get("facts").contains("sub.args.input.extra"),
+                            "the refusal names the argument and its callee"),
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the refused call pushes no frame"));
+        }
+
+        @Test
+        @DisplayName("Should refuse a call of that unit that omits a required input")
+        void shouldRefuseAMissingRequiredInput() {
+            var engine = versionedEngine("""
+                    state execute.invoke
+                        call sub.args(mode = strict)
+                            done -> completed
+                            stepped_out -> plan.return
+                    """);
+
+            var step = engine.advance(EngineFixtures.planStatus(PHASE, "execute.invoke", 1));
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertEquals("precondition_unmet", facts.get("kind"),
+                            "the missing required input refuses the call"),
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"missing_param\""),
+                            "the refusal names the missing parameter"),
+                    () -> assertTrue(facts.get("facts").contains("sub.args.input.rounds"),
+                            "the refusal names the first missing input"),
+                    () -> assertTrue(step.status().callStack().isEmpty(), "the refused call pushes no frame"));
+        }
+
+        @Test
+        @DisplayName("matched control: the clean unit of the same version rests in the callee")
+        void shouldBindTheCleanUnit() {
+            var engine = versionedEngine(CLEAN_INVOKE);
+
+            var step = engine.advance(EngineFixtures.planStatus(PHASE, "execute.invoke", 1));
+
+            var status = assertInstanceOf(EngineStep.Resting.class, step, "the clean call rests in the callee")
+                    .status();
+            assertAll(
+                    () -> assertEquals(1, status.callStack().size(), "the clean call pushes its frame"),
+                    () -> assertEquals("sub.args", status.callStack().getFirst().subworkflowId(),
+                            "the frame names the callee"));
+        }
+
+        /**
+         * @param invokeStates the states of the plan unit the version in force carries
+         * @return an engine over a clean unit whose version in force carries the given unit, unverified
+         */
+        private WorkflowEngine versionedEngine(String invokeStates) {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.args.pmwf", SUB_ARGS);
+            InstanceUnits units = createMock(InstanceUnits.class);
+            expect(units.planUnit(1)).andReturn(Optional.of(callingPlan("execute.invoke", invokeStates))).anyTimes();
+            expect(units.composedUnit(1, callee.id())).andReturn(Optional.of(callee)).anyTimes();
+            expect(units.subUnit(anyInt(), anyString())).andReturn(Optional.empty()).anyTimes();
+            replay(units);
+            return new WorkflowEngine(callingPlan("execute.invoke", CLEAN_INVOKE), WorkflowCatalog.of(callee),
+                    fixtures.validator(callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.instancePorts(null, units));
+        }
+    }
+
+    /** The bind of a scope whose engine carries no binding context: a fallback key cannot be read. */
+    @Nested
+    @DisplayName("The absent binding context")
+    class TheAbsentBindingContext {
+
+        @Test
+        @DisplayName("Should refuse a fallback input when no binding context is mounted")
+        void shouldRefuseAFallbackWithoutABindingContext() {
+            var fixtures = new EngineFixtures();
+            var callee = parse("sub.opts.pmwf", SUB_OPTIONS);
+            var engine = new WorkflowEngine(callingPlan("execute.invoke", CALL_OPTIONS), WorkflowCatalog.of(callee),
+                    fixtures.validator(ConfigKeyRegistry.of(List.of(MODE_KEY)), callee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
+
+            var step = engine.start(JournalScopeType.PLAN, PLAN_ID);
+
+            var facts = refusalFacts(step);
+            assertAll(
+                    () -> assertEquals("precondition_unmet", facts.get("kind"),
+                            "the absent context refuses the call"),
+                    () -> assertTrue(facts.get("facts").contains("\"reason\":\"input_refused\""),
+                            "the refusal names the refused input"),
+                    () -> assertTrue(facts.get("facts").contains("input.no-context"),
+                            "the refusal names the missing binding context"));
         }
     }
 }

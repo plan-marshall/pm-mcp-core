@@ -85,6 +85,9 @@ public final class InputValidator {
     /** The rule of a slot or link text that the type cannot parse. */
     public static final String RULE_MALFORMED = "input.malformed";
 
+    /** The rule of an input whose {@code input_fallback} the bind cannot read: the engine carries no bind context. */
+    public static final String RULE_NO_CONTEXT = "input.no-context";
+
     /** The rule of a path that is not confined to the worktree. */
     public static final String RULE_PATH_CONFINEMENT = "path.confinement";
 
