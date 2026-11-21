@@ -560,8 +560,9 @@ result.
 (link:../adr/runtime-worker/021-the-persisted-end-reason-is-the-coarse-mapping-of-the-fate.adoc[ADR 021]). The
 settlement derives the worker block's `end_reason` from the job's fate and the worker's connection: a worker that never
 called failed to start, a succeeded job served its task, and every other fate names its own end — a recycle and a drain
-are both a `cancelled` fate. The fine-grained cause stays the supervisor's and is recorded in the attempt's end and in
-`WORKER_GENERATION_ENDED`.
+are both a `cancelled` fate. The end path records a loss only as far as the cause: the attempt's end is `worker_lost` and
+`WORKER_GENERATION_ENDED` names the end cause (`lost`); the loss reason (`ack_missed` or `silence`) is not recorded in a
+settled record.
 
 What the package does not do itself: the transport that implements `WorkerProtocol` and forwards `SupervisorCalls`,
 the scheduling of `SupervisionPass.run()` and the construction of the pump, the recorder and the mapper per role are the

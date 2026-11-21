@@ -21,8 +21,10 @@ import de.planmarshall.core.store.WorkerState;
  * offer was not acknowledged within the host's acknowledgement deadline, or the worker was silent past the bounded wait
  * plus its silence grace.
  * <p>
- * The reason is one value for the whole report: the job record's worker state carries {@link #endReason()}, and the
- * attempt of the queue task carries {@link #attemptEnd()}. A {@code zero_tool} worker produces none of the deadline
+ * The reason is one value for the whole report: the worker state the supervisor writes for a record the settlement has
+ * not settled carries {@link #endReason()}, and the attempt of the queue task carries {@link #attemptEnd()}. A record the
+ * settlement settled carries the coarse mapping of the job's fate instead (ADR runtime-worker/021), so a forced end
+ * records neither loss reason distinctly. A {@code zero_tool} worker produces none of the deadline
  * signals, so its exit alone decides ({@link LossDetection}).
  *
  * @since 0.1

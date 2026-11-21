@@ -26,8 +26,10 @@ and the silence limit. Code and specification disagreed; the question was which 
 The record keeps the coarse mapping of the fate: `WorkerTermination.endReason` stays as it is, and the specification
 says what the code records (link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#ack-deadline[Timeouts,
 Acknowledgement deadline] and link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#silence-limit[Silence
-limit]). The fine-grained cause of an end stays the supervisor's: the attempt's end of the task (`worker_lost` for a
-loss, ADR 020) and the log record `WORKER_GENERATION_ENDED`, which names the cause and the loss reason.
+limit]). The end path names a loss only as far as the cause: the attempt's end of the task is `worker_lost` for every
+loss (ADR 020), and the log record `WORKER_GENERATION_ENDED` names the end cause (`lost`), not the loss reason. The
+loss reason itself, `ack_missed` or `silence`, reaches only the worker state the supervisor writes for a record the
+settlement has not settled; a settled record carries the coarse mapping of the fate and no loss reason.
 
 == Alternatives considered
 
@@ -37,8 +39,8 @@ loss, ADR 020) and the log record `WORKER_GENERATION_ENDED`, which names the cau
 
 == Consequences
 
-* The record's `end_reason` of a forced end names the fate, not the cause; a reader who needs the cause reads the
-  attempt's end or the supervisor's log.
+* The record's `end_reason` of a forced end names the fate, not the cause; the attempt's end (`worker_lost`) and the
+  end log (`lost`) say that the worker was lost, not whether it missed an acknowledgement or fell silent.
 * `WorkerTerminationTest` pins the mapping per reason, so a change of one arm of `WorkerTermination.endReason` turns a
   test red.
 * A later change that wants the fine-grained reason in the record supersedes this ADR and changes the specification
