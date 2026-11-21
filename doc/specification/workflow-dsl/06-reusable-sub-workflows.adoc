@@ -377,9 +377,9 @@ A call site that replaces its fixed commit message (Stage 3) binds `message = sl
 |The team configuration a project's setup changed, started by `setup.land-changes` (<<short-landings>>); `push_target` as for `git.land-removal`.
 |===
 
-`push_target` names the value the call site binds, one of the input's two admitted values (`branch`, `base`); a site that
-binds none takes the compiled default `branch`. The three short landings bind it by the project's landing variant and
-therefore admit both values.
+`push_target` is the effective value of the call site: the value it binds, or the input's compiled default `branch` where
+it binds none. The column carries only the input's two admitted values; the three short landings bind it by the project's
+landing variant and therefore carry both.
 
 The epic ledger (`epic.commit-ledger`, `decomposition.commit`) and the short landings, the project setup's changes among them (`git.land-setup`), reach the base branch through the project's landing variant (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]): with `landing.pull-request` through a branch and its pull request, with `landing.main` by a commit pushed onto the base branch (`push_target: base`), and with `landing.files` they stay uncommitted in the working tree.
 

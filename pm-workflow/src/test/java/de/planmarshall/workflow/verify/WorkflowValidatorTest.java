@@ -1260,8 +1260,8 @@ class WorkflowValidatorTest {
     }
 
     /**
-     * The reserved words the verifier reads are the parser's set, which is the specification's: a word the grammar leaves
-     * positional (`decide`, `quorum`, `phase`, `inherit`, `entry`) is a legal role name and a legal state-id segment.
+     * The reserved words the verifier reads are the parser's set, which is the specification's: the positional words it
+     * leaves out (`decide`, `phase`, `inherit`, `entry`) are legal role names.
      */
     @Nested
     @DisplayName("Reserved words")
@@ -1419,6 +1419,44 @@ class WorkflowValidatorTest {
 
             assertEquals(List.of(), result.violations(),
                     "a slot refilled between two reads verifies");
+        }
+
+        @Test
+        @DisplayName("Should refuse a second read with no fill between it and the first")
+        void shouldRefuseTwoReadsWithoutAFillBetween() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill-first
+                            skipped -> verify.fill-second
+
+                    state verify.fill-first
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-first
+                            lost -> verify.done
+
+                    state verify.fill-second
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-first
+                            lost -> verify.done
+
+                    state verify.invoke-first
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.invoke-second
+                            stepped_out -> plan.return
+
+                    state verify.invoke-second
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.invoke-second' after the read at"
+                            + " 'verify.invoke-first'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "two fills do not separate two reads on one path");
         }
 
         /**

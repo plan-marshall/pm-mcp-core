@@ -35,7 +35,7 @@ the composition reads are not the same, and nothing in the header says so. The s
 == Alternatives Considered
 
 * *Keep `slot.<name>` and refuse an enum member with that prefix.* Refused: the prefix is not reserved by the grammar, and
-  a refusal would cost a legal enum value to protect an encoding choice.
+  a refusal would cost a `CallValue` the library admits even though the parser never writes one.
 * *Escape the prefix (`\slot.x`).* Refused: an escaping rule must be stated for every reader, and a typed member states the
   kind without one.
 * *Leave the ambiguity and document it.* Refused: the header is the record the composition reads to re-runs a call; a value

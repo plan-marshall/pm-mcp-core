@@ -11,8 +11,8 @@ Accepted
 
 == Context
 
-Three behaviours landed with the call-time bind of `PLAN-V2-157` that the operator put to a decision (R07), and one the
-code contradicted outright:
+Three behaviours landed with the call-time bind of `PLAN-V2-157` that the operator put to a decision (R07), one of them a
+contradiction of the specification:
 
 * `PathRules` refused the glob characters `*`, `?` and `[` (the rule `path.glob`), and `JGitOperations.refusedCommitPath`
   refused them a second time. The specification already said the opposite: Stage 4 of `git.commit_and_push` states that

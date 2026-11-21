@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -35,6 +36,8 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.cuioss.test.generator.Generators;
@@ -973,7 +976,7 @@ class InputBindingTest {
         }
 
         @Test
-        @DisplayName("Should refuse a fallback whose key supplies nothing and no default can")
+        @DisplayName("Should refuse a fallback no configuration value and no default supplies")
         void shouldRefuseAnUnsuppliedFallback() {
             var engine = optionsEngine(Map.of());
 
@@ -1131,7 +1134,10 @@ class InputBindingTest {
 
             var bound = assertInstanceOf(BoundArg.StringArg.class,
                     status.callStack().getFirst().boundArgs().get("mode"), "the default resolves the input");
-            assertEquals("auto_deliverable", bound.value(), "the default needs no binding context");
+            assertAll(
+                    () -> assertEquals("auto_deliverable", bound.value(), "the default needs no binding context"),
+                    () -> assertEquals("default", status.callStack().getFirst().argSources().get("mode").source(),
+                            "the frame names the default as source"));
         }
 
         @Test
@@ -1158,6 +1164,7 @@ class InputBindingTest {
     /** The bind's confinement of a path: a symlink that leaves the worktree is refused before the frame is pushed. */
     @Nested
     @DisplayName("The confinement of a bound path")
+    @EnabledOnOs({OS.LINUX, OS.MAC})
     class TheConfinement {
 
         @TempDir
@@ -1165,7 +1172,7 @@ class InputBindingTest {
 
         @Test
         @DisplayName("Should refuse a path that leaves the worktree through a directory symlink")
-        void shouldRefuseADirectorySymlink() throws Exception {
+        void shouldRefuseADirectorySymlink() throws IOException {
             var worktree = Files.createDirectories(root.resolve("worktree"));
             var secret = Files.writeString(Files.createDirectories(root.resolve("outside")).resolve("secret.txt"),
                     "secret");
@@ -1178,7 +1185,7 @@ class InputBindingTest {
 
         @Test
         @DisplayName("Should refuse a path that leaves the worktree through a file symlink")
-        void shouldRefuseAFileSymlink() throws Exception {
+        void shouldRefuseAFileSymlink() throws IOException {
             var worktree = Files.createDirectories(root.resolve("worktree"));
             var secret = Files.writeString(Files.createDirectories(root.resolve("outside")).resolve("secret.txt"),
                     "secret");

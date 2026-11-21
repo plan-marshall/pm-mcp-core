@@ -46,9 +46,8 @@ assembly's construction of the parameter record.
   the content validators (`OutlineValidator`, `AsciiDocValidator`, `ConventionalCommitValidator`) a deployment attaches to
   a parameter. The engine's default `ParameterBinder` keeps refusing any submitted free parameter, fail-closed, when no
   parameter-aware binder is installed of a primitive that declares none: a parameter silently dropped is worse than an
-  act refused, because the primitive would run with a record that never carried the operator's value. This ownership split
-  is the operator's answer of 2026-11-21 to the R07 question of Deliverable 1 ("refuse, fail closed"), recorded here
-  because the plan's spec asks that the ADR say which side owns what.
+  act refused, because the primitive would run with a record that never carried the operator's value. That refusal is the
+  operator's answer of 2026-11-21 to the R07 question of Deliverable 1 ("refuse, fail closed").
 * The `ParameterBinder` interface and the `Ports` shapes are unchanged (PLAN-V2-25).
 
 == Alternatives Considered

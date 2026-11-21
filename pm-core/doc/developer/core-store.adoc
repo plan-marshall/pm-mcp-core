@@ -223,9 +223,9 @@ unit-local.
 * *Consumed by its call.* The call clears the slot in the transaction that binds it, so a stale message or a stale path
   is never reused, and a restart between the fill and the call resumes from the pair (state, slot recorded); the engine
   binds the value once and the second call that reads the same slot is refused `input_unbound`. Rule 6 refuses the same
-  shape at build time for a slot with one filling state, naming both reads
+  shape at build time, naming both reads
   (link:../adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR 077];
-  link:../../pm-workflow/doc/adr/workflow-verify/042-rule-6-models-the-consumption-of-a-slot.adoc[ADR workflow-verify/042]).
+  link:../../../pm-workflow/doc/adr/workflow-verify/042-rule-6-models-the-consumption-of-a-slot.adoc[ADR workflow-verify/042]).
 * *One value, two shapes.* A slot holds a text or the JSON array text of a `list<path>`, and `InputValidator.parse`
   reads that text back into the value at the bind.
 * *Format version 1 unchanged.* The member is added in place; a document without it reads as no slot and is rewritten
