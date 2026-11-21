@@ -66,7 +66,7 @@ class CoverageParserStreamBoundTest {
     @MethodSource("parsers")
     @DisplayName("refuses a report one byte past the limit it is handed")
     void refusesAReportPastTheLimit(String fileName, CoverageFormat format, Supplier<String> report,
-            BiFunction<Path, Long, CoverageParseResult> parse) throws IOException {
+            BiFunction<Path, Long, CoverageParseResult> parse) throws Exception {
         Path file = write(fileName, report.get());
         long limit = Files.size(file) - 1;
 
@@ -83,7 +83,7 @@ class CoverageParserStreamBoundTest {
     @MethodSource("parsers")
     @DisplayName("parses the same report under a limit of its own size")
     void parsesAReportAtTheLimit(String fileName, CoverageFormat format, Supplier<String> report,
-            BiFunction<Path, Long, CoverageParseResult> parse) throws IOException {
+            BiFunction<Path, Long, CoverageParseResult> parse) throws Exception {
         Path file = write(fileName, report.get());
 
         CoverageParseResult result = parse.apply(file, Files.size(file));

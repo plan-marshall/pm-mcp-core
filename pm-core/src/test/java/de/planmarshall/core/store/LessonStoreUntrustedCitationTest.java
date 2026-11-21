@@ -176,7 +176,7 @@ class LessonStoreUntrustedCitationTest {
 
     @Test
     @DisplayName("the switch of isUntrusted has no default arm a new variant could fall to")
-    void untrustedSwitchHasNoDefaultArm() throws IOException {
+    void untrustedSwitchHasNoDefaultArm() throws Exception {
         var source = Files.readString(Path.of("src/main/java/de/planmarshall/core/store/LessonStore.java"));
         var start = source.indexOf("static boolean isUntrusted(LessonResolution resolution)");
         assertTrue(start >= 0, "the isUntrusted method is found in the source");

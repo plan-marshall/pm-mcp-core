@@ -69,7 +69,7 @@ class PlanOverridesStoreTest {
     void createScope() throws IOException {
         clock = Clock.fixed(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()),
                 ZoneOffset.UTC);
-        project ="project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        project = "project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         plan = "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         scope = JournalScope.plan(base, project, plan);
         Files.createDirectories(scope.journalFile().getParent());

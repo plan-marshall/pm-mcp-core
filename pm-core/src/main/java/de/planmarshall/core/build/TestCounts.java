@@ -54,7 +54,7 @@ public sealed interface TestCounts {
      */
     @Builder
     record Measured(int passed, int failed, int skipped, int total, @Nullable Map<String, Integer> byRunner,
-            boolean tailOnly) implements TestCounts {
+    boolean tailOnly) implements TestCounts {
 
         /**
          * Validates the counts and copies the per-runner map.
