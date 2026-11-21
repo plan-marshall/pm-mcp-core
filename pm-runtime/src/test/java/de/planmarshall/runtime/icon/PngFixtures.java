@@ -30,7 +30,7 @@ final class PngFixtures {
     static byte[] png(byte[]... extraChunks) {
         var body = new ByteArrayOutputStream();
         body.writeBytes(header(16, 16));
-        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
+        body.writeBytes(chunk("IDAT", new byte[]{0x78, (byte) 0x9C}));
         for (var extra : extraChunks) {
             body.writeBytes(extra);
         }
@@ -44,7 +44,7 @@ final class PngFixtures {
     static byte[] pngWithoutEnd() {
         var body = new ByteArrayOutputStream();
         body.writeBytes(header(16, 16));
-        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
+        body.writeBytes(chunk("IDAT", new byte[]{0x78, (byte) 0x9C}));
         return signed(body.toByteArray());
     }
 
@@ -64,7 +64,7 @@ final class PngFixtures {
     static byte[] pngWithZeroWidth() {
         var body = new ByteArrayOutputStream();
         body.writeBytes(header(0, 16));
-        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
+        body.writeBytes(chunk("IDAT", new byte[]{0x78, (byte) 0x9C}));
         body.writeBytes(chunk("IEND", new byte[0]));
         return signed(body.toByteArray());
     }
@@ -75,8 +75,8 @@ final class PngFixtures {
     static byte[] pngWithEndData() {
         var body = new ByteArrayOutputStream();
         body.writeBytes(header(16, 16));
-        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
-        body.writeBytes(chunk("IEND", new byte[] {1}));
+        body.writeBytes(chunk("IDAT", new byte[]{0x78, (byte) 0x9C}));
+        body.writeBytes(chunk("IEND", new byte[]{1}));
         return signed(body.toByteArray());
     }
 
@@ -86,9 +86,9 @@ final class PngFixtures {
     static byte[] pngWithTrailingChunk() {
         var body = new ByteArrayOutputStream();
         body.writeBytes(header(16, 16));
-        body.writeBytes(chunk("IDAT", new byte[] {0x78, (byte) 0x9C}));
+        body.writeBytes(chunk("IDAT", new byte[]{0x78, (byte) 0x9C}));
         body.writeBytes(chunk("IEND", new byte[0]));
-        body.writeBytes(chunk("tEXt", new byte[] {1}));
+        body.writeBytes(chunk("tEXt", new byte[]{1}));
         return signed(body.toByteArray());
     }
 
@@ -132,11 +132,11 @@ final class PngFixtures {
         var data = new ByteArrayOutputStream();
         data.writeBytes(integer(width));
         data.writeBytes(integer(height));
-        data.writeBytes(new byte[] {8, 6, 0, 0, 0});
+        data.writeBytes(new byte[]{8, 6, 0, 0, 0});
         return chunk("IHDR", data.toByteArray());
     }
 
     private static byte[] integer(int value) {
-        return new byte[] {(byte) (value >>> 24), (byte) (value >>> 16), (byte) (value >>> 8), (byte) value};
+        return new byte[]{(byte) (value >>> 24), (byte) (value >>> 16), (byte) (value >>> 8), (byte) value};
     }
 }
