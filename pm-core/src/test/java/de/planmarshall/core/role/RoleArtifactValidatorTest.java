@@ -28,12 +28,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The role artifact validator refuses every document that breaks the closed schema of
  * {@code model-work/01-roles-and-configuration.adoc#role-artifact} as a whole, with {@code schema_invalid}: an unknown
  * member, a missing member, {@code recycling} missing for {@code warm} or present for {@code fresh}, an {@code off_track}
- * threshold above the compiled one, and {@code questions} or {@code off_track} on a {@code zero_tool} role.
+ * threshold above the compiled one, {@code questions} or {@code off_track} on a {@code zero_tool} role, and a name that
+ * is a reserved keyword of the workflow language.
  */
 @EnableGeneratorController
 @DisplayName("Role artifact validation")
@@ -205,6 +207,24 @@ class RoleArtifactValidatorTest {
                         "name mismatch refuses as schema_invalid"),
                 () -> assertEquals("review-code", refusal.role(), "refusal names the file's role"),
                 () -> assertTrue(refusal.detail().contains("implement"), "the detail names the document's own name"));
+    }
+
+    // the keywords are the contract: reserved words of the workflow language that match the role-name grammar
+    @ParameterizedTest(name = "the reserved keyword ''{0}''")
+    @ValueSource(strings = {"role", "state", "consult", "workflow", "from"})
+    @DisplayName("a name that is a reserved keyword of the workflow language is schema_invalid")
+    void refusesAReservedKeyword(String keyword) {
+        var document = RoleFixtures.valid().set("/name", keyword).bytes();
+
+        var refusal = assertThrows(RoleRefusal.class, () -> RoleArtifactValidator.validate(document, keyword),
+                "an artifact named by a keyword is refused");
+
+        assertAll(
+                () -> assertEquals(RoleValidationReason.SCHEMA_INVALID, refusal.reason(),
+                        "a keyword name refuses as schema_invalid"),
+                () -> assertEquals(keyword, refusal.role(), "the refusal names the keyword role"),
+                () -> assertTrue(refusal.detail().contains("reserved keyword"),
+                        "the detail says the name is a keyword"));
     }
 
     private static RoleFixtures.RoleFixture zeroTool() {

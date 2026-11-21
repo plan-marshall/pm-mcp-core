@@ -27,8 +27,9 @@ import de.planmarshall.core.SchemaResource;
 
 /**
  * The one definition keeps parity with the schemas that restate the two name grammars: the {@code name} pattern of the
- * role artifact schema ({@code id-role-name}) and the {@code harness} pattern of the qualification record schema
- * ({@code id-harness-id}).
+ * role artifact schema ({@code id-role-name}) and the {@code harness} definition of the metrics schema
+ * ({@code id-harness-id}). The identifier registry of the specification is read beside them for the rows of the
+ * command and correlation ids.
  * <p>
  * The schemas are read from the class path through {@link SchemaResource}, so a grammar that changes in a schema
  * without {@link RoleName} or {@link HarnessId} fails here instead of drifting between the code and its contract. The

@@ -32,6 +32,8 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
@@ -230,17 +232,34 @@ class JudgeCheckTest {
                 "the canonical text is written again unchanged");
     }
 
-    @Test
-    @DisplayName("an item that carries a token split is refused as undeclared")
-    void tokenSplitRefused() {
+    // the member names are the wire contract of the record, so they are literals
+    @ParameterizedTest(name = "{0} on {1}")
+    @CsvSource({"tokens_in, an item", "tokens_out, an item", "tokens_in, the record", "tokens_out, the record"})
+    @DisplayName("a token split member is refused as undeclared, and the refusal names it")
+    void tokenSplitRefused(String member, String where) {
         var file = directory.resolve("judge-check.json");
         var text = new String(JudgeCheckCodec.write(new Runner(JudgeCheckTest::followsReference).run()),
                 StandardCharsets.UTF_8);
-        var document = text.replace("\"total_tokens\":", "\"tokens_in\":1,\"total_tokens\":")
-                .getBytes(StandardCharsets.UTF_8);
+        var planted = "an item".equals(where)
+                ? text.replace("\"total_tokens\":", "\"" + member + "\":1,\"total_tokens\":")
+                : "{\"" + member + "\":1," + text.substring(1);
+        var document = planted.getBytes(StandardCharsets.UTF_8);
 
-        assertThrows(StoreRefusal.class, () -> JudgeCheckCodec.read(file, document),
+        var refused = assertThrows(StoreRefusal.class, () -> JudgeCheckCodec.read(file, document),
                 "an undeclared split is a store refusal");
+
+        assertTrue(refused.getMessage().contains(member), "the refusal names the undeclared member");
+    }
+
+    @Test
+    @DisplayName("an item total that carries a split is refused at the write, not dropped")
+    void splitRefusedAtWrite() {
+        var checkRecord = new Runner(JudgeCheckTest::followsReferenceWithSplit).run();
+
+        var refused = assertThrows(IllegalArgumentException.class, () -> JudgeCheckCodec.write(checkRecord),
+                "an item total with a split is refused");
+
+        assertTrue(refused.getMessage().contains("split"), "the refusal names the carried split");
     }
 
     @Test
@@ -271,6 +290,15 @@ class JudgeCheckTest {
             return Optional.of(score(RIGHT_ANSWER.equals(prompt.answer()) ? BigDecimal.ONE : BigDecimal.ZERO));
         }
         return Optional.of(score(BigDecimal.ZERO));
+    }
+
+    private static Optional<JudgeScorer.JudgeScore> followsReferenceWithSplit(JudgeScorer.JudgePrompt prompt) {
+        var tokensIn = Generators.integers(1, 500).next();
+        var tokensOut = Generators.integers(1, 500).next();
+        var total = TokenTotal.measured(tokensIn + tokensOut, tokensIn, tokensOut);
+        var right = prompt.reference() != null && RIGHT_ANSWER.equals(prompt.answer());
+        return Optional.of(new JudgeScorer.JudgeScore(right ? BigDecimal.ONE : BigDecimal.ZERO, total,
+                Generators.integers(1, 100).next()));
     }
 
     private static String digestOf(Supplier<EffectiveRole> role) {

@@ -119,6 +119,12 @@ breaks the pairing is a programming error, not a value the caller receives. The 
 for an outcome that declares no reason; it sets the reason to `null`. The pairing is stated in
 link:{spec}/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons].
 
+The constructor also refuses an outcome whose `reasonType()` answers `null` instead of an `Optional`, or an `Optional`
+whose payload is no `Class`, with the same `IllegalArgumentException`: a primitive compiled against a raw
+`PrimitiveOutcome` can answer either, and both are pairing errors. A `null` reason type was read as the absence of one
+before; it is refused now, so a primitive that answers it fails at the result it builds, not later as a
+`ClassCastException`.
+
 `WorkflowExecutionContext.scopeId()` returns the identifier of the plan or epic the call addresses. For the workspace
 scope of a project, which has no identifier of its own, it returns an empty `Optional`. The reserved value a caller
 addresses the workspace scope with is never returned, so a primitive cannot take it for the identifier of a plan. The
