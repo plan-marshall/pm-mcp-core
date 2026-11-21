@@ -62,8 +62,9 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * returns {@code hook_failed}; the native variant never does.
  * <p>
  * The primitive ends a cycle through its state by an attempt cap ({@link CycleMeasure#ATTEMPT_CAP}) whose exhaustion
- * outcome is {@code attempts_exhausted}; the engine counts the attempts and returns that outcome at the cap, the
- * primitive never does.
+ * outcome is {@code attempts_exhausted}; the engine is to count the attempts and return that outcome at the cap, the
+ * primitive never does. The engine counts no attempts of this primitive yet (an external hand-off, ADR
+ * provider-git-primitive 005), so no runtime path returns that outcome until it does.
  * <p>
  * Specification: {@code doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc} (Stage 4) and
  * {@code doc/specification/state-catalogue/05-git-commit-and-push.adoc} ({@code git.stage-and-commit}).

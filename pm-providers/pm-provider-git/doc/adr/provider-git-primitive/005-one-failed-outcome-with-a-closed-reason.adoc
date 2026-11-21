@@ -32,8 +32,9 @@ home.
   native variant never returns it (operator decision of 2026-11-21, following Stage 4 and the note of the unit). A
   completeness test over `GitOutcome.values()`, derived at run time, proves the mapping and the facts of each outcome.
 * The primitive declares `cycleMeasure() = ATTEMPT_CAP` with the exhaustion outcome `attempts_exhausted` (operator
-  decision of 2026-11-21); the engine counts the attempts and returns `attempts_exhausted` at the cap, the primitive
-  never does.
+  decision of 2026-11-21); the engine is to count the attempts and return `attempts_exhausted` at the cap, the primitive
+  never does. The counting is an external hand-off (see Consequences): the engine counts no attempts of this primitive
+  yet, so no runtime path returns `attempts_exhausted` until it does.
 * The shipped unit routes `failed` once, to `git.stepped-out`, whose cause is the reason the outcome carries (`message_refused` or `commit_failed`), as the
   cause of every other server step-out is the reason of its entering outcome (operator decision of 2026-11-21);
   the catalogue gets one exit row, not three.

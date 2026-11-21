@@ -201,7 +201,8 @@ The message reaches the repository in memory through the contract (`PM-EXEC-5`);
 |`hook_failed` |`FAILURE` |A repository hook of the CLI variant refused the commit; `git.commit-fix` follows. Hooks run
 only in the CLI variant, which this module does not build, so the native variant never returns it.
 |`attempts_exhausted` |`FAILURE` |The attempt cap is spent. Declared as the exhaustion outcome of
-`CycleMeasure.ATTEMPT_CAP`; the engine returns it, the primitive never does.
+`CycleMeasure.ATTEMPT_CAP`; the engine is to count the attempts and return it, the primitive never does. The engine
+counts no attempts of this primitive yet (an external hand-off, ADR 005), so no runtime path returns this outcome.
 |`failed` |`FAILURE` |The commit is refused or failed; the reason says why.
 |===
 
