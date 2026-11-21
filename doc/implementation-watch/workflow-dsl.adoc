@@ -667,8 +667,8 @@ budget steps out with `cause: oracle_failed`, and a push that fails after its se
 `cause: push_failed`; an entering outcome that carries no reason is the cause itself.
 Source:: design review.
 
-[#PM-WATCH-DSL-45]
-=== PM-WATCH-DSL-45: A trailer written by another class
+[#PM-WATCH-DSL-46]
+=== PM-WATCH-DSL-46: A trailer written by another class
 
 Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16]

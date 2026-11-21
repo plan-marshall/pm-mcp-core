@@ -272,7 +272,7 @@ link:{spec}/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL §
 link:{spec}/state-catalogue/05-git-commit-and-push.adoc#state-catalogue-git[State Catalogue § Sub-Workflow `git.commit_and_push`],
 link:{spec}/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator Local Configuration]
 * Watch: link:../../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-7[PM-WATCH-DSL-7],
-link:../../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-45[PM-WATCH-DSL-45]
+link:../../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-46[PM-WATCH-DSL-46]
 * Decisions: link:{adr}/001-the-commit-primitives-live-in-pm-provider-git.adoc[ADR 001],
 link:{adr}/002-one-port-commit-site-resolved-per-call.adoc[ADR 002],
 link:{adr}/003-the-staging-set-is-derived-from-the-scope.adoc[ADR 003],
