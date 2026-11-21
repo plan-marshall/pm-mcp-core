@@ -94,7 +94,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/register
 === Landing Record (`landings.jsonl`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-30[PM-WF-30: PR Body & Landing Record]_
 
-Every line of `landings.jsonl` is one landing record: `format_version` plus the landing envelope of link:../phase-workflows/05-finalize-review-metrics-descriptor.adoc#_landing_envelope_emit_landing[Phase Workflows Specification, Landing Envelope], which defines its fields, fact states, and the non-landing record; that envelope is the only definition and is not restated here. The line is the envelope that `emit-landing` delivered, stored unchanged; a correction is an `annotation` event in the inbox (<<epic-inbox-record>>), never a rewrite.
+Every line of `landings.jsonl` is one landing record: `format_version` plus the landing envelope of link:../phase-workflows/05-finalize-review-metrics-descriptor.adoc#_landing_envelope_emit_landing[Phase Workflows Specification, Landing Envelope], which defines its fields and fact states; that envelope is the only definition and is not restated here. The line is the envelope that `emit-landing` delivered, stored unchanged; a correction is an `annotation` event in the inbox (<<epic-inbox-record>>), never a rewrite.
 
 The schema is the file `pm-core/src/main/resources/de/planmarshall/core/store/landing-record.schema.json`.
 

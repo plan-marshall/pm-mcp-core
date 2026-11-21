@@ -21,7 +21,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |—
 |every `pm-operator` command that starts the runtime on demand, which holds `locks/runtime-start.lock` until its authenticated round trip succeeds or this timeout expires; `pm-operator status` waiting for a live runtime's answer; a worker's relay waiting for the socket to accept connections; an exiting runtime waiting for the successor it started after a restart or an upgrade
 |The command fails with a diagnostic naming `logs/daemon.log`; `pm-operator status` reports "not responding"; the relay answers pending requests with the JSON-RPC error `runtime_unavailable` and retries on the next request; after an upgrade the exiting runtime terminates the successor, switches the links back, and starts the previous version (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]).
-|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#_start_modes[Runtime Model, Start Modes]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/04-sessions-and-workers.adoc#_failure_semantics[Runtime Model, Failure Semantics]
+|link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/cli-and-security/01-cli-and-installer.adoc#cli-daemon-access[CLI & Security, Runtime Access & On-Demand Start]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/04-sessions-and-workers.adoc#_failure_semantics[Runtime Model, Failure Semantics]
 
 |[[runtime-http-idle-timeout]]Runtime HTTP idle timeout
 |Derived: strictly above the larger of the caps of the xref:01-job-budgets-and-waits.adoc#bounded-wait[Bounded wait window] and the xref:01-job-budgets-and-waits.adoc#progress-wait[Progress wait upper bound], so no held `pm_wait` or `pm_build` call reaches it.
@@ -190,7 +190,7 @@ since the last transition or task progress of a non-terminal scope that is neith
 |—
 |—
 |`lease` of a queue task record
-|Released at once in the fence transaction; the task is offered to the successor exactly once within the xref:01-job-budgets-and-waits.adoc#task-reoffer-budget[Task re-offer budget].
+|Released at once in the fence transaction; the task is offered to the successor exactly once within the xref:01-job-budgets-and-waits.adoc#task-reoffer-budget[Re-offer budget].
 |link:../store-schemas/16-task-queue.adoc#queue-task-record[Store Schemas, Queue Task Record]
 
 |[[job-token-lifetime]]Job token and worker generation lifetime

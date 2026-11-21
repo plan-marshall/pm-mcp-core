@@ -170,6 +170,22 @@ is the reason of at least one of them; `deliberate` is `true` exactly for the op
 prerequisite wait, and the rate-window waits. Matched control: a fixture state that waits without a mapped reason fails the test.
 Source:: design review.
 
+[#PM-WATCH-GEN-59]
+=== PM-WATCH-GEN-59: A pinned commit is checked after it arrives, never looked up by name
+
+Anchor:: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-5[PM-EXEC-5] (git identities) and link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#git-identities[Job Runtime § Git Identities]
+Hazard:: A full commit id (40 or 64 hex characters) passed to `git` as a plain argument is also a valid branch name. A remote that
+allows hash-shaped branch names (self-hosted servers, Bitbucket) can serve a branch of that name, and `git` resolves
+the string to the branch; nothing compares what was checked out with the pin, so other code is read, built, and
+landed as the pinned commit.
+Guard:: The rules are the anchor's. Test owed for the CLI variant (the native variant has it): a fixture remote holds
+a branch named like the pinned commit, and every fetch, checkout, reset, rebase and worktree creation of the pin
+refuses with `git_identity_ambiguous` or `git_identity_mismatch`, never acting on the branch.
+Fixture:: Plugin4Shell (2026): Claude Code, Codex, Copilot, and Gemini CLI fetched marketplace plugins by their pinned
+SHA, and a branch named like that SHA on the plugin's repository was checked out and run instead; the fix compares
+the checked-out code with the pinned commit.
+Source:: link:../../../plan-marshall-documentation/doc/articles/plugin4shell.adoc[Plugin4Shell analysis].
+
 == Linux Filesystem Confinement (Landlock)
 
 [#PM-WATCH-JOB-20]
@@ -661,7 +677,7 @@ Source:: Article analyses `secure-architecture-for-ai-agents-owasp-llm` and `sec
 [#PM-WATCH-JOB-48]
 === PM-WATCH-JOB-48: A worker cannot plant code that git runs outside its confinement
 
-_Kept after PLAN-V2-134: the guard's full form needs a real launcher with a mount namespace on Linux and macOS, which is
+_Kept: the guard's full form needs a real launcher with a mount namespace on Linux and macOS, which is
 `pm-exec`'s and outside this repository; the part the runtime owns — the read-only set, the report member, the digest
 with its two comparison points, the refusal, the audit record and the sink — is covered by
 link:../../pm-runtime/src/test/java/de/planmarshall/runtime/job/GitMetadataJobTest.java[GitMetadataJobTest] with a

@@ -24,9 +24,9 @@ The mechanism, its triggers, thresholds, actions, guards, and fallbacks are spec
 |`phase-5-execute`
 |`auto`
 |`execute.deliverable-build` (`succeeded`).
-|`replan.detect`: fetches the base and evaluates `base_advanced` and the projected `downstream_limit`, skipping every kind and evidence key a re-planning record already carries; a raised trigger is written to `replan_pending` in the transaction of the transition. A failed fetch skips `base_advanced`.
+|The plan's task boundary in Phase 5. A revision the operator accepted in a chat that waits for it (`queued_revision`) is applied first: validated again against the plan as it is, then applied as `replan.apply` applies one (composition event `replan`; its new plan tasks are run by the next envelope task), or recorded `refused` or `lapsed` (xref:../state-catalogue.adoc#state-chat.apply[`chat.apply`]), each of which clears `queued_revision`. Then `replan.detect`: fetches the base and evaluates `base_advanced` and the projected `downstream_limit`, skipping every kind and evidence key a re-planning record already carries; a raised trigger is written to `replan_pending` in the transaction of the transition. A failed fetch skips `base_advanced`.
 |`none` -> `execute.envelope-ready`; `trigger` -> `execute.replan`.
-|link:../phase-workflows/08-dynamic-re-planning.adoc#replan-triggers[Phase Workflows Specification, Triggers & Detection]
+|link:../phase-workflows/08-dynamic-re-planning.adoc#replan-triggers[Phase Workflows Specification, Triggers & Detection]; link:../phase-workflows/08-dynamic-re-planning.adoc#replan-chat[Revision from a Chat]
 
 |[[state-execute.replan]]`execute.replan`
 |`phase-5-execute`

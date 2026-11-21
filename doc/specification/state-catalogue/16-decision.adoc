@@ -41,7 +41,7 @@ The decision is the question set of one creation: its id is the id of its first 
 |`operator_wait`
 |`decision.announce`; `decision.read-back` (`confirm`, `choose`); `decision.interpret` (`unclear_bound`, `infeasible`, `lost`); `decision.chat` (`ended`); `decision.confirm` (`back`).
 |Per part: `answer` (the chosen options or the value, an optional note; a dependent part is offered once its dependency is answered, and changing the earlier answer reopens it), `own_words` (where the part allows it). For the whole decision: `chat` (with the role of the task that asked, or for a decision a server rule raised or a quorum escalated the subject's planning role; offered disabled with its reason where no planning role exists or no configuration of the role qualifies); `none_fits` (with a note; offered only where the decision names a role that can ask anew, or where a quorum is declared that can vote again); `later` (answers nothing). Every answer carries the revision it answers and is recorded with its channel (`web` with the paired device, or `cli`).
-|`answer` -> this state while a required part is open; `complete` (every required part answered) -> `decision.confirm` where the decision has more than one part or its reversibility is not `reversible`, otherwise `decision.record`; `own_words` -> `decision.interpret`; `chat` -> `decision.chat`; `none_fits` -> `decision.withdraw`; `later` -> `decision.announce`.
+|`answer` -> this state while a required part is open; `complete` (every required part answered) -> `decision.confirm` where the decision has more than one part or its reversibility is not `reversible`, otherwise `decision.record`; `own_words` -> `decision.interpret`; `chat` -> `decision.chat`; `none_fits` -> `decision.record`; `later` -> `decision.announce`.
 |link:../store-schemas/14-plan-instance-waivers-questions.adoc#cli-answers[Store Schemas Specification, Answers from the Terminal Client]
 
 |[[state-decision.interpret]]`decision.interpret`
@@ -79,8 +79,8 @@ The decision is the question set of one creation: its id is the id of its first 
 |[[state-decision.withdraw]]`decision.withdraw`
 |the caller's phase value
 |`auto`
-|`decision.answer` (`none_fits`); the applied revision of a chat that removed what asked the decision (an engine-owned transition).
-|Closes the decision `withdrawn` with the operator's note or the reason; the caller asks anew (the role that asked thinks again, or the quorum votes again), as a new decision.
+|The applied revision of a chat that removed what asked the decision (an engine-owned transition).
+|Closes the decision `withdrawn` with the reason `removed_by_revision`.
 |`withdrawn` -> `decision.withdrawn`.
 |link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]
 
@@ -95,8 +95,8 @@ The decision is the question set of one creation: its id is the id of its first 
 |[[state-decision.record]]`decision.record`
 |the caller's phase value
 |`auto`
-|`decision.answer` (`complete`, a single reversible part); `decision.confirm` (`confirm`).
-|Validates and records the answer with its channel, its device, and the revision it answers; records an answer that changes the plan's intent as an amendment, and the decision-log record (chosen, interpreted and confirmed, or delegated, and the chat it followed, `after_chat`; link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision-Log Record]); the client that did not answer withdraws what it showed and says where and how it was answered.
+|`decision.answer` (`complete`, a single reversible part; `none_fits`); `decision.confirm` (`confirm`).
+|Validates and records the answer with its channel, its device, and the revision it answers; records an answer that changes the plan's intent as an amendment, and the decision-log record (chosen, interpreted and confirmed, or delegated, and the chat it followed, `after_chat`; link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision-Log Record]); the client that did not answer withdraws what it showed and says where and how it was answered. An answer _none fits_ closes the decision `answered` with that answer and its note: the asking role, re-entered, asks anew, or a decision a quorum escalated goes to the quorum again on a new revision (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure, None fits]).
 |`recorded` -> `decision.closed`.
 |link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision-Log Record]
 

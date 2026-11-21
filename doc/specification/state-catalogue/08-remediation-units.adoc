@@ -41,7 +41,7 @@ The self-remedy of a failure class is a sub-workflow unit per class (`scope subw
 |`remediation.merge-conflict`
 |`remediation-merge`
 |`triage-merge`
-|`finalize.remediate-sync-conflict`, `finalize.remediate-merge-conflict`
+|`finalize.remediate-sync-conflict`, `finalize.remediate-merge-conflict`, `replan.resolve-conflict`
 
 |`remediation.qgate-findings`
 |`remediation-qgate`
@@ -284,7 +284,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |the caller's phase value
 |`auto`
 |`remediation-review.budget-check` (`budget_left`).
-|`auto remediation.offer-actions` (<<remediation-decide>>) over `retry` (a window-gated per-bot re-trigger; not admissible for `unregistered_kind` and `not_wired`), `fix` (in-branch; not for terminus findings, and not bound by the Settle-band call sites `finalize.remediate-security-audit` and `finalize.remediate-self-review`, where no pull request exists yet), `loop_back`, `request_waiver` (security findings are not waivable).
+|`auto remediation.offer-actions` (<<remediation-decide>>) over `retry` (a window-gated per-bot re-trigger; not admissible for `unregistered_kind`, `not_wired`, and a bot `refused_hard`, a spend cap or quota that waiting cannot recover), `fix` (in-branch; not for terminus findings, and not bound by the Settle-band call sites `finalize.remediate-security-audit` and `finalize.remediate-self-review`, where no pull request exists yet), `loop_back`, `request_waiver` (security findings are not waivable).
 |`retry` -> `remediation-review.rerun`; `fix` -> `remediation-review.apply-fix`; `loop_back` -> `remediation-review.fix-requested`; `choice` -> `remediation-review.choose`.
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 

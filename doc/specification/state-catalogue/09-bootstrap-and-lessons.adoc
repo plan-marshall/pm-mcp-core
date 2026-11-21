@@ -29,7 +29,7 @@ The start gathers the plan's sources into its source directory: the operator add
 |`auto`
 |The entry's creation (the unit's start state).
 |`auto start.open`: the setup gate (the machine's onboarding complete, the project enrolled, set up, and its configuration valid, `.marshall/config/` clean, every checked integration with a valid variant); the facts the start offers from: the recipes of the project's domains, of the machine, and of the project (a project's recipe in place of one of the same key), the project's unclaimed lessons, whether the checkout has local changes and whether they are offered. Issues and pull requests are named by the operator, never listed.
-|`ready` -> `start.choose`; `follow_up` (an entry opened from a chat about ended work, its description stored) -> `start.sources`; `epic_row` (an entry the server opened with `from_epic`) -> `start.source-epic-row`; `refused{reason}` (the gate does not hold: `machine_not_onboarded` naming the machine's onboarding, `project_not_ready` naming the project's onboarding) -> `start.refused`; `launch_refused` (an entry with `from_epic` whose gate does not hold: the row is marked `held` with the reason) -> `start.abandoned`.
+|`ready` -> `start.choose`; `follow_up` (an entry opened from a chat about ended work, its description stored) -> `start.sources`; `epic_row` (an entry the server opened with `from_epic`) -> `start.source-epic-row`; `refused{reason}` (the gate does not hold: `machine_not_onboarded` naming the machine's onboarding, `project_not_ready` naming the project's onboarding or an integration without a valid variant, `config_dirty`, `config_invalid`, `format_outdated`, or `format_newer`, each with its file) -> `start.refused`; `launch_refused` (an entry with `from_epic` whose gate does not hold: the row is marked `held` with the reason) -> `start.abandoned`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts]
 
 |[[state-start.choose]]`start.choose`
@@ -364,7 +364,7 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |— (`entry`)
 |`operator_wait`
 |The unit's gathering state (a failure outcome); `source-issue.grant` (`no`).
-|`facts.reason`: `not_found`, `not_readable`, `not_granted`, `no_credential`, `rate_limited` (with `resets_at`), `provider_unavailable`, `unknown_forge`, `pr_not_open`, `head_not_writable`, `no_local_changes`, or `cancelled`. `retry` (not offered for `no_local_changes`); implicit `step_out` (_remove_). The entry keeps the source in the list with its cause while the operator is away.
+|`facts.reason`: `not_found`, `not_readable`, `not_granted`, `no_credential`, `rate_limited` (with `resets_at`), `provider_unavailable`, `unknown_forge`, `pr_not_open`, `head_not_writable`, `no_local_changes`, or `cancelled`. `retry` (not offered for `no_local_changes`, and bounded by the condition budget: after its last retry only the `step_out` is offered, link:../timeouts/01-job-budgets-and-waits.adoc#condition-budget[Timeouts & Budgets Specification, Condition Budget]); implicit `step_out` (_remove_). The entry keeps the source in the list with its cause while the operator is away.
 |`retry` -> the unit's gathering state (`source-issue.resolve` after `not_granted` or `unknown_forge`).
 |link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-4[UC-STA-4]
 

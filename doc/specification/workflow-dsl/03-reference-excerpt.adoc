@@ -10,6 +10,10 @@ link:../../Specification.adoc[Specification] » link:../workflow-dsl.adoc[Workfl
 
 [#_reference_workflow_dsl_excerpt_finalize_pmwf]
 == Reference Workflow DSL Excerpt (`phase-6-finalize.pmwf`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States, Short-Circuit Failure Handling & Finalize Providers]_
+
 _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-31[PM-WATCH-PHASE-31], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-22[PM-WATCH-DSL-22]_
 
 The excerpt shows the finalize phase, the sub-workflow `phase-6-finalize` (file `phase-6-finalize.pmwf`), with the states of its default landing variant `landing.pull-request` (the push barrier, the wait region, and the merge gate) at their orders, as the plan instance composes them (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]). Every state the excerpt defines is catalogued in the link:../state-catalogue/04-plan-finalize-terminal.adoc#state-catalogue-finalize[State Catalogue, Phase 6: `finalize`]. The excerpt is a template: a plan executes its composed instance, in which the composition may prune steps, links, and policy actions and binds the effective budgets (xref:09-plan-instance.adoc#plan-instance[Plan Instance]). The remediation units it calls are specified in xref:08-remediation-units.adoc#remediation-units[Remediation Policy Units].

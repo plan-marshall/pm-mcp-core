@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted, amended by ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016] (the schema parity tests read the schema files of the module, not the specification)
+Accepted, amended by ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016] (the schema parity tests read the schema files of the module, not the specification), by ADR link:027-condense-and-point-the-implemented-specification-parts.adoc[027] (an implemented specification section is condensed and pointed, never deleted), and by the setup of the documentation, which has no CI: `trace.py` runs locally before every merge, and no `links.yml` workflow exists (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc[Project Setup])
 
 == Date
 

@@ -290,7 +290,7 @@ A line of an attempt that composed no version writes no `diff_summary`.
 
 * *The role and skill checks need a project*: `CompositionChecks.NONE` checks neither, so a preview or a composition
   without a project admits a role or skill that does not resolve (<<_rules_13_and_14_at_composition>>).
-* *The provider rule reads `integrations.sonar` only*, the one shipped analysis adapter; a second adapter needs a derived fact or a conjunction in the rule language first (link:../adr/workflow-plan/008-rule-family-targets-derived.adoc[ADR 008]).
+* *The provider rule reads `integrations.sonar` only*, while the specification keeps `default:analysis-roundtrip` for any configured code analysis provider (link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL Specification, Composition Rules]); a second provider needs a derived fact or a conjunction in the rule language first (link:../adr/workflow-plan/008-rule-family-targets-derived.adoc[ADR 008]).
 * *One composed unit per version.* The version is the plan unit as it composes from its template and its phase
   sub-units; the phase set as one instance file per composed unit, and the landing variant composed into the finalize
   phase, are not composed by this package (link:../adr/workflow-plan/019-composition-reads-the-phase-sub-units.adoc[ADR 019]).

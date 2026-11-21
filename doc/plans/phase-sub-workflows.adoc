@@ -19,7 +19,6 @@ The specification sections named are the single statement of what each task buil
 . *The outline record* and its validation: link:../specification/store-schemas/06-task-and-references.adoc#outline-record-store[Store Schemas § Outline Record]; link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase Workflows § Phase 3 Validation]; link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-satisfies[§ `satisfies` Coverage].
 . *The builder check*: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#builder-check[Phase Workflows § Builder Check].
 . *The Q-Gate and execute parts the phases own*, the opt-in mutation step among them: link:../specification/phase-workflows/03-q-gate-and-execute.adoc[Phase Workflows § Q-Gate & Execute], link:../specification/phase-workflows/03-q-gate-and-execute.adoc#mutation-step[§ Mutation Step].
-. *The knowledge search of the planning roles*: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows § The Intent Record], _Searching what is known_.
 . *The simplify step*: states, roster wiring and model tasks of `finalize.simplify` and `finalize.simplify-apply`: link:../specification/phase-workflows/04-finalize-step-bands.adoc#finalize-step-bands[Phase Workflows § Finalize Step Ordering Bands].
 . *The self-review results per constraint, non-goal and decision* in the phase: § Finalize Step Ordering Bands, `pre-submission-self-review`.
 

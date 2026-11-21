@@ -251,6 +251,23 @@ Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/Peri
 
 Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Runtime Start Developer Guide § The Start Sequence, the Drain and the Recovery]
 
+[#PM-ARCH-11]
+=== PM-ARCH-11: The Operator's Two Clients & Their Contract
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-11[PM-ARCH-11]
+
+Implementation (the store of the projects of the machine that both clients read: the operator's ordered favourites,
+the last act and the acts per UTC day within the compiled window, the drop of an unenrolled project, and a stale write
+refused with the current snapshot; the listing, its route and every other bullet are not implemented here):
+link:../pm-core/src/main/java/de/planmarshall/core/store/ExplorerStore.java[ExplorerStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ExplorerCodec.java[ExplorerCodec]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/ExplorerStoreTest.java[ExplorerStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ExplorerCodecTest.java[ExplorerCodecTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide] (§ The Operator's Projects),
+link:../pm-core/doc/adr/core-store/073-the-explorer-store-prunes-on-every-write.adoc[ADR core-store/073]
+
 == link:../../plan-marshall-documentation/doc/requirements/02-workflow.adoc[Workflow]
 
 [#PM-WF-1]
@@ -468,8 +485,8 @@ Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Develo
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-11[PM-WF-11]
 
 Implementation (the protected-path matcher of the tracked hook definitions, as far as `pm-core` carries it; the boundary
-check that refuses the change before the next commit job is `git.stage-and-commit`'s `FootprintBoundary` and is not
-implemented yet, and the other protected-path families are those of `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`):
+check that refuses the change before the next commit job is a stage of `git.stage-and-commit` and has no class
+yet, and the other protected-path families are those of `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`):
 link:../pm-core/src/main/java/de/planmarshall/core/store/ProtectedPaths.java[ProtectedPaths]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/ProtectedPathsTest.java[ProtectedPathsTest]
@@ -1044,7 +1061,7 @@ Documentation: link:../pm-workflow/doc/developer/workflow-task.adoc[Task Protoco
 link:../pm-workflow/doc/adr/workflow-task/004-the-delivery-record-is-a-runtime-projection.adoc[ADR workflow-task/004]
 
 [#PM-SKILL-5]
-=== PM-SKILL-5: Skill Resolution at Composition
+=== PM-SKILL-5: Skill Extensions
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-5[PM-SKILL-5]
 
@@ -2150,6 +2167,27 @@ Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide
 
 == link:../../plan-marshall-documentation/doc/requirements/13-harness-profiles.adoc[Harness Profiles]
 
+[#PM-CLIENT-1]
+=== PM-CLIENT-1: Harnesses as Workers & Harness Identity
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1]
+
+Implementation (the endpoint harness bullet, as far as `pm-runtime` carries it: one request per task with its whole
+input in-band, the answer validated against the role's result schema, the refusal of a request whose endpoint port
+another program than the enrolled one owns, and no start, stop or configuration of the serving program; the endpoint
+profile the runtime reads is traced with PM-CLIENT-2, the other bullets are not traced here):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointRequest.java[EndpointRequest],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointOutcome.java[EndpointOutcome],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointHarness.java[EndpointHarness],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerification.java[EndpointVerification]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointRequestTest.java[EndpointRequestTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointOutcomeTest.java[EndpointOutcomeTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointHarnessTest.java[EndpointHarnessTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide]
+
 [#PM-CLIENT-2]
 === PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation
 
@@ -2338,7 +2376,9 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StartupSequence.j
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java[CredentialStoreChoice],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/web/WebTls.java[WebTls],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/lsp/LspClient.java[LspClient],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/ingest/IngestionValidator.java[IngestionValidator]
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/ingest/IngestionValidator.java[IngestionValidator]; the rule is the enforcer execution `no-framework-no-later-repository` of the link:../pom.xml[root POM]
+
+Verified by (the rule that keeps a framework out of the plain-Java modules): link:../pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java[BuildGuardsIT] (the fixture `framework` fails that execution)
 
 Implementation (the provider-neutral findings and code-analysis contracts of `pm-core` with their registries, and the guards that keep `pm-core` provider-neutral and the two packages declarative; the provider implementations, the TOON rendering of their results, the store writes and the registration of the analysis operations as workflow primitives are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/findings/Finding.java[Finding],
 link:../pm-core/src/main/java/de/planmarshall/core/findings/FindingScope.java[FindingScope],
@@ -3026,6 +3066,53 @@ link:../pm-workflow/doc/adr/workflow-plan/003-versions-and-log-over-scope-transa
 link:../pm-workflow/doc/adr/workflow-plan/028-only-a-version-the-composer-verified-is-stored.adoc[ADR workflow-plan/028],
 link:../pm-workflow/doc/adr/workflow-engine/016-the-composition-runs-in-the-entering-transactions.adoc[ADR workflow-engine/016],
 link:../pm-core/doc/adr/core-store/074-the-instance-version-is-a-field-of-the-workflow-state.adoc[ADR core-store/074]
+
+[#PM-EXT-8]
+=== PM-EXT-8: Project Onboarding as One Process
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-8[PM-EXT-8]
+
+Implementation (the primitives of the onboarding that the library modules carry: the start that consults the machine's
+setup gate before the checkout is inspected (first bullet); the digest of each of the checkout's scripts, the
+project-scoped remembered consent held before the project has an id, and a _no_ recorded so the run does not ask again
+(second bullet); the proposal of the project's id from the remote's name, valid by the identifier grammar and unique on
+the machine, and of its display name `<owner>/<name>` (third bullet); the modules to describe and their expected tokens
+of the enrichment offer, shown as tokens and never as money (fifth bullet); the one rule of a project's value over the
+machine's, which records a value only when the operator changes it, and the transcription methods a project may only
+narrow (sixth bullet); the closed entries and aspects of a setup call and the run derived from them, so one aspect runs
+alone later (seventh bullet). The onboarding unit, its detection, its consent states, the enrolment write and the routes
+are not implemented here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/setup/ProjectOnboardingStart.java[ProjectOnboardingStart],
+link:../pm-core/src/main/java/de/planmarshall/core/config/CheckoutScripts.java[CheckoutScripts],
+link:../pm-core/src/main/java/de/planmarshall/core/config/PendingConsent.java[PendingConsent],
+link:../pm-core/src/main/java/de/planmarshall/core/config/RunConsents.java[RunConsents],
+link:../pm-core/src/main/java/de/planmarshall/core/config/ProjectIdentityProposal.java[ProjectIdentityProposal],
+link:../pm-core/src/main/java/de/planmarshall/core/architecture/EnrichmentOffer.java[EnrichmentOffer],
+link:../pm-core/src/main/java/de/planmarshall/core/config/ProjectValueProposal.java[ProjectValueProposal],
+link:../pm-core/src/main/java/de/planmarshall/core/config/TranscribeMethods.java[TranscribeMethods],
+link:../pm-core/src/main/java/de/planmarshall/core/config/SetupRun.java[SetupRun],
+link:../pm-core/src/main/java/de/planmarshall/core/config/SetupAspect.java[SetupAspect],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/setup/SetupRunDerivation.java[SetupRunDerivation]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/setup/ProjectOnboardingStartTest.java[ProjectOnboardingStartTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/CheckoutScriptsTest.java[CheckoutScriptsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/PendingConsentTest.java[PendingConsentTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/RunConsentsTest.java[RunConsentsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/ProjectIdentityProposalTest.java[ProjectIdentityProposalTest],
+link:../pm-core/src/test/java/de/planmarshall/core/architecture/EnrichmentOfferTest.java[EnrichmentOfferTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/ProjectValueProposalTest.java[ProjectValueProposalTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/TranscribeMethodsTest.java[TranscribeMethodsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/SetupRunTest.java[SetupRunTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/SetupAspectTest.java[SetupAspectTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/setup/SetupRunDerivationTest.java[SetupRunDerivationTest]
+
+Documentation: link:../pm-core/doc/developer/core-config.adoc[`core.config` Developer Guide] (§ The Project Onboarding's
+Values and Consents), link:../pm-core/doc/adr/core-config/009-a-remembered-checkout-consent-is-held-with-the-entry.adoc[ADR core-config/009],
+link:../pm-core/doc/adr/core-config/010-one-rule-decides-every-project-value-over-the-machine-s.adoc[ADR core-config/010],
+link:../pm-core/doc/developer/core-architecture.adoc[Core Architecture Developer Guide] (§ The Enrichment Cost Offer),
+link:../pm-core/doc/adr/core-architecture/001-the-enrichment-cost-is-a-compiled-token-estimate.adoc[ADR core-architecture/001],
+link:../pm-workflow/doc/developer/workflow-setup.adoc[Setup Gate Developer Guide],
+link:../pm-workflow/doc/adr/workflow-setup/002-the-start-consults-the-gate-before-the-checkout.adoc[ADR workflow-setup/002],
+link:../pm-workflow/doc/adr/workflow-setup/003-the-setup-run-is-derived-from-server-facts.adoc[ADR workflow-setup/003]
 
 == link:../../plan-marshall-documentation/doc/requirements/16-model-work.adoc[Model Work]
 

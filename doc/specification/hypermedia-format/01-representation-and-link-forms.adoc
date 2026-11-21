@@ -75,7 +75,7 @@ _Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM
 |`state`
 |Required
 |Dotted enum
-|Closed-enum state name (`<phase>.<step>[.<substate>]`; every state is catalogued in the link:../state-catalogue.adoc[State Catalogue]). In a view, the scope's current state (a `job llm` state also while its tasks run, for example `refine.analyze`; while a sub-workflow is active, the active sub-workflow state, for example `git.compose-message`). For a task entity, the state of the task: `task.offered` before the acknowledgement, afterwards the state of the entity unit of its kind (for example `entity.active` or `envelope.task.active`). Never a boolean.
+|Closed-enum state name, a `state_id` (link:../identifiers/01-general-rules-and-registry.adoc#id-state-id[Identifier Registry, `state_id`]; every state is catalogued in the link:../state-catalogue.adoc[State Catalogue]). In a view, the scope's current state (a `job llm` state also while its tasks run, for example `refine.analyze`; while a sub-workflow is active, the active sub-workflow state, for example `git.compose-message`). For a task entity, the state of the task: `task.offered` before the acknowledgement, afterwards the state of the entity unit of its kind (for example `entity.active` or `envelope.task.active`). Never a boolean.
 
 |`condition`
 |Conditional
@@ -219,16 +219,11 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 _Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM-WATCH-HYP-7[PM-WATCH-HYP-7]_
 
-These links are ordinary `submit` or `noop` links; their relation and form satisfy the closed relation table (xref:02-link-grammar.adoc#_closed_link_relations_rel[Closed Link Relations (`rel`)]):
+These links are ordinary `submit` or `noop` links; their relation and form satisfy the closed relation table (xref:02-link-grammar.adoc#_closed_link_relations_rel[Closed Link Relations (`rel`)]). The implicit worker links `ack`, `infeasible`, and `consult:<role>`, which every task entity offers without a declaration, are defined once with the engine's other implicit links (link:../workflow-dsl/02-units-jobs-decisions.adoc#implicit-job-links[Workflow DSL Specification, Implicit Links]); the links a state or an entity kind declares:
 
 [cols="2,1,1,5"]
 |===
 |Link |`rel` |`form` |Semantics
-
-|`ack`
-|`next`
-|`noop`
-|The only link of an offered task entity (`task.offered`), and of a task entity that carries the answer to the question its worker held or resumed for (link:../model-work/06-envelopes-questions-deadlines.adoc#answer-acknowledgement[Model Work Specification, Answer Acknowledgement]: the worker received the answer and continues). The worker's explicit acknowledgement of the offer, within its harness's acknowledgement deadline; it returns the task entity in the first state of its entity unit (link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]).
 
 |`ask` (`decision:schema[decision-envelope]`)
 |`submit`
@@ -239,16 +234,6 @@ These links are ordinary `submit` or `noop` links; their relation and form satis
 |`submit`
 |`submit`
 |The task-question link of a task envelope entity (`envelope.task.active`). Records the question for the plan task. Where the envelope task continues, it rests in `envelope.task.awaiting_answer` and returns to the same plan task with the answer; otherwise it ends the envelope task (`yield_reason: question`, server-recorded), and the envelope's remaining plan tasks, the asking one included, go to the next envelope task, which receives the answer in `facts`. Only a held continuation keeps a worker waiting, within its hold limit.
-
-|`infeasible` (`evidence:text[1..2000]`)
-|`submit`
-|`submit`
-|Implicit link of every task entity except the consultation entity, after the acknowledgement (link:../model-work/05-consultation.adoc#consult-serving[Model Work Specification, Serving the Consultation]). Ends the task with the outcome `infeasible` and its evidence (required); the calling state routes the outcome (link:../model-work/02-task-protocol.adoc#task-outcomes[Model Work Specification, Closed Task Outcomes]). It carries no `confidence` (xref:02-link-grammar.adoc#decision-confidence-parameter[Decision Confidence Parameter]).
-
-|`consult:<role>` (`question:text[1..4000]`)
-|`consult`
-|`submit`
-|One per `consult role <role>` clause of the task's state, and no other (link:../workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL Specification, Grammar]). Submits a question to a task of the named role and moves the asking task to `consulting`; the answer arrives as the answer to the worker's next `pm_wait`, and the task's final submit must refer to it. A consulted task offers no `consult` link of its own (link:../model-work/05-consultation.adoc[Model Work Specification, Consultation]).
 
 |`request_waiver` (`rationale:text[1..2000]`)
 |`escalate`
@@ -276,7 +261,7 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 The operator's two clients read every state and resource over the local API (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]) in a representation of their own, never in a model-facing one: JSON only (TOON is for model-facing output), with a closed schema per resource in `pm-api`. Both clients receive the same representation and render it each as its design says; neither reads a store, a ledger, or a model-facing representation. Model-facing minimality does not apply to it; its own rule is that it carries what a client shows and what its acts need, and never a secret.
 
 * *State*: the representation of a scope's current state carries `scope` (`kind`: `plan`, `epic`, `workspace`, `machine`, or `entry`; `id`; `project_id` with its `display_name`, absent for the machine), `state` (`state_id`, `node_id`, the path of state ids from the scope's unit, the state's kind, among them `operator_wait`, and the `level` it writes where it writes configuration: `machine`, `project`, or `plan`), `progress` where the unit counts its steps (`done`, `of`), `title` and `texts` (<<runtime-texts>>), `facts` (typed values the state shows, each a value, a message key with its arguments, or verbatim text), `proposal` (the values preselected for the operator, each with its origin), `items` (the rows of a list the state shows, such as the check lines of a probe or the sources of an entry, each with its own `id`, facts, and links), `holds` and `needs_operator` where the scope has them, `revision` (the revision of the state's decision or setting that an act must name), and `links`, the operator links (<<operator-links>>).
-* *Resources*: every other resource (the overview, a project, a plan's process, an epic, ended work, reports, the system view) is a JSON object of its schema, whose references to other resources are links with a relation (`self`, `project`, `epic`, `plan`, `process`, `activity`, `detail`, `next`, `prev`) and an `href` of the local API, so a client leads from one to another in one step.
+* *Resources*: every other resource (the overview, a project, a plan's process, an epic, ended work, reports, the system view) is a JSON object of its schema, whose references to other resources are links with a relation and an `href` of the local API, so a client leads from one to another in one step. The relations of these references are a closed set of their own, `self`, `project`, `epic`, `plan`, `process`, `activity`, `detail`, `next`, and `prev`, apart from the nine relations of the model-facing and the operator links (xref:02-link-grammar.adoc#_closed_link_relations_rel[Closed Link Relations]): a resource reference is never an act, and its relation never stands in a `links` row or an operator link.
 * *Identifiers*: identifiers, state ids, link ids, store keys, and option keys are the same for both clients and in every language (link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#i18n[Module Structure Specification, Languages and Internationalisation]).
 
 [#operator-links]

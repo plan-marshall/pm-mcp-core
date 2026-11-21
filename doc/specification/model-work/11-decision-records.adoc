@@ -94,6 +94,12 @@ The decision points are closed; a state that takes a decision of the table write
 |The aggregated confidence against `confidence_threshold` `95` (`compiled`)
 |`sufficient`, `insufficient`
 
+|`refine.builder-check` (link:../phase-workflows/01-planning-phases-1-2.adoc#builder-check[Builder Check])
+|`role` `qgate`
+|`interpretation`
+|Its confidence; the counts of its questions per sort (`answered`, `minor`, `operator`); no threshold
+|`ask`, `continue`, `not_run`
+
 |`outline.change-type` (`outline.detect-change-type`, `outline.light-detect-change-type`, link:../phase-workflows/03-q-gate-and-execute.adoc#_single_writer_heuristic_vs_judgment_fallback[Change-Type Contract])
 |`server_rule` `ChangeTypeHeuristic`
 |`interpretation`
@@ -196,7 +202,7 @@ Every other state takes no decision of its own: an implementation, review, or au
 [#decision-confidence]
 === Decision Confidence of a Task
 
-Every closing link of a task whose state is a decision point of a role (`outline.classify-change-type`, `<phase>.qgate`, `replan.review`, `remediation-<class>.choose`, `decision.interpret`) carries the parameter `confidence:int[0..100]` besides its own parameters (link:../hypermedia-format/02-link-grammar.adoc#decision-confidence-parameter[Hypermedia Format Specification, Decision Confidence Parameter]): the worker's confidence that its choice is right. A submit without it is refused `invalid_link_args`. The confidence is recorded and shown; it never gates the decision, so every role decision has a calibrated value before any threshold is set on it. A triage submit carries one `confidence` per finding group in its `triage-groups` items (link:07-untrusted-text-screening.adoc#batched-triage[Batched Triage]), and each group's decision-log record takes its own group's confidence.
+Every closing link of a task whose state is a decision point of a role (`refine.builder-check`, `outline.classify-change-type`, `outline.light-classify-change-type`, `<phase>.qgate`, `replan.review`, `remediation-<class>.choose`, `decision.interpret`) carries the parameter `confidence:int[0..100]` besides its own parameters (link:../hypermedia-format/02-link-grammar.adoc#decision-confidence-parameter[Hypermedia Format Specification, Decision Confidence Parameter]): the worker's confidence that its choice is right. A submit without it is refused `missing_param` (link:../workflow-dsl/05-primitives.adoc#independent-transition-validation[Workflow DSL Specification, Independent Server-Side Transition & Parameter Validation]). The confidence is recorded and shown; it never gates the decision, so every role decision has a calibrated value before any threshold is set on it. A triage submit carries one `confidence` per finding group in its `triage-groups` items (link:07-untrusted-text-screening.adoc#batched-triage[Batched Triage]), and each group's decision-log record takes its own group's confidence.
 
 [#question-decisions]
 === Question Decisions & Quorum

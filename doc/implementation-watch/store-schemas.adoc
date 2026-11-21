@@ -61,7 +61,7 @@ Hazard:: `plan-marshall` init wrote files one by one; a failure between writes l
 status or references, reported as a created plan.
 Guard:: The `start.create-scope` transaction of the plan bootstrap builds the complete plan directory (`request.md`,
 `references.json`, `mcp/status.json`, `mcp/digests.json`, and the copies of the entry's source directory,
-transcript, and decision logs) in a sibling temporary
+transcript, question log, decision log, and grants) in a sibling temporary
 directory and publishes it with one atomic directory rename; startup recovery deletes orphaned temporary init directories; a plan directory without `mcp/status.json`
 is never listed. Test: inject a fault after each file write → no plan visible, the pending entry not
 consumed.
@@ -78,7 +78,9 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARC
 Hazard:: A store move redirected the shared path resolver, but sites that matched a path-shaped string captured
 elsewhere (an epic spec path captured as `source_id` in a plan's request) never passed through it.
 Guard:: Cross-scope references are persisted as ids, never paths; no scope record or pending entry stores a path
-of the checkout (the main checkout is always the enrolled `project_root`, a worktree only its name `worktree_of`). A
+of the main checkout (it is always the enrolled `project_root`), and the one recorded checkout path, a plan's
+`worktree_path`, is re-canonicalised and confinement-checked on every read and reconciled, never followed, when it is
+not a live worktree of the plan's branch. A
 test re-enrols a relocated checkout and asserts that every scope resolves through the new `project_root`, never a
 stale path, and that a checkout path a client of the operator names (the terminal client's working directory, a
 checkout at its onboarding) and a worker's job record resolve through the same one rule.
@@ -156,7 +158,7 @@ Source:: design review.
 [#PM-WATCH-STORE-60]
 === PM-WATCH-STORE-60: The plan history is read whole to number its next line
 
-Anchor:: link:../specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store] (`mcp/history.jsonl`)
+Anchor:: link:../specification/store-schemas/02-workflow-state-store.adoc#plan-history[Store Schemas § The Plan's History] (`mcp/history.jsonl`)
 Hazard:: `PlanHistory.nextSeq()` (`pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java` lines 117 to 120)
 decodes the whole of `mcp/history.jsonl` on every history-bearing advance, to number the next line; the cost is one
 linear read per advance of a file that grows by a line per state entered and left, per sub-workflow called and
@@ -169,7 +171,7 @@ primitive to promote (it reads the whole journal; its compaction removes only `t
 of more than 5000 other entries, lines 195 to 215).
 Guard:: The measure above is the trigger; the plan that implements the bounded read adds the
 test that proves it against a torn tail and a refused line.
-Source:: `store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json`; link:../../pm-workflow/doc/adr/workflow-plan/027-the-plan-history-is-read-whole-until-it-is-long.adoc[ADR workflow-plan 027].
+Source:: `store-schemas/02-workflow-state-store.adoc#plan-history`; link:../../pm-workflow/doc/adr/workflow-plan/027-the-plan-history-is-read-whole-until-it-is-long.adoc[ADR workflow-plan 027].
 
 == Findings Ledger Record (`findings.jsonl`)
 
@@ -758,7 +760,7 @@ Source:: design review.
 [#PM-WATCH-STORE-46]
 === PM-WATCH-STORE-46: A sweep never removes a row something still references, nor work history
 
-Anchor:: link:../specification/store-schemas/13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Store Schemas § Evidence-Based Removal Sweeps] (Retention purges)
+Anchor:: link:../specification/store-schemas/13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Store Schemas § Evidence-Based Removal Sweeps] (The periodic sweep)
 Hazard:: The workspace scope has no archive, so its rows grow for the life of the enrolment; a purge by age alone
 removes a decision whose facts snapshot a later record still cites, or a sweep that rewrites an append-only store
 loses rows appended meanwhile.
@@ -810,18 +812,16 @@ web page and reused in every later session).
 == Project Enrolment Store (`<PM_MCP_BASE>/enrolments/<project_id>.json`)
 
 [#PM-WATCH-STORE-59]
-=== PM-WATCH-STORE-59: Open: a relative write path and two spellings of one root
+=== PM-WATCH-STORE-59: Open: two spellings of one root
 
-Anchor:: link:../specification/store-schemas/11-enrolment-store.adoc#enrolment-field-semantics[Store Schemas § Field Semantics Beyond the Schema] (`write_paths`; the Unique Root rule of the enrolment store)
-Hazard:: Undecided: the policy judges an absolute write path against `<PM_MCP_BASE>`, but states neither how a
-non-absolute entry of `write_paths` is judged (refused, resolved against the project root, or against the operator's
-home) nor when two project roots are equal for `enrolment_root_conflict` on a case-insensitive file system, where two
-spellings of one directory are two strings. A relative path resolved at job time against a changed base grants a write
-set nobody confirmed; a root compared as a string lets one checkout be enrolled twice, and its two projects write one
-worktree tree. Options for the path: (1) refuse a non-absolute write path at enrolment (`enrolment_invalid`); (2) resolve
-it once at enrolment against the project root and store the result. For the root: (1) compare the real paths the file
-system returns (`toRealPath`, which reports the stored spelling); (2) compare the file identity (device and inode).
-Recommendation: path 1, root 1 with a test on a case-insensitive volume.
+Anchor:: link:../specification/store-schemas/11-enrolment-store.adoc#enrolment-field-semantics[Store Schemas § Field Semantics Beyond the Schema] (the Unique Root rule of the enrolment store)
+Hazard:: Undecided: the policy does not state when two project roots are equal for `enrolment_root_conflict` on a
+case-insensitive file system, where two spellings of one directory are two strings. A root compared as a string lets
+one checkout be enrolled twice, and its two projects write one worktree tree. Options: (1) compare the real paths the
+file system returns (`toRealPath`, which reports the stored spelling); (2) compare the file identity (device and
+inode). Recommendation: (1) with a test on a case-insensitive volume. How a non-absolute entry of `write_paths` is
+judged is an open question of the documentation
+(link:../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#enrolment-credential-patterns[Open Questions, Credential Variable Patterns and a Non-Absolute Write Path at Enrolment]).
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
 Source:: `store-schemas/11-enrolment-store.adoc#enrolment-field-semantics`, `concepts/enrolment.adoc` § Policy Before Signing (plan-marshall-documentation).

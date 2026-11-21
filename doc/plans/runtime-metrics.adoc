@@ -16,7 +16,7 @@ The specification sections named are the single statement of what each task buil
 . *The closed catalogue*, each metric recorded by the code its table row names: § The Runtime's Metrics, the table; the disk-use step of link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[§ Periodic Sweep].
 . *The gauges and hourly windows set at start*: § The Runtime's Metrics, _Where they come from_.
 . *The endpoints and the stream*: § The Runtime's Metrics, _Local API_; link:../specification/timeouts/02-runtime-leases-operator-web.adoc#metrics-event-interval[Timeouts § Metrics Event Interval].
-. *The OpenMetrics exposition* on the socket: link:../specification/runtime-lifecycle/03-runtime-metrics.adoc#exposition[§ The Runtime's Metrics, _Exposition_].
+. *No export of its own*: the metrics are read only through the local API, with no listener and no export route of the runtime for them: link:../specification/runtime-lifecycle/03-runtime-metrics.adoc#exposition[§ The Runtime's Metrics, _Exposition_]; the OpenMetrics text format is not part of this package (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-86[Later Improvements, L-86]).
 
 Left out: the usage aggregate (link:cleanup.adoc[`cleanup`]); the addressing of the entities a figure links to (the done package `entity-addressing`); `pm-operator system` and the system view (`pm-mcp-clients`).
 
@@ -32,4 +32,4 @@ The starting set of the trace matrix of the project skill `traced-implementation
 == Done When
 
 * Watch: none anchored to the sections.
-* Tests: a native build of `pm-mcpd` with the registry; one test per catalogue metric recorded where its row says; no store read on a request; the OpenMetrics text on the socket only; the windows and counts after a restart equal to those rebuilt from the stores; a figure the platform does not give; both endpoints and the stream on both channels.
+* Tests: a native build of `pm-mcpd` with the registry; one test per catalogue metric recorded where its row says; no store read on a request; no listener and no export route of the runtime for the metrics; the windows and counts after a restart equal to those rebuilt from the stores; a figure the platform does not give; both endpoints and the stream on both channels.

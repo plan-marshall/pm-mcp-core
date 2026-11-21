@@ -340,11 +340,11 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |fixed
 |—
 |worker starts per role and harness, `zero_tool` roles excepted (they make no first call)
-|The guard holds: no further worker of the role is started on that harness; the harness's own error text is reported to both clients of the operator and in the audit log, and the role's queued and new tasks close `lost` with `role_unavailable` and take their conservative fallback. A change of the role's artifact or a new enrolment of the harness clears it; after the probe backoff, the next task starts one probe worker, whose first call clears the guard and whose failure restarts the backoff.
-|link:../model-work/03-supervision-and-recycling.adoc[Model Work, Supervision & Recycling]
+|The guard holds, and the probe backoff decides the next start, as the guard states (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work, Start-Failure Guard]).
+|link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work, Start-Failure Guard]
 
-|[[task-reoffer-budget]]Task re-offer budget
-|`3` re-offers per task after an attempt that ended without a result, spent as the <<condition-budget>> of the state's `job_incomplete` condition; an attempt ended by a restart, a drain, a start failure, or a pause with the point _now_ spends none.
+|[[task-reoffer-budget]]Re-offer budget
+|`3` re-offers per task after an attempt that ended without a result, spent as the <<condition-budget>> of the state's `job_incomplete` condition; which attempts spend none is stated with the re-offer (link:../model-work/02-task-protocol.adoc#re-offer[Model Work, Re-Offer]).
 |fixed
 |—
 |every queue task (`counts` of its attempts)
@@ -425,7 +425,7 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |Shipped call arguments per policy: `qgate-findings` `3`, `build-failure` `3` (land `0`: the land lane binds `actions: [retry]`), `ci-failure` `3`, `review-findings` `3`, `analysis` `3`, `merge-conflict` `2`.
 |as retry budget (`fix_budget:<policy>`)
 |hard cap `5`
-|`fix` of a remediation unit's `decide`, including the `loop_back` form; charged when the fix's commit or artifact exists
+|`fix` of a remediation unit's `decide`, including the `loop_back` form; charged as link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL, Unit Template] (Budget accounting) states: an in-branch fix when its task submits the change, a `loop_back` or a fix that runs in the caller when the primitive that takes it requests it
 |As retry budget.
 |link:../workflow-dsl/08-remediation-units.adoc#remediation-units[Workflow DSL, Remediation Policy Units]
 
@@ -473,7 +473,7 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |`3` server retries per condition instance (`pending_condition.remedy_attempts`).
 |fixed
 |—
-|every non-integrity condition overlay (`footprint_violation`, `guard_indeterminate`, `job_incomplete`, whose retries are the server's re-offers of the state's tasks (<<task-reoffer-budget>>), `config_drift`, `precondition_unmet`), the `retry` of a bootstrap's failed source step, and the server retries of `finalize.adopt-blocked` (re-adoption), `finalize.merge-lease-interrupted` (lease re-entry), and `finalize.archive-plan` (pull-request observation)
+|every non-integrity condition overlay (`footprint_violation`, `guard_indeterminate`, `job_incomplete`, whose retries are the server's re-offers of the state's tasks (<<task-reoffer-budget>>), `config_drift`, `precondition_unmet`), the `retry` of a bootstrap's failed source step (the operator wait `source-<kind>.failed`, link:../state-catalogue/09-bootstrap-and-lessons.adoc#state-source.failed[State Catalogue, `source-<kind>.failed`]), and the server retries of `finalize.adopt-blocked` (re-adoption), `finalize.merge-lease-interrupted` (lease re-entry), and `finalize.archive-plan` (pull-request observation)
 |The phase's fallback with the condition as the gap; `handed_back` degrades to a local branch when the fallback lacks what is missing (for example a push credential). The epic and workspace scopes have no fallback: an unreadable epic ledger keeps its `retry` as a hold and ends by the operator's cancel, a workspace condition keeps its `retry`. A start's entry has no fallback either: after the last source `retry` the source unit's operator wait offers only its `step_out` back to the entry's list of sources.
 |link:../state-catalogue/01-conventions-generic-conditions.adoc[State Catalogue, Conditions]
 
