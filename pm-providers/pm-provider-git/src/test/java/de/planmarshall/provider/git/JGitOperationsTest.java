@@ -12,1023 +12,201 @@ package de.planmarshall.provider.git;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.cuioss.test.generator.Generators;
-import de.cuioss.test.generator.TypedGenerator;
-import de.cuioss.test.generator.domain.EmailGenerator;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Stream;
 import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.dircache.DirCacheEntry;
-import org.eclipse.jgit.lib.FileMode;
-import org.eclipse.jgit.lib.StoredConfig;
-import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.treewalk.TreeWalk;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
-import org.junit.jupiter.api.condition.OS;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.provider.git.GitOperations.CommitInfo;
 import de.planmarshall.provider.git.GitOperations.CommitInput;
-import de.planmarshall.provider.git.GitOperations.GitCredential;
-import de.planmarshall.provider.git.GitOperations.Identity;
-import de.planmarshall.provider.git.GitOperations.PushInput;
-import de.planmarshall.provider.git.GitOperations.RemoteInput;
-import de.planmarshall.provider.git.GitOperations.Worktree;
-import de.planmarshall.provider.git.GitOperations.WorktreeAddInput;
-import de.planmarshall.provider.git.testing.generators.GitGenerators;
 
+/**
+ * {@link JGitOperations} on an initialised repository: opening it and its facts, a commit of every change or of the
+ * listed paths, and the history walk.
+ */
 @EnableGeneratorController
-@DisplayName("JGitOperations (native git variant)")
-class JGitOperationsTest {
+@DisplayName("JGitOperations (native git variant): open, commit and log")
+class JGitOperationsTest extends JGitOperationsFixtures {
 
-    /** The revision git resolves to the checked-out commit: part of git's revision grammar. */
-    private static final String HEAD = "HEAD";
-    /** The remote name git gives the source of a clone: git's own default. */
-    private static final String ORIGIN = "origin";
+    @Test
+    @DisplayName("opens a repository and reports its facts")
+    void opens() {
+        var info = git.open(repo).value();
 
-    @TempDir
-    Path temp;
-
-    private JGitOperations git;
-    private Path repo;
-    private Identity author;
-    private Identity agent;
-    private String branch;
-    private String readme;
-    private TypedGenerator<String> names;
-
-    @BeforeEach
-    void initRepository() throws IOException {
-        // names from lower-case letters outside the hex digits: valid ref and path names, never a commit id, ordered
-        // as the administration directories are
-        names = Generators.uniqueValues(Generators.strings("ghijklmnopqrstuvwxyz", 4, 12));
-        author = new Identity(Generators.letterStrings(3, 12).next(), new EmailGenerator().next());
-        agent = new Identity(Generators.letterStrings(3, 12).next(), new EmailGenerator().next());
-        branch = names.next();
-        readme = text();
-        git = new JGitOperations(RemotePolicy.localOnly());
-        // fixture path of the test repository
-        repo = temp.resolve("repo");
-        assertTrue(git.init(repo, branch).isOk(), "the test repository is initialised");
-        write("README.md", readme);
-        commit(text());
+        assertAll(
+                () -> assertEquals(repo.toRealPath(), info.worktreeRoot(), "the worktree root is the real path"),
+                () -> assertEquals(branch, info.branch(), "the checked-out branch is reported"),
+                () -> assertNotNull(info.head(), "the HEAD commit id is reported"),
+                () -> assertFalse(info.linked(), "the main worktree is no linked worktree"),
+                () -> assertEquals(info.gitDir(), info.commonDir(), "the main worktree's git dir is common"));
     }
 
-    private static String text() {
-        return Generators.letterStrings(1, 40).next();
+    @Test
+    @DisplayName("reports a directory outside any repository")
+    void notARepository() throws Exception {
+        Path plain = Files.createDirectories(temp.resolve("plain"));
+
+        assertAll(
+                () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.open(plain).outcome(),
+                        "open refuses a plain directory"),
+                () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.log(plain, HEAD, 1).outcome(),
+                        "log refuses a plain directory"),
+                () -> assertEquals(GitOutcome.NOT_A_REPOSITORY,
+                        git.commit(new CommitInput(plain, text(), author, agent, List.of())).outcome(),
+                        "commit refuses a plain directory"),
+                () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.worktreeList(plain).outcome(),
+                        "worktreeList refuses a plain directory"));
     }
 
-    private String file() {
-        return names.next() + ".txt";
+    @Test
+    @DisplayName("commits additions and deletions with author and committer, unsigned")
+    void commitsAllChanges() throws Exception {
+        write("src/" + file(), text());
+        Files.delete(repo.resolve("README.md"));
+        // a full message: subject, blank line, body, final line feed
+        var message = text() + "\n\n" + text() + "\n";
+
+        CommitInfo commit = commit(message);
+
+        assertAll(
+                () -> assertEquals(author, commit.author(), "the author is the operator's identity"),
+                () -> assertEquals(agent, commit.committer(), "the committer is the agent identity"),
+                () -> assertEquals(message, commit.message(), "the full message is kept unchanged"),
+                () -> assertEquals(1, commit.parents().size(), "the commit has the initial one as parent"),
+                () -> assertFalse(Files.exists(repo.resolve("README.md")), "the deleted file stays deleted"),
+                () -> assertTrue(git.worktreeSha(repo).isOk(), "the committed tree has a digest"));
     }
 
-    private void write(String path, String content) throws IOException {
-        Path file = repo.resolve(path);
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, content, StandardCharsets.UTF_8);
+    @Test
+    @DisplayName("reports nothing to commit")
+    void nothingToCommit() {
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
+
+        assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(), "a clean tree has nothing to commit");
     }
 
-    private CommitInfo commit(String message) {
-        return commitIn(repo, message);
+    @Test
+    @DisplayName("commits only the listed paths, leaving a pre-staged and a dirty path out")
+    void commitsOnlyListedPaths() throws Exception {
+        var staged = file();
+        var listed = file();
+        var dirty = file();
+        write(staged, text());
+        write(listed, text());
+        write(dirty, text());
+        // pre-stage the unrelated file in the index, as another writer would
+        try (var jgit = Git.open(repo.toFile())) {
+            jgit.add().addFilepattern(staged).call();
+        }
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(listed)));
+
+        var commit = result.value();
+        assertAll(
+                () -> assertEquals(GitOutcome.OK, result.outcome(), "the subset commit is recorded"),
+                () -> assertTrue(inCommit(commit.id(), listed), "the listed path is committed"),
+                () -> assertFalse(inCommit(commit.id(), staged),
+                        "the pre-staged path is not carried into the commit"),
+                () -> assertFalse(inCommit(commit.id(), dirty), "the dirty unlisted path is left out"));
     }
 
-    private CommitInfo commitIn(Path root, String message) {
-        GitResult<CommitInfo> result = git.commit(new CommitInput(root, message, author, agent, List.of()));
-        assertEquals(GitOutcome.OK, result.outcome(), "the fixture commit is recorded");
-        return result.value();
+    @Test
+    @DisplayName("commits a deletion named in the listed paths")
+    void commitsListedDeletion() throws Exception {
+        Files.delete(repo.resolve("README.md"));
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
+
+        assertAll(
+                () -> assertEquals(GitOutcome.OK, result.outcome(), "the deletion commit is recorded"),
+                () -> assertFalse(inCommit(result.value().id(), "README.md"),
+                        "the deleted path is gone from the committed tree"));
     }
 
-    private String sha(Path root) {
-        GitResult<GitOperations.WorktreeSha> result = git.worktreeSha(root);
-        assertEquals(GitOutcome.OK, result.outcome(), "the working-tree digest is computed");
-        // contract literal: the worktree-sha hash version pinned by the specification is 1
-        assertEquals(1, result.value().version(),
-                "the digest carries hash version 1");
-        return result.value().digest();
+    @Test
+    @DisplayName("a listed path without a change reports nothing to commit")
+    void listedPathWithoutChange() {
+        // README.md was committed at setUp and is tracked and unchanged, so the subset staged for it is empty
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
+
+        assertAll(
+                () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                        "a subset without a change commits nothing"),
+                () -> assertEquals("no changes", result.detail(), "the refusal names the empty change set"));
     }
 
-    @Nested
-    @DisplayName("open, commit and log")
-    class OpenCommitLog {
-
-        @Test
-        @DisplayName("opens a repository and reports its facts")
-        void opens() {
-            var info = git.open(repo).value();
-
-            assertAll(
-                    () -> assertEquals(repo.toRealPath(), info.worktreeRoot(), "the worktree root is the real path"),
-                    () -> assertEquals(branch, info.branch(), "the checked-out branch is reported"),
-                    () -> assertNotNull(info.head(), "the HEAD commit id is reported"),
-                    () -> assertFalse(info.linked(), "the main worktree is no linked worktree"),
-                    () -> assertEquals(info.gitDir(), info.commonDir(), "the main worktree's git dir is common"));
-        }
-
-        @Test
-        @DisplayName("reports a directory outside any repository")
-        void notARepository() throws Exception {
-            Path plain = Files.createDirectories(temp.resolve("plain"));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.open(plain).outcome(),
-                            "open refuses a plain directory"),
-                    () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.log(plain, HEAD, 1).outcome(),
-                            "log refuses a plain directory"),
-                    () -> assertEquals(GitOutcome.NOT_A_REPOSITORY,
-                            git.commit(new CommitInput(plain, text(), author, agent, List.of())).outcome(),
-                            "commit refuses a plain directory"),
-                    () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.worktreeList(plain).outcome(),
-                            "worktreeList refuses a plain directory"));
-        }
-
-        @Test
-        @DisplayName("commits additions and deletions with author and committer, unsigned")
-        void commitsAllChanges() throws Exception {
-            write("src/" + file(), text());
-            Files.delete(repo.resolve("README.md"));
-            // a full message: subject, blank line, body, final line feed
-            var message = text() + "\n\n" + text() + "\n";
-
-            CommitInfo commit = commit(message);
-
-            assertAll(
-                    () -> assertEquals(author, commit.author(), "the author is the operator's identity"),
-                    () -> assertEquals(agent, commit.committer(), "the committer is the agent identity"),
-                    () -> assertEquals(message, commit.message(), "the full message is kept unchanged"),
-                    () -> assertEquals(1, commit.parents().size(), "the commit has the initial one as parent"),
-                    () -> assertFalse(Files.exists(repo.resolve("README.md")), "the deleted file stays deleted"),
-                    () -> assertTrue(git.worktreeSha(repo).isOk(), "the committed tree has a digest"));
-        }
-
-        @Test
-        @DisplayName("reports nothing to commit")
-        void nothingToCommit() {
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
-
-            assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(), "a clean tree has nothing to commit");
-        }
-
-        @Test
-        @DisplayName("commits only the listed paths, leaving a pre-staged and a dirty path out")
-        void commitsOnlyListedPaths() throws Exception {
-            var staged = file();
-            var listed = file();
-            var dirty = file();
-            write(staged, text());
-            write(listed, text());
-            write(dirty, text());
-            // pre-stage the unrelated file in the index, as another writer would
-            try (var jgit = Git.open(repo.toFile())) {
-                jgit.add().addFilepattern(staged).call();
-            }
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(listed)));
-
-            var commit = result.value();
-            assertAll(
-                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the subset commit is recorded"),
-                    () -> assertTrue(inCommit(commit.id(), listed), "the listed path is committed"),
-                    () -> assertFalse(inCommit(commit.id(), staged),
-                            "the pre-staged path is not carried into the commit"),
-                    () -> assertFalse(inCommit(commit.id(), dirty), "the dirty unlisted path is left out"));
-        }
-
-        @Test
-        @DisplayName("commits a deletion named in the listed paths")
-        void commitsListedDeletion() throws Exception {
-            Files.delete(repo.resolve("README.md"));
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the deletion commit is recorded"),
-                    () -> assertFalse(inCommit(result.value().id(), "README.md"),
-                            "the deleted path is gone from the committed tree"));
-        }
-
-        @Test
-        @DisplayName("a listed path without a change reports nothing to commit")
-        void listedPathWithoutChange() {
-            // README.md was committed at setUp and is tracked and unchanged, so the subset staged for it is empty
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
-                            "a subset without a change commits nothing"),
-                    () -> assertEquals("no changes", result.detail(), "the refusal names the empty change set"));
-        }
-
-        @Test
-        @DisplayName("a listed path without a change leaves the index untouched")
-        void nothingToCommitLeavesTheIndexUntouched() throws Exception {
-            // the content equals HEAD, and only the stat moves, so an add would refresh the index entry and stage it
-            Files.setLastModifiedTime(repo.resolve("README.md"),
-                    FileTime.from(Instant.parse("2020-01-02T03:04:05Z")));
-            var before = indexEntry("README.md").getLastModifiedInstant();
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
-
-            assertAll("index untouched",
-                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
-                            "the unchanged path commits nothing"),
-                    () -> assertEquals(before, indexEntry("README.md").getLastModifiedInstant(),
-                            "the refused commit stages no listed path"));
-        }
-
-        private DirCacheEntry indexEntry(String path) throws IOException {
-            try (var jgit = Git.open(repo.toFile())) {
-                return Objects.requireNonNull(jgit.getRepository().readDirCache().getEntry(path), "the entry");
-            }
-        }
-
-        @Test
-        @EnabledOnOs({OS.LINUX, OS.MAC})
-        @DisplayName("refuses a path whose nearest existing ancestor is a dangling link")
-        void refusesAPathBelowADanglingAncestor() throws Exception {
-            var ancestor = names.next();
-            var below = ancestor + "/" + file();
-            write(below, text());
-            Files.delete(repo.resolve(below));
-            Files.delete(repo.resolve(ancestor));
-            Files.createSymbolicLink(repo.resolve(ancestor), Path.of(names.next()));
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(below)));
-
-            assertAll("dangling ancestor",
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
-                            "a dangling ancestor is no confined parent"),
-                    () -> assertEquals(below, result.detail(), "the refusal names the path below it"));
-        }
-
-        @Test
-        @DisplayName("refuses a directory before anything below it is staged")
-        void refusesADirectory() throws Exception {
-            write("below/one.txt", text());
-            write("below/two.txt", text());
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("below")));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(), "a directory is no commit path"),
-                    () -> assertEquals("below", result.detail(), "the refusal names the directory"),
-                    () -> assertEquals(1, git.log(repo, "HEAD", 5).value().size(),
-                            "nothing below the directory was committed"));
-        }
-
-        @Test
-        @DisplayName("refuses a pathspec magic before anything is staged")
-        void refusesAPathspecMagic() {
-            var magic = git.commit(new CommitInput(repo, text(), author, agent, List.of(":(exclude)x")));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, magic.outcome(),
-                            "a pathspec magic is no commit path"),
-                    () -> assertEquals(":(exclude)x", magic.detail(), "the refusal names the magic"));
-        }
-
-        @Test
-        @EnabledOnOs({OS.LINUX, OS.MAC})
-        @DisplayName("commits a name with bracket, star and question mark as that literal file")
-        void commitsGlobCharactersLiterally() throws Exception {
-            var stem = names.next();
-            // the specification's example of a literal path (Stage 4), beside a file its glob reading would match
-            var bracket = "app/[" + stem + "]/page.tsx";
-            var bracketMatch = "app/" + stem.charAt(0) + "/page.tsx";
-            var star = stem + "*.txt";
-            var starMatch = stem + "x.txt";
-            var question = stem + "?.md";
-            var questionMatch = stem + "q.md";
-            for (var path : List.of(bracket, bracketMatch, star, starMatch, question, questionMatch)) {
-                write(path, text());
-            }
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(bracket, star, question)));
-
-            var commit = result.value();
-            assertAll(
-                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the literal names are committed"),
-                    () -> assertTrue(inCommit(commit.id(), bracket), "the bracket name is committed literally"),
-                    () -> assertTrue(inCommit(commit.id(), star), "the star name is committed literally"),
-                    () -> assertTrue(inCommit(commit.id(), question), "the question mark name is committed"),
-                    () -> assertFalse(inCommit(commit.id(), bracketMatch), "the bracket glob matches nothing"),
-                    () -> assertFalse(inCommit(commit.id(), starMatch), "the star glob matches nothing"),
-                    () -> assertFalse(inCommit(commit.id(), questionMatch), "the question glob matches nothing"));
-        }
-
-        @Test
-        @EnabledOnOs({OS.LINUX, OS.MAC})
-        @DisplayName("commits a name shaped like an option as that literal file")
-        void commitsAnOptionShapedNameLiterally() throws Exception {
-            // the option form of the specification's example, which JGit reads as a plain name
-            var option = "-rf" + names.next();
-            write(option, text());
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(option)));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the option-shaped name is committed"),
-                    () -> assertTrue(inCommit(result.value().id(), option), "the option-shaped name is in the tree"));
-        }
-
-        @Test
-        @EnabledOnOs({OS.LINUX, OS.MAC})
-        @DisplayName("commits a symbolic link to a directory as the link, not the directory")
-        void commitsALinkToADirectory() throws Exception {
-            var directory = names.next();
-            var below = directory + "/" + file();
-            var link = names.next();
-            write(below, text());
-            Files.createSymbolicLink(repo.resolve(link), Path.of(directory));
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(link)));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the link to a directory is committed"),
-                    () -> assertEquals(FileMode.SYMLINK, modeInCommit(result.value().id(), link),
-                            "the link is recorded as a link"),
-                    () -> assertFalse(inCommit(result.value().id(), below), "nothing below the target is committed"));
-        }
-
-        @Test
-        @EnabledOnOs({OS.LINUX, OS.MAC})
-        @DisplayName("commits a dangling symbolic link as the link")
-        void commitsADanglingLink() throws Exception {
-            var link = names.next();
-            Files.createSymbolicLink(repo.resolve(link), Path.of(names.next()));
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(link)));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the dangling link is committed"),
-                    () -> assertEquals(FileMode.SYMLINK, modeInCommit(result.value().id(), link),
-                            "the dangling link is recorded as a link"));
-        }
-
-        @Test
-        @EnabledOnOs({OS.LINUX, OS.MAC})
-        @DisplayName("refuses a path below a link that leaves the root, before a valid path is staged")
-        void refusesAPathBelowAnOutwardLink() throws Exception {
-            // fixture path: a directory beside the repository, outside its root
-            Path outside = Files.createDirectories(temp.resolve(names.next()));
-            var secret = names.next() + "*.txt";
-            Files.writeString(outside.resolve(secret), text(), StandardCharsets.UTF_8);
-            var alias = names.next();
-            Files.createSymbolicLink(repo.resolve(alias), outside);
-            var safe = file();
-            write(safe, text());
-            var below = alias + "/" + secret;
-            var missingBelow = alias + "/" + names.next() + "/" + file();
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(safe, below)));
-            var missing = git.commit(new CommitInput(repo, text(), author, agent, List.of(missingBelow)));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(), "a path below the link is refused"),
-                    () -> assertEquals(below, result.detail(), "the refusal names the path below the link"),
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, missing.outcome(),
-                            "a missing path below the link is refused"),
-                    () -> assertFalse(isStaged(safe), "the valid listed path was not staged"),
-                    () -> assertEquals(1, git.log(repo, HEAD, 5).value().size(),
-                            "no refused commit reached the history"));
-        }
-
-        @Test
-        @EnabledOnOs({OS.LINUX, OS.MAC})
-        @DisplayName("commits a link that replaces a tracked directory as that link")
-        void commitsALinkThatReplacesATrackedDirectory() throws Exception {
-            var node = names.next();
-            var below = node + "/" + file();
-            write(below, text());
-            git.commit(new CommitInput(repo, text(), author, agent, List.of(below)));
-            var target = names.next();
-            write(target + "/" + file(), text());
-            Files.delete(repo.resolve(below));
-            Files.delete(repo.resolve(node));
-            Files.createSymbolicLink(repo.resolve(node), Path.of(target));
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(node)));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.OK, result.outcome(), "the replacing link is committed"),
-                    () -> assertEquals(FileMode.SYMLINK, modeInCommit(result.value().id(), node),
-                            "the replacing link is recorded as a link"),
-                    () -> assertFalse(inCommit(result.value().id(), below),
-                            "the replaced directory entry is gone"));
-        }
-
-        @Test
-        @DisplayName("refuses a directory staged in a repository without commits once it is removed")
-        void refusesAStagedDirectoryWithoutHead() throws Exception {
-            // fixture path of a second repository that never gets a commit
-            Path fresh = temp.resolve(names.next());
-            assertTrue(git.init(fresh, branch).isOk(), "the repository without commits is initialised");
-            var directory = names.next();
-            Path staged = fresh.resolve(directory).resolve(file());
-            Files.createDirectories(staged.getParent());
-            Files.writeString(staged, text(), StandardCharsets.UTF_8);
-            try (var jgit = Git.open(fresh.toFile())) {
-                jgit.add().addFilepattern(directory).call();
-            }
-            Files.delete(staged);
-            Files.delete(staged.getParent());
-
-            var result = git.commit(new CommitInput(fresh, text(), author, agent, List.of(directory)));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
-                            "a staged directory is refused without HEAD"),
-                    () -> assertEquals(directory, result.detail(), "the refusal names the staged directory"),
-                    () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.log(fresh, HEAD, 1).outcome(),
-                            "the repository still has no commit"));
-        }
-
-        private boolean isStaged(String path) throws Exception {
-            try (var jgit = Git.open(repo.toFile())) {
-                return jgit.getRepository().readDirCache().findEntry(path) >= 0;
-            }
-        }
-
-        @Test
-        @DisplayName("refuses an absolute, a parent, an outside and a non-normal path")
-        void refusesPathsOutsideTheRoot() {
-            var name = file();
-            // the contract's examples of paths that name no file of the root
-            var absolute = repo.resolve(name).toAbsolutePath().toString();
-            var parent = "../" + name;
-            var outside = names.next() + "/../../" + name;
-            var nonNormal = names.next() + "/./" + name;
-            var trailing = names.next() + "/";
-
-            assertAll(
-                    () -> assertRefused(absolute, "an absolute path is refused"),
-                    () -> assertRefused(parent, "a parent-relative path is refused"),
-                    () -> assertRefused(outside, "a path leaving the root is refused"),
-                    () -> assertRefused(nonNormal, "a path with a dot segment is refused"),
-                    () -> assertRefused(trailing, "a path with an empty segment is refused"),
-                    () -> assertEquals(1, git.log(repo, HEAD, 5).value().size(),
-                            "no refused path reached a commit"));
-        }
-
-        private void assertRefused(String path, String message) {
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(path)));
-            assertEquals(GitOutcome.PATH_REFUSED, result.outcome(), message);
-            assertEquals(path, result.detail(), "the refusal names the refused path");
-        }
-
-        private FileMode modeInCommit(String commitId, String path) throws Exception {
-            try (var jgit = Git.open(repo.toFile())) {
-                var tree = jgit.getRepository().parseCommit(jgit.getRepository().resolve(commitId)).getTree();
-                try (var walk = TreeWalk.forPath(jgit.getRepository(), path, tree)) {
-                    assertNotNull(walk, "the path is in the committed tree");
-                    return walk.getFileMode(0);
-                }
-            }
-        }
-
-        @Test
-        @DisplayName("a builder without paths commits every change")
-        void builderWithoutPaths() {
-            var input = CommitInput.builder().root(repo).message(text()).author(author).committer(agent).build();
-
-            var result = git.commit(input);
-
-            assertAll(
-                    () -> assertEquals(List.of(), input.paths(), "the builder fills the empty path list"),
-                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
-                            "the clean tree has nothing to commit"));
-        }
-
-        @Test
-        @DisplayName("refuses a tracked directory whose worktree copy is gone")
-        void refusesATrackedDirectoryGone() throws Exception {
-            write("gone/one.txt", text());
-            git.commit(new CommitInput(repo, text(), author, agent, List.of("gone/one.txt")));
-            Files.delete(repo.resolve("gone/one.txt"));
-            Files.delete(repo.resolve("gone"));
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("gone")));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
-                            "a deleted tracked directory is no commit path"),
-                    () -> assertEquals("gone", result.detail(), "the refusal names the directory"),
-                    () -> assertEquals(2, git.log(repo, "HEAD", 5).value().size(),
-                            "the deletion below the directory was not committed"));
-        }
-
-        @Test
-        @DisplayName("refuses a path that is no legal path of the file system")
-        void refusesAnInvalidPath() {
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("a\u0000b")));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
-                            "a path with NUL is refused, not thrown"),
-                    () -> assertEquals("a\u0000b", result.detail(), "the refusal names the path"));
-        }
-
-        @Test
-        @DisplayName("commits a change of the executable bit alone")
-        void commitsAModeChange() throws Exception {
-            var script = "run.sh";
-            write(script, text());
-            git.commit(new CommitInput(repo, text(), author, agent, List.of(script)));
-            Files.setPosixFilePermissions(repo.resolve(script),
-                    PosixFilePermissions.fromString("rwxr-xr-x"));
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(script)));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.OK, result.outcome(),
-                            "a mode-only change is a change"),
-                    () -> assertEquals(3, git.log(repo, "HEAD", 5).value().size(),
-                            "the mode change is committed"));
-        }
-
-        private boolean inCommit(String commitId, String path) throws Exception {
-            try (var jgit = Git.open(repo.toFile())) {
-                var tree = jgit.getRepository().parseCommit(
-                        jgit.getRepository().resolve(commitId)).getTree();
-                return TreeWalk.forPath(jgit.getRepository(), path, tree) != null;
-            }
-        }
-
-        @Test
-        @DisplayName("walks the history newest first, bounded by the count")
-        void logs() throws Exception {
-            write(file(), text());
-            CommitInfo second = commit(text());
-            write(file(), text());
-            CommitInfo third = commit(text());
-
-            var all = git.log(repo, HEAD, 10).value();
-            var one = git.log(repo, branch, 1).value();
-
-            assertAll(
-                    () -> assertEquals(List.of(third.id(), second.id()),
-                            all.subList(0, 2).stream().map(CommitInfo::id).toList(), "the newest commits come first"),
-                    () -> assertEquals(3, all.size(), "the history holds the three commits"),
-                    () -> assertEquals(List.of(third), one, "a count of one yields the newest commit"),
-                    () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.log(repo, names.next(), 1).outcome(),
-                            "an unknown branch is an unknown revision"));
+    @Test
+    @DisplayName("a listed path without a change leaves the index untouched")
+    void nothingToCommitLeavesTheIndexUntouched() throws Exception {
+        // the content equals HEAD, and only the stat moves, so an add would refresh the index entry and stage it
+        Files.setLastModifiedTime(repo.resolve("README.md"),
+                FileTime.from(Instant.parse("2020-01-02T03:04:05Z")));
+        var before = indexEntry("README.md").getLastModifiedInstant();
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
+
+        assertAll("index untouched",
+                () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                        "the unchanged path commits nothing"),
+                () -> assertEquals(before, indexEntry("README.md").getLastModifiedInstant(),
+                        "the refused commit stages no listed path"));
+    }
+
+    @Test
+    @DisplayName("a builder without paths commits every change")
+    void builderWithoutPaths() {
+        var input = CommitInput.builder().root(repo).message(text()).author(author).committer(agent).build();
+
+        var result = git.commit(input);
+
+        assertAll(
+                () -> assertEquals(List.of(), input.paths(), "the builder fills the empty path list"),
+                () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                        "the clean tree has nothing to commit"));
+    }
+
+    @Test
+    @DisplayName("walks the history newest first, bounded by the count")
+    void logs() throws Exception {
+        write(file(), text());
+        CommitInfo second = commit(text());
+        write(file(), text());
+        CommitInfo third = commit(text());
+
+        var all = git.log(repo, HEAD, 10).value();
+        var one = git.log(repo, branch, 1).value();
+
+        assertAll(
+                () -> assertEquals(List.of(third.id(), second.id()),
+                        all.subList(0, 2).stream().map(CommitInfo::id).toList(), "the newest commits come first"),
+                () -> assertEquals(3, all.size(), "the history holds the three commits"),
+                () -> assertEquals(List.of(third), one, "a count of one yields the newest commit"),
+                () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.log(repo, names.next(), 1).outcome(),
+                        "an unknown branch is an unknown revision"));
+    }
+
+    private DirCacheEntry indexEntry(String path) throws IOException {
+        try (var jgit = Git.open(repo.toFile())) {
+            return Objects.requireNonNull(jgit.getRepository().readDirCache().getEntry(path), "the entry");
         }
     }
 
-    @Nested
-    @DisplayName("git.worktree-sha")
-    class WorktreeShaTests {
-
-        @Test
-        @DisplayName("matches an independent computation of the version-1 framing")
-        void framing() throws Exception {
-            // two names in byte order, so the framing's sort is exercised
-            var first = names.next();
-            var second = names.next();
-            var a = (first.compareTo(second) < 0 ? first : second) + ".txt";
-            var b = (first.compareTo(second) < 0 ? second : first) + ".txt";
-            var link = names.next();
-            var aContent = text();
-            var bContent = text();
-            write(b, bContent);
-            write(a, aContent);
-            Files.createSymbolicLink(repo.resolve(link), Path.of(a));
-            String head = git.open(repo).value().head();
-
-            String expected = WorktreeShaDigestTest.independentDigest(head, List.of(
-                    WorktreeShaDigestTest.file(a, aContent), WorktreeShaDigestTest.file(b, bContent),
-                    WorktreeShaDigestTest.link(link, a)));
-
-            assertEquals(expected, sha(repo), "the digest matches the independent framing");
+    private boolean inCommit(String commitId, String path) throws IOException {
+        try (var jgit = Git.open(repo.toFile())) {
+            var tree = jgit.getRepository().parseCommit(
+                    jgit.getRepository().resolve(commitId)).getTree();
+            return TreeWalk.forPath(jgit.getRepository(), path, tree) != null;
         }
-    }
-
-    @Nested
-    @DisplayName("linked worktrees")
-    class Worktrees {
-
-        private Path worktrees() {
-            // fixture path: the worktree directory of the enrolled project
-            return repo.resolve(".marshall/local/worktrees");
-        }
-
-        /** @return the administration directory git keeps for a linked worktree of that name */
-        private Path admin(String name) {
-            return repo.resolve(".git/worktrees").resolve(name);
-        }
-
-        private Worktree add(String name, String newBranch) {
-            var result = git.worktreeAdd(new WorktreeAddInput(repo, worktrees().resolve(name), newBranch,
-                    true, HEAD));
-            assertEquals(GitOutcome.OK, result.outcome(), "the linked worktree is added");
-            return result.value();
-        }
-
-        @Test
-        @DisplayName("adds a worktree on a new branch, checked out and usable")
-        void addsOnNewBranch() throws Exception {
-            var name = names.next();
-            var newBranch = names.next();
-            Worktree added = add(name, newBranch);
-            var info = git.open(added.path()).value();
-
-            Files.writeString(added.path().resolve(file()), text());
-            CommitInfo onBranch = commitIn(added.path(), text());
-
-            assertAll(
-                    () -> assertEquals(readme, Files.readString(added.path().resolve("README.md")),
-                            "the worktree holds the checked-out files"),
-                    () -> assertTrue(info.linked(), "the added worktree is a linked worktree"),
-                    () -> assertEquals(newBranch, info.branch(), "the new branch is checked out"),
-                    () -> assertEquals(git.open(repo).value().commonDir(), info.commonDir(),
-                            "the linked worktree shares the common dir"),
-                    () -> assertTrue(git.worktreeSha(added.path()).isOk(), "the linked worktree has a digest"),
-                    () -> assertFalse(Files.exists(admin(name).resolve("locked")),
-                            "the initialization lock is removed"),
-                    () -> assertEquals(onBranch.id(), git.log(repo, newBranch, 1).value().getFirst()
-                            .id(), "the commit lands on the new branch"),
-                    () -> assertEquals(branch, git.open(repo).value().branch(),
-                            "the main worktree's HEAD is untouched"));
-        }
-
-        @Test
-        @DisplayName("lists the main worktree first, then the linked ones")
-        void lists() {
-            var onBranch = names.next();
-            var newBranch = names.next();
-            var detachedName = names.next();
-            add(onBranch, newBranch);
-            var detached = git.worktreeAdd(new WorktreeAddInput(repo, worktrees().resolve(detachedName),
-                    null, false, HEAD));
-            assertTrue(detached.isOk(), "the detached worktree is added");
-            var detachedFirst = detachedName.compareTo(onBranch) < 0;
-
-            List<Worktree> list = git.worktreeList(repo).value();
-            var detachedEntry = list.get(detachedFirst ? 1 : 2);
-            var branchEntry = list.get(detachedFirst ? 2 : 1);
-
-            assertAll(
-                    () -> assertEquals(3, list.size(), "the list holds the main and two linked trees"),
-                    () -> assertTrue(list.getFirst().main(), "the main worktree comes first"),
-                    () -> assertEquals(repo.toRealPath(), list.getFirst().path(), "the main entry is the repository"),
-                    () -> assertEquals(branch, list.getFirst().branch(), "the main entry has its branch"),
-                    () -> assertEquals(detachedName, detachedEntry.name(),
-                            "the linked worktrees are ordered by name"),
-                    () -> assertNull(detachedEntry.branch(), "a detached worktree has no branch"),
-                    () -> assertNotNull(detachedEntry.head(), "a detached worktree has a HEAD"),
-                    () -> assertEquals(newBranch, branchEntry.branch(),
-                            "the branch worktree reports its branch"),
-                    () -> assertEquals(list, git.worktreeList(branchEntry.path()).value(),
-                            "a linked worktree lists the same worktrees"));
-        }
-
-        @Test
-        @DisplayName("writes git's own administration layout (checked with the git CLI when present)")
-        void interoperatesWithGitCli() throws Exception {
-            var newBranch = names.next();
-            Worktree added = add(names.next(), newBranch);
-            // the git CLI and its porcelain output format are the contract the layout is checked against
-            Path gitCli = Path.of("/usr/bin/git");
-            Assumptions.assumeTrue(Files.isExecutable(gitCli), "git CLI not installed");
-
-            var process = new ProcessBuilder(gitCli.toString(), "worktree", "list", "--porcelain").directory(repo.toFile())
-                    .redirectErrorStream(true).start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-
-            assertAll(
-                    () -> assertEquals(0, process.waitFor(), "the git CLI lists the worktrees"),
-                    () -> assertTrue(output.contains("worktree " + added.path()),
-                            "the git CLI lists the linked worktree"),
-                    () -> assertTrue(output.contains("branch refs/heads/" + newBranch),
-                            "the git CLI reports the worktree's branch"),
-                    () -> assertFalse(output.contains("prunable"), "the git CLI finds nothing to prune"));
-        }
-
-        @Test
-        @DisplayName("refuses targets outside the root, existing targets, branches and unknown start points")
-        void refusesAdd() throws Exception {
-            var held = names.next();
-            add(names.next(), held);
-            var occupied = names.next();
-            var again = names.next();
-            write(".marshall/local/worktrees/" + occupied + "/" + file(), text());
-            Path plain = Files.createDirectories(temp.resolve("plain"));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    temp.resolve("outside"), null, false, HEAD)).outcome(),
-                            "a target outside the root is refused"),
-                    () -> assertEquals(GitOutcome.ALREADY_EXISTS, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(occupied), null, false, HEAD)).outcome(),
-                            "an occupied target already exists"),
-                    () -> assertEquals(GitOutcome.ALREADY_EXISTS, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), held, true, HEAD)).outcome(),
-                            "a branch to create already exists"),
-                    () -> assertEquals(GitOutcome.BRANCH_CHECKED_OUT, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), held, false, HEAD)).outcome(),
-                            "a branch a worktree holds is checked out"),
-                    () -> assertEquals(GitOutcome.BRANCH_CHECKED_OUT, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), branch, false, HEAD)).outcome(),
-                            "the main worktree's branch is checked out"),
-                    () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), names.next(), false, HEAD)).outcome(),
-                            "a missing branch is an unknown revision"),
-                    () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), null, false, names.next())).outcome(),
-                            "an unknown start point is refused"),
-                    () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.worktreeAdd(new WorktreeAddInput(plain,
-                                    plain.resolve("wt"), null, false, HEAD)).outcome(),
-                            "a root outside a repository is refused"));
-        }
-
-        @Test
-        @DisplayName("checks out an existing branch that no worktree holds")
-        void existingBranch() {
-            var existing = names.next();
-            Worktree first = add(names.next(), existing);
-            assertTrue(git.worktreeRemove(repo, first.path()).isOk(), "the first worktree is removed");
-
-            var again = git.worktreeAdd(new WorktreeAddInput(repo, worktrees().resolve(names.next()),
-                    existing, false, names.next()));
-
-            assertEquals(GitOutcome.OK, again.outcome(), "a free existing branch is checked out");
-        }
-
-        @Test
-        @DisplayName("removes a clean worktree and refuses dirty, locked, main and unknown ones")
-        void removes() throws Exception {
-            var cleanName = names.next();
-            var lockedName = names.next();
-            Worktree clean = add(cleanName, names.next());
-            Worktree dirty = add(names.next(), names.next());
-            Worktree locked = add(lockedName, names.next());
-            Files.writeString(dirty.path().resolve(file()), text());
-            // the lock file of git's administration layout
-            Files.writeString(admin(lockedName).resolve("locked"), text());
-            Path plain = Files.createDirectories(temp.resolve("plain"));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.WORKTREE_DIRTY, git.worktreeRemove(repo, dirty.path()).outcome(),
-                            "a worktree with changes is dirty"),
-                    () -> assertEquals(GitOutcome.WORKTREE_LOCKED, git.worktreeRemove(repo, locked.path()).outcome(),
-                            "a locked worktree is not removed"),
-                    () -> assertEquals(GitOutcome.PATH_REFUSED, git.worktreeRemove(repo, repo).outcome(),
-                            "the main worktree is not removed"),
-                    () -> assertEquals(GitOutcome.WORKTREE_NOT_FOUND,
-                            git.worktreeRemove(repo, temp.resolve(names.next())).outcome(),
-                            "an unknown worktree is not found"),
-                    () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.worktreeRemove(plain, clean.path()).outcome(),
-                            "a root outside a repository is refused"));
-
-            var removed = git.worktreeRemove(repo, clean.path());
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.OK, removed.outcome(), "the clean worktree is removed"),
-                    () -> assertFalse(Files.exists(clean.path()), "the clean worktree's directory is gone"),
-                    () -> assertFalse(Files.exists(admin(cleanName)), "the clean worktree's admin dir is gone"),
-                    () -> assertEquals(3, git.worktreeList(repo).value().size(),
-                            "the main and two refused worktrees remain"));
-        }
-
-        @Test
-        @DisplayName("reports a worktree whose directory is gone as prunable and removes its administration")
-        void prunable() throws Exception {
-            var name = names.next();
-            Worktree gone = add(name, names.next());
-            LinkedWorktrees.deleteTree(gone.path());
-
-            Worktree listed = git.worktreeList(repo).value().get(1);
-            var removed = git.worktreeRemove(repo, gone.path());
-
-            assertAll(
-                    () -> assertTrue(listed.prunable(), "a worktree without directory is prunable"),
-                    () -> assertEquals(GitOutcome.OK, removed.outcome(), "a prunable worktree is removed"),
-                    () -> assertFalse(Files.exists(admin(name)), "the prunable worktree's admin dir is gone"));
-        }
-    }
-
-    @Nested
-    @DisplayName("fetch and push over file://")
-    class Transport {
-
-        private Path remote;
-        private String remoteHead;
-
-        @BeforeEach
-        void bareRemote() throws GitAPIException, IOException, URISyntaxException {
-            remoteHead = "refs/heads/" + branch;
-            remote = temp.resolve("remote.git");
-            Git.init().setBare(true).setDirectory(remote.toFile()).setInitialBranch(branch).setFs(new RefusingFS())
-                    .call().close();
-            try (Git jgit = Git.open(repo.toFile())) {
-                jgit.remoteAdd().setName(ORIGIN).setUri(new URIish(remote.toUri().toString())).call();
-            }
-        }
-
-        private GitResult<GitOperations.RefUpdate> push(Path root, String expected) {
-            return git.push(new PushInput(root, ORIGIN, HEAD, remoteHead, expected,
-                    null));
-        }
-
-        @Test
-        @DisplayName("pushes, fetches into a second clone, and rejects a non-fast-forward and a stale lease")
-        void pushFetchReject() throws Exception {
-            String head = git.open(repo).value().head();
-            var pushed = push(repo, null);
-            assertEquals(GitOutcome.OK, pushed.outcome(), "the first push is accepted");
-            assertEquals(head, pushed.value().newId(), "the remote now holds the head");
-
-            Path other = temp.resolve("other");
-            Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(other.toFile()).setFs(new RefusingFS())
-                    .call().close();
-            Files.writeString(other.resolve(file()), text());
-            CommitInfo otherCommit = commitIn(other, text());
-            assertEquals(GitOutcome.OK, push(other, head).outcome(), "lease on the expected head holds");
-
-            write(file(), text());
-            commit(text());
-            assertEquals(GitOutcome.REJECTED_NON_FAST_FORWARD, push(repo, null).outcome(),
-                    "a push behind the remote is no fast-forward");
-            assertEquals(GitOutcome.REJECTED_LEASE, push(repo, head).outcome(), "a stale lease is rejected");
-
-            var fetched = git.fetch(new RemoteInput(repo, ORIGIN, List.of(), null));
-            assertEquals(GitOutcome.OK, fetched.outcome(), "the fetch from the remote succeeds");
-            assertEquals(otherCommit.id(), fetched.value().stream()
-                    .filter(u -> ("refs/remotes/" + ORIGIN + "/" + branch).equals(u.ref())).findFirst().orElseThrow()
-                    .newId(), "the tracking ref holds the other clone's commit");
-        }
-
-        @Test
-        @DisplayName("refuses remotes outside the policy before sending anything, and unknown remotes")
-        void refusesRemotes() {
-            // the https origin of the credential entry is the contract of the remote policy
-            var httpsOnly = new JGitOperations(RemotePolicy.httpsOrigin(URI.create("https://github.com")));
-            var generated = GitGenerators.credentials().next();
-            var secret = new String(generated.secret());
-            var credential = generated;
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.REMOTE_ORIGIN_MISMATCH,
-                            httpsOnly.fetch(new RemoteInput(repo, ORIGIN, List.of(), credential)).outcome(),
-                            "a fetch outside the policy is refused"),
-                    () -> assertEquals(GitOutcome.REMOTE_ORIGIN_MISMATCH, httpsOnly.push(new PushInput(repo, ORIGIN,
-                                    HEAD, remoteHead, null, credential)).outcome(),
-                            "a push outside the policy is refused"),
-                    () -> assertEquals(GitOutcome.UNKNOWN_REVISION,
-                            git.fetch(new RemoteInput(repo, names.next(), List.of(), null)).outcome(),
-                            "a fetch from an unknown remote is refused"),
-                    () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.push(new PushInput(repo, ORIGIN, names.next(),
-                                    remoteHead, null, null)).outcome(),
-                            "a push of an unknown ref is refused"),
-                    () -> assertFalse(credential.toString().contains(secret),
-                            "the credential's text hides the secret"));
-        }
-
-        @Test
-        @DisplayName("compares credentials by the content of the secret")
-        void credentialEquality() {
-            var credential = GitGenerators.credentials().next();
-            var same = new GitCredential(credential.username(), credential.secret().clone());
-            // the other values extend the generated ones, so they differ whatever was generated
-            var otherSecret = (new String(credential.secret()) + text()).toCharArray();
-            var otherUser = credential.username() + text();
-
-            assertAll(
-                    () -> assertEquals(credential, same, "an equal secret in another array is equal"),
-                    () -> assertEquals(credential.hashCode(), same.hashCode(), "equal credentials share a hash code"),
-                    () -> assertNotEquals(credential, new GitCredential(credential.username(), otherSecret),
-                            "another secret makes another credential"),
-                    () -> assertNotEquals(credential, new GitCredential(otherUser, credential.secret().clone()),
-                            "another user makes another credential"),
-                    () -> assertNotEquals(credential, (Object) new String(credential.secret()),
-                            "a credential never equals its secret text"));
-        }
-    }
-
-    @Nested
-    @DisplayName("refusing file system")
-    class Refusals {
-
-        @Test
-        @DisplayName("refuses a commit when a repository hook is present, writing nothing")
-        void hookPresent() throws Exception {
-            // the hook name and the refusal detail are the contract of git and of the outcome
-            Path hook = repo.resolve(".git/hooks/pre-commit");
-            var marker = names.next();
-            Files.createDirectories(hook.getParent());
-            Files.writeString(hook, "#!/bin/sh\ntouch " + marker + "\n");
-            Files.setPosixFilePermissions(hook, PosixFilePermissions.fromString("rwxr-xr-x"));
-            String before = git.open(repo).value().head();
-            write(file(), text());
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.CAPABILITY_MISSING, result.outcome(),
-                            "a present hook is a missing capability"),
-                    () -> assertEquals("repository_hook", result.detail(), "the detail names the repository hook"),
-                    () -> assertEquals(before, git.open(repo).value().head(),
-                            "the refused commit leaves HEAD unchanged"),
-                    () -> assertFalse(Files.exists(repo.resolve(marker)), "the hook is never run"));
-        }
-
-        @Test
-        @DisplayName("refuses filter drivers instead of running them")
-        void filterDriver() throws Exception {
-            // the attribute and configuration keys of a git filter driver, and the refusal detail, are the contract
-            var filter = names.next();
-            write(".gitattributes", "*.txt filter=" + filter + "\n");
-            try (Git jgit = Git.open(repo.toFile())) {
-                StoredConfig config = jgit.getRepository().getConfig();
-                config.setString("filter", filter, "clean", "tr a-z A-Z");
-                config.save();
-            }
-            write(file(), text());
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
-
-            assertAll(
-                    () -> assertEquals(GitOutcome.CAPABILITY_MISSING, result.outcome(),
-                            "a filter driver is a missing capability"),
-                    () -> assertEquals("process_execution", result.detail(),
-                            "the detail names the process execution"));
-        }
-    }
-
-    /**
-     * The premise of the path rule that refuses `*`, `?` and `[`: does JGit's staging API read its argument as a
-     * pathspec, which would expand it, or as a literal path?
-     */
-    @Nested
-    @DisplayName("the glob refusal's premise")
-    class TheGlobRefusalPremise {
-
-        @ParameterizedTest(name = "{0}")
-        @MethodSource("de.planmarshall.provider.git.JGitOperationsTest#globCandidates")
-        @DisplayName("JGit stages the literal file name of a path carrying a glob character")
-        void addFilepatternStagesTheLiteralName(String literal, String patternMatch) throws Exception {
-            // the two file names are the contract: the literal name and the name a wildcard would match instead
-            write(literal, text());
-            write(patternMatch, text());
-            try (Git jgit = Git.open(repo.toFile())) {
-                jgit.add().addFilepattern(literal).call();
-                var index = jgit.getRepository().readDirCache();
-
-                assertAll(
-                        () -> assertNotNull(index.getEntry(literal), "the literal file name is staged"),
-                        () -> assertNull(index.getEntry(patternMatch), "no wildcard match is staged"));
-            }
-        }
-
-        @Test
-        @DisplayName("the provider commits a path whose name carries a glob character, literally")
-        void providerCommitsTheGlobPath() throws Exception {
-            // the file names are the contract: the literal page path and the name a wildcard would match
-            write("pages/[id].tsx", text());
-            write("pages/i.tsx", text());
-
-            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("pages/[id].tsx")));
-
-            try (Git jgit = Git.open(repo.toFile())) {
-                var tree = jgit.getRepository().resolve("HEAD^{tree}");
-                var literal = TreeWalk.forPath(jgit.getRepository(), "pages/[id].tsx", tree);
-                var wildcardMatch = TreeWalk.forPath(jgit.getRepository(), "pages/i.tsx", tree);
-
-                assertAll(
-                        () -> assertEquals(GitOutcome.OK, result.outcome(), "the literal page path is committed"),
-                        () -> assertNotNull(literal, "the committed tree holds the literal name"),
-                        () -> assertNull(wildcardMatch, "the wildcard match stays uncommitted"));
-            }
-        }
-    }
-
-    static Stream<Arguments> globCandidates() {
-        return Stream.of(
-                Arguments.of("pages/[id].tsx", "pages/i.tsx"),
-                Arguments.of("notes*.md", "notes-a.md"),
-                Arguments.of("what?.md", "what1.md"));
     }
 }
