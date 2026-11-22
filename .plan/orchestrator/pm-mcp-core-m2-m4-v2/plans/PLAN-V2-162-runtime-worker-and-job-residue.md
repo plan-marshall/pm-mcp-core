@@ -3,11 +3,11 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: the landing of PLAN-V2-156 (`landings/PLAN-V2-156.md`, 2026-11-20: carried items 19, 30, 41, 42, 44, 48, 49, 50, 55 and 56 named no owner) and the operator's rule that leftovers go into a staged plan
-lane: plan-marshall
+lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-162-runtime-worker-and-job-residue.md` and is queued as one row file, `queue/PLAN-V2-162.json`,
-> in the epic ledger (lane `plan-marshall`: the operator runs it with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `runbook`: the operator runs it with the runbook lane; converted from `plan-marshall` at the emit of 2026-11-22 by the standing emit rule). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
 > authored here and the epic-wide rules are in `standing-rules.md`, read first.
@@ -90,7 +90,7 @@ Source, tests, specification and documentation (specific files, R19; the outline
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-162-runtime-worker-and-job-residue.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-162-runtime-worker-and-job-residue.md
 ```
 
 ## Write-Boundary
