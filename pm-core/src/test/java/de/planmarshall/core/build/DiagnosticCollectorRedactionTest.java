@@ -176,10 +176,11 @@ class DiagnosticCollectorRedactionTest {
     private static final Duration FLOOD_BOUND = Duration.ofSeconds(120);
 
     private static List<String> hostileFlood() {
-        // a whitespace-separated flood is many tokens: a per-token lookup that walks back into the previous tokens is
-        // quadratic on the whole line, the shape the bounded scan must not have
-        var line = "x://y: ".repeat(BuildLogText.MAX_LINE_LENGTH / 7 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
-        var lines = new ArrayList<String>();
+        // the shape that failed at f05e1544: one URL-like token repeated with NO whitespace, so a scan that walks back
+        // into the previous tokens is quadratic on the whole line, the shape the bounded scan must not have
+        var line = "x://y:".repeat(BuildLogText.MAX_LINE_LENGTH / 6 + 1)
+                .substring(0, BuildLogText.MAX_LINE_LENGTH);
+        var lines = new ArrayList<String>(2_000);
         for (var index = 0; index < 2_000; index++) {
             lines.add(line);
         }
@@ -191,11 +192,15 @@ class DiagnosticCollectorRedactionTest {
     void hostileUrlFloodThroughTheStoredSeam() {
         var flood = hostileFlood();
 
-        assertTimeoutPreemptively(FLOOD_BOUND, () -> flood.forEach(DiagnosticCollector::stored),
+        var redacted = assertTimeoutPreemptively(FLOOD_BOUND,
+                () -> flood.stream().map(DiagnosticCollector::stored).toList(),
                 "the stored seam redacts the flood within the bound");
 
-        assertEquals(2_000, flood.size(), "the flood holds 2 000 lines");
-        assertEquals(BuildLogText.MAX_LINE_LENGTH, flood.getFirst().length(), "each flood line holds 8 192 characters");
+        assertAll("the stored seam keeps the flood's redacted text",
+                () -> assertEquals(2_000, redacted.size(), "the flood holds 2 000 lines"),
+                () -> assertEquals(500, redacted.getFirst().length(), "the stored text is cut to its bound"),
+                () -> assertEquals(flood.getFirst().substring(0, 500), redacted.getFirst(),
+                        "the stored output is the redacted input"));
     }
 
     @Test
@@ -203,11 +208,20 @@ class DiagnosticCollectorRedactionTest {
     void hostileUrlFloodThroughTheDiagnosticConstructor() {
         var stack = String.join("\n", hostileFlood());
 
-        assertTimeoutPreemptively(FLOOD_BOUND,
+        var diagnostic = assertTimeoutPreemptively(FLOOD_BOUND,
                 () -> new Diagnostic(null, null, null, "text", Category.OTHER, Severity.ERROR, stack),
                 "the constructor redacts the flood within the bound");
 
-        assertEquals(2_000 + 2_000 * BuildLogText.MAX_LINE_LENGTH - 1, stack.length(),
-                "the flood reaches the constructor whole");
+        assertAll("the constructor keeps the flood's redacted text",
+                () -> assertEquals(500, stackTraceOf(diagnostic).length(), "the stack trace is cut to its bound"),
+                () -> assertEquals(stack.substring(0, 500), stackTraceOf(diagnostic),
+                        "the stored stack is the redacted input"),
+                () -> assertEquals(2_000 + 2_000 * BuildLogText.MAX_LINE_LENGTH - 1, stack.length(),
+                        "the flood reaches the constructor whole"));
+    }
+
+    private static String stackTraceOf(Diagnostic diagnostic) {
+        assertNotNull(diagnostic.stackTrace(), "the constructor keeps the stack trace");
+        return diagnostic.stackTrace();
     }
 }
