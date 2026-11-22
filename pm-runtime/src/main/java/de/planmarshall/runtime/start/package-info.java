@@ -87,7 +87,8 @@
  * recovery has finished; a project still recovering is taken up by the next run. Its steps
  * ({@link de.planmarshall.runtime.start.SweepStep}) remove the technical residue; today that is
  * {@link de.planmarshall.runtime.start.PendingEntryRecordsSweep}, which removes the directory of a pending entry whose
- * removal a stop cut off, by the evidence of its absent record and never by its age (an open entry never expires), in
+ * removal a stop cut off, by the evidence of its four stores absent from the sidecar and the filesystem and never by its
+ * age (an open entry never expires), in
  * one transaction of the workspace scope with one owed {@code pending_entry_removed} audit record per directory, each
  * under a {@code transaction_id} of its own; the directories are deleted after the commit. The assembly registers the
  * steps. The duration is a compiled constant, not configuration. A failing step is logged and does not stop the run;

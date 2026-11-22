@@ -23,9 +23,11 @@ scope would write a location the specification forbids and that no reader of the
 == Decision
 
 `PendingEntryCreation.move` carries a plan's sources alone: a target whose scope is an epic is refused with an
-`IllegalArgumentException` that names the epic's ledger and the `PLAN-V2-133` D5 source copy it waits for. A target that
+`IllegalArgumentException` that names the epic's ledger and the ledger copy it waits for. A target that
 is neither a plan nor an epic is refused as before, and the refusal happens before the entry, its manifest or its
-stores are read, so a refused move writes nothing. The operator decided this on 2026-11-22 (the spec's Deliverable 1 a).
+stores are read, so a refused move writes nothing. The question move `QuestionLog.moveEntryQuestions` refuses an epic
+target on the same grounds, so a direct caller cannot write an epic's question store from a pending entry either. The
+operator decided this on 2026-11-22 (the spec's Deliverable 1 a).
 
 == Alternatives Considered
 

@@ -9,9 +9,14 @@
  */
 package de.planmarshall.runtime.start;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
 import static org.easymock.EasyMock.newCapture;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.easymock.EasyMock.replay;
+import static org.easymock.EasyMock.verify;
+import static org.junit.jupiter.api.Assertions.assertAll;import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,6 +38,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
@@ -52,6 +58,8 @@ import de.planmarshall.core.store.PendingEntryCreation;
 import de.planmarshall.core.store.PendingEntryRecord;
 import de.planmarshall.core.store.PendingEntryStore;
 import de.planmarshall.core.store.ScopeTransaction;
+import de.planmarshall.core.store.SourceManifest;
+import de.planmarshall.core.store.StoreDigest;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.test.AuditSinkDoubles;
@@ -252,6 +260,53 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
+    @DisplayName("a populated creation cut after both commits keeps its sources and transcript, and is swept")
+    void populatedCreationCutAfterBothCommits() throws Exception {
+        var plan = JournalScope.plan(base, projectId, "plan-" + Generators.letterStrings(3, 12).next()
+                .toLowerCase(Locale.ROOT));
+        Files.createDirectories(plan.journalFile().getParent());
+        var description = Generators.letterStrings(10, 40).next();
+        var content = description.getBytes(StandardCharsets.UTF_8);
+        var sourceId = "source_" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        var manifest = new SourceManifest(1, List.of(new SourceManifest.Source(sourceId,
+                SourceManifest.Kind.DESCRIPTION, "the operator", "operator", SourceManifest.Trust.TRUSTED,
+                List.of(new SourceManifest.SourceFile("description.md", content.length, StoreDigest.of(content).sha256())),
+                now, null, null)));
+        create(entry(residue, now));
+        inWorkspace(transaction -> store.replaceSources(transaction, residue, manifest));
+        Files.write(store.sourcesDirectory(residue).resolve("description.md"), content);
+        var transcript = Generators.letterStrings(10, 40).next();
+        Files.writeString(store.chatDirectory(residue).resolve("session.md"), transcript, StandardCharsets.UTF_8);
+        var creation = new PendingEntryCreation(workspace);
+        try (var lock = lockManager.openTransaction()) {
+            lock.acquire(workspace.lockKey());
+            lock.acquire(plan.lockKey());
+            var workspaceWrite = ScopeTransaction.open(lock, workspace, auditSink, clock);
+            var target = ScopeTransaction.open(lock, plan, auditSink, clock);
+            creation.move(workspaceWrite, target, residue);
+            target.commit();
+            workspaceWrite.commit();
+        }
+        var before = auditEvents.getValues().size();
+
+        var outcome = sweep.run(projectId, now);
+
+        var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
+        assertAll(
+                () -> assertEquals(description,
+                        Files.readString(plan.pathBase().resolve("sources/description.md")),
+                        "the created scope must keep the carried source"),
+                () -> assertEquals(transcript, Files.readString(plan.pathBase().resolve("chat/session.md")),
+                        "the created scope must keep the carried transcript"),
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories"), outcome,
+                        "the sweep must remove the populated cut creation's directory"),
+                () -> assertFalse(Files.exists(store.entryDirectory(residue)),
+                        "the populated directory of the cut creation must be gone"),
+                () -> assertEquals(1, removals.size(),
+                        "one audit record must be owed for the populated removal"));
+    }
+
+    @Test
     @DisplayName("a name whose directory is no entry id is never touched, however old")
     void unparsableNamesUntouched() throws Exception {
         // Fixture paths: a name without the prefix, one with upper-case digits and one with too few digits, each a
@@ -315,6 +370,79 @@ class PendingEntryRecordsSweepTest {
                         "the report must name the unreadable record"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"),
                 () -> assertTrue(Files.exists(store.store(broken)), "the unreadable record is kept"));
+    }
+
+    @Test
+    @DisplayName("an unreadable entry and a held entry are both reported, and the readable residue is removed")
+    void unreadableAndHeldBothReported() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var broken = entryId();
+        Files.createDirectories(store.entryDirectory(broken));
+        // Fixture: a truncated record that does not parse
+        Files.writeString(store.entryDirectory(broken).resolve(PendingEntryStore.RECORD), "{\"format_version\":1,");
+        var linked = entryId();
+        create(entry(linked, now));
+        cutOffRemoval(linked);
+        var sources = store.sourcesDirectory(linked);
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere"));
+        Files.delete(sources);
+        Files.createSymbolicLink(sources, elsewhere);
+
+        var outcome = sweep.run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "two failed entries fail the step").reason();
+        assertAll(
+                () -> assertTrue(reason.contains("kept unreadable entries"),
+                        "the report must name the unreadable entries"),
+                () -> assertTrue(reason.contains(broken.value()), "the report must name the unreadable record"),
+                () -> assertTrue(reason.contains("kept or failed entries"),
+                        "the report must name the held entry too"),
+                () -> assertTrue(reason.contains(linked.value() + " (held: "),
+                        "the report must name the held entry"),
+                () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"));
+    }
+
+    @Test
+    @DisplayName("a directory the discard cannot remove is reported, and the removed count is kept in the report")
+    void discardRefusedAfterCommitKeepsTheCount() {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var recreated = new AtomicBoolean();
+        AuditSink sink = createMock(AuditSink.class);
+        sink.append(anyObject(AuditEvent.class));
+        expectLastCall().andAnswer(() -> {
+            var event = (AuditEvent) getCurrentArguments()[0];
+            if (PENDING_ENTRY_REMOVED.equals(event.event()) && recreated.compareAndSet(false, true)) {
+                Files.write(store.store(residue), PendingEntryCodec.write(entry(residue, now)));
+            }
+            return null;
+        }).anyTimes();
+        replay(sink);
+        var own = new PendingEntryRecordsSweep(base, new FileLockManager(sink), sink, clock);
+
+        var outcome = own.run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a refused discard fails the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept or failed entries:"),
+                        "the report must keep the removed count"),
+                () -> assertTrue(reason.contains(residue.value()), "the report must name the kept directory"),
+                () -> assertTrue(Files.exists(store.entryDirectory(residue)), "the directory must still be there"));
+        verify(sink);
+    }
+
+    @Test
+    @DisplayName("a refusal that is no symbolic-link refusal holds no entry: one link holds one entry alone")
+    void secondCauseIsNoHeldEntry() {
+        var link = new JournalScope.SymbolicLinkRefusal("Store path 'x' passes through a symbolic link below base");
+        var other = new IllegalArgumentException("the recovery of the workspace broke");
+
+        assertAll(
+                () -> assertTrue(PendingEntryRecordsSweep.holdsEntry(link),
+                        "the link refusal should hold its entry"),
+                () -> assertFalse(PendingEntryRecordsSweep.holdsEntry(other),
+                        "another refusal should be no held entry"));
     }
 
     @Test

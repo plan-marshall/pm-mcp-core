@@ -255,8 +255,8 @@ class EntryQuestionMoveTest {
     }
 
     @Test
-    @DisplayName("moves into an epic as into a plan")
-    void movedIntoEpic() throws Exception {
+    @DisplayName("is refused for an epic target: an entry creates no epic, so its questions move into a plan alone")
+    void refusesAnEpicTarget() throws Exception {
         var epic = JournalScope.epic(base, project,
                 Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         Files.createDirectories(epic.pathBase());
@@ -265,13 +265,19 @@ class EntryQuestionMoveTest {
 
         try (var transaction = locks.openTransaction()) {
             var creation = open(transaction, epic);
-            QuestionLog.moveEntryQuestions(creation.workspace(), ENTRY, creation.target());
-            creation.target().commit();
-            creation.workspace().commit();
+            var workspaceWrite = creation.workspace();
+            var epicWrite = creation.target();
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> QuestionLog.moveEntryQuestions(workspaceWrite, ENTRY, epicWrite),
+                    "an epic receives no entry questions");
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains("epic"),
+                            "the refusal should name the epic target"),
+                    () -> assertFalse(epicWrite.isTarget(new QuestionLog(epic).store()),
+                            "no epic log should be created"));
         }
-
-        assertArrayEquals(entryBytes, Files.readAllBytes(new QuestionLog(epic).store()),
-                "an epic receives the entry log byte for byte");
+        assertArrayEquals(entryBytes, Files.readAllBytes(entryLog.store()),
+                "the still-refused entry log should stay in place");
     }
 
     @Test

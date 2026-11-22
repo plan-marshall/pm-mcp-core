@@ -392,7 +392,7 @@ public final class QuestionLog {
     }
 
     /**
-     * Moves the question log of a pending entry into the scope the entry creates. The complete lines of
+     * Moves the question log of a pending entry into the plan scope the entry creates. The complete lines of
      * {@code pending/<entry_id>/questions.jsonl} are added unchanged as the new {@code questions.jsonl} of the new
      * scope to its transaction, which creates the log and is refused at its commit if the scope has one already, and
      * the removal of the entry's log is added to the transaction of the workspace; a torn tail is not moved.
@@ -400,14 +400,15 @@ public final class QuestionLog {
      * A scope's transaction writes only the stores of its scope, so the move is two targets of two transactions, both
      * held by the caller that creates the scope. The caller commits the transaction of the new scope first: a stop
      * before the second commit leaves the entry's log in place, and a repeated move is refused by the creation instead
-     * of appending the lines twice.
+     * of appending the lines twice. An epic target is refused as the creation refuses it: an entry creates a plan, and
+     * an epic's records belong to its git-tracked ledger.
      *
      * @param workspace an open transaction of the workspace scope
      * @param entryId   the pending entry
-     * @param target    an open transaction of the plan or epic scope the entry creates
+     * @param target    an open transaction of the plan scope the entry creates
      * @return the number of lines moved; 0 if the entry has no log or no complete line
-     * @throws IllegalArgumentException if the workspace transaction is not of a workspace, the target is not a plan
-     *                                  or an epic, or a store is a target of its transaction already
+     * @throws IllegalArgumentException if the workspace transaction is not of a workspace, the target is not a plan,
+     *                                  or a store is a target of its transaction already
      * @throws IllegalStateException    if a transaction was committed
      * @throws UncheckedIOException     if the entry's log exists and cannot be read
      */
@@ -416,8 +417,9 @@ public final class QuestionLog {
         Objects.requireNonNull(target, "target");
         var entry = ofEntry(workspace.scope(), entryId);
         var type = target.scope().type();
-        if (type != JournalScopeType.PLAN && type != JournalScopeType.EPIC) {
-            throw new IllegalArgumentException("An entry creates a plan or an epic, not a " + type.wireName());
+        if (type != JournalScopeType.PLAN) {
+            throw new IllegalArgumentException("An entry creates a plan, not a " + type.wireName()
+                    + (type == JournalScopeType.EPIC ? ": an epic's records belong to its git-tracked ledger" : ""));
         }
         var file = entry.store();
         if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {

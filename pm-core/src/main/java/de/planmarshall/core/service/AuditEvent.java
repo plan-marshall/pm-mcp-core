@@ -220,7 +220,12 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The detail of a removed pending entry that names the entry by its id. */
     public static final String DETAIL_ENTRY_ID = "entry_id";
 
-    /** The detail of a removed pending entry that holds the instant the residue was removed. */
+    /**
+     * The detail of a removed pending entry that holds the instant the residue was removed, as
+     * {@link Instant#toString()} writes it: ISO-8601 in UTC, with the fraction of a second omitted when it is zero and
+     * 3, 6 or 9 digits otherwise. No schema file lists the key, because the audit schema declares {@code details} as an
+     * open object; {@code AuditEventTest} and the sweep's test are its guards.
+     */
     public static final String DETAIL_REMOVED_AT = "removed_at";
 
     /**

@@ -1059,12 +1059,13 @@ caller: transaction.commit()
   refusal value.
 
 *The move of an entry's questions.* A client opens an entry for a scope that does not exist yet, and its questions go
-into the entry's log. When the bootstrap creates the plan or the epic, `QuestionLog.moveEntryQuestions(workspace,
+into the entry's log. When the bootstrap creates the plan, `QuestionLog.moveEntryQuestions(workspace,
 entryId, target)` adds the complete lines of the entry's log unchanged as a create target of `questions.jsonl` to the
 transaction of the new scope, and the delete of the entry's log to the transaction of the workspace. A scope's
 transaction writes only the stores of its scope, so the move is two transactions held by one caller: the new scope is
 committed first, then the workspace. A stop between the two commits leaves the entry's log in place, and repeating the
-move is refused by the create target instead of appending the lines twice; a torn tail is not moved
+move is refused by the create target instead of appending the lines twice; a torn tail is not moved, and an epic target
+is refused with the creation's own reason
 (link:../adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR 036]). The record is the entry's
 `entry.json` in the same directory (link:../adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR 082]).
 
@@ -2911,19 +2912,27 @@ entry deletes its directory. Neither another entry nor the workspace workflow is
 
 *Creation*: `PendingEntryCreation.move` is the store-level part of `start.create-scope`. It carries a plan's sources
 alone: an epic target is refused with a named reason, because an epic's sources belong to its git-tracked ledger and
-its machine store keeps none, and the ledger copy is owed to `PLAN-V2-133` D5
+its machine store keeps none, and the ledger copy is owed
 (link:../adr/core-store/083-the-store-level-creation-carries-a-plans-sources-alone.adoc[ADR 083]). The caller holds the
 workspace lock and has verified the entry under it before the move; the move itself reads the record, the manifest and
-the stores without a verification.
+the stores without a verification. That verification is the guard of every path the entry's operations use: `move`,
+`discard`, `read` and `readSources` resolve the entry's paths through `JournalScope.resolve`, which follows a link in a
+parent directory, whereas `verify` reaches every store through `JournalScope.resolveWithoutLinks` and refuses a link
+below the path base. A caller that acts on an entry therefore verifies it under the lock first, and the periodic sweep
+does (link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
 
 The move copies the source files and the manifest into the new scope's `sources/`, the transcript into its `chat/`,
 copies the decision store and deletes the entry's, moves the question log through `QuestionLog.moveEntryQuestions`, and
 composes `request.md` from the description texts and a reference to every other source; it creates the directories of
 the new scope first, because a transaction writes stores and not directories, and it refuses an entry that does not
-exist. The file set is exactly the manifest: a file or link of `sources/` that no manifest entry names refuses the move
-instead of being deleted with the directory, a stored file that is a symbolic link or whose canonical path leaves the
-source directory is refused, and the file is read with `NOFOLLOW_LINKS`. The manifest itself refuses a path two sources
-name and a path that is its own `sources.json`
+exist. The question move refuses an epic target as the move does. The transcript is carried as whole as the sources: a
+transcript that is a symbolic link or no directory, and a link or a file that is no regular file inside it, refuse the
+move instead of being dropped while `finish` deletes the directory with them. The file set is exactly the manifest: a
+file or link of `sources/` that no manifest entry names refuses the move instead of being deleted with the directory, a
+stored file that is a symbolic link or whose canonical path leaves the source directory is refused, and the file is read
+with `NOFOLLOW_LINKS`. The manifest itself refuses a path two sources name, a path that repeats another in case — a
+case-insensitive filesystem addresses one file in either case — a path that is the directory of another, and a path that
+is its own `sources.json` in any case
 (link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
 
 The workspace transaction deletes the entry's record last; the caller commits the new scope first and the workspace
@@ -2933,7 +2942,10 @@ the assembly's `start.create-scope`, link:../adr/core-store/086-the-cross-commit
 086]), a stop after both commits leaves the record gone and the directory behind, the sweep removes that directory, and
 `finish` deletes the entry's directory as the last act. A directory a concurrent sweep removed first is no error: the
 `discard` the finish calls reports that nothing was there, and a recursive delete that finds a directory gone stops
-there instead of failing.
+there instead of failing. The record is deleted last here and first by `remove`, and the orders differ on purpose:
+`remove` deletes all four stores in one transaction the journal completes, while in the move the record is the durable
+evidence that the creation passed, so a stop before the workspace's commit must leave it in place
+(`PendingEntryStore.stores`).
 
 *Compatibility*: the record's `format_version` stays 1 — its shape changed in place (`recipe` and `requested_id`
 instead of the raw `source`, `hint` required, `from_epic` added) with no bump and no reader of an earlier shape — and a
@@ -2948,13 +2960,16 @@ entry's specification does not ask for (`PLAN-V2-167` reports it).
 
 *Failure modes*: a record of another `format_version`, an unreadable record, or a record that states another
 `entry_id` than its directory is a `StoreRefusal` naming the file; a stored file whose size or digest differs from its
-manifest entry, a file of `sources/` with no manifest entry, and a symbolic link in the source directory refuse the
-move; an entry of another scope's transaction is refused; removing an entry that does not exist is no error.
+manifest entry, a file of `sources/` with no manifest entry, a symbolic link in the source directory, and a link or a
+special file in the transcript refuse the move; an entry of another scope's transaction is refused; a store path
+through a symbolic link is a `JournalScope.SymbolicLinkRefusal`; removing an entry that does not exist is no error.
 
 Tested by `PendingEntryStoreTest` (creation in one transaction and its roll-forward after a stop, replacement, the
 manifest, removal and discard, the abandon end, the per-entry integrity verdict per store and its re-baseline, the
-listing, the id grammar), `PendingEntryCodecTest` and `PendingEntrySchemaParityTest` (the record and its schema),
-`SourceManifestCodecTest` (the manifest, the shared path, the reserved name and its refusals), and
-`PendingEntryCreationTest` (the move, the composed request, the refused epic target, the refused differing and unlisted
-source, the refused link and the refused repeated move).
+refused linked store path, the listing, the id grammar), `PendingEntryCodecTest` and `PendingEntrySchemaParityTest` (the
+record and its schema), `SourceManifestCodecTest` (the manifest, the shared path, the case variant, the file and its
+directory, the reserved name and its refusals), `EntryQuestionMoveTest` (the moved log, the refused epic target) and
+`PendingEntryCreationTest` (the move, the composed request and its non-normalized directory, the refused epic target, the
+refused differing and unlisted source, the refused link and link below a parent, the refused transcript link and the
+refused repeated move).
 

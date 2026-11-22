@@ -43,6 +43,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -565,6 +567,21 @@ class PendingEntryStoreTest {
                             "the cause should name the edited store"),
                     () -> assertNotEquals(mismatch.recorded(), mismatch.current(),
                             "the edited store should differ from its recorded digest"));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("a store path through a symbolic link is refused, so the caller's verify guards every later read")
+        void linkedStoreRefused() throws Exception {
+            var id = enter(new ScriptedRandom(Generators.longs(0, Long.MAX_VALUE - 1).next()));
+            var manifest = store.sourcesStore(id);
+            var outside = Files.write(base.resolve("outside-sources.json"),
+                    SourceManifestCodec.write(SourceManifest.empty()));
+            Files.delete(manifest);
+            Files.createSymbolicLink(manifest, outside);
+
+            assertThrows(IllegalArgumentException.class, () -> verify(id),
+                    "a linked store path should be refused by the verification");
         }
 
         @Test

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import java.io.Serial;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
@@ -177,18 +178,37 @@ Path sidecarFile, List<Path> ownedDirectories, LockKey lockKey) {
      *
      * @param relativePath a path relative to the path base
      * @return the store file, absolute and normalized, reached without a symbolic link below the path base
-     * @throws IllegalArgumentException if the path is absolute, empty, does not lie below the path base, or an
-     *                                  existing component of it below the path base, the store included, is a
-     *                                  symbolic link
+     * @throws SymbolicLinkRefusal      if an existing component of the path below the path base, the store included, is
+     *                                  a symbolic link
+     * @throws IllegalArgumentException if the path is absolute, empty, or does not lie below the path base
      */
     Path resolveWithoutLinks(String relativePath) {
         var store = resolve(relativePath);
         var link = linkBelowPathBase(store);
         if (link.isPresent()) {
-            throw new IllegalArgumentException("Store path '%s' passes through the symbolic link %s below %s"
+            throw new SymbolicLinkRefusal("Store path '%s' passes through the symbolic link %s below %s"
                     .formatted(relativePath, link.get(), pathBase));
         }
         return store;
+    }
+
+    /**
+     * The refusal of a store path that passes through a symbolic link below the path base. It is an
+     * {@link IllegalArgumentException} like the other refusals of a path, and its own type lets a caller that holds a
+     * single entry on such a link tell it from a fault of the verification (the periodic sweep does, ADR
+     * runtime-start/017).
+     *
+     * @since 0.1
+     */
+    public static final class SymbolicLinkRefusal extends IllegalArgumentException {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        /** @param message the refusal, naming the path and the link */
+        public SymbolicLinkRefusal(String message) {
+            super(message);
+        }
     }
 
     /**
