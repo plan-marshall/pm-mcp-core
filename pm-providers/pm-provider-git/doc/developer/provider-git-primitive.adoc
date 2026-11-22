@@ -41,7 +41,7 @@ the diff summary and the two footprint breaches the site observes (<<_the_commit
 |link:{src}/CommitMessages.java[`CommitMessages`]
 |The validation of a commit message and the one writer of the `Co-Authored-By:` line.
 
-|link:../src/main/java/de/planmarshall/provider/git/CommitPaths.java[`CommitPaths`]
+|link:../../src/main/java/de/planmarshall/provider/git/CommitPaths.java[`CommitPaths`]
 |The textual rule a commit path must satisfy, shared by the commit and the staging set of a scope.
 
 |link:{src}/StagingSets.java[`StagingSets`]
@@ -305,7 +305,7 @@ a directory entry, an embedded repository among them) as `outside`, on Linux and
 that leads out of the worktree (outside), a dirty link to outside and a dangling link (both staged with the rest of the
 scope), a name shaped like a link target, which is staged as a plain name, and `.marshall/archived-epics/x` with and
 without archiving.
-link:{test}/CommitPathsTest.java[`CommitPathsTest`]:: The textual rule the commit and the staging set share: a
+link:../../src/test/java/de/planmarshall/provider/git/CommitPathsTest.java[`CommitPathsTest`]:: The textual rule the commit and the staging set share: a
 pathspec magic, a backslash, a control character, a non-normal segment and a directory entry are refused, while a glob
 character, an option-shaped name and a plain relative name are literal commit paths.
 link:{test}/FootprintBoundaryTest.java[`FootprintBoundaryTest`]:: The three checks and the bound of the offending files.
