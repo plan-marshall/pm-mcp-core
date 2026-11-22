@@ -38,8 +38,8 @@ the fixture unit `git-commit-and-push.pmwf` against the four commit primitives; 
 
 == Consequences
 
-* `entityUnits()` stays `worker-task`, `entity` and `entity-multi`; no existing assertion of the defaults test changed
-  beyond the new kind.
+* `entityUnits()` stays `worker-task`, `entity` and `entity-multi`; no assertion of the defaults test was removed beyond
+  the new kind, and the test was split by behaviour when it passed the 400-line budget.
 * A verification of a unit with `job llm commit-message` needs `commit-message.evaluate` in its `PrimitiveRegistry`; the
   assembly registers it with the other commit primitives.
 

@@ -116,7 +116,9 @@ of its half (a name of 1 to 128 characters without `<`, `>`, CR, LF or one of th
 U+2028 and U+2029, the same code points `CommitMessages` treats as line ends, checked against its one pattern
 `UNSPLIT_TERMINATORS`; an email of at most 254 characters of the form `local@domain` without `<`, `>` or white space,
 which already covers the three separators; neither with an unpaired surrogate, which has no UTF-8 encoding, while a
-surrogate pair, one supplementary character, is allowed; the lengths counted in code points) is passed over as absent. Each half reports its `TrailerSource`:
+surrogate pair, one supplementary character, is allowed; the lengths counted in code points) is passed over as absent.
+The schema of the key is stricter: its patterns also refuse every C0 and C1 control, so a stored NUL or ESC never
+reaches the trailer line (`CommitTrailerSchemaParityTest`). Each half reports its `TrailerSource`:
 `configured`, `default`, or `invalid_ignored` when a stored value was refused and none later was used. The source is for
 the commit's audit record and is never rendered in facts: `git.stage-and-commit` returns it on `committed` as the fact
 `trailer_source`, the map `{name, email}` of the two source wire names (`CommitTrailer.Resolution.sourceFact()`), which
@@ -294,6 +296,9 @@ machine value is used as `configured`, and without one the compiled default is u
 U+0085, U+2028 or U+2029 is invalid while a plain name and one with a supplementary character stay valid, an email with
 one is refused as white space, and a stored name with one is passed over in the same way while the email half stays
 `configured`.
+link:{test}/CommitTrailerSchemaParityTest.java[`CommitTrailerSchemaParityTest`]:: The `commit_trailer` patterns of
+`local-config.schema.json` refuse what the trailer refuses and, stricter, every C0 and C1 control, while a plain name,
+a supplementary character and a plain address stay admitted.
 link:{test}/StagingSetsTest.java[`StagingSetsTest`]:: The staging set per scope with a path outside, `..`, an absolute
 path, a non-normal name, the names the commit refuses (a colon-led name, a backslash, a control character, a newline and
 a directory entry, an embedded repository among them) as `outside`, on Linux and macOS a path through a symbolic link
