@@ -164,7 +164,7 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
                 if (parser.nextToken() != null) {
                     throw new IllegalArgumentException("'%s' has content after its object: %s".formatted(name, raw));
                 }
-            } catch (java.io.IOException e) {
+            } catch (java.io.IOException _) {
                 throw new IllegalArgumentException("'%s' is not JSON: %s".formatted(name, raw));
             }
         }
