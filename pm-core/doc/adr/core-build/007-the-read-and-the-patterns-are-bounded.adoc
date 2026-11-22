@@ -82,7 +82,7 @@ characters for a line — and asked that both be data of a properties resource, 
   execution header is a possessive head with its `@ … ---` tail decided by index arrays, the finding line runs its
   template once at the first head after the line's last terminator with a tempered path, and the pytest line with a
   terminator is decided in one pass over the whitespace run that holds it. Each answers what the ported expression
-  answered; a cut log's Maven count is reported as the tail's alone (ADR `core-build/011`).
+  answered; a cut log's Maven count is reported as unmeasured, never as the tail's alone (ADR `core-build/011`).
 * The copy cost of `UnparsedEvidence` was measured, not assumed, and it did not change the class (PLAN-V2-163, item
   43(a), the operator's "measure first"). `UnparsedEvidence.of` copies the whole log twice: `BuildLogText.stripAnsi`
   rebuilds it when it carries an escape, and the carriage-return reduction writes it into a builder sized to the log and

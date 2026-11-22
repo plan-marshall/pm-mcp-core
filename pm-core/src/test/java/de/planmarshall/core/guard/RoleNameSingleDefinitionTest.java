@@ -252,6 +252,22 @@ class RoleNameSingleDefinitionTest {
         assertTrue(schemaOccurrences(schema).isEmpty(), "Another bound is not the name grammar");
     }
 
+    @Test
+    @DisplayName("a schema spelling written with a unicode escape is decoded and found")
+    void schemaUnicodeEscapesAreDecoded() {
+        // JSON escapes of '{' and '}', written as the schema file carries them
+        var openBrace = "\\" + "u007b";
+        var closeBrace = "\\" + "u007d";
+        var schema = "{\"propertyNames\": {\"pattern\": \"^[a-z][a-z0-9-]" + openBrace + "1,31" + closeBrace + "$\"}}";
+
+        var occurrences = schemaOccurrences(schema);
+
+        assertAll(
+                () -> assertEquals(1, occurrences.size(), "The escaped spelling is one occurrence"),
+                () -> assertEquals(DEFINITION, occurrences.getFirst().value(),
+                        "The escapes decode to the one definition"));
+    }
+
     /** @param lines the source as its lines; a trailing newline is not needed by the scan */
     private static String source(String... lines) {
         return String.join("\n", lines);
@@ -461,6 +477,14 @@ class RoleNameSingleDefinitionTest {
                 continue;
             }
             if (character == '\\' && index + 1 < document.length()) {
+                if (document.charAt(index + 1) == 'u' && index + 5 < document.length()) {
+                    var hex = document.substring(index + 2, index + 6);
+                    if (isHex(hex)) {
+                        value.append((char) Integer.parseInt(hex, 16));
+                        index += 5;
+                        continue;
+                    }
+                }
                 index++;
                 value.append(unescape(document.charAt(index)));
                 continue;
@@ -487,6 +511,10 @@ class RoleNameSingleDefinitionTest {
             case 'f' -> '\f';
             default -> escaped;
         };
+    }
+
+    private static boolean isHex(String text) {
+        return text.chars().allMatch(character -> Character.digit(character, 16) >= 0);
     }
 
     private static List<Path> roots(Path root, String suffix) {
