@@ -2,10 +2,10 @@
   "id": "PLAN-V2-163",
   "slug": "core-and-documentation-statement-residue",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-163-core-and-doc-statement-residue",
+  "pr": "#553, #554, #555, #556, #557, #559",
+  "landing": "landings/PLAN-V2-163.md",
   "seq": 151
 }
