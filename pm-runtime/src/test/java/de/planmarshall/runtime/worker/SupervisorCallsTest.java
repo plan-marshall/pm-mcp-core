@@ -464,7 +464,8 @@ class SupervisorCallsTest {
 
     @Test
     @DisplayName("a closed hold resumes the execution and re-arms the silence limit")
-    void aClosedHoldResumesTheExecution() {        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+    void aClosedHoldResumesTheExecution() {
+        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
         calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
         calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
         calls.turnCompleted(generation.generationId(), 1_000L);

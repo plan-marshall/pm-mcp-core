@@ -329,12 +329,12 @@ class JobLogTest {
             var before = "build output " + line();
             Files.writeString(path, before + "\n-----END PRIVATE KEY-----\n", StandardCharsets.UTF_8);
 
-            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "the log is complete");
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "the log is complete at the head");
             var reading = assertInstanceOf(LaunchReport.Unreported.class, whole.reading(),
                     "a lone END is no launch report");
 
             assertTrue(reading.jobOutput().contains(before),
-                    "a read from the file start keeps the text before the lone END");
+                    "the read keeps the text before the lone END");
         }
 
         @Test
@@ -343,10 +343,10 @@ class JobLogTest {
             var before = "build output " + line();
             Files.writeString(path, before + "\n-----END PRIVATE KEY-----\n", StandardCharsets.UTF_8);
 
-            var lines = assertInstanceOf(JobLog.Lines.class, log.readLines(0), "the lines are read");
+            var lines = assertInstanceOf(JobLog.Lines.class, log.readLines(0), "the lines are answered");
 
             assertTrue(String.join("\n", lines.lines()).contains(before),
-                    "a line read from the file start keeps the text before the lone END");
+                    "the lines keep the text before the lone END");
         }
 
         @Test

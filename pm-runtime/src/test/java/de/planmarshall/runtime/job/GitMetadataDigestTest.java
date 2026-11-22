@@ -393,7 +393,7 @@ class GitMetadataDigestTest {
         var parts = GitMetadataDigest.of(root);
 
         assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE),
-                "a skipped pointer file is an unreadable tree, not an empty one");
+                "a skipped pointer file fails closed, not empty");
     }
 
     private Path repository() throws IOException {

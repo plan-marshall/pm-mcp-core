@@ -390,7 +390,8 @@ public final class WorkerSupervisor {
         }
     }
 
-    private void refuse(EffectiveRole role, String generationId, HarnessVerification.Refused refused) {        environment.starter().refuseWorker(WorkerStart.Refusal.builder()
+    private void refuse(EffectiveRole role, String generationId, HarnessVerification.Refused refused) {
+        environment.starter().refuseWorker(WorkerStart.Refusal.builder()
                 .generationId(generationId)
                 .role(role)
                 .enrolment(environment.enrolment())

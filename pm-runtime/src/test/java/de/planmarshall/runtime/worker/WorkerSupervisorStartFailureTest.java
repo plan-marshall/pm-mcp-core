@@ -58,7 +58,7 @@ class WorkerSupervisorStartFailureTest {
 
     @Test
     @DisplayName("a launch refused on the harness store counts one start failure")
-    void storeRefusalCountsOneStartFailure() throws IOException {
+    void storeRefusalCountsOneStartFailure() throws Exception {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var guard = guard();
         var supervisor = new WorkerSupervisor(fixture.environment(guard, OPEN_GATE));
@@ -76,7 +76,7 @@ class WorkerSupervisorStartFailureTest {
 
     @Test
     @DisplayName("three launches refused on the harness store hold the role's starts")
-    void threeStoreRefusalsHoldTheRole() throws IOException {
+    void threeStoreRefusalsHoldTheRole() throws Exception {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var guard = guard();
         var supervisor = new WorkerSupervisor(fixture.environment(guard, OPEN_GATE));
