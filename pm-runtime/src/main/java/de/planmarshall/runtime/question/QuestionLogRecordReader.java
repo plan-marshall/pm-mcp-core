@@ -175,10 +175,6 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
         if (scopeId == null) {
             return Resolution.of(JournalScope.workspace(base, projectId));
         }
-        var entryId = EntryId.parse(scopeId);
-        if (entryId.isPresent()) {
-            return Resolution.ofEntry(JournalScope.workspace(base, projectId), entryId.get());
-        }
         try {
             var plan = JournalScope.plan(base, projectId, scopeId);
             var epic = JournalScope.epic(base, projectId, scopeId);
@@ -187,10 +183,14 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
             if (planExists && epicExists) {
                 return Resolution.refused("the scope " + scopeId + " names a plan and an epic");
             }
-            if (!planExists && !epicExists) {
-                return Resolution.refused("no question log for the scope");
+            if (planExists || epicExists) {
+                return Resolution.of(planExists ? plan : epic);
             }
-            return Resolution.of(planExists ? plan : epic);
+            var entryId = EntryId.parse(scopeId);
+            if (entryId.isPresent()) {
+                return Resolution.ofEntry(JournalScope.workspace(base, projectId), entryId.get());
+            }
+            return Resolution.refused("no question log for the scope");
         } catch (IllegalArgumentException _) {
             return Resolution.refused("the scope is not an identifier: " + scopeId);
         }

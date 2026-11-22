@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.PendingEntryRecord.Bootstrap;
 import de.planmarshall.core.store.PendingEntryRecord.Kind;
@@ -136,6 +135,11 @@ class PendingEntryCodecTest {
     /** @return every required member of the record besides the format version */
     static Stream<String> requiredMembers() {
         return PendingEntryCodec.MEMBERS.stream().filter(member -> !"format_version".equals(member));
+    }
+
+    /** @return every member of the bootstrap state, derived from the codec's own list */
+    static Stream<String> requiredBootstrapMembers() {
+        return PendingEntryCodec.BOOTSTRAP_MEMBERS.stream();
     }
 
     private static StoreRefusal assertRefused(Outcome outcome, byte[] document) {
@@ -258,7 +262,7 @@ class PendingEntryCodecTest {
         }
 
         @ParameterizedTest(name = "bootstrap without {0}")
-        @ValueSource(strings = {"state", "call_stack", "facts", "recipe", "options", "pending_condition", "last_refusal"})
+        @MethodSource("de.planmarshall.core.store.PendingEntryCodecTest#requiredBootstrapMembers")
         @DisplayName("a bootstrap without a required member is refused naming it")
         void missingBootstrapMember(String member) {
             var inner = bootstrapMembers();

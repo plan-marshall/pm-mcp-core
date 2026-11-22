@@ -352,8 +352,8 @@ final class RuntimeChildProcess {
                 try (var listing = Files.list(pendingRecords(base))) {
                     var removed = 0;
                     for (var pendingRecord : listing.sorted().toList()) {
-                        // Evidence, as the real step reads it: a record with its `.keep` sibling is open, and every
-                        // other record is the residue of a removal a stop cut off
+                        // Fixture evidence only: a record with its `.keep` sibling is open here; the real step,
+                        // PendingEntryRecordsSweep, decides on the entry's verified stores instead.
                         if (!pendingRecord.getFileName().toString().endsWith(".keep")
                                 && !Files.exists(pendingRecord.resolveSibling(
                                         pendingRecord.getFileName() + ".keep"))) {

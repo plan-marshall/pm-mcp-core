@@ -156,6 +156,17 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
             if (!text.startsWith("{") || !text.endsWith("}")) {
                 throw new IllegalArgumentException("'%s' must be a JSON object: %s".formatted(name, raw));
             }
+            try (var parser = StrictJson.factory().createParser(text)) {
+                if (parser.nextToken() != com.fasterxml.jackson.core.JsonToken.START_OBJECT) {
+                    throw new IllegalArgumentException("'%s' must be a JSON object: %s".formatted(name, raw));
+                }
+                parser.skipChildren();
+                if (parser.nextToken() != null) {
+                    throw new IllegalArgumentException("'%s' has content after its object: %s".formatted(name, raw));
+                }
+            } catch (java.io.IOException e) {
+                throw new IllegalArgumentException("'%s' is not JSON: %s".formatted(name, raw));
+            }
         }
     }
 

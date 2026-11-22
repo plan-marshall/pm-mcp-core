@@ -95,7 +95,9 @@ public final class PendingEntryCreation {
         if (entries.read(entryId).isEmpty()) {
             throw new IllegalArgumentException("The pending entry %s does not exist".formatted(entryId));
         }
-        var manifest = entries.readSources(entryId).orElse(SourceManifest.empty());
+        var manifest = entries.readSources(entryId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "The pending entry %s has no source manifest".formatted(entryId)));
         var sourceDirectory = entries.sourcesDirectory(entryId);
         var files = 0;
         for (var source : manifest.sources()) {
@@ -231,8 +233,8 @@ public final class PendingEntryCreation {
     }
 
     private static byte[] read(Path file) {
-        try {
-            return Files.readAllBytes(file);
+        try (var in = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
+            return in.readAllBytes();
         } catch (IOException e) {
             throw new UncheckedIOException("The file cannot be read: " + file, e);
         }

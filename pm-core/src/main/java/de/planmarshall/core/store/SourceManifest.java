@@ -276,6 +276,9 @@ public record SourceManifest(long revision, List<Source> sources) {
             if (trust == Trust.UNTRUSTED && verdict == null) {
                 throw new IllegalArgumentException("An untrusted source '%s' carries a verdict".formatted(sourceId));
             }
+            if (verdict != Verdict.ACCEPTED && verdictReason != null) {
+                throw new IllegalArgumentException("Only an accepted source '%s' names a reason".formatted(sourceId));
+            }
             if (verdict == Verdict.ACCEPTED && verdictReason == null) {
                 throw new IllegalArgumentException("An accepted source '%s' names the operator's reason".formatted(
                         sourceId));

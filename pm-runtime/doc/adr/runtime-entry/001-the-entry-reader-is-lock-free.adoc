@@ -45,8 +45,8 @@ locked verification, not from a read that cannot see the sidecar consistently.
 == Consequences
 
 * A reader never removes residue and never repairs a store; the sweep and the recovery do.
-* The runtime maps `Tampered` of the locked `verify` onto the entry's hold, and the reader's `Unreadable` onto the
-  entry's refused addressing.
+* The runtime maps `Tampered` of the locked `verify` onto the entry's hold through its assembly: this repository
+  provides the verdict and names the entry and its store, and the act that raises the hold is a `pm-mcp-server` class.
 * A symbolic link below the path base is followed by the read; it is an out-of-band change the locked verification
   reports, not a decision of the reader.
 

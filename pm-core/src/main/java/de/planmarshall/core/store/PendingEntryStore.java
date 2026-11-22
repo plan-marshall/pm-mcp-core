@@ -187,7 +187,7 @@ public final class PendingEntryStore {
         EntryId candidate;
         do {
             candidate = random == null ? EntryId.random() : EntryId.random(random);
-        } while (exists(candidate) || transaction.isTarget(store(candidate)));
+        } while (occupied(candidate) || transaction.isTarget(store(candidate)));
         return candidate;
     }
 
@@ -218,14 +218,15 @@ public final class PendingEntryStore {
         requireOwnScope(transaction);
         Objects.requireNonNull(entry, "entry");
         Objects.requireNonNull(sources, SOURCES);
-        if (exists(entry.entryId())) {
+        if (occupied(entry.entryId())) {
             throw new IllegalArgumentException("The pending entry %s exists already".formatted(entry.entryId()));
         }
         prepareDirectories(entry.entryId());
-        transaction.create(storePath(entry.entryId()), PendingEntryCodec.write(entry));
-        transaction.create(directoryPath(entry.entryId()) + "/" + SOURCE_MANIFEST, SourceManifestCodec.write(sources));
-        transaction.create(directoryPath(entry.entryId()) + "/" + QUESTIONS, EMPTY);
-        transaction.create(directoryPath(entry.entryId()) + "/" + DECISION_LOG, EMPTY);
+        var contents = List.of(PendingEntryCodec.write(entry), SourceManifestCodec.write(sources), EMPTY, EMPTY);
+        var paths = stores(entry.entryId());
+        for (var index = 0; index < paths.size(); index++) {
+            transaction.create(paths.get(index), contents.get(index));
+        }
     }
 
     /**
@@ -282,10 +283,9 @@ public final class PendingEntryStore {
     public boolean remove(ScopeTransaction transaction, EntryId entryId) {
         requireOwnScope(transaction);
         var existed = exists(entryId);
-        transaction.delete(storePath(entryId));
-        transaction.delete(directoryPath(entryId) + "/" + SOURCE_MANIFEST);
-        transaction.delete(directoryPath(entryId) + "/" + QUESTIONS);
-        transaction.delete(directoryPath(entryId) + "/" + DECISION_LOG);
+        for (var path : stores(entryId)) {
+            transaction.delete(path);
+        }
         return existed;
     }
 
@@ -405,8 +405,7 @@ public final class PendingEntryStore {
             return new Integrity.Tampered(entryId, recorded);
         }
         var absent = recorded instanceof ScopeIntegrity.Absent;
-        for (var path : List.of(directoryPath(entryId) + "/" + SOURCE_MANIFEST,
-                directoryPath(entryId) + "/" + QUESTIONS, directoryPath(entryId) + "/" + DECISION_LOG)) {
+        for (var path : stores(entryId).subList(1, 4)) {
             var verification = ScopeIntegrity.verify(transaction, scope, path, auditSink);
             if (edited(verification)) {
                 return new Integrity.Tampered(entryId, verification);
@@ -433,6 +432,17 @@ public final class PendingEntryStore {
         } catch (IOException e) {
             throw new UncheckedIOException("The pending entry %s cannot be created".formatted(entryId), e);
         }
+    }
+
+    /** The four stores of an entry, in the order its removal writes them: the record first, the record-most years. */
+    private static List<String> stores(EntryId entryId) {
+        return List.of(storePath(entryId), entryPath(entryId, SOURCE_MANIFEST), entryPath(entryId, QUESTIONS),
+                entryPath(entryId, DECISION_LOG));
+    }
+
+    /** @return whether the entry's directory exists, however its record fares */
+    private boolean occupied(EntryId entryId) {
+        return Files.exists(entryDirectory(entryId), LinkOption.NOFOLLOW_LINKS);
     }
 
     private boolean exists(EntryId entryId) {

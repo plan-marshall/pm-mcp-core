@@ -580,11 +580,11 @@ The tests run on the JVM over a test base with the file lock manager of the runt
 `AuditSinkDoubles` in `de.planmarshall.runtime.test`; no test double replaces a store.
 
 [horizontal]
-link:{test}/PendingEntryRecordsSweepTest.java[`PendingEntryRecordsSweepTest`]:: An old record removed with its audit
-record and the INFO record of the run, a young one and one created at the instant kept, a name that is no entry id
-never touched however old, an unreadable record kept and reported as a failure, a workspace journal still to
-recover reported as a failure with nothing removed, and two records removed in one run owing two records with two
-distinct `transaction_id` values.
+link:{test}/PendingEntryRecordsSweepTest.java[`PendingEntryRecordsSweepTest`]:: The residue of a cut-off removal
+removed with its audit record, an open entry kept however old, a name that is no entry id never touched, a tampered
+record kept and reported as a failure, an unreadable record kept and reported, a workspace journal still to recover
+reported as a failure with nothing removed, and two directories removed in one run owing two records with two distinct
+`transaction_id` values.
 link:{test}/StartupSequenceTest.java[`StartupSequenceTest`]:: The broken-chain cases: a `link_broken` record with its
 `reason`, `first_broken_line` and `os_principal` details, the log naming the file the first broken line is counted in
 (current log, audit index, rotated file) while the record names none, one case per other reason without a line, and
@@ -626,12 +626,12 @@ link:{test}/ProjectRecoveryTest.java[`ProjectRecoveryTest`]:: The jobs step plac
 
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
-1. **Age is the only evidence**: never select a record because its name does not parse or its content is odd; an
-   unreadable record is kept and reported. A name that is no entry id is not an entry.
-2. **Decide under the lock**: the lock-free listing names candidates only; the age is read again under the workspace
-   lock before a record is removed.
+1. **The end is the only evidence**: never select a directory because its name parses or its content is odd; an
+   unreadable or tampered record is kept and reported. A name that is no entry id is not an entry.
+2. **Decide under the lock**: the lock-free listing names candidates only; each candidate's stores are verified under
+   the workspace lock, and only an `Absent` verdict removes the directory.
 3. **Remove through the journal**: a record removed outside the workspace transaction leaves its sidecar entry behind
-   and is reported as tampered; the delete target drops both together.
+   and is verified as tampered, so the sweep keeps it; the delete target drops both together.
 4. **One audit record per removed record, owed by the transaction**: append nothing to the audit log after the commit;
    the owed record is handed over at least once, also after a crash. Give it `transaction.recordId()`, never
    `transaction.transactionId()`.

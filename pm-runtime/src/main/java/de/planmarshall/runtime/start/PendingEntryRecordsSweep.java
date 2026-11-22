@@ -107,7 +107,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                 return new RecoveryStep.Outcome.Failed(report + "; " + removal.failure());
             }
             return new RecoveryStep.Outcome.Done(report);
-        } catch (UncheckedIOException | IllegalStateException | InternalFaultException e) {
+        } catch (UncheckedIOException | IllegalStateException | InternalFaultException | StoreRefusal e) {
             return new RecoveryStep.Outcome.Failed("pending entry directories not swept: " + e.getMessage());
         }
     }
@@ -124,8 +124,10 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             lock.acquire(workspace.lockKey());
             var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
             var removed = new ArrayList<EntryId>();
+            var kept = new ArrayList<String>();
             for (var entryId : candidates) {
-                if (!stillResidue(store, entryId)) {
+                if (!(store.verify(lock, entryId, auditSink) instanceof PendingEntryStore.Integrity.Absent)) {
+                    kept.add(entryId.value() + " (tampered)");
                     continue;
                 }
                 store.remove(transaction, entryId);
@@ -134,7 +136,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                 removed.add(entryId);
             }
             if (removed.isEmpty()) {
-                return new Removal(0, null);
+                return new Removal(0, failure(kept, List.of()));
             }
             transaction.commit();
             var discarded = new ArrayList<String>();
@@ -145,9 +147,14 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                     discarded.add(entryId.value() + " (" + e.getMessage() + ")");
                 }
             }
-            return new Removal(removed.size(), discarded.isEmpty() ? null
-                    : "the entry's stores are removed but the directories are not: " + discarded);
+            return new Removal(removed.size(), failure(kept, discarded));
         }
+    }
+
+    private static @Nullable String failure(List<String> kept, List<String> discarded) {
+        var all = new ArrayList<String>(kept);
+        all.addAll(discarded);
+        return all.isEmpty() ? null : "kept or failed entries: " + all;
     }
 
     /**
@@ -165,7 +172,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      *
      * @return whether the directory is still residue
      */
-    static boolean stillResidue(PendingEntryStore store, EntryId entryId) {
+    static boolean isResidue(PendingEntryStore store, EntryId entryId) {
         try {
             return store.read(entryId).isEmpty();
         } catch (StoreRefusal | UncheckedIOException _) {

@@ -218,10 +218,17 @@ class PendingEntryRecordsSweepTest {
     @Test
     @DisplayName("a name whose directory is no entry id is never touched, however old")
     void unparsableNamesUntouched() throws Exception {
-        // Fixture paths: a name without the prefix, one with upper-case digits and one with too few digits
+        // Fixture paths: a name without the prefix, one with upper-case digits and one with too few digits, each a
+        // file and a directory, so the filter is proved before a recursive delete
         var notes = writeFile("notes.json", "{}");
         var upper = writeFile("ent-00000000000000AB.json", "{}");
         var tooShort = writeFile("ent-1.json", "{}");
+        var notesDirectory = Files.createDirectories(store.directoryPath().resolve("notes"));
+        var upperDirectory = Files.createDirectories(store.directoryPath().resolve("ent-00000000000000AC"));
+        var tooShortDirectory = Files.createDirectories(store.directoryPath().resolve("ent-2"));
+        Files.writeString(notesDirectory.resolve("child.md"), "{}");
+        Files.writeString(upperDirectory.resolve("child.md"), "{}");
+        Files.writeString(tooShortDirectory.resolve("child.md"), "{}");
 
         var outcome = sweep.run(projectId, now);
 
@@ -231,6 +238,12 @@ class PendingEntryRecordsSweepTest {
                 () -> assertTrue(Files.exists(notes), "a name without the prefix is never touched"),
                 () -> assertTrue(Files.exists(upper), "a name with upper-case digits is never touched"),
                 () -> assertTrue(Files.exists(tooShort), "a name with too few digits is never touched"),
+                () -> assertTrue(Files.exists(notesDirectory.resolve("child.md")),
+                        "a foreign directory keeps its child"),
+                () -> assertTrue(Files.exists(upperDirectory.resolve("child.md")),
+                        "an upper-case directory keeps its child"),
+                () -> assertTrue(Files.exists(tooShortDirectory.resolve("child.md")),
+                        "a short-named directory keeps its child"),
                 () -> assertEquals(List.of(), AuditSinkDoubles.eventNames(auditEvents),
                         "no audit record must be handed over"));
     }
@@ -269,21 +282,21 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
-    @DisplayName("a candidate whose record appeared under the lock is kept, and so is one that cannot be read")
-    void stillResidueRejudges() throws Exception {
+    @DisplayName("a record deleted outside a transaction is tampered: the sweep keeps the entry and reports it")
+    void tamperedRecordKept() throws Exception {
         create(entry(openEntry, now));
-        cutOffRemoval(residue);
-        var broken = entryId();
-        Files.createDirectories(store.entryDirectory(broken));
-        Files.writeString(store.store(broken), "{");
+        Files.delete(store.store(openEntry));
+        var before = auditEvents.getValues().size();
 
+        var outcome = sweep.run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a tampered entry fails the step").reason();
         assertAll(
-                () -> assertTrue(PendingEntryRecordsSweep.stillResidue(store, residue),
-                        "a residue directory stays residue under the lock"),
-                () -> assertFalse(PendingEntryRecordsSweep.stillResidue(store, openEntry),
-                        "an open entry is never residue"),
-                () -> assertFalse(PendingEntryRecordsSweep.stillResidue(store, broken),
-                        "an unreadable record is kept"));
+                () -> assertTrue(reason.contains(openEntry.value() + " (tampered)"),
+                        "the report must name the kept entry"),
+                () -> assertTrue(Files.exists(store.entryDirectory(openEntry)),
+                        "the tampered entry's directory is kept"),
+                () -> assertEquals(before, auditEvents.getValues().size(), "no removal record is owed"));
     }
 
     @Test
