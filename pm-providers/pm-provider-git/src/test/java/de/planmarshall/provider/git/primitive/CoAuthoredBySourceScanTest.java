@@ -45,7 +45,7 @@ class CoAuthoredBySourceScanTest {
 
     @Test
     @DisplayName("the trailer key appears in no production source but CommitMessages.java")
-    void onlyTheWriterNamesTheKey() throws IOException {
+    void onlyTheWriterNamesTheKey() throws Exception {
         var sources = javaSources();
 
         var naming = sources.stream()

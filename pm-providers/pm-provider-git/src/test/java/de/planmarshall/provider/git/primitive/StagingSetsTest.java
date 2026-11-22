@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.TypedGenerator;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -95,7 +94,7 @@ class StagingSetsTest {
         @Test
         @EnabledOnOs({OS.LINUX, OS.MAC})
         @DisplayName("a path through a symbolic link that leads out of the worktree is outside")
-        void pathThroughOutsideLinkIsOutside(@TempDir Path elsewhere) throws IOException {
+        void pathThroughOutsideLinkIsOutside(@TempDir Path elsewhere) throws Exception {
             var link = names.next();
             Files.createSymbolicLink(worktree.resolve(link), elsewhere);
             var through = link + "/" + names.next();
@@ -111,7 +110,7 @@ class StagingSetsTest {
         @Test
         @EnabledOnOs({OS.LINUX, OS.MAC})
         @DisplayName("a dirty symbolic link to outside the worktree is staged as a link")
-        void linkToOutsideIsStaged(@TempDir Path elsewhere) throws IOException {
+        void linkToOutsideIsStaged(@TempDir Path elsewhere) throws Exception {
             var nested = names.next();
             Files.createDirectories(worktree.resolve(nested));
             var topLink = names.next();
@@ -131,7 +130,7 @@ class StagingSetsTest {
         @Test
         @EnabledOnOs({OS.LINUX, OS.MAC})
         @DisplayName("a dangling symbolic link is staged as a link")
-        void danglingLinkIsStaged() throws IOException {
+        void danglingLinkIsStaged() throws Exception {
             var link = names.next();
             Files.createSymbolicLink(worktree.resolve(link), worktree.resolve(names.next() + ".missing"));
             var inside = names.next() + ".txt";

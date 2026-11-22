@@ -336,11 +336,11 @@ public final class GitStageAndCommitPrimitive
          */
         FOOTPRINT_VIOLATION("footprint_violation") {
 
-            @Override
-            public Optional<String> conditionKind() {
-                return Optional.of("footprint_violation");
-            }
-        },
+        @Override
+        public Optional<String> conditionKind() {
+            return Optional.of("footprint_violation");
+        }
+    },
         /** The message breaks a rule; the facts name the rule and the line. */
         MESSAGE_REFUSED("message_refused"),
         /** The commit itself failed; the facts name the outcome of the contract. */
