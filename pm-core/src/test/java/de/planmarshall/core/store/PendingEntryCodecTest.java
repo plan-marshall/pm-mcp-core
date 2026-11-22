@@ -44,7 +44,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The pending entry record (PM-CLIENT-1, PM-IMPL-2): written in the order of its schema, read back equal, its raw
- * members {@code facts}, {@code source} and {@code options} written back byte for byte, and every other shape refused
+ * members {@code facts}, the recipe's {@code params} and {@code options} written back byte for byte, and every other shape refused
  * as a {@link StoreRefusal} naming the file. The member names, the raw members, the call frame, the condition overlay
  * and the refusal tables are wire contracts; the entry id, the requested id, the hint and the instants are generated.
  */
@@ -53,11 +53,12 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 class PendingEntryCodecTest {
 
     // Fixture path: the file a refusal names.
-    private static final Path FILE = Path.of("/base/projects/pm-mcp-core/pending/ent-0123456789abcdef.json");
+    private static final Path FILE =
+            Path.of("/base/projects/pm-mcp-core/pending/ent-0123456789abcdef/entry.json");
 
     /** Raw members spelled with spaces, newlines and an order no writer of this codec would choose. */
     private static final String FACTS = "{ \"setup\" : {\"z\":1, \"a\" : [ 2,1 ]} ,\n \"candidates\":[] }";
-    private static final String SOURCE = "{\"kind\":\"issue\" , \"ref\":\"42\",\"payload\":{\"title\":\"T\"}}";
+    private static final String RECIPE = "{\"recipe_key\":\"fix-bug\",\"params\":{ \"speed\" : \"fast\" }}";
     private static final String OPTIONS = "{ \"posture\":\"standard\" }";
     private static final String FRAME = "{\"caller_workflow_id\":\"bootstrap-plan\",\"caller_state_id\":"
             + "\"start.choose\",\"subworkflow_id\":\"source-issue\","
@@ -113,7 +114,7 @@ class PendingEntryCodecTest {
         members.put("state", "\"source-issue.screen\"");
         members.put("call_stack", "[" + FRAME + "]");
         members.put("facts", FACTS);
-        members.put("source", SOURCE);
+        members.put("recipe", RECIPE);
         members.put("options", OPTIONS);
         members.put("pending_condition", CONDITION);
         members.put("last_refusal", "\"config_dirty\"");
@@ -164,7 +165,10 @@ class PendingEntryCodecTest {
                     () -> assertArrayEquals(document, PendingEntryCodec.write(entry),
                             "the record should be written byte for byte"),
                     () -> assertEquals(FACTS, entry.bootstrap().facts(), "the raw facts should be kept verbatim"),
-                    () -> assertEquals(SOURCE, entry.bootstrap().source(), "the raw source should be kept verbatim"),
+                    () -> assertEquals("fix-bug", entry.bootstrap().recipe().recipeKey(),
+                            "the recipe key should be read from its member"),
+                    () -> assertEquals("{ \"speed\" : \"fast\" }", entry.bootstrap().recipe().params(),
+                            "the raw recipe params should be kept verbatim"),
                     () -> assertEquals(OPTIONS, entry.bootstrap().options(),
                             "the raw options should be kept verbatim"));
         }
@@ -197,7 +201,7 @@ class PendingEntryCodecTest {
             members.put("from_epic", quoted(epicId));
             members.put("hint", "null");
             var inner = bootstrapMembers();
-            inner.put("source", "null");
+            inner.put("recipe", "null");
             inner.put("call_stack", "[]");
             inner.put("pending_condition", "null");
             inner.put("last_refusal", "null");
@@ -208,7 +212,7 @@ class PendingEntryCodecTest {
 
             assertAll(
                     () -> assertEquals(epicId, entry.fromEpic(), "the epic of the entry should be read"),
-                    () -> assertNull(entry.bootstrap().source(), "a server-started plan has no source"),
+                    () -> assertNull(entry.bootstrap().recipe(), "a plan from sources chooses no recipe"),
                     () -> assertArrayEquals(document, PendingEntryCodec.write(entry),
                             "the entry should round-trip byte for byte"));
         }
@@ -288,7 +292,7 @@ class PendingEntryCodecTest {
         }
 
         @ParameterizedTest(name = "bootstrap without {0}")
-        @ValueSource(strings = {"state", "call_stack", "facts", "source", "options", "pending_condition", "last_refusal"})
+        @ValueSource(strings = {"state", "call_stack", "facts", "recipe", "options", "pending_condition", "last_refusal"})
         @DisplayName("a bootstrap without a required member is refused naming it")
         void missingBootstrapMember(String member) {
             var inner = bootstrapMembers();
@@ -328,7 +332,10 @@ class PendingEntryCodecTest {
                 undeclared bootstrap member | note              | 1
                 blank state                 | state             | " "
                 facts as an array           | facts             | []
-                source as a string          | source            | "issue"
+                recipe as a string          | recipe            | "issue"
+                recipe without a key        | recipe            | {"params":{}}
+                recipe params as an array   | recipe            | {"recipe_key":"fix-bug","params":[]}
+                recipe key of another form  | recipe            | {"recipe_key":"Fix Bug","params":{}}
                 options as null             | options           | null
                 refusal of another form     | last_refusal      | "Config-Dirty"
                 unknown condition kind      | pending_condition | {"kind":"x","remedy_attempts":0,"integrity":null,"facts":{},"raised_at":"2026-10-13T08:02:00Z"}

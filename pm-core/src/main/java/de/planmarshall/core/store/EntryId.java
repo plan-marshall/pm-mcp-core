@@ -18,21 +18,19 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The {@code entry_id} of a pending entry record (PM-CLIENT-1): {@code ent-} and 8 to 32 lower-case hexadecimal
- * digits, the id a client's entry is named by and the entity id of its bootstrap.
+ * The {@code entry_id} of a pending entry (PM-CLIENT-1): {@code ent-} and 8 to 32 lower-case hexadecimal digits, the
+ * id a client's entry is named by and the entity id of its bootstrap.
  * <p>
- * The id is the name of its record {@code pending/<entry_id>.json}. A file name that does not parse as an id is never
- * an entry id ({@link #ofFileName(String)}): a listing of {@code pending/} skips it, and no sweep selects it. A new id
- * is drawn at random with 16 digits; whether it is free is decided by the store under the workspace lock
- * ({@link PendingEntryStore#allocate(ScopeTransaction)}).
+ * The id is the name of its directory {@code pending/<entry_id>/}, which holds the entry's record {@code entry.json},
+ * its source directory, its question and decision stores and its chat transcript (Store Schemas § Pending Entry). A
+ * name that does not parse as an id is never an entry id ({@link #ofDirectoryName(String)}): a listing of
+ * {@code pending/} skips it, and no sweep selects it. A new id is drawn at random with 16 digits; whether it is free
+ * is decided by the store under the workspace lock ({@link PendingEntryStore#allocate(ScopeTransaction)}).
  *
  * @param value the id in its one written form
  * @since 0.1
  */
 public record EntryId(String value) {
-
-    /** The suffix of the name of a pending entry record. */
-    public static final String FILE_SUFFIX = ".json";
 
     private static final Pattern FORM = Pattern.compile("ent-[0-9a-f]{8,32}");
     private static final String PREFIX = "ent-";
@@ -59,15 +57,12 @@ public record EntryId(String value) {
     }
 
     /**
-     * @param fileName the name of a file in {@code pending/}
-     * @return the id whose record the file is; empty if the name is not {@code <entry_id>.json}
+     * @param directoryName the name of a directory in {@code pending/}
+     * @return the id whose directory the name is; empty if the name is not an entry id
      */
-    public static Optional<EntryId> ofFileName(String fileName) {
-        Objects.requireNonNull(fileName, "fileName");
-        if (!fileName.endsWith(FILE_SUFFIX)) {
-            return Optional.empty();
-        }
-        return parse(fileName.substring(0, fileName.length() - FILE_SUFFIX.length()));
+    public static Optional<EntryId> ofDirectoryName(String directoryName) {
+        Objects.requireNonNull(directoryName, "directoryName");
+        return parse(directoryName);
     }
 
     /** @return a new id with 16 random digits; it is free only once the store checked it */
@@ -85,9 +80,9 @@ public record EntryId(String value) {
         return new EntryId(PREFIX + HexFormat.of().formatHex(bytes));
     }
 
-    /** @return the name of the record of this entry, {@code <entry_id>.json} */
-    public String fileName() {
-        return value + FILE_SUFFIX;
+    /** @return the name of the directory of this entry, the id itself */
+    public String directoryName() {
+        return value;
     }
 
     /** @return the id in its one written form */

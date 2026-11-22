@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,13 +48,19 @@ import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.PendingEntryRecord.Bootstrap;
 import de.planmarshall.core.store.PendingEntryRecord.Kind;
 import de.planmarshall.core.store.ScopeTransaction.Step;
+import de.planmarshall.core.store.SourceManifest.Source;
+import de.planmarshall.core.store.SourceManifest.SourceFile;
+import de.planmarshall.core.store.SourceManifest.Trust;
+import de.planmarshall.core.store.SourceManifest.Verdict;
 import de.planmarshall.core.store.TransactionJournal.Mode;
 
 /**
- * The pending entry records of the workspace scope (PM-CLIENT-1, PM-IMPL-7): created, replaced and removed only as
- * targets of a workspace transaction, a removal a delete target, a fresh id never shared by two entries
- * (PM-WATCH-STORE-42), and a listing that names only what parses as an entry id. The {@code pending/} layout, the
- * {@code .json} file names and the entry-id grammar table are contracts; ids, states and instants are generated.
+ * The pending entries {@code pending/<entry_id>/} of the workspace scope (PM-CLIENT-1, PM-IMPL-7): created with their
+ * record, manifest, question store, decision store and transcript as targets of a workspace transaction, replaced,
+ * removed, a fresh id never shared by two entries (PM-WATCH-STORE-42), a listing that names only the directories whose
+ * name parses as an entry id, and an entry whose store differs from its digest held alone (Store Schemas § Pending
+ * Entry). The {@code pending/} layout, the member names and the entry-id grammar table are contracts; ids, states and
+ * instants are generated.
  */
 @EnableGeneratorController
 @DisplayName("Pending entry store")
@@ -134,6 +141,15 @@ class PendingEntryStoreTest {
                 .build();
     }
 
+    /** @return a source of the manifest whose file name, size and digest are generated */
+    private Source source() {
+        var content = Generators.letterStrings(1, 20).next();
+        var digest = Generators.strings("0123456789abcdef", 64, 64).next();
+        return new Source("source_" + lowerName(), SourceManifest.Kind.DESCRIPTION, lowerName(),
+                "operator", Trust.TRUSTED, List.of(new SourceFile(lowerName() + ".md", content.length(), digest)),
+                createdAt, null, null);
+    }
+
     /** Runs the work in a workspace transaction of its own and commits it. */
     private <T> T inTransaction(Function<ScopeTransaction, T> work) {
         try (var transaction = locks.openTransaction()) {
@@ -152,7 +168,7 @@ class PendingEntryStoreTest {
         });
     }
 
-    /** Allocates an id and creates its record in one transaction, as an entry does. */
+    /** Allocates an id and creates its entry in one transaction, as an entry does. */
     private EntryId enter(RandomGenerator random) {
         return inTransaction(write -> {
             var allocated = store.allocate(write, random);
@@ -162,24 +178,49 @@ class PendingEntryStoreTest {
     }
 
     @Nested
-    @DisplayName("a record")
-    class Records {
+    @DisplayName("an entry")
+    class Entries {
 
         @Test
-        @DisplayName("is created as a target of the workspace transaction, read back equal and covered by the sidecar")
+        @DisplayName("is created as one transaction's targets: record, manifest, two stores and a transcript")
         void created() {
             var entry = entry(entryId, state);
+            var sources = new SourceManifest(1, List.of(source()));
 
-            run(write -> store.create(write, entry));
+            run(write -> store.create(write, entry, sources));
 
             assertAll(
                     () -> assertEquals(Optional.of(entry), store.read(entryId), "the record should be read back"),
-                    () -> assertEquals(workspace.pathBase().resolve("pending/" + entryId.value() + ".json"),
-                            store.store(entryId), "the record should lie in pending/"),
+                    () -> assertEquals(workspace.pathBase().resolve("pending/" + entryId.value() + "/entry.json"),
+                            store.store(entryId), "the record should lie in the entry's directory"),
+                    () -> assertEquals(Optional.of(sources), store.readSources(entryId),
+                            "the manifest should be read back"),
+                    () -> assertEquals(workspace.pathBase().resolve(
+                                    "pending/" + entryId.value() + "/sources/sources.json"),
+                            store.sourcesStore(entryId), "the manifest should lie in sources/"),
                     () -> assertEquals(Optional.of(StoreDigest.of(PendingEntryCodec.write(entry))),
                             DigestSidecar.load(workspace.sidecarFile()).digest(PendingEntryStore.storePath(entryId)),
                             "the sidecar should hold the record digest"),
+                    () -> assertTrue(Files.isDirectory(store.chatDirectory(entryId)),
+                            "the transcript directory should exist"),
+                    () -> assertEquals(0L, Files.size(workspace.pathBase().resolve(
+                                    "pending/" + entryId.value() + "/questions.jsonl")),
+                            "the question store should be created empty"),
+                    () -> assertEquals(0L, Files.size(workspace.pathBase().resolve(
+                                    "pending/" + entryId.value() + "/decision-log.jsonl")),
+                            "the decision store should be created empty"),
                     () -> assertFalse(Files.exists(workspace.journalFile()), "the journal should be closed after it"));
+        }
+
+        @Test
+        @DisplayName("is created with an empty manifest and its stores when no source is given")
+        void createdEmpty() {
+            run(write -> store.create(write, entry(entryId, state)));
+
+            assertAll(
+                    () -> assertEquals(Optional.of(SourceManifest.empty()), store.readSources(entryId),
+                            "the manifest should start empty"),
+                    () -> assertEquals(Set.of(entryId), store.entryIds(), "the entry should be listed"));
         }
 
         @Test
@@ -198,15 +239,36 @@ class PendingEntryStoreTest {
                 assertAll(
                         () -> assertEquals(Optional.of(next), store.read(entryId), "the next state should be read"),
                         () -> assertThrows(IllegalArgumentException.class, () -> store.replace(write, absent),
-                                "an absent record should not be replaced"),
+                                "an absent entry should not be replaced"),
                         () -> assertThrows(IllegalArgumentException.class, () -> store.create(write, next),
-                                "an existing record should not be created"));
+                                "an existing entry should not be created"));
             }
         }
 
         @Test
-        @DisplayName("that states another entry_id than its file name is refused as unreadable and left as it is")
-        void entryIdDiffersFromFileName() throws Exception {
+        @DisplayName("keeps each added source in its manifest and advances its revision")
+        void sourcesAdded() {
+            var first = source();
+            var second = source();
+
+            run(write -> store.create(write, entry(entryId, state), new SourceManifest(1, List.of(first))));
+            run(write -> store.replaceSources(write, entryId, store.readSources(entryId).orElseThrow()
+                    .withSource(second)));
+
+            var sources = store.readSources(entryId).orElseThrow();
+            assertAll(
+                    () -> assertEquals(2, sources.sources().size(), "both sources should be in the manifest"),
+                    () -> assertEquals(2, sources.revision(), "adding a source should advance the revision"),
+                    () -> assertEquals(Optional.of(first), sources.source(first.sourceId()),
+                            "the first source should be found by its id"),
+                    () -> assertEquals(Optional.of(second), sources.source(second.sourceId()),
+                            "the second source should be found by its id"));
+        }
+
+        @Test
+        @DisplayName("that states another entry_id than its directory is refused as unreadable and left as it is")
+        void entryIdDiffersFromDirectory() throws Exception {
+            run(write -> store.create(write, entry(entryId, state)));
             var document = PendingEntryCodec.write(entry(otherId, state));
             Files.write(store.store(entryId), document);
 
@@ -220,14 +282,14 @@ class PendingEntryStoreTest {
                     () -> assertTrue(refusal.getMessage().contains(otherId.value()),
                             "the refusal should name the stated id"),
                     () -> assertTrue(refusal.getMessage().contains(entryId.value()),
-                            "the refusal should name the file's id"),
-                    () -> assertEquals(Optional.empty(), store.read(otherId), "the stated id should have no record"),
+                            "the refusal should name the directory's id"),
+                    () -> assertEquals(Optional.empty(), store.read(otherId), "the stated id should have no entry"),
                     () -> assertArrayEquals(document, Files.readAllBytes(store.store(entryId)),
                             "the refused file should stay unchanged"));
         }
 
         @Test
-        @DisplayName("is removed as a delete target of the workspace journal, with its sidecar entry")
+        @DisplayName("is removed as four delete targets of the workspace journal, the directory discarded last")
         void removed() throws Exception {
             run(write -> store.create(write, entry(entryId, state)));
             ScopeTransaction.StepHook hook = (step, target) -> {
@@ -249,18 +311,28 @@ class PendingEntryStoreTest {
                 transaction.acquire(workspace.lockKey());
                 JournalRecovery.recover(transaction, workspace, audit);
             }
+            var discarded = store.discard(entryId);
 
             assertAll(
-                    () -> assertTrue(existed, "the removal should report the record"),
-                    () -> assertEquals(List.of(TransactionJournal.Target.delete("pending/" + entryId.fileName())),
-                            journal.targets(), "the journal should hold one delete target"),
+                    () -> assertTrue(existed, "the removal should report the entry"),
+                    () -> assertEquals(List.of(
+                                    TransactionJournal.Target.delete("pending/" + entryId.value() + "/entry.json"),
+                                    TransactionJournal.Target.delete(
+                                            "pending/" + entryId.value() + "/sources/sources.json"),
+                                    TransactionJournal.Target.delete(
+                                            "pending/" + entryId.value() + "/questions.jsonl"),
+                                    TransactionJournal.Target.delete(
+                                            "pending/" + entryId.value() + "/decision-log.jsonl")),
+                            journal.targets(), "the journal should hold the entry's four delete targets"),
                     () -> assertEquals(JournalScopeType.WORKSPACE, journal.scopeType(),
                             "the journal should be the workspace's"),
                     () -> assertEquals(Mode.DELETE, journal.targets().getFirst().mode(),
-                            "the target should be a delete"),
+                            "the targets should be deletes"),
                     () -> assertEquals(Optional.empty(), store.read(entryId), "the record should be removed"),
                     () -> assertEquals(Optional.empty(), DigestSidecar.load(workspace.sidecarFile())
                             .digest(PendingEntryStore.storePath(entryId)), "the sidecar entry should be removed"),
+                    () -> assertTrue(discarded, "the directory should be discarded"),
+                    () -> assertFalse(Files.exists(store.directory(entryId)), "the directory should be gone"),
                     () -> assertEquals(Set.of(), store.entryIds(), "no entry should be listed"));
         }
 
@@ -270,7 +342,7 @@ class PendingEntryStoreTest {
             var removed = inTransaction(write -> store.remove(write, entryId));
 
             assertAll(
-                    () -> assertFalse(removed, "the removal should report no record"),
+                    () -> assertFalse(removed, "the removal should report no entry"),
                     () -> assertFalse(Files.exists(workspace.journalFile()), "no journal should remain"),
                     () -> assertEquals(Set.of(), store.entryIds(), "no entry should be listed"));
         }
@@ -305,13 +377,72 @@ class PendingEntryStoreTest {
         }
     }
 
-    /** PM-WATCH-STORE-42: an id is checked against the records present under the lock that creates its record. */
+    /** Store Schemas § Pending Entry: a digest mismatch holds only that entry, until its edit is accepted. */
+    @Nested
+    @DisplayName("integrity")
+    class Integrity {
+
+        @Test
+        @DisplayName("a verified entry is verified, an absent one is absent")
+        void verifiedAndAbsent() {
+            var id = enter(new ScriptedRandom(Generators.longs(0, Long.MAX_VALUE - 1).next()));
+
+            var verified = verify(id);
+            var absent = verify(otherId);
+
+            assertAll(
+                    () -> assertEquals(new PendingEntryStore.Integrity.Verified(id), verified,
+                            "the untouched entry should be verified"),
+                    () -> assertEquals(new PendingEntryStore.Integrity.Absent(otherId), absent,
+                            "a missing entry should be absent"));
+        }
+
+        @Test
+        @DisplayName("a tampered record holds that entry alone, and its edit is accepted by a re-baseline")
+        void tamperedEntryAlone() throws IOException {
+            var first = enter(new ScriptedRandom(Generators.longs(0, Long.MAX_VALUE - 2).next()));
+            var second = enter(new ScriptedRandom(Generators.longs(0, Long.MAX_VALUE - 2).next(),
+                    Generators.longs(0, Long.MAX_VALUE - 2).next()));
+            Files.write(store.store(first), PendingEntryCodec.write(entry(first, nextState)));
+
+            var tampered = assertInstanceOf(PendingEntryStore.Integrity.Tampered.class, verify(first),
+                    "the edited entry should be tampered");
+            var other = verify(second);
+
+            acceptEdit(first);
+
+            assertAll(
+                    () -> assertInstanceOf(ScopeIntegrity.Mismatch.class, tampered.cause(),
+                            "the cause should be the record's mismatch"),
+                    () -> assertEquals(first, tampered.entryId(), "the cause should name the entry"),
+                    () -> assertEquals(new PendingEntryStore.Integrity.Verified(second), other,
+                            "the other entry should stay verified"),
+                    () -> assertEquals(new PendingEntryStore.Integrity.Verified(first), verify(first),
+                            "the re-baseline should accept the edit"));
+        }
+    }
+
+    private PendingEntryStore.Integrity verify(EntryId id) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(workspace.lockKey());
+            return store.verify(transaction, id, audit);
+        }
+    }
+
+    private void acceptEdit(EntryId id) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(workspace.lockKey());
+            ScopeIntegrity.rebaseline(transaction, workspace, PendingEntryStore.storePath(id), audit);
+        }
+    }
+
+    /** PM-WATCH-STORE-42: an id is checked against the entries present under the lock that creates its directory. */
     @Nested
     @DisplayName("allocation")
     class Allocation {
 
         @Test
-        @DisplayName("of two entries gives two distinct records, a colliding draw redrawn")
+        @DisplayName("of two entries gives two distinct entries, a colliding draw redrawn")
         void twoEntriesTwoRecords() {
             var draw = Generators.longs(0, Long.MAX_VALUE - 1).next();
             var first = enter(new ScriptedRandom(draw));
@@ -322,9 +453,9 @@ class PendingEntryStoreTest {
                     () -> assertNotEquals(first, second, "the colliding draw should be redrawn"),
                     () -> assertEquals(Set.of(first, second), store.entryIds(), "both entries should be listed"),
                     () -> assertEquals(state, store.read(first).orElseThrow().bootstrap().state(),
-                            "the first record should keep its state"),
+                            "the first entry should keep its state"),
                     () -> assertEquals(state, store.read(second).orElseThrow().bootstrap().state(),
-                            "the second record should keep its state"));
+                            "the second entry should keep its state"));
         }
 
         @Test
@@ -361,10 +492,10 @@ class PendingEntryStoreTest {
     class Listing {
 
         @Test
-        @DisplayName("names only the files whose name parses as an entry id (the file names are the grammar table)")
+        @DisplayName("names only the directories whose name parses as an entry id (the names are the grammar table)")
         void onlyEntryIds() throws Exception {
             var pending = workspace.resolve(PendingEntryStore.DIRECTORY);
-            Files.writeString(pending.resolve("ent-0123abcd.json"), "{}");
+            Files.createDirectories(pending.resolve("ent-0123abcd"));
             Files.writeString(pending.resolve("notes.json"), "{}");
             Files.writeString(pending.resolve("ent-XYZ.json"), "{}");
             Files.writeString(pending.resolve("ent-0123.json"), "{}");
@@ -373,7 +504,7 @@ class PendingEntryStoreTest {
             Files.createDirectories(pending.resolve("ent-11111111.json"));
 
             assertEquals(Set.of(new EntryId("ent-0123abcd")), store.entryIds(),
-                    "only the entry file should be listed");
+                    "only the entry directory should be listed");
         }
 
         @Test
@@ -414,17 +545,17 @@ class PendingEntryStoreTest {
         }
 
         @Test
-        @DisplayName("names its record <entry_id>.json and is found again from that name")
-        void fileName() {
+        @DisplayName("names its directory by its id and is found again from that name")
+        void directoryName() {
             var value = shortId();
             var id = new EntryId(value);
 
             assertAll(
-                    () -> assertEquals(value + ".json", id.fileName(), "the file name should add .json"),
-                    () -> assertEquals(Optional.of(id), EntryId.ofFileName(id.fileName()),
-                            "the file name should parse back"),
-                    () -> assertEquals(Optional.empty(), EntryId.ofFileName(value),
-                            "a name without .json should not parse"),
+                    () -> assertEquals(value, id.directoryName(), "the directory name should be the id"),
+                    () -> assertEquals(Optional.of(id), EntryId.ofDirectoryName(id.directoryName()),
+                            "the directory name should parse back"),
+                    () -> assertEquals(Optional.empty(), EntryId.ofDirectoryName(value + ".json"),
+                            "a name with a suffix should not parse"),
                     () -> assertEquals(value, id.toString(), "the id should print as its value"));
         }
 

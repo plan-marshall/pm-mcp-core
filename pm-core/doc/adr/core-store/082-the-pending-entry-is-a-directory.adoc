@@ -1,0 +1,77 @@
+= ADR 082: The Pending Entry Is a Directory
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+A start of a plan or an epic is an entry until its scope exists. The specification gives the entry a directory of the
+workspace scope, `pending/<entry_id>/`, with its record `entry.json`, its source directory and manifest, its question
+store, its decision store and its chat transcript
+(link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas §
+Pending Entry]; link:../../../../doc/specification/filesystem-layout/03-project-store.adoc#machine-store[Filesystem
+Layout § Per-Project Machine Store]). The store kept the record as one flat file `pending/<entry_id>.json` and moved
+only the questions into the entry's directory (ADR 036), a form the specification no longer describes. The record's
+schema had also drifted from the codec: it required a `recipe` member the record did not carry and a
+`source` member the schema did not name.
+
+== Decision
+
+* `PendingEntryStore` owns the directory `pending/<entry_id>/`. `create` writes the record `entry.json`, an empty
+  manifest `sources/sources.json` and the empty stores `questions.jsonl` and `decision-log.jsonl` as create targets of
+  one workspace transaction; `chat/` and `sources/` exist before the commit, as the directory of every store does.
+* `EntryId` names the directory (`directoryName`, `ofDirectoryName`); a file name of `pending/` that does not parse as
+  an id is never an entry.
+* `PendingEntryRecord` and `PendingEntryCodec` follow `pending-entry.schema.json` exactly: the record gains the
+  `recipe` of `start.choose` and drops the raw `source` member; `requested_id` and `hint` are required members that are
+  nullable. `PendingEntrySchemaParityTest` is re-enabled and keeps the codec and the schema in step.
+* The source directory is recorded by a typed manifest `SourceManifest` (`SourceManifestCodec`), one `Source` per
+  stored source with its kind, reference, origin, trust, files and screening verdict; a stored source is never
+  changed, and every file is verified against the size and SHA-256 of the manifest when it is read.
+* `verify` decides the entry's four stores against the workspace digest sidecar under the lock and answers `Verified`,
+  `Absent` or `Tampered` with the differing store, so a tampered entry holds that entry alone; `accept-edit`
+  re-baselines the store, and abandoning the entry deletes the directory.
+* `PendingEntryCreation` is the store-level part of `start.create-scope`: it copies the source directory and the
+  transcript, copies and deletes the decision store, moves the question log through
+  `QuestionLog.moveEntryQuestions`, composes `request.md` from the sources, deletes the record last, and deletes the
+  entry's directory after both commits.
+
+== Alternatives Considered
+
+1. *Keep the flat record and add the source directory beside it.*
+_Not taken_: the specification's layout is one directory per entry, and a record beside a directory would be a second
+form to read, journal and verify.
+2. *Delete the entry's stores one by one and never the directory.*
+_Not taken_: the transcript and the source files are not stores a transaction deletes, so the directory itself is the
+last act; the record's absence is the evidence the sweep reads.
+3. *Let a tampered entry hold the workspace scope.*
+_Not taken_: Store Schemas § Pending Entry says a mismatch holds the entry alone, and the workspace hosts other
+entries and the project's setup.
+
+== Consequences
+
+* A reader of the entry reads `pending/<entry_id>/entry.json`; `PendingEntryReader` keeps its shape, and
+  `PendingEntryDirectoryReader` of `pm-runtime` implements it.
+* A stop between the two commits of the creation leaves the entry in place, and a repeated move is refused by the
+  create of the target stores instead of appending the records twice (ADR 028).
+* A stop after both commits and before the directory is deleted leaves a directory without a record; the periodic
+  sweep removes it by that evidence and never by the entry's age, so an open entry never expires.
+* `grants.jsonl` of the layout belongs to the package `access-grants` and is not created here.
+* ADR 036 is superseded for the record's form; its rule for the question file's move stands.
+
+== Source
+
+* Plan `PLAN-V2-22` of the epic `pm-mcp-core-m2-m4-v2` (`start-source-intake`, the Milestone 3 part), deliverables 3,
+  4, 5 (the store-level part), 12 and 13
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas §
+  Pending Entry]
+* link:../../../../doc/specification/filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout § The
+  Source Directory]
+* `pm-core/src/main/java/de/planmarshall/core/store/PendingEntryStore.java`,
+  `PendingEntryCreation.java`, `SourceManifest.java`

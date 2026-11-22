@@ -14,30 +14,30 @@ import java.util.Objects;
 import de.planmarshall.core.store.EntryId;
 
 /**
- * The engine's read view of one pending entry record {@code pending/<entry_id>.json} of the project's workspace scope
+ * The engine's read view of one pending entry {@code pending/<entry_id>/} of the project's workspace scope
  * (PM-ARCH-4, bullets 2 and 5: a pending plan or epic bootstrap is addressed in the workspace scope by its
  * {@code entry_id} as entity, and resolved from its persisted record, never from the memory of a running engine). The
- * engine reads the record an {@code entry_id} names to learn whether the bootstrap still exists and of which kind it
+ * engine reads the entry an {@code entry_id} names to learn whether the bootstrap still exists and of which kind it
  * is.
  * <p>
  * The request carries the typed {@link EntryId} of {@code core.store}, which owns the grammar of the {@code entry_id}:
  * the port never receives an unchecked string.
  * <p>
- * The read is tri-state: a record that is gone (the bootstrap ended, or the sweep removed it) is
- * {@link EntryRead.Deleted}, and a record that exists but cannot be read is the explicit result
+ * The read is tri-state: an entry that is gone (the creation of its scope deleted it, or the operator abandoned it) is
+ * {@link EntryRead.Deleted}, and an entry that exists but cannot be read is the explicit result
  * {@link EntryRead.Unreadable}, never taken for a live one, so a broken store is never mistaken for a bootstrap that
- * can be addressed.
+ * can be addressed. A store of the entry that differs from its digest sidecar entry makes that entry alone unreadable:
+ * no other entry and no workspace workflow is affected.
  * <p>
- * The records are kept by {@link de.planmarshall.core.store.PendingEntryStore} of {@code core.store}; the port is
+ * The entries are kept by {@link de.planmarshall.core.store.PendingEntryStore} of {@code core.store}; the port is
  * implemented over that store, outside the engine packages:
  * {@link de.planmarshall.core.store.PendingEntryStore#read(EntryId)} returning a record is {@link EntryRead.Live} with
  * the {@linkplain de.planmarshall.core.store.PendingEntryRecord.Kind#wireName() wire name} of the record's kind,
  * returning empty is {@link EntryRead.Deleted}, and throwing {@link de.planmarshall.core.store.StoreRefusal} (another
- * format version, an unreadable record, or a record that states another {@code entry_id} than its file name) or
+ * format version, an unreadable record, or a record that states another {@code entry_id} than its directory) or
  * {@link java.io.UncheckedIOException} (a record that exists and cannot be read) is {@link EntryRead.Unreadable} with
  * the reason of the failure. As every engine port, it is implemented in {@code pm-runtime}, which holds the store of
- * a project's workspace scope; no class of {@code pm-core} implements it (PM-IMPL-5), and no implementation exists
- * yet: until the runtime wires one, only the test doubles do.
+ * a project's workspace scope; no class of {@code pm-core} implements it (PM-IMPL-5).
  *
  * @since 0.1
  */

@@ -2903,3 +2903,54 @@ invalid input, an exhausted revision and an exhausted day count, `mostUsed`/`rec
 a root that is no object, a missing member, a negative revision, a repeated or invalid favourite, a day that is no date or
 named twice, and a count below one.
 
+== The Pending Entry
+
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-10[PM-WF-10], link:{docs}/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1]_
+
+A start of a plan or an epic is an entry until its scope exists
+({spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry]). The entry is
+a directory `pending/<entry_id>/` of the workspace scope, and `PendingEntryStore` is its one writer: the record
+`entry.json` (`PendingEntryRecord`, read and written by `PendingEntryCodec` against
+`pending-entry.schema.json`), the source directory `sources/` with its manifest (`SourceManifest`,
+`SourceManifestCodec`), the entry's question store `questions.jsonl`, its decision store `decision-log.jsonl`, and the
+transcript `chat/` (link:../adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR 082]).
+
+`EntryId` is the name of the directory: `ent-` and 8 to 32 lower-case hexadecimal digits, with `ofDirectoryName` as the
+one reader of a name of `pending/`. A fresh id is drawn at random and checked against the directories present and the
+stores the transaction already writes, under the workspace lock, so two concurrent entries never share a directory
+(PM-WATCH-STORE-42).
+
+*Opening*: `create` adds the record, an empty manifest and the two empty JSONL stores as create targets of one
+workspace transaction, and the entry's directories exist before the commit as the directory of every store does. Every
+bootstrap transition replaces the record; a source unit replaces the manifest with one more `Source`; nothing else is
+written through the store. A file of `pending/` that is no entry directory (a staged file of a transaction included) is
+never an entry, and a name that is not an id is never listed.
+
+*Never expires*: an entry has no time limit, so no sweep reads its age. The periodic sweep removes only the directory
+of an entry whose record is gone: the removal its creation or its abandoning began deletes the entry's stores in one
+workspace transaction and the directory last, and a stop between the two leaves the directory behind with no record
+(link:../../../pm-runtime/doc/developer/runtime-start.adoc[Runtime Start Developer Guide]).
+
+*Integrity*: `verify` reads the entry's four stores against the workspace digest sidecar under the lock and answers
+`Verified`, `Absent` or `Tampered` with the store that differs. A tampered entry therefore holds that entry alone: the
+operator's `accept-edit` re-baselines the store through `ScopeIntegrity.rebaseline`, and abandoning the entry deletes
+its directory. Neither another entry nor the workspace workflow is affected.
+
+*Creation*: `PendingEntryCreation.move` is the store-level part of `start.create-scope`: it copies the source files
+(after verifying each against the size and SHA-256 of the manifest) and the manifest into the new scope's
+`sources/`, copies the transcript into its `chat/`, copies the decision store and deletes the entry's, moves the
+question log through `QuestionLog.moveEntryQuestions`, and composes `request.md` from the description texts and a
+reference to every other source. The workspace transaction deletes the entry's record last; the caller commits the new
+scope first and the workspace second, so a stop leaves the entry in place and a repeated move is refused by the create
+of the target stores, and `finish` deletes the entry's directory as the last act.
+
+*Failure modes*: a record of another `format_version`, an unreadable record, or a record that states another
+`entry_id` than its directory is a `StoreRefusal` naming the file; a stored file whose size or digest differs from its
+manifest entry refuses the move; an entry of another scope's transaction is refused; removing an entry that does not
+exist is no error.
+
+Tested by `PendingEntryStoreTest` (creation, replacement, the manifest, removal and discard, the per-entry integrity
+verdict and its re-baseline, the listing, the id grammar), `PendingEntryCodecTest` and `PendingEntrySchemaParityTest`
+(the record and its schema), `SourceManifestCodecTest` (the manifest and its refusals), and `PendingEntryCreationTest`
+(the move, the composed request, the refused digest and the refused repeated move).
+
