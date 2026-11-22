@@ -83,6 +83,13 @@ List<SourceFile> files) {
     public static final int REPOSITORY_MAX_LENGTH = 2048;
 
     /**
+     * The most characters of a refused value a refusal of the package echoes: {@link #fragment(String)} cuts a longer
+     * one, the way the coverage readers cut the report content they echo. Private, because it bounds no member of the
+     * formats and so is no bound constant the schema parity compares.
+     */
+    private static final int ECHO_MAX_LENGTH = 256;
+
+    /**
      * One file of a source.
      *
      * @param path   the repository-relative path of the file
@@ -186,6 +193,24 @@ List<SourceFile> files) {
     }
 
     /**
+     * Parses the text of a repository URI a codec read, checking its length first: {@link URI#create(String)} echoes
+     * the whole text in the refusal of a malformed URI, so an over-long text is refused by its length before it is
+     * parsed, with the refusal {@link #requireRepository} gives.
+     *
+     * @param text the text of the repository URI
+     * @return the parsed URI, still to be checked by {@link #requireRepository}
+     * @throws IllegalArgumentException if the text is longer than {@link #REPOSITORY_MAX_LENGTH} or no URI
+     */
+    static URI parseRepository(String text) {
+        Objects.requireNonNull(text, "repository");
+        if (text.codePointCount(0, text.length()) > REPOSITORY_MAX_LENGTH) {
+            throw new IllegalArgumentException(
+                    "'repository' is longer than " + REPOSITORY_MAX_LENGTH + " characters");
+        }
+        return URI.create(text);
+    }
+
+    /**
      * Requires a value no longer than a bound, and only then its pattern, so an over-long value never reaches the
      * regular expression engine the way {@link SchemaSubset} checks the length before the pattern.
      *
@@ -203,10 +228,35 @@ List<SourceFile> files) {
         require(value, pattern, field);
     }
 
+    /**
+     * Requires a value to match a pattern. A refusal echoes the value cut by {@link #fragment(String)}, because a caller
+     * of this overload (the oid of an {@link LfsPointer}) may not have bounded its length first.
+     *
+     * @param value   the value
+     * @param pattern the pattern of the value
+     * @param field   the name of the member, named by a refusal
+     * @throws IllegalArgumentException if the value does not match the pattern
+     */
     static void require(String value, Pattern pattern, String field) {
         Objects.requireNonNull(value, field);
         if (!pattern.matcher(value).matches()) {
-            throw new IllegalArgumentException("'%s' does not match %s: %s".formatted(field, pattern, value));
+            throw new IllegalArgumentException(
+                    "'%s' does not match %s: %s".formatted(field, pattern, fragment(value)));
         }
+    }
+
+    /**
+     * Cuts a value a refusal of the package echoes to at most {@value #ECHO_MAX_LENGTH} characters, never splitting a
+     * surrogate pair, so a refusal never carries more of an unbounded value than that fragment.
+     *
+     * @param value the echoed value
+     * @return the value itself if it fits the bound, otherwise its first characters within the bound
+     */
+    static String fragment(String value) {
+        if (value.length() <= ECHO_MAX_LENGTH) {
+            return value;
+        }
+        int end = Character.isHighSurrogate(value.charAt(ECHO_MAX_LENGTH - 1)) ? ECHO_MAX_LENGTH - 1 : ECHO_MAX_LENGTH;
+        return value.substring(0, end);
     }
 }

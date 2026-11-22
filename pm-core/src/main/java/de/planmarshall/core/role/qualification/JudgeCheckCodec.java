@@ -83,6 +83,8 @@ public class JudgeCheckCodec {
     /**
      * @param entry a judge check record
      * @return the document, in its one canonical text
+     * @throws IllegalArgumentException if the token total of an item carries a split, which the record does not
+     *                                  persist
      */
     public static byte[] write(JudgeCheck.Record entry) {
         Objects.requireNonNull(entry, "entry");
@@ -249,9 +251,7 @@ public class JudgeCheckCodec {
         members.put(LABEL, JsonNode.string(score.label().wireName()));
         members.put(ORACLE_SCORE, grade(score.oracleScore()));
         members.put(BLIND_SCORE, grade(score.blindScore()));
-        members.put(TOTAL_TOKENS, score.totalTokens().measured()
-                ? JsonNode.integer(score.totalTokens().tokens())
-                : JsonNode.string(TokenTotal.UNMEASURED_MARK));
+        QualificationRecordCodec.totalTokens(members, score.totalTokens());
         members.put(DURATION_MS, score.durationMs() == null
                 ? JsonNode.nullValue()
                 : JsonNode.integer(score.durationMs()));

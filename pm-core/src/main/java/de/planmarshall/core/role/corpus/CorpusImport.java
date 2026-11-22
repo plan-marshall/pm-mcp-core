@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.corpus;
 
+import static de.planmarshall.core.role.corpus.SourceManifest.fragment;
+
 import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.io.Serial;
@@ -249,7 +251,8 @@ public final class CorpusImport {
                 items.add(ItemGenerator.generate(manifest, overlay, row, source));
             } catch (IllegalArgumentException e) {
                 throw missed(manifest.name(), Reason.MALFORMED, overlay.file(),
-                        "the row '%s' does not generate its item: %s".formatted(row.key(), e.getMessage()));
+                        "the row '%s' does not generate its item: %s".formatted(fragment(row.key()),
+                                e.getMessage()));
             }
         }
         return List.copyOf(items);
@@ -261,7 +264,7 @@ public final class CorpusImport {
             if (row.key().length() > String.valueOf(rows.size()).length()
                     || Integer.parseInt(row.key()) > rows.size()) {
                 throw missed(name, Reason.MALFORMED, overlay.file(),
-                        "the file has no row at position " + row.key());
+                        "the file has no row at position " + fragment(row.key()));
             }
             return rows.get(Integer.parseInt(row.key()) - 1);
         }
@@ -269,7 +272,8 @@ public final class CorpusImport {
                 .toList();
         if (matches.size() != 1) {
             throw missed(name, Reason.MALFORMED, overlay.file(), String.format(Locale.ROOT,
-                    "the file has %d rows whose field '%s' is '%s'", matches.size(), overlay.keyField(), row.key()));
+                    "the file has %d rows whose field '%s' is '%s'", matches.size(), fragment(overlay.keyField()),
+                    fragment(row.key())));
         }
         return matches.getFirst();
     }

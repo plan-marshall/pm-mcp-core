@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
 import de.planmarshall.core.SchemaValidation;
+import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.qualification.JudgeCheck.Label;
@@ -279,6 +281,63 @@ class QualificationSchemaParityTest {
                             SchemaParity.withRecordOnly(members, schema, "role"),
                             "a record-only member should be reported"));
         }
+
+        @Test
+        @DisplayName("the comparison reports a form, item or topic member only one side carries")
+        void nestedNegativeControls() {
+            var schema = schema(QUALIFICATION);
+            var document = SchemaParity.document(QualificationRecordCodec.write(withItem()));
+            var form = firstValue(document.get(FORMS));
+            var formMembers = SchemaParity.members(form);
+            var itemMembers = SchemaParity.members(SchemaParity.object(SchemaParity.array(document.get(ITEMS)).getFirst()));
+            var topicMembers = SchemaParity.members(firstValue(form.get(TOPICS)));
+            var formSchema = definition(schema, "formResult");
+            var itemSchema = itemOf(schema, ITEMS);
+            var topicSchema = definition(schema, "topicResult");
+
+            assertAll(
+                    () -> assertEquals(List.of("file-only:synthetic_member"),
+                            SchemaParity.withFileOnly(formMembers, formSchema, "synthetic_member"),
+                            "a file-only form member is reported"),
+                    () -> assertEquals(List.of("record-only:duration_ms"),
+                            SchemaParity.withRecordOnly(formMembers, formSchema, "duration_ms"),
+                            "a record-only form member is reported"),
+                    () -> assertEquals(List.of("file-only:synthetic_member"),
+                            SchemaParity.withFileOnly(itemMembers, itemSchema, "synthetic_member"),
+                            "a file-only item member is reported"),
+                    () -> assertEquals(List.of("record-only:checkout"),
+                            SchemaParity.withRecordOnly(itemMembers, itemSchema, "checkout"),
+                            "a record-only item member is reported"),
+                    () -> assertEquals(List.of("file-only:synthetic_member"),
+                            SchemaParity.withFileOnly(topicMembers, topicSchema, "synthetic_member"),
+                            "a file-only topic member is reported"),
+                    () -> assertEquals(List.of("record-only:thin"),
+                            SchemaParity.withRecordOnly(topicMembers, topicSchema, THIN),
+                            "a record-only topic member is reported"));
+        }
+
+        /**
+         * @return the sample record with one graded item, so the written document carries an item result
+         */
+        private static QualificationRecord withItem() {
+            var base = sample();
+            var item = new QualificationRecord.ItemResult(
+                    "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/clean-plan",
+                    RoleForm.FRESH, Checkout.CURRENT, JsonNode.string(Generators.letterStrings(3, 10).next()),
+                    Grade.of(true), TokenTotal.measured(Generators.integers(1, 1_000).next()),
+                    Generators.longs(0, 1_000).next());
+            return new QualificationRecord(base.role(), base.qualificationDigest(), base.configuration(),
+                    base.corpusRevision(), base.missedSources(), base.forms(), base.warmFreshGap(), 0, null,
+                    base.gradedAt(), List.of(item));
+        }
+    }
+
+    /**
+     * @param value a parsed JSON object keyed by name
+     * @return the value of its first member, as an object
+     */
+    private static Map<?, ?> firstValue(Object value) {
+        return SchemaParity.object(SchemaParity.object(value).values().iterator().next());
     }
 
     @Nested
@@ -335,6 +394,30 @@ class QualificationSchemaParityTest {
                     () -> assertEquals(1, ((Number) member(schema(JUDGE_CHECK), "format_version").get("const"))
                             .intValue(), "the format version constant is one"),
                     () -> assertValid(validator, written));
+        }
+
+        @Test
+        @DisplayName("the comparison reports a record or item member only one side carries")
+        void negativeControls() {
+            var schema = schema(JUDGE_CHECK);
+            var document = SchemaParity.document(JudgeCheckCodec.write(sample()));
+            var members = SchemaParity.members(document);
+            var itemMembers = SchemaParity.members(SchemaParity.object(SchemaParity.array(document.get(ITEMS)).getFirst()));
+            var itemSchema = itemOf(schema, ITEMS);
+
+            assertAll(
+                    () -> assertEquals(List.of("file-only:synthetic_member"),
+                            SchemaParity.withFileOnly(members, schema, "synthetic_member"),
+                            "a file-only record member is reported"),
+                    () -> assertEquals(List.of("record-only:unscored"),
+                            SchemaParity.withRecordOnly(members, schema, "unscored"),
+                            "a record-only record member is reported"),
+                    () -> assertEquals(List.of("file-only:synthetic_member"),
+                            SchemaParity.withFileOnly(itemMembers, itemSchema, "synthetic_member"),
+                            "a file-only item member is reported"),
+                    () -> assertEquals(List.of("record-only:total_tokens"),
+                            SchemaParity.withRecordOnly(itemMembers, itemSchema, "total_tokens"),
+                            "a record-only item member is reported"));
         }
     }
 }

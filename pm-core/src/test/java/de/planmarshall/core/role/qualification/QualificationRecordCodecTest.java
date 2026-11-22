@@ -164,7 +164,6 @@ class QualificationRecordCodecTest {
                 Arguments.of("no members", "{\"format_version\":1}"),
                 Arguments.of("another version", "{\"format_version\":2}"),
                 Arguments.of("content after", text() + "{}"),
-                Arguments.of("undeclared member", text().replace("\"role\"", "\"role_\"")),
                 Arguments.of("a string agreement", text().replace("\"agreement\":90", "\"agreement\":\"90\"")),
                 Arguments.of("another score word",
                         text().replace("\"score\":\"ungraded\"", "\"score\":\"lost\"")),
@@ -173,15 +172,77 @@ class QualificationRecordCodecTest {
                 Arguments.of("another form", text().replace("\"form\":\"fresh\"", "\"form\":\"lukewarm\"")),
                 Arguments.of("another checkout",
                         text().replace("\"checkout\":\"current\"", "\"checkout\":\"elsewhere\"")),
-                Arguments.of("a form input split",
-                        text().replace("\"total_tokens\":\"unmeasured\"",
-                                "\"total_tokens\":\"unmeasured\",\"tokens_in\":3000")),
-                Arguments.of("an item output split",
-                        text().replace("\"total_tokens\":1200", "\"total_tokens\":1200,\"tokens_out\":300")),
                 Arguments.of("a thin mark that contradicts the count",
                         text().replace("\"thin\":true", "\"thin\":false")),
                 Arguments.of("another judge check result",
                         text().replace("\"judge_check\":\"passed\"", "\"judge_check\":\"unknown\"")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("undeclaredMembers")
+    @DisplayName("an undeclared member is refused and the refusal names it")
+    void undeclaredMember(String description, String member, String document) {
+        var file = directory.resolve("review-code.json");
+        var bytes = document.getBytes(StandardCharsets.UTF_8);
+
+        var refused = assertThrows(StoreRefusal.class,
+                () -> QualificationRecordCodec.read(file, bytes), "a record with an undeclared member is refused");
+
+        assertAll(
+                () -> assertEquals(file, refused.file(), "the refusal names the record file"),
+                () -> assertTrue(refused.getMessage().contains(member), "the refusal names the undeclared member"));
+    }
+
+    /**
+     * @return each planted undeclared member by where it sits; the member names are the wire contract, so they are
+     *         literals
+     */
+    static Stream<Arguments> undeclaredMembers() {
+        return Stream.of(
+                Arguments.of("a record member", "role_", text().replace("\"role\"", "\"role_\"")),
+                Arguments.of("tokens_in on a form", "tokens_in",
+                        text().replace("\"total_tokens\":4000", "\"total_tokens\":4000,\"tokens_in\":3000")),
+                Arguments.of("tokens_out on a form", "tokens_out",
+                        text().replace("\"total_tokens\":4000", "\"total_tokens\":4000,\"tokens_out\":1000")),
+                Arguments.of("tokens_in on an item", "tokens_in",
+                        text().replace("\"total_tokens\":1200", "\"total_tokens\":1200,\"tokens_in\":900")),
+                Arguments.of("tokens_out on an item", "tokens_out",
+                        text().replace("\"total_tokens\":1200", "\"total_tokens\":1200,\"tokens_out\":300")));
+    }
+
+    @Test
+    @DisplayName("a form total that carries a split is refused at the write, not dropped")
+    void formSplitRefusedAtWrite() {
+        var base = recordWithTopicItems(QualificationRecord.TopicResult.THIN_LIMIT);
+        var fresh = base.forms().get(RoleForm.FRESH);
+        var split = new QualificationRecord.FormResult(fresh.topics(), fresh.items(),
+                TokenTotal.measured(1_000, 700, 300), fresh.durationMs());
+        var entry = new QualificationRecord(base.role(), base.qualificationDigest(), base.configuration(),
+                base.corpusRevision(), base.missedSources(), Map.of(RoleForm.FRESH, split), null, 0, null,
+                base.gradedAt(), List.of());
+
+        var refused = assertThrows(IllegalArgumentException.class, () -> QualificationRecordCodec.write(entry),
+                "a form total with a split is refused");
+
+        assertTrue(refused.getMessage().contains("split"), "the refusal names the carried split");
+    }
+
+    @Test
+    @DisplayName("an item total that carries a split is refused at the write, not dropped")
+    void itemSplitRefusedAtWrite() {
+        var base = fullRecord();
+        var first = base.items().getFirst();
+        var split = new QualificationRecord.ItemResult(first.itemId(), first.form(), first.checkout(),
+                first.answer(), first.score(), TokenTotal.measured(1_200, 900, 300), first.durationMs());
+        var items = List.of(split, base.items().get(1));
+        var entry = new QualificationRecord(base.role(), base.qualificationDigest(), base.configuration(),
+                base.corpusRevision(), base.missedSources(), base.forms(), base.warmFreshGap(), base.ungraded(),
+                base.judgeCheck(), base.gradedAt(), items);
+
+        var refused = assertThrows(IllegalArgumentException.class, () -> QualificationRecordCodec.write(entry),
+                "an item total with a split is refused");
+
+        assertTrue(refused.getMessage().contains("split"), "the refusal names the carried split");
     }
 
     @Test

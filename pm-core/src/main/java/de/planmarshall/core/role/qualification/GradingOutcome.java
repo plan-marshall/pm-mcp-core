@@ -61,9 +61,6 @@ public sealed interface GradingOutcome {
         /** The corpus import failed: no role is qualified on it. */
         public static final String CORPUS_IMPORT_FAILED = "corpus_import_failed";
 
-        /** The judge has no valid check record that passes, or its check ended without a verdict. */
-        public static final String JUDGE_UNCHECKED = "judge_unchecked";
-
         /** The judge's model is the graded model or its sibling at the default configuration. */
         public static final String SCORER_NOT_INDEPENDENT = "scorer_not_independent";
 
