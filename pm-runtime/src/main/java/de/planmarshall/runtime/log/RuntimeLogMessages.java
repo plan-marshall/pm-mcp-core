@@ -1252,6 +1252,21 @@ public final class RuntimeLogMessages {
                 .identifier(151)
                 .template("The terminal worker state of generation '%s' cannot be read: %s")
                 .build();
+
+        /**
+         * Logged when a holding generation reaches its token budget and the facts of its leased task cannot be read:
+         * the hold-ended notification would name no attempt, so it is not sent, and the generation is still recycled,
+         * because the end path must not wait for a task record the protocol may never supply. The task is left
+         * awaiting its answer under the recycled worker, which this record makes visible.
+         * <p>
+         * The component is {@code WorkerRecycling} of the worker package.
+         */
+        public static final LogRecord HOLD_ENDED_TASK_UNREADABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(152)
+                .template("The facts of the held task '%s' of generation '%s' cannot be read: the hold ends "
+                        + "without the notification")
+                .build();
     }
 
     /** ERROR level messages. */

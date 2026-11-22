@@ -433,9 +433,38 @@ class SupervisorCallsTest {
     }
 
     @Test
-    @DisplayName("a closed hold resumes the execution and re-arms the silence limit")
-    void aClosedHoldResumesTheExecution() {
+    @DisplayName("an answer delivered to a holding generation leaves the hold")
+    void anAnswerDeliveredLeavesTheHold() {
+        var generation = holdingGeneration();
+
+        calls.answerDelivered(generation.generationId(), fixture.clock.instant());
+
+        assertEquals(WorkerLifecycle.EXECUTING,
+                supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                "the answer ends the hold and resumes the execution");
+    }
+
+    @Test
+    @DisplayName("a hold opened at the budget recycles instead of holding with no recycle")
+    void aHoldOpenedAtTheBudgetRecycles() {
+        withBounds(new RoleArtifact.Recycling(null, TOKEN_BUDGET, null), parameters(IDLE_WAKEUPS));
         var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
+        calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        calls.turnCompleted(generation.generationId(), TOKEN_BUDGET);
+
+        calls.holdOpened(generation.generationId(), TASK, fixture.clock.instant());
+
+        assertAll(
+                () -> assertEquals(Optional.of(EndCause.RECYCLE),
+                        ending.requestedCause(generation.generationId()),
+                        "the hold's turn decides the budget and recycles"),
+                () -> assertEquals(1, fixture.holdEnds.size(), "the hold of the budget is ended once"));
+    }
+
+    @Test
+    @DisplayName("a closed hold resumes the execution and re-arms the silence limit")
+    void aClosedHoldResumesTheExecution() {        var generation = started(fixture.role(RoleClass.WRITER, RoleForm.WARM, 1));
         calls.waitOpened(generation.generationId(), TASK, generation.configurationDigest());
         calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
         calls.turnCompleted(generation.generationId(), 1_000L);

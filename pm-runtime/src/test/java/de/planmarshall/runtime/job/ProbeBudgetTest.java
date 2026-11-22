@@ -66,4 +66,21 @@ class ProbeBudgetTest {
                 () -> assertEquals(120, ProbeBudget.LOGIN_SECONDS, "a login probe has 120 seconds"),
                 () -> assertEquals(600, ProbeBudget.SCRIPT_SECONDS, "a script probe has 600 seconds"));
     }
+
+    @Test
+    @DisplayName("a test lowers one kind's budget and the clear restores the compiled value")
+    void theTestSeamLowersAndRestores() {
+        ProbeBudget.override(ProbeCandidate.Kind.LOGIN, 1L);
+
+        var lowered = ProbeBudget.of(ProbeCandidate.Kind.LOGIN);
+        var otherKind = ProbeBudget.of(ProbeCandidate.Kind.MODELS);
+        ProbeBudget.clearOverrides();
+        var restored = ProbeBudget.of(ProbeCandidate.Kind.LOGIN);
+
+        assertAll(
+                () -> assertEquals(1L, lowered.seconds(), "the seam lowers the overridden kind"),
+                () -> assertEquals(30L, otherKind.seconds(), "the seam leaves the other kinds alone"),
+                () -> assertEquals(ProbeBudget.LOGIN_SECONDS, restored.seconds(),
+                        "the clear restores the compiled budget"));
+    }
 }

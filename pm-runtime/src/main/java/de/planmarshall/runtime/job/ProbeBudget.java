@@ -9,7 +9,9 @@
  */
 package de.planmarshall.runtime.job;
 
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
@@ -42,18 +44,48 @@ public class ProbeBudget {
 
     private static final BudgetDerivation FIXED = new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null);
 
+    /** The budgets a test lowers, so a probe-timeout test does not wait the compiled seconds; empty in production. */
+    private static final Map<ProbeCandidate.Kind, Long> OVERRIDES = new ConcurrentHashMap<>();
+
     /**
      * @param kind the kind of a probe
-     * @return the fixed budget of a probe of that kind
+     * @return the fixed budget of a probe of that kind, or the budget a test lowered it to
      */
     public static JobBudget of(ProbeCandidate.Kind kind) {
         Objects.requireNonNull(kind, "kind");
-        var seconds = switch (kind) {
+        var seconds = OVERRIDES.getOrDefault(kind, compiled(kind));
+        return new JobBudget(kind.budgetKey(), seconds, FIXED);
+    }
+
+    /**
+     * Lowers the budget of one kind of probe for a test, so the timeout is observed without waiting the compiled
+     * seconds. The production runtime never calls this: the compiled constants are the budget the specification names,
+     * and {@link #clearOverrides()} restores them.
+     *
+     * @param kind    the kind of probe
+     * @param seconds the budget the test runs the probe with, positive
+     * @throws IllegalArgumentException if the budget is not positive
+     * @throws NullPointerException     if the kind is {@code null}
+     */
+    public static void override(ProbeCandidate.Kind kind, long seconds) {
+        Objects.requireNonNull(kind, "kind");
+        if (seconds <= 0) {
+            throw new IllegalArgumentException("'seconds' must be positive: " + seconds);
+        }
+        OVERRIDES.put(kind, seconds);
+    }
+
+    /** Drops every override, so a later caller reads the compiled constants again. */
+    public static void clearOverrides() {
+        OVERRIDES.clear();
+    }
+
+    private static long compiled(ProbeCandidate.Kind kind) {
+        return switch (kind) {
             case VERSION -> VERSION_SECONDS;
             case MODELS -> MODELS_SECONDS;
             case LOGIN -> LOGIN_SECONDS;
             case SCRIPT -> SCRIPT_SECONDS;
         };
-        return new JobBudget(kind.budgetKey(), seconds, FIXED);
     }
 }

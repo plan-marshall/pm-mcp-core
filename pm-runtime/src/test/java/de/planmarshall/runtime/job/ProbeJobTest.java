@@ -128,6 +128,7 @@ class ProbeJobTest {
 
     @AfterEach
     void tearDown() {
+        ProbeBudget.clearOverrides();
         for (var jobId : runner.runningJobs()) {
             runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
             runner.awaitSettled(jobId, SETTLE_TIMEOUT);
@@ -359,6 +360,8 @@ class ProbeJobTest {
     @Test
     @DisplayName("a probe over its fixed budget ends timed_out and is not started again")
     void overBudget() {
+        // the test lowers the version budget so the timeout is observed without waiting the compiled 15 seconds
+        ProbeBudget.override(ProbeCandidate.Kind.VERSION, 1L);
         var jobId = started(onMachine(Set.of(0), "sleep", "120"));
 
         var settled = settled(jobId);
@@ -367,8 +370,9 @@ class ProbeJobTest {
         assertAll(
                 () -> assertEquals(Fate.TIMED_OUT, settled.fate(), "the probe over budget timed out"),
                 () -> assertEquals(3, settled.outcomeRow(), "the timeout is row 3"),
-                () -> assertTrue(settled.jobWallTime().orElseThrow().toSeconds() >= ProbeBudget.VERSION_SECONDS,
-                        "the probe ran its whole budget"),
+                () -> assertTrue(settled.jobWallTime().orElseThrow().toSeconds() >= 1L,
+                        "the probe ran its whole lowered budget"),
+                () -> assertEquals(1L, settled.budgetSeconds(), "the record carries the lowered budget"),
                 () -> assertEquals(List.of(settled), records, "one record: the probe was not started again"),
                 () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"));
     }
