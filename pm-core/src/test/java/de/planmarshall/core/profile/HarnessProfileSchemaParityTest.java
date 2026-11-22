@@ -59,11 +59,10 @@ class HarnessProfileSchemaParityTest {
     void membersAreTheValidatedDocument() {
         var schema = SchemaResource.load(SCHEMA);
         var required = names(SchemaResource.array(schema.get("required")));
-        var expected = required.stream().map(member -> ID_MEMBER.equals(member) ? READER_ID_MEMBER : member).toList();
         var document = document();
 
         assertAll(
-                () -> assertEquals(Set.copyOf(expected), Set.copyOf(names(document.keySet())),
+                () -> assertEquals(Set.copyOf(required), Set.copyOf(names(document.keySet())),
                         "The document's members are the file's"),
                 () -> assertDoesNotThrow(HarnessProfileSchemaParityTest::validate,
                         "The validator accepts its own document"));
