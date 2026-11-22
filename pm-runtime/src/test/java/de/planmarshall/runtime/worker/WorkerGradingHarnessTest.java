@@ -168,6 +168,22 @@ class WorkerGradingHarnessTest {
     }
 
     @Test
+    @DisplayName("a zero-tool role creates no item worktree for an origin commit")
+    void aZeroToolRoleCreatesNoWorktree() {
+        var role = fixture.role(RoleClass.ZERO_TOOL, RoleForm.FRESH, 1);
+        ItemWorktrees worktrees = createMock(ItemWorktrees.class);
+        replay(worktrees);
+        var harness = harness(role, worktrees);
+
+        harness.answer(offered(item(FIRST, null), RoleForm.FRESH, Checkout.ITEM_COMMIT));
+
+        assertAll(
+                () -> assertEquals(1, tasks.size(), "the zero-tool item is offered in its own directory"),
+                () -> assertTrue(tasks.getFirst().workdir() == null, "a zero-tool task carries no worktree"));
+        verify(worktrees);
+    }
+
+    @Test
     @DisplayName("a contaminated item starts its own worker in another directory")
     void contaminationStartsAnotherWorker() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 2);

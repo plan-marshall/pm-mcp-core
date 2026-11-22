@@ -107,10 +107,12 @@ public final class WorkerGradingHarness implements GradingHarness {
      * @return the directory the worker runs in; empty when a granted origin-commit worktree cannot be materialised
      */
     private Optional<Path> directory(Checkout checkout, ImportedItem item) {
-        if (checkout == Checkout.ITEM_COMMIT) {
-            return worktrees.checkout(item.provenance().origin().repository(), item.provenance().origin().commit());
+        if (checkout != Checkout.ITEM_COMMIT || role.zeroTool()) {
+            // a zero-tool role runs in a job-private directory the runtime makes: no worktree of the item is needed,
+            // and one created here would never be removed
+            return Optional.of(projectCheckout);
         }
-        return Optional.of(projectCheckout);
+        return worktrees.checkout(item.provenance().origin().repository(), item.provenance().origin().commit());
     }
 
     private @Nullable String startFresh(ImportedItem item, Path directory) {
