@@ -214,7 +214,7 @@ class PendingEntryCreationTest {
         var document = PendingEntryCreation.composeRequest(notNormalized, manifest);
 
         assertTrue(document.startsWith("# Request\n\n" + description),
-                "the description should be composed though the directory is not normalized");
+                "an unnormalized source directory still composes");
     }
 
     @Test
@@ -260,7 +260,7 @@ class PendingEntryCreationTest {
                 () -> assertFalse(refusal.getMessage().contains("PLAN-V2-133"),
                         "the reason should name the capability, not a plan id"),
                 () -> assertTrue(Files.exists(epic.pathBase().resolve(probe)),
-                        "the target's own store should be committed, so the move wrote none"),
+                        "the epic's own store commits, so no move wrote"),
                 () -> assertFalse(Files.exists(epic.pathBase().resolve("sources")),
                         "no source directory should be written into the epic"),
                 () -> assertFalse(Files.exists(epic.pathBase().resolve("sources/sources.json")),
