@@ -288,9 +288,10 @@ class IconStoreTest {
     void refusesASymlinkedDirectory() throws Exception {
         Files.createDirectories(base.resolve("elsewhere"));
         Files.createSymbolicLink(base.resolve("icons"), base.resolve("elsewhere"));
+        var id = harnessId();
 
         var refusal = assertThrows(IconRefusal.class,
-                () -> store.accept(harnessId(), "https://example.invalid/a.svg", fetchedAt, SVG),
+                () -> store.accept(id, "https://example.invalid/a.svg", fetchedAt, SVG),
                 "a store directory that is a link is refused");
 
         assertEquals(IconRefusal.TARGET_IS_LINK, refusal.code(), "the refusal names the link");
@@ -311,12 +312,14 @@ class IconStoreTest {
     @Test
     @DisplayName("refuses an index entry of another media type or size")
     void refusesABadEntry() {
+        var digest = "0".repeat(64);
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new IconIndexEntry("https://example.invalid/a", "0".repeat(64), 1, "image/gif",
+                        () -> new IconIndexEntry("https://example.invalid/a", digest, 1, "image/gif",
                                 Instant.EPOCH), "a media type the store does not keep is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new IconIndexEntry("https://example.invalid/a", "0".repeat(64), 0, "image/png",
+                        () -> new IconIndexEntry("https://example.invalid/a", digest, 0, "image/png",
                                 Instant.EPOCH), "an empty icon is refused"));
     }
 

@@ -31,7 +31,8 @@ class SvgSanitiserAllowListParityTest {
 
     private static final Path ADR = Path.of("doc/adr/runtime-launch/012-the-icon-sanitiser-is-an-allow-list.adoc");
     private static final Pattern ELEMENT_LIST = Pattern.compile("A closed list of elements is kept \\(([^)]*)\\)");
-    private static final Pattern ATTRIBUTE_LIST = Pattern.compile("A closed list of attributes is kept:\\s*\\n([^;]*);");
+    private static final Pattern ATTRIBUTE_LIST = Pattern.compile(
+            "A closed list of attributes is kept:[ \\t]*\\r?\\n([^;]*);");
     private static final Pattern BACKTICKED = Pattern.compile("`([^`]+)`");
 
     @Test
