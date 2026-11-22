@@ -46,7 +46,6 @@ de/planmarshall/runtime/job/SubprocessJobRunnerTest.java#anonymous:ProcessGroupS
 de/planmarshall/runtime/job/SubprocessJobRunnerTest.java#anonymous:ProcessGroupSignals#2
 de/planmarshall/runtime/job/SubprocessJobRunnerTest.java#anonymous:ProcessGroupSignals#3
 de/planmarshall/runtime/job/SubprocessJobRunnerTest.java#anonymous:ProcessGroupSignals#4
-de/planmarshall/runtime/job/SubprocessJobRunnerTest.java#anonymous:ProcessGroupSignals#5
 de/planmarshall/runtime/job/SubprocessJobRunnerTest.java#lambda:DefaultTemplates#1
 de/planmarshall/runtime/job/SubprocessJobRunnerTest.java#lambda:Pause#1
 de/planmarshall/runtime/job/SubprocessJobRunnerTest.java#lambda:Pause#2

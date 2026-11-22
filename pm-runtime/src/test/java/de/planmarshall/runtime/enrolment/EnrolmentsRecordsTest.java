@@ -58,8 +58,8 @@ class EnrolmentsRecordsTest {
     void rebaselineBuilderRefusesMissingFile() {
         var builder = Enrolments.Rebaseline.builder();
         var refusal = assertThrows(NullPointerException.class, builder::build,
-                "the builder names the missing enrolment");
+                "the builder refuses a missing file component");
 
-        assertEquals("file", refusal.getMessage(), "the refusal names the enrolment file");
+        assertEquals("file", refusal.getMessage(), "the refusal names the component file");
     }
 }

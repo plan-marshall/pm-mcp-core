@@ -57,7 +57,7 @@ No class of `pm-runtime` may depend on `de.cuioss.http.client..` except the dest
 |Destination class |Sentence it implements
 
 |`de.planmarshall.runtime.endpoint.EndpointClient`
-|the loopback endpoint of a client profile (Client Profiles § The Request)
+|the loopback endpoint of a client profile (Harness Profiles § The Request, link:{spec}/harness-profiles/03-endpoint-harness.adoc#endpoint-request[`03-endpoint-harness.adoc`])
 
 |`de.planmarshall.runtime.corpus.HuggingFaceSourceRepository`
 |the fetch of the corpus sources over HTTPS (Credentials & Enrolment § Closed List of Outbound Calls)
@@ -105,6 +105,7 @@ A probe of the head ran rule A over one throw-away class per gap and the rule re
 * a *DNS lookup* through `java.net.InetAddress`, which resolves a name over the network.
 * a *subprocess that runs a network tool*, such as `ProcessBuilder` around `curl`: the connection is the subprocess's, not this JVM's.
 * *reflection*, such as `Class.forName("java.net.Socket")` and a constructor call on the result: the import sees no dependency on the type.
+* *a provider module's calls* (a fact of the import, not a probe): `pm-runtime` may not depend on `pm-provider-*`, so a provider's HTTP client, the JGit transport and the calls of `pm-workflow` are outside the import. Extending the rule to a provider module needs an ArchUnit test dependency in that module, which is the operator's decision.
 
 The exemptions are whole-class: an exempt entry is matched by its top-level class name, so every nested, anonymous and future member class of an entry is exempt with it and everything inside the class may connect. A class on the map that gains a second connection is therefore not reported separately, and the reason beside the entry must cover every connection the class holds.
 
@@ -114,9 +115,6 @@ The exemptions are whole-class: an exempt entry is matched by its top-level clas
 2. If the class opens a socket or a URL connection of its own instead of going through `cui-http`, it needs an exemption of rule A with the reason the specification gives it — and the specification gains the destination. Prefer `cui-http`: an exemption is the exception, not the rule.
 3. A class that only listens (a server socket, an HTTP server) needs no entry; check the set above before adding a fixture.
 4. Run the test of the module; the failure report names the class, the dependency or the call, and the rule that refused it.
-
-A provider module's calls are not seen by this rule: `pm-runtime` may not depend on `pm-provider-*`, so a provider's HTTP client, the JGit transport and the calls of `pm-workflow` are outside the import.
-Extending the rule to a provider module needs an ArchUnit test dependency in that module, which is the operator's decision.
 
 == How to read a failure
 
