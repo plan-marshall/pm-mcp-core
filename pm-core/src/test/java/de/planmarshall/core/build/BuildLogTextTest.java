@@ -247,8 +247,11 @@ class BuildLogTextTest {
     @DisplayName("a cut log keeps a visible failing count as an error diagnostic")
     void cutMavenLogKeepsAVisibleFailingCount(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
-        var failingTail = "[INFO] Results:\n[INFO] Tests run: 5, Failures: 2, Errors: 0, Skipped: 0\n"
-                + "[INFO] BUILD SUCCESS\n";
+        var failingTail = """
+                [INFO] Results:
+                [INFO] Tests run: 5, Failures: 2, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """;
         Path log = directory.resolve("cut-failing.log");
         Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
                 StandardCharsets.UTF_8);
