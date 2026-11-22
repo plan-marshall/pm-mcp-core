@@ -173,6 +173,9 @@ class PendingEntryCreationTest {
                         "the decision store should be copied with its content"),
                 () -> assertTrue(Files.readString(plan.pathBase().resolve("questions.jsonl")).contains("Q-001"),
                         "the question records should be moved into the new scope"),
+                () -> assertTrue(Files.readString(plan.pathBase().resolve("request.md"))
+                                .startsWith("# Request\n\n" + description),
+                        "the composed request should open with the description"),
                 () -> assertTrue(discarded, "the entry directory should exist until the last act"),
                 () -> assertFalse(Files.exists(store.directory(entryId)), "the directory should be gone last"),
                 () -> assertEquals(java.util.Optional.empty(), store.read(entryId), "the record should be gone"));
