@@ -54,8 +54,9 @@ public final class CommitMessages {
     /**
      * The Unicode line terminators that {@link String#lines()} does not split at and the dot of a regular expression
      * does not match: a {@code Co-Authored-By:} line ended by one of them escapes the validator's line match.
+     * {@link CommitTrailer#isValidName(String)} refuses a name that holds one of them.
      */
-    private static final Pattern UNSPLIT_TERMINATORS = Pattern.compile("[\\u0085\\u2028\\u2029]");
+    static final Pattern UNSPLIT_TERMINATORS = Pattern.compile("[\\u0085\\u2028\\u2029]");
 
     private static final ConventionalCommitValidator VALIDATOR = new ConventionalCommitValidator();
 

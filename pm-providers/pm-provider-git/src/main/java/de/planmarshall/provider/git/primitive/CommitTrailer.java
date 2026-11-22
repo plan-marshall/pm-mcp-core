@@ -21,8 +21,9 @@ import org.jspecify.annotations.Nullable;
  * commit, independent of the commit's author and committer.
  * <p>
  * The values follow the constraints of the stored key {@code commit_trailer}: a name of 1 to 128 characters without
- * an angle bracket or a line break, an email of at most 254 characters of the form {@code local@domain} without an
- * angle bracket or white space, and neither with an unpaired surrogate, which has no UTF-8 encoding. The trailer is resolved per half from the operator's local value, then the machine's
+ * an angle bracket or a line break (CR, LF, U+0085, U+2028, U+2029), an email of at most 254 characters of the form
+ * {@code local@domain} without an angle bracket or white space, and neither with an unpaired surrogate, which has no
+ * UTF-8 encoding. The trailer is resolved per half from the operator's local value, then the machine's
  * value, then the compiled default {@code plan-marshall <noreply@cuioss.de>}; a stored value that breaks a constraint
  * is ignored, never an exception.
  * <p>
@@ -76,18 +77,21 @@ public record CommitTrailer(String name, String email) {
     /**
      * @param name a candidate name
      * @return whether it is a name of 1 to {@value #NAME_MAX_LENGTH} characters without an angle bracket, a line
-     *         break or an unpaired surrogate
+     *         break (CR, LF, or one of the Unicode line separators U+0085, U+2028 and U+2029 that
+     *         {@link CommitMessages} also treats as line ends) or an unpaired surrogate
      */
     public static boolean isValidName(String name) {
         var length = name.codePointCount(0, name.length());
         return length >= 1 && length <= NAME_MAX_LENGTH && !hasUnpairedSurrogate(name)
-                && NAME_PATTERN.matcher(name).matches();
+                && NAME_PATTERN.matcher(name).matches()
+                && !CommitMessages.UNSPLIT_TERMINATORS.matcher(name).find();
     }
 
     /**
      * @param email a candidate email
      * @return whether it is an email of at most {@value #EMAIL_MAX_LENGTH} characters of the form
-     *         {@code local@domain} without an angle bracket, white space or an unpaired surrogate
+     *         {@code local@domain} without an angle bracket, white space or an unpaired surrogate; the Unicode
+     *         line separators U+0085, U+2028 and U+2029 are white space in the Unicode sense and are refused with it
      */
     public static boolean isValidEmail(String email) {
         return email.codePointCount(0, email.length()) <= EMAIL_MAX_LENGTH && !hasUnpairedSurrogate(email)

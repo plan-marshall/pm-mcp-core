@@ -195,6 +195,108 @@ class CommitTrailerTest {
     }
 
     @Nested
+    @DisplayName("Unicode line separators")
+    class LineSeparators {
+
+        private final TypedGenerator<String> letters = Generators.letterStrings(1, 20);
+
+        // a line-break code point cannot be a readable literal, so U+0085, U+2028 and U+2029 are given as char values
+        private static final char NEL = (char) 0x0085;
+        private static final char LINE_SEPARATOR = (char) 0x2028;
+        private static final char PARAGRAPH_SEPARATOR = (char) 0x2029;
+        private static final String SUPPLEMENTARY = new String(Character.toChars(0x1F600));
+
+        @ParameterizedTest
+        @ValueSource(chars = {NEL, LINE_SEPARATOR, PARAGRAPH_SEPARATOR})
+        @DisplayName("a name with a Unicode line separator is invalid")
+        void separatorInNameIsInvalid(char separator) {
+            var name = letters.next() + separator + letters.next();
+
+            assertFalse(CommitTrailer.isValidName(name), "A name with a line separator is invalid");
+        }
+
+        // the email needs no rule of its own: the three code points are Unicode white space, which it refuses
+        @ParameterizedTest
+        @ValueSource(chars = {NEL, LINE_SEPARATOR, PARAGRAPH_SEPARATOR})
+        @DisplayName("an email with a Unicode line separator is refused as white space")
+        void separatorInEmailIsInvalid(char separator) {
+            var email = letters.next() + separator + "@" + letters.next();
+
+            assertFalse(CommitTrailer.isValidEmail(email), "An email with a line separator is invalid");
+        }
+
+        @Test
+        @DisplayName("a plain name and a name with a supplementary character stay valid")
+        void namesWithoutSeparatorStayValid() {
+            var plain = letters.next();
+            var supplementary = letters.next() + SUPPLEMENTARY;
+
+            assertAll("names without a separator",
+                    () -> assertTrue(CommitTrailer.isValidName(plain), "A plain letter name stays valid"),
+                    () -> assertTrue(CommitTrailer.isValidName(supplementary),
+                            "A supplementary-character name stays valid"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(chars = {NEL, LINE_SEPARATOR, PARAGRAPH_SEPARATOR})
+        @DisplayName("a stored local name with a separator falls through to the machine name as configured")
+        void storedSeparatorFallsToMachine(char separator) {
+            var localEmail = trailers.next().email();
+            var machine = trailers.next();
+
+            var resolution = CommitTrailer.resolve(new Stored(letters.next() + separator, localEmail),
+                    new Stored(machine.name(), machine.email()));
+
+            assertAll("fall-through to the machine name",
+                    () -> assertEquals(machine.name(), resolution.trailer().name(),
+                            "The machine name replaces the local one"),
+                    () -> assertEquals(TrailerSource.CONFIGURED, resolution.nameSource(),
+                            "The used machine name reports configured"),
+                    () -> assertEquals(localEmail, resolution.trailer().email(),
+                            "The valid local email is still used"),
+                    () -> assertEquals(TrailerSource.CONFIGURED, resolution.emailSource(),
+                            "The email half is unaffected by the name"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(chars = {NEL, LINE_SEPARATOR, PARAGRAPH_SEPARATOR})
+        @DisplayName("a stored name with a separator and no machine name resolves the default as invalid_ignored")
+        void storedSeparatorFallsToDefault(char separator) {
+            var localEmail = trailers.next().email();
+
+            var resolution = CommitTrailer.resolve(new Stored(letters.next() + separator, localEmail), null);
+
+            assertAll("fall-through to the default name",
+                    () -> assertEquals(CommitTrailer.compiled().name(), resolution.trailer().name(),
+                            "The compiled name replaces the bad one"),
+                    () -> assertEquals(TrailerSource.INVALID_IGNORED, resolution.nameSource(),
+                            "The name half reports invalid_ignored"),
+                    () -> assertEquals(localEmail, resolution.trailer().email(),
+                            "The valid local email is still used"),
+                    () -> assertEquals(TrailerSource.CONFIGURED, resolution.emailSource(),
+                            "The email half is unaffected by the name"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(chars = {NEL, LINE_SEPARATOR, PARAGRAPH_SEPARATOR})
+        @DisplayName("a stored name with a separator and a broken machine name resolves the default")
+        void storedSeparatorWithBrokenMachineFallsToDefault(char separator) {
+            var machineEmail = trailers.next().email();
+
+            var resolution = CommitTrailer.resolve(new Stored(letters.next() + separator, null),
+                    new Stored(separator + letters.next(), machineEmail));
+
+            assertAll("both stored names refused",
+                    () -> assertEquals(CommitTrailer.compiled().name(), resolution.trailer().name(),
+                            "The compiled name replaces both bad names"),
+                    () -> assertEquals(TrailerSource.INVALID_IGNORED, resolution.nameSource(),
+                            "The name half reports invalid_ignored"),
+                    () -> assertEquals(TrailerSource.CONFIGURED, resolution.emailSource(),
+                            "The machine email half stays configured"));
+        }
+    }
+
+    @Nested
     @DisplayName("resolution")
     class Resolution {
 

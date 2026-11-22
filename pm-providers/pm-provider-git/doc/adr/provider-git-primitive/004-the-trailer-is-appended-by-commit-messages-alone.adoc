@@ -35,6 +35,15 @@ The existing `ConventionalCommitValidator` of `pm-core` already refuses a `Co-Au
   points. A stored half with an unpaired surrogate is passed over like any other invalid stored value and reports
   `invalid_ignored` unless a later stored value of the half is used. The specification states the constraint with the
   key (Store Schemas § Operator Local Configuration), so the code is not stricter than the text.
+* `CommitTrailer.isValidName` also refuses a name that holds one of the Unicode line separators U+0085, U+2028 and
+  U+2029, which `CommitMessages` treats as line ends where it looks for a `Co-Authored-By:` line. The check reuses the
+  one definition of these code points, the package-private pattern `CommitMessages.UNSPLIT_TERMINATORS`, rather than
+  a second list. `isValidEmail` needs no rule of its own: its pattern refuses Unicode white space, and the three code
+  points are white space. A stored name holding one is passed over per half like any other invalid stored value, and
+  the specification states the constraint with the key as well.
+* The JSON schema of the key in `pm-core` (`local-config.schema.json`) is left as it is: it lies outside this plan's
+  module, and its pattern does not express the surrogate rule or the line-separator rule. The two rules are stated in
+  the specification text and enforced by `CommitTrailer`.
 * The carrier of the source is the fact `trailer_source` of the outcome `committed` of `git.stage-and-commit`
   (`GitStageAndCommitPrimitive.TRAILER_SOURCE_FACT`), the map `{name, email}` of the two `TrailerSource` wire names
   (`CommitTrailer.Resolution.sourceFact()`). It is the smallest carrier that reaches the audit record: the decision of
@@ -66,5 +75,5 @@ The existing `ConventionalCommitValidator` of `pm-core` already refuses a `Co-Au
 * link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3)
 * link:../../../../../doc/specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator Local Configuration] (`commit_trailer`)
 * link:../../developer/provider-git-primitive.adoc#_the_commit_message_and_the_trailer[Commit Primitives Developer Guide § The Commit Message and the Trailer]
-* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 4; the CodeRabbit finding `0f8846` (the unpaired
-  surrogate of a stored trailer value)
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 4; the CodeRabbit findings `0f8846` (the unpaired
+  surrogate of a stored trailer value) and `1c8e46` (the Unicode line separators in a stored trailer name)
