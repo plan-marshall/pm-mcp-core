@@ -308,12 +308,13 @@ supervisor's generation registry when the guard is constructed, so a guard built
 started workers resumes the count of the generations that exited before their first call instead of counting from zero.
 `WorkerSupervisor.forgetStartFailures` is the retirement a `clear` performs through the guard's constructor.
 
-link:{src}/HarnessStartSpacing.java[`HarnessStartSpacing`] is the machine-wide spacing of one harness. It is shared by
-every supervisor of the runtime and keys on the harness's harness id alone, so it spans all projects. The next start waits
-until the previous worker of the harness made its first call or ended, at most `SPACING_BOUND` (30 seconds). Past the
-bound the next start proceeds, so the spacing only ever delays a start and never refuses one. A collision that still
-makes a worker exit before its first call is a start failure and counts for the guard. The production instance is the
-compiled bound; a test lowers the bound instead of sleeping.
+link:{src}/HarnessStartSpacing.java[`HarnessStartSpacing`] is the machine-wide spacing of one harness: it keys on the
+harness id alone, so one instance shared by the supervisors of every project spaces two projects that start the same
+harness at once. `awaitTurn` waits until the previous worker of the harness made its first call or ended, at most
+`SPACING_BOUND` (30 seconds). Past the bound the next start proceeds, so the spacing only ever delays a start and never
+refuses one. A collision that still makes a worker exit before its first call is a start failure and counts for the
+guard. A test lowers the bound instead of sleeping. The class is not yet reached from a production start path — no
+production class calls `awaitTurn` — so the shared instance ADR 001 describes is owed to the supervisor's wiring.
 
 The guard and the spacing are part of the supervisor's start ownership (ADR 001).
 
