@@ -259,8 +259,8 @@ class BuildLogTextTest {
                 () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
                         "a cut log's count is unmeasured"),
                 () -> assertTrue(build.diagnostics().stream().anyMatch(
-                        diagnostic -> diagnostic.severity() == Severity.ERROR
-                                && diagnostic.message().contains("2 failing tests")),
+                                diagnostic -> diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.message().contains("2 failing tests")),
                         "the visible failing count is still an error"));
     }
 
