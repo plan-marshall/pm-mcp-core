@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.createStrictMock;
 import static org.easymock.EasyMock.expect;
@@ -18,7 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Duration;
@@ -54,6 +57,9 @@ class ProcessTreeTrackerTest {
 
     private final Map<Long, Instant> starts = new ConcurrentHashMap<>();
     private final Set<Member> tree = ConcurrentHashMap.newKeySet();
+
+    /** The name of the numeric group-signal primitive the sweep must not use: every signal is a handle's. */
+    private static final String GROUP_SIGNALS = "ProcessGroupSignals";
 
     private long root;
     private long first;
@@ -260,6 +266,26 @@ class ProcessTreeTrackerTest {
             tracker.sweep();
 
             assertDoesNotThrow(() -> verify(handle), "a dead member is never signalled");
+        }
+    }
+
+    @Nested
+    @DisplayName("sends no numeric signal")
+
+    class Signals {
+
+        @Test
+        @DisplayName("the tracker depends on no group-signal primitive: every signal goes through a handle")
+        void dependsOnNoGroupSignal() {
+            var imported = new ClassFileImporter().importClasses(ProcessTreeTracker.class);
+
+            var sent = noClasses().that().haveSimpleName("ProcessTreeTracker")
+                    .should().dependOnClassesThat().haveSimpleName(GROUP_SIGNALS)
+                    .evaluate(imported);
+
+            assertAll(
+                    () -> assertTrue(imported.contain(ProcessTreeTracker.class), "the import holds the tracker"),
+                    () -> assertFalse(sent.hasViolation(), "the tracker has no numeric signal of its own"));
         }
     }
 }

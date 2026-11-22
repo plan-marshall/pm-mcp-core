@@ -13,16 +13,16 @@ Superseded by link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[AD
 
 The reusable Maven build workflow of the organisation
 (`cuioss/cuioss-organization/.github/workflows/reusable-maven-build.yml`, pinned at
-`711571432df351d3c5b08d5d50cb6c331f61abb1`, v0.42.0) skips the build when a pull request changes only documentation
-and configuration files. Its `check-changes` job runs `dorny/paths-filter` with `predicate-quantifier: every` over an
-all-negation pattern list, `**/*.adoc` among the ignored paths, and the `build` job then skips when the filtered
-`code` output is `false`. The workflow input `skip-on-docs-only` (default `true`) turns the whole job off;
-`paths-ignore-extra` only adds ignored patterns and cannot remove one.
+`711571432df351d3c5b08d5d50cb6c331f61abb1`, v0.42.0) skipped the build when a pull request changed only documentation
+and configuration files. Its `check-changes` job ran `dorny/paths-filter` with `predicate-quantifier: every` over an
+all-negation pattern list, `**/*.adoc` among the ignored paths, and the `build` job then skipped when the filtered
+`code` output was `false`. The workflow input `skip-on-docs-only` (default `true`) turned the whole job off;
+`paths-ignore-extra` only added ignored patterns and could not remove one.
 
 The schema parity tests of `pm-core` read the `.adoc` specifications of this repository as their input
 (`pm.specification.root`, ADR link:007-specifications-of-the-engine-in-this-repository.adoc[007]): a record's
-components, order and enumerations are compared with the JSON schema blocks of `doc/specification/`. A pull request
-that changes only a specification part therefore can break the build, while the docs-only skip reports it as green.
+components, order and enumerations were compared with the JSON schema blocks of `doc/specification/`. A pull request
+that changed only a specification part therefore could break the build, while the docs-only skip reported it as green.
 That happened twice in four days: #171 broke `FindingSchemaParityTest` and was fixed on a later branch, and #177 added
 `capability_tests` to the `source` enum of `store-schemas/03-findings-and-review-records.adoc` without a matching
 change of `FindingSourceKind`, so `main` was red at `20ce71c8`.

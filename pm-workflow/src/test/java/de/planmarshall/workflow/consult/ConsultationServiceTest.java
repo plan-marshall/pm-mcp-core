@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.queue.QueueStore;
+import de.planmarshall.core.queue.QueueTaskId;
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
 import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
 import de.planmarshall.core.queue.QueueTaskRecord.DeliveredTo;
@@ -120,6 +122,48 @@ class ConsultationServiceTest {
                 () -> assertEquals(Status.CLOSED, consultation.status(), "the consultation is closed"),
                 () -> assertEquals(Outcome.SUBMITTED, consultation.outcome(),
                         "the consultation records the submit"));
+    }
+
+    @Test
+    @DisplayName("a seam that keeps handing out a taken id is refused instead of looping")
+    void seamOfTakenIdsIsRefused() {
+        var stuck = new ConsultationService(queue,
+                () -> new QueueTaskId(ConsultationFixtures.ASKER));
+
+        var outcome = assertTimeoutPreemptively(Duration.ofSeconds(5),
+                () -> stuck.open(ConsultationFixtures.request(ConsultationFixtures.REVIEWER, RoleClass.READ_ONLY)),
+                "the bounded draw returns instead of looping");
+
+        var refused = assertInstanceOf(ConsultationOutcome.Refused.class, outcome, "the stuck seam is refused");
+        assertEquals(ConsultationRefusal.CONSULTATION_IDS_EXHAUSTED, refused.refusal(),
+                "the refusal names the exhausted seam");
+    }
+
+    @Test
+    @DisplayName("the asker's next wait re-offers its task with the lease it holds")
+    void askerWaitReoffersTheTaskWithItsLease() {
+        var opened = opened(ConsultationFixtures.REVIEWER);
+        serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
+        assertInstanceOf(ConsultationOutcome.Answered.class,
+                service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
+                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT),
+                "the answer is accepted");
+
+        var answer = protocol.wait(new WaitRequest(ConsultationFixtures.ASKING_GENERATION,
+                ConsultationFixtures.ASKER_ROLE, ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
+                ConsultationFixtures.AT.plusSeconds(1));
+        var offered = assertInstanceOf(WaitAnswer.Offered.class, answer,
+                "the asker's next wait is offered its own task");
+        var asker = queue.read(ConsultationFixtures.ASKER).orElseThrow();
+
+        assertAll(
+                () -> assertEquals(ConsultationFixtures.ASKER, offered.task().queueTaskId(),
+                        "the wait re-offers the asking task"),
+                () -> assertEquals(Status.OFFERED, asker.status(),
+                        "the re-offered task is offered to its generation"),
+                () -> assertEquals(ConsultationFixtures.ASKING_GENERATION,
+                        asker.lease() == null ? null : asker.lease().generationId(),
+                        "the task stays leased to the asking generation"));
     }
 
     @Test
