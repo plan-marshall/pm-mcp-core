@@ -45,8 +45,37 @@ it stood:
 * The three construction sites that build a `CommitInput` without `paths` keep their expectation and no longer can fail
   with a `NullPointerException`.
 
+== Amendment (2026-11-21): A Glob Is Literal and a Link Is a Link
+
+The refusal of `*`, `?` and `[` is withdrawn. JGit's `addFilepattern` and `CommitCommand.setOnly` read no glob, so the
+refusal protected nothing and refused legitimate file names such as `app/[slug]/page.tsx`, which Stage 4 requires to be
+staged as that file; the bind admits the same characters
+(link:../../../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
+workflow-input/006]). A path that begins with `:` (git pathspec magic) stays refused with `PATH_REFUSED`, naming the
+path, as the bind refuses it. Besides an empty path, a magic and a directory, `commit` refuses a path that is absolute,
+normalises to outside the root, is not in normal form (an empty, `.` or `..` segment) or carries a control character;
+the backslash stays refused. The directory check uses `LinkOption.NOFOLLOW_LINKS`: a symbolic link to a directory is
+committed as the link, as git records it, instead of being refused as the directory it points to, so a dirty link
+`StagingSets` staged by its own name no longer fails the commit with `PATH_REFUSED`; a dangling link is committed as the
+link as well. A real directory is still refused. Three further rules close the gaps of that check:
+
+* The parent of a path is confined against the real root: the parent, or its nearest existing ancestor when it does not
+  exist, is resolved with `toRealPath` and must lie inside the real root, so `alias/private.txt` below a link `alias` to
+  an outside directory is refused before any listed path is staged.
+* A link that replaces a tracked directory (the path is a link in the worktree, read without following it) passes the
+  tracked-tree guard and is committed as that link; the entries below the replaced directory leave the tree, while a real
+  directory and a deleted one stay refused.
+* The index is checked for a directory whether or not `HEAD` resolves, so a directory staged in a repository without
+  commits and then removed from the worktree is refused; only the head-tree check needs `HEAD`.
+
+The first bullet of the decision and the first consequence above are read with this amendment.
+
 == Source
 
 * link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
   DSL § Six-Stage Execution Contract], Stage 4
+* link:../../../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006]
+  (the glob characters admitted, the pathspec magic refused)
 * `PLAN-V2-15` Deliverable 4; `PLAN-V2-157` Deliverable 4
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), the CodeRabbit findings `17cc88` and `9cfd5c` (the amendment)
+  and `619d7c`, `e4cd2a` and `7f67ca` (the three further rules of the amendment)

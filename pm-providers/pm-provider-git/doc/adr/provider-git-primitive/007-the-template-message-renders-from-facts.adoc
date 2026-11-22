@@ -1,0 +1,43 @@
+= ADR provider-git-primitive 007: The Template Message Renders from Facts
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+A task of the role `commit-message` that closes `infeasible` or `lost` takes the template message of the caller's step
+(`git.template-message`) instead of stepping out. The facts of `git.diff-summary` carry the changed file count, the module
+scope and the suggested types, with the priority `fix > feat > perf > refactor > docs > style > test > chore > ci`.
+
+== Decision
+
+* `GitTemplateMessagePrimitive.render(DiffSummary, subject)` is a pure function: the type is the suggested type of
+  highest priority in `TYPE_PRIORITY`, `chore` when none is suggested; the scope is the summary's module scope and is
+  left out when the changes span several modules; the subject is the caller step's. The result is
+  `<type>(<scope>): <subject>` or `<type>: <subject>`.
+* The primitive decides nothing: its one outcome is `ready`, with the message as the fact `message`.
+* The diff summary itself is a `CommitSite` method (`diffSummary`), implemented by the assembly.
+
+== Alternatives Considered
+
+alternatives not recorded
+
+== Consequences
+
+* The fallback of a closed `commit-message` task never needs a model, and `git.template-message` itself always
+  returns `ready`; its message still passes `git.stage-and-commit`, which refuses a message the rules reject (for
+  example a subject that breaks the header form) as `failed` with `message_refused`, so the call can step out there.
+* A change of the type priority changes `TYPE_PRIORITY` and its generator-driven test.
+
+== Source
+
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3)
+* link:../../../../../doc/specification/state-catalogue/05-git-commit-and-push.adoc#state-git.template-message[State Catalogue § `git.template-message`]
+* link:../../developer/provider-git-primitive.adoc#_the_message_primitives[Commit Primitives Developer Guide § The Message Primitives]
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 8
