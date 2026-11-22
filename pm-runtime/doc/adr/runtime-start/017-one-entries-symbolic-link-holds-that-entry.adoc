@@ -27,8 +27,8 @@ sidecar code was reported as a held entry and made the step fail on every hourly
 `IllegalArgumentException`. The sweep verifies each candidate under the lock in one step of its own and holds the entry
 for that refusal alone: it is kept and named in the report as `(held: …)`, and the other candidates are removed as
 usual. Any other `IllegalArgumentException` of the verification is a fault, not a held entry: it is not read as one, and
-the step reports the project as not swept. The step no longer catches `IllegalArgumentException` at the level of the
-whole project, because a refusal of one entry's path is no reason to leave the project's other residue in place.
+the per-entry step rethrows it to the catch at the level of the whole project, which reports the project as not
+swept. A refusal of one entry's path is still no reason to leave the project's other residue in place.
 
 == Alternatives Considered
 

@@ -258,6 +258,28 @@ class SourceManifestCodecTest {
                             "the refusal should name the path stored before it"));
         }
 
+        @Test
+        @DisplayName("two paths whose Unicode case forms agree are refused: a final sigma is no other file")
+        void unicodeCaseVariantPaths() {
+            var base = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+            var capital = base + "-Σ.md";
+            var finalSigma = base + "-ς.md";
+            var first = new Source(sourceId, Kind.DESCRIPTION, "ref", "operator", Trust.TRUSTED,
+                    List.of(new SourceFile(capital, size, digest)), addedAt, null, null);
+            var second = new Source(sourceId + "x", Kind.ISSUE, "ref", "forge", Trust.UNTRUSTED,
+                    List.of(new SourceFile(finalSigma, size, digest)), addedAt, Verdict.CLEAN, null);
+            var sources = List.of(first, second);
+
+            var refusal = assertThrows(IllegalArgumentException.class, () -> new SourceManifest(2, sources),
+                    "two Unicode case forms of one path should be refused");
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(capital),
+                            "the refusal should name the path as it was stored"),
+                    () -> assertTrue(refusal.getMessage().contains(finalSigma),
+                            "the refusal should name the Unicode variant"));
+        }
+
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"file first", "nested path first"})
         @DisplayName("a file and a path below it are refused: one stored path is no directory of another")

@@ -104,9 +104,13 @@ public record SourceManifest(long revision, List<Source> sources) {
         paths.put(folded, path);
     }
 
-    /** @return the case-folded form of a stored path, the form a case-insensitive filesystem addresses */
+    /**
+     * @return the case-folded form of a stored path, the form a case-insensitive filesystem addresses. The fold is
+     *         upper case then lower case: the lower case of a capital sigma is otherwise a final sigma, and the two
+     *         forms would not meet. It errs toward a collision, never toward a missed one.
+     */
     private static String fold(String path) {
-        return path.toLowerCase(Locale.ROOT);
+        return path.toUpperCase(Locale.ROOT).toLowerCase(Locale.ROOT);
     }
 
     /** @return whether one of two case-folded paths lies below the other */

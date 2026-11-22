@@ -1059,12 +1059,13 @@ caller: transaction.commit()
   refusal value.
 
 *The move of an entry's questions.* A client opens an entry for a scope that does not exist yet, and its questions go
-into the entry's log. When the bootstrap creates the plan or the epic, `QuestionLog.moveEntryQuestions(workspace,
+into the entry's log. When the bootstrap creates the plan, `QuestionLog.moveEntryQuestions(workspace,
 entryId, target)` adds the complete lines of the entry's log unchanged as a create target of `questions.jsonl` to the
 transaction of the new scope, and the delete of the entry's log to the transaction of the workspace. A scope's
 transaction writes only the stores of its scope, so the move is two transactions held by one caller: the new scope is
 committed first, then the workspace. A stop between the two commits leaves the entry's log in place, and repeating the
-move is refused by the create target instead of appending the lines twice; a torn tail is not moved
+move is refused by the create target instead of appending the lines twice; a torn tail is not moved, and an epic target
+is refused with the creation's own reason
 (link:../adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR 036]). The record is the entry's
 `entry.json` in the same directory (link:../adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR 082]).
 
