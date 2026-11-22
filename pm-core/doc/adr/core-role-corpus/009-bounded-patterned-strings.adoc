@@ -61,7 +61,7 @@ The bound is exact where the pattern fixes the length, and a stated ceiling othe
 |`source-overlay.schema.json` |`source` |64, exact: `^[a-z][a-z0-9-]{1,63}$` admits two to 64
 |`source-overlay.schema.json` |`file` |1024, a stated ceiling
 |`source-overlay.schema.json` |`created` |10, exact
-|`source-overlay.schema.json` |`rows[].id` |256, a stated ceiling
+|`source-overlay.schema.json` |`rows[].id` |250, a stated ceiling: the slug, written as `<slug>.json` (amended 2026-11-14)
 |`source-overlay.schema.json` |`rows[].topic` |256, a stated ceiling
 |`source-overlay.schema.json` |`rows[].title` |120, unchanged
 |`source-overlay.schema.json` |`rows[].review.date` |10, exact
@@ -76,11 +76,17 @@ The bound is exact where the pattern fixes the length, and a stated ceiling othe
 The six members whose pattern is the literal `.` — a group and a contamination note in the item and
 in an overlay row, an overlay `key_field` and an overlay row `key` — admit any text with one
 character and get no bound: the match scans to the first character that is no line feed and
-backtracks not at all, and a bound would state nothing the format adds.
+backtracks not at all, and a bound would state nothing the format adds. They are six members of
+one pattern, which two record constants copy (`ImportedItem.TEXT_PATTERN` and `SourceOverlay.KEY`);
+the count of this decision is the count of members.
 
-The ceiling of an item id, a topic and a slug is the figure of the enrolled path,
+The ceiling of an item id and a topic is the figure of the enrolled path,
 `ArgumentSchema.PATTERN_MAX_LENGTH_CEILING` (256), so the two callers of the keyword subset state
-one number. A repository URI gets 2048, a repository-relative path 1024 and an SPDX licence
+one number. The slug is the exception: the import writes an item as `<slug>.json`, so its ceiling
+is 250, and the 250 characters and the five of the suffix stay within the 255 bytes of a file name
+the common file systems allow (the operator's decision of 2026-11-14; the slug had 256 when this
+decision was first taken, and a slug of 251 to 254 characters passed every check and then failed
+the write). A repository URI gets 2048, a repository-relative path 1024 and an SPDX licence
 identifier 64: three ceilings far above any value the shipped sources and the product corpus carry,
 and low enough that the pattern is not what refuses a hostile one.
 
@@ -95,7 +101,7 @@ the ids of the corpus's items.
 In the records the bounds are the constants `SourceManifest.NAME_MAX_LENGTH` (64),
 `COMMIT_MAX_LENGTH` (40), `SHA256_MAX_LENGTH` (64), `LICENCE_MAX_LENGTH` (64),
 `RELATIVE_PATH_MAX_LENGTH` (1024) and `REPOSITORY_MAX_LENGTH` (2048), and
-`ImportedItem.ID_MAX_LENGTH` (256), `TOPIC_MAX_LENGTH` (256) and `SLUG_MAX_LENGTH` (256), next to
+`ImportedItem.ID_MAX_LENGTH` (256), `TOPIC_MAX_LENGTH` (256) and `SLUG_MAX_LENGTH` (250), next to
 `TITLE_MAX_LENGTH` (120). `SourceManifest.require` has an overload that counts the code points,
 answers `'<field>' is longer than <N> characters` and only then matches the pattern;
 `requireRepository` counts the URI before its own rule. A value over its bound is refused with the
@@ -145,15 +151,29 @@ member that carries a non-trivial pattern and no bound, and for a literal `.` th
   bound of 256 is the binding one: a topic of 256 code points cannot form an id within 256. The
   topic check keeps its place as a guard on the member itself, and the overlay row — whose slug is a
   separate member — reaches it directly.
-* The composition of an overlay row is bounded by the item's id, not by the row's own members: a row
-  whose `topic` and `id` (the slug) each fit their bound of 256 can compose an item id of up to 513
-  code points, and the generated `ImportedItem` then refuses it. The overlay schema and codec admit
-  that row; the import reports the source as `malformed` and writes none of its items, never a
-  truncated id. The row's bounds are the item's members, and the item's id is what the item format
-  bounds.
+* The composition of an overlay row is bounded by the item's id as well as by the row's own
+  members: the `Row` constructor refuses a row whose `topic`, a `/` and `id` (the slug) compose
+  an item id longer than `ImportedItem.ID_MAX_LENGTH` (256), although each member fits its own
+  bound. The codec therefore refuses that row and the validator reports the overlay, where the
+  decision as first taken let the overlay schema, the codec and the validator admit it and the
+  import then refused the whole source as `malformed`. The overlay schema has no keyword that
+  compares two members, so it still admits the row; the codec, which the import and the validator
+  both read through, is where it is refused (amended 2026-11-21).
 * The records are stricter than the schemas' `re.search` for a value ending in one `\n`, as before;
   the example that shows it is now a source name inside its bound, because a commit of 41 code
   points is refused by the length first.
+* The schemas narrowed beside the ceilings: where the bound is exact, a value of the fixed length
+  followed by one `\n`, which the schema's `$` admitted, is now refused by its length. That holds
+  for a commit (41 code points), a SHA-256 (65), a date (`created`, `provenance.created` and a
+  review `date`, 11) and a source name of 64 characters (65); the records and the codecs refused
+  each of them before as well.
+* A refusal that echoes a value no bound limits echoes at most its first 256 characters
+  (`SourceManifest.fragment`), as the coverage readers cut the report content they echo: the
+  oid of an `LfsPointer` through the three-argument check, a key, a key field, a group or a
+  contamination note of line feeds only, a date and an undeclared closed-set name of a codec, a
+  value outside a schema `enum` and an unknown key. The codecs check the length of a repository
+  URI before they parse it, so a malformed over-long URI is refused by its length and not echoed
+  whole.
 * The corpus's own item schema in `plan-marshall-mcp`,
   `test/model/verification/schema/verification-item.schema.json`, is the corpus's and is untouched
   (ADR 004): its patterns are not bounded by this decision, and the pull request body states whether

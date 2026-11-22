@@ -126,6 +126,8 @@ public class QualificationRecordCodec {
     /**
      * @param entry a qualification record
      * @return the document, in its one canonical text
+     * @throws IllegalArgumentException if a token total of the record carries a split, which the record does not
+     *                                  persist
      */
     public static byte[] write(QualificationRecord entry) {
         Objects.requireNonNull(entry, "entry");
@@ -520,7 +522,18 @@ public class QualificationRecordCodec {
         return JsonNode.object(members);
     }
 
-    private static void totalTokens(Map<String, JsonNode> members, TokenTotal total) {
+    /**
+     * Writes {@code total_tokens}, the one token member the record declares.
+     *
+     * @throws IllegalArgumentException if the total carries a split: the record persists the total alone and no
+     *                                  producer of a grading builds a split, so a split here is an internal fault
+     *                                  and is refused rather than dropped
+     */
+    static void totalTokens(Map<String, JsonNode> members, TokenTotal total) {
+        if (total.tokensIn() != null || total.tokensOut() != null) {
+            throw new IllegalArgumentException(
+                    "A grading record persists 'total_tokens' alone, but the total carries a split");
+        }
         members.put(TOTAL_TOKENS, total.measured() ? JsonNode.integer(total.tokens())
                 : JsonNode.string(TokenTotal.UNMEASURED_MARK));
     }

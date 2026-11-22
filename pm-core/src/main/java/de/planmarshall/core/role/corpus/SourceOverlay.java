@@ -13,6 +13,7 @@ import static de.planmarshall.core.role.corpus.SourceManifest.NAME_MAX_LENGTH;
 import static de.planmarshall.core.role.corpus.SourceManifest.NAME_PATTERN;
 import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH;
 import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH_MAX_LENGTH;
+import static de.planmarshall.core.role.corpus.SourceManifest.fragment;
 import static de.planmarshall.core.role.corpus.SourceManifest.require;
 
 import java.time.LocalDate;
@@ -92,12 +93,18 @@ List<Row> rows) {
     Grading grading, Review review, String contamination) {
 
         /**
-         * @throws IllegalArgumentException if a value is outside the format
+         * @throws IllegalArgumentException if a value is outside the format, or the topic and the slug compose an item
+         *                                  id longer than {@link ImportedItem#ID_MAX_LENGTH}
          */
         public Row {
             requireKey(key, "key");
             require(slug, ImportedItem.SLUG_MAX_LENGTH, ImportedItem.SLUG_PATTERN, "id");
             require(topic, ImportedItem.TOPIC_MAX_LENGTH, ImportedItem.TOPIC_PATTERN, "topic");
+            var composed = topic.length() + 1 + slug.length();
+            if (composed > ImportedItem.ID_MAX_LENGTH) {
+                throw new IllegalArgumentException("'topic' and 'id' compose an item id of " + composed
+                        + " characters, longer than " + ImportedItem.ID_MAX_LENGTH);
+            }
             Objects.requireNonNull(role, "role");
             Objects.requireNonNull(title, "title");
             if (title.codePointCount(0, title.length()) > ImportedItem.TITLE_MAX_LENGTH) {
@@ -148,7 +155,7 @@ List<Row> rows) {
         for (var row : rows) {
             if (keyField == null && !POSITION.matcher(row.key()).matches()) {
                 throw new IllegalArgumentException(
-                        "'key' must be a position from 1 without a key field: " + row.key());
+                        "'key' must be a position from 1 without a key field: " + fragment(row.key()));
             }
             if (!ids.add(row.itemId())) {
                 throw new IllegalArgumentException("'rows' generates the item '%s' twice".formatted(row.itemId()));
@@ -160,7 +167,7 @@ List<Row> rows) {
         Objects.requireNonNull(value, field);
         if (!KEY.matcher(value).find()) {
             throw new IllegalArgumentException(
-                    "'%s' must hold a character other than a line feed: %s".formatted(field, value));
+                    "'%s' must hold a character other than a line feed: %s".formatted(field, fragment(value)));
         }
     }
 }
