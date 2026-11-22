@@ -125,8 +125,8 @@ public final class GitStageAndCommitPrimitive
     /** The detail of a call whose staging set is not empty but whose message was never resolved. */
     static final String NO_MESSAGE_DETAIL = "no commit message is resolved";
 
-    /** An absolute-path token inside a detail text: a separator at a token boundary, up to the next blank. */
-    private static final Pattern ABSOLUTE_PATH = Pattern.compile("(^|[\\s:(\"'])/[^\\s)\"']*");
+    /** An absolute-path token inside a detail text: a separator at a token boundary, up to the next blank or bracket. */
+    private static final Pattern ABSOLUTE_PATH = Pattern.compile("(^|[\\s:(\"'=,;\\[<])/[^\\s)\"']*");
 
     /** The committer while no agent identity resolves. */
     static final Identity COMPILED_COMMITTER = new Identity("plan-marshall-mcp", "noreply@cuioss.de");
@@ -300,7 +300,8 @@ public final class GitStageAndCommitPrimitive
             return outcome.name();
         }
         var absoluteRoot = root.toString();
-        var scrubbed = detail.contains(absoluteRoot) ? detail.replace(absoluteRoot, ".") : detail;
+        var rootWithSeparator = absoluteRoot + "/";
+        var scrubbed = detail.contains(rootWithSeparator) ? detail.replace(rootWithSeparator, "./") : detail;
         return ABSOLUTE_PATH.matcher(scrubbed).find() ? outcome.name() : scrubbed;
     }
 

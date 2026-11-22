@@ -160,6 +160,43 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     }
 
     @Test
+    @DisplayName("an absolute path after a key-value separator is carried as the outcome's code")
+    void hostPathAfterASeparatorIsACode() {
+        var message = "IOException: path=/srv/git/worktrees/plan";
+
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertEquals("FAILED",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A host path after a separator becomes the code");
+    }
+
+    @Test
+    @DisplayName("a relative path inside a message stays as the message states it")
+    void relativePathInAMessageIsKept() {
+        var message = "file src/Main.java is not a file";
+
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertEquals(message,
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A relative path inside a message is kept");
+    }
+
+    @Test
+    @DisplayName("a sibling directory whose name extends the root is carried as the code, not mangled")
+    void siblingOfTheRootIsACode() {
+        var root = repo.toAbsolutePath().normalize().toString();
+
+        var result = GitStageAndCommitPrimitive.map(
+                GitResult.of(GitOutcome.FAILED, "at " + root + "sitory/x"), repo);
+
+        assertEquals("FAILED",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A sibling of the root becomes the code");
+    }
+
+    @Test
     @DisplayName("a checkout that is no repository carries its root as the relative root")
     void repositorylessCheckoutIsRelative() throws Exception {
         var plain = Files.createDirectories(temp.resolve(names.next()));
