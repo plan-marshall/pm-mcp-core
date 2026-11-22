@@ -332,7 +332,7 @@ public record JobLog(Path path) {
         var text = end < 0
                 ? tail.text()
                 : new String(head, 0, end + 1, StandardCharsets.UTF_8) + tail.text();
-        return new Window(text, head.length + tail.read(), headExpected + tail.expected());
+        return new Window(text, (long) head.length + tail.read(), headExpected + tail.expected());
     }
 
     /**
@@ -347,7 +347,8 @@ public record JobLog(Path path) {
         }
         var previous = read(channel, from - 1, from);
         var kept = previous.length > 0 && previous[0] == '\n' ? bytes : fromLineStart(bytes);
-        return new Window(new String(kept, StandardCharsets.UTF_8), bytes.length + previous.length, size - from + 1);
+        return new Window(new String(kept, StandardCharsets.UTF_8), (long) bytes.length + previous.length,
+                size - from + 1);
     }
 
     /**
